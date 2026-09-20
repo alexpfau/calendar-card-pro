@@ -558,6 +558,13 @@ export interface EventContentParts {
   eventTime: string;
 
   /**
+   * The droppable trailing end time of `eventTime`, straight from
+   * `FormatUtils.EventTimeParts.end` — see there for which shapes have one and why.
+   * Rendered as its own element only where a view asks for it via `splitTimeEnd`.
+   */
+  eventTimeEnd?: string;
+
+  /**
    * The all-day label to draw as its own badge, present only when `allday_badge` names a
    * treatment and the event is all-day. When set, `eventTime` holds only what follows the
    * label, which is empty for a single-day all-day event.
@@ -668,6 +675,16 @@ export interface EventContentOptions {
    * Home Assistant instance, used only to localize the condition text the own-row weather placement can carry. Absent for the title placement, which has no words.
    */
   hass?: Types.Hass | null;
+  /**
+   * Whether the droppable end time is drawn as its own element rather than as part of one
+   * text node. Grid only, and not a styling preference: the grid measures this row and
+   * degrades it, and CSS cannot hide half of a text node.
+   *
+   * The two views that leave it off get byte-identical markup to before, which is the
+   * point — a list row has no bottom edge standing in for the end time, so there the end
+   * is not droppable and the element would be dead weight.
+   */
+  splitTimeEnd?: boolean;
 }
 
 /**
@@ -691,9 +708,11 @@ export function renderEventContent(
     progressPlacement = 'inline',
     countdownPlacement = 'trailing',
     hass,
+    splitTimeEnd = false,
   } = options;
   const {
     eventTime,
+    eventTimeEnd,
     allDayBadge,
     titlePill,
     eventLocation,
@@ -731,7 +750,33 @@ export function renderEventContent(
 
   // A single-day all-day event has nothing left to say once the badge has the label, so
   // there is no empty span to lay out beside it.
-  const timeValue = eventTime ? html`<span>${eventTime}</span>` : nothing;
+  //
+  // `endsWith` here is a guard rather than a parse. `eventTimeEnd` was built as a suffix by
+  // the same formatter that built the string, so there is no separator to find and no
+  // locale assumption; the only thing that can come between them is `joinEventTimeParts`
+  // capitalizing index 0, which a droppable end never reaches because a start time is
+  // always in front of it. Should the two ever disagree the row falls back to one text
+  // node, which is what every view drew before the split existed.
+  const splitEnd =
+    splitTimeEnd && eventTimeEnd && eventTime.endsWith(eventTimeEnd) && eventTime !== eventTimeEnd
+      ? eventTimeEnd
+      : null;
+
+  // No whitespace inside the split: a text node between the two spans would put a second
+  // space in the middle of "10:00 - 12:00".
+  //
+  // The directive is documentation here rather than a guard, and that was measured rather
+  // than assumed: deleting it, running `npm run format` and running the suite leaves every
+  // test green. Prettier does reformat this line, but it breaks INSIDE the tag -- `<span\n
+  // >` -- so no text node appears and the DOM is identical. What it buys is that the source
+  // reads as the single line the browser sees, instead of the `>`-on-its-own-line form that
+  // is exactly what the two lines above are warning about.
+  // prettier-ignore
+  const timeValue = eventTime
+    ? splitEnd
+      ? html`<span>${eventTime.slice(0, -splitEnd.length)}<span class="time-end">${splitEnd}</span></span>`
+      : html`<span>${eventTime}</span>`
+    : nothing;
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
   // it would match the `time_max_lines` clamp selector and be truncated like body text.

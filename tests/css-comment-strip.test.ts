@@ -167,8 +167,22 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the grid time row's width rung and the ellipsis that goes with
-  // it. Two notes, and neither fact is readable from the declarations they sit on. `min-width:
+  // The ceiling last moved for the grid time row's fit ladder, which replaced the width
+  // rung described in the paragraph below. The notes are the expensive kind twice over.
+  // `grid-time-fit.ts` carries its own reasoning as TypeScript comment and does not land
+  // here at all; what lands here is the rung's note having to explain an absence -- why the
+  // rung asks about height and says nothing about width, when width is exactly the axis
+  // that broke -- plus the ellipsis rule's note being rewritten from a defence into a
+  // backstop, which is a status no declaration can record. An ellipsis is also not neutral
+  // inside a clock reading, and "10:00 - 1…" on an event ending at 12:00 reads as a
+  // different meeting rather than as a truncated one; that is the fact the ladder is built
+  // around and there is nowhere but a comment to put it.
+  //
+  // The ceiling before that moved for the grid time row's width rung and the ellipsis that
+  // goes with
+  // it. That rung is gone now -- the paragraph is kept because the ceiling it bought was
+  // never given back, not because the rule is still there. Two notes, and neither fact was
+  // readable from the declarations they sat on. `min-width:
   // 60px` cannot say that a grid block's two axes are independent -- height is duration times
   // hour_height, width is day width over the concurrent column count -- so a rung asked only
   // about height revealed a time row into blocks a third its width, where it was sliced
@@ -224,11 +238,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(86_000);
-    // The grid time row's width rung moved the ceiling last, from 83,000; see the paragraph
-    // above for what its two notes buy that the declarations cannot say. The reading went
-    // 82,476 to 85,463, so the band keeps about the same slack it had before rather than
+    expect(saved).toBeLessThan(89_500);
+    // The grid time row's fit ladder moved the ceiling last, from 86,000; see the paragraph
+    // above for what its notes buy that the declarations cannot say. The reading went
+    // 85,463 to 88,813, so the band keeps about the same slack it had before rather than
     // being opened wide enough to stop meaning anything.
+    //
+    // The grid time row's width rung moved the ceiling before that, from 83,000. The
+    // reading went 82,476 to 85,463.
     //
     // The scrolling label reset moved the ceiling before that, from 82,000.
     //

@@ -2620,12 +2620,29 @@ export const cardStyles = css`
      result is a flat vertical cut through a digit — "10:00 - 12" with the colon of the
      second time sheared in half.
 
+     This is a backstop now rather than the primary defence, and it is worth saying why it
+     is still here. grid-time-fit.ts measures the row against its block and hides it rather
+     than let it be cut, so in a settled layout nothing reaches this rule. What it covers
+     is the frame between a resize and the measurement that follows it, where the class
+     from the previous layout is still on the element and the block beneath it has already
+     changed width. A sheared glyph for one frame is a rendering artefact; without this
+     rule it is a sheared glyph that persists until something else provokes a re-measure.
+
+     Note also that an ellipsis is not neutral inside a clock reading. "🕐 10:00 - 1…" on
+     an event ending at 12:00 does not read as truncated, it reads as ending at one o'clock
+     — which is why the fit ladder drops the whole end time rather than trimming it, and
+     why this rule is not allowed to become the way a narrow row is handled.
+
      Blockifying the span in grid restores the ellipsis and costs nothing, because the
      clamp it replaces is already inert here: white-space: nowrap pins this text to one
      line, so no line count above one is reachable whatever time_max_lines says. Note the
      ellipsis declarations on .time and .time-actual above cannot do this job — the first
      has no inline content of its own and the second is a flex container, and
      text-overflow applies to neither.
+
+     The end time sits inside this span rather than beside it, so the child combinator here
+     does not reach it and it keeps flowing inline. That nesting is what lets the ladder
+     hide an end time without blockifying anything.
 
      Scoped to .grid-event-disclosure deliberately. Outside grid the same span keeps
      white-space: normal and an .time-actual that does not hide its overflow, so it wraps
@@ -2730,32 +2747,72 @@ export const cardStyles = css`
      This rung is the one place a width also has to be asked about, because the two axes
      are independent: block height is duration times hour_height, block width is day width
      divided by the number of concurrent columns, so a two-hour event is the same 96px tall
-     whether it is 400px or 37px wide. Height alone therefore revealed a time row into
-     blocks that could not hold one. 60px is measured, at the shipped 12px type: the clock
-     icon and its margin take 18px of the row, leaving 42px, which is exactly the width of
-     "10:00" plus an ellipsis. So 60px of content box is the narrowest block that can show a
-     complete start time and an honest mark that more was cut; below it the row would read
-     "10…", which is noise beside a clock icon rather than information.
+     whether it is 400px or 37px wide. Height alone therefore reveals a time row into blocks
+     that cannot hold one — a measured 29.2 by 89 block clears this rung's height twice over
+     and has 0.66px less than a bare "10:00" needs.
 
-     Twelve-hour locales clear the same bar, because the rung is calibrated on the hour and
-     minute rather than on the whole string: at 60px a 12-hour block paints "9:00 …" and
-     picks up its AM at about 78px. Measured in Chromium at each width, not derived — an
-     earlier reading of this taken outside the grid's own ancestry inherited a 16px font
-     instead of 12px and put the figure out by a third.
+     But the width cannot be a number here. This rung used to carry and (min-width: 60px),
+     measured at the shipped 12px type as the clock icon's 18px plus "10:00" plus an
+     ellipsis, and it was right about all three of those figures and wrong about the
+     question. Two things were wrong with it. It spent the first 18px of every row on a
+     decorative clock — 39% of a 45.9px lane — before spending anything on the time, so a
+     block with room for "10:00" three times over showed nothing. And the ellipsis it was
+     calibrated around is a false statement inside a clock reading: at 72.9px the row
+     painted "10:00 - 1…" for an event ending at 12:00, which reads as one o'clock. An
+     ellipsis is honest on a title and a lie on a time.
 
-     The width sits on the whole rung rather than on the time row alone, which is what
+     A constant also cannot follow time_font_size, a theme's type scale, a themed
+     --calendar-card-icon-size-time, the hour's digit count ("9:00" is 6px narrower than
+     "10:00") or a 12-hour locale, where the same row needs 69px rather than 48. So the
+     width question moved to the host, which measures the row it is about to draw and gives
+     up the icon, then the end time, before it gives up the row: see grid-time-fit.ts. The
+     host publishes the answer as .grid-time-fits and this rung reads it, which is also why
+     the reveal cannot be written as a container query — a container query condition cannot
+     read a custom property, so there is no way to put a measured width back into this
+     selector.
+
+     Keeping the HEIGHT here is deliberate rather than leftover. It is the axis a container
+     query answers well, and it is independently load-bearing: a 79 by 33 block passes any
+     width test and must still stay closed, because 33px holds a title and nothing else.
+
+     The class sits on the whole rung rather than on the time row alone, which is what
      keeps the sentence above true — the title yields its second line exactly when the time
      row appears, so in a block too narrow for a time the title keeps the two lines the
-     36px rung gave it instead of shortening for a row that never arrives. */
-  @container calendar-card-grid-event (min-height: 40px) and (min-width: 60px) {
-    .grid-event-disclosure .summary,
-    .grid-event-disclosure .event-title {
+     36px rung gave it instead of shortening for a row that never arrives. Writing the class
+     inside :where() is what lets that keep working: a plain .grid-time-fits would raise
+     these selectors to 0,3,0 and beat the later 72px and 96px rungs, stranding a tall
+     narrow block on the compact clamp. :where() contributes nothing, so source order still
+     decides. */
+  @container calendar-card-grid-event (min-height: 40px) {
+    .grid-event-disclosure:where(.grid-time-fits) .summary,
+    .grid-event-disclosure:where(.grid-time-fits) .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     }
 
-    .grid-event-disclosure .time {
+    .grid-event-disclosure:where(.grid-time-fits) .time {
       display: block;
     }
+  }
+
+  /* The end time is drawn inline, not inline-block, and that is load-bearing rather than
+     tidy. .time span above makes every span in a time row an inline-block, and an
+     inline-block is a block container: white space at the start of its first line is
+     removed, so the separator this element leads with would vanish and the row would read
+     "10:0012:00". An inline box is not the start of a line and keeps it. */
+  .grid-event-disclosure .time .time-actual .time-end {
+    display: inline;
+  }
+
+  /* The two rungs of the fit ladder that give something up. Both are set by the host, which
+     measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
+     icon goes first because the block's own position already says this is a time; the end
+     time goes next because the block's bottom edge already draws it. */
+  .grid-event-disclosure.grid-time-no-icon .time .time-actual > ha-icon {
+    display: none;
+  }
+
+  .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
+    display: none;
   }
 
   /* The progress bar earns its own rung. It is the one row here whose value is highest

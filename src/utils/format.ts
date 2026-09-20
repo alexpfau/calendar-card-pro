@@ -51,6 +51,23 @@ export interface EventTimeParts {
    * nothing to say beyond the label itself.
    */
   text: string;
+
+  /**
+   * The trailing separator and end time of `text`, when dropping it would still leave a
+   * true statement. Always a suffix of `text`, and never the whole of it.
+   *
+   * Present only for a single-day timed event drawn with `show_end_time`, because that is
+   * the only shape whose end time is recoverable from somewhere else: in grid view the
+   * block's bottom edge already draws it, so a row reduced to its start time has lost
+   * nothing. A multi-day phrase looks equally droppable and is not — "Ends tomorrow at
+   * 14:00" names a time on a day this block does not cover, so no edge of it carries that
+   * information and cutting the phrase would destroy it.
+   *
+   * Produced by the same formatter that built the string rather than found in it, so there
+   * is no separator to parse and nothing here assumes a locale writes a range left to
+   * right.
+   */
+  end?: string;
 }
 
 /**
@@ -153,7 +170,7 @@ export function formatEventTimeParts(
   }
 
   return {
-    text: formatSingleDayTime(
+    ...formatSingleDayTime(
       startDate,
       endDate,
       config.show_end_time,
@@ -798,16 +815,36 @@ export function getWeekNumber(
 // SPECIALIZED EVENT FORMATTING HELPERS
 //-----------------------------------------------------------------------------
 
+/**
+ * Build a single-day time string, and say which trailing part of it is droppable.
+ *
+ * `text` is the join of what it returns, which is the invariant keeping `end` honest: it is
+ * a suffix by construction, so no caller has to search for a separator and none can cut in
+ * the wrong place. See `EventTimeParts.end` for why only this shape has one.
+ *
+ * @param startDate Event start
+ * @param endDate Event end
+ * @param showEndTime Whether the end time is drawn at all
+ * @param use24h Whether to format on a 24-hour clock
+ * @param twoDigitHours Whether to pad the hour
+ * @returns The time text, and its droppable end where it has one
+ */
 function formatSingleDayTime(
   startDate: Date,
   endDate: Date,
   showEndTime: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
-): string {
-  return showEndTime
-    ? `${formatTime(startDate, use24h, twoDigitHours)} - ${formatTime(endDate, use24h, twoDigitHours)}`
-    : formatTime(startDate, use24h, twoDigitHours);
+): Pick<EventTimeParts, 'text' | 'end'> {
+  const start = formatTime(startDate, use24h, twoDigitHours);
+
+  if (!showEndTime) {
+    return { text: start };
+  }
+
+  const end = ` - ${formatTime(endDate, use24h, twoDigitHours)}`;
+
+  return { text: `${start}${end}`, end };
 }
 
 function formatMultiDayTime(

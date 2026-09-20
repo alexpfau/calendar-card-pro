@@ -709,6 +709,7 @@ function renderTimedEvent(
           progressPlacement: 'row',
           countdownPlacement: 'text',
           hass,
+          splitTimeEnd: true,
         })}
       </div>
     </div>
@@ -739,19 +740,34 @@ function gridTimedEventContentParts(
   }
 
   if (!event._gridSegmentStartsEvent || !event.start.dateTime) {
-    return { ...parts, eventTime: '', shouldShowTime: false, countdownStr: null };
+    return {
+      ...parts,
+      eventTime: '',
+      eventTimeEnd: undefined,
+      shouldShowTime: false,
+      countdownStr: null,
+    };
   }
 
   const startDate = new Date(event.start.dateTime);
   if (Number.isNaN(startDate.getTime())) {
-    return { ...parts, eventTime: '', shouldShowTime: false, countdownStr: null };
+    return {
+      ...parts,
+      eventTime: '',
+      eventTimeEnd: undefined,
+      shouldShowTime: false,
+      countdownStr: null,
+    };
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
 
+  // No droppable end to carry over: this segment keeps a start time and nothing else, which
+  // is the same answer the fit ladder would reach on its own if it were asked.
   return {
     ...parts,
     eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours),
+    eventTimeEnd: undefined,
   };
 }
 

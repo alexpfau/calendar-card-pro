@@ -270,6 +270,7 @@ export function buildEventPresentation(
 
   const contentParts: EventContentParts = {
     eventTime,
+    eventTimeEnd: eventTimeParts.end,
     allDayBadge,
     titlePill,
     eventLocation,

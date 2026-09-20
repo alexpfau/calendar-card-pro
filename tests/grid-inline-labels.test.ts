@@ -112,16 +112,33 @@ describe('timed Grid labels share the title line', () => {
   });
 
   it('applies every disclosure clamp rung to the shared flow as well as unlabeled titles', () => {
-    const selector = '.grid-event-disclosure .summary, .grid-event-disclosure .event-title';
+    // Both halves of the pair, every time. `.summary` is the flow a labeled title shares
+    // with its labels and `.event-title` is the unlabeled one; a rung that clamps only one
+    // of them makes a labeled title wrap where an identical unlabeled title does not.
+    //
+    // The qualifier is captured rather than normalized away, because one rung is gated on
+    // a class now. The 40px rung reveals the time row, and the title yields its second
+    // line exactly when that row appears -- so the clamp has to arrive with the reveal and
+    // not before it, which means the pair carries `:where(.grid-time-fits)` there and
+    // nowhere else. Pinning it as part of the value keeps that asymmetry deliberate: a
+    // qualifier appearing on another rung, or disappearing from this one, fails here.
+    const pair = (qualifier = '') =>
+      `.grid-event-disclosure${qualifier} .summary, .grid-event-disclosure${qualifier} .event-title`;
+    const PAIR =
+      /^\.grid-event-disclosure(\S*) \.summary, \.grid-event-disclosure(\S*) \.event-title$/;
     const rungs = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .filter(([, selectors]) => selectors.trim() === selector)
-      .map(([, , body]) => body.match(/-webkit-line-clamp:\s*([^;]+);/)?.[1]);
+      .map(([, selectors, body]): [string, string | undefined] => [
+        selectors.replace(/\s+/g, ' ').trim(),
+        body.match(/-webkit-line-clamp:\s*([^;]+);/)?.[1],
+      ])
+      .filter(([selectors, clamp]) => clamp !== undefined && PAIR.test(selectors));
+
     expect(rungs).toEqual([
-      'var(--calendar-card-grid-title-lines-compact)',
-      'var(--calendar-card-grid-title-lines-medium)',
-      'var(--calendar-card-grid-title-lines-compact)',
-      'var(--calendar-card-grid-title-lines-medium)',
-      'var(--calendar-card-grid-title-lines-expanded)',
+      [pair(), 'var(--calendar-card-grid-title-lines-compact)'],
+      [pair(), 'var(--calendar-card-grid-title-lines-medium)'],
+      [pair(':where(.grid-time-fits)'), 'var(--calendar-card-grid-title-lines-compact)'],
+      [pair(), 'var(--calendar-card-grid-title-lines-medium)'],
+      [pair(), 'var(--calendar-card-grid-title-lines-expanded)'],
     ]);
   });
 

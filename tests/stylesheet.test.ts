@@ -2011,7 +2011,7 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('gates grid event disclosure on block height, and the time row on width too', () => {
+    it('gates grid event disclosure on block height alone, and the time row in JS', () => {
       // This is a stylesheet gate because happy-dom does not evaluate container queries.
       // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it
       // proves the renderer emits short blocks into the CSS-only mechanism and that the
@@ -2024,11 +2024,17 @@ describe('card stylesheet', () => {
       // remaining assertions all still pass. Comparing the full map by value fails in both
       // directions, on a removed rung and on an unexplained new one.
       //
-      // Both axes are pinned, because the 40px rung carries a width as well. `openings`
-      // is the denominator: the pattern below only understands a height with an optional
-      // width, so a rung written in any other shape would silently drop out of the ladder
-      // and read as a deletion. Counting the raw openings separately makes that a loud
-      // failure instead of a quiet one.
+      // Width is pinned as an absence. The 40px rung used to carry `min-width: 60px`,
+      // which was arithmetically right about the string it was calibrated on -- an 18px
+      // clock icon plus `10:00` plus an ellipsis -- and wrong about the question, because
+      // it charged that arithmetic to every row including the ones drawing `10:00` alone.
+      // A constant cannot follow the type scale, the icon size, the digit count or a
+      // 12-hour locale, so the decision moved to `grid-time-fit.ts` where it is measured.
+      // `openings` is the denominator: the pattern below only understands a height with an
+      // optional width, so a rung written in any other shape would silently drop out of
+      // the ladder and read as a deletion. Counting the raw openings separately makes that
+      // a loud failure instead of a quiet one -- and it is what stops a reintroduced width
+      // term disappearing from this comparison rather than failing it.
       const ladder: { minHeight: number; minWidth: number | null; selectors: string[] }[] = [];
       const openings = [...CSS.matchAll(/@container calendar-card-grid-event /g)].length;
       const opening =
@@ -2065,20 +2071,26 @@ describe('card stylesheet', () => {
           minWidth: null,
           selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
         },
-        // The one rung that asks about width. Height and width are independent here --
-        // height is duration x hour_height, width is day width / concurrent columns -- so
-        // asking only about height revealed a time row into blocks far too narrow to hold
-        // one, and grid's own nowrap then cut it mid-glyph. The width rides on the whole
-        // rung rather than on `.time` alone so that the title still yields its second line
-        // exactly when the time row appears, which is the contract the ladder's comment
-        // states.
+        // The rung that reveals the time row, and the only one whose selectors are
+        // qualified. Height and width are independent here -- height is duration x
+        // hour_height, width is day width / concurrent columns -- so a 2-hour block is
+        // 96px tall whether it is 400px or 29px wide, and asking only about height
+        // revealed a time row into blocks far too narrow to hold one. The width half of
+        // that question is now asked in JS, against the string the row will really draw,
+        // and its answer arrives as `.grid-time-fits`.
+        //
+        // The class gates the clamp as well as the reveal, because the two are one
+        // decision: the title yields its second line exactly when the time row appears.
+        // `:where()` is what keeps that from breaking the rungs below -- a plain
+        // `.grid-event-disclosure.grid-time-fits .event-title` is 0,3,0 and would beat the
+        // 72px and 96px rungs at 0,2,0, stranding tall narrow blocks on the compact clamp.
         {
           minHeight: 40,
-          minWidth: 60,
+          minWidth: null,
           selectors: [
-            '.grid-event-disclosure .event-title',
-            '.grid-event-disclosure .summary',
-            '.grid-event-disclosure .time',
+            '.grid-event-disclosure:where(.grid-time-fits) .event-title',
+            '.grid-event-disclosure:where(.grid-time-fits) .summary',
+            '.grid-event-disclosure:where(.grid-time-fits) .time',
           ],
         },
         { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
@@ -2104,6 +2116,49 @@ describe('card stylesheet', () => {
       for (const row of ['.time', '.location', '.description', '.event-weather']) {
         expect(declared(`.grid-event-disclosure ${row}`, 'display')).toBe('none');
       }
+
+      // Stated twice on purpose, and the second one is the durable half. The map above
+      // pins every width as `null` and would fail on a reintroduced constant -- but only
+      // while the rung it sits on is still in the map. Asking the raw text whether the
+      // container name is ever followed by a width fails even if the ladder is rewritten
+      // around it, which is the shape a constant would come back in.
+      expect(CSS).not.toMatch(/@container calendar-card-grid-event[^{]*min-width/);
+    });
+
+    it('spends the clock icon before the end time, and the end time before the row', () => {
+      // The ladder's rungs in CSS. `grid-time-fit.ts` decides which one a block is on and
+      // writes the class; these three rules are the whole of what a class does, so a rung
+      // that stops hiding anything is a rung that silently stops existing.
+      //
+      // Pinned by value rather than by `toContain`, because the ordering matters: both
+      // degradations have to sit after the 40px rung, or a block that reaches rung 3 gets
+      // its icon back from the reveal it just passed through.
+      const degradation = [...CSS.matchAll(/\.grid-time-(no-icon|no-end)([^{]*)\{([^}]*)\}/g)].map(
+        (rule) => ({
+          rung: rule[1],
+          target: rule[2].replace(/\s+/g, ' ').trim(),
+          body: rule[3].replace(/\s+/g, ' ').trim(),
+        }),
+      );
+
+      expect(degradation).toEqual([
+        { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
+        { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+      ]);
+
+      // The end time is inline, never inline-block. `.time span` makes every span in a
+      // time row an inline-block, and an inline-block is a block container: leading white
+      // space on its first line is stripped, so the separator this element carries would
+      // vanish and a row would read `10:0012:00`.
+      expect(declared('.grid-event-disclosure .time .time-actual .time-end', 'display')).toBe(
+        'inline',
+      );
+
+      // Both degradations must come after the rung that reveals the row.
+      const reveal = CSS.indexOf('@container calendar-card-grid-event (min-height: 40px)');
+      expect(reveal).toBeGreaterThan(-1);
+      expect(CSS.indexOf('.grid-time-no-icon')).toBeGreaterThan(reveal);
+      expect(CSS.indexOf('.grid-time-no-end')).toBeGreaterThan(reveal);
     });
 
     it('keeps grid detail rows from being sliced under wrapped titles', () => {

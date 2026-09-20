@@ -39,6 +39,7 @@ import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as GridUtils from './utils/grid';
+import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
@@ -973,6 +974,8 @@ class CalendarCardPro extends LitElement {
         return [{ content, detailRows, withdrawn: [] as HTMLElement[] }];
       });
 
+      this._applyGridTimeFit(pending);
+
       // Keep the existing priority/rollback transaction, but batch each row's reads and
       // writes across blocks. Otherwise restoring one block forces layout for the next.
       for (const { selector } of GRID_DETAIL_ROWS) {
@@ -1046,6 +1049,34 @@ class CalendarCardPro extends LitElement {
         });
       });
     }
+  }
+
+  /**
+   * Fit each block's time row across, before the vertical pass decides what to withdraw.
+   *
+   * Runs first so the vertical budget sees the row set the width decision actually leaves
+   * behind: a row this pass hides is not a row the height pass has to pay for, and a row it
+   * strips an icon from is no shorter but is finally readable.
+   *
+   * Phased so that the whole card costs three style recalculations rather than three per
+   * block. Each phase is entirely reads or entirely writes, and the second read depends on
+   * the second write, which is why there are three and not two.
+   *
+   * @param blocks - The timed grid blocks being fitted
+   */
+  private _applyGridTimeFit(blocks: ReadonlyArray<HTMLElement>): void {
+    const targets = blocks
+      .map(GridTimeFit.gridTimeTarget)
+      .filter((target): target is GridTimeFit.GridTimeTarget => target !== null);
+    if (targets.length === 0) return;
+
+    targets.forEach(GridTimeFit.prepareGridTimeMeasurement);
+    const available = targets.map(GridTimeFit.measureGridTimeAvailable);
+    targets.forEach(GridTimeFit.releaseGridTimeWidth);
+    const fits = targets.map((target, index) =>
+      GridTimeFit.gridTimeFit(GridTimeFit.measureGridTimeCosts(target, available[index])),
+    );
+    targets.forEach((target, index) => GridTimeFit.applyGridTimeFit(target, fits[index]));
   }
 
   /**
