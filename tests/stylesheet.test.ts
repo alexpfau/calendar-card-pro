@@ -2127,23 +2127,24 @@ describe('card stylesheet', () => {
 
     it('spends the clock icon before the end time, and the end time before the row', () => {
       // The ladder's rungs in CSS. `grid-time-fit.ts` decides which one a block is on and
-      // writes the class; these three rules are the whole of what a class does, so a rung
-      // that stops hiding anything is a rung that silently stops existing.
+      // writes the class; these rules are the whole of what a class does, so a rung that
+      // stops hiding — or blockifying — anything is a rung that silently stops existing.
       //
-      // Pinned by value rather than by `toContain`, because the ordering matters: both
-      // degradations have to sit after the 40px rung, or a block that reaches rung 3 gets
-      // its icon back from the reveal it just passed through.
-      const degradation = [...CSS.matchAll(/\.grid-time-(no-icon|no-end)([^{]*)\{([^}]*)\}/g)].map(
-        (rule) => ({
-          rung: rule[1],
-          target: rule[2].replace(/\s+/g, ' ').trim(),
-          body: rule[3].replace(/\s+/g, ' ').trim(),
-        }),
-      );
+      // Pinned by value rather than by `toContain`, because the ordering matters: every
+      // degradation has to sit after the 40px rung, or a block that reaches a lower rung
+      // gets its icon back from the reveal it just passed through.
+      const degradation = [
+        ...CSS.matchAll(/\.grid-time-(no-icon|no-end|wrap)([^{]*)\{([^}]*)\}/g),
+      ].map((rule) => ({
+        rung: rule[1],
+        target: rule[2].replace(/\s+/g, ' ').trim(),
+        body: rule[3].replace(/\s+/g, ' ').trim(),
+      }));
 
       expect(degradation).toEqual([
         { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
         { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+        { rung: 'wrap', target: '.time .time-actual .time-end', body: 'display: block;' },
       ]);
 
       // The end time is inline, never inline-block. `.time span` makes every span in a
@@ -2154,11 +2155,27 @@ describe('card stylesheet', () => {
         'inline',
       );
 
-      // Both degradations must come after the rung that reveals the row.
+      // The wrapped rung turns that same stripping into the mechanism rather than the bug:
+      // as a block the element starts a line, loses the separator's leading space, and
+      // reads `- 12:00` under `10:00`. It is scoped to a class only the wrapped rung sets,
+      // so the inline default above is untouched for every other view and every other rung.
+      expect(
+        declared('.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end', 'display'),
+      ).toBe('block');
+
+      // Every degradation must come after the rung that reveals the row.
       const reveal = CSS.indexOf('@container calendar-card-grid-event (min-height: 40px)');
       expect(reveal).toBeGreaterThan(-1);
       expect(CSS.indexOf('.grid-time-no-icon')).toBeGreaterThan(reveal);
       expect(CSS.indexOf('.grid-time-no-end')).toBeGreaterThan(reveal);
+      expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(reveal);
+
+      // `no-end` and `wrap` are mutually exclusive by construction — the ladder never sets
+      // both, and a withdrawn wrap swaps one for the other — but they target the same
+      // element at the same specificity, so if that ever stopped holding source order would
+      // silently decide it. Pin the order that makes a withdrawal safe: `wrap` last means
+      // a stale `wrap` would win, so the withdrawal must remove it rather than mask it.
+      expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(CSS.indexOf('.grid-time-no-end'));
     });
 
     it('keeps grid detail rows from being sliced under wrapped titles', () => {

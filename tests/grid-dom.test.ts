@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
+import { GRID_DETAIL_ROWS } from '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
@@ -2635,6 +2636,37 @@ describe('the grid reuses the shared leaves', () => {
     }
 
     expect(geometry(blocks[0]).height).toBeLessThan(geometry(blocks[1]).height);
+  });
+
+  it('emits the title above every detail row it discloses', () => {
+    // The wrapped time rung's height negotiation depends on this. It pays for a second line
+    // before the withdrawal loop runs, and the title-fit pass runs after it -- which is only
+    // safe if a taller time row cannot reflow the title. In a flex-start column of
+    // `flex: 0 0 auto` items (pinned in `stylesheet.test.ts` and `grid-disclosure.test.ts`),
+    // growing a later sibling cannot move an earlier one, so the argument reduces to source
+    // order. Reconciled against `GRID_DETAIL_ROWS`, which is the withdrawal loop's own list,
+    // and matched the way that loop matches -- by descendant search, since a detail row need
+    // not be a direct child of the content box.
+    const container = renderGrid(
+      [{ ...timed(18, '09:00', '12:00', 'Long review'), location: 'Room 2' }],
+      buildConfig({ view: 'grid', show_location: true, show_progress_bar: true }),
+    );
+    const content = requireElement(container, '.grid-event-disclosure .event-content');
+    const summary = requireElement(content, '.summary-row');
+
+    let found = 0;
+    for (const row of GRID_DETAIL_ROWS) {
+      const element = content.querySelector(row.selector);
+      if (!element) continue;
+      found += 1;
+      expect(
+        summary.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${row.selector} must be emitted after the title`,
+      ).toBeTruthy();
+    }
+    // A denominator, so an empty loop cannot pass as agreement. This caught exactly that:
+    // the first version of this test matched direct children only, drew nothing, and passed.
+    expect(found, 'no detail row was drawn, so nothing above was tested').toBeGreaterThan(1);
   });
 
   it('renders day headers through the shared column-style header leaf', () => {

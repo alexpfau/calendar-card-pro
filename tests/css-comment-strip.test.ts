@@ -167,8 +167,21 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the grid time row's fit ladder, which replaced the width
-  // rung described in the paragraph below. The notes are the expensive kind twice over.
+  // The ceiling last moved for the fit ladder's wrapped rung, and the note it carries is
+  // almost entirely an explanation of why the rule is `display: block` and not a
+  // `white-space` change. A reader reaching for the obvious fix finds three hazards none of
+  // the declarations can mention: `overflow-wrap: break-word` is inherited from `.summary`,
+  // so a naive wrap shatters digits into `10:0` / `0 -` rather than failing to fit; the
+  // separator is its own token between two spaces, so a browser-decided break orphans the
+  // dash at some widths and not others; and the rule works *because* `.time-end` is inline
+  // by default, a fact the rule beside it warns about as a bug. Turning that element into a
+  // block box strips the separator's leading space, which is the one thing that makes the
+  // second line read `- 12:00` -- so the same behaviour is a defect one rung up and the
+  // mechanism here. There is nowhere but a comment to say that, and a later reader
+  // "simplifying" it to `white-space: normal` would ship unreadable clock times.
+  //
+  // The ceiling before that moved for the grid time row's fit ladder, which replaced the
+  // width rung described in the paragraph below. The notes are the expensive kind twice over.
   // `grid-time-fit.ts` carries its own reasoning as TypeScript comment and does not land
   // here at all; what lands here is the rung's note having to explain an absence -- why the
   // rung asks about height and says nothing about width, when width is exactly the axis
@@ -238,11 +251,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(89_500);
-    // The grid time row's fit ladder moved the ceiling last, from 86,000; see the paragraph
-    // above for what its notes buy that the declarations cannot say. The reading went
-    // 85,463 to 88,813, so the band keeps about the same slack it had before rather than
-    // being opened wide enough to stop meaning anything.
+    expect(saved).toBeLessThan(90_600);
+    // The fit ladder's wrapped rung moved the ceiling last, from 89,500; see the paragraph
+    // above for what its note buys that the declarations cannot say. The reading went
+    // 88,813 to 90,087, and the ceiling keeps roughly the slack the band had before rather
+    // than being opened wide enough to stop meaning anything.
+    //
+    // The grid time row's fit ladder moved the ceiling before that, from 86,000. The
+    // reading went 85,463 to 88,813.
     //
     // The grid time row's width rung moved the ceiling before that, from 83,000. The
     // reading went 82,476 to 85,463.

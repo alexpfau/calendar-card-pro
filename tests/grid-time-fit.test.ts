@@ -79,6 +79,15 @@ const ICON = 18;
 const START = 29.86;
 const END = 39.12;
 const FULL = ICON + START + END;
+/**
+ * What the same row needs with its end time on a second line.
+ *
+ * Not derived from the three above: blockifying the end element strips the separator's
+ * leading space, so the second line is `- 12:00` at 36.14 rather than ` - 12:00` at 39.12.
+ * That 3.0px is a font metric, and the card measures it rather than computing it. Read off
+ * the browser's own line boxes on 55 live rows, in both clock modes.
+ */
+const WRAPPED = 36.14;
 
 describe('grid time row fit', () => {
   describe('the ladder', () => {
@@ -90,14 +99,14 @@ describe('grid time row fit', () => {
      */
     it('gives up the icon before the end time, and the end time before the row', () => {
       const rung = (available: number) =>
-        GridTimeFit.gridTimeFit({ available, full: FULL, icon: ICON, end: END });
+        GridTimeFit.gridTimeFit({ available, full: FULL, icon: ICON, end: END, wrapped: WRAPPED });
 
-      expect([124.6, 79, 72.9, 45.9, 29.2].map(rung)).toEqual([
-        { time: true, icon: true, end: true },
-        { time: true, icon: false, end: true },
-        { time: true, icon: false, end: true },
-        { time: true, icon: false, end: false },
-        { time: false, icon: false, end: false },
+      expect([124.6, 79, 45.9, 32, 29.2].map(rung)).toEqual([
+        { time: true, icon: true, end: true, wrap: false },
+        { time: true, icon: false, end: true, wrap: false },
+        { time: true, icon: false, end: true, wrap: true },
+        { time: true, icon: false, end: false, wrap: false },
+        { time: false, icon: false, end: false, wrap: false },
       ]);
     });
 
@@ -120,7 +129,13 @@ describe('grid time row fit', () => {
       const restored: number[] = [];
 
       for (let available = Math.ceil(FULL) + 8; available >= 0; available -= 0.25) {
-        const fit = GridTimeFit.gridTimeFit({ available, full: FULL, icon: ICON, end: END });
+        const fit = GridTimeFit.gridTimeFit({
+          available,
+          full: FULL,
+          icon: ICON,
+          end: END,
+          wrapped: WRAPPED,
+        });
         if (!fit.time) continue;
         if (!fit.icon) seenWithoutIcon = true;
         else if (seenWithoutIcon) restored.push(available);
@@ -130,10 +145,130 @@ describe('grid time row fit', () => {
       expect(restored).toEqual([]);
     });
 
-    it('spends the icon before the end time at a lane that can hold only one of them', () => {
-      expect(
-        GridTimeFit.gridTimeFit({ available: START + ICON, full: FULL, icon: ICON, end: END }),
-      ).toEqual({ time: true, icon: false, end: false });
+    /**
+     * The icon is spent first, and it is now spent for something the icon cannot buy back.
+     *
+     * At `icon + start` the row used to be able to draw only one of the icon and the end
+     * time, and chose the end time. It can now draw the end time *and* still have width to
+     * spare, because a wrapped range needs less than a bare one on a single line. So this
+     * width no longer marks a boundary at all, and the real one sits lower: only between a
+     * bare start and a wrapped range does the end time genuinely have to go.
+     */
+    it('spends the icon before the end time, and keeps the end time by wrapping it', () => {
+      const costs = { full: FULL, icon: ICON, end: END, wrapped: WRAPPED };
+
+      expect(GridTimeFit.gridTimeFit({ available: START + ICON, ...costs })).toEqual({
+        time: true,
+        icon: false,
+        end: true,
+        wrap: true,
+      });
+      expect(GridTimeFit.gridTimeFit({ available: WRAPPED - 0.66, ...costs })).toEqual({
+        time: true,
+        icon: false,
+        end: false,
+        wrap: false,
+      });
+    });
+
+    /**
+     * The wrapped rung, pinned at the boundary it was measured at.
+     *
+     * 36.14 is what `🧪 QA Window` needs on the deployed card, in a 46px lane. Pinned from
+     * both sides, because a rung that is only checked from above cannot fail when it is
+     * widened and a rung only checked from below cannot fail when it is narrowed.
+     */
+    it('wraps the end time at exactly the width it needs, and not below', () => {
+      const costs = { full: FULL, icon: ICON, end: END, wrapped: WRAPPED };
+
+      expect(GridTimeFit.gridTimeFit({ available: WRAPPED, ...costs }).wrap).toBe(true);
+      expect(GridTimeFit.gridTimeFit({ available: WRAPPED - 0.66, ...costs }).wrap).toBe(false);
+      expect(GridTimeFit.gridTimeFit({ available: 46, ...costs })).toEqual({
+        time: true,
+        icon: false,
+        end: true,
+        wrap: true,
+      });
+    });
+
+    /**
+     * The invariant the wrapped rung's ordering exists to protect, stated directly.
+     *
+     * A width-sorted ladder would seat `icon + wrapped range` — about 57px — between the
+     * bare one-line rung at 68.98 and the wrapped one at 36.14, and the icon would go off
+     * at 87, come back at 69 and go off again at 57. Rather than sweeping for the symptom a
+     * second time, pin the cause: the icon is a function of lane width against `full` and
+     * of nothing else, so it cannot flip-flop along either axis whatever rungs are added
+     * beneath it.
+     */
+    it('draws the icon if and only if the lane is at least a full row wide', () => {
+      const disagreements: number[] = [];
+
+      for (let available = Math.ceil(FULL) + 8; available >= 0; available -= 0.25) {
+        const fit = GridTimeFit.gridTimeFit({
+          available,
+          full: FULL,
+          icon: ICON,
+          end: END,
+          wrapped: WRAPPED,
+        });
+        if (fit.icon !== available + 1 / 64 >= FULL) disagreements.push(available);
+      }
+
+      expect(disagreements).toEqual([]);
+    });
+
+    /**
+     * `start <= wrapped < bare < full` holds by construction, because the wrapped width is
+     * a maximum taken over the start. Asserted anyway, at the measured widths, so a future
+     * change that computes it some other way fails here rather than inverting the ladder
+     * silently at some locale nobody tested.
+     */
+    it('never seats the wrapped rung outside the two it sits between', () => {
+      expect(START).toBeLessThanOrEqual(WRAPPED);
+      expect(WRAPPED).toBeLessThan(FULL - ICON);
+      expect(FULL - ICON).toBeLessThan(FULL);
+    });
+
+    /**
+     * A wrapped rung with nothing to wrap would spend a line of height and draw nothing
+     * with it. `show_end_time: false` is a real published setting, so this is a live path
+     * rather than a defensive one.
+     *
+     * Three shapes, because the rung has two guards and no browser-reachable fixture can
+     * separate them. A mutation sweep found this: dropping `end > 0` alone changed nothing,
+     * which reads as a dead condition and is not. With no end time `full - icon` equals
+     * `wrapped` exactly -- the row's max-content width is its start time either way -- so
+     * rung 2 answers before rung 3 is ever consulted, and it is rung 2 doing the masking
+     * rather than the sibling guard beside it. The third case is the only one that reaches
+     * the rung, and it has to be an out-of-model input to get there.
+     */
+    it('never wraps a row that draws no end time', () => {
+      const rung = (available: number, costs: { end: number; wrapped: number }) =>
+        GridTimeFit.gridTimeFit({
+          available,
+          full: ICON + START,
+          icon: ICON,
+          ...costs,
+        });
+
+      const lanes = [124.6, 45.9, 32, 29.2];
+      const never = [false, false, false, false];
+
+      // No end element: nothing measured, nothing to move.
+      expect(lanes.map((lane) => rung(lane, { end: 0, wrapped: 0 }).wrap)).toEqual(never);
+
+      // An end element that measures nothing. The row is still as wide as its start time,
+      // so a rung testing only the wrapped width would grant a blank second line.
+      expect(lanes.map((lane) => rung(lane, { end: 0, wrapped: START }).wrap)).toEqual(never);
+
+      // Neither of those two reaches the wrapped rung at all, which is the point. With no
+      // end time `full - icon` and `wrapped` are the same number, so rung 2 always answers
+      // first and the guard below it is never consulted. The guard is not therefore idle:
+      // this function is exported, pure and total, and a caller that hands it a wrapped
+      // width narrower than the start time it contains -- which no measurement can produce
+      // -- would otherwise be granted a second line with nothing on it.
+      expect(rung(20, { end: 0, wrapped: 10 }).wrap).toBe(false);
     });
 
     /**
@@ -143,12 +278,12 @@ describe('grid time row fit', () => {
      */
     it('collapses to two rungs when no end time is drawn', () => {
       const rung = (available: number) =>
-        GridTimeFit.gridTimeFit({ available, full: ICON + START, icon: ICON, end: 0 });
+        GridTimeFit.gridTimeFit({ available, full: ICON + START, icon: ICON, end: 0, wrapped: 0 });
 
       expect([124.6, 45.9, 29.2].map(rung)).toEqual([
-        { time: true, icon: true, end: true },
-        { time: true, icon: false, end: true },
-        { time: false, icon: false, end: false },
+        { time: true, icon: true, end: true, wrap: false },
+        { time: true, icon: false, end: true, wrap: false },
+        { time: false, icon: false, end: false, wrap: false },
       ]);
     });
 
@@ -158,22 +293,36 @@ describe('grid time row fit', () => {
      * edge — but it is the boundary the maintainer's report turns on, so it is pinned.
      */
     it('reveals a bare start time at exactly the width it needs, and not below', () => {
-      const bare = { full: ICON + START, icon: ICON, end: 0 };
+      const bare = { full: ICON + START, icon: ICON, end: 0, wrapped: 0 };
 
       expect(GridTimeFit.gridTimeFit({ available: START, ...bare }).time).toBe(true);
       expect(GridTimeFit.gridTimeFit({ available: START - 0.66, ...bare }).time).toBe(false);
     });
 
     it('hides the row rather than guessing when a block has not been laid out', () => {
-      const hidden = { time: false, icon: false, end: false };
+      const hidden = { time: false, icon: false, end: false, wrap: false };
 
-      expect(GridTimeFit.gridTimeFit({ available: 0, full: FULL, icon: ICON, end: END })).toEqual(
-        hidden,
-      );
       expect(
-        GridTimeFit.gridTimeFit({ available: Number.NaN, full: FULL, icon: ICON, end: END }),
+        GridTimeFit.gridTimeFit({
+          available: 0,
+          full: FULL,
+          icon: ICON,
+          end: END,
+          wrapped: WRAPPED,
+        }),
       ).toEqual(hidden);
-      expect(GridTimeFit.gridTimeFit({ available: 400, full: 0, icon: 0, end: 0 })).toEqual(hidden);
+      expect(
+        GridTimeFit.gridTimeFit({
+          available: Number.NaN,
+          full: FULL,
+          icon: ICON,
+          end: END,
+          wrapped: WRAPPED,
+        }),
+      ).toEqual(hidden);
+      expect(
+        GridTimeFit.gridTimeFit({ available: 400, full: 0, icon: 0, end: 0, wrapped: 0 }),
+      ).toEqual(hidden);
     });
   });
 
@@ -383,6 +532,51 @@ describe('grid time row fit', () => {
 
       expect(GridTimeFit.gridTimeTarget(el)?.end).toBeNull();
       expect(fit(el)).toEqual(['grid-event-disclosure', 'grid-time-fits', 'grid-time-no-icon']);
+    });
+
+    /**
+     * 🚨 The reconciliation that a live probe had to find, because no unit test could.
+     *
+     * Every other test here hands `wrapped` to `gridTimeFit` as a number, so the shape that
+     * number is read from is never built and its correctness is never asserted. It was
+     * wrong: the open added only `grid-time-wrap`, leaving the icon in the flex row, so the
+     * measurement priced `icon + wrapped range` — the one shape the ladder deliberately has
+     * no rung for. On the reported block that reads 54.14 against a 46px lane and the rung
+     * silently never fires, while all 25 unit tests stay green.
+     *
+     * Derived from the decision rather than listed, so it fails if either side moves: the
+     * measurement shape must be exactly the painted shape less `grid-time-fits`, which is a
+     * reveal rather than a shape. A second assertion pins the settle, because a class left
+     * behind by the measurement is a measurement shape that paints.
+     */
+    it('measures the wrapped row in the shape it will paint it in', () => {
+      const el = block(45.9);
+      const target = GridTimeFit.gridTimeTarget(el)!;
+      const disclosure = el.querySelector('.grid-event-disclosure')!;
+
+      GridTimeFit.prepareGridTimeMeasurement(target);
+      GridTimeFit.openGridTimeWrapMeasurement(target);
+      const measured = [...disclosure.classList].filter((name) => name.startsWith('grid-time-'));
+      GridTimeFit.settleGridTimeWrapMeasurement(target);
+      const settled = [...disclosure.classList].filter((name) => name.startsWith('grid-time-'));
+
+      GridTimeFit.applyGridTimeFit(
+        target,
+        GridTimeFit.gridTimeFit({
+          available: 45.9,
+          full: ICON + START + END,
+          icon: ICON,
+          end: END,
+          wrapped: WRAPPED,
+        }),
+      );
+      const painted = [...disclosure.classList].filter(
+        (name) => name.startsWith('grid-time-') && name !== 'grid-time-fits',
+      );
+
+      expect(painted).toContain('grid-time-wrap');
+      expect([...measured].sort()).toEqual([...painted].sort());
+      expect(settled).toEqual([]);
     });
 
     it('ignores a block with no time row rather than throwing', () => {

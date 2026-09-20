@@ -2803,16 +2803,37 @@ export const cardStyles = css`
     display: inline;
   }
 
-  /* The two rungs of the fit ladder that give something up. Both are set by the host, which
+  /* The rungs of the fit ladder that give something up. All are set by the host, which
      measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
      icon goes first because the block's own position already says this is a time; the end
-     time goes next because the block's bottom edge already draws it. */
+     time goes onto a second line next, where there is one to spare, and is given up
+     altogether only after that, because the block's bottom edge already draws it. */
   .grid-event-disclosure.grid-time-no-icon .time .time-actual > ha-icon {
     display: none;
   }
 
   .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
     display: none;
+  }
+
+  /* The wrapped rung, where the lane is too narrow for the range on one line but the block
+     has a spare line to put the end time on. Blockifying this element is the whole
+     mechanism: the outer span is already a block in grid, so making the end time a block
+     too gives exactly two line boxes, decided here rather than by the browser. That matters
+     more than it looks. white-space stays nowrap throughout, so the overflow-wrap:
+     break-word inherited from .summary never gets a break opportunity and cannot shatter a
+     clock reading into "10:0" / "0 -"; and with no break opportunity the separator cannot
+     be orphaned onto a line of its own either. Both failure modes are removed by
+     construction, not tuned around.
+
+     The leading space the comment above works to preserve is stripped here, deliberately:
+     that same block-container rule reads "- 12:00" rather than " - 12:00", which is what
+     the second line wants. The inline rule is untouched for every other view and rung.
+
+     Set by the host only where the row measured narrow enough AND the block had the height
+     to spare - see grid-time-fit.ts and _applyGridDisclosureSafety. */
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-end {
+    display: block;
   }
 
   /* The progress bar earns its own rung. It is the one row here whose value is highest

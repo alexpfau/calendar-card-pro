@@ -971,10 +971,26 @@ class CalendarCardPro extends LitElement {
             row.element.style.removeProperty(row.lineProperty);
           }
         }
-        return [{ content, detailRows, withdrawn: [] as HTMLElement[] }];
+        return [{ block, content, detailRows, withdrawn: [] as HTMLElement[] }];
       });
 
-      this._applyGridTimeFit(pending);
+      const wrappedTimes = this._applyGridTimeFit(pending);
+
+      // A wrap is decided on width but paid for in height, so settle that here, before
+      // anything else competes for the same pixels. Withdrawing it lands on exactly the
+      // class set the rung below produces, which is what makes the loop underneath see an
+      // identical state whether or not any row was ever offered a wrap - so no location,
+      // weather, description or progress row can be withdrawn *because* a time row
+      // wrapped. That is the opportunistic constraint, held by construction rather than by
+      // ordering care.
+      const unaffordable = transactions.filter(
+        (transaction) =>
+          wrappedTimes.has(transaction.block) && gridContentOverflows(transaction.content),
+      );
+      for (const transaction of unaffordable) {
+        const target = wrappedTimes.get(transaction.block);
+        if (target) GridTimeFit.demoteGridTimeWrap(target);
+      }
 
       // Keep the existing priority/rollback transaction, but batch each row's reads and
       // writes across blocks. Otherwise restoring one block forces layout for the next.
@@ -1064,19 +1080,43 @@ class CalendarCardPro extends LitElement {
    *
    * @param blocks - The timed grid blocks being fitted
    */
-  private _applyGridTimeFit(blocks: ReadonlyArray<HTMLElement>): void {
-    const targets = blocks
-      .map(GridTimeFit.gridTimeTarget)
-      .filter((target): target is GridTimeFit.GridTimeTarget => target !== null);
-    if (targets.length === 0) return;
+  private _applyGridTimeFit(
+    blocks: ReadonlyArray<HTMLElement>,
+  ): ReadonlyMap<HTMLElement, GridTimeFit.GridTimeTarget> {
+    const pairs = blocks
+      .map((block) => ({ block, target: GridTimeFit.gridTimeTarget(block) }))
+      .filter(
+        (pair): pair is { block: HTMLElement; target: GridTimeFit.GridTimeTarget } =>
+          pair.target !== null,
+      );
+    const wrapped = new Map<HTMLElement, GridTimeFit.GridTimeTarget>();
+    if (pairs.length === 0) return wrapped;
+
+    const targets = pairs.map(({ target }) => target);
 
     targets.forEach(GridTimeFit.prepareGridTimeMeasurement);
     const available = targets.map(GridTimeFit.measureGridTimeAvailable);
     targets.forEach(GridTimeFit.releaseGridTimeWidth);
-    const fits = targets.map((target, index) =>
-      GridTimeFit.gridTimeFit(GridTimeFit.measureGridTimeCosts(target, available[index])),
+    const base = targets.map((target, index) =>
+      GridTimeFit.measureGridTimeCosts(target, available[index]),
     );
-    targets.forEach((target, index) => GridTimeFit.applyGridTimeFit(target, fits[index]));
+    // The wrapped width needs the row in its wrapped shape, which is a write, so it cannot
+    // share a phase with the read above. Keep each phase batched across every block: four
+    // alternations rather than two is still a constant number of layout flushes, where
+    // measuring one block at a time would be one per block.
+    targets.forEach(GridTimeFit.openGridTimeWrapMeasurement);
+    const wrapWidths = targets.map(GridTimeFit.measureGridTimeWrapped);
+    targets.forEach(GridTimeFit.settleGridTimeWrapMeasurement);
+
+    const fits = base.map((costs, index) =>
+      GridTimeFit.gridTimeFit({ ...costs, wrapped: wrapWidths[index] }),
+    );
+    pairs.forEach(({ block, target }, index) => {
+      GridTimeFit.applyGridTimeFit(target, fits[index]);
+      if (fits[index].wrap) wrapped.set(block, target);
+    });
+
+    return wrapped;
   }
 
   /**

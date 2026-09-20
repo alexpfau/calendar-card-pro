@@ -12,18 +12,20 @@
  *
  * The ladder gives up decoration before content and content before honesty:
  *
- *   1. clock icon, start and end
- *   2. start and end
- *   3. start
- *   4. nothing
+ *   1. clock icon, start and end, on one line
+ *   2. start and end, on one line
+ *   3. start and end, across two lines
+ *   4. start
+ *   5. nothing
  *
  * Truncation is not a rung. An ellipsis is an honest mark on a title and a false statement
  * inside a clock reading -- "10:00 - 1..." for an event that ends at 12:00 reads as ending
- * at one o'clock. The clock icon is the first thing to go because it repeats what the row's
- * position in the block already says; the end time goes next because a grid block already
- * draws it, as its own bottom edge. Where the end time is not drawn at all, rungs 2 and 3
- * coincide -- same test, same result -- and the ladder collapses on its own, with no case
- * analysis.
+ * at one o'clock. A wrapped row is consistent with that rather than an exception to it: it
+ * states the whole reading, and only spends a line doing so. The clock icon is the first
+ * thing to go because it repeats what the row's position in the block already says; the end
+ * time goes next because a grid block already draws it, as its own bottom edge. Where the
+ * end time is not drawn at all, rungs 2, 3 and 4 coincide -- same test, same result -- and
+ * the ladder collapses on its own, with no case analysis.
  *
  * There is deliberately no "clock icon and start" rung between 2 and 3, and adding one
  * reintroduces a defect rather than a nicety. An end time is always wider than the icon --
@@ -32,6 +34,36 @@
  * drops the icon, brings it back one rung later, and drops it again, so the icon blinks off
  * and on as a lane narrows. That is not an edge case: measured across 110 real blocks it
  * fired on every one of the 55 that draw an end time, and on none of the 55 that do not.
+ *
+ * The wrapped rung extends that reasoning rather than contradicting it. It is a wrapped
+ * `start and end`, never an `icon and start`, and **there is no wrapped rung that draws the
+ * icon** -- however well one measures. A wrapped row carrying the icon needs about 57px,
+ * which is *cheaper* than a bare range on one line at 68.98px, so a width-sorted ladder
+ * would seat it between rungs 2 and 3 and reproduce the same blink from the other
+ * direction: icon off at 87, back on at 69, off again at 57. Ordering by what the row says
+ * rather than by what it measures is what keeps the icon monotonic, and yields an invariant
+ * stronger than monotonicity:
+ *
+ *   The icon is drawn if and only if the lane is at least `full` wide.
+ *
+ * That is a function of lane width alone. It does not consult the block's height, so it
+ * cannot flip-flop along either axis.
+ *
+ * The wrapped rung costs a line of height, which is a budget the *vertical* pass owns, not
+ * this one. So this module stays pure, total and width-only: it grants the wrap whenever
+ * width allows, and the caller revokes it where the block cannot pay. Revoking lands on
+ * exactly the class set rung 4 would have produced, so a revoked wrap is indistinguishable
+ * from never having been offered.
+ *
+ * Because `wrapped` is `max(start, end - separator space)`, two orderings hold by
+ * construction rather than by measurement:
+ *
+ *   start <= wrapped < bare < full
+ *
+ * `wrapped >= start` because it is a maximum taken over `start`; `wrapped < bare` because
+ * `max(a, b - s) <= a + b - s < a + b`. So no ladder inversion is possible, whatever the
+ * locale or the type scale does to the strings. Checked against the corpus anyway: zero
+ * violations across 55 rows, in both 24-hour and 12-hour clock modes.
  */
 
 /** Sub-pixel rounding tolerance, matching the title fitter's. No design slack beyond it. */
@@ -47,6 +79,13 @@ export interface GridTimeCosts {
   icon: number;
   /** Width the end time and its separator take out of `full`, or 0 where none is drawn. */
   end: number;
+  /**
+   * Width the row needs with the end time on a second line, or 0 where none is drawn.
+   *
+   * Measured rather than derived. It is `max(start, end - the separator's leading space)`,
+   * and that space is a font metric no arithmetic here should be guessing at.
+   */
+  wrapped: number;
 }
 
 /** Which pieces of a time row survive at the widest rung that fits. */
@@ -57,9 +96,11 @@ export interface GridTimeFit {
   icon: boolean;
   /** Whether the end time is drawn. */
   end: boolean;
+  /** Whether the end time is drawn on a second line. Never true unless `end` is. */
+  wrap: boolean;
 }
 
-const HIDDEN: GridTimeFit = { time: false, icon: false, end: false };
+const HIDDEN: GridTimeFit = { time: false, icon: false, end: false, wrap: false };
 
 /** The nodes one block's time row is measured and degraded through. */
 export interface GridTimeTarget {
@@ -74,7 +115,12 @@ export interface GridTimeTarget {
 }
 
 /** Every class this module owns, so a reset need not enumerate them at each call site. */
-const FIT_CLASSES = ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end'] as const;
+const FIT_CLASSES = [
+  'grid-time-fits',
+  'grid-time-no-icon',
+  'grid-time-no-end',
+  'grid-time-wrap',
+] as const;
 
 /**
  * Read the time-row nodes of one timed grid block.
@@ -145,13 +191,72 @@ export function releaseGridTimeWidth(target: GridTimeTarget): void {
  * @param available Width from `measureGridTimeAvailable`
  * @returns Costs for `gridTimeFit`
  */
-export function measureGridTimeCosts(target: GridTimeTarget, available: number): GridTimeCosts {
+export function measureGridTimeCosts(
+  target: GridTimeTarget,
+  available: number,
+  wrapped = 0,
+): GridTimeCosts {
   return {
     available,
     full: target.time.getBoundingClientRect().width,
     icon: target.icon ? outerInlineWidth(target.icon) : 0,
     end: target.end ? outerInlineWidth(target.end) : 0,
+    wrapped,
   };
+}
+
+/**
+ * Put the row into its wrapped shape, so the width it needs there can be read.
+ *
+ * 🚨 The shape includes `grid-time-no-icon`, and that is the whole correctness of this
+ * function rather than an optimization. Rung 3 draws no icon, so a measurement taken with
+ * the icon still in the flex row prices a rung the ladder does not have — `icon + wrapped
+ * range`, the one shape deliberately excluded because seating it by width makes the icon
+ * blink. Measured live on `🧪 QA Window` in a 46px lane: with the icon the row reports
+ * 54.14 and the rung fails; without it, 36.14 and the rung fires. The unit tests cannot
+ * see this, because they hand `wrapped` to `gridTimeFit` as a number and never build the
+ * shape. `openGridTimeWrapMeasurement` and `applyGridTimeFit` must therefore agree on the
+ * class set for a wrap, which `tests/grid-time-fit.test.ts` reconciles.
+ *
+ * Paired with `settleGridTimeWrapMeasurement`, and batched by the caller: every row is put
+ * into the shape, then every row is read, then every row is taken back out. Doing it one
+ * row at a time would force a layout per block.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ */
+export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
+  target.disclosure.classList.add('grid-time-no-icon', 'grid-time-wrap');
+}
+
+/**
+ * Read what the row needs with its end time on a second line and no icon beside it.
+ *
+ * Valid only between `openGridTimeWrapMeasurement` and `settleGridTimeWrapMeasurement`.
+ * The row is sized to `max-content`, and the wrapped shape makes the end time a block box,
+ * so the row's max-content width is the wider of the two lines -- which is precisely the
+ * quantity the rung tests against. Confirmed against the browser's own line boxes on 55
+ * live rows, in both clock modes.
+ *
+ * Zero where the row has no end time to move, so the rung collapses into the one above it.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ * @returns The wrapped row's content width
+ */
+export function measureGridTimeWrapped(target: GridTimeTarget): number {
+  if (!target.end) return 0;
+  return target.time.getBoundingClientRect().width;
+}
+
+/**
+ * Take the row back out of its wrapped shape, so the decision can be applied cleanly.
+ *
+ * Removes both classes the open added. `applyGridTimeFit` sets the surviving ones back
+ * from the decision, so leaving either behind would let a measurement shape paint.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ */
+export function settleGridTimeWrapMeasurement(target: GridTimeTarget): void {
+  target.disclosure.classList.remove('grid-time-no-icon', 'grid-time-wrap');
 }
 
 /**
@@ -173,6 +278,7 @@ export function applyGridTimeFit(target: GridTimeTarget, fit: GridTimeFit): void
   target.disclosure.classList.add('grid-time-fits');
   if (!fit.icon) target.disclosure.classList.add('grid-time-no-icon');
   if (!fit.end) target.disclosure.classList.add('grid-time-no-end');
+  if (fit.wrap) target.disclosure.classList.add('grid-time-wrap');
 }
 
 /** An element's own width plus the horizontal margins that go with it when it is dropped. */
@@ -195,16 +301,45 @@ function outerInlineWidth(element: HTMLElement): number {
  * @returns The pieces to draw
  */
 export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
-  const { available, full, icon, end } = costs;
+  const { available, full, icon, end, wrapped } = costs;
 
-  if (![available, full, icon, end].every(Number.isFinite)) return HIDDEN;
+  if (![available, full, icon, end, wrapped].every(Number.isFinite)) return HIDDEN;
   if (available <= 0 || full <= 0) return HIDDEN;
 
   const budget = available + PRECISION;
 
-  if (full <= budget) return { time: true, icon: true, end: true };
-  if (full - icon <= budget) return { time: true, icon: false, end: true };
-  if (full - icon - end <= budget) return { time: true, icon: false, end: false };
+  if (full <= budget) return { time: true, icon: true, end: true, wrap: false };
+  if (full - icon <= budget) return { time: true, icon: false, end: true, wrap: false };
+  // A wrapped rung with nothing to wrap is the rung below it wearing a class, so an
+  // unmeasured or absent end time falls straight through rather than granting a wrap that
+  // would spend a line of height and draw nothing with it. Note which of the two guards is
+  // doing that: with no end time the rung *above* already answers, because `full - icon`
+  // and `wrapped` are then the same number -- the row's max-content width is its start
+  // time either way. So `end > 0` is unreachable from any real measurement and guards the
+  // contract of a total, exported function instead. A mutation sweep reads it as dead code
+  // unless it is handed a wrapped width narrower than the start time the row contains;
+  // `grid-time-fit.test.ts` carries exactly that fixture, and says why.
+  if (end > 0 && wrapped > 0 && wrapped <= budget) {
+    return { time: true, icon: false, end: true, wrap: true };
+  }
+  if (full - icon - end <= budget) return { time: true, icon: false, end: false, wrap: false };
 
   return HIDDEN;
+}
+
+/**
+ * Withdraw a granted wrap, leaving the row exactly where rung 4 would have left it.
+ *
+ * The wrap is decided on width, but it is paid for in height -- a budget this module cannot
+ * see. So the caller grants it optimistically and calls this where the block cannot afford
+ * the line, before anything else competes for that height. The resulting class set is
+ * byte-identical to the one rung 4 produces, which is what makes a withdrawn wrap
+ * indistinguishable from a wrap that was never offered, and therefore what keeps the
+ * feature from costing any other row its place.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ */
+export function demoteGridTimeWrap(target: GridTimeTarget): void {
+  target.disclosure.classList.remove('grid-time-wrap');
+  target.disclosure.classList.add('grid-time-no-end');
 }
