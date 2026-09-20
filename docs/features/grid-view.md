@@ -389,7 +389,10 @@ asks about width, because a block's height and width are set independently — h
 duration, width by how many events overlap it — so a long meeting in a busy lane can be tall
 enough for a time and far too narrow for one. It appears once the block is wide enough for a
 complete start time, and where the rest of the range does not fit it ends in an ellipsis
-rather than being cut through a digit. If your theme or
+rather than being cut through a digit. A block left showing nothing but its title keeps that
+title centered only while the title nearly fills the block; a tall narrow one keeps it at the
+top, where a block wide enough for a time row already puts it, rather than stranding it in
+mid-air with empty space above and below. If your theme or
 `event_font_size` makes a disclosed detail row taller than its block, the card hides the
 optional detail rows rather than showing one partly clipped. With the default unlimited title
 lines, long titles wrap until the block clips at the bottom. Set

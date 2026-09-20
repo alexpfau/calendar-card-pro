@@ -386,10 +386,39 @@ function centeredShift(target: GridTitleTarget): number | null {
   ]);
   if (!inside(bounds, clip)) return null;
   const shift = (clip.top + clip.bottom - bounds.top - bounds.bottom) / 2;
+  // The caller offers a block whose detail rows are all invisible, which used to mean one
+  // thing: the block was too short to reveal any. The time row now asks about width as well
+  // as height, so a block can be tall and still disclose nothing — and centering one parks
+  // its title in mid-air. The maintainer's capture was a two-hour block about 55px wide
+  // whose two-line title sat with roughly 31px of clear space above and below it, which
+  // reads as broken rather than as deliberate.
+  //
+  // So ask the block what the eye asks: is there conspicuous dead space? One line box of
+  // the group's own text is the unit, because that is what the disclosure is denominated in
+  // — every rung in the stylesheet is a count of rows — and because it is the only
+  // scale-free answer. A pixel threshold would have to be recalibrated against
+  // event_font_size, a theme's type scale and zoom, all three of which move a line box and
+  // none of which move a constant. Shifting a group by less than one of its own lines is
+  // the nudge a small block wants; more than that is space something could have occupied.
+  //
+  // Deliberately not asked: how wide the block is. That would mean restating the width
+  // rung's own threshold in script, a second copy to keep in step, and it would answer only
+  // for the time row — location, description and weather are withheld on height alone. Dead
+  // space is one question that covers every reason a row is missing, including later ones.
+  //
+  // Refusing costs nothing worse than the top alignment a block with a visible time row
+  // already gets: no shift is written, so no data-grid-title-fit is set, so the transform
+  // keyed on that attribute never applies.
+  const line = Math.max(0, ...glyphs.map((glyph) => glyph.height));
+  if (Math.abs(shift) > line + PRECISION) return null;
   return shift / blockScale(target.block);
 }
 
-/** Center complete, height-forced title groups without changing their ordinary wrapping. */
+/**
+ * Center complete title groups that nearly fill their block, without changing their
+ * ordinary wrapping. A group with a line box or more of slack on each side is left where
+ * it is; see centeredShift for why the block's height is not asked about directly.
+ */
 export function centerGridTitles(targets: GridTitleTarget[]): void {
   const measurements = targets.map((target) => ({ target, shift: centeredShift(target) }));
   for (const { target, shift } of measurements) {
