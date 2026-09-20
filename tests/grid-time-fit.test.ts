@@ -101,10 +101,39 @@ describe('grid time row fit', () => {
       ]);
     });
 
-    it('keeps the icon where only the end time has to go', () => {
+    /**
+     * The defect that retired the fifth rung, pinned as a property rather than a case.
+     *
+     * A `full - end` test is strictly looser than `full - icon`, because an end time is
+     * always wider than the icon. A ladder holding both therefore drops the icon, restores
+     * it one rung later and drops it again, so the icon blinks as a lane narrows — measured
+     * on every one of the 55 published blocks that draw an end time, and on none of the 55
+     * that do not. Sweeping one row's own width is what makes this visible: comparing
+     * different blocks conflates their content with their lane and answers a different
+     * question.
+     *
+     * Asserted over the sweep rather than at the one width that used to fail, so any future
+     * rung that reintroduces the flicker fails here without anyone adding a case for it.
+     */
+    it('never brings the icon back once a narrower lane has taken it away', () => {
+      let seenWithoutIcon = false;
+      const restored: number[] = [];
+
+      for (let available = Math.ceil(FULL) + 8; available >= 0; available -= 0.25) {
+        const fit = GridTimeFit.gridTimeFit({ available, full: FULL, icon: ICON, end: END });
+        if (!fit.time) continue;
+        if (!fit.icon) seenWithoutIcon = true;
+        else if (seenWithoutIcon) restored.push(available);
+      }
+
+      expect(seenWithoutIcon).toBe(true);
+      expect(restored).toEqual([]);
+    });
+
+    it('spends the icon before the end time at a lane that can hold only one of them', () => {
       expect(
         GridTimeFit.gridTimeFit({ available: START + ICON, full: FULL, icon: ICON, end: END }),
-      ).toEqual({ time: true, icon: true, end: false });
+      ).toEqual({ time: true, icon: false, end: false });
     });
 
     /**

@@ -14,17 +14,24 @@
  *
  *   1. clock icon, start and end
  *   2. start and end
- *   3. clock icon and start
- *   4. start
- *   5. nothing
+ *   3. start
+ *   4. nothing
  *
  * Truncation is not a rung. An ellipsis is an honest mark on a title and a false statement
  * inside a clock reading -- "10:00 - 1..." for an event that ends at 12:00 reads as ending
- * at one o'clock. The end time is the first content to go because a grid block already
- * draws it, as its own bottom edge; the clock icon goes before that because it repeats what
- * the row's position in the block already says. Where the end time is not drawn at all the
- * ladder collapses to two rungs on its own, with no case analysis: rungs 1 and 3 coincide,
- * as do 2 and 4.
+ * at one o'clock. The clock icon is the first thing to go because it repeats what the row's
+ * position in the block already says; the end time goes next because a grid block already
+ * draws it, as its own bottom edge. Where the end time is not drawn at all, rungs 2 and 3
+ * coincide -- same test, same result -- and the ladder collapses on its own, with no case
+ * analysis.
+ *
+ * There is deliberately no "clock icon and start" rung between 2 and 3, and adding one
+ * reintroduces a defect rather than a nicety. An end time is always wider than the icon --
+ * " - 12:00" measures 39.1px against the icon's 18px at the shipped type scale -- so a
+ * `full - end` test is strictly looser than `full - icon`. A ladder holding both therefore
+ * drops the icon, brings it back one rung later, and drops it again, so the icon blinks off
+ * and on as a lane narrows. That is not an edge case: measured across 110 real blocks it
+ * fired on every one of the 55 that draw an end time, and on none of the 55 that do not.
  */
 
 /** Sub-pixel rounding tolerance, matching the title fitter's. No design slack beyond it. */
@@ -197,7 +204,6 @@ export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
 
   if (full <= budget) return { time: true, icon: true, end: true };
   if (full - icon <= budget) return { time: true, icon: false, end: true };
-  if (full - end <= budget) return { time: true, icon: true, end: false };
   if (full - icon - end <= budget) return { time: true, icon: false, end: false };
 
   return HIDDEN;
