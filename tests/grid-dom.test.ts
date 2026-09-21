@@ -1,11 +1,16 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
+import { GRID_DETAIL_ROWS } from '../src/calendar-card-pro';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
+import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 import * as GridUtils from '../src/utils/grid';
 
@@ -2637,6 +2642,37 @@ describe('the grid reuses the shared leaves', () => {
     expect(geometry(blocks[0]).height).toBeLessThan(geometry(blocks[1]).height);
   });
 
+  it('emits the title above every detail row it discloses', () => {
+    // The wrapped time rung's height negotiation depends on this. It pays for a second line
+    // before the withdrawal loop runs, and the title-fit pass runs after it -- which is only
+    // safe if a taller time row cannot reflow the title. In a flex-start column of
+    // `flex: 0 0 auto` items (pinned in `stylesheet.test.ts` and `grid-disclosure.test.ts`),
+    // growing a later sibling cannot move an earlier one, so the argument reduces to source
+    // order. Reconciled against `GRID_DETAIL_ROWS`, which is the withdrawal loop's own list,
+    // and matched the way that loop matches -- by descendant search, since a detail row need
+    // not be a direct child of the content box.
+    const container = renderGrid(
+      [{ ...timed(18, '09:00', '12:00', 'Long review'), location: 'Room 2' }],
+      buildConfig({ view: 'grid', show_location: true, show_progress_bar: true }),
+    );
+    const content = requireElement(container, '.grid-event-disclosure .event-content');
+    const summary = requireElement(content, '.summary-row');
+
+    let found = 0;
+    for (const row of GRID_DETAIL_ROWS) {
+      const element = content.querySelector(row.selector);
+      if (!element) continue;
+      found += 1;
+      expect(
+        summary.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${row.selector} must be emitted after the title`,
+      ).toBeTruthy();
+    }
+    // A denominator, so an empty loop cannot pass as agreement. This caught exactly that:
+    // the first version of this test matched direct children only, drew nothing, and passed.
+    expect(found, 'no detail row was drawn, so nothing above was tested').toBeGreaterThan(1);
+  });
+
   it('renders day headers through the shared column-style header leaf', () => {
     const container = renderGrid(
       // An all-day event as well as a timed one, so there is a band for the spanning rule
@@ -2790,5 +2826,73 @@ describe('malformed events do not crash grid rendering', () => {
     const events = container!.querySelectorAll('.grid-event');
     expect(events.length, 'only the well-formed event may reach the grid').toBe(1);
     expect(events[0].textContent).not.toContain('Inverted');
+  });
+});
+
+/**
+ * The split end time is emitted by one caller and styled by a rule that is deliberately not
+ * scoped to that caller. This reconciles the two.
+ *
+ * `.time span` sets `display: inline-block` and `vertical-align: middle` on every span in a
+ * time row. Both are wrong for `.time-end`: as a block container it swallows the leading
+ * space of its own separator and renders `10:0012:00`, and as a middle-aligned box it sits
+ * off the baseline its start time is on -- measured at 0.625px on 74 of 74 live rows before
+ * the reset was added. The rule that resets both therefore has to reach `.time-end`
+ * wherever it is drawn, not wherever it happens to be drawn today.
+ *
+ * Scoping it to `.grid-event-disclosure` would be correct right now and would arm both
+ * traps for the next view that sets `splitTimeEnd: true` -- the `normalizeEntities` /
+ * `serializeEntities` shape, where a note describes a hazard completely and correctly for
+ * its neighbour and protects only itself. So the rule is unscoped, which is inert for every
+ * view that does not emit the element, and this pins that it stays that way.
+ *
+ * Reconciled rather than listed: the callers are enumerated from source, so a second one
+ * fails here instead of relying on its author having read the comment. Both directions
+ * fail -- an added caller and a removed one.
+ */
+describe('the split end time and the rule that aligns it', () => {
+  it('resets the row-wide span styling wherever a view draws a split range', () => {
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // The reset must not name a view. Anchored on the rule's own opening brace so a
+    // descendant selector ending in the same text cannot satisfy it.
+    const reset = css.match(/(^|[},]\s*)([^{},]*\.time-end)\s*\{([^}]*display:\s*inline;[^}]*)\}/m);
+    expect(reset, 'no base .time-end rule setting display: inline').not.toBeNull();
+
+    const selector = reset![2].trim();
+    expect(selector).toBe('.time .time-actual .time-end');
+    expect(selector).not.toContain('grid-event-disclosure');
+    expect(reset![3]).toContain('vertical-align: baseline;');
+
+    // The source of what is being reset. If this stops saying `middle` the reset becomes a
+    // no-op that still reads as load-bearing, which is the failure this pair exists to make
+    // visible from either side.
+    expect(css).toMatch(
+      /\.time span,[^{]*\{[^}]*display:\s*inline-block;[^}]*vertical-align:\s*middle;/,
+    );
+
+    // The rungs stay grid-scoped on purpose: those are fit-ladder decisions and the ladder
+    // runs only in grid. A denominator, so an empty match set cannot read as agreement.
+    const scoped = [...css.matchAll(/\.grid-event-disclosure[^{]*\.time-end\s*\{/g)];
+    expect(scoped.length, 'the grid-scoped .time-end rungs went missing').toBeGreaterThan(1);
+  });
+
+  it('is reconciled against every caller that asks for a split end time', () => {
+    const dir = join(process.cwd(), 'src/rendering');
+    const callers = readdirSync(dir)
+      .filter((name) => name.endsWith('.ts'))
+      .filter((name) => /splitTimeEnd:\s*true/.test(readFileSync(join(dir, name), 'utf-8')))
+      .sort();
+
+    // Pinned by value, so adding a view that draws a split range fails here and sends its
+    // author to the comment above rather than letting the new view inherit `inline-block`
+    // and `middle` unnoticed. The unscoped rule already covers such a view; this is what
+    // makes that a checked fact rather than a hope.
+    expect(callers).toEqual(['grid.ts']);
+
+    // And the flag defaults off, which is why every other view is unaffected. Without this
+    // the pin above passes just as happily if the default flipped to true.
+    const leaves = readFileSync(join(process.cwd(), 'src/rendering/leaves.ts'), 'utf-8');
+    expect(leaves).toMatch(/splitTimeEnd\s*=\s*false/);
   });
 });

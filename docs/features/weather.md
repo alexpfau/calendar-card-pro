@@ -203,6 +203,39 @@ A column card falls back to the list layout on a narrow screen, where the same
 does the right thing in each layout rather than needing an exception.
 :::
 
+## 🌤️ Weather In The Grid Layout
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_weather.png" alt="Weather on the day headers of a four-day grid card"><br>
+
+Grid view puts day-header weather in the date row above each column, where it reads as a
+label for the whole day rather than for any one event. The header has more room than a
+column track, so the condition, the high and the low all fit side by side:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: grid
+days_to_show: 4
+weather:
+  entity: weather.forecast_home
+  position: date
+  date:
+    show_conditions: true
+    show_high_temp: true
+    show_low_temp: true
+    icon_size: '16px'
+    font_size: '12px'
+```
+
+::: tip Keep The Card Inside Forecast Range
+A daily forecast reaches only a few days ahead, so the last columns of a seven-day grid
+will have no weather to show. Four or five days keeps every column inside range; beyond
+that, the date row simply omits what the forecast does not cover.
+:::
+
+Event-position weather works the same way in grid as in column — see the section above.
+
 ## ✨ Benefits & Use Cases
 
 Weather integration is particularly useful for:

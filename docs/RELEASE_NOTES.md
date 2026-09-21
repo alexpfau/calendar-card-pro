@@ -4,86 +4,89 @@ title: Release Notes
 
 # Calendar Card Pro v5.0.0
 
+![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)
+
 **Grid view for your calendar, direct controls for each layout.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
 
 ## 🎉 New Features
 
 ### 🗓️ Grid View
 
-Set `view: grid` and the card stops being a list. Days become columns against a shared hour axis, and an event is drawn where it starts and as tall as it lasts, so a morning stacked with meetings looks different from an empty one before you read a word of it. Events happening at once sit side by side, and when more overlap than will fit, the rest collapse into a counted `+N` block rather than disappearing.
+Set `view: grid` and the card stops being a list. Days become columns against a shared hour axis, and an event is drawn where it starts and as tall as it lasts, so a morning stacked with meetings looks different from an empty one at a glance. Events happening at once sit side by side, and when more overlap than will fit, the rest collapse into a counted `+N` block.
 
-- **Events sized and placed by their real time** - A block's position and height come from the event's own start and end, which is what makes the shape of a day readable at a glance. Multi-day timed events are drawn in each day they touch. (#300, #206)
-- **A line across today at the current time** - `show_now_line` draws it, `now_line_color` colors it. Only today's column carries it, and only while the current time is inside the visible hours — a line clamped to an edge would say something false. (#325)
-- **An all-day band above the axis** - All-day events sit between the day headers and the grid, with multi-day all-day events spanning their included dates. Timed multi-day events stay on the hour axis. `allday_band_max_rows` caps how tall the band may grow.
-- **The axis is yours to set** - `start_time` and `end_time` choose the hours drawn, `hour_height` how tall an hour is, `slot_minutes` how finely it is ruled, `axis_label_minutes` how often it is labeled, and `axis_width` how wide the hour gutter sits. `show_axis_labels` turns the labels off entirely.
-- **It gives way gracefully when narrow** - `min_day_width` sets how narrow a day column may get before the grid sheds one, `min_days_to_show` the fewest it will shrink to, and `min_days_fallback` what happens when even that will not fit — fall back to the list, or cramp. The same flexible width machinery column view already uses.
-- **Blocks reveal more as they grow** - Short timed blocks keep every calendar label alongside the title, trying smaller vertical insets before reducing the whole group in 1px font steps. Each text part keeps a 10px minimum, or its smaller authored size. The compact line is centered and static; a block too small for useful text stays visually empty while its configured information remains accessible. Taller blocks keep normal typography and add time, progress, location, description and weather. Unlimited normal titles can still clip at the block's edge; use line limits when you want an ellipsis.
-- **Grid defaults you can edit directly** - Grid starts with filled event blocks, empty days and past events kept, a hairline between day columns, and a full-width progress bar. The Grid workspace shows each option's effective value and where it comes from. Editing a control writes its Grid value into `time_grid:`; untouched defaults stay out of YAML.
+- **Events sized and placed by their real time** - A block's position and height come from the event's own start and end, which is what makes the shape of a day readable at a glance. Multi-day timed events are drawn in each day they touch (#300, #206)
+- **A line across today at the current time** - `show_now_line` draws it, `now_line_color` colors it. Only today's column carries it, and only while the current time is inside the visible hours — a line clamped to an edge would say something false (#325)
+- **An all-day band above the axis** - All-day events sit between the day headers and the grid, spanning their included dates, while timed multi-day events stay on the hour axis. `allday_band_max_rows` caps how tall the band may grow
+- **The axis is yours to set** - `start_time` and `end_time` choose the hours drawn, `hour_height` how tall an hour is, `slot_minutes` how finely it is ruled, `axis_label_minutes` how often it is labeled, and `axis_width` how wide the hour gutter sits. `show_axis_labels` turns the labels off entirely
+- **It gives way gracefully when narrow** - `min_day_width` sets how narrow a day column may get before the grid sheds one, `min_days_to_show` the fewest it will shrink to, and `min_days_fallback` what happens when even that will not fit — fall back to the list, or cramp
+- **Blocks reveal more as they grow** - A short block keeps its title and every calendar label, shrinking the type a step at a time rather than dropping anything. Give it more height and it adds the time, then progress, location, description and weather — so a half-hour meeting stays readable while an afternoon workshop shows what it is for
+- **Grid defaults you can edit directly** - Grid starts with filled event blocks, empty days and past events kept, a hairline between day columns, and a full-width progress bar. The Grid workspace shows each option's effective value and where it comes from, and untouched defaults stay out of YAML
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
 
+### ✨ Ruling the Axis, and Banners That Show Where They Stop
+
+- **Lines you can set family by family** - Grid starts with one rule per hour and a narrow gutter between days. Choose 15-, 20-, or 30-minute ruling with `slot_minutes` and set the label cadence separately with `axis_label_minutes`. Each family of lines has its own width and color — `day_separator_*` between columns, `day_header_separator_*` below the date row, `allday_band_line_*` below the all-day band, and `hour_line_*` across the axis — all starting from the theme's divider gray
+- **All-day banners with shaped ends** - A banner has rounded ends where its event begins or finishes, and squared ends with continuation marks where it runs past the visible span, so you can tell at a glance whether a holiday started before the week you are looking at. Banners use their fill instead of an accent bar; timed blocks keep the bar
+
+See [Ruling the Axis](https://calendar-card-pro.alexpfau.com/features/grid-view#ruling-the-axis).
+
 ### 🎛️ Configure the View You Mean
 
-**Card Displays** chooses the card's starting layout. **Editing Settings For** chooses **All Layouts**, **List**, **Columns**, or **Grid**, independently of what the card displays. The workspace is not saved in YAML.
+**Card Displays** chooses the card's starting layout. **Editing Settings For** chooses **All Layouts**, **List**, **Columns**, or **Grid**, independently of what the card displays — so you can set a layout up without switching the card to it. The workspace itself is not saved in YAML.
 
-- **Edit the value the layout uses** - All Layouts writes the shared top level. List, Columns, and Grid show their effective values and write to `list:`, `column:`, and `time_grid:`. Helper text distinguishes inherited values, layout defaults, and explicit overrides. Reset removes a view's override without changing another layout.
-- **See only relevant controls** - Each workspace withholds options that its renderer cannot use, including per-calendar options. Search and Customized Only stay within that workspace.
-- **Keep your choices when switching to Grid** - An editor transition to Grid copies authored shared choices into missing divergent Grid overrides, with one notice naming the options kept instead of Grid defaults. Existing Grid overrides win. Opening an already-Grid v5-format card does not copy shared values.
-- **Keep default configurations short** - A fresh Grid card needs no `time_grid:` block. Untouched defaults are neither saved nor counted as customizations. Explicit overrides of divergent Grid defaults remain until Reset, even when they equal that default.
+- **Edit the value the layout uses** - All Layouts writes the shared top level; List, Columns, and Grid show their effective values and write to `list:`, `column:`, and `time_grid:`. Helper text distinguishes inherited values, layout defaults, and explicit overrides, and Reset removes one view's override without touching another
+- **See only relevant controls** - Each workspace withholds the options its renderer cannot use, including per-calendar ones, so you are never offered a setting that would do nothing. Search and Customized Only stay within that workspace
+- **Keep your choices when switching to Grid** - Moving a card to Grid copies the shared choices you authored into the Grid overrides that would otherwise diverge, with one notice naming what it kept. Existing Grid overrides win
+- **Keep default configurations short** - A fresh Grid card needs no `time_grid:` block at all. Untouched defaults are neither saved nor counted as customizations
 
-List values stay in `list:`; they are not the shared base. Calendars, title, language, and actions remain card-wide. Renderer precedence is unchanged: an explicit view value wins, then a divergent layout default, then the shared root. Explicit shared choices for divergent options survive saving and reopening, including `false`, zero, and values equal to the root default.
-
-Older cards with ambiguous shared/List values get a one-time choice: keep the existing List appearance or retain those values as shared. Unambiguous cards adopt the v5 format on their first real edit. Opening alone saves nothing, and YAML-only cards keep working without the `config_version: 5` marker. See [the visual editor guide](https://calendar-card-pro.alexpfau.com/features/editor).
-
-### 📆 Per-Calendar Splitting in Column View
-
-An individual calendar's `split_multiday_events` option now works in Column as well as List. It takes precedence over that view's card-wide choice, so one calendar can keep a multi-day event as a single entry while another splits it across days. Existing Column cards that already set this per-calendar option now follow it. Grid derives its own daily coverage and does not use this option. See [per-calendar options](https://calendar-card-pro.alexpfau.com/features/core-settings#available-options-for-entity-configuration-objects).
-
-### 🔭 What Comes After This
-
-Grid view draws a block as tall as its event lasts, so a half-hour meeting gets a small box — and no amount of layout work makes a small box hold a description. This release answers that by revealing detail as a block grows: title first, then time, then location, description and weather. That is the right answer for reading a day at a glance, and deliberately not a way to read everything.
-
-The next feature release takes the other half. Tapping an event will open its details, and from there you will be able to add an event, change one, or remove it where the calendar supports it. It is tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604), and it is the reason grid view does not try to cram everything into a block.
-
-### 🌗 Weekend Shading
-
-**A week you can read without reading it.** Grid view tints its weekend columns, so the shape of a week — five days of work and two of rest — is visible before you read a single date. `time_grid: { weekend_background_color: … }` takes any CSS color and `transparent` turns it off; the default is a mix of the theme's own text color, which darkens a light theme and lightens a dark one. Grid only, because a grid column stands the same height whatever is in it and a column-view column does not. See [Shading the Weekend](https://calendar-card-pro.alexpfau.com/features/grid-view#shading-the-weekend).
-
-### 🌍 The Weekend Is Not Always Saturday and Sunday
-
-**The card now asks Home Assistant which days you rest.** It used to answer Saturday and Sunday for everybody — wrong in every Arabic- and Hebrew-speaking region, where the weekend is Friday and Saturday, wrong in Persian, where it is Friday alone, and wrong across much of India, where it is Sunday alone. Your Home Assistant language decides it now, which reaches everything that asks: the weekend shading above, the `weekend_*` date colors, and the per-calendar `days_of_week` filter, so all three agree about a Friday instead of contradicting each other on the same row. Nothing changes for a Saturday–Sunday household. See [Showing a Calendar on Weekdays Only](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only).
+Older cards whose shared and List values are ambiguous get a one-time choice: keep the existing List appearance, or keep those values as shared. Unambiguous cards adopt the v5 format on their first real edit, and YAML-only cards keep working without the `config_version: 5` marker. See [the visual editor guide](https://calendar-card-pro.alexpfau.com/features/editor).
 
 ### 🎨 Event Text in Calendar Colors
 
-**Each event's text is drawn in its own calendar's color.** Write `accent` into `event_color`, `time_color`, `location_color`, `description_color` or `progress_bar_color` and that field follows the calendar the event came from, the way macOS Calendar tints a block's text to match its calendar — so a glance at a busy day tells you whose it is before you read a word. It is a value rather than a mode, so the five stay independent: `time_color: accent` tints only the time. Grid view starts all five at `accent`, because a block is a tinted box and colored text on that ground reads as one thing; list and column view accept it but leave it off. An empty day and the `+N` overflow block remain neutral because neither belongs to one calendar. An event weather badge does: when its own color is unset, it follows the event accent whenever `event_color` is `accent`, while an explicit weather color still wins. The text is not the raw accent — it is the accent mixed toward `--primary-text-color`, the way macOS Calendar draws a block's text a shade different from its bar, which darkens a pale accent on a light theme and lightens a dark one on a dark theme. Measured against a grid block's own tint, a coral calendar went from 2.3:1 to 7.4:1 in a light theme and a purple one from 1.9:1 to 5.5:1 in a dark one. The progress bar is the exception and stays at full strength, being a bar rather than something to read. See [Event Text in Calendar Colors](https://calendar-card-pro.alexpfau.com/features/event-content#event-text-in-calendar-colors).
+- **`accent`, in any of five color options** - Write `accent` into `event_color`, `time_color`, `location_color`, `description_color` or `progress_bar_color` and that field follows the calendar its event came from, so a glance at a busy day tells you whose it is. The five stay independent, so `time_color: accent` tints only the time. Grid starts all five at `accent`; list and column accept it but leave it off. The text is the accent mixed toward the theme's own text color, so it stays readable on a tinted block
 
-### 🌗 How Faded a Finished Event Looks
-
-**The dimming on past events is yours to set.** A finished event has always been drawn at 60% strength, and that number was fixed. `past_event_opacity` takes anything from 0 to 100, including fractions, so a calendar kept as a log — where almost everything is in the past — can stop looking uniformly greyed out. `100` removes the dimming entirely; `0` makes the contents transparent while keeping the row, its actions and its accessible name, which is not the same as hiding it. It is settable per view, so finished events can stay bright in Grid and stay faded in the list. Only the contents dim: titles, labels, pictures, icons and the detail rows still eligible to appear. Backgrounds, accent stripes and date headers are untouched, and an invalid value is ignored rather than clamped. See [Past Events Display](https://calendar-card-pro.alexpfau.com/features/event-content#past-events-display). (#176)
-
-### ✨ Grid Lines & Banner Shapes
-
-Grid starts with one rule per hour and a narrow gutter between days. Choose 15-, 20-, or 30-minute ruling with `slot_minutes`, and set the label cadence independently with `axis_label_minutes`. Each family of lines has its own width and color: `day_separator_*` between columns, `day_header_separator_*` below the date row, `allday_band_line_*` below the all-day band, and `hour_line_*` across the time axis. All start with the theme's divider gray.
-
-All-day banners have rounded ends where the event begins or finishes and squared ends with continuation marks where it extends beyond the visible span. Banners use their fill instead of an accent bar; timed blocks keep the bar. See [Ruling the Axis](https://calendar-card-pro.alexpfau.com/features/grid-view#ruling-the-axis).
+See [Event Text in Calendar Colors](https://calendar-card-pro.alexpfau.com/features/event-content#event-text-in-calendar-colors).
 
 ### ↔️ Scrolling Long Titles
 
-**Long titles finally have somewhere to go.** Turn on `scroll_long_titles` and a title too wide for its space is kept to one line and scrolls sideways — when, and only when, it actually overflows — so the end of a long meeting subject can still be read instead of wrapping the row taller or being lost. A title that already fits never moves. Titles travel at one steady pace rather than each picking its own, so a slightly-too-long one and a very long one read at the same speed rather than one crawling while the other races. On a card showing several of them they set off **together**, which is what keeps a list from looking like a wall of independent tickers: each pauses briefly at its ending, returns quickly on its own, then waits at its **beginning** until the next shared start — so a short title sits showing you its opening words while the longest one is still finishing. Browsers without the timing support behind that keep the earlier independent motion. It respects the system **reduce motion** setting and stops while the card is scrolled off-screen, and because it forces a single line it takes the place of `title_max_lines` for as long as it is on. Off by default, and settable per view — a natural pairing is to scroll only in the narrow grid columns and leave the roomier list wrapping. See [Scrolling Long Titles](https://calendar-card-pro.alexpfau.com/features/event-content#scrolling-long-titles). (#374)
+- **`scroll_long_titles`** - A title too wide for its space is kept to one line and scrolled sideways — when, and only when, it actually overflows — so the end of a long meeting subject can be read instead of wrapping the row taller or being lost. Visible titles travel at one steady pace and set off together, rather than each running as its own ticker. It respects the system reduce-motion setting, stops while the card is off-screen, and replaces `title_max_lines` while it is on. Off by default, settable per view (#374)
 
-Grid's compact short-title fallback stays static, with all labels retained; normal scrolling
-returns when more height is available.
+See [Scrolling Long Titles](https://calendar-card-pro.alexpfau.com/features/event-content#scrolling-long-titles).
+
+### 🌍 Weekends, Wherever You Are
+
+- **Weekend shading in grid view** - `time_grid: { weekend_background_color: … }` tints the weekend columns, so the shape of a week is visible before you read a single date. Any CSS color works and `transparent` turns it off; the default is a mix of the theme's own text color, which darkens a light theme and lightens a dark one. Grid only, because a grid column stands the same height whatever is in it and a column-view column does not
+- **The card now asks Home Assistant which days you rest** - It used to answer Saturday and Sunday for everybody — wrong across the Arabic- and Hebrew-speaking world, where the weekend is Friday and Saturday, wrong in Persian, where it is Friday alone, and wrong across much of India, where it is Sunday alone. Your Home Assistant language decides it now, and that reaches the shading above, the `weekend_*` date colors and the per-calendar `days_of_week` filter alike. Nothing changes for a Saturday–Sunday household
+
+See [Shading the Weekend](https://calendar-card-pro.alexpfau.com/features/grid-view#shading-the-weekend) and [Showing a Calendar on Weekdays Only](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only).
+
+### 🌘 How Faded a Finished Event Looks
+
+- **`past_event_opacity`** - A finished event has always been drawn at 60% strength, and that number was fixed. This takes anything from 0 to 100, so a calendar kept as a log can stop looking uniformly greyed out. `100` removes the dimming entirely; `0` makes the contents transparent while keeping the row, its actions and its accessible name. Settable per view, and only the contents dim — backgrounds, accent stripes and date headers are untouched (#176)
+
+See [Past Events Display](https://calendar-card-pro.alexpfau.com/features/event-content#past-events-display).
+
+### 📆 Per-Calendar Splitting in Column View
+
+- **`split_multiday_events`, per calendar, now applies in Column** - It takes precedence over that view's card-wide choice, so one calendar can keep a multi-day event as a single entry while another splits it across days. Existing Column cards that already set this per-calendar option now follow it; Grid derives its own daily coverage and does not use it
+
+See [per-calendar options](https://calendar-card-pro.alexpfau.com/features/core-settings#available-options-for-entity-configuration-objects).
+
+### 🔭 What Comes After This
+
+A block is only as tall as its event lasts, so no amount of layout work makes a half-hour meeting hold a description — which is why grid view reveals detail as a block grows. The other half comes next: tapping an event to open, change or remove it where the calendar supports it, tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604).
 
 ## 🐛 Bug Fixes
 
-These fixes address behavior present in v4.2, including the shared processing and lifecycle paths used by the new Grid view.
+These fixes address behavior present in v4.2, including the shared processing and lifecycle paths the new Grid view uses.
 
 ### Tap & Hold
 
 - **Every default card fired an action on every tap** - `tap_action` and `hold_action` both default to `none`, but the card dispatched the action to Home Assistant anyway, on every tap, Enter and Space, in every view. Harmless in effect, since `none` asks Home Assistant to do nothing, but it should never have been sent
 - **A card with no actions still looked and focused like a button** - The default card showed a hand cursor and ripple and accepted keyboard focus even though neither tap nor hold could do anything. Those affordances now appear only when an action is configured
-- **A second finger could steal a press and strand its gray hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action the user started with the first. If the indicator was already drawn, the first disc could also stay on the dashboard until the page was reloaded
-- **The hold disc appeared nowhere near your finger on a scrolled dashboard** - The gray disc marking a hold in progress was positioned with page coordinates against an element that ignores the page scroll, so the further down the dashboard you had scrolled, the further above your finger it was drawn — hundreds of pixels adrift on a long dashboard. It now follows the touch wherever the page sits
+- **A second finger could steal a press and strand its gray hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action started with the first — and an indicator already drawn could stay on the dashboard until the page was reloaded
+- **The hold disc appeared nowhere near your finger on a scrolled dashboard** - The gray disc marking a hold in progress was positioned with page coordinates against an element that ignores the page scroll, so the further down you had scrolled, the further above your finger it was drawn. It now follows the touch wherever the page sits
 - **Sliding off the card canceled a hold you were still making** - The press continued, but the gesture ended the moment the pointer crossed the card's edge
 - **Right and middle mouse buttons could start a hold** - Only the primary button should, and releasing a secondary button during a primary gesture could end it early
 
@@ -98,16 +101,16 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 
 - **Calendar pictures and icons sat below their title text** - Labels and adjacent titles now align vertically at their centers, including merged labels
 - **Limiting title lines put the label on a row of its own** - List and Column now clamp the label and title together, keeping them inline when there is room instead of always moving the title below its label
-- **Limiting the weather line split it in two** - Setting `weather → event → max_lines` pushed the condition onto a line of its own, carrying its separator down with it, so a row meant to read `28° · Cloudy` showed `28°` above `· Cloudy` — at any width, with room to spare, in every view. The clamp needs a box the browser treats as a block, and that was what broke the line; the inline-level equivalent clamps exactly as well and keeps the condition beside the temperature
+- **Limiting the weather line split it in two** - Setting `weather → event → max_lines` pushed the condition onto a line of its own, carrying its separator down with it, so a row meant to read `28° · Cloudy` showed `28°` above `· Cloudy` — at any width, in every view. The clamp needed a box the browser treats as a block; the inline-level equivalent clamps just as well and keeps the condition beside the temperature
 - **An empty card could stay visible after its last event expired** - The events disappeared, but `hide_when_empty` reused an earlier count until the next calendar fetch. It now follows the current clock on every repaint, including all-day expiry and a date window moving past yesterday
 - **Expanding a compact card, then switching layouts, filled the window** - After expanding, a card switched to column view could ignore `show_empty_days: false` and render every empty day in the window
 - **An empty day's text could be styled per view but its color could not** - `empty_day_text` accepted a `column:` override and `empty_day_color` did not, although the card honors both in exactly list and column view. Setting the color inside a `column:` block silently did nothing; it now applies, so a placeholder can be toned down in columns without changing the list
-- **A finished day's "no events" notice stayed bright** - With past events shown, an empty-day placeholder was drawn at full strength however old its date was, so a finished Monday's notice sat undimmed beside the finished meetings around it. A displayed notice is now judged past on its own local date and fades with everything else. Today's notice stays at full strength for the whole of today
+- **A finished day's "no events" notice stayed bright** - With past events shown, an empty-day placeholder was drawn at full strength however old its date was, so a finished Monday's notice sat undimmed beside the finished meetings around it. It is now judged past on its own local date and fades with everything else, while today's stays bright all day
 
 ### Events & Language
 
-- **The empty-day message promised something it could not keep** - The default read "No upcoming events" on every empty day, including days already behind you, which are not waiting for anything. It now reads "No events" — in all 35 languages, several of which were carrying the same promise in their own words, and one of which said "no more events for today" on days that were not today. A custom `empty_day_text` is untouched, and the old wording still works if you set it yourself
-- **A filtered duplicate could hide an event that still qualified** - When the first calendar excluded a date or had already expired an all-day event, duplicate filtering also discarded eligible copies from later calendars. It now chooses among eligible copies, with shared labels and colors reflecting those contributors. The same change puts view blocks under the card's own numeric rules, so a quoted `days_to_show: '7'` inside `column:` is read as the number it looks like rather than as text
+- **The empty-day message promised something it could not keep** - The default read "No upcoming events" on every empty day, including days already behind you, which are not waiting for anything. It now reads "No events" — in all 35 languages, several of which were carrying the same promise in their own words. A custom `empty_day_text` is untouched
+- **A filtered duplicate could hide an event that still qualified** - When the first calendar excluded a date or had already expired an all-day event, duplicate filtering also discarded eligible copies from later calendars. It now chooses among eligible copies, with shared labels and colors reflecting those contributors
 - **Midnight could add a day the event did not cover** - A split List or Column event spanning several days could gain an extra `00:00–00:00` row. An exact midnight end now stays exclusive on every segment
 - **An anniversary could gain a year halfway through** - Split List and Column events crossing New Year now keep their original occurrence year on every row, rather than increasing the count on January 1
 - **One malformed event could break valid calendars** - Unusable dates or non-string event text are now rejected individually and reported in the log, instead of crashing processing or rendering for the valid events beside them
@@ -115,12 +118,12 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 
 ## Related Issues
 
-- [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Configurable time-grid ruling, events positioned by start time, and seven day columns on a full-width card; Grid completes the time-axis request left open after Column shipped
-- [#206](https://github.com/alexpfau/calendar-card-pro/issues/206) - Size an event by its duration — answered by the block geometry
-- [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view — answered by `show_now_line`
+- [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Configurable time-grid ruling, events positioned by start time, and seven day columns on a full-width card by @rozrabiak; Grid completes the time-axis request left open after Column shipped
+- [#206](https://github.com/alexpfau/calendar-card-pro/issues/206) - Size an event by its duration by @ak-uma — answered by the block geometry
+- [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view by @junkiness — answered by `show_now_line`
 - [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The original issue/proposal by @lenaxia, whose design and configuration choices informed Grid. This is not a merged pull request or full parity with the proposal; **do not close** it as fully implemented. Paging and the event-detail popup remain separate work in [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) and [#241](https://github.com/alexpfau/calendar-card-pro/issues/241)
 - [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
-- [#176](https://github.com/alexpfau/calendar-card-pro/issues/176) - Asked for newest-first sorting on a calendar kept as a log, and in the discussion for a way to switch off the 60% dimming on past events. `past_event_opacity` answers the second in full; sorting newest first is untouched, so **do not close** it
+- [#176](https://github.com/alexpfau/calendar-card-pro/issues/176) - Asked for newest-first sorting on a calendar kept as a log by @iKaew, and in the discussion for a way to switch off the 60% dimming on past events. `past_event_opacity` answers the second in full; sorting newest first is untouched, so **do not close** it
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0
 

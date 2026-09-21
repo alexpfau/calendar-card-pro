@@ -7,6 +7,7 @@ import {
   gridContentOverflows,
   resolveLineHeightPx,
 } from '../src/calendar-card-pro';
+import { cardStyles } from '../src/rendering/styles';
 
 describe('grid disclosure safety', () => {
   it('tolerates a one-pixel rounding difference but detects a clipped detail row', () => {
@@ -1012,5 +1013,188 @@ describe('grid disclosure observer lifecycle', () => {
         delete (document as any).fonts;
       }
     }
+  });
+});
+
+/**
+ * The wrapped time rung's height negotiation.
+ *
+ * The rung is decided on width by a pure function, and paid for in height by this pass.
+ * What is pinned here is not that the arithmetic works -- `grid-time-fit.test.ts` has the
+ * arithmetic -- but the constraint the feature was allowed to ship under: **wrapping must
+ * not cost any other row its place.** A block that can afford the second line keeps
+ * everything; a block that cannot gives the line back and ends up byte-identical to a block
+ * that was never offered one.
+ *
+ * The marginal case -- content that fits on one line and overflows on two -- does not occur
+ * anywhere on the published 24-hour dashboard, so it cannot be inherited from a live
+ * capture and has to be constructed here. That is the whole reason this file carries it.
+ */
+describe('grid disclosure wrapped time rung', () => {
+  const ICON = 18;
+  const START = 29.86;
+  const END = 39.12;
+  const FULL = ICON + START + END;
+  const WRAPPED = 36.14;
+  const LINE = 14.4;
+
+  /**
+   * One narrow-lane block whose time row can wrap, with layout stubbed.
+   *
+   * happy-dom has no layout engine, so every width the fitter reads is supplied here. The
+   * row's own width answers differently depending on whether the wrap class is set, which
+   * is exactly what the browser does and what the measurement phase depends on.
+   *
+   * @param lane Content-box width of the time row
+   * @param clientHeight Height the disclosed content has
+   * @param baseScrollHeight Height the content needs with the time row on one line
+   * @returns The card, its nodes, and the pass under test
+   */
+  function block(lane: number, clientHeight: number, baseScrollHeight: number) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time"><span class="time-actual"><ha-icon></ha-icon><span>10:00<span class="time-end"> - 12:00</span></span></span></div>
+            <div class="location"><span>Office</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const disclosure = root.querySelector<HTMLElement>('.grid-event-disclosure')!;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const time = root.querySelector<HTMLElement>('.time')!;
+    const icon = root.querySelector<HTMLElement>('ha-icon')!;
+    const end = root.querySelector<HTMLElement>('.time-end')!;
+    const location = root.querySelector<HTMLElement>('.location')!;
+
+    const wrapping = () => disclosure.classList.contains('grid-time-wrap');
+    const rect = (width: number) => () => ({ width, height: 0 }) as DOMRect;
+    // The row needs less width wrapped, and one more line of height for it.
+    time.getBoundingClientRect = () => ({ width: wrapping() ? WRAPPED : FULL }) as DOMRect;
+    icon.getBoundingClientRect = rect(ICON);
+    end.getBoundingClientRect = rect(END);
+    Object.defineProperty(time, 'clientWidth', { value: lane });
+
+    for (const row of [time, location]) {
+      row.getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    }
+    Object.defineProperties(content, {
+      clientHeight: { value: clientHeight },
+      scrollHeight: {
+        get: () => {
+          const withdrawn = [time, location].filter((row) =>
+            row.classList.contains('grid-event-detail-clipped'),
+          ).length;
+          return baseScrollHeight + (wrapping() ? LINE : 0) - withdrawn * LINE;
+        },
+      },
+    });
+
+    return { card, disclosure, content, location };
+  }
+
+  const rungOf = (disclosure: HTMLElement) =>
+    ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end', 'grid-time-wrap'].filter((name) =>
+      disclosure.classList.contains(name),
+    );
+
+  it('wraps the end time onto a second line when the block has one to spare', () => {
+    // 46px lane and 30px of slack: the live `🧪 QA Window` block, which paints `10:00` today
+    // and has 41.8px doing nothing underneath it.
+    const { card, disclosure, content, location } = block(46, 90, 60);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-wrap']);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('gives the second line back rather than letting it withdraw another row', () => {
+    // The marginal case: 4px of slack against a 14.4px line. The width test passes, so the
+    // wrap is granted — and must then be taken away, because the only way to pay for it
+    // would be to withdraw the location.
+    const { card, disclosure, content, location } = block(46, 90, 86);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end']);
+    expect(
+      location.classList.contains('grid-event-detail-clipped'),
+      'the location must not pay for a line the time row asked for',
+    ).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('leaves a block that was already overflowing exactly where it found it', () => {
+    // A wrap offered to a block with no slack at all must change nothing about what the
+    // withdrawal loop then does. Same fixture, same lane, opposite height verdict — this is
+    // the `🎯 Sprint Review` control, which sits beside `🧪 QA Window` at the same width.
+    const wrappable = block(46, 60, 90);
+    wrappable.card._applyGridDisclosureSafety();
+
+    // The same block with a lane too narrow to wrap in, so the feature never fires.
+    const unwrappable = block(WRAPPED - 1, 60, 90);
+    unwrappable.card._applyGridDisclosureSafety();
+
+    expect(rungOf(wrappable.disclosure)).not.toContain('grid-time-wrap');
+    expect(
+      wrappable.location.classList.contains('grid-event-detail-clipped'),
+      'whatever the loop does here, it must do with or without the wrap',
+    ).toBe(unwrappable.location.classList.contains('grid-event-detail-clipped'));
+  });
+
+  it('never wraps a row whose end time is not drawn', () => {
+    const { card, disclosure } = block(46, 90, 60);
+    disclosure.querySelector('.time-end')!.remove();
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).not.toContain('grid-time-wrap');
+  });
+});
+
+/**
+ * Half of the layout fact the wrapped rung's height negotiation is built on.
+ *
+ * The demotion pass runs before the detail-row withdrawal loop, and the title-fit pass runs
+ * after it. That ordering is only safe because a taller time row cannot move the title:
+ * `.event-content` is a flex-start column, `.summary-row` is `flex: 0 0 auto`, and it
+ * precedes every detail row -- so growing a later sibling leaves every box the title pass
+ * reads exactly where it was. Nothing else enforces any of those three, and each is a
+ * one-line edit away from being false.
+ *
+ * The first two are pinned here; the DOM-order half needs a rendered grid and is pinned in
+ * `grid-dom.test.ts`, beside the other structural claims about that markup.
+ *
+ * Confirmed empirically as well as structurally, because a layout argument is exactly the
+ * kind that reads as airtight and is not. On the live dashboard the wrap class was forced
+ * on and off on one 46px block and every box `grid-title-fit.ts` reads was compared across
+ * the two frames: the event box, the disclosure, `.summary`, `.summary-row` and
+ * `.event-title` were identical to the thousandth of a pixel in top, height and width, and
+ * the rendered title kept its text and its single line. The control in the same run --
+ * `.time` itself -- moved by 14.39px, one line height, so the probe was demonstrably able
+ * to see a change and the null is not a probe that measured nothing.
+ */
+describe('grid disclosure layout order', () => {
+  it('stacks the disclosed column from the top, so the title never moves', () => {
+    const grid = cardStyles.cssText;
+    const rule = (selector: string) =>
+      grid.slice(grid.indexOf(`${selector} {`) + selector.length + 2).split('}')[0];
+
+    const content = rule('.grid-event-disclosure .event-content');
+    expect(content).toContain('flex-direction: column;');
+    // No `justify-content`, so items pack from the top and the first one never moves.
+    expect(content).not.toContain('justify-content');
+    expect(rule('.grid-event-disclosure .summary-row')).toContain('flex: 0 0 auto;');
   });
 });
