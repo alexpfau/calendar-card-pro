@@ -482,6 +482,7 @@
   "panel.actions.helper": "Hva et trykk gjør, og hvor ofte kortet leser kalenderne sine på nytt.",
   "tap_action": "Trykkehandling",
   "hold_action": "Holdehandling",
+  "card_action.option.expand.label": "Bytt kompakt/utvidet visning",
   "refresh_interval": "Oppdateringsintervall",
   "refresh_interval.helper": "Hvor lenge kortet beholder de mellomlagrede hendelsene sine før det henter på nytt.",
   "refresh_on_navigate": "Oppdater ved navigering",

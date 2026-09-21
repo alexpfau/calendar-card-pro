@@ -482,6 +482,7 @@
   "panel.actions.helper": "Co robi dotknięcie i jak często karta ponownie odczytuje kalendarze.",
   "tap_action": "Akcja dotknięcia",
   "hold_action": "Akcja przytrzymania",
+  "card_action.option.expand.label": "Przełącz Widok Kompaktowy/Rozszerzony",
   "refresh_interval": "Częstotliwość odświeżania",
   "refresh_interval.helper": "Jak długo karta przechowuje zapisane wydarzenia, zanim pobierze je ponownie.",
   "refresh_on_navigate": "Odświeżaj przy nawigacji",

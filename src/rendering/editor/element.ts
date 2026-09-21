@@ -11,6 +11,7 @@ import * as Entities from './entities';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
 import type { HaFormSchema } from './ha-form';
+import { withCardActionLabels } from './hass-localize';
 import * as EditorLocalize from './localize';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import * as Routing from './routing';
@@ -227,6 +228,20 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The `hass` every form in this editor is given.
+   *
+   * Home Assistant's action dropdown labels each option from its own string table, so the
+   * card's `expand` action would otherwise render as a raw lowercase key. The wrapper
+   * answers for card actions and delegates everything else; it is memoized on the `hass`
+   * identity, so forms downstream see a stable object.
+   *
+   * @returns A `hass` that can name this card's actions
+   */
+  private get _formHass(): Types.Hass | undefined {
+    return withCardActionLabels(this.hass, this._ctx.language);
+  }
+
+  /**
    * Builds the context the filter matches against.
    *
    * @returns Matching context for the current configuration and criteria
@@ -440,7 +455,7 @@ export class CalendarCardProEditor extends LitElement {
             html`
               <ha-form
                 class="panel-form"
-                .hass=${this.hass}
+                .hass=${this._formHass}
                 .data=${data}
                 .schema=${schema}
                 .computeLabel=${this._computeLabel}
@@ -615,7 +630,7 @@ export class CalendarCardProEditor extends LitElement {
               </div>
               <ha-form
                 class="entity-form"
-                .hass=${this.hass}
+                .hass=${this._formHass}
                 .data=${Entities.toEntityFormData(entry)}
                 .schema=${schema}
                 .computeLabel=${computeLabel}
@@ -1048,7 +1063,7 @@ export class CalendarCardProEditor extends LitElement {
       <div class="view-controls">
         <ha-form
           class="display-view-form"
-          .hass=${this.hass}
+          .hass=${this._formHass}
           .data=${data}
           .schema=${schema}
           .computeLabel=${this._computeLabel}
@@ -1058,7 +1073,7 @@ export class CalendarCardProEditor extends LitElement {
         ></ha-form>
         <ha-form
           class="workspace-form"
-          .hass=${this.hass}
+          .hass=${this._formHass}
           .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
           .schema=${Workspace.buildWorkspaceSchema(ctx.language)}
           .computeLabel=${this._computeLabel}
@@ -1101,7 +1116,7 @@ export class CalendarCardProEditor extends LitElement {
       <div class="filter-bar">
         <ha-form
           class="filter-form"
-          .hass=${this.hass}
+          .hass=${this._formHass}
           .data=${Filter.filterFormData(this._filter)}
           .schema=${Filter.FILTER_SCHEMA}
           .computeLabel=${this._computeLabel}

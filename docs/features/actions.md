@@ -99,6 +99,10 @@ The commonly used ones:
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
 :::
 
+::: tip The Editor Lists These; YAML Accepts More
+The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming `expand` means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+:::
+
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
 All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.

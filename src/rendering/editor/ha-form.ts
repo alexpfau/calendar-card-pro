@@ -39,7 +39,17 @@ export type Selector =
         sort?: boolean;
       } | null;
     }
-  | { ui_action: Record<string, never> | null }
+  | {
+      ui_action: {
+        /**
+         * The exact list the dropdown offers, replacing Home Assistant's defaults rather
+         * than extending them. Omit it to take HA's own list, which knows nothing about
+         * this card's actions.
+         */
+        actions?: ReadonlyArray<string>;
+        default_action?: string;
+      } | null;
+    }
   | { icon: Record<string, never> | null }
   | {
       entity: {

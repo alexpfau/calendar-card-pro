@@ -482,6 +482,7 @@
   "panel.actions.helper": "Ko dara pieskāriens un cik bieži karte no jauna nolasa savus kalendārus.",
   "tap_action": "Pieskāriena darbība",
   "hold_action": "Turēšanas darbība",
+  "card_action.option.expand.label": "Pārslēgt kompakto/izvērsto skatu",
   "refresh_interval": "Atjaunošanās intervāls",
   "refresh_interval.helper": "Cik ilgi karte patur saglabātos notikumus, pirms tos ielādē no jauna.",
   "refresh_on_navigate": "Atjaunot, pārejot uz skatu",

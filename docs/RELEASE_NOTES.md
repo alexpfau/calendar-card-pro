@@ -83,6 +83,7 @@ These fixes address behavior present in v4.2, including the shared processing an
 
 ### Tap & Hold
 
+- **The visual editor stopped offering the expand action** - `tap_action: expand` kept working in YAML, but the dropdown has listed only Home Assistant's own actions since v4.0, so there was no way to choose it in the UI. It is back at the top of both lists, named in every editor language
 - **Every default card fired an action on every tap** - `tap_action` and `hold_action` both default to `none`, but the card dispatched the action to Home Assistant anyway, on every tap, Enter and Space, in every view. Harmless in effect, since `none` asks Home Assistant to do nothing, but it should never have been sent
 - **A card with no actions still looked and focused like a button** - The default card showed a hand cursor and ripple and accepted keyboard focus even though neither tap nor hold could do anything. Those affordances now appear only when an action is configured
 - **A second finger could steal a press and strand its gray hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action started with the first — and an indicator already drawn could stay on the dashboard until the page was reloaded
