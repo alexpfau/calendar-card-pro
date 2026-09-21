@@ -4,6 +4,8 @@ Grid view places the days side by side on an hour axis, so an event sits at the 
 starts and is as tall as it is long. It is the same agenda the other two layouts show,
 measured against a clock instead of listed.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png" alt="Calendar Card Pro v5 — lists, columns, and now hour by hour"><br>
+
 Set it with `view`. The default, `list`, stacks each day above the next.
 
 ```yaml
@@ -19,6 +21,11 @@ axis in **Layout** and its line styles in **Rules**, without changing the displa
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
 column, and a single day makes a compact "what's left of today" card.
 :::
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_3day.png" alt="A narrow three-day grid card showing one calendar in a single accent color"><br>
+
+Three days on a dashboard column, from one calendar. Every event keeps a single accent
+color, and the lanes stay wide enough for each block to show its title and its time.
 
 ## 🕒 Choosing the Hours the Card Shows
 
@@ -265,6 +272,11 @@ An explicit editor transition to Grid can preserve authored shared choices by co
 into missing Grid overrides; [saving and reopening](/features/editor#switching-an-existing-card-to-grid)
 keeps the relevant shared choices, even when they equal a root default.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_hours.png" alt="A grid card with a custom day window, half-hour slots and two-hourly axis labels"><br>
+
+A custom window with half-hour slots and a label every two hours. Narrowing the band and
+thinning the labels keeps a long day readable without making the card taller.
+
 ## 🔴 The Now Line
 
 A line marks the current time on today's column, and only there. It is drawn from the same
@@ -382,14 +394,23 @@ all-day row cap.
 Raise it if you routinely have four or five things at once and would rather see them all
 narrow; lower it to keep blocks readable.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps.png" alt="A grid card showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
+
+Three events at once share Wednesday's column uncollapsed, while Thursday's conference runs
+two lanes wide. Each lane narrows rather than hiding anything.
+
 Short blocks use progressive disclosure so clipped text does not look broken. A title shows
 once a full text row fits, time appears once the block can hold a full title row plus a full
 time row, and location waits until there is room for another detail line. The time row also
 asks about width, because a block's height and width are set independently — height by
 duration, width by how many events overlap it — so a long meeting in a busy lane can be tall
 enough for a time and far too narrow for one. It measures what it would actually draw
-against the room it has, and gives things up in a fixed order: first the clock icon, then
-the end time, then the row itself. It never trims a time part way through — `10:00 - 1…` on
+against the room it has, and gives things up in a fixed order: first the clock icon, which
+only repeats what the row's position in the block already says; then the range moves onto a
+second line, keeping the whole reading at the cost of a line of height; then the end time,
+which the block already draws as its own bottom edge; and only then the row itself. A block
+too short to pay for that second line simply never takes it, and looks exactly as it would
+have without the offer. It never trims a time part way through — `10:00 - 1…` on
 a meeting ending at 12:00 reads as one o'clock rather than as text that was cut, so the card
 would rather show a bare `10:00`, or nothing, than a partial clock reading. A block left
 showing nothing but its title keeps that title centered only while the title nearly fills
@@ -491,6 +512,11 @@ time_grid:
 Grid view uses the same responsive width fallback as column view, but with grid-specific
 options inside `time_grid:`:
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="The same week grid card at a narrower width, showing fewer days"><br>
+
+The same card as the full week, given less room. Days are surrendered one at a time rather
+than all at once, so the card stays useful as it narrows.
+
 ```yaml
 view: grid
 days_to_show: 5
@@ -524,6 +550,14 @@ the later ones. The card does not draw a marker saying more days were hidden, so
 `min_days_fallback: cramp` if seeing the whole range matters more than preserving the
 minimum column width.
 :::
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_theme_light.png" alt="Grid view on the default Home Assistant theme in light mode"><br>
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_theme_dark.png" alt="Grid view on the default Home Assistant theme in dark mode"><br>
+
+Grid view reads its colors from the active theme, so an unstyled card follows light and dark
+mode without any configuration. The axis, the hour lines and the weekend tint are all derived
+from theme variables; see [Theming](/features/theming) for the ones you can override.
 
 ## 🎨 Overriding Options in Grid View
 
