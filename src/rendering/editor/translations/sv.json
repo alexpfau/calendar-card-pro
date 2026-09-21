@@ -482,6 +482,7 @@
   "panel.actions.helper": "Vad en tryckning gör, och hur ofta kortet läser om sina kalendrar.",
   "tap_action": "Tryckåtgärd",
   "hold_action": "Hållåtgärd",
+  "card_action.option.expand.label": "Växla kompakt/utökat läge",
   "refresh_interval": "Uppdateringsintervall",
   "refresh_interval.helper": "Hur länge kortet behåller sina cachade händelser innan det hämtar igen.",
   "refresh_on_navigate": "Uppdatera vid navigering",

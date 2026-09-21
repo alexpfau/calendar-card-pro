@@ -790,6 +790,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.actions.helper': 'What a tap does, and how often the card re-reads its calendars.',
   tap_action: 'Tap Action',
   hold_action: 'Hold Action',
+  // Home Assistant names its own actions; this is the one the card adds, and both
+  // dropdowns resolve it through the same key. See `hass-localize.ts` for how it reaches
+  // HA's action editor at all.
+  //
+  // Wording carried over verbatim from the hand-rolled v3 editor, which offered this
+  // action and had it translated into all nine languages. Inventing a shorter English
+  // label here would have been an invitation to guess nine translations; this one was
+  // written by the people who speak them. It also says what the action does, which a bare
+  // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
+  // below, for toggling an entity rather than the card.
+  'card_action.option.expand.label': 'Toggle Compact/Expanded View',
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

@@ -482,6 +482,7 @@
   "panel.actions.helper": "Čo sa stane po klepnutí a ako často karta znovu načíta svoje kalendáre.",
   "tap_action": "Akcia klepnutia",
   "hold_action": "Akcia podržania",
+  "card_action.option.expand.label": "Prepnúť kompaktný/rozšírený pohľad",
   "refresh_interval": "Interval obnovenia",
   "refresh_interval.helper": "Ako dlho si karta ponechá uložené udalosti, kým si ich vyžiada znova.",
   "refresh_on_navigate": "Obnoviť pri prechode",

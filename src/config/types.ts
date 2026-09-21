@@ -894,6 +894,16 @@ export interface Hass {
    * current one. Optional because older or non-standard `hass` objects may omit it.
    */
   formatEntityState?: (stateObj: HassEntity, state?: string) => string;
+  /**
+   * Home Assistant's own string table.
+   *
+   * The editor reads it rather than writing one: `hui-action-editor` labels every entry
+   * in an action dropdown with `localize('…action-editor.actions.' + action)`, so this is
+   * the only seam through which a card-specific action can be given a translated name.
+   * Optional because a non-standard `hass` may omit it, and the wrapper degrades to
+   * Home Assistant's own raw-key fallback when it does.
+   */
+  localize?: (key: string, ...args: ReadonlyArray<unknown>) => string;
 }
 
 /** Weather forecast message structure received from Home Assistant. */

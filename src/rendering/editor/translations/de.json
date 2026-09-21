@@ -482,6 +482,7 @@
   "panel.actions.helper": "Was ein Antippen bewirkt und wie oft die Karte ihre Kalender neu einliest.",
   "tap_action": "Verhalten bei Antippen",
   "hold_action": "Verhalten bei Festhalten",
+  "card_action.option.expand.label": "Kompakte/Erweiterte Ansicht umschalten",
   "refresh_interval": "Aktualisierungsintervall",
   "refresh_interval.helper": "Wie lange die Karte ihre zwischengespeicherten Termine behält, bevor sie neu lädt.",
   "refresh_on_navigate": "Beim Navigieren aktualisieren",

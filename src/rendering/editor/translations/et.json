@@ -482,6 +482,7 @@
   "panel.actions.helper": "Mida puudutus teeb ja kui tihti kaart oma kalendreid uuesti loeb.",
   "tap_action": "Puudutuse tegevus",
   "hold_action": "Hoidmise tegevus",
+  "card_action.option.expand.label": "Lülita kompaktne / laiendatud vaade",
   "refresh_interval": "Värskendamise intervall",
   "refresh_interval.helper": "Kui kaua hoiab kaart puhverdatud sündmusi enne uut päringut.",
   "refresh_on_navigate": "Värskenda liikumisel",

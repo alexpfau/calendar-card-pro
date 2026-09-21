@@ -482,6 +482,7 @@
   "panel.actions.helper": "Cosa succede al tocco e ogni quanto la scheda rilegge i suoi calendari.",
   "tap_action": "Azione tocco",
   "hold_action": "Azione tocco prolungato",
+  "card_action.option.expand.label": "Espandi/Comprimi vista",
   "refresh_interval": "Intervallo di aggiornamento",
   "refresh_interval.helper": "Per quanto tempo la scheda conserva gli eventi in cache prima di richiederli di nuovo.",
   "refresh_on_navigate": "Aggiorna alla navigazione",

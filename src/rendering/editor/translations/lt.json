@@ -482,6 +482,7 @@
   "panel.actions.helper": "Ką daro palietimas ir kaip dažnai kortelė iš naujo nuskaito savo kalendorius.",
   "tap_action": "Palietimo veiksmas",
   "hold_action": "Palaikymo veiksmas",
+  "card_action.option.expand.label": "Perjungti suglaudintą/išplėstą vaizdą",
   "refresh_interval": "Atnaujinimo intervalas",
   "refresh_interval.helper": "Kiek laiko kortelė saugo įrašytus įvykius prieš juos nuskaitydama iš naujo.",
   "refresh_on_navigate": "Atnaujinti pereinant",
