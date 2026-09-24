@@ -924,6 +924,33 @@ describe('column view DOM', () => {
     });
   });
 
+  describe('event gap', () => {
+    it.each([
+      ['6px', '6px'],
+      ['0.5rem', '0.5rem'],
+      ['calc(1em + 2px)', 'calc(1em + 2px)'],
+      ['6', '6px'],
+      [6, '6px'],
+      [0, '0px'],
+    ])('publishes %s as a gap outside event backgrounds', (value, expected) => {
+      const config = buildConfig();
+      config.column = { event_gap: value } as unknown as Types.ColumnOverrides;
+      const container = renderColumnContainer(EVENTS, config);
+      const grid = requireElement<HTMLElement>(container, '.column-grid');
+      expect(grid.style.getPropertyValue('--calendar-card-column-event-gap')).toBe(expected);
+      expect(container.querySelectorAll('.column-events > .event').length).toBeGreaterThan(1);
+      expect(serialize(renderListContainer(EVENTS, config))).toBe(
+        serialize(renderListContainer(EVENTS, buildConfig())),
+      );
+    });
+
+    it('defaults to no gap', () => {
+      const container = renderColumnContainer(EVENTS, buildConfig());
+      const grid = requireElement<HTMLElement>(container, '.column-grid');
+      expect(grid.style.getPropertyValue('--calendar-card-column-event-gap')).toBe('0px');
+    });
+  });
+
   describe('header gap', () => {
     it('publishes the gap as a custom property on the grid', () => {
       // The header-to-events gap used to be an emergent 4px of header padding plus 4px

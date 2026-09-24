@@ -93,6 +93,7 @@ export const COLUMN_OVERRIDE_KEYS = [
  */
 export const COLUMN_ONLY_KEYS = [
   'day_header_gap',
+  'event_gap',
   'day_header_separator_width',
   'day_header_separator_color',
   'min_day_width',
@@ -243,6 +244,7 @@ export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  */
 export const COLUMN_DEFAULTS = {
   day_header_gap: '8px',
+  event_gap: '0px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
 

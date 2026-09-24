@@ -1687,6 +1687,7 @@ export const cardStyles = css`
   .column-events {
     display: flex;
     flex-direction: column;
+    row-gap: var(--calendar-card-column-event-gap, 0px);
     min-width: 0;
   }
 

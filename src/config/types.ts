@@ -306,6 +306,7 @@ export interface ColumnOverrides {
   // Column-only layout. These have no top-level counterpart and are read with
   // `resolveColumnOption`, not `resolveViewOption`.
   day_header_gap?: string;
+  event_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;
 

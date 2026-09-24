@@ -151,6 +151,14 @@ function expr(value: string): string {
 }
 
 describe('card stylesheet', () => {
+  it('separates column events with a flex gap outside their painted backgrounds', () => {
+    expect(declared('.column-events', 'display')).toBe('flex');
+    expect(declared('.column-events', 'flex-direction')).toBe('column');
+    expect(declared('.column-events', 'row-gap')).toBe(
+      'var(--calendar-card-column-event-gap, 0px)',
+    );
+  });
+
   it('scans into top-level rules', () => {
     // Guards the scanner itself: a brace-counting bug would quietly yield a
     // handful of enormous rules and every assertion below would pass vacuously.

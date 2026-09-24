@@ -373,6 +373,7 @@ export function renderColumnGroupedEvents(
         gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
         columnGap: gutter,
         '--calendar-card-column-header-gap': headerGap,
+        '--calendar-card-column-event-gap': ViewConfig.resolveColumnOption(config, 'event_gap'),
       })}
     >
       ${weekRows}

@@ -1,6 +1,7 @@
 {
   "customized_only": "Customised Only",
   "filter.nothing_customized": "Nothing is customised — every setting is at the card default.",
+  "column.event_gap.helper": "Clear space between events, outside their coloured backgrounds.",
   "entity.color": "Event Colour",
   "entity.accent_color": "Accent Colour",
   "entity.accent_color_mode": "Accent Colour",
