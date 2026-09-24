@@ -786,6 +786,29 @@ export function getFirstDayOfWeek(
 }
 
 /**
+ * Resolve which numbering method a week number is actually built with.
+ *
+ * `show_week_numbers` is `null` by default, and `null` means *hide the number*, not
+ * *compute no number* — the week rule and the column view's week band both fire wherever
+ * `EventsByDay.weekNumber` changes, so a number is still needed to say where the week
+ * breaks. ISO is the fallback for that.
+ *
+ * Exported because that fallback has to be visible to callers who branch on the method.
+ * {@link EventUtils.calculateWeekNumberWithMajorityRule} corrects ISO's Monday anchor for
+ * a Sunday-start week, and gated that correction on the raw config value — which is not
+ * the method in use whenever the value is `null`. The week rule then broke before Monday
+ * on a card configured to start its week on Sunday, and only on a card that *hid* week
+ * numbers, because turning them on took the same branch through a non-null value and
+ * resolved it correctly (#621).
+ *
+ * @param method Configured week numbering method, or `null` to hide the number
+ * @returns The method used to compute the number, which is never `null`
+ */
+export function resolveWeekNumberMethod(method: 'iso' | 'simple' | null): 'iso' | 'simple' {
+  return method || 'iso';
+}
+
+/**
  * Get week number based on config settings
  *
  * @param date Date to get week number for
@@ -798,7 +821,7 @@ export function getWeekNumber(
   method: 'iso' | 'simple' | null,
   firstDayOfWeek: number,
 ): number | null {
-  const effectiveMethod = method || 'iso';
+  const effectiveMethod = resolveWeekNumberMethod(method);
 
   if (effectiveMethod === 'iso') {
     return getISOWeekNumber(date);

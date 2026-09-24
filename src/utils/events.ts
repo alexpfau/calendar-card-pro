@@ -2215,7 +2215,20 @@ function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Da
 /**
  * Calculate the week number using the majority-day rule.
  *
+ * ISO weeks are anchored on Monday, so on a Sunday-start card a plain ISO number leaves
+ * Sunday in the outgoing week and breaks the week before Monday instead of before Sunday.
+ * Rolling Sunday forward onto the following Monday's number puts the boundary where the
+ * configured first day says it belongs, and gives the week the six days that are already
+ * the majority of it.
+ *
+ * The method is resolved through {@link FormatUtils.resolveWeekNumberMethod} rather than
+ * read off the config, because `show_week_numbers: null` hides the number while still
+ * computing one, and it computes it as ISO. Branching on the raw value skipped the
+ * correction for exactly that case — the one where the rule is the only thing marking the
+ * week, so nothing on screen contradicted it (#621).
+ *
  * @param date Date to calculate from
+ * @param config Card configuration
  * @param firstDayOfWeek First day of the week, where 0 is Sunday
  * @returns Week number adjusted for majority ownership
  */
@@ -2226,7 +2239,9 @@ export function calculateWeekNumberWithMajorityRule(
 ): number | null {
   let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 
-  if (config.show_week_numbers === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
+  const method = FormatUtils.resolveWeekNumberMethod(config.show_week_numbers);
+
+  if (method === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
     const nextDay = new Date(date);
     nextDay.setDate(nextDay.getDate() + 1);
     weekNumber = FormatUtils.getISOWeekNumber(nextDay);
