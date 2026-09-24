@@ -999,6 +999,16 @@ describe('editor: the Layout panel', () => {
     expect(found?.path).toEqual(['column']);
   });
 
+  it('offers event gap only in the column layout, stored inside column', () => {
+    const fields = [...walkSchema(buildLayoutSchema(ctx(columnConfig())))];
+    const found = fields.find(({ node }) => node.name === 'event_gap');
+    expect(found?.path).toEqual(['column']);
+    expect(names(buildConfig({ view: 'list' }))).not.toContain('event_gap');
+    expect(fields.findIndex(({ node }) => node.name === 'event_gap')).toBe(
+      fields.findIndex(({ node }) => node.name === 'day_header_gap') + 1,
+    );
+  });
+
   it('bounds the column floor by the number of days shown', () => {
     const found = [...walkSchema(buildLayoutSchema(ctx(columnConfig({ days_to_show: 5 }))))].find(
       ({ node }) => node.name === 'min_days_to_show',

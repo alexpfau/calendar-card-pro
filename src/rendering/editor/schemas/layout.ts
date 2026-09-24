@@ -110,6 +110,10 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
         name: 'day_header_gap',
         selector: { text: { type: 'text' } },
       },
+      {
+        name: 'event_gap',
+        selector: { text: { type: 'text' } },
+      },
     ],
   };
 }

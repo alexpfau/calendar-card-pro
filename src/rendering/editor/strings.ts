@@ -88,6 +88,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
   'column.day_header_gap': 'Day Header Gap',
   'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
+  'column.event_gap': 'Event Gap',
+  'column.event_gap.helper': 'Clear space between events, outside their colored backgrounds.',
 
   // --- Calendars ------------------------------------------------------------
   //

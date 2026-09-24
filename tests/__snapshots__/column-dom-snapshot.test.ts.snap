@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`column view DOM > renders a single day 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -107,7 +107,7 @@ exports[`column view DOM > renders a single day 1`] = `
 `;
 
 exports[`column view DOM > renders a single event 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -211,7 +211,7 @@ exports[`column view DOM > renders a single event 1`] = `
 `;
 
 exports[`column view DOM > renders day, week and month separators 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(20, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(20, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -957,7 +957,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 `;
 
 exports[`column view DOM > renders past events 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -1177,7 +1177,7 @@ exports[`column view DOM > renders past events 1`] = `
 `;
 
 exports[`column view DOM > renders the default configuration 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -1377,7 +1377,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 `;
 
 exports[`column view DOM > renders the optional content rows 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class="column-week-number" style="grid-column:1;grid-row:1;">
 <div class="week-number">25</div>
 </div>
@@ -1589,7 +1589,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 `;
 
 exports[`column view DOM > renders unsplit multi-day events 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -1769,7 +1769,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 `;
 
 exports[`column view DOM > renders weather on both surfaces 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -1979,7 +1979,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 `;
 
 exports[`column view DOM > renders with no events 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
@@ -2077,7 +2077,7 @@ exports[`column view DOM > renders with no events 1`] = `
 `;
 
 exports[`column view DOM > suppresses empty day columns 1`] = `
-"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;--calendar-card-column-event-gap:0px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">

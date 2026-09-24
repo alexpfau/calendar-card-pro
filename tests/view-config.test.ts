@@ -546,6 +546,7 @@ describe('validateColumnOverrides', () => {
     const config = buildConfig();
     config.column = {
       day_header_gap: '8px',
+      event_gap: '6px',
       day_header_separator_width: '1px',
       day_header_separator_color: 'red',
     } as unknown as Types.ColumnOverrides;
@@ -698,6 +699,7 @@ describe('column view config surface', () => {
     const config = buildConfig();
 
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
+    expect(resolveColumnOption(config, 'event_gap')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
   });

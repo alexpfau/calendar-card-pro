@@ -255,13 +255,14 @@ column:
 
 ## 📐 Spacing Options That Only Exist in Column View
 
-A few things have no meaning in a list. A column layout needs a gap under each day
-header, and a rule that can run under that header rather than between days. Those
+A few things have no meaning in a list. A column layout can have gaps under each day
+header and between events, and a rule that runs under the header rather than between days. Those
 options live inside `column:` and have no top-level counterpart.
 
 | Option                       | Type   | Default                | Description                                                                      |
 | ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
 | `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
+| `event_gap`                  | string | `0px`                  | Clear vertical space between events, outside their backgrounds                   |
 | `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
 | `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
 
@@ -273,6 +274,22 @@ column:
   day_header_separator_width: 2px
   day_header_separator_color: var(--primary-color)
 ```
+
+To separate colored event backgrounds, set `event_gap` inside `column:`. It adds clear
+space between events, with no extra space before the first or after the last event.
+`event_spacing` still controls the padding **inside** each event. The default gap is
+`0px`, so existing cards keep their continuous backgrounds. The gap applies only while
+the card renders as columns; a narrow card falling back to list view keeps its list spacing.
+
+```yaml
+view: column
+column:
+  event_gap: 6px
+  event_spacing: 4px
+```
+
+In the visual editor, **Event Gap** sits after **Day Header Gap** in the Layout panel's
+column options. Both accept CSS lengths such as `6px` or `0.5rem`.
 
 The header rule starts switched **off**. `day_header_gap` supplies the space under the
 header on its own, so switching the rule on centers it inside that space rather than adding
