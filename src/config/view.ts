@@ -6,10 +6,12 @@
 
 import {
   DEFAULT_CONFIG,
+  LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   coercePixelLength,
   coercePixelLengthAgainst,
   normalizeNumericOptions,
   toValidPercentage,
+  validateFoldedLength,
   validatePastEventOpacity,
 } from './config';
 import * as Types from './types';
@@ -1436,6 +1438,16 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
   const ownKeys = new Set<string>([...block.overrideKeys, ...block.onlyKeys]);
 
   validatePastEventOpacity(overrides.past_event_opacity, `${block.blockKey}.past_event_opacity`);
+
+  for (const key of LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE) {
+    if (ownKeys.has(key)) {
+      validateFoldedLength(
+        key,
+        (overrides as Record<string, unknown>)[key],
+        `${block.blockKey}.${key}`,
+      );
+    }
+  }
 
   for (const key of Object.keys(overrides)) {
     if (ownKeys.has(key)) {
