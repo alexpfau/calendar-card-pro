@@ -253,6 +253,10 @@ location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
 
+An event that starts and ends in the same minute, such as a reminder, has a time row that
+reads its start time once: `9:41` rather than `9:41 - 9:41`, whatever `show_end_time` says. An
+event that runs into a later minute keeps its range.
+
 Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
 their locations as long as `show_location` is still on.
 

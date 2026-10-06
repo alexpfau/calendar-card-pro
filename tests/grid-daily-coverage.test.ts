@@ -302,10 +302,12 @@ describe('Grid segmentation boundaries', () => {
   });
 
   it('rejects invalid and out-of-window spans without losing a valid neighbor', () => {
+    // A zero-length timed event is deliberately absent: it is a reminder, drawn as a marker
+    // at its instant (#625), and `zero-duration-events.test.ts` pins it. The zero-length
+    // all-day event below is still rejected.
     const invalid = [
       { start: { dateTime: 'invalid' }, end: { dateTime: 'invalid' } },
       { start: { dateTime: '2026-06-20T10:00:00Z' }, end: { dateTime: '2026-06-20T09:00:00Z' } },
-      { start: { dateTime: '2026-06-20T10:00:00Z' }, end: { dateTime: '2026-06-20T10:00:00Z' } },
       { start: { date: '2026-06-20' }, end: { date: '2026-06-20' } },
       { start: { date: '2026-06-21' }, end: { date: '2026-06-20' } },
       { start: { date: '2026-06-32' }, end: { date: '2026-07-03' } },

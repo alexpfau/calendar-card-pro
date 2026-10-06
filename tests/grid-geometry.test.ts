@@ -289,12 +289,44 @@ describe('computeEventPlacement', () => {
   });
 
   it.each([
-    ['zero length', 540, 540],
     ['inverted', 600, 540],
     ['non-finite start', Number.NaN, 600],
     ['infinite end', 540, Number.POSITIVE_INFINITY],
   ])('returns null for a %s interval', (_case, startMin, endMin) => {
     expect(computeEventPlacement(startMin, endMin, day)).toBeNull();
+  });
+
+  // #625. An event with no duration is an instant, not an empty interval: it was returned
+  // as null alongside the inverted case above, so a 9:00 reminder vanished from the grid
+  // while list and column drew it. It is placed at its start with no height of its own,
+  // and the stylesheet's minimum height draws it as a marker.
+  it('places an event with no duration at its start, with no height of its own', () => {
+    expect(computeEventPlacement(540, 540, day)).toEqual({
+      topPct: 25,
+      heightPct: 0,
+      clippedTop: false,
+      clippedBottom: false,
+    });
+  });
+
+  // Half-open like every interval here, and the lower edge is the one an instant needs
+  // spelled out: a zero-length interval at the band's start does not *end after* it, so the
+  // general test drops a reminder exactly at `start_time` — 06:00 here.
+  it.each([
+    [
+      'at the band start',
+      360,
+      { topPct: 0, heightPct: 0, clippedTop: false, clippedBottom: false },
+    ],
+    [
+      'a millisecond before the band end',
+      1080 - 1 / 60000,
+      expect.objectContaining({ heightPct: 0 }),
+    ],
+    ['at the band end', 1080, null],
+    ['a millisecond before the band start', 360 - 1 / 60000, null],
+  ])('places an event with no duration %s by its instant', (_case, minute, expected) => {
+    expect(computeEventPlacement(minute, minute, day)).toEqual(expected);
   });
 
   // A percentage scale is only self-consistent if it never leaves the box, whatever
@@ -408,6 +440,79 @@ describe('layoutLanes', () => {
     const { placed } = layoutLanes([at(120, 180, 'c'), at(0, 60, 'a'), at(60, 120, 'b')], 3);
 
     expect(placed.map((event) => event.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  /**
+   * An event with no duration — a reminder (#625) — is drawn as a minimum-height marker at
+   * its instant, so it holds that instant even though its interval is empty. Read as an
+   * empty half-open interval it would overlap nothing, and two reminders at 9:00 would each
+   * be given the whole column at one height: the second would cover the first exactly, and
+   * the day would lose an event without the `+N` block that exists to count one.
+   */
+  describe('events with no duration', () => {
+    const lanes = (events: ReturnType<typeof at>[], cap = 5) =>
+      layoutLanes(events, cap).placed.map((event) => [event.id, event.laneIndex, event.laneCount]);
+
+    it('gives two at the same instant a lane each', () => {
+      expect(lanes([at(540, 540, 'r1'), at(540, 540, 'r2')])).toEqual([
+        ['r1', 0, 2],
+        ['r2', 1, 2],
+      ]);
+    });
+
+    it('does not stack a second one on the first beside a longer event', () => {
+      expect(lanes([at(540, 540, 'r1'), at(540, 600, 'b'), at(540, 540, 'r2')])).toEqual([
+        ['b', 0, 3],
+        ['r1', 1, 3],
+        ['r2', 2, 3],
+      ]);
+    });
+
+    it('sits beside an event starting at its instant', () => {
+      expect(lanes([at(540, 540, 'r'), at(540, 600, 'b')])).toEqual([
+        ['b', 0, 2],
+        ['r', 1, 2],
+      ]);
+    });
+
+    it('sits beside an event already running at its instant', () => {
+      expect(lanes([at(480, 600, 'b'), at(540, 540, 'r')])).toEqual([
+        ['b', 0, 2],
+        ['r', 1, 2],
+      ]);
+    });
+
+    // The half-open rule still holds on the far side of an instant, so a reminder
+    // does not narrow the event before it, nor the one after it.
+    it('takes the whole column at the end of an event', () => {
+      expect(lanes([at(480, 540, 'a'), at(540, 540, 'r')])).toEqual([
+        ['a', 0, 1],
+        ['r', 0, 1],
+      ]);
+    });
+
+    it('releases its lane to anything starting after its instant', () => {
+      expect(lanes([at(480, 600, 'b'), at(540, 540, 'r'), at(560, 580, 'c')])).toEqual([
+        ['b', 0, 2],
+        ['r', 1, 2],
+        ['c', 1, 2],
+      ]);
+      expect(lanes([at(540, 540, 'r'), at(540 + 1 / 60000, 600, 'a')])).toEqual([
+        ['r', 0, 1],
+        ['a', 0, 1],
+      ]);
+    });
+
+    it('counts the one it cannot draw rather than hiding it', () => {
+      const { placed, overflows } = layoutLanes([at(540, 540, 'r1'), at(540, 540, 'r2')], 1);
+
+      expect(placed.map((event) => [event.id, event.laneIndex, event.laneCount])).toEqual([
+        ['r1', 0, 2],
+      ]);
+      expect(overflows).toEqual([
+        { startMin: 540, endMin: 540, laneIndex: 1, laneCount: 2, hidden: [at(540, 540, 'r2')] },
+      ]);
+    });
   });
 
   describe('the overlap cap', () => {
@@ -600,16 +705,48 @@ describe('splitTimedEventByDay', () => {
     expect(splitTimedEventByDay(event, windowStart, windowEnd)).toEqual([event]);
   });
 
-  it.each([
-    ['inverted', new Date(2026, 4, 12, 17, 0), new Date(2026, 4, 12, 9, 0)],
-    ['zero length', new Date(2026, 4, 12, 9, 0), new Date(2026, 4, 12, 9, 0)],
-  ])('returns nothing for a %s event', (_case, start, end) => {
+  it('returns nothing for an inverted event', () => {
     const event: Types.CalendarEventData = {
-      start: { dateTime: start.toISOString() },
-      end: { dateTime: end.toISOString() },
+      start: { dateTime: new Date(2026, 4, 12, 17, 0).toISOString() },
+      end: { dateTime: new Date(2026, 4, 12, 9, 0).toISOString() },
     };
 
     expect(splitTimedEventByDay(event, windowStart, windowEnd)).toEqual([]);
+  });
+
+  // #625. A zero-length event used to share the inverted case's fate, so a reminder never
+  // reached the grid at all. It has no stretch of a day to cut, so it is kept whole as the
+  // one segment for the day of its instant.
+  it('keeps an event with no duration as one segment on its own day', () => {
+    const instant = new Date(2026, 4, 12, 9, 41).toISOString();
+    const event: Types.CalendarEventData = {
+      start: { dateTime: instant },
+      end: { dateTime: instant },
+      summary: 'Reminder',
+    };
+
+    expect(splitTimedEventByDay(event, windowStart, windowEnd)).toEqual([
+      {
+        ...event,
+        _isMultiDaySegment: false,
+        _gridSegmentStartsEvent: true,
+      },
+    ]);
+  });
+
+  // The window is half-open like the band: its first midnight is in, its last is not.
+  it.each([
+    ['at the window start', windowStart, 1],
+    ['a millisecond before the window end', new Date(windowEnd.getTime() - 1), 1],
+    ['at the window end', windowEnd, 0],
+    ['a millisecond before the window start', new Date(windowStart.getTime() - 1), 0],
+  ])('keeps an event with no duration %s only when inside', (_case, instant, expected) => {
+    const event: Types.CalendarEventData = {
+      start: { dateTime: instant.toISOString() },
+      end: { dateTime: instant.toISOString() },
+    };
+
+    expect(splitTimedEventByDay(event, windowStart, windowEnd)).toHaveLength(expected);
   });
 });
 

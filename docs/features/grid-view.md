@@ -46,11 +46,17 @@ time_grid:
 `end_time` also accepts `24:00`, which means midnight at the end of the day rather than
 the start of it.
 
-Event timestamps keep their seconds and milliseconds when positioned on the axis. A
-positive-duration event shorter than a minute still gets a block; the minimum block height
-may make very short events look taller than their duration. Near the end of the axis, that
-minimum-height block moves upward just enough to stay inside the visible hours rather than
-disappearing below them. The stored timestamps and time text are unchanged.
+Event timestamps keep their seconds and milliseconds when positioned on the axis. An event
+shorter than a minute still gets a block, and so does one with no duration at all, such as a
+reminder, which is drawn at its start time. The minimum block height may make very short
+events look taller than their duration, and it is all the height a reminder has. That is too
+little for a time row, so a reminder is drawn like any block that short — see
+[Short Timed Titles](#short-timed-titles) — and its time is where it sits on the axis. Near
+the end of the axis, that minimum-height block moves upward just enough to stay inside the
+visible hours rather than disappearing below them. The stored timestamps and time text are
+unchanged. Two reminders at exactly the same time sit side by side rather than one hiding the
+other; reminders close together but not at the same time can still overlap, because the
+minimum height covers more of the axis than separates them.
 
 A block sits just under the rule it starts on rather than exactly on it, and stops just
 short of the rule it ends at — the same pixel of clear space it already keeps from its
