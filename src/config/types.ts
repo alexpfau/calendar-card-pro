@@ -690,6 +690,15 @@ export interface WeatherForecast {
   wind_bearing?: number;
   humidity?: number;
   uv_index?: number;
+  /**
+   * Whether the forecast period falls in daylight where the forecast is, as the integration
+   * reports it.
+   *
+   * Home Assistant types this `bool | None` and requires it only on twice-daily forecasts;
+   * some integrations set it on hourly ones too. The card reads it on hourly entries only,
+   * to choose between the day and night icon — see `isNightForecast` in `utils/weather.ts`.
+   */
+  is_daytime?: boolean | null;
 }
 
 /** Processed weather data for use in templates. */

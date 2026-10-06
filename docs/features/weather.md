@@ -79,6 +79,13 @@ forecast so weather keeps appearing across the whole calendar. Set
 value. All-day events always use the daily forecast.
 :::
 
+Beside an event, a sunny or partly cloudy hour is drawn with a moon after dark. Where the
+hourly forecast marks each hour as day or night (Home Assistant's `is_daytime`), that
+decides what counts as dark, so the icon follows the sun where the forecast is, even in
+another time zone. Without it, 18:00 to 06:00 counts as night, in the same local time the
+card shows events in. Weather taken from the daily forecast describes the whole day, so it
+keeps the day icon.
+
 ## 🧭 Position-Specific Configuration
 
 Each display position can be customized independently with different content and styling:
