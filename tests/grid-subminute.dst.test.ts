@@ -95,7 +95,7 @@ describe.each([0, 6])('fractional wall-clock placement in month %i', (month) => 
     expect(placement!.clippedBottom).toBe(row.bottom);
   });
 
-  it('preserves half-open clipping and rejects zero or reversed instants', () => {
+  it('preserves half-open clipping, keeps a zero-length instant and rejects a reversed one', () => {
     const band = Grid.resolveBand('09:00', '10:00');
     for (const [startMs, endMs] of [
       [-1000, 0],
@@ -104,7 +104,11 @@ describe.each([0, 6])('fractional wall-clock placement in month %i', (month) => 
       const extent = Grid.segmentMinutes(event(month, startMs, endMs))!;
       expect(Grid.computeEventPlacement(extent.startMin, extent.endMin, band)).toBeNull();
     }
-    expect(Grid.segmentMinutes(event(month, 123, 123))).toBeNull();
+    // #625: an event with no duration is an instant at its wall-clock minute, not a
+    // rejected interval. It keeps its milliseconds like every other endpoint here.
+    const instant = Grid.segmentMinutes(event(month, 123, 123))!;
+    expect(instant.startMin).toBeCloseTo(wallMinutes(new Date(2026, month, 10, 9, 0, 0, 123)), 10);
+    expect(instant.endMin).toBe(instant.startMin);
     expect(Grid.segmentMinutes(event(month, 456, 123))).toBeNull();
   });
 

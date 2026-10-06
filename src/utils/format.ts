@@ -63,6 +63,9 @@ export interface EventTimeParts {
    * 14:00" names a time on a day this block does not cover, so no edge of it carries that
    * information and cutting the phrase would destroy it.
    *
+   * Absent, too, for an event that starts and ends in the same minute, because its `text`
+   * is the start time alone and there is no end in it to drop (#625).
+   *
    * Produced by the same formatter that built the string rather than found in it, so there
    * is no separator to parse and nothing here assumes a locale writes a range left to
    * right.
@@ -839,11 +842,35 @@ export function getWeekNumber(
 //-----------------------------------------------------------------------------
 
 /**
+ * Whether two instants fall in the same minute, which is exactly when a range between them
+ * would print one clock reading twice.
+ *
+ * Compared as minutes of epoch time rather than as formatted text, because the text can
+ * repeat while the minute does not: when the clocks go back, 01:30 before the change and
+ * 01:30 after it read the same an hour apart, and an event running between them is an hour
+ * long rather than a moment. Every zone in use today is offset from UTC by a whole number
+ * of minutes, so a minute of epoch time is a minute on the local clock.
+ *
+ * @param a First instant
+ * @param b Second instant
+ * @returns True when both fall in the same minute
+ */
+function isSameMinute(a: Date, b: Date): boolean {
+  return Math.floor(a.getTime() / 60000) === Math.floor(b.getTime() / 60000);
+}
+
+/**
  * Build a single-day time string, and say which trailing part of it is droppable.
  *
  * `text` is the join of what it returns, which is the invariant keeping `end` honest: it is
  * a suffix by construction, so no caller has to search for a separator and none can cut in
  * the wrong place. See `EventTimeParts.end` for why only this shape has one.
+ *
+ * An event that starts and ends in the same minute shows its start time alone, whatever
+ * `show_end_time` says (#625). A range there would read `9:41 - 9:41`, which says the start
+ * time twice and nothing else. That is mostly an event with no duration at all, such as a
+ * reminder; an event shorter than a minute that never leaves its first minute prints the
+ * same doubled reading and is treated the same way.
  *
  * @param startDate Event start
  * @param endDate Event end
@@ -861,7 +888,7 @@ function formatSingleDayTime(
 ): Pick<EventTimeParts, 'text' | 'end'> {
   const start = formatTime(startDate, use24h, twoDigitHours);
 
-  if (!showEndTime) {
+  if (!showEndTime || isSameMinute(startDate, endDate)) {
     return { text: start };
   }
 

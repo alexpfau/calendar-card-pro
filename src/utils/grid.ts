@@ -276,7 +276,10 @@ export interface EventPlacement {
   /** Distance from the top of the band, as a percentage in `[0, 100)`. */
   topPct: number;
 
-  /** Height as a percentage of the band, always positive. */
+  /**
+   * Height as a percentage of the band. Never negative, and zero only for an event with no
+   * duration, which `min-height` on `.grid-event` then draws as a marker at its start.
+   */
   heightPct: number;
 
   /** The event starts before the band; the block should show a continuation mark. */
@@ -299,14 +302,23 @@ export interface EventPlacement {
  * Half-open, matching the lane packer: an event ending exactly at the band start is out,
  * and one starting exactly at the band end is out.
  *
+ * An event with no duration — a reminder — has an instant rather than an interval, and is
+ * in when that instant is: one at the band's start is drawn, one at its end is not. The
+ * general test below would get the first of those wrong, because a zero-length interval
+ * at the start does not end after it.
+ *
  * @param startMin - Event start, minutes from midnight.
  * @param endMin - Event end, minutes from midnight.
  * @param band - The visible window.
  * @returns True when the event has any part inside the band.
  */
 export function intersectsBand(startMin: number, endMin: number, band: GridBand): boolean {
-  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) {
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin < startMin) {
     return false;
+  }
+
+  if (endMin === startMin) {
+    return startMin >= band.startMin && startMin < band.endMin;
   }
 
   return endMin > band.startMin && startMin < band.endMin;
@@ -415,11 +427,69 @@ export interface LaneLayout<T> {
 }
 
 /**
+ * The point from which a lane, or a cluster, is free again.
+ *
+ * Intervals are half-open, so an event ending at 10:00 releases 10:00 to the next one.
+ * An event with no duration cannot: it is drawn as a marker at its instant, so it holds
+ * that instant, and a second one at the same minute — two reminders at 9:00 — has to take
+ * the next lane. Released like an interval, both would share one lane at one height, the
+ * second covering the first exactly, and the day would lose an event without counting it.
+ */
+interface LaneRelease {
+  /** Minutes from midnight. */
+  at: number;
+
+  /** True when `at` itself is still held, which only an event with no duration does. */
+  held: boolean;
+}
+
+/** Nothing placed yet, so free at every start. */
+const RELEASED: LaneRelease = { at: -Infinity, held: false };
+
+/**
+ * Where one event stops holding its lane.
+ *
+ * @param event - The occupant
+ * @returns Its release point
+ */
+function releaseOf(event: LaneInput): LaneRelease {
+  return { at: event.endMin, held: event.endMin === event.startMin };
+}
+
+/**
+ * Whether an event starting at `startMin` fits after an occupant released at `release`.
+ *
+ * @param release - When the lane or cluster frees up
+ * @param startMin - The candidate's start
+ * @returns True when the candidate does not share an instant with the occupant
+ */
+function isFreeAt(release: LaneRelease, startMin: number): boolean {
+  return release.held ? release.at < startMin : release.at <= startMin;
+}
+
+/**
+ * The later of two release points, where a held instant outlasts a released one.
+ *
+ * @param a - One release point
+ * @param b - The other
+ * @returns Whichever frees up last
+ */
+function laterRelease(a: LaneRelease, b: LaneRelease): LaneRelease {
+  if (a.at !== b.at) {
+    return a.at > b.at ? a : b;
+  }
+
+  return { at: a.at, held: a.held || b.held };
+}
+
+/**
  * Assign overlapping events to side-by-side lanes, capped.
  *
  * Events are grouped into clusters of transitively-overlapping events, and each
  * cluster is packed greedily into the lowest free lane. Intervals are half-open, so an
- * event ending at 10:00 does not overlap one starting at 10:00.
+ * event ending at 10:00 does not overlap one starting at 10:00. An event with no duration
+ * holds its own instant, so it does overlap another one at that instant — see
+ * `LaneRelease`.
  *
  * `laneCount` is shared across a cluster so its members are the same width. It is the
  * lanes the cluster actually needed, not its size: three events where only two are
@@ -444,17 +514,17 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
 
   const clusters: T[][] = [];
   let cluster: T[] = [];
-  let clusterEnd = -Infinity;
+  let clusterRelease = RELEASED;
 
   for (const event of sorted) {
-    if (cluster.length > 0 && event.startMin >= clusterEnd) {
+    if (cluster.length > 0 && isFreeAt(clusterRelease, event.startMin)) {
       clusters.push(cluster);
       cluster = [];
-      clusterEnd = -Infinity;
+      clusterRelease = RELEASED;
     }
 
     cluster.push(event);
-    clusterEnd = Math.max(clusterEnd, event.endMin);
+    clusterRelease = laterRelease(clusterRelease, releaseOf(event));
   }
 
   if (cluster.length > 0) {
@@ -514,17 +584,17 @@ function assignLanes<T extends LaneInput>(
   members: T[],
   cap: number,
 ): Array<{ event: T; laneIndex: number }> {
-  const laneEnds: number[] = [];
+  const laneReleases: LaneRelease[] = [];
 
   return members.map((event) => {
-    let laneIndex = laneEnds.findIndex((end) => end <= event.startMin);
+    let laneIndex = laneReleases.findIndex((release) => isFreeAt(release, event.startMin));
 
     if (laneIndex < 0) {
-      laneIndex = laneEnds.length;
+      laneIndex = laneReleases.length;
     }
 
     if (laneIndex < cap) {
-      laneEnds[laneIndex] = event.endMin;
+      laneReleases[laneIndex] = releaseOf(event);
     }
 
     return { event, laneIndex };
@@ -601,6 +671,11 @@ export function splitGridEventByDay(
  * A segment of zero length is dropped, which is what keeps an event ending exactly at
  * midnight from producing an empty second day.
  *
+ * An event of zero length is a different thing and is kept. A reminder has no stretch of
+ * any day to cut, so the loop below would drop it, but it does happen at an instant: it
+ * becomes the one segment for the day of that instant, provided the instant is inside the
+ * window, and the block's minimum height draws it as a marker there (#625).
+ *
  * @param event - A timed event; one with no `start.dateTime` is returned untouched
  * @param windowStart - Local midnight of the first visible day
  * @param windowEnd - Local midnight after the last visible day, exclusive
@@ -618,8 +693,22 @@ export function splitTimedEventByDay(
   const start = new Date(event.start.dateTime);
   const end = new Date(event.end.dateTime);
 
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return [];
+  }
+
+  if (end.getTime() === start.getTime()) {
+    return start >= windowStart && start < windowEnd
+      ? [
+          {
+            ...event,
+            start: { dateTime: start.toISOString() },
+            end: { dateTime: end.toISOString() },
+            _isMultiDaySegment: false,
+            _gridSegmentStartsEvent: true,
+          },
+        ]
+      : [];
   }
 
   const firstDay = startOfDay(start < windowStart ? windowStart : start);
@@ -657,6 +746,9 @@ export function splitTimedEventByDay(
  * local start. The axis has only one copy of the repeated hour; the event's actual
  * instants remain unchanged.
  *
+ * An event with no duration reports the same minute twice. That is an instant, not an
+ * empty interval, and the band and lane tests downstream treat it as one.
+ *
  * @param segment - A timed segment confined to one local day
  * @returns Start and end in minutes from that day's midnight
  */
@@ -668,7 +760,7 @@ export function segmentMinutes(segment: Types.CalendarEventData): LaneInput | nu
   const start = new Date(segment.start.dateTime);
   const end = new Date(segment.end.dateTime);
 
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return null;
   }
 
