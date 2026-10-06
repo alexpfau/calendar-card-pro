@@ -211,8 +211,11 @@ export function workspaceFormData(
     const paths = [path];
     if (path.length === 1 && path[0] === block) paths.push([]);
     for (const target of paths) {
-      // Keep "2" while the user types "24px", but never mask a changed effective value.
+      // Keep "2" while the user types "24px", but never mask a changed effective value. A
+      // size that would fold is the exception: it was held rather than written, and showing
+      // the stored value in its place would erase what the user is halfway through typing.
       if (
+        Config.foldsToDefault(name, text) ||
         Value.deepEqual(
           normalizeFieldValue(config, target, name, text),
           normalizeFieldValue(config, target, name, atPath(data, target, name)),
@@ -293,7 +296,20 @@ export function applyWorkspaceChange(
         ? nextRaw
         : undefined;
     if (rawText !== undefined) held[heldKey] = rawText;
-    if (Value.deepEqual(previous, next)) continue;
+    // A size the card would fold is one still being typed — `2r` on the way to `2rem`. It is
+    // held and not written, like any value that is invalid only while being typed, so the
+    // stored size stays the last one that parsed instead of becoming the default (#620).
+    if (rawText !== undefined && Config.foldsToDefault(comparisonKey, rawText)) continue;
+    // A held size was never stored, so its folded value says nothing about what is: without
+    // this, typing `6px` after `big` would compare equal to the default `big` folds to, and
+    // leave a stored `10px` in place while the field read `6px`. Only when this field's text
+    // moved — ha-form re-emits a held value untouched whenever another field changes.
+    if (
+      Value.deepEqual(previous, next) &&
+      !(textChanged && Config.foldsToDefault(comparisonKey, previousRaw))
+    ) {
+      continue;
+    }
 
     if (path.length > 0) {
       draft = writePath(draft, path, node.name, next);

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG, PROCESSING_TIME_KEYS } from '../src/config/config';
+import {
+  DEFAULT_CONFIG,
+  LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  PROCESSING_TIME_KEYS,
+} from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -213,9 +217,16 @@ describe('resolveEffectiveConfig', () => {
 
     for (const key of COLUMN_OVERRIDE_KEYS) {
       // Numeric overrides use the root's normalization, so their distinguishing value
-      // must be a number rather than a rejected text sentinel.
+      // must be a number rather than a rejected text sentinel. A folded length is refused
+      // the same way — a text sentinel lands on its default on both paths, and the test
+      // could no longer tell an applied override from an ignored one — so it gets a size.
       const reference = DEFAULT_CONFIG[key];
-      const sentinel = typeof reference === 'number' ? reference + 17 : `__${key}__`;
+      const sentinel =
+        typeof reference === 'number'
+          ? reference + 17
+          : LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+            ? '17em'
+            : `__${key}__`;
       const config = buildConfig({
         column: { [key]: sentinel } as Partial<Types.Config>['column'],
       });

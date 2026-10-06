@@ -218,7 +218,7 @@ fixed `height` compresses the time axis rather than scrolling.
 | `today_indicator`          | boolean or string | `false`   | Today indicator type: `true`/`dot` (basic dot), `pulse` (animated dot), `glow` (glowing effect), custom MDI icon (e.g., `mdi:star`), emoji, image path, or any other text |
 | `today_indicator_position` | string            | `15% 50%` | Position of today indicator in CSS-like format (x% y%)                                                                                                                    |
 | `today_indicator_color`    | string            | `#03a9f4` | Color of the today indicator                                                                                                                                              |
-| `today_indicator_size`     | string            | `6px`     | Size of the today indicator                                                                                                                                               |
+| `today_indicator_size`     | string            | `6px`     | Size of the today indicator, as a CSS length such as `6px` or `0.5em`. A percentage, negative size, keyword or misspelled unit falls back to `6px`                        |
 
 **→ [Today indicator](/features/layout-appearance#today-indicator)** — all four indicator types, shown side by side.
 

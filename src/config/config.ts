@@ -382,7 +382,8 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * Values that carry no bare number, and genuinely numeric options, pass through untouched
  * — except a missing one. A blank YAML value parses as `null`, which means "no value
  * supplied" rather than a value to preserve, so a length-valued option falls back to what
- * it ships with.
+ * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter
+ * still: any value that is not a size they can be drawn at falls back the same way.
  *
  * @param key - Option the value was written against
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
@@ -410,7 +411,8 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @param key - Top-level option name, where one applies. Only consulted for the options in
- *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself.
+ *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself, and
+ *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
@@ -431,9 +433,16 @@ export function coercePixelLengthAgainst(
   //
   // Deliberately narrow. An empty string, `NaN` and `Infinity` also reach here and are
   // pinned as pass-through by `tests/pixel-length-coercion.test.ts`: none of them throws,
-  // and substituting a default for them would replace a dead rule with a guess.
+  // and substituting a default for them would replace a dead rule with a guess. The one
+  // exception is the table checked next, where an unusable value is not a dead rule.
   if (value === null || value === undefined) {
     return lengthValued ? shippedDefault : value;
+  }
+
+  // For these options an unusable value releases the element's own size instead of
+  // dropping one rule, so anything that is not a size they can be drawn at is folded.
+  if (key !== undefined && LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return toValidSize(value) ?? shippedDefault;
   }
 
   const bare = bareNumber(value);
@@ -442,6 +451,169 @@ export function coercePixelLengthAgainst(
   }
 
   return lengthValued ? `${bare}px` : value;
+}
+
+/**
+ * Length options whose unusable value takes the layout down with it, so it is folded to
+ * the shipped default rather than passed through.
+ *
+ * For most lengths a value the browser cannot use costs only its own rule: the declaration
+ * is dropped and a gap or a font size quietly reverts. These are different, because they
+ * size content that has a size of its own. `today_indicator_size` reaches the dot, `pulse`,
+ * `glow` and `mdi:` indicators as Home Assistant's `--mdc-icon-size`, which `ha-svg-icon`
+ * reads as `width: var(--mdc-icon-size, 24px)`. That fallback covers a missing property,
+ * not one holding something `width` cannot use — so `6 px` leaves the icon's box `auto`
+ * and its SVG takes the browser's default 300px width (#620). In column view nothing
+ * bounds that, and the dot takes over today's header; in list view it fills the date
+ * column. An image indicator goes to its natural size in either view.
+ *
+ * Measured in Chromium, the same failure follows from a negative size, a percentage, a
+ * keyword such as `large`, a decimal comma and a unit typo — not only from the space. So
+ * the fold is decided by {@link toValidSize}, which accepts what the indicator can be
+ * drawn at, rather than by a list of known mistakes.
+ *
+ * Consulted wherever {@link coercePixelLengthAgainst} is handed a key: the top level of
+ * the `setConfig` walk, every view override, and the editor's comparisons, so all three
+ * agree on the folded value.
+ */
+export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'today_indicator_size',
+]);
+
+/**
+ * Every CSS length unit: absolute, font-relative, viewport and container. `%` is not one —
+ * see {@link toValidSize}.
+ */
+const LENGTH_UNIT =
+  '(?:px|cm|mm|q|in|pt|pc|r?em|r?ex|r?cap|r?ch|r?ic|r?lh|[sld]?v(?:w|h|i|b|min|max)|cq(?:w|h|i|b|min|max))';
+
+/**
+ * A size as CSS writes it — a non-negative number, in any notation CSS reads, and a unit:
+ * `6px`, `.75rem`, `1REM`, `1e1px`.
+ */
+const SIZE = new RegExp(`^\\+?(?:\\d*\\.)?\\d+(?:e[+-]?\\d+)?${LENGTH_UNIT}$`, 'i');
+
+/**
+ * A number, whitespace, then a length unit, anywhere in a value — `6 px`, which is what
+ * #620 typed. CSS reads that as a number followed by a word, which is never valid, so
+ * closing it up cannot change the meaning of a value that already worked. Global, and so
+ * only ever handed to `replace`, which resets `lastIndex` itself; a `test` or `exec` on it
+ * would carry position from one call into the next.
+ */
+const SPACE_BEFORE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT})(?![a-z])`, 'gi');
+
+/**
+ * A value shaped like a CSS function — `calc()`, `min()`, `round()`, `var()` and the rest —
+ * including one YAML spread over several lines.
+ */
+const SIZE_FUNCTION = /^[a-z][a-z-]*\([\s\S]*\)$/i;
+
+/**
+ * Whether the browser can draw a size written as a function.
+ *
+ * Asked about `border-top-width` because that property takes exactly what the indicator
+ * can be drawn at — a non-negative length, with no percentage and no `auto` — so its answer
+ * refuses `calc(6pz)` and `calc(50%)` and accepts `round(up, 0.5em, 1px)`. Its own keywords
+ * never reach it, because only a value shaped like a function is asked. A `var()` always
+ * passes: the property it names is not known until layout.
+ *
+ * Where nothing can answer — the Node scripts that import this module — the value is kept.
+ * The test suite's happy-dom does answer, and answers `true` to everything, so a test of
+ * the refusing branch has to supply the browser's answer itself.
+ *
+ * @param value - A function-shaped size, already tidied
+ * @returns `true` unless a browser says it cannot use the value
+ */
+function browserCanDraw(value: string): boolean {
+  return (
+    typeof CSS === 'undefined' ||
+    typeof CSS.supports !== 'function' ||
+    CSS.supports('border-top-width', value)
+  );
+}
+
+/**
+ * A size an icon or an image can be drawn at, tidied, or `undefined` when there is none.
+ *
+ * Accepts a non-negative CSS length — a number and a length unit — and forgives the
+ * spellings that can only have meant one: a bare number, which gains `px` as it does for
+ * every length option; whitespace between a number and its unit, which is closed up, so
+ * `6 px` becomes `6px`, inside a `calc()` as well; and a trailing semicolon, which no size
+ * can contain and which the card already tolerated by accident, because the first render
+ * writes the style attribute as text.
+ *
+ * Everything else is refused, and each kind was measured breaking the indicator in
+ * Chromium. A percentage resolves against a different box in every rule that reads it: the
+ * dot drew 150px wide for `50%`, and the weekday's offset grew past 300px for `150%`. A
+ * negative size, a keyword such as `large` or `auto`, and a unit CSS does not have — which
+ * is how a typo arrives — each released the icon's own size.
+ *
+ * A function is checked by the browser, through {@link browserCanDraw}, once its spaces are
+ * closed up — and refused outright if it holds a percentage, so that answer does not depend
+ * on which browser is asking. The one value nothing here can check is a `var()` or `env()`
+ * naming a property that holds no length.
+ *
+ * @param value - Raw configured value
+ * @returns The size to use, or `undefined` when the value cannot be one
+ */
+export function toValidSize(value: unknown): string | undefined {
+  const written = typeof value === 'string' ? value.replace(/;+\s*$/, '').trim() : value;
+  const bare = bareNumber(written);
+  const text =
+    bare !== undefined
+      ? `${bare}px`
+      : typeof written === 'string'
+        ? written.replace(SPACE_BEFORE_UNIT, '$1$2')
+        : '';
+
+  if (SIZE.test(text)) {
+    return text;
+  }
+
+  return SIZE_FUNCTION.test(text) && !text.includes('%') && browserCanDraw(text) ? text : undefined;
+}
+
+/**
+ * Whether a value written for an option would be folded to its shipped default.
+ *
+ * Only an option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} folds, and only a value
+ * that is present and not blank: a missing or blank one means "not set", which takes the
+ * default without being a mistake.
+ *
+ * @param key - Option the value was written against
+ * @param value - Raw value, before normalization
+ * @returns `true` when the value cannot be used and the default will stand in for it
+ */
+export function foldsToDefault(key: string, value: unknown): boolean {
+  return (
+    LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) &&
+    value !== undefined &&
+    value !== null &&
+    !(typeof value === 'string' && value.trim() === '') &&
+    toValidSize(value) === undefined
+  );
+}
+
+/**
+ * Reports a folded length at the configuration boundary.
+ *
+ * Called from `setConfig` and from the view-override validation rather than from {@link
+ * coercePixelLengthAgainst}, which the editor runs on every keystroke.
+ *
+ * @param key - Option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}
+ * @param value - Raw value, before normalization
+ * @param path - Option path used in the diagnostic
+ */
+export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
+  if (!foldsToDefault(key, value)) {
+    return;
+  }
+
+  const fallback = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
+  Logger.warn(
+    `Invalid ${path} ${JSON.stringify(value)}: expected a non-negative CSS length such as ` +
+      `"6px" or "0.5em". Falling back to "${String(fallback)}".`,
+  );
 }
 
 /**

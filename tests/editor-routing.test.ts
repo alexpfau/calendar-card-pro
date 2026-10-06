@@ -216,6 +216,11 @@ describe('coerced-against-coerced comparisons', () => {
 
 describe('typed lengths keep their raw text in the form', () => {
   it.each(lengthKeys)('%s can be typed without inserting pixels mid-word', (key) => {
+    // A folded length is not written mid-word: `2r` is not a size it can be drawn at, so it
+    // is held like any value invalid only while being typed, and the stored size stays the
+    // last one that parsed (#620). The form still shows what was typed, which is the
+    // behavior this test is about.
+    const folded = Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key);
     for (const workspace of ['column', 'grid'] as const) {
       let config = buildConfig({ [key]: '4px' });
       let pending: Record<string, string> = {};
@@ -231,8 +236,10 @@ describe('typed lengths keep their raw text in the form', () => {
         );
         config = result.config;
         pending = result.pending;
+        const unfinished = text === '2r' || text === '2re';
+        const stored = text === '2' || (folded && unfinished) ? '2px' : text;
         expect(Routing.workspaceFormData(config, workspace, pending)[key]).toBe(text);
-        expect(config[block]).toHaveProperty(key, text === '2' ? '2px' : text);
+        expect(config[block]).toHaveProperty(key, stored);
       }
     }
   });

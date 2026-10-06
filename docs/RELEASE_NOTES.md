@@ -108,6 +108,7 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - **An empty day's text could be styled per view but its color could not** - `empty_day_text` accepted a `column:` override and `empty_day_color` did not, although the card honors both in exactly list and column view. Setting the color inside a `column:` block silently did nothing; it now applies, so a placeholder can be toned down in columns without changing the list
 - **A finished day's "no events" notice stayed bright** - With past events shown, an empty-day placeholder was drawn at full strength however old its date was, so a finished Monday's notice sat undimmed beside the finished meetings around it. It is now judged past on its own local date and fades with everything else, while today's stays bright all day
 - **A Sunday-start week broke before Monday** - With `first_day_of_week: sunday`, the week rule was drawn between Sunday and Monday rather than before Sunday, and only on cards that leave week numbers off. The rule marks wherever the week number changes, and the Monday-anchored ISO numbering the card falls back to when `show_week_numbers` is `null` skipped the step that moves Sunday into the week it opens. Setting `show_week_numbers` rendered correctly, so the one configuration in which the rule is the only marker of the week was the one that placed it wrongly
+- **A space in `today_indicator_size` blew the indicator up** - Writing `6 px` rather than `6px` drew the dot hundreds of pixels wide, taking over today's column header and filling the date column in list view. The space is now closed up, and a value that is still not a size — a percentage, a negative number, a keyword, a misspelled unit — falls back to `6px`
 
 ### Events & Language
 
@@ -127,6 +128,7 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
 - [#176](https://github.com/alexpfau/calendar-card-pro/issues/176) - Asked for newest-first sorting on a calendar kept as a log by @iKaew, and in the discussion for a way to switch off the 60% dimming on past events. `past_event_opacity` answers the second in full; sorting newest first is untouched, so **do not close** it
 - [#621](https://github.com/alexpfau/calendar-card-pro/issues/621) - The week rule ignoring `first_day_of_week: sunday`, reported by @A-Talmor against Asia/Jerusalem. The week separator half is fixed; the report's second observation, that Sunday also carries the `weekend` class, is a separate mechanism reading the Home Assistant language and is **not** addressed here, so say so when closing
+- [#620](https://github.com/alexpfau/calendar-card-pro/issues/620) - The today indicator taking over the column header when `today_indicator_size` was written as `6 px`, reported by @codetalker78
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0
 
