@@ -208,8 +208,9 @@ card_mod:
 ### Shade weekend days
 
 This rule covers the weekend in List and Column. Which days carry the `weekend` class
-follows your Home Assistant language, so this rule
-shades Friday and Saturday in an Arabic or Hebrew household without being rewritten:
+follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+or its language when no country is set, so this rule shades Friday and Saturday in Israel
+without being rewritten:
 
 ```yaml
 type: custom:calendar-card-pro

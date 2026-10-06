@@ -327,7 +327,8 @@ function renderWeekRow(
  * @param language - Language code for translations
  * @param isToday Whether the date is today
  * @param weatherForecasts Fetched forecasts, if any
- * @param hass Home Assistant instance, whose locale decides which days are the weekend
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered date column
  */
 function renderDateColumn(
@@ -366,7 +367,7 @@ export function renderDay(
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
-  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass?.locale);
+  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass);
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -504,7 +505,7 @@ function renderEvent(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass?.locale);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;

@@ -188,8 +188,10 @@ export type EventType = 'all' | 'timed' | 'all_day';
  * three-week holiday already in progress shows on the window's first day whatever weekday
  * that is, so reading the start date would answer about a day the card is not drawing.
  *
- * Weekend means Saturday and Sunday — {@link isWeekendDate} in `utils/format.ts` is the
- * single definition, shared with the weekend day-header colors so the two cannot disagree.
+ * Which days are the weekend follows the country set in Home Assistant, or its language
+ * when no country is set. {@link isWeekendDate} in `utils/format.ts` is the single
+ * definition, shared with the weekend day-header colors and grid's weekend shading so
+ * they cannot disagree.
  *
  * 🚨 There is deliberately no `all` member, unlike `EventType`. This option is
  * per-calendar only, so it has no card-level value to override and an explicit `all` would
@@ -466,8 +468,8 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    * in the block that owns it, where writing it at the top level earns a warning naming
    * where it belongs.
    *
-   * Which days count as the weekend comes from Home Assistant's language; see
-   * {@link FormatUtils.isWeekendDate}.
+   * Which days count as the weekend comes from the country set in Home Assistant, or its
+   * language when no country is set; see {@link FormatUtils.isWeekendDate}.
    */
   weekend_background_color?: string;
 
@@ -882,6 +884,19 @@ export interface Hass {
     time_format?: string;
     /** Home Assistant's first-weekday profile setting: a weekday name, or 'language'. */
     first_weekday?: string;
+  };
+  /**
+   * Home Assistant's core configuration. Only the field the card reads is declared.
+   *
+   * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
+   * may omit it, and the card then reads the weekend from the language instead.
+   */
+  config?: {
+    /**
+     * The home's country as an ISO 3166-1 alpha-2 code, or `null` when none is set. It
+     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}.
+     */
+    country?: string | null;
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;

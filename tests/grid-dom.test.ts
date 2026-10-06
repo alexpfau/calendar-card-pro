@@ -1436,17 +1436,20 @@ describe('separators between grid days', () => {
   });
 
   it('bleeds the tint across the gutter only BETWEEN two weekend days', () => {
-    // Solved from adjacency rather than from Saturday and Sunday, so every weekend locale
-    // has to come out right — and two of the three cases below cannot be produced by the
-    // default at all. `WEEKEND_BY_LOCALE` gives `ar` and `he` a Friday-Saturday weekend,
-    // whose interior boundary is a day earlier, and `hi`, `fa`, `ml`, `ta` and `te` a
-    // single weekend day, which has no interior boundary and must stay one column wide.
+    // Solved from adjacency rather than from Saturday and Sunday, so every weekend has to
+    // come out right — and most of the cases below cannot be produced by the default at
+    // all. CLDR gives Israel, and with no country set the `ar` and `he` languages, a
+    // Friday-Saturday weekend, whose interior boundary is a day earlier; Afghanistan a
+    // Thursday-Friday one, earlier still; and India, or `hi` with no country set, a single
+    // weekend day, which has no interior boundary and must stay one column wide.
     //
-    // Read as the whole stripe list per locale, not as a spot check: the failure this
+    // Read as the whole stripe list per home, not as a spot check: the failure this
     // guards against is a stripe ARRIVING at the wrong boundary as much as one going
     // missing, and a `toContain` cannot see the first.
-    const stripesFor = (language?: string) => {
-      const hass = language ? ({ locale: { language } } as unknown as Types.Hass) : null;
+    const stripesFor = (language?: string, country?: string) => {
+      const hass = language
+        ? ({ locale: { language }, config: { country: country ?? null } } as unknown as Types.Hass)
+        : null;
       const container = renderGrid(EVENTS, spanConfig({ days_to_show: 8 }), hass);
       const weekendDays = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'))
         .filter((body) => body.classList.contains('weekend'))
@@ -1461,7 +1464,8 @@ describe('separators between grid days', () => {
     };
 
     // The window opens Wed 17 June 2026 and runs eight days to Wed 24, so the hour axis
-    // aside, Fri 19 is column 4, Sat 20 is column 5 and Sun 21 is column 6.
+    // aside, Thu 18 is column 3, Fri 19 is column 4, Sat 20 is column 5 and Sun 21 is
+    // column 6.
     const sunday = stripesFor('en');
 
     expect(sunday.weekendDays, 'fixture spans no weekend').toEqual(['5', '6']);
@@ -1482,6 +1486,20 @@ describe('separators between grid days', () => {
 
     expect(single.weekendDays).toEqual(['6']);
     expect(single.stripes).toEqual(['6 / span 1']);
+
+    // The country decides wherever it is set, in both directions: Israel shades Friday and
+    // Saturday in an English Home Assistant, which alone answers like `sunday` above, and
+    // Morocco shades Saturday and Sunday in an Arabic one, which alone answers like
+    // `friday`. The stripes are a call site of their own, so the day-body classes passing
+    // in another test does not cover them.
+    expect(stripesFor('en', 'IL')).toEqual(friday);
+    expect(stripesFor('ar', 'MA')).toEqual(sunday);
+
+    // Thursday and Friday, which no language reaches.
+    const thursday = stripesFor('fa', 'AF');
+
+    expect(thursday.weekendDays).toEqual(['3', '4']);
+    expect(thursday.stripes).toEqual(['3 / span 2']);
   });
 
   it('does not bleed off the end of a window that splits the weekend', () => {

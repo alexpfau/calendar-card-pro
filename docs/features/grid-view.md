@@ -337,9 +337,11 @@ of the band whatever is in it, so the tint is one clean stripe down the week; a
 column-view column is only as tall as that day's events, so the same tint would end at a
 different height on each day and read as a rendering fault rather than as shading.
 
-Which days are shaded comes from your Home Assistant language, so this is Friday and
-Saturday in an Arabic or Hebrew household and Sunday alone in an Indian one — the same
-definition the [`weekend_*` date colors](/features/layout-appearance#date-column-customization)
+Which days are shaded comes from the
+[country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+so this is Friday and Saturday in Israel and Sunday alone in India, whatever language Home
+Assistant runs in. With no country set, Home Assistant's language decides instead. It is the
+same definition the [`weekend_*` date colors](/features/layout-appearance#date-column-customization)
 and [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) use.
 
 ## 📅 All-Day Events

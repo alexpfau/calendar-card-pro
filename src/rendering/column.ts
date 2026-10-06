@@ -219,7 +219,7 @@ function renderDayColumn(
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass?.locale);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 
