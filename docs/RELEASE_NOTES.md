@@ -73,6 +73,12 @@ See [Past Events Display](https://calendar-card-pro.alexpfau.com/features/event-
 
 See [per-calendar options](https://calendar-card-pro.alexpfau.com/features/core-settings#available-options-for-entity-configuration-objects).
 
+### 🌙 Night Icons That Follow the Forecast
+
+- **Weather beside an event shows the sky where the forecast is** - A sunny hour was drawn as a moon whenever your own clock read between 18:00 and 06:00, so an afternoon game abroad sat under a night sky. Where the weather integration marks each hour as day or night, as Home Assistant's `is_daytime` does, the icon now follows that instead. Forecasts without it keep the 18:00 to 06:00 rule, and weather from the daily forecast, which stands for the whole day, keeps its day icon (#603)
+
+See [Weather Display Positions](https://calendar-card-pro.alexpfau.com/features/weather#weather-display-positions).
+
 ### 🔭 What Comes After This
 
 A block is only as tall as its event lasts, so no amount of layout work makes a half-hour meeting hold a description — which is why grid view reveals detail as a block grows. The other half comes next: tapping an event to open, change or remove it where the calendar supports it, tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604).
@@ -131,6 +137,7 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - [#621](https://github.com/alexpfau/calendar-card-pro/issues/621) - The week rule ignoring `first_day_of_week: sunday`, reported by @A-Talmor against Asia/Jerusalem. The week separator half is fixed; the report's second observation, that Sunday also carries the `weekend` class, is a separate mechanism reading the Home Assistant language and is **not** addressed here, so say so when closing
 - [#620](https://github.com/alexpfau/calendar-card-pro/issues/620) - The today indicator taking over the column header when `today_indicator_size` was written as `6 px`, reported by @codetalker78
 - [#625](https://github.com/alexpfau/calendar-card-pro/issues/625) - Showing the time once for an event that starts and ends at the same time, requested by @KingDando8430. Filed as a feature request, but v4.2 printed the time twice, so it is listed above as a fix
+- [#603](https://github.com/alexpfau/calendar-card-pro/issues/603) - Choosing day or night weather icons from the forecast's own `is_daytime`, with the 18:00 to 06:00 rule kept as the fallback, requested by @jonaspinall
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0
 
