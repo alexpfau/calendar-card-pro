@@ -45,6 +45,12 @@ const FORGIVEN: ReadonlyArray<readonly [input: unknown, size: string]> = [
   ['12px;', '12px'],
   ['6 px ;', '6px'],
   ['6;', '6px'],
+  // Lit's styleMap reads the flag as a priority, so `10px !important` drew at 10px and
+  // outranked a card-mod `!important` before the fold. It is kept, in the one spelling
+  // styleMap reads.
+  ['10px !important', '10px !important'],
+  ['0.5em!important;', '0.5em !important'],
+  ['6 px ! IMPORTANT', '6px !important'],
   // The same typo inside a function, where it broke the declaration just the same.
   ['calc(6 px + 0.5 em)', 'calc(6px + 0.5em)'],
   ['min(6 px, 1 rem)', 'min(6px, 1rem)'],
@@ -96,6 +102,7 @@ const REFUSED: ReadonlyArray<readonly [value: unknown]> = [
   '',
   '   ',
   ';',
+  '!important',
   true,
   false,
   Number.NaN,
@@ -213,10 +220,19 @@ describe('coercing today_indicator_size', () => {
 });
 
 describe('the fold is scoped to the options that need it', () => {
-  it('names today_indicator_size and nothing else', () => {
+  it('names today_indicator_size and the icon sizes, and nothing else', () => {
     // Pinned by value rather than walked, so an entry leaving the table fails here instead
-    // of quietly shrinking every loop that reads it.
-    expect([...Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual([KEY]);
+    // of quietly shrinking every loop that reads it. The five icon sizes share the
+    // indicator's route to a 300px icon; `icon-size-fold.test.ts` covers them, and
+    // reconciles this table against every `--mdc-icon-size` in the stylesheet.
+    expect([...Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE]).toEqual([
+      KEY,
+      'time_icon_size',
+      'location_icon_size',
+      'description_icon_size',
+      'weather.date.icon_size',
+      'weather.event.icon_size',
+    ]);
   });
 
   it.each(['day_spacing', 'weekday_font_size'])(

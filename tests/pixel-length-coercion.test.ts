@@ -359,7 +359,13 @@ describe('Y21b — a bare number typed into an editor text field', () => {
   it.each(TYPED_LENGTH_FIELDS)('coerces a number typed into %s', (key) => {
     expect(Config.coercePixelLength(key, '10')).toBe('10px');
     expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
-    expect(Config.coercePixelLength(key, '-2')).toBe('-2px');
+    // An icon cannot be drawn at a negative size, so an option that folds takes its default
+    // instead of `-2px` — see `icon-size-fold.test.ts`.
+    expect(Config.coercePixelLength(key, '-2')).toBe(
+      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+        ? (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]
+        : '-2px',
+    );
   });
 
   /**
@@ -558,10 +564,22 @@ describe('length options whose default cannot mark them', () => {
 
   it('only applies the exception at the top level', () => {
     // The named set holds bare option names, and the walk descends into nested groups. A
-    // nested key that happened to share one of these names must not inherit the exception
-    // — the guard is positional, so this pins it rather than relying on today's shape.
+    // nested key that happened to share one of these names must not inherit the exception.
+    // The walk hands a nested key over under its dotted path, which is what keeps it apart,
+    // so this pins both the helper and the walk rather than relying on today's shape.
     expect(Config.coercePixelLengthAgainst(undefined, 24)).toBe(24);
     expect(Config.coercePixelLengthAgainst(undefined, 24, 'title_font_size')).toBe('24px');
+    expect(Config.coercePixelLengthAgainst(undefined, 24, 'weather.title_font_size')).toBe(24);
+
+    const config = {
+      weather: { date: { title_font_size: 24 } },
+    } as unknown as Types.Config;
+    Config.normalizeLengthOptions(config);
+
+    expect(
+      (config as unknown as Record<string, Record<string, Record<string, unknown>>>).weather.date
+        .title_font_size,
+    ).toBe(24);
   });
 });
 
