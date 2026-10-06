@@ -510,8 +510,9 @@ export const COLUMN_DEFAULTS = {
  * `types.ts` gives: a grid column is the same height whatever is in it, and a column-view
  * column is not. The value is a mix rather than a fixed gray so that it darkens a light
  * theme and lightens a dark one; `color-mix` is Chrome 111, well under the Chrome 117
- * floor grid view already sets with `subgrid`. Which days are shaded comes from Home
- * Assistant's language, so this is Friday and Saturday in an Israeli household.
+ * floor grid view already sets with `subgrid`. Which days are shaded comes from the country
+ * set in Home Assistant, or its language when no country is set, so this is Friday and
+ * Saturday in an Israeli household whatever language it runs in.
  *
  * The five text colors start at `accent`, so a grid block's text is its own calendar's
  * color the way macOS Calendar draws it. Grid only, and for the same reason as the weekend

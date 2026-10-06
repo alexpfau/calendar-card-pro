@@ -42,7 +42,7 @@ entities:
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                          |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
-| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows your Home Assistant language. Unset, every day qualifies                                                                                                                            |
+| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                               |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -624,10 +624,20 @@ calendar supplied becomes an empty day like any other. With
 view defaults to, the day still appears carrying the usual _No events_ notice.
 :::
 
-Which days are the weekend comes from your Home Assistant language, not from the card's
-own `language` option: Saturday and Sunday in most regions, Friday and Saturday in the
-Arabic- and Hebrew-speaking ones, Friday alone in Persian, and Sunday alone in Hindi,
-Malayalam, Tamil and Telugu. That is the same definition the
+Which days are the weekend comes from the country set in Home Assistant, under **Settings →
+System → Home information** (**General** before Home Assistant 2026.3), not from the card's
+own `language` option: Saturday and Sunday in most countries, Friday and Saturday in Israel
+and much of the Arab world, Thursday and Friday in Afghanistan, Friday alone in Iran, and
+Sunday alone in India and Uganda.
+
+With no country set, Home Assistant's language decides instead: Friday and Saturday in
+Arabic and Hebrew, Friday alone in Persian, Sunday alone in Hindi, Malayalam, Tamil and
+Telugu, and Saturday and Sunday in every other language. A language can speak for only one
+of the countries that use it, though — English gives an Israeli home Saturday and Sunday,
+and Arabic gives a Moroccan one Friday and Saturday — so set the country if your weekend
+comes out wrong.
+
+That is the same definition the
 [weekend colors](/features/layout-appearance#date-column-customization) and the weekend
 shading use, so a day this option treats as a weekend is a day the card already draws as
 one.

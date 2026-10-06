@@ -26,12 +26,14 @@ async function mount(
   language: string,
   filter?: Types.DaysOfWeekFilter,
   hideWhenEmpty = true,
+  country?: string | null,
 ) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   const callApi = vi.fn().mockResolvedValue([EVENT]);
   const hass: Types.Hass = {
     states: {},
     locale: { language, first_weekday: 'monday', time_format: '24' },
+    ...(country === undefined ? {} : { config: { country } }),
     callApi,
     callService: vi.fn(),
   };
@@ -63,6 +65,27 @@ afterEach(() => {
 });
 
 describe.each(['list', 'column', 'grid'] as const)('%s weekend-dependent visibility', (view) => {
+  /**
+   * Assert what the card shows for the one Sunday event, given whether Sunday is currently
+   * a weekend day. Every surface that reads the visible count is checked, because the memo
+   * guarding it is what a missed weekend change leaves stale.
+   */
+  function expectVisible(
+    card: Card,
+    filter: Types.DaysOfWeekFilter | undefined,
+    hideWhenEmpty: boolean,
+    sundayIsWeekend: boolean,
+  ): void {
+    const count = filter === undefined ? 1 : Number(sundayIsWeekend === (filter === 'weekends'));
+    expect(
+      card.groupedEvents.flatMap((day) => day.events.filter((e) => !e._isEmptyDay)),
+    ).toHaveLength(count);
+    expect(card.visibleEventCount).toBe(count);
+    expect(card.hidden).toBe(hideWhenEmpty && count === 0);
+    expect(card.style.display).toBe(hideWhenEmpty && count === 0 ? 'none' : '');
+    expect(card.shadowRoot!.textContent?.includes(EVENT.summary!)).toBe(count > 0);
+  }
+
   it.each(
     (['en', 'he'] as const).flatMap((language) =>
       ([undefined, 'weekdays', 'weekends'] as const).flatMap((filter) =>
@@ -73,19 +96,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s weekend-dependent visibil
     'tracks $language changes with filter=$filter, hide_when_empty=$hideWhenEmpty',
     async ({ language, filter, hideWhenEmpty }) => {
       const { card, callApi } = await mount(view, language, filter, hideWhenEmpty);
-      const admitted = (locale: string): number =>
-        filter === undefined ? 1 : Number((locale === 'en') === (filter === 'weekends'));
-      const assertVisible = (locale: string): void => {
-        const count = admitted(locale);
-        expect(
-          card.groupedEvents.flatMap((day) => day.events.filter((e) => !e._isEmptyDay)),
-        ).toHaveLength(count);
-        expect(card.visibleEventCount).toBe(count);
-        expect(card.hidden).toBe(hideWhenEmpty && count === 0);
-        expect(card.style.display).toBe(hideWhenEmpty && count === 0 ? 'none' : '');
-        expect(card.shadowRoot!.textContent?.includes(EVENT.summary!)).toBe(count > 0);
-      };
-      assertVisible(language);
+      expectVisible(card, filter, hideWhenEmpty, language === 'en');
       const events = card.events;
       callApi.mockClear();
       const changed = language === 'en' ? 'he' : 'en';
@@ -93,7 +104,32 @@ describe.each(['list', 'column', 'grid'] as const)('%s weekend-dependent visibil
       await card.updateComplete;
       expect(card.events).toBe(events);
       expect(callApi).not.toHaveBeenCalled();
-      assertVisible(changed);
+      expectVisible(card, filter, hideWhenEmpty, changed === 'en');
+    },
+  );
+
+  it.each(
+    ([null, 'IL'] as const).flatMap((country) =>
+      ([undefined, 'weekdays', 'weekends'] as const).flatMap((filter) =>
+        [false, true].map((hideWhenEmpty) => ({ country, filter, hideWhenEmpty })),
+      ),
+    ),
+  )(
+    'tracks a country change from $country with filter=$filter, hide_when_empty=$hideWhenEmpty',
+    async ({ country, filter, hideWhenEmpty }) => {
+      // English throughout, so only the country moves the weekend: Sunday is a weekend day
+      // with no country set and a working day in Israel. A memo keyed on the language alone
+      // would keep the first answer here, which is the stale count this case exists to see.
+      const { card, callApi } = await mount(view, 'en', filter, hideWhenEmpty, country);
+      expectVisible(card, filter, hideWhenEmpty, country === null);
+      const events = card.events;
+      callApi.mockClear();
+      const changed = country === null ? 'IL' : null;
+      card.hass = { ...card.hass, config: { country: changed } };
+      await card.updateComplete;
+      expect(card.events).toBe(events);
+      expect(callApi).not.toHaveBeenCalled();
+      expectVisible(card, filter, hideWhenEmpty, changed === null);
     },
   );
 });
@@ -104,6 +140,20 @@ it('retains the memo for new HA objects with an equivalent weekend definition', 
   const group = vi.spyOn(EventUtils, 'groupEventsByDay');
   card.hass = { ...card.hass, locale: { ...card.hass.locale, language: 'ar' } };
   expect(card.visibleEventCount).toBe(1);
+  expect(card.visibleEventCount).toBe(1);
+  expect(group).not.toHaveBeenCalled();
+});
+
+it('retains the memo when the country or language changes without moving the weekend', async () => {
+  // Israel to Saudi Arabia keeps Friday and Saturday, and so does a language change while a
+  // country is set, because the country is what decides. The memo is keyed on the resolved
+  // days rather than on either input, so neither change may regroup.
+  const { card } = await mount('list', 'en', 'weekdays', true, 'IL');
+  expect(card.visibleEventCount).toBe(1);
+  const group = vi.spyOn(EventUtils, 'groupEventsByDay');
+  card.hass = { ...card.hass, config: { country: 'SA' } };
+  expect(card.visibleEventCount).toBe(1);
+  card.hass = { ...card.hass, locale: { ...card.hass.locale, language: 'de' } };
   expect(card.visibleEventCount).toBe(1);
   expect(group).not.toHaveBeenCalled();
 });

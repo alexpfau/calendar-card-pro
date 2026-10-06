@@ -116,7 +116,8 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param isToday Whether the date is today
  * @param weatherContent Already-rendered weather badge, or `nothing`
  * @param separator Optional rule under the header
- * @param hass Home Assistant instance, whose locale decides which days are the weekend
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -195,7 +196,8 @@ export function renderDayWeekNumber(
  * @param language Language code for translations
  * @param isToday Whether the date is today
  * @param weatherContent Already-rendered weather badge, or `nothing`
- * @param hass Home Assistant instance, whose locale decides which days are the weekend
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered date block contents
  */
 export function renderDateContent(
@@ -206,7 +208,7 @@ export function renderDateContent(
   weatherContent: TemplateResult | typeof nothing = nothing,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const isWeekendDay = FormatUtils.isWeekendDate(date, hass?.locale);
+  const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;

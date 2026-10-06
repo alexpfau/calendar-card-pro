@@ -284,7 +284,7 @@ today_month_color: '#03a9f4' # Today's month name
 
 The date column appears on the left side of each day's events and helps users quickly identify when events occur. By default, all dates use the base styling, but you can apply special styling to:
 
-- **Weekend days** using the `weekend_*` options — which days those are follows your Home Assistant language
+- **Weekend days** using the `weekend_*` options — which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set
 - **Today's date** using the `today_*` options
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.

@@ -383,6 +383,13 @@ class CalendarCardPro extends LitElement {
      * profile, so it can move while the config object stays identical.
      */
     firstWeekday: number;
+    /**
+     * Resolved weekend days, joined. Neither `config` nor `language` covers them: they
+     * follow the country set in Home Assistant, or its language when no country is set,
+     * and either can change while the config object stays identical. Keyed on the result
+     * rather than on the two inputs, so a change that leaves the weekend where it was
+     * keeps the memo.
+     */
     weekendDaysKey: string;
     evaluatedAt: number;
     count: number;
@@ -533,7 +540,7 @@ class CalendarCardPro extends LitElement {
       this.isExpanded,
       this.effectiveLanguage,
       this.effectiveView,
-      this.hass?.locale,
+      this.hass,
     );
   }
 
@@ -601,7 +608,7 @@ class CalendarCardPro extends LitElement {
       this.config.first_day_of_week,
       this.hass?.locale,
     );
-    const weekendDaysKey = FormatUtils.getWeekendDays(this.hass?.locale).join(',');
+    const weekendDaysKey = FormatUtils.getWeekendDays(this.hass).join(',');
     // Expiry and relative date windows can change without new events or configuration.
     const evaluatedAt = Date.now();
     const cache = this._visibleCountCache;
@@ -626,7 +633,7 @@ class CalendarCardPro extends LitElement {
           true,
           language,
           view,
-          this.hass?.locale,
+          this.hass,
         ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
       : 0;
 

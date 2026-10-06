@@ -333,9 +333,10 @@ function renderGridEndRule(color: string): TemplateResult {
  * the outer edges wrong at some window.
  *
  * A run is grown from **adjacency**, never from a hardcoded Saturday and Sunday.
- * `WEEKEND_BY_LOCALE` gives `ar` and `he` a Friday–Saturday weekend, whose interior
- * boundary is somewhere else entirely, and `fa`, `hi`, `ml`, `ta` and `te` a single weekend
- * day, which has no interior boundary at all and must stay one column wide.
+ * `WEEKEND_BY_COUNTRY` gives Israel a Friday–Saturday weekend and Afghanistan a
+ * Thursday–Friday one, whose interior boundaries are somewhere else entirely, and Iran,
+ * India and Uganda a single weekend day, which has no interior boundary at all and must
+ * stay one column wide.
  *
  * Both halves of adjacency are required, and the second is not redundant. Two weekend days
  * can be neighbouring **columns** without being neighbouring **dates** — a card with
@@ -349,7 +350,8 @@ function renderGridEndRule(color: string): TemplateResult {
  * either positioned or carry a `z-index`, so they all paint later whatever the DOM order.
  *
  * @param days - Days on screen, in order
- * @param hass - Home Assistant instance, whose locale decides which days are the weekend
+ * @param hass - Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns One stripe per run of adjacent weekend days
  */
 function renderWeekendStripes(
@@ -361,7 +363,7 @@ function renderWeekendStripes(
   days.forEach((day, index) => {
     const date = new Date(day.timestamp);
 
-    if (!FormatUtils.isWeekendDate(date, hass?.locale)) {
+    if (!FormatUtils.isWeekendDate(date, hass)) {
       return;
     }
 
@@ -1276,7 +1278,8 @@ function renderWeekNumbers(
  * @param language - Language code for translations
  * @param columnIndex - Zero-based day track
  * @param weatherForecasts - Fetched forecasts, if any
- * @param hass - Home Assistant instance, whose locale decides which days are the weekend
+ * @param hass - Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -1298,7 +1301,7 @@ function renderDayHeader(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
-        weekend: FormatUtils.isWeekendDate(dayDate, hass?.locale),
+        weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
     >
@@ -1364,7 +1367,7 @@ function renderDayBody(
       class=${classMap({
         'grid-day-body': true,
         today: isToday,
-        weekend: FormatUtils.isWeekendDate(dayDate, hass?.locale),
+        weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
     >

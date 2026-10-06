@@ -683,7 +683,7 @@ wants 4.5:1.
 
 ## 🌈 Weekend Day Styling
 
-Weekend days can be styled differently from the rest of the week to make them stand out in your calendar. Which days those are follows your Home Assistant language — Saturday and Sunday in most regions, Friday and Saturday in others. You can customize:
+Weekend days can be styled differently from the rest of the week to make them stand out in your calendar. Which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set — Saturday and Sunday in most countries, Friday and Saturday in others. You can customize:
 
 - `weekend_weekday_color`: Sets the text color for weekday names (e.g., "Sat", "Sun")
 - `weekend_day_color`: Sets the text color for the day number

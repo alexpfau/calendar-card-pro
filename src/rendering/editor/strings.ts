@@ -296,9 +296,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
   'entity.days_of_week.option.weekends.label': 'Weekend days only',
   'entity.days_of_week.helper':
-    'Which dates this calendar may show events on. Weekend days follow the Home Assistant ' +
-    'language. Grid checks every covered date. List and Columns check each day only when ' +
-    'multi-day splitting is enabled; otherwise they check the event’s display date.',
+    'Which dates this calendar may show events on. Weekend days follow the country set in ' +
+    'Home Assistant, or its language when no country is set. Grid checks every covered ' +
+    'date. List and Columns check each day only when multi-day splitting is enabled; ' +
+    'otherwise they check the event’s display date.',
 
   // --- Text replacement -----------------------------------------------------
   //
@@ -378,7 +379,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.weekend_background_color.helper':
     'Tints a weekend day column from the date row down, so a week reads at a glance. Any ' +
     'CSS color — keep it faint, since event text sits on top of it. Which days count as ' +
-    'the weekend follows the Home Assistant language.',
+    'the weekend follows the country set in Home Assistant, or its language when no ' +
+    'country is set.',
   'time_grid.hour_height': 'Height Per Hour',
   'time_grid.hour_height.helper':
     "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
@@ -546,8 +548,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // carries the word and is always overridden, the helper does not and never is. Put it
   // back in and that test fails, on a claim about the generator rather than about wording.
   'weekend_colors.helper':
-    'Which days count as the weekend follows the Home Assistant language. Each of these ' +
-    'falls back to its weekday equivalent when left empty.',
+    'Which days count as the weekend follows the country set in Home Assistant, or its ' +
+    'language when no country is set. Each of these falls back to its weekday equivalent ' +
+    'when left empty.',
   weekend_weekday_color: 'Weekend Weekday Color',
   weekend_day_color: 'Weekend Day Number Color',
   weekend_month_color: 'Weekend Month Color',

@@ -462,21 +462,22 @@ function resolveDaysOfWeek(
 /**
  * Whether a day satisfies one calendar's `days_of_week`.
  *
- * Which days are the weekend is resolved from Home Assistant's language, not fixed at
- * Saturday and Sunday — see {@link FormatUtils.isWeekendDate}, which the weekend colors
- * and shading read too so the filter and the styling cannot disagree about a Friday.
+ * Which days are the weekend is resolved from the country set in Home Assistant, or its
+ * language when no country is set, not fixed at Saturday and Sunday — see
+ * {@link FormatUtils.isWeekendDate}, which the weekend colors and shading read too so the
+ * filter and the styling cannot disagree about a Friday.
  *
  * @param displayDate The day the row would land on
  * @param filter The calendar's resolved filter
- * @param hassLocale Home Assistant locale, deciding which days are the weekend
+ * @param hass Home Assistant, whose country and language decide which days are the weekend
  * @returns True when the row may stay
  */
 function dayPassesWeekFilter(
   displayDate: Date,
   filter: Types.DaysOfWeekFilter,
-  hassLocale?: { language?: string },
+  hass?: FormatUtils.WeekendSource | null,
 ): boolean {
-  return FormatUtils.isWeekendDate(displayDate, hassLocale) === (filter === 'weekends');
+  return FormatUtils.isWeekendDate(displayDate, hass) === (filter === 'weekends');
 }
 
 /**
@@ -487,8 +488,8 @@ function dayPassesWeekFilter(
  * @param isExpanded Whether the card is in expanded mode
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
- * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
- *   and so `days_of_week` knows which days are the weekend where the user lives
+ * @param hass Home Assistant, whose locale lets `first_day_of_week: system` follow it and
+ *   whose country and language tell `days_of_week` which days are the weekend
  * @returns Day buckets containing the matching events
  */
 export function groupEventsByDay(
@@ -497,7 +498,7 @@ export function groupEventsByDay(
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
-  hassLocale?: { language?: string; first_weekday?: string },
+  hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Types.EventsByDay[] {
   // Resolved once, at the boundary, so every read below is view-aware without each
   // one having to remember to ask for itself. Roughly a dozen override-capable
@@ -523,7 +524,7 @@ export function groupEventsByDay(
 
   const referenceDate = getStartDateReference(
     config,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
   );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
@@ -644,11 +645,7 @@ export function groupEventsByDay(
 
     if (
       daysOfWeek &&
-      !dayPassesWeekFilter(
-        resolveDisplayDate(startDate, endDate, referenceStart),
-        daysOfWeek,
-        hassLocale,
-      )
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek, hass)
     ) {
       return false;
     }
@@ -866,7 +863,7 @@ export function groupEventsByDay(
     });
   }
 
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale);
 
   Object.values(eventsByDay).forEach((day) => {
     const dayDate = new Date(day.timestamp);

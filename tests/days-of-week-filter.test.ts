@@ -117,14 +117,14 @@ function dateKeyOf(timestamp: number): string {
  * @param events Events to group
  * @param entity The calendar's own settings
  * @param overrides Card configuration beyond the defaults
- * @param hassLocale Home Assistant locale, which decides which days are the weekend
+ * @param hass Home Assistant's country and language, which decide which days are the weekend
  * @returns Each rendered day's date key mapped to the real summaries on it
  */
 function render(
   events: Types.CalendarEventData[],
   entity: Partial<Types.EntityConfig>,
   overrides: Partial<Types.Config> = {},
-  hassLocale?: { language?: string },
+  hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Record<string, string[]> {
   const config = buildConfig({
     entities: [{ entity: 'calendar.holidays', ...entity }],
@@ -132,7 +132,7 @@ function render(
     ...overrides,
   } as Partial<Types.Config>);
 
-  const days = groupEventsByDay(stamped(events, entity), config, true, 'en', 'list', hassLocale);
+  const days = groupEventsByDay(stamped(events, entity), config, true, 'en', 'list', hass);
 
   const result: Record<string, string[]> = {};
   for (const day of days) {
@@ -460,9 +460,14 @@ describe('days_of_week: a value the union does not name', () => {
  * household asking for weekends got the two days it works, and asking for weekdays got
  * the two it rests.
  *
- * The card reads Home Assistant's language for this, not its own `language` option — the
- * card option picks a translation and doubles as a fallback for the Home Assistant
- * languages the card cannot translate, so it says nothing about where the user lives.
+ * The card reads the country set in Home Assistant for this, and Home Assistant's language
+ * only when no country is set — never its own `language` option, which picks a translation
+ * and doubles as a fallback for the Home Assistant languages the card cannot translate, so
+ * it says nothing about where the user lives. A language stands for one country only, so
+ * the country wins wherever the two disagree, and the cases below take both directions of
+ * that: an Israeli home running Home Assistant in English, whose language alone would say
+ * Saturday and Sunday, and a Moroccan one running it in Arabic, whose language alone would
+ * say Friday and Saturday.
  */
 describe('days_of_week: where the weekend falls', () => {
   const week = [
@@ -472,28 +477,46 @@ describe('days_of_week: where the weekend falls', () => {
     timed('Sunday', DATES.sunday),
   ];
 
+  /** A home's Home Assistant settings: always a language, and a country when one is set. */
+  function home(language: string, country?: string | null): Pick<Types.Hass, 'config' | 'locale'> {
+    return country === undefined
+      ? { locale: { language } }
+      : { locale: { language }, config: { country } };
+  }
+
   it.each([
-    { name: 'no locale, as before hass arrives', locale: undefined, kept: ['Saturday', 'Sunday'] },
-    { name: 'de', locale: { language: 'de' }, kept: ['Saturday', 'Sunday'] },
-    { name: 'he (Friday and Saturday)', locale: { language: 'he' }, kept: ['Friday', 'Saturday'] },
-    { name: 'fa (Friday alone)', locale: { language: 'fa' }, kept: ['Friday'] },
-    { name: 'hi (Sunday alone)', locale: { language: 'hi' }, kept: ['Sunday'] },
-  ])('keeps $kept for weekends under $name', ({ locale, kept }) => {
-    expect(summaries(render(week, { days_of_week: 'weekends' }, {}, locale))).toEqual(kept);
+    { name: 'no hass, as before it arrives', hass: undefined, kept: ['Saturday', 'Sunday'] },
+    { name: 'de', hass: home('de'), kept: ['Saturday', 'Sunday'] },
+    { name: 'he (Friday and Saturday)', hass: home('he'), kept: ['Friday', 'Saturday'] },
+    { name: 'fa (Friday alone)', hass: home('fa'), kept: ['Friday'] },
+    { name: 'hi (Sunday alone)', hass: home('hi'), kept: ['Sunday'] },
+    { name: 'Israel, in English', hass: home('en', 'IL'), kept: ['Friday', 'Saturday'] },
+    { name: 'Morocco, in Arabic', hass: home('ar', 'MA'), kept: ['Saturday', 'Sunday'] },
+    {
+      name: 'Afghanistan (Thursday and Friday)',
+      hass: home('fa', 'AF'),
+      kept: ['Thursday', 'Friday'],
+    },
+    { name: 'he with the country unset', hass: home('he', null), kept: ['Friday', 'Saturday'] },
+  ])('keeps $kept for weekends under $name', ({ hass, kept }) => {
+    expect(summaries(render(week, { days_of_week: 'weekends' }, {}, hass))).toEqual(kept);
   });
 
   it.each([
     {
-      name: 'no locale',
-      locale: undefined,
+      name: 'no hass',
+      hass: undefined,
       kept: ['Thursday', 'Friday'],
     },
-    { name: 'he', locale: { language: 'he' }, kept: ['Thursday', 'Sunday'] },
-    { name: 'hi', locale: { language: 'hi' }, kept: ['Thursday', 'Friday', 'Saturday'] },
-  ])('keeps $kept for weekdays under $name', ({ locale, kept }) => {
+    { name: 'he', hass: home('he'), kept: ['Thursday', 'Sunday'] },
+    { name: 'hi', hass: home('hi'), kept: ['Thursday', 'Friday', 'Saturday'] },
+    { name: 'Israel, in English', hass: home('en', 'IL'), kept: ['Thursday', 'Sunday'] },
+    { name: 'Morocco, in Arabic', hass: home('ar', 'MA'), kept: ['Thursday', 'Friday'] },
+    { name: 'Afghanistan', hass: home('fa', 'AF'), kept: ['Saturday', 'Sunday'] },
+  ])('keeps $kept for weekdays under $name', ({ hass, kept }) => {
     // The complement of the rows above on the same four-day fixture. Both halves are
     // asserted because a filter that answered the same set for either value would satisfy
     // one of them and is the failure this option cannot afford.
-    expect(summaries(render(week, { days_of_week: 'weekdays' }, {}, locale))).toEqual(kept);
+    expect(summaries(render(week, { days_of_week: 'weekdays' }, {}, hass))).toEqual(kept);
   });
 });

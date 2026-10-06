@@ -313,10 +313,10 @@ describe('card-level processing-time options reprocess cached events', () => {
      * Every module-level function, mapped to its body.
      *
      * Brace counting starts only after the parameter list closes. An inline type literal in
-     * a signature — `hassLocale?: { language?: string }` — otherwise opens and closes a brace
-     * on the signature line, so a naive counter ends the slice before the body begins and
-     * returns an empty function. That failure is silent: an empty body yields no reads and
-     * agrees with any registration at all, which is what the body-length assertion below
+     * a signature — `timeWindow: { start: Date; end: Date }` — otherwise opens and closes a
+     * brace on the signature line, so a naive counter ends the slice before the body begins
+     * and returns an empty function. That failure is silent: an empty body yields no reads
+     * and agrees with any registration at all, which is what the body-length assertion below
      * exists to catch.
      */
     const bodies = new Map<string, string>();

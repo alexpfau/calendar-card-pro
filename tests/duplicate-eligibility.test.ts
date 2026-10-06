@@ -44,7 +44,7 @@ async function grouped(
   };
   const result = await fetchEventData(hass, config, 'duplicate-eligibility', true);
   expect(result.failedEntities).toEqual([]);
-  return groupEventsByDay(result.events, config, false, 'en', view, hass.locale);
+  return groupEventsByDay(result.events, config, false, 'en', view, hass);
 }
 
 function realEvents(days: Types.EventsByDay[]): Types.CalendarEventData[] {
