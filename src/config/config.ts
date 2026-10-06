@@ -385,17 +385,32 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter
  * still: any value that is not a size they can be drawn at falls back the same way.
  *
- * @param key - Option the value was written against
+ * @param key - Option the value was written against: its name, or its dotted path inside a
+ *   nested group, such as `weather.date.icon_size`
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
 export function coercePixelLength(key: string, value: unknown): unknown {
-  return coercePixelLengthAgainst(
-    (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key],
-    value,
-    key,
-  );
+  return coercePixelLengthAgainst(valueAtPath(DEFAULT_CONFIG, key), value, key);
+}
+
+/**
+ * Reads an option by its path: its name at the top level, or a dotted path such as
+ * `weather.date.icon_size` inside a nested group.
+ *
+ * @param source - Configuration to read, or `DEFAULT_CONFIG` for the shipped default
+ * @param path - Option path
+ * @returns The value, or `undefined` when any step is missing or not an object
+ */
+function valueAtPath(source: unknown, path: string): unknown {
+  let value = source;
+
+  for (const step of path.split('.')) {
+    value = isPlainObject(value) ? value[step] : undefined;
+  }
+
+  return value;
 }
 
 /**
@@ -410,7 +425,8 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
- * @param key - Top-level option name, where one applies. Only consulted for the options in
+ * @param key - Option path, where one applies: the name at the top level, or the dotted path
+ *   of a nested option. Only consulted for the options in
  *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself, and
  *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
  * @returns The value, with a bare number turned into a pixel length and a missing one
@@ -459,25 +475,35 @@ export function coercePixelLengthAgainst(
  *
  * For most lengths a value the browser cannot use costs only its own rule: the declaration
  * is dropped and a gap or a font size quietly reverts. These are different, because they
- * size content that has a size of its own. `today_indicator_size` reaches the dot, `pulse`,
- * `glow` and `mdi:` indicators as Home Assistant's `--mdc-icon-size`, which `ha-svg-icon`
- * reads as `width: var(--mdc-icon-size, 24px)`. That fallback covers a missing property,
- * not one holding something `width` cannot use — so `6 px` leaves the icon's box `auto`
- * and its SVG takes the browser's default 300px width (#620). In column view nothing
- * bounds that, and the dot takes over today's header; in list view it fills the date
- * column. An image indicator goes to its natural size in either view.
+ * size icons, and an icon has a size of its own. Each reaches Home Assistant's
+ * `ha-svg-icon` as `--mdc-icon-size`, which it reads as `width: var(--mdc-icon-size,
+ * 24px)`. That fallback covers a missing property, not one holding something `width`
+ * cannot use — so `6 px` leaves the icon's box `auto` and its SVG takes the browser's
+ * default 300px width (#620). `today_indicator_size` took over today's column header that
+ * way and filled the date column in list view, and an image indicator went to its natural
+ * size. The clock, location, description and weather icons blew up the same way, to 300px
+ * across in list and column view, except that a day header's weather icon stopped at the
+ * width of its column. In grid view the time fit dropped the clock icon rather than draw
+ * it that wide.
  *
  * Measured in Chromium, the same failure follows from a negative size, a percentage, a
  * keyword such as `large`, a decimal comma and a unit typo — not only from the space. So
- * the fold is decided by {@link toValidSize}, which accepts what the indicator can be
- * drawn at, rather than by a list of known mistakes.
+ * the fold is decided by {@link toValidSize}, which accepts what an icon can be drawn at,
+ * rather than by a list of known mistakes.
  *
- * Consulted wherever {@link coercePixelLengthAgainst} is handed a key: the top level of
- * the `setConfig` walk, every view override, and the editor's comparisons, so all three
- * agree on the folded value.
+ * Entries are option paths: the name of a top-level option, and the dotted path of a
+ * nested one, because `icon_size` on its own names an option in both `weather.date` and
+ * `weather.event`. Consulted wherever {@link coercePixelLengthAgainst} is handed a path:
+ * every level of the `setConfig` walk, every view override, and the editor's comparisons,
+ * so all three agree on the folded value.
  */
 export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
   'today_indicator_size',
+  'time_icon_size',
+  'location_icon_size',
+  'description_icon_size',
+  'weather.date.icon_size',
+  'weather.event.icon_size',
 ]);
 
 /**
@@ -509,10 +535,19 @@ const SPACE_BEFORE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT})(?![a-z])`, 'gi')
 const SIZE_FUNCTION = /^[a-z][a-z-]*\([\s\S]*\)$/i;
 
 /**
+ * Semicolons and whitespace at the end of a value — where a CSS declaration ends, and
+ * nothing a size contains.
+ */
+const DECLARATION_END = /[\s;]+$/;
+
+/** An `!important` flag at the end of a value, in any case and spacing CSS accepts. */
+const IMPORTANT_FLAG = /!\s*important$/i;
+
+/**
  * Whether the browser can draw a size written as a function.
  *
- * Asked about `border-top-width` because that property takes exactly what the indicator
- * can be drawn at — a non-negative length, with no percentage and no `auto` — so its answer
+ * Asked about `border-top-width` because that property takes exactly what an icon can be
+ * drawn at — a non-negative length, with no percentage and no `auto` — so its answer
  * refuses `calc(6pz)` and `calc(50%)` and accepts `round(up, 0.5em, 1px)`. Its own keywords
  * never reach it, because only a value shaped like a function is asked. A `var()` always
  * passes: the property it names is not known until layout.
@@ -542,11 +577,19 @@ function browserCanDraw(value: string): boolean {
  * can contain and which the card already tolerated by accident, because the first render
  * writes the style attribute as text.
  *
- * Everything else is refused, and each kind was measured breaking the indicator in
- * Chromium. A percentage resolves against a different box in every rule that reads it: the
- * dot drew 150px wide for `50%`, and the weekday's offset grew past 300px for `150%`. A
- * negative size, a keyword such as `large` or `auto`, and a unit CSS does not have — which
- * is how a typo arrives — each released the icon's own size.
+ * An `!important` flag after the size is kept, written ` !important`, the one spelling
+ * Lit's `styleMap` reads as the declaration's priority rather than as part of its value.
+ * The card already honored it that way, so `20px !important` drew at 20px and outranked an
+ * `!important` declaration of the same property from card-mod or a theme. Folding it, or
+ * keeping the size and dropping the flag, would each have changed what such a card drew.
+ *
+ * Everything else is refused, and each kind was measured breaking an icon in Chromium. A
+ * percentage resolves against a different box in every rule that reads it: the today
+ * indicator's dot drew 150px wide for `50%`, the weekday's offset grew past 300px for
+ * `150%`, and even inside `min(20px, 50%)`, where the clock icon itself drew at 20px, the
+ * box around it went 300px wide. A negative size, a keyword such as `large` or `auto`, and
+ * a unit CSS does not have — which is how a typo arrives — each released the icon's own
+ * size.
  *
  * A function is checked by the browser, through {@link browserCanDraw}, once its spaces are
  * closed up — and refused outright if it holds a percentage, so that answer does not depend
@@ -554,10 +597,30 @@ function browserCanDraw(value: string): boolean {
  * naming a property that holds no length.
  *
  * @param value - Raw configured value
- * @returns The size to use, or `undefined` when the value cannot be one
+ * @returns The size to use, with its `!important` flag if it carried one, or `undefined`
+ *   when the value cannot be one
  */
 export function toValidSize(value: unknown): string | undefined {
-  const written = typeof value === 'string' ? value.replace(/;+\s*$/, '').trim() : value;
+  if (typeof value !== 'string') {
+    return sizeOf(value);
+  }
+
+  const written = value.replace(DECLARATION_END, '').trim();
+  if (!IMPORTANT_FLAG.test(written)) {
+    return sizeOf(written);
+  }
+
+  const size = sizeOf(written.replace(IMPORTANT_FLAG, '').replace(DECLARATION_END, '').trim());
+  return size === undefined ? undefined : `${size} !important`;
+}
+
+/**
+ * The size half of {@link toValidSize}, for a value with its declaration syntax removed.
+ *
+ * @param written - The value, trimmed, or a value YAML typed as something other than text
+ * @returns The size, tidied, or `undefined` when the value cannot be one
+ */
+function sizeOf(written: unknown): string | undefined {
   const bare = bareNumber(written);
   const text =
     bare !== undefined
@@ -580,7 +643,8 @@ export function toValidSize(value: unknown): string | undefined {
  * that is present and not blank: a missing or blank one means "not set", which takes the
  * default without being a mistake.
  *
- * @param key - Option the value was written against
+ * @param key - Option path the value was written against: the name of a top-level option,
+ *   or the dotted path of a nested one
  * @param value - Raw value, before normalization
  * @returns `true` when the value cannot be used and the default will stand in for it
  */
@@ -597,23 +661,40 @@ export function foldsToDefault(key: string, value: unknown): boolean {
 /**
  * Reports a folded length at the configuration boundary.
  *
- * Called from `setConfig` and from the view-override validation rather than from {@link
- * coercePixelLengthAgainst}, which the editor runs on every keystroke.
+ * Called from `setConfig`, through {@link validateFoldedLengths}, and from the
+ * view-override validation rather than from {@link coercePixelLengthAgainst}, which the
+ * editor runs on every keystroke.
  *
- * @param key - Option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}
+ * @param key - Option path in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}
  * @param value - Raw value, before normalization
- * @param path - Option path used in the diagnostic
+ * @param path - Where the value was written, as the diagnostic names it — the option path
+ *   itself, or `column.time_icon_size` for a view override
  */
 export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
   if (!foldsToDefault(key, value)) {
     return;
   }
 
-  const fallback = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
+  const fallback = valueAtPath(DEFAULT_CONFIG, key);
   Logger.warn(
     `Invalid ${path} ${JSON.stringify(value)}: expected a non-negative CSS length such as ` +
       `"6px" or "0.5em". Falling back to "${String(fallback)}".`,
   );
+}
+
+/**
+ * Reports every folded length in a merged configuration, on the values as written.
+ *
+ * Reads each option by its path, so a nested one such as `weather.date.icon_size` is
+ * checked where it lives rather than looked for at the top level, where it never is.
+ *
+ * @param config - Merged configuration, before {@link normalizeLengthOptions} replaces the
+ *   values it folds
+ */
+export function validateFoldedLengths(config: Types.Config): void {
+  for (const key of LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE) {
+    validateFoldedLength(key, valueAtPath(config, key));
+  }
 }
 
 /**
@@ -645,8 +726,9 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
  * ambiguous — `20` could mean `20%` or `20px`, and it is parsed by
  * `parseIndicatorPosition` rather than handed to CSS. Appending a unit would be a guess.
  *
- * Only consulted at the top level of the walk, so a nested key that happens to share one
- * of these names cannot pick up the exception by accident.
+ * Holds top-level names only. A nested option reaches the check under its whole dotted path,
+ * such as `weather.date.font_size`, so a nested key that happens to share one of these names
+ * cannot pick up the exception by accident.
  */
 export const LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT: ReadonlySet<string> = new Set([
   'title_font_size',
@@ -740,7 +822,6 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
   coerceLengthsAgainst(
     config as unknown as Record<string, unknown>,
     DEFAULT_CONFIG as unknown as Record<string, unknown>,
-    true,
   );
 
   return config;
@@ -752,27 +833,31 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
  * Writes only changed values. Nested callers use the return value to attach rebuilt
  * objects only when needed.
  *
+ * Every value is coerced under its option path — `weather.date.icon_size`, not
+ * `icon_size` — which is how the tables that name options find a nested one, and how a
+ * nested key that shares a top-level option's name is kept from being taken for it.
+ *
  * @param target - Configuration level to normalize in place
  * @param defaults - The matching level of `DEFAULT_CONFIG`
- * @param topLevel - Whether this is the outermost level, where option names are the ones
- *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT} names
+ * @param parent - Option path of this level, or `undefined` at the top
  * @returns Whether anything at or below this level changed
  */
 function coerceLengthsAgainst(
   target: Record<string, unknown>,
   defaults: Record<string, unknown>,
-  topLevel = false,
+  parent?: string,
 ): boolean {
   let changed = false;
 
   for (const key of Object.keys(target)) {
     const value = target[key];
     const shipped = defaults[key];
+    const path = parent === undefined ? key : `${parent}.${key}`;
 
     if (isPlainObject(value) && isPlainObject(shipped)) {
       const rebuilt = { ...value };
 
-      if (coerceLengthsAgainst(rebuilt, shipped)) {
+      if (coerceLengthsAgainst(rebuilt, shipped, path)) {
         target[key] = rebuilt;
         changed = true;
       }
@@ -780,7 +865,7 @@ function coerceLengthsAgainst(
       continue;
     }
 
-    const coerced = coercePixelLengthAgainst(shipped, value, topLevel ? key : undefined);
+    const coerced = coercePixelLengthAgainst(shipped, value, path);
 
     if (coerced !== value) {
       target[key] = coerced;

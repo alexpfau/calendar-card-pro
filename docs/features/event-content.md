@@ -260,6 +260,14 @@ event that runs into a later minute keeps its range.
 Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
 their locations as long as `show_location` is still on.
 
+`time_icon_size` and `location_icon_size` take a CSS length such as `14px`, `1em` or
+`0.875rem`, or an expression such as `calc()` that works out to one, and tolerate a space
+before the unit, so `14 px` reads as `14px`. A percentage, a negative size, a keyword such as
+`large` or a misspelled unit falls back to `14px`, because each would otherwise let the icon
+balloon across the event. For a size that follows the text around it, use `em`: `1.2em`
+rather than `120%`. A `var()` is passed on as written, since the card cannot see what it
+refers to.
+
 ### Removing Country Names
 
 The `remove_location_country` option offers three modes:
@@ -343,6 +351,9 @@ description_icon_size: '14px'
 
 Set `show_description_allday: false` to hide descriptions only on all-day events. It pairs
 with `show_location_allday: false` when `allday_badge: title` is meant to stand alone.
+
+`description_icon_size` takes the same sizes as the
+[time and location icons](#time-location-information), and falls back to `14px` the same way.
 
 Descriptions are automatically processed:
 

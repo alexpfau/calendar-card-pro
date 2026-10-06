@@ -42,12 +42,7 @@ export function normalizeFieldValue(
   if (value === undefined || value === null) return value;
   if (path.length === 0) return normalizeRootValue(key, value);
 
-  const view =
-    path.length === 1
-      ? ViewConfig.VIEWS.find(
-          (candidate) => ViewConfig.viewBlockFor(candidate)?.blockKey === path[0],
-        )
-      : undefined;
+  const view = viewForBlockPath(path);
   const block = view === undefined ? undefined : ViewConfig.viewBlockFor(view);
   if (view !== undefined && block !== undefined) {
     if (key === 'min_days_to_show') {
@@ -78,5 +73,34 @@ export function normalizeFieldValue(
   const fallback = Helpers.isConfigBlock(reference) ? reference[key] : undefined;
   return typeof fallback === 'number'
     ? (Config.toValidNumber(value) ?? value)
-    : Config.coercePixelLengthAgainst(fallback, value);
+    : Config.coercePixelLengthAgainst(fallback, value, optionPath(path, key));
+}
+
+/**
+ * Names the option a field edits the way the configuration's own tables name it.
+ *
+ * A field stored in a view block overrides the top-level option of the same name, so it is
+ * named by its key alone. A field in a nested group is named by its whole dotted path,
+ * because `icon_size` on its own names an option in both `weather.date` and
+ * `weather.event` — and only the path lets {@link Config.foldsToDefault} tell them from
+ * each other, or from anything else.
+ *
+ * @param path - Enclosing data keys
+ * @param key - Field's real key
+ * @returns The option path, such as `time_icon_size` or `weather.date.icon_size`
+ */
+export function optionPath(path: ReadonlyArray<string>, key: string): string {
+  return path.length === 0 || viewForBlockPath(path) !== undefined ? key : [...path, key].join('.');
+}
+
+/**
+ * The view whose override block a data path is, if it is one.
+ *
+ * @param path - Enclosing data keys
+ * @returns The view, or `undefined` for the root or a nested group
+ */
+function viewForBlockPath(path: ReadonlyArray<string>): Types.EffectiveView | undefined {
+  return path.length === 1
+    ? ViewConfig.VIEWS.find((candidate) => ViewConfig.viewBlockFor(candidate)?.blockKey === path[0])
+    : undefined;
 }

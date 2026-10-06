@@ -2259,9 +2259,7 @@ class CalendarCardPro extends LitElement {
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
     // Reported here, on the value as written, because normalizing is what replaces it.
-    for (const key of Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE) {
-      Config.validateFoldedLength(key, (this.config as unknown as Record<string, unknown>)[key]);
-    }
+    Config.validateFoldedLengths(this.config);
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
