@@ -1058,6 +1058,34 @@ download would have to live outside the release assets entirely.
   packaging mistake could only be found once `main` already carried it.
 - `release.yml` — tag-triggered draft release.
 
+## Dependabot and CodeQL
+
+Neither has a workflow file, so neither shows up in `.github/workflows/`.
+
+- **Dependabot version updates** are configured in `.github/dependabot.yml`: monthly PRs
+  into `dev`, with runtime minor/patch bumps in one group, tooling minor/patch bumps in
+  another, each major on its own, and actions in a third group. **The file is read from
+  `main` only**, so an edit to it takes effect when it ships, not when it lands on `dev`.
+- 🚨 **Leave "Dependabot security updates" off in the repository settings.** Security-update
+  PRs always target the default branch and ignore `target-branch`, so turning them on opens
+  PRs straight into `main`. Alerts are on; act on one through `dev` like any other change.
+- **Version updates cover direct npm dependencies only.** A transitive advisory needs a
+  lockfile refresh by hand, on the npm the docs build uses:
+
+  ```bash
+  npx npm@10.9.2 audit fix --package-lock-only   # never --force
+  ```
+
+- **Dependabot rewrites `package-lock.json` with its own npm.** CI's `npm ci` on the `.nvmrc`
+  runtime is what proves the result still installs on the docs build — see _Docs site
+  deployment_.
+- **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
+  `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
+  quotes against the build, so correct the figure in the Dependabot PR rather than loosening
+  the gate.
+- **CodeQL default setup** is enabled in the repository's code-security settings. It scans
+  pushes to `main` and `dev` (both protected) and same-repository pull requests into them.
+
 ## Docs site deployment
 
 <https://calendar-card-pro.alexpfau.com> is a Cloudflare **Workers Build**, configured in
