@@ -264,7 +264,7 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
  * A plain spread merges the top level only, so a `weather:` block naming just `entity:`
  * replaced the whole default sub-tree and arrived with `position`, `date` and `event` all
  * `undefined` — even though each is published with a default. That produced two defects in
- * v4 review, both fixed at the symptom: `resolveWeatherPosition` had to centralise a
+ * v4 review, both fixed at the symptom: `resolveWeatherPosition` had to centralize a
  * `position` default the subscribe and render halves were resolving differently, and
  * `isCustomized` had to treat an absent value as not-customized so the editor's filter
  * stopped flagging keys the user never wrote. This is the cause behind both.

@@ -263,7 +263,7 @@ describe('list view DOM', () => {
     );
 
     // Guard against the test quietly becoming vacuous. Length is the wrong witness —
-    // grouping filters as well as splits, so the two effects cancelled here and the
+    // grouping filters as well as splits, so the two effects canceled here and the
     // array came back the same size. Count the multi-day fixture instead: one event in,
     // two segments out is the whole precondition this test needs.
     const conferences = (list: Types.CalendarEventData[]) =>
@@ -545,7 +545,7 @@ describe('list view DOM', () => {
    * its multi-day exception. Without them the gate proves the six shapes exist but not
    * that the right input selects each one.
    */
-  it('honours a per-entity show_time override without affecting other entities', () => {
+  it('honors a per-entity show_time override without affecting other entities', () => {
     const container = renderListContainer(
       [
         timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity'),
@@ -672,7 +672,7 @@ describe('list view DOM', () => {
    * both events, so the override is the only thing that can tell them apart, and a test
    * that broke by disabling the option outright would fail on the inheriting entity.
    */
-  it('honours a per-entity show_location override without affecting other entities', () => {
+  it('honors a per-entity show_location override without affecting other entities', () => {
     const container = renderListContainer(
       [
         timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity', {
@@ -695,7 +695,7 @@ describe('list view DOM', () => {
     ).not.toBeNull();
   });
 
-  it('honours a per-entity show_description override without affecting other entities', () => {
+  it('honors a per-entity show_description override without affecting other entities', () => {
     const container = renderListContainer(
       [
         timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity', {
@@ -813,7 +813,7 @@ describe('list view DOM', () => {
   //
   // The renderers use three interchangeable "render nothing" idioms: `''`, `nothing`,
   // and an empty html`` template. The rendered DOM cannot tell `''` from `nothing`,
-  // so no behavioural test can pin them; only reading the source can.
+  // so no behavioral test can pin them; only reading the source can.
   //
   // Moving the event leaves out of render.ts into leaves.ts made this guard fail by
   // design, and each idiom below was re-read and confirmed unchanged before the regexes
@@ -839,7 +839,7 @@ describe('list view DOM', () => {
     // description and the closing tag; it has now moved up to sit directly after the
     // time block, so the description is once again the last child part. The `: ''` idiom
     // itself has never changed -- re-read and confirmed byte-for-byte both times -- which
-    // is exactly what this guard exists to force. Anchoring on the *neighbouring* token
+    // is exactly what this guard exists to force. Anchoring on the *neighboring* token
     // rather than on `: ''` alone is deliberate: it makes any reordering of these child
     // parts fail here, because reordering can move lit's markers even when every idiom
     // survives.

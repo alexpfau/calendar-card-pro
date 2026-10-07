@@ -58,7 +58,7 @@ describe('getEntitySuggestion', () => {
       expect(suggestions?.[2].config.view).toBe('grid');
     });
 
-    it('leaves the first entry unlabelled and labels only the variant', () => {
+    it('leaves the first entry unlabeled and labels only the variant', () => {
       // Home Assistant renders `${cardName} - ${label}`, so the canonical recipe
       // carries no label and reads as the card's own name.
       expect(suggestions?.[0].label).toBeUndefined();

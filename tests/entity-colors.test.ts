@@ -1,19 +1,19 @@
 /**
- * Calendar colours read from Home Assistant's entity registry.
+ * Calendar colors read from Home Assistant's entity registry.
  *
- * Home Assistant 2026.2 stores a colour per calendar at `options.calendar.color`, and
+ * Home Assistant 2026.2 stores a color per calendar at `options.calendar.color`, and
  * `accent_color: home-assistant` opts a card or one of its calendars into using it. The
  * cases below pin the three things that are easy to get wrong and impossible to see:
  *
- * 1. **CSS colour names must stay CSS colour names.** Sixteen of Home Assistant's theme
- *    tokens — `red`, `blue`, `green` and friends — are also valid CSS colours, and
+ * 1. **CSS color names must stay CSS color names.** Sixteen of Home Assistant's theme
+ *    tokens — `red`, `blue`, `green` and friends — are also valid CSS colors, and
  *    `styles.ts` writes the user's own `accent_color` straight into a custom property. If
  *    token resolution ever leaked onto configured values, `accent_color: red` would
  *    silently move from CSS red to Home Assistant's Material red on upgrade. Nothing
  *    would throw and no other test would notice.
  *
  * 2. **The fall-through is the common path, not the edge case.** Google Calendar is the
- *    only integration in core that populates a colour, so most calendars have none. A
+ *    only integration in core that populates a color, so most calendars have none. A
  *    sentinel that rendered nothing when the registry is empty would look broken for the
  *    majority of anyone who tried it.
  *
@@ -61,7 +61,7 @@ function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-/** Resolve one calendar's accent colour under a given card config and registry. */
+/** Resolve one calendar's accent color under a given card config and registry. */
 function accentFor(
   config: Types.Config,
   entityId: string,
@@ -75,7 +75,7 @@ beforeEach(() => {
   EntityColors.resetEntityColors();
 });
 
-describe('entity colours: the sentinel', () => {
+describe('entity colors: the sentinel', () => {
   it('is spelled for where it is read, not where it is written', () => {
     // `entity` was the first proposal and reads as a different word entirely two lines
     // under `entity: calendar.work`.
@@ -84,18 +84,18 @@ describe('entity colours: the sentinel', () => {
 
   it('is not a value the previous grammar could hold', () => {
     // The backwards-compatibility argument in one assertion: the sentinel cannot collide
-    // with an existing config, because it was never a colour anything would render.
+    // with an existing config, because it was never a color anything would render.
     const style = document.createElement('div').style;
     style.color = SENTINEL;
     expect(style.color).toBe('');
   });
 });
 
-describe('entity colours: token resolution', () => {
+describe('entity colors: token resolution', () => {
   /**
    * Pinned by value rather than walked. A loop over the table's own keys cannot notice a
    * key leaving it — it simply runs one fewer time — and a dropped token here means a
-   * calendar silently rendering the literal string `deep-purple`, which is not a colour.
+   * calendar silently rendering the literal string `deep-purple`, which is not a color.
    */
   it('resolves exactly Home Assistant own theme tokens', () => {
     expect([...EntityColors.THEME_COLOR_TOKENS].sort()).toEqual([
@@ -142,22 +142,22 @@ describe('entity colours: token resolution', () => {
   });
 });
 
-describe('entity colours: configured colours are never resolved as tokens', () => {
+describe('entity colors: configured colors are never resolved as tokens', () => {
   /**
-   * The regression this file exists for. Sixteen tokens are also CSS colour names, so a
+   * The regression this file exists for. Sixteen tokens are also CSS color names, so a
    * card configured `accent_color: red` renders CSS red today. Resolving configured
    * values would repaint every one of them to a different shade, with no error and no
    * visible cause.
    */
   it.each(['red', 'blue', 'green', 'orange', 'pink', 'purple', 'teal', 'cyan'])(
-    'leaves a card-wide accent_color of %s as the CSS colour',
+    'leaves a card-wide accent_color of %s as the CSS color',
     (name) => {
       const config = buildConfig({ accent_color: name });
       expect(accentFor(config, 'calendar.personal')).toBe(name);
     },
   );
 
-  it('leaves a per-calendar accent_color of red as the CSS colour', () => {
+  it('leaves a per-calendar accent_color of red as the CSS color', () => {
     const config = buildConfig({
       entities: [{ entity: 'calendar.work', accent_color: 'red' }],
     });
@@ -165,7 +165,7 @@ describe('entity colours: configured colours are never resolved as tokens', () =
     expect(accentFor(config, 'calendar.work')).toBe('red');
   });
 
-  it('leaves a configured colour alone even while the registry holds one', () => {
+  it('leaves a configured color alone even while the registry holds one', () => {
     const config = buildConfig({ accent_color: 'red' });
     const registry = new Map([['calendar.personal', 'var(--blue-color)']]);
 
@@ -174,8 +174,8 @@ describe('entity colours: configured colours are never resolved as tokens', () =
   });
 });
 
-describe('entity colours: the resolution chain', () => {
-  it('uses the registry colour when a calendar defers to Home Assistant', () => {
+describe('entity colors: the resolution chain', () => {
+  it('uses the registry color when a calendar defers to Home Assistant', () => {
     const config = buildConfig({
       entities: [{ entity: 'calendar.work', accent_color: SENTINEL }],
     });
@@ -184,7 +184,7 @@ describe('entity colours: the resolution chain', () => {
     expect(accentFor(config, 'calendar.work', registry)).toBe('var(--red-color)');
   });
 
-  it('falls through to the card colour when Home Assistant holds none', () => {
+  it('falls through to the card color when Home Assistant holds none', () => {
     const config = buildConfig({
       accent_color: '#123456',
       entities: [{ entity: 'calendar.work', accent_color: SENTINEL }],
@@ -227,7 +227,7 @@ describe('entity colours: the resolution chain', () => {
   });
 });
 
-describe('entity colours: opacity', () => {
+describe('entity colors: opacity', () => {
   /**
    * A token resolves to `var(--red-color)`, and a `var()` cannot be taken apart into the
    * channels `rgba()` needs — which is the defect v4 fixed by moving to `color-mix`. This
@@ -246,7 +246,7 @@ describe('entity colours: opacity', () => {
   });
 });
 
-describe('entity colours: the fetch gate', () => {
+describe('entity colors: the fetch gate', () => {
   it('is off for a configuration that never opts in', () => {
     expect(EntityColors.usesEntityColor(buildConfig())).toBe(false);
     expect(EntityColors.usesEntityColor(buildConfig({ accent_color: '#ff0000' }))).toBe(false);
@@ -271,8 +271,8 @@ describe('entity colours: the fetch gate', () => {
   });
 });
 
-describe('entity colours: degradation', () => {
-  it('renders configured colours when the registry was never read', () => {
+describe('entity colors: degradation', () => {
+  it('renders configured colors when the registry was never read', () => {
     const config = buildConfig({ accent_color: SENTINEL });
 
     // No map at all — an old Home Assistant, or a fetch that has not landed yet.
@@ -296,7 +296,7 @@ describe('entity colours: degradation', () => {
     expect(EntityColors.entityColors().size).toBe(0);
   });
 
-  it('reports no colours when the instance exposes no WebSocket API', () => {
+  it('reports no colors when the instance exposes no WebSocket API', () => {
     const hass = { states: {} } as unknown as Types.Hass;
 
     expect(() => EntityColors.ensureEntityColors(hass, () => {})).not.toThrow();
@@ -304,7 +304,7 @@ describe('entity colours: degradation', () => {
   });
 });
 
-describe('entity colours: reading the registry', () => {
+describe('entity colors: reading the registry', () => {
   /** A `hass` that answers the registry command with the given entries. */
   function hassWith(entries: unknown[]): Types.Hass {
     return {
@@ -313,7 +313,7 @@ describe('entity colours: reading the registry', () => {
     } as unknown as Types.Hass;
   }
 
-  it('keeps calendar colours and resolves their tokens', async () => {
+  it('keeps calendar colors and resolves their tokens', async () => {
     const hass = hassWith([
       { entity_id: 'calendar.work', options: { calendar: { color: 'red' } } },
       { entity_id: 'calendar.trash', options: { calendar: { color: '#43a047' } } },
@@ -326,7 +326,7 @@ describe('entity colours: reading the registry', () => {
     expect(EntityColors.entityColors().get('calendar.trash')).toBe('#43a047');
   });
 
-  it('drops everything that is not a calendar carrying a colour', async () => {
+  it('drops everything that is not a calendar carrying a color', async () => {
     const hass = hassWith([
       { entity_id: 'light.kitchen', options: { calendar: { color: 'red' } } },
       { entity_id: 'calendar.none', options: {} },
@@ -344,7 +344,7 @@ describe('entity colours: reading the registry', () => {
     expect([...EntityColors.entityColors().keys()]).toEqual([]);
   });
 
-  it('tells the card once the colours have landed', async () => {
+  it('tells the card once the colors have landed', async () => {
     let repaints = 0;
     const hass = hassWith([
       { entity_id: 'calendar.work', options: { calendar: { color: 'red' } } },
@@ -375,10 +375,10 @@ describe('entity colours: reading the registry', () => {
   });
 });
 
-describe('entity colours: the rendered card', () => {
+describe('entity colors: the rendered card', () => {
   /**
    * The end of the pipeline. Everything above works on the resolver in isolation; this
-   * asserts the colour survives `groupEventsByDay` → `renderGroupedEvents` → Lit and
+   * asserts the color survives `groupEventsByDay` → `renderGroupedEvents` → Lit and
    * reaches an inline style, which is the only part a user can see.
    */
   const EVENT = [
@@ -411,7 +411,7 @@ describe('entity colours: the rendered card', () => {
     EntityColors.resetEntityColors();
   });
 
-  it('draws the colour Home Assistant holds', async () => {
+  it('draws the color Home Assistant holds', async () => {
     const hass = {
       states: {},
       callWS: () =>
@@ -426,8 +426,8 @@ describe('entity colours: the rendered card', () => {
     expect(accentStyles({ accent_color: SENTINEL })).toContain('var(--red-color)');
   });
 
-  it('draws the configured colour, not a token, for a card that never opted in', () => {
-    // The control. `red` is both a CSS colour and a theme token, so this is the one
+  it('draws the configured color, not a token, for a card that never opted in', () => {
+    // The control. `red` is both a CSS color and a theme token, so this is the one
     // assertion that separates "resolved the registry" from "resolved everything".
     const styles = accentStyles({ accent_color: 'red' });
 
@@ -436,9 +436,9 @@ describe('entity colours: the rendered card', () => {
   });
 });
 
-describe('entity colours: the colour field sits with its dropdown', () => {
+describe('entity colors: the color field sits with its dropdown', () => {
   /**
-   * Reported from live testing on a phone: the colour input was separated from the
+   * Reported from live testing on a phone: the color input was separated from the
    * dropdown that governs it by an unrelated field.
    *
    * `row()` is an `ha-form` grid, and a grid collapses to one column on a narrow viewport.
@@ -460,7 +460,7 @@ describe('entity colours: the colour field sits with its dropdown', () => {
       language: 'en',
     });
 
-  it('renders the colour immediately after the mode, card-wide', () => {
+  it('renders the color immediately after the mode, card-wide', () => {
     const order = names(eventsSchemaFor('#ff6c92'));
     const mode = order.indexOf('accent_color_mode');
 
@@ -468,7 +468,7 @@ describe('entity colours: the colour field sits with its dropdown', () => {
     expect(order[mode + 1]).toBe('accent_color');
   });
 
-  it('renders the colour immediately after the mode, per calendar', () => {
+  it('renders the color immediately after the mode, per calendar', () => {
     const declared = buildEntitySchema({
       view: 'list',
       config: buildConfig(),
@@ -481,7 +481,7 @@ describe('entity colours: the colour field sits with its dropdown', () => {
     expect(order[mode + 1]).toBe('accent_color');
   });
 
-  it('drops the colour entirely in the other modes, at both levels', () => {
+  it('drops the color entirely in the other modes, at both levels', () => {
     // The control: adjacency must not be bought by rendering the field unconditionally.
     expect(names(eventsSchemaFor(SENTINEL))).not.toContain('accent_color');
 
@@ -496,7 +496,7 @@ describe('entity colours: the colour field sits with its dropdown', () => {
   });
 });
 
-describe('entity colours: mode derivation', () => {
+describe('entity colors: mode derivation', () => {
   it('reads the card-wide mode off the value', () => {
     expect(accentColorMode(buildConfig())).toBe('custom');
     expect(accentColorMode(buildConfig({ accent_color: '#ff0000' }))).toBe('custom');
@@ -508,14 +508,14 @@ describe('entity colours: mode derivation', () => {
     expect(accentColorModeOf('')).toBe('inherit');
     expect(accentColorModeOf(SENTINEL)).toBe('home_assistant');
     expect(accentColorModeOf('#ff0000')).toBe('custom');
-    // A CSS colour name that is also a theme token is still just a custom colour.
+    // A CSS color name that is also a theme token is still just a custom color.
     expect(accentColorModeOf('red')).toBe('custom');
   });
 });
 
-describe('entity colours: every per-calendar dropdown round-trips', () => {
+describe('entity colors: every per-calendar dropdown round-trips', () => {
   /**
-   * The generalisation, and the guard against the next control rather than this one.
+   * The generalization, and the guard against the next control rather than this one.
    *
    * A class-level invariant for the **card-wide** synthetic dropdowns already exists in
    * `editor-schema.test.ts` — it walks `SYNTHETIC_FIELDS`, covers `accent_color_mode`, and
@@ -653,11 +653,11 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
   });
 });
 
-describe('entity colours: every mode transition survives the round trip', () => {
+describe('entity colors: every mode transition survives the round trip', () => {
   /**
    * The defect this exists for: from "Follow Home Assistant" you could not reach "Custom
    * color". The stored value in that mode *is* the sentinel, so the form handed it back as
-   * `accent_color`, `accentColorFor` carried it as though it were a colour, and the next
+   * `accent_color`, `accentColorFor` carried it as though it were a color, and the next
    * derivation read it straight back as `home_assistant`. From `inherit` the value is
    * genuinely unset, so it fell through to the seed and worked — which is why a test suite
    * covering only "custom with no value" missed it.
@@ -719,7 +719,7 @@ describe('entity colours: every mode transition survives the round trip', () => 
     expect(accentColorModeOf(stored.accent_color)).toBe(mode);
   });
 
-  it('never carries the sentinel into a custom colour', () => {
+  it('never carries the sentinel into a custom color', () => {
     // The one-line cause, asserted directly rather than only through its symptom.
     const stored = asEntityConfig(move('home_assistant', 'custom'));
 
@@ -728,7 +728,7 @@ describe('entity colours: every mode transition survives the round trip', () => 
   });
 });
 
-describe('entity colours: the card-wide control has no such hole', () => {
+describe('entity colors: the card-wide control has no such hole', () => {
   /**
    * Confirmed rather than assumed. Its `apply` rejects the sentinel before carrying, so
    * the two-mode equivalent of the matrix above holds.
@@ -756,35 +756,35 @@ describe('entity colours: the card-wide control has no such hole', () => {
     expect(accentColorMode(moveCardWide(from, to))).toBe(to);
   });
 
-  it('never carries the sentinel into a custom colour', () => {
+  it('never carries the sentinel into a custom color', () => {
     expect(moveCardWide('home_assistant', 'custom').accent_color).not.toBe(SENTINEL);
   });
 });
 
-describe('entity colours: the per-calendar round trip', () => {
+describe('entity colors: the per-calendar round trip', () => {
   /**
    * Reported from live testing: picking "Custom color" on a calendar snapped straight back
    * to "Follow the card".
    *
    * `custom` is the one mode with no value of its own to be derived from — `inherit` is
-   * the absent key and `home_assistant` is the sentinel, but a custom colour the user has
-   * not typed yet is indistinguishable from no colour at all. Storing nothing therefore
+   * the absent key and `home_assistant` is the sentinel, but a custom color the user has
+   * not typed yet is indistinguishable from no color at all. Storing nothing therefore
    * re-derived as `inherit` on the very next render, and the dropdown could never stay
    * where it was put. The card-wide control never had this because its `apply` always
-   * writes a concrete colour.
+   * writes a concrete color.
    *
    * The round trip is the assertion, not the stored value: what the user sees is the
    * dropdown after the form re-renders.
    */
-  it('stays in custom mode after picking it, before any colour is typed', () => {
+  it('stays in custom mode after picking it, before any color is typed', () => {
     const stored = fromEntityFormData('calendar.work', { accent_color_mode: 'custom' });
 
     expect(toEntityFormData(stored).accent_color_mode).toBe('custom');
   });
 
-  it('seeds the colour a calendar was already showing', () => {
+  it('seeds the color a calendar was already showing', () => {
     // Picking "custom" starts from what is on screen rather than jumping to the shipped
-    // blue, so the first thing the user sees is the colour they were looking at.
+    // blue, so the first thing the user sees is the color they were looking at.
     const stored = fromEntityFormData(
       'calendar.work',
       { accent_color_mode: 'custom' },
@@ -796,7 +796,7 @@ describe('entity colours: the per-calendar round trip', () => {
   });
 
   it('falls back to the shipped default when the card itself follows Home Assistant', () => {
-    // The editor cannot know which colour Home Assistant holds for this calendar — that
+    // The editor cannot know which color Home Assistant holds for this calendar — that
     // map belongs to the render path — so the sentinel is not a seed and the floor applies.
     const stored = fromEntityFormData(
       'calendar.work',
@@ -808,7 +808,7 @@ describe('entity colours: the per-calendar round trip', () => {
     expect(stored).toEqual({ entity: 'calendar.work', accent_color: DEFAULT_ACCENT });
   });
 
-  it('keeps a colour the user has already typed rather than reseeding it', () => {
+  it('keeps a color the user has already typed rather than reseeding it', () => {
     const stored = fromEntityFormData(
       'calendar.work',
       { accent_color_mode: 'custom', accent_color: '#123456' },
@@ -819,7 +819,7 @@ describe('entity colours: the per-calendar round trip', () => {
     expect(stored).toEqual({ entity: 'calendar.work', accent_color: '#123456' });
   });
 
-  it('shows a stored colour back as a custom one', () => {
+  it('shows a stored color back as a custom one', () => {
     const data = toEntityFormData({ entity: 'calendar.work', accent_color: '#ff6347' });
 
     expect(data.accent_color_mode).toBe('custom');
@@ -846,7 +846,7 @@ describe('entity colours: the per-calendar round trip', () => {
     expect(stored).toEqual({ entity: 'calendar.work', accent_color: SENTINEL });
   });
 
-  it('drops the colour entirely when a calendar follows the card', () => {
+  it('drops the color entirely when a calendar follows the card', () => {
     const stored = fromEntityFormData(
       'calendar.work',
       { accent_color_mode: 'inherit', accent_color: '#ff6347' },

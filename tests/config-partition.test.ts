@@ -74,7 +74,7 @@ const CONTAINER_KEYS = ['weather', 'list', 'column', 'time_grid'] as const;
 const CARD_LEVEL_REASONS = {
   /**
    * The frame around the views, drawn once and identically whichever view is inside it.
-   * A per-view title colour would be a different feature, not a routing decision.
+   * A per-view title color would be a different feature, not a routing decision.
    */
   chassis: [
     'title',

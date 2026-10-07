@@ -66,7 +66,7 @@ export default [
     // The rendering layer must not turn config values into JS numbers.
     //
     // `day_spacing` and `day_font_size` are documented as CSS length *strings*. They were
-    // honoured raw where passed straight to a custom property, but every *derived* length
+    // honored raw where passed straight to a custom property, but every *derived* length
     // went through `parseFloat(...) + 'px'`, which silently discards the author's unit:
     // `day_spacing: 2em` drew its separators at 2px, and `calc()` parsed to `NaN` and
     // emitted the literal string `NaNpx`. Both defect sites lived in this directory

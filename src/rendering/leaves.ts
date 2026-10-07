@@ -368,21 +368,21 @@ function renderEventTitle(
   //
   // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
   // what it is nested in -- and its wash is currentColor at 14% alpha, so the ground follows
-  // the ink. In the time row it inherits the time colour, which is the whole point of that
+  // the ink. In the time row it inherits the time color, which is the whole point of that
   // treatment: the row's own ink in a capsule of itself. Put the pill where `.event-title`'s
-  // inline `color` is in scope and it inherits the TITLE colour -- `event_color`, or this
+  // inline `color` is in scope and it inherits the TITLE color -- `event_color`, or this
   // calendar's own `color` override -- so the treatment keeps its meaning at both positions
   // without either needing a rule of its own.
   //
-  // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
+  // Nesting is also the only arrangement that works at all. `.event-title` carries its color
   // as an inline style, and an inline style beats any class selector -- so putting the pill
-  // classes ON that element would let the inline colour override `--badge-ink` and every
-  // treatment but the text source would silently render in the title colour.
+  // classes ON that element would let the inline color override `--badge-ink` and every
+  // treatment but the text source would silently render in the title color.
   //
-  // 🚨 The text source publishes the title's colour as `--badge-source` rather than letting
+  // 🚨 The text source publishes the title's color as `--badge-source` rather than letting
   // the stylesheet read `currentColor`, and that is not redundant with inheriting it. The
   // pill's own `color` is what the treatments SET, so a `currentColor` inside any other
-  // property reads the colour the treatment just wrote instead of the one the row had.
+  // property reads the color the treatment just wrote instead of the one the row had.
   // Three treatments get away with it because they set `color` to the inherited value
   // anyway; `filled` deliberately does not, and its ground would come out as its own ink.
   // A token settled before the treatment runs has no such ordering.
@@ -576,11 +576,11 @@ export interface EventContentParts {
    *
    * Carries its own `accent` because this calendar's color reaches the row as an inline
    * border value, which no descendant can read. The badge republishes it as a custom
-   * property on itself and the stylesheet derives every colour from it, so the derivation
+   * property on itself and the stylesheet derives every color from it, so the derivation
    * stays themeable and no event that has no badge pays for the property.
    *
-   * `inheritsText` is `allday_badge_color: text` — the one source whose colour this side of
-   * the render cannot name, because it differs per position. A custom colour needs no flag:
+   * `inheritsText` is `allday_badge_color: text` — the one source whose color this side of
+   * the render cannot name, because it differs per position. A custom color needs no flag:
    * it arrives as `accent` and is indistinguishable from one by the time it gets here.
    */
   allDayBadge?: {
@@ -599,7 +599,7 @@ export interface EventContentParts {
    * the time-row badge there is no text to hand it and no language to declare — the title is
    * the user's own words and is never uppercased.
    *
-   * Carries its own `accent` for the same reason the time badge does: this calendar's colour
+   * Carries its own `accent` for the same reason the time badge does: this calendar's color
    * reaches the row as an inline border value, which no descendant can read.
    */
   titlePill?: {
@@ -641,7 +641,7 @@ export interface EventContentParts {
    * false: routing every single-label row through a one-element list was measured to leave
    * the whole unit suite green, snapshots included. What `undefined` buys is behavioral.
    * It is how a row says "no merge to draw", which sends it down the branch below and
-   * leaves a merge involving an unlabelled winner rendering exactly as it does today,
+   * leaves a merge involving an unlabeled winner rendering exactly as it does today,
    * rather than promoting the label of a calendar that lost.
    */
   mergedLabels?: Types.ResolvedLabel[];
@@ -789,8 +789,8 @@ export function renderEventContent(
   // rendering. The real double gap was two margins — the badge's own and the countdown's
   // lead-in — and the stylesheet drops the second when it follows a badge. Written tightly
   // anyway so the markup does not quietly depend on the container staying a flex row.
-  // `--calendar-card-color-time` is the property `.time` sets its own colour from, so naming
-  // it here hands the pill exactly the colour it is sitting in -- the shipped grey, or the
+  // `--calendar-card-color-time` is the property `.time` sets its own color from, so naming
+  // it here hands the pill exactly the color it is sitting in -- the shipped gray, or the
   // user's `time_color`. See the note at the title pill for why this is published as a token
   // rather than read as `currentColor`: a treatment that sets `color` would otherwise be
   // read back by its own ground.

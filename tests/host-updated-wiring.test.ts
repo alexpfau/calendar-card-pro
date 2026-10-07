@@ -1,7 +1,7 @@
 /**
  * The card host's `updated()` lifecycle hook and the two helpers it drives.
  *
- * A mutation sweep over this region broke 19 of 22 behaviours with the entire
+ * A mutation sweep over this region broke 19 of 22 behaviors with the entire
  * suite green. The three that were caught were caught for a reason worth
  * recording: `hide_when_empty`'s only existing test calls `_applyVisibility()`
  * **directly** (`tests/off-value-guards.test.ts:196`), so the gate's own logic

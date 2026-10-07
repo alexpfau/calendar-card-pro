@@ -18,7 +18,7 @@ import * as EventUtils from '../src/utils/events';
 /**
  * `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing event titles.
  *
- * The behaviour a browser shows — real overflow measurement, the animation, the observers,
+ * The behavior a browser shows — real overflow measurement, the animation, the observers,
  * reduced motion and off-screen pausing — needs native-browser coverage because happy-dom
  * does not compute layout. What is pinned here is everything a unit test *can* own:
  * the config wiring, the DOM contract the measurement step keys off, the stylesheet

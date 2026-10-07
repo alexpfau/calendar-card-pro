@@ -32,9 +32,9 @@ import * as Helpers from '../src/utils/helpers';
  *
  * The first version of this file parsed `cssText` into a real stylesheet and
  * asserted on `CSSStyleDeclaration`. That does not work here: happy-dom's value
- * parser silently drops both `display: -webkit-box` (unrecognised value) and
+ * parser silently drops both `display: -webkit-box` (unrecognized value) and
  * `text-indent: calc(-1 * ...)` (negative multiplier) while keeping every
- * neighbouring declaration -- so the two constructs carrying all the layout risk
+ * neighboring declaration -- so the two constructs carrying all the layout risk
  * are exactly the two it cannot see. Chromium parses both correctly; the hanging
  * indent is confirmed live. The parser is wrong, not the CSS.
  *
@@ -42,7 +42,7 @@ import * as Helpers from '../src/utils/helpers';
  * string Lit hands to the browser.
  *
  * It deliberately pins **invariants that have broken, or that other code depends
- * on**, not the declarations themselves. A gate that fails on every colour tweak
+ * on**, not the declarations themselves. A gate that fails on every color tweak
  * gets updated reflexively and stops being a gate.
  */
 
@@ -308,10 +308,10 @@ describe('card stylesheet', () => {
       expect(declared('.time .time-actual:has(.allday-badge)', 'min-width')).toBe('0');
     });
 
-    it('centres a badge row rather than following event_icon_vertical_alignment', () => {
+    it('centers a badge row rather than following event_icon_vertical_alignment', () => {
       // The pill is sized from its own font and the icon from time_icon_size, so raising
       // time_font_size makes the pill the taller of the two and flex-start hangs the icon off
-      // its top edge. At the 12px default the two heights match and centre and flex-start are
+      // its top edge. At the 12px default the two heights match and center and flex-start are
       // indistinguishable, which is why this only shows up once someone scales the type.
       expect(declared('.time .time-actual:has(.allday-badge)', 'align-items')).toBe('center');
       expect(declared('.time-actual', 'align-items')).toBe(
@@ -410,13 +410,13 @@ describe('card stylesheet', () => {
       '.summary:has(> .label-image)',
       '.summary:has(> .label-emoji)',
     ])('%s hangs the label in the margin', (selector) => {
-      // A hanging indent is a negative text-indent cancelled by an equal
+      // A hanging indent is a negative text-indent canceled by an equal
       // padding: the first line starts back at the label, every wrapped line
       // starts at the padding edge. One without the other is not an indent.
       //
-      // Compared as normalised expressions rather than raw strings, because
+      // Compared as normalized expressions rather than raw strings, because
       // `calc(-1 * (A + 4px))` and `calc(-1 * calc(A + 4px))` are the same
-      // quantity -- a bare parenthesised sub-expression inside calc() is valid
+      // quantity -- a bare parenthesized sub-expression inside calc() is valid
       // and is what the source uses. Pinning one spelling would fail on a purely
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
@@ -527,7 +527,7 @@ describe('card stylesheet', () => {
 
     it('keeps the separator in the text, spaced by margins rather than positioned', () => {
       // The maintainer's report: `29° · UV0` / `· Teilweise bewölkt` — the dot
-      // travelling down with the words it introduces. It did that because it was an
+      // traveling down with the words it introduces. It did that because it was an
       // absolutely positioned `::before` painted at its chip's origin, so when the chip
       // wrapped the dot wrapped with it, and the break opportunity (a `::after` on the
       // *previous* chip) sat in front of the dot rather than behind it.
@@ -554,7 +554,7 @@ describe('card stylesheet', () => {
       // The maintainer's ruling: one spacing for both rows, so a countdown and a
       // weather condition in the same event punctuate identically. Both now state it the
       // same way, as a plain 4px margin — which is also what makes it exact. The gutter
-      // this replaced centred the glyph inside `2 * 4px + 0.28em`, and 0.28em is only an
+      // this replaced centered the glyph inside `2 * 4px + 0.28em`, and 0.28em is only an
       // estimate of a middot: measured live at 20px text the glyph is 5.21px against the
       // 5.6px reserved, so each gap came out at 4.195px rather than 4px.
       const gap = declared('.column-events .time-countdown::before', 'margin-inline-end');
@@ -569,7 +569,7 @@ describe('card stylesheet', () => {
     it('stops hyphenating the generated condition, and only that', () => {
       // `.content-container` sets `hyphens: auto` for the card, which is right for text
       // a user wrote and wrong for a translated condition -- it produced `Sun-`/`ny`.
-      // `manual` rather than `none`, so an explicit soft hyphen is still honoured.
+      // `manual` rather than `none`, so an explicit soft hyphen is still honored.
       expect(declared('.time-location .event-weather .weather-condition', 'hyphens')).toBe(
         'manual',
       );
@@ -620,7 +620,7 @@ describe('card stylesheet', () => {
       // mid-word. Nothing was clipping it: at the default `max_lines: 0` the display
       // property resolves to `inline`, and `overflow` does not apply to a non-replaced
       // inline box, so the `overflow: hidden` on the condition is inert exactly when the
-      // bug appears. The text genuinely left the column and the neighbour painted over
+      // bug appears. The text genuinely left the column and the neighbor painted over
       // it. Set `max_lines` and the element becomes a `-webkit-box`, `overflow` starts
       // applying and the symptom hides itself -- which is why this asserts the default.
       //
@@ -651,7 +651,7 @@ describe('card stylesheet', () => {
       // version of it paired `break-word` with `position: absolute`, on the grounds
       // that a dot out of flow "is not part of any character sequence a break can land
       // inside". That was true, and it also produced the defect the maintainer then
-      // reported: the dot travelled to the next line with its chip.
+      // reported: the dot traveled to the next line with its chip.
       //
       // In flow, the guarantee comes instead from the *absence of a legal break
       // opportunity* in front of the dot. The gaps are margins, and a margin is not a
@@ -747,7 +747,7 @@ describe('card stylesheet', () => {
       expect(declared('.column-date-content .weather', 'display')).toBe('');
     });
 
-    it('reads weather size and colour from the emitted custom properties', () => {
+    it('reads weather size and color from the emitted custom properties', () => {
       expect(declared('.date-column .weather', 'font-size')).toBe(
         'var(--calendar-card-weather-date-font-size, 12px)',
       );
@@ -1147,7 +1147,7 @@ describe('card stylesheet', () => {
      * found a hit and the option looked wired up — but `.time`'s own later rule sets
      * `align-items: center` at equal specificity, and source order wins. And even had it
      * applied, `.time`'s children are `.time-actual` plus a countdown or progress bar, so
-     * it would have tilted those and left the icon centred regardless: the icon is one
+     * it would have tilted those and left the icon centered regardless: the icon is one
      * level deeper.
      *
      * These tests are written against the *containers whose children are (icon, text)*,
@@ -1162,9 +1162,9 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('the time row itself stays centred, which is a different question', () => {
+    it('the time row itself stays centered, which is a different question', () => {
       // Not an oversight: .time lays out siblings, not the icon. Restoring the variable
-      // here would tilt the countdown and still leave the icon centred -- the exact
+      // here would tilt the countdown and still leave the icon centered -- the exact
       // half-fix this test exists to prevent.
       expect(declared('.time', 'align-items')).toBe('center');
     });
@@ -1183,7 +1183,7 @@ describe('card stylesheet', () => {
      * The sibling of the icon-alignment bug above, and the half nobody guarded. When the
      * icon option
      * was pinned end to end, `date_vertical_alignment` -- the older option the icon one
-     * was modelled on -- kept a single assertion on its default value and nothing at all
+     * was modeled on -- kept a single assertion on its default value and nothing at all
      * on its wiring.
      *
      * Both ends could therefore be severed with every gate green: `styles.ts` could stop
@@ -1252,7 +1252,7 @@ describe('card stylesheet', () => {
       ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
     });
 
-    it('pins the cap-centring padding, not just that trimming happens', () => {
+    it('pins the cap-centering padding, not just that trimming happens', () => {
       // The @supports block's own comment spends a paragraph deriving 0.3295em from
       // (1.37 - 0.711) / 2, and nothing held the result: changing it to 0.32em left the suite
       // green. The existing test asserts the properties and the scope, never the value.
@@ -1323,7 +1323,7 @@ describe('card stylesheet', () => {
       // baseline: the summary row grew from 22.39px to 31.50px and the gap from the title's
       // text down to the time row went 5.59px -> 11.77px, reported as double spacing.
       //
-      // vertical-align: middle re-centres the pill on the text; the negative block margin
+      // vertical-align: middle re-centers the pill on the text; the negative block margin
       // hands back the height the capsule borrowed, because for an atomic inline the line box
       // measures the margin box. Measured after: the text-to-text gap matches a row with no
       // pill exactly at 14px and 22px, and is within one pixel of it at 18px and 28px, which
@@ -1357,7 +1357,7 @@ describe('card stylesheet', () => {
     /*
      * `allday_badge` names a position and `allday_badge_style` names a treatment, so the
      * five treatments have to mean the same thing at both. The stylesheet does that by
-     * declaring the box and the colour derivations ONCE against both selectors, and giving
+     * declaring the box and the color derivations ONCE against both selectors, and giving
      * each position only the type decisions that genuinely differ.
      *
      * The list below is ALLDAY_BADGE_STYLES itself, not a second copy of it, so a sixth
@@ -1400,14 +1400,14 @@ describe('card stylesheet', () => {
       expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
     });
 
-    it('spreads the four across two shapes, and reaches every colour through a token', () => {
+    it('spreads the four across two shapes, and reaches every color through a token', () => {
       // Nothing read a treatment's OWN declarations before this, in either direction, so the
       // scale's shape was unpinned: which treatments draw a ring and which draw a wash were
       // facts about the stylesheet that no test could see.
       //
       // The pairing is the design. `allday_badge_style` names a SHAPE and
-      // `allday_badge_color` names the colour it is drawn in, so two rings (outline, tinted)
-      // and two washes (subtle, filled is the solid) each come in every colour rather than
+      // `allday_badge_color` names the color it is drawn in, so two rings (outline, tinted)
+      // and two washes (subtle, filled is the solid) each come in every color rather than
       // one shape owning the accent-free look. Until 4.2 that look was a sixth class called
       // `neutral`, so exactly one shape could be had without an accent -- and which one that
       // was changed twice in an evening, because there was only ever room for one.
@@ -1431,11 +1431,11 @@ describe('card stylesheet', () => {
     });
 
     it('lets no treatment reach the accent except through a token', () => {
-      // This is what makes the colour axis one block rather than four. Every treatment reads
+      // This is what makes the color axis one block rather than four. Every treatment reads
       // --badge-ink, --badge-wash or --badge-solid, so `allday_badge_color` switches the
       // source by redefining three properties in one place and no shape rule has to know a
       // source exists. A rule that named --calendar-card-event-accent directly would keep
-      // working in the default colour and silently ignore the other two, which is a failure
+      // working in the default color and silently ignore the other two, which is a failure
       // no rendering test would catch either: the accent IS the default.
       //
       // outline and filled are the two that did name it, and are the reason this exists.
@@ -1457,16 +1457,16 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('draws tinted ring and outline ring in the same colour, from the same token', () => {
+    it('draws tinted ring and outline ring in the same color, from the same token', () => {
       // 🚨 Both rules wrote `inset 0 0 0 1px currentColor` and painted DIFFERENT rings,
       // because currentColor resolves against each rule's own `color`: outline sets
       // --badge-solid (the raw accent) and tinted sets --badge-ink (the 45% legibility mix).
       // Two identical-looking declarations, one token apart, and the difference is invisible
-      // in the source -- which is why this reconciles the RESOLVED colour rather than the
+      // in the source -- which is why this reconciles the RESOLVED color rather than the
       // text of the declaration.
       //
       // It matters because the ring sits four pixels from the event's vertical bar, which is
-      // the raw accent, so a mixed ring reads as the wrong colour against it. Reported from
+      // the raw accent, so a mixed ring reads as the wrong color against it. Reported from
       // a live card.
       //
       // A ring is a boundary nobody reads, so it belongs with the bar; the LABEL is read and
@@ -1475,7 +1475,7 @@ describe('card stylesheet', () => {
       const ringToken = (style: string) => {
         const shadow = declared(`.allday-pill-${style}`, 'box-shadow');
         if (shadow === 'inset 0 0 0 1px currentColor') {
-          // currentColor means "whatever this rule's own colour is".
+          // currentColor means "whatever this rule's own color is".
           return declared(`.allday-pill-${style}`, 'color');
         }
         return shadow.replace('inset 0 0 0 1px ', '');
@@ -1491,10 +1491,10 @@ describe('card stylesheet', () => {
       expect(declared('.allday-pill-tinted', 'color')).toBe('var(--badge-ink)');
     });
 
-    it('points all three tokens at the row ink for the text colour source', () => {
-      // `allday_badge_color: text` is the one source that cannot be resolved to a colour
-      // before the render, because it is whatever the pill is nested in -- the time colour on
-      // the time row, the title colour on the title. The renderer publishes that as
+    it('points all three tokens at the row ink for the text color source', () => {
+      // `allday_badge_color: text` is the one source that cannot be resolved to a color
+      // before the render, because it is whatever the pill is nested in -- the time color on
+      // the time row, the title color on the title. The renderer publishes that as
       // --badge-source and this block points the three tokens at it. A source that redefined
       // only two would leave one treatment drawing the accent beside two that did not.
       const selector = '.allday-badge.allday-source-text';
@@ -1511,17 +1511,17 @@ describe('card stylesheet', () => {
       expect(shared).toHaveLength(1);
 
       // 🚨 --badge-source is a published token and NOT currentColor, and the difference is
-      // `filled`. currentColor resolves against the element's own computed colour -- the
+      // `filled`. currentColor resolves against the element's own computed color -- the
       // thing the treatments SET -- so filled, which deliberately sets a CONTRASTING ink,
-      // would resolve its own ground to its own ink and draw a pill filled with the colour of
+      // would resolve its own ground to its own ink and draw a pill filled with the color of
       // its letters. There is no ordering fix: currentColor always names the final computed
       // value. The other three get away with it only because each sets `color` to the
       // inherited value anyway.
       expect(shared[0].body).not.toContain('currentColor');
 
       // The ink is the source EXACTLY, where the accent path mixes 45% into the primary text
-      // colour for legibility. That mix's job is to make a NAMED colour readable against the
-      // card; for the colour the row is already painted in it is identity, and running it
+      // color for legibility. That mix's job is to make a NAMED color readable against the
+      // card; for the color the row is already painted in it is identity, and running it
       // anyway would draw the label darker than the time beside it.
       expect(declared(selector, '--badge-ink')).toBe('var(--badge-source)');
 
@@ -1634,7 +1634,7 @@ describe('card stylesheet', () => {
       expect(titleBox).toBeLessThan(badgeBox * 1.25);
     });
 
-    it('centres the badge on its caps where the browser can, and on the em square otherwise', () => {
+    it('centers the badge on its caps where the browser can, and on the em square otherwise', () => {
       // The fallback padding is asymmetric because an uppercase label leaves the em square's
       // descender depth empty, so the caps sit high in it. That correction is a measured font
       // constant and it removes the AVERAGE error, but not the per-size scatter: the browser
@@ -1642,12 +1642,12 @@ describe('card stylesheet', () => {
       // that no em-valued padding can flatten.
       //
       // text-box-trim removes the cause rather than compensating for it -- it trims the line
-      // box to the cap height and the alphabetic baseline, so symmetric padding then centres
+      // box to the cap height and the alphabetic baseline, so symmetric padding then centers
       // the ink itself. Measured across fourteen sizes from 12px to 48px at 8x device scale:
       // mean residual +0.027em before, +0.006em after, worst case halved.
       //
       // The title pill must NOT take it: its content is mixed case with descenders and emoji,
-      // where the em square is the right thing to centre and cap-to-baseline is not.
+      // where the em square is the right thing to center and cap-to-baseline is not.
       const css = cardStyles.cssText;
       expect(css).toContain('text-box-trim: trim-both');
       expect(css).toContain('text-box-edge: cap alphabetic');
@@ -1670,7 +1670,7 @@ describe('card stylesheet', () => {
     it('reaches the title pill from the OKLCH enhancement, not just the badge', () => {
       // The chroma-recovery blocks redefine --badge-ink and --badge-wash. Naming only
       // .allday-badge there would leave the title pill on the sRGB fallback: visibly a
-      // different colour from the time badge on the same card, in the same treatment, with
+      // different color from the time badge on the same card, in the same treatment, with
       // nothing in either rule to say why.
       //
       // Scanned out of the raw text rather than through `rulesFor`, and that is not a
@@ -1686,7 +1686,7 @@ describe('card stylesheet', () => {
         return prelude;
       });
 
-      // Base, both OKLCH tiers, and the text colour source. The last one is why the count is
+      // Base, both OKLCH tiers, and the text color source. The last one is why the count is
       // stated rather than merely bounded: it redefines the same two tokens at (0,2,0) from
       // outside any @supports, and a source block that named only one position would put the
       // title pill on the accent while the time badge followed the row -- the same failure
@@ -1714,7 +1714,7 @@ describe('card stylesheet', () => {
       const ruleWidth = 'var(--calendar-card-grid-rule-width)';
       // Prettier wraps a long `calc()` and pads inside the brackets when it does — a
       // three-term height comes back as `var( --name )` and a two-term one does not — so
-      // bracket padding is normalised away. Runs of whitespace collapse to ONE space
+      // bracket padding is normalized away. Runs of whitespace collapse to ONE space
       // rather than to nothing, deliberately: `calc(a -b)` is invalid CSS and stripping
       // every space would make this assertion blind to exactly that.
       const spacing = (value: string) =>
@@ -1823,14 +1823,14 @@ describe('card stylesheet', () => {
 
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {
       // The two families are one system in the reader's eye, so they have to match, and
-      // matching them is a claim about two files: the colour of a vertical rule comes from
+      // matching them is a claim about two files: the color of a vertical rule comes from
       // TIME_GRID_DEFAULT_OVERRIDES and the horizontal ones are painted here.
       //
       // The claim used to be that both were `var(--divider-color)` at full strength, and it
       // was false: the two gradients coincide at the shipped `slot_minutes: 60` and
       // translucent ink composites, so an hour rule measured rgb(197, 197, 197) on the
-      // deployed build against rgb(224, 224, 224) for a day rule of the same colour and
-      // width. Neither side names a colour any more — both take the renderer's resolved
+      // deployed build against rgb(224, 224, 224) for a day rule of the same color and
+      // width. Neither side names a color any more — both take the renderer's resolved
       // value, which is what makes them equal by construction rather than by agreement
       // between two literals.
       const painted = declared('.grid-rules', 'background-image');
@@ -1841,7 +1841,7 @@ describe('card stylesheet', () => {
       expect(painted).toContain('var(--calendar-card-grid-slot-color)');
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
 
-      // The dilution lives in the option's own default, so a user's colour is never
+      // The dilution lives in the option's own default, so a user's color is never
       // quietly halved. Half of the divider token, spelled as a mix rather than as an
       // alpha, so it follows a theme that redefines the token.
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
@@ -1849,7 +1849,7 @@ describe('card stylesheet', () => {
       );
 
       // ...and only then: nothing may dim one side of the pair. An element opacity is
-      // exactly the thing that cannot tell a shipped default from a colour a user chose.
+      // exactly the thing that cannot tell a shipped default from a color a user chose.
       expect(declared('.grid-rules', 'opacity')).toBe('');
       expect(declared('.grid-separator', 'opacity')).toBe('');
       expect(declared('.grid-boundary', 'opacity')).toBe('');
@@ -2162,8 +2162,8 @@ describe('card stylesheet', () => {
 
       // 🚨 And it must reset the alignment that came with that display, which is a separate
       // declaration in the same rule and was missing. `.time span` sets `vertical-align:
-      // middle` alongside `inline-block`, where it correctly re-centres the box on the
-      // surrounding text; on an inline box `middle` means box-centre against the parent's
+      // middle` alongside `inline-block`, where it correctly re-centers the box on the
+      // surrounding text; on an inline box `middle` means box-center against the parent's
       // baseline plus half an x-height, which is not where the parent's own text sits. The
       // start time is an anonymous inline on that baseline, so a clock reading ends up
       // split across two of them. Measured on one live dashboard at 0.625px on 74 of 74
@@ -2195,7 +2195,7 @@ describe('card stylesheet', () => {
       // element takes it out of the outer span's line box, so the ellipsis declared there
       // stops reaching it and line two falls back to text-overflow's initial `clip`.
       // Captured live in the stale-class frame the backstop rule is written for: line two
-      // rendered `- 12:` with the colon cut vertically in half — the precise artefact that
+      // rendered `- 12:` with the colon cut vertically in half — the precise artifact that
       // rule exists to prevent, one line down. `overflow` is required with it, because the
       // `hidden` that makes an ellipsis possible sits on `.time-actual` and does not
       // inherit; an A/B on the same live row with only `text-overflow` still sheared.

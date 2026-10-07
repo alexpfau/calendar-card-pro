@@ -6,12 +6,12 @@ import type { GridSchema, HaFormSchema, SelectOption, SelectorSchema } from '../
 import { humanize, lookup } from '../localize';
 
 /**
- * Builds the options for a select, labelled from the string table.
+ * Builds the options for a select, labeled from the string table.
  *
  * @param language - Effective language code
  * @param name - Field the options belong to
  * @param values - Option values, in the order they should appear
- * @returns Labelled options
+ * @returns Labeled options
  */
 function options(language: string, name: string, values: ReadonlyArray<string>): SelectOption[] {
   return values.map((value) => ({
@@ -78,7 +78,7 @@ export function text(name: string): SelectorSchema {
 }
 
 /**
- * A colour, as text.
+ * A color, as text.
  *
  * @param name - Config key
  * @returns The field

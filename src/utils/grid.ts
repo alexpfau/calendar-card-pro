@@ -114,8 +114,8 @@ export interface GridBand {
  * Resolve the visible band from two configured bounds.
  *
  * A bad bound resets **both**, rather than leaving one configured value paired with a
- * default. Half-honouring the config produces a band the user never asked for and
- * cannot recognise as a fallback — an unparseable start with a configured `23:00` end
+ * default. Half-honoring the config produces a band the user never asked for and
+ * cannot recognize as a fallback — an unparseable start with a configured `23:00` end
  * would silently become a sixteen-hour band instead of the one they wrote.
  *
  * @param startTime - Configured start, as `HH:mm`
@@ -160,10 +160,10 @@ export function axisCadenceMinutes(cadenceMinutes: number): number {
  * the band's bounds.
  *
  * 🚨 The predicate is "falls on the label cadence", and the band's end earns a label on
- * exactly those terms — it is not a rule of its own. `end_time: 21:30` is labelled at
- * `axis_label_minutes: 30` and unlabelled at `60` or coarser, the same answer an interior
+ * exactly those terms — it is not a rule of its own. `end_time: 21:30` is labeled at
+ * `axis_label_minutes: 30` and unlabeled at `60` or coarser, the same answer an interior
  * `21:30` would get. `24:00` is `1440`, which every offered cadence divides, so a band
- * ending at midnight is always labelled; `formatAxisLabel` wraps it, which is the only
+ * ending at midnight is always labeled; `formatAxisLabel` wraps it, which is the only
  * place the hour past 23 needs handling at all.
  *
  * 🚨 The phase is **midnight**, not the band's start, and the case that decided it is a

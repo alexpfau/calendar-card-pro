@@ -3,15 +3,15 @@
  * those with a clock time, or only all-day ones.
  *
  * The option exists to be a **discriminator**, not a visibility toggle. The request behind
- * it (#132) was to give all-day events a different colour from timed ones on a single
+ * it (#132) was to give all-day events a different color from timed ones on a single
  * calendar, which is only reachable by listing that calendar twice and splitting it
  * between the two blocks. That makes two properties load-bearing, and neither is implied
  * by the other:
  *
  * - `timed` and `all_day` must be exact complements, or the split loses or duplicates
  *   events.
- * - Each block must be filtered *and coloured* independently, or both copies come out the
- *   same colour and the whole pattern is pointless. That half is not this option's code at
+ * - Each block must be filtered *and colored* independently, or both copies come out the
+ *   same color and the whole pattern is pointless. That half is not this option's code at
  *   all — it is `_matchedConfig` — so it is asserted here rather than assumed, because a
  *   regression there would leave every test below green while the feature was useless.
  *
@@ -153,16 +153,16 @@ describe('event_type', () => {
     expect(allDayOnly.filter((title) => timedOnly.includes(title))).toEqual([]);
   });
 
-  it('gives one calendar two colours when it is listed twice, once each way', async () => {
+  it('gives one calendar two colors when it is listed twice, once each way', async () => {
     // 🚨 The actual request in #132, and the reason this option is a discriminator rather
-    // than a filter. The reporter wants all-day events in one colour and timed events in
+    // than a filter. The reporter wants all-day events in one color and timed events in
     // another *on a single calendar*, which is unreachable with one block however the
     // filter behaves.
     //
-    // The colour half is the part that could regress silently. `getEntityAccentColorWithOpacity`
+    // The color half is the part that could regress silently. `getEntityAccentColorWithOpacity`
     // prefers the per-event `_matchedConfig` stamp and falls back to `config.entities.find()`,
     // which returns the **first** block matching the entity id — so if the stamp were ever
-    // dropped, both copies would resolve to grey, every filtering test above would stay
+    // dropped, both copies would resolve to gray, every filtering test above would stay
     // green, and the feature would be silently worthless. Asserting the title alone would
     // not see it.
     const config = buildConfig({
@@ -214,7 +214,7 @@ describe('event_type', () => {
     ]);
   });
 
-  it('shows every event when the value is not one it recognises', async () => {
+  it('shows every event when the value is not one it recognizes', async () => {
     // Fail open, for the same reason the title filters do: a typo, or a value from a newer
     // version of the card, costs the user an unfiltered calendar rather than an empty one.
     // An empty card reads as the integration having broken; too many events reads as the

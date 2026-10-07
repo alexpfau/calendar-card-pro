@@ -3,7 +3,7 @@
  *
  * `connectedCallback()` starts a load unconditionally. When Home Assistant attaches the
  * card before it assigns `hass` — which is the ordering on a slow first paint — that
- * load finds no `hass` and arms a 1.5-second retry. The retry is only ever cancelled
+ * load finds no `hass` and arms a 1.5-second retry. The retry is only ever canceled
  * from inside that same no-`hass` branch, so once `hass` arrives and the real load
  * succeeds, the timer is still pending.
  *

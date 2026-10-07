@@ -2,7 +2,7 @@
  * The weather forecast subscription lifecycle — debounce, generation ticket and teardown.
  *
  * A mutation sweep over `_scheduleWeatherSetup()`, `_setupWeatherSubscriptions()` and
- * `_cleanupWeatherSubscriptions()` broke 15 of 15 behaviours with the entire suite green.
+ * `_cleanupWeatherSubscriptions()` broke 15 of 15 behaviors with the entire suite green.
  * The reason nothing caught them is that every existing weather test builds a `hass`
  * without a `connection`, and `subscribeToWeatherForecast()` returns early when there is
  * no connection. So the subscribe path — and everything downstream of it — never ran.

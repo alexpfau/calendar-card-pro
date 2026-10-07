@@ -150,8 +150,8 @@ describe('stripComments', () => {
   // inside .event-title rather than replacing it, and why its single-line clamp is not
   // title_max_lines. That reading was 59,026 chars of which 38,294 were comment, 64.9%.
   //
-  // Rebased once more when the badge's vertical centring was measured properly. The old note
-  // claimed the ink was centred to within a fifth of a pixel; a fourteen-size pixel sweep
+  // Rebased once more when the badge's vertical centering was measured properly. The old note
+  // claimed the ink was centered to within a fifth of a pixel; a fourteen-size pixel sweep
   // showed a systematic +0.027em bias, reported from a live card. The replacement records the
   // measurement, the residual that baseline snapping leaves behind, and why the trim block
   // exists rather than a more precise padding value -- the last of which is the sort of thing
@@ -204,7 +204,7 @@ describe('stripComments', () => {
   // dash at some widths and not others; and the rule works *because* `.time-end` is inline
   // by default, a fact the rule beside it warns about as a bug. Turning that element into a
   // block box strips the separator's leading space, which is the one thing that makes the
-  // second line read `- 12:00` -- so the same behaviour is a defect one rung up and the
+  // second line read `- 12:00` -- so the same behavior is a defect one rung up and the
   // mechanism here. There is nowhere but a comment to say that, and a later reader
   // "simplifying" it to `white-space: normal` would ship unreadable clock times.
   //
@@ -213,7 +213,7 @@ describe('stripComments', () => {
   // `grid-time-fit.ts` carries its own reasoning as TypeScript comment and does not land
   // here at all; what lands here is the rung's note having to explain an absence -- why the
   // rung asks about height and says nothing about width, when width is exactly the axis
-  // that broke -- plus the ellipsis rule's note being rewritten from a defence into a
+  // that broke -- plus the ellipsis rule's note being rewritten from a defense into a
   // backstop, which is a status no declaration can record. An ellipsis is also not neutral
   // inside a clock reading, and "10:00 - 1…" on an event ending at 12:00 reads as a
   // different meeting rather than as a truncated one; that is the fact the ladder is built
@@ -237,32 +237,32 @@ describe('stripComments', () => {
   //
   // The ceiling before that moved for the scrolling label reset widening to every label kind. The
   // rule is one declaration and its note is a paragraph, because what it records cannot be
-  // read off `padding-bottom: 0`: a flex row centres BOXES, so the title's own bottom padding
+  // read off `padding-bottom: 0`: a flex row centers BOXES, so the title's own bottom padding
   // sat its glyphs one pixel above a prose or emoji label's while both boxes measured
-  // perfectly centred. Element geometry cannot see that defect at all -- only text ranges
+  // perfectly centered. Element geometry cannot see that defect at all -- only text ranges
   // can -- which is exactly why it survived a prior fix that exempted icons and pictures and
   // stopped there. The note also records why an unlabeled title deliberately keeps the
   // padding, which otherwise reads as an oversight in the selector.
   //
   // The ceiling before that moved for tinted's ring naming --badge-solid instead of currentColor.
   // Two rules wrote the identical declaration and painted different rings, because
-  // currentColor resolves against each rule's own colour -- a difference that is invisible in
+  // currentColor resolves against each rule's own color -- a difference that is invisible in
   // the source and cost a live-card report to find. A comment is the only place that can say
   // so, since the declaration now looks arbitrary rather than corrective.
   //
   // The ceiling before that moved for tinted's ring going to full strength. The rule is three
   // declarations and its comment is most of a page, because the thing worth recording is not
   // what it draws but why the measured 40% was abandoned: the sweep that produced it varied
-  // only chromatic accents, and weakening a colour preserves its hue where weakening BLACK
-  // does not, so 40% black reads as grey rather than as a softer black. That is a fact about
+  // only chromatic accents, and weakening a color preserves its hue where weakening BLACK
+  // does not, so 40% black reads as gray rather than as a softer black. That is a fact about
   // the sweep's blind spot, not about the CSS, and nothing in the declaration hints at it.
   //
-  // The ceiling before that moved for the badge's colour axis. `neutral` went from a class of its
+  // The ceiling before that moved for the badge's color axis. `neutral` went from a class of its
   // own to a source that any of the four shapes can be drawn in, and the block that does it
   // is three declarations carrying about two kilobytes of comment -- because everything
   // deciding it is invisible from the CSS. Why the source is a published token and not
   // `currentColor` is the load-bearing one: three treatments would work either way and
-  // `filled` would draw a pill filled with the colour of its own letters, which no
+  // `filled` would draw a pill filled with the color of its own letters, which no
   // declaration in the block hints at. That is the trade this plugin exists to make, so the
   // ceiling moves rather than the comment being cut.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
@@ -342,7 +342,7 @@ describe('stripComments', () => {
     // in BOTH directions from its first stop, so the mask on `.grid-rules` is not the
     // offset it looks like it could have been; and that translucent ink composites rather
     // than merging, which is why two coincident gradients are one pattern at nearly twice
-    // the ink and why the rule colours travel as custom properties rather than as inline
+    // the ink and why the rule colors travel as custom properties rather than as inline
     // `background-color` values happy-dom silently drops. Each was found by reading painted
     // pixels off a deployed build, and each reads as redundant from the CSS alone.
     //

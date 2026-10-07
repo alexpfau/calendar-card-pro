@@ -97,15 +97,15 @@ function renderedLocationIcons(
 }
 
 describe('Teams detection', () => {
-  it.each(LOCALIZED)('recognises the %s location text', (_locale, location) => {
+  it.each(LOCALIZED)('recognizes the %s location text', (_locale, location) => {
     expect(isTeamsLocation(location)).toBe(true);
   });
 
-  it.each(URLS)('recognises a %s Teams join URL', (_cloud, url) => {
+  it.each(URLS)('recognizes a %s Teams join URL', (_cloud, url) => {
     expect(isTeamsLocation(url)).toBe(true);
   });
 
-  it('recognises the hybrid form Outlook writes for a room booked alongside a call', () => {
+  it('recognizes the hybrid form Outlook writes for a room booked alongside a call', () => {
     // Outlook puts the room first and appends the Teams phrase after a semicolon, so an
     // anchored match would miss every hybrid meeting — which is most of them in an office.
     expect(isTeamsLocation('Conference Room A; Microsoft Teams Meeting')).toBe(true);
@@ -148,7 +148,7 @@ describe('location icon resolution', () => {
     expect(resolveLocationIcon('Microsoft Teams Meeting', LOCATION_ICON)).toBe(LOCATION_ICON);
   });
 
-  it('applies a configured icon to every location, not only to unrecognised ones', () => {
+  it('applies a configured icon to every location, not only to unrecognized ones', () => {
     expect(resolveLocationIcon('Room 4.02', 'mdi:office-building')).toBe('mdi:office-building');
   });
 

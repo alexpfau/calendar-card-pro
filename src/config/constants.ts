@@ -94,7 +94,7 @@ export const UI = {
 /**
  * Tuning for `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing
  * event titles. Read by the measurement step in calendar-card-pro.ts; the keyframes and
- * the pause/reduced-motion behaviour live in the stylesheet.
+ * the pause/reduced-motion behavior live in the stylesheet.
  */
 export const TITLE_SCROLL = {
   /** Overflow past which a title scrolls, in CSS pixels. Below it the title never moves. */

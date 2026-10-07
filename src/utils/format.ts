@@ -301,7 +301,7 @@ export function formatLocation(location: string, removeCountry: boolean | string
 /** The location row's icon when nothing else applies. */
 export const LOCATION_ICON = 'mdi:map-marker-outline';
 
-/** The location row's icon for a recognised Microsoft Teams meeting. */
+/** The location row's icon for a recognized Microsoft Teams meeting. */
 export const TEAMS_LOCATION_ICON = 'mdi:microsoft-teams';
 
 /**

@@ -1184,7 +1184,7 @@ function processEvents(
   // view-scoped override can never undo it — `column: { split_multiday_events:
   // false }` was silently defeated whenever the top-level value was `true`.
   // `groupEventsByDay` resolves the option per view and splits there instead,
-  // which also avoids materialising segments that fall outside the window.
+  // which also avoids materializing segments that fall outside the window.
   Logger.debug(`Processed ${processedEvents.length} events after filtering`);
   return processedEvents;
 }
@@ -1638,7 +1638,7 @@ export function getEntityLabel(
  * follows it.
  *
  * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
- * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
+ * `renderLabel` draws nothing at all. That is the same nothing an unlabeled calendar draws,
  * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
  * title as though a label were there. It mirrors the colors' own fall-through, where a
  * calendar the registry has no color for renders the color it would have had anyway. A
@@ -1665,7 +1665,7 @@ export function resolveEntityLabel(
 
   // An explicit shape outranks either stand-in, so `label_type: text` still renders the words.
   // `getLabelType` reads each as the shape it resolves *to* — the sentinel as an icon, a
-  // person as an image — precisely so this is the only way to say otherwise; honouring it
+  // person as an image — precisely so this is the only way to say otherwise; honoring it
   // here as well is what keeps the two halves telling one story.
   const declared = getEntitySetting(entityId, 'label_type', config, event);
   if (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image')) {
@@ -1673,7 +1673,7 @@ export function resolveEntityLabel(
   }
 
   // 🚨 `label` here, `entityId` one line down, and the two are different entities. The icon
-  // belongs to the calendar being labelled, so it is looked up by the calendar's own id; the
+  // belongs to the calendar being labeled, so it is looked up by the calendar's own id; the
   // picture belongs to the *person the label names*, which is a different entity that the
   // calendar knows nothing about. Passing `entityId` to both reads as tidy and finds nothing,
   // because a calendar carries no `entity_picture` — so the failure looks like the option
@@ -1688,7 +1688,7 @@ export function resolveEntityLabel(
  *
  * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
  * labels to draw. That second case is deliberate: with one label the row renders through
- * the single-label path it always did, so a merge involving an unlabelled calendar looks
+ * the single-label path it always did, so a merge involving an unlabeled calendar looks
  * exactly as it looks today rather than showing the label of a calendar that did not win.
  *
  * @param event Event to describe, carrying `_mergedFrom` if it is a merged row

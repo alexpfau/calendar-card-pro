@@ -172,7 +172,7 @@ describe('editor copy/paste buttons', () => {
     harness.action(1, 'Paste Settings').click();
     await harness.element.updateComplete;
 
-    // The pasted config has to have travelled back into the editor for this to flip.
+    // The pasted config has to have traveled back into the editor for this to flip.
     expect(harness.action(1, 'Copy Settings').hasAttribute('disabled')).toBe(false);
   });
 

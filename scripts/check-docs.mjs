@@ -363,7 +363,7 @@ function isDocumented(field, text, fencedContent) {
 }
 
 /**
- * This is the safety net for restructuring. The docs are being reorganised in phases,
+ * This is the safety net for restructuring. The docs are being reorganized in phases,
  * and the one unacceptable outcome is losing content while moving it. An option may
  * live on whichever page suits it — the reference table, a feature page, or both — but
  * it must be findable on at least one of them.
@@ -2309,10 +2309,10 @@ const RUNTIME_ENUMS = [
     option: 'allday_badge_color',
     file: 'src/utils/helpers.ts',
     constant: 'ALLDAY_BADGE_COLOR_SOURCES',
-    // Two keywords, and the value set is otherwise OPEN -- any CSS colour is legal -- so the
+    // Two keywords, and the value set is otherwise OPEN -- any CSS color is legal -- so the
     // table check here reconciles only the two that are closed. That is the honest scope: a
     // page listing `accent` and `text` must list both, and no page can be asked to tabulate
-    // every colour.
+    // every color.
     noun: 'color sources',
     // Falls back to the accent, which is what the badge was drawn in before this key existed.
     fallback: 'accent',

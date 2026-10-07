@@ -202,9 +202,9 @@ export function resolveLineHeightPx(
  * `Math.ceil` rounds it up to a whole line box, so an address overflowing by one line plus
  * one pixel used to be told two lines had to go. At two rendered lines that came out at
  * zero, the clamp was refused as impossible, and the caller withdrew the address entirely —
- * leaving a line of empty space in the block where one ellipsised line belonged.
+ * leaving a line of empty space in the block where one ellipsized line belonged.
  *
- * Erring towards more lines is the safe direction: the caller re-measures after applying a
+ * Erring toward more lines is the safe direction: the caller re-measures after applying a
  * clamp and withdraws the row anyway if the clamp did not resolve the overflow. A count that
  * is too generous is corrected; a count that is too stingy is never revisited.
  *
@@ -1786,7 +1786,7 @@ class CalendarCardPro extends LitElement {
    * because `updateEvents()` happens to flip `isLoading` on its way through, which is
    * incidental rather than designed and does not happen when that method returns early.
    * Every other subscription in this file is acquired in `connectedCallback`; this one now
-   * matches its neighbours.
+   * matches its neighbors.
    *
    * 🚨 The `isConnected` guard is what stops the `updated()` call site undoing
    * `disconnectedCallback`. Lit does not cancel an update scheduled before the element

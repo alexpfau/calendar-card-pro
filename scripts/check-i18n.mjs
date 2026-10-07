@@ -331,7 +331,7 @@ async function readEditorOptionKeys() {
       const where = [...nodePath, node.name].join('.');
 
       // Home Assistant's action dropdown is not a `select`, and its option list is not
-      // labelled from our table — except for the actions this card adds, which HA has no
+      // labeled from our table — except for the actions this card adds, which HA has no
       // string for and would render as a raw key. Those are ours to name, so they
       // reconcile here like any other option: drop one from the schema and its string is
       // orphaned, add one without a string and the lookup fails.
@@ -440,10 +440,10 @@ function probeConfigs(defaults, views) {
     { allday_badge: 'time' },
     { allday_badge: 'title' },
     // Two gates deep, which is why it needs a variant of its own rather than riding on the
-    // two above. The badge's colour picker is only built when the badge is ON *and* its
-    // colour is a custom one, so no variant that sets a single key can reach it, and without
+    // two above. The badge's color picker is only built when the badge is ON *and* its
+    // color is a custom one, so no variant that sets a single key can reach it, and without
     // this the checker reports `allday_badge_color` as referenced by no panel -- correctly,
-    // from what it can see. Any colour will do; the mode is read off the value's shape.
+    // from what it can see. Any color will do; the mode is read off the value's shape.
     { allday_badge: 'time', allday_badge_color: '#b5651d' },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
@@ -666,7 +666,7 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
 /**
  * The editor's string table must cover every field, and hold nothing else.
  *
- * Missing labels render humanised keys; unused strings become translation work for keys
+ * Missing labels render humanized keys; unused strings become translation work for keys
  * that label nothing. Helper text remains optional.
  */
 async function checkEditorStrings() {
@@ -674,7 +674,7 @@ async function checkEditorStrings() {
     await readEditorSchemaKeys();
   const { CARD_ACTIONS, cardActionLabelKey } = await loadEditor();
 
-  assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
+  assertFound([...labels.keys()], 'any labeled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
   assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
@@ -1196,7 +1196,7 @@ async function checkTranslationQuality(languages, glossary) {
       if (rate > 15) {
         warn(
           where,
-          `${rate}% of multi-word labels capitalise a non-initial word ` +
+          `${rate}% of multi-word labels capitalize a non-initial word ` +
             `(${calques} of ${multiWordLabels.length}). ${code} uses sentence case — ` +
             'this is English orthography calqued onto it, not a translation choice',
         );
@@ -1227,7 +1227,7 @@ function checkCollapsedLabels(where, data, strings) {
     if (keys.length < 2) continue;
     const englishes = [...new Set(keys.map((k) => strings[k]))];
     if (englishes.length < 2) continue;
-    // Same English aside from capitalisation is an English-table issue.
+    // Same English aside from capitalization is an English-table issue.
     if (new Set(englishes.map((e) => e.toLowerCase())).size < 2) continue;
     warn(
       where,
@@ -1526,7 +1526,7 @@ async function checkRunningTextWeekdayCase(languages) {
   for (const [file, [got, want]] of mismatched) {
     warn(
       `languages/${file}`,
-      `fullDaysOfWeek is capitalised (${got}); dayjs has ${want} -- that array is only ever ` +
+      `fullDaysOfWeek is capitalized (${got}); dayjs has ${want} -- that array is only ever ` +
         `rendered mid-sentence after multiDay, so it wants the running-text form. ` +
         `DO NOT simply copy the dayjs value: it is the NOMINATIVE, and multiDay governs ` +
         `case in cs/hr/pl/sk (do), lt (iki) and lv (lidz) -- Polish wants "do poniedzialku", ` +

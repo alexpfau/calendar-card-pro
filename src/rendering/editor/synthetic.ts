@@ -193,14 +193,14 @@ export function entityIdOf(entry: string | Types.EntityConfig): string {
 }
 
 /**
- * The colour mode the all-day badge is in, read off the value's shape.
+ * The color mode the all-day badge is in, read off the value's shape.
  *
  * Takes the value rather than the config, unlike `accentColorMode` beside it, because this
  * key is view-overridable: the caller resolves it through the view first, and handing the
  * whole config here would quietly read the card level while the panel described a column.
  *
  * @param value - Configured `allday_badge_color`, already resolved for the view
- * @returns Which colour control the badge renders
+ * @returns Which color control the badge renders
  */
 export function alldayBadgeColorMode(value: unknown): string {
   const resolved = Helpers.resolveAlldayBadgeColor(value);
@@ -434,9 +434,9 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   /**
-   * Which colour the all-day badge is drawn in.
+   * Which color the all-day badge is drawn in.
    *
-   * The two keywords store themselves; `custom` means the stored value is a colour, so it
+   * The two keywords store themselves; `custom` means the stored value is a color, so it
    * has no spelling of its own and the mode is read back off the value's shape. That is the
    * same contract `accent_color_mode` has, and it is why neither writes its own name.
    *
@@ -455,9 +455,9 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         return { changes: { allday_badge_color: value } };
       }
 
-      // Carry a colour already stored, exactly as the accent mode above does, so switching
+      // Carry a color already stored, exactly as the accent mode above does, so switching
       // away and back does not discard what the user picked. The accent default is the seed
-      // because it is the colour the badge was already being drawn in.
+      // because it is the color the badge was already being drawn in.
       const current = Helpers.resolveAlldayBadgeColor(config.allday_badge_color);
       const carried = current.source === 'custom' ? current.color : '';
 
@@ -581,7 +581,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
 
       // Listing the same calendar twice is supported and meaningful — each block
-      // carries its own label, colour and limits. A Map keyed by entity ID kept
+      // carries its own label, color and limits. A Map keyed by entity ID kept
       // only the last block for a repeated ID, so re-opening the picker rewrote
       // every earlier duplicate with the last one's settings. Queue the blocks
       // per ID so each keeps its own config.

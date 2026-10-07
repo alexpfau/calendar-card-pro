@@ -153,7 +153,7 @@ describe('column view week numbers', () => {
     });
   });
 
-  it('reuses the list view pill class, so one set of colours styles both views', () => {
+  it('reuses the list view pill class, so one set of colors styles both views', () => {
     const container = renderColumns(ACROSS_A_WEEK, { show_week_numbers: 'iso' });
     const pill = container.querySelector('.column-week-number .week-number');
 
@@ -189,7 +189,7 @@ describe('column view week numbers', () => {
     expect(container.querySelectorAll('.column-week-number')).toHaveLength(0);
   });
 
-  it('honours show_week_numbers set inside a column block', () => {
+  it('honors show_week_numbers set inside a column block', () => {
     const container = renderColumns(ACROSS_A_WEEK, {
       show_week_numbers: null,
       column: { show_week_numbers: 'iso' },
@@ -198,7 +198,7 @@ describe('column view week numbers', () => {
     expect(container.querySelectorAll('.column-week-number').length).toBeGreaterThan(0);
   });
 
-  it('honours show_current_week_number set inside a column block', () => {
+  it('honors show_current_week_number set inside a column block', () => {
     const container = renderColumns(ACROSS_A_WEEK, {
       show_week_numbers: 'iso',
       column: { show_current_week_number: false },

@@ -263,7 +263,7 @@ describe('registry colors: the last card out closes the subscription', () => {
 
   it('keeps it open while a second card is still listening', async () => {
     // The reference count is the whole point: a per-card teardown would cut the surviving
-    // card off from the registry the moment its neighbour was removed.
+    // card off from the registry the moment its neighbor was removed.
     const { state, hass } = makeHass();
     const first = await mount(hass);
     const second = await mount(hass);

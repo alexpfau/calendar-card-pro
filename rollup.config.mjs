@@ -74,7 +74,7 @@ const stripCssComments = {
 
       const open = start + 4;
       let end = open;
-      // Find the closing backtick, honouring escapes. Interpolations cannot contain a
+      // Find the closing backtick, honoring escapes. Interpolations cannot contain a
       // backtick in this codebase, and the scan below leaves ${...} untouched anyway.
       while (end < code.length) {
         if (code[end] === '\\') {

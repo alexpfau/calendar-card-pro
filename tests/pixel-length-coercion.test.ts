@@ -59,7 +59,7 @@ const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Reco
  * A `text` selector carrying a type other than `text` (`date`, `number`, `time`, `search`)
  * is excluded: those do not hand back a bare numeric string. `text` itself counts, and is
  * now declared explicitly on every free-text field — an omitted type let `ha-form` reuse a
- * neighbour's input and keep its `type="date"`, which is how the `start_date` expression
+ * neighbor's input and keep its `type="date"`, which is how the `start_date` expression
  * field became a date picker. This predicate used to read "no type at all"; that was the
  * same intent when omission was how free text was spelled, and would have silently matched
  * nothing once it stopped being.

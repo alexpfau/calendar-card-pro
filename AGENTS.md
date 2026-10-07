@@ -243,7 +243,7 @@ of the editor while its control, its helper text and its translations all stay p
 were pinned, and one of those (`view`) only because `VIEWS` drives the renderer as well.
 
 `checkEditorOptions` closes it in both directions, and the interesting part is how it gets
-the key. It cannot be modelled: **four** shapes are live — the node's own name (`view`), its
+the key. It cannot be modeled: **four** shapes are live — the node's own name (`view`), its
 group-qualified name (`column.min_days_fallback`), the per-calendar prefix
 (`entity.show_time`), and a key that is not the node's name at all, because
 `unionPickerField` labels the picker for a union option through the synthetic mode field
@@ -260,7 +260,7 @@ Two things to know before touching it. The sentinel is registered in
 `checkEditorTranslations` reconciles the entries it parses out of the index module's
 _source_ rather than the runtime object's keys, so a leaked entry is invisible to it, at 0
 errors when planted. And an option whose label is **not** an option-label key is an error
-rather than a skip — a dropdown labelled outside the string table is untranslatable, and
+rather than a skip — a dropdown labeled outside the string table is untranslatable, and
 treating it as out of scope is how a gate silently stops covering the thing it was written
 for.
 
@@ -1275,7 +1275,7 @@ there is dropped silently between grouping and rendering, so the value is comput
 correctly, survives every intermediate stage, and simply is not there when a leaf renderer
 looks for it.
 
-It is easy to miss precisely because the neighbouring path does the opposite:
+It is easy to miss precisely because the neighboring path does the opposite:
 `splitMultiDayEvent` copies with a spread, so multi-day segments inherit any new field for
 free. Testing a stamp on a split segment therefore passes while the ordinary row fails, which
 points at multi-day handling rather than at the projection.
@@ -1293,7 +1293,7 @@ adding another.
 
 🚨 **A hazard documented beside the code that has it is not a defense.** This has now been
 found three times, always in the same shape: a comment describes the trap _completely_ and
-_correctly_, for the neighbouring case, and the next member of the family arrived in a
+_correctly_, for the neighboring case, and the next member of the family arrived in a
 different pull request weeks later and was never added to it.
 
 - `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
@@ -1418,7 +1418,7 @@ picker that no longer exists here, and should not be restored as the reason.
 A section heading is a `constant` schema node **with no `value`** — that renders as a bare
 bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
 a heading. The type was already declared and unused, so this needs no new mechanism, and
-`check:i18n` treats it as a labelled field and requires one English string for it —
+`check:i18n` treats it as a labeled field and requires one English string for it —
 enforcement, not cost.
 
 A heading is the one node type that can **actively lie**, because it makes a claim about
@@ -1627,7 +1627,7 @@ different artifacts.
   produced one of each within an hour.** Row 4 above is the sweep manufacturing a
   _positive_: twelve mutations reported "caught (build error)", uniformly, because
   `execSync` throws on vitest's non-zero exit and the catch never read stdout, so a
-  generic `/error/` test relabelled every genuine test failure. The answer happened to be
+  generic `/error/` test relabeled every genuine test failure. The answer happened to be
   right and the evidence was worthless. The **inverse** is nastier, because it reads as a
   gap in the tests rather than a gap in the probe: a mutation that "moves" a template by
   adding an attribute changes nothing observable, reports SURVIVED, and invites you to
@@ -1695,7 +1695,7 @@ different artifacts.
   which is the direction that provokes an unnecessary restore.
 
 - **A fix is not finished at the site the report named — grep for the claim's other copies,
-  and re-read the neighbours of every line you touch.** Five review rounds on one branch
+  and re-read the neighbors of every line you touch.** Five review rounds on one branch
   found something in the _previous round's fix_ four times running, and mostly not in the fix
   itself: the corrections were right, their edges were not. A false string was corrected in
   the documentation and left standing in three other places, two of them in the source file
@@ -1725,7 +1725,7 @@ different artifacts.
   A document-to-document audit cannot see the last of those.
 - **Independent agreement is evidence about the code both reviewers read, not about the tip.**
   Two reviewers converging is the strongest corroboration available, and it held here — on a
-  defect the intervening 47 and 50 commits had already fixed. Convergence localises _when_,
+  defect the intervening 47 and 50 commits had already fixed. Convergence localizes _when_,
   not _whether_, so measure the reviewed SHA's distance before the finding and re-measure
   before acting — `git fetch` first, then `git rev-list --count <sha>..origin/<branch>`, never
   against a SHA quoted in a brief. Two passes here did that arithmetic correctly and still

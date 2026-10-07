@@ -39,7 +39,7 @@ import type * as Types from '../config/types';
  * The collision to weigh is different here, because `label` is free text where `accent_color`
  * is a vocabulary. A calendar could in principle want the literal *text* label
  * `home-assistant` — but that is a hyphenated lowercase token, not a display string; someone
- * labelling a calendar for humans writes `Home Assistant`, which is unaffected because the
+ * labeling a calendar for humans writes `Home Assistant`, which is unaffected because the
  * comparison is exact. And the case is not merely unlikely but *reachable*: `label_type: text`
  * already overrides shape inference, so `label: home-assistant` with `label_type: text` still
  * renders the words. See {@link Helpers.getLabelType}.

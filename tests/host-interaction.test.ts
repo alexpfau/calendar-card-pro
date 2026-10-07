@@ -3,8 +3,8 @@
  *
  * `src/interaction/` is well covered, but that module only ever sees a call that the
  * host has already decided to make. Deciding *whether* to make it -- arming the hold
- * timer, matching the pointer that started the gesture, recognising the two activation
- * keys, and labelling an action as tap or hold -- lives in `calendar-card-pro.ts` and
+ * timer, matching the pointer that started the gesture, recognizing the two activation
+ * keys, and labeling an action as tap or hold -- lives in `calendar-card-pro.ts` and
  * was measured to be unguarded: a mutation sweep of that file left five separate
  * interaction mutations alive with the whole suite green.
  *
@@ -619,7 +619,7 @@ describe('host keyboard handling', () => {
   });
 });
 
-describe('host handleAction labelling', () => {
+describe('host handleAction labeling', () => {
   beforeEach(() => {
     handleAction.mockClear();
     document.body.innerHTML = '';

@@ -60,7 +60,7 @@ describe('title overflow', () => {
     expect(body).not.toMatch(/margin:\s/);
   });
 
-  it('does not ellipsise .summary', () => {
+  it('does not ellipsize .summary', () => {
     // At the default title_max_lines there is no limit for an ellipsis to signal, and
     // when it is set the ellipsis comes from -webkit-line-clamp on .event-title instead.
     expect(ruleBody('.summary')).not.toMatch(/text-overflow/);
