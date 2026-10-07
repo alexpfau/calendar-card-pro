@@ -64,7 +64,7 @@
  * Below 960px the banner stacks above the heading, and VitePress pulls the image
  * column outwards with `margin: -76px -24px -48px` (-108px at >=640px). Those
  * vertical offsets exist to claw back the empty space inside the fixed square
- * container - with the image absolutely centred in a 392px box there was roughly
+ * container - with the image absolutely centered in a 392px box there was roughly
  * 100px of padding above and below it to absorb.
  *
  * Our container is now exactly as tall as the image, so there is no dead space

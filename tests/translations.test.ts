@@ -228,14 +228,14 @@ describe('the weekday casing split is intentional and stays that way', () => {
     for (const [index, running] of fullDaysOfWeek.entries()) {
       expect(
         running[0],
-        `${code} fullDaysOfWeek[${index}] "${running}" is capitalised; it is running text`,
+        `${code} fullDaysOfWeek[${index}] "${running}" is capitalized; it is running text`,
       ).toBe(running[0].toLocaleLowerCase(code));
     }
 
     // The paired half. Without it the suite would pass on a language that lower-cased
     // *both* arrays, which is a different defect and not the one being guarded.
     const label = daysOfWeek[1];
-    expect(label[0], `${code} daysOfWeek[1] "${label}" should be a capitalised label`).toBe(
+    expect(label[0], `${code} daysOfWeek[1] "${label}" should be a capitalized label`).toBe(
       label[0].toLocaleUpperCase(code),
     );
   });

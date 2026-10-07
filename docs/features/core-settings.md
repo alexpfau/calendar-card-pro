@@ -596,11 +596,11 @@ without losing an event or showing one twice.
 ::: warning Pair This With `split_multiday_events` on a Calendar of Long Events
 The example above sets both, and on a holidays calendar it needs to. `days_of_week` judges
 the day a row **lands on**, and an event spanning several days is drawn as a single row on
-the first of them unless you split it. So a fortnight's holiday beginning on a Saturday is
-one Saturday row, and `weekdays` hides the whole fortnight rather than showing you its
+the first of them unless you split it. So a two-week vacation beginning on a Saturday is
+one Saturday row, and `weekdays` hides the whole vacation rather than showing you its
 weekdays.
 
-With `split_multiday_events: true` that same holiday becomes a row per day, each judged
+With `split_multiday_events: true` that same vacation becomes a row per day, each judged
 separately, and you get the Monday-to-Friday view you asked for. Column view already
 defaults the option to `true`, so this pairing only needs stating for list view.
 
