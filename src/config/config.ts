@@ -84,7 +84,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_countdown_allday: true,
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
-  progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
+  // Three quarters of the time text: every bar carries the time font size, so `em` follows
+  // it in both placements, whatever font size `time_font_size` holds.
+  progress_bar_height: '0.75em',
   // Deliberately absent: each progress-bar placement supplies its own width fallback.
   progress_bar_width: undefined,
   // Top alignment keeps icons level with the first line when text wraps.
@@ -382,8 +384,9 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * Values that carry no bare number, and genuinely numeric options, pass through untouched
  * — except a missing one. A blank YAML value parses as `null`, which means "no value
  * supplied" rather than a value to preserve, so a length-valued option falls back to what
- * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter
- * still: any value that is not a size they can be drawn at falls back the same way.
+ * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
+ * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter still: any value that is not a size
+ * they can be drawn at falls back the same way.
  *
  * @param key - Option the value was written against: its name, or its dotted path inside a
  *   nested group, such as `weather.date.icon_size`
@@ -428,7 +431,8 @@ function valueAtPath(source: unknown, path: string): unknown {
  * @param key - Option path, where one applies: the name at the top level, or the dotted path
  *   of a nested option. Only consulted for the options in
  *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself, and
- *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
+ *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
+ *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
@@ -457,8 +461,9 @@ export function coercePixelLengthAgainst(
 
   // For these options an unusable value releases the element's own size instead of
   // dropping one rule, so anything that is not a size they can be drawn at is folded.
-  if (key !== undefined && LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
-    return toValidSize(value) ?? shippedDefault;
+  const validate = key === undefined ? undefined : foldValidator(key);
+  if (validate !== undefined) {
+    return validate(value) ?? shippedDefault;
   }
 
   const bare = bareNumber(value);
@@ -507,6 +512,63 @@ export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set(
 ]);
 
 /**
+ * Font-size options whose unusable value is folded to the shipped default rather than passed
+ * through, judged as a font size by {@link toValidFontSize}.
+ *
+ * On its own a font size the browser cannot use is harmless: the declaration is dropped and
+ * the text inherits. The damage came from the places that also read these as lengths. The
+ * date column is 1.75 times `day_font_size` wide, so `26 px` or a misspelled unit made the
+ * width invalid and the column took half the card, squeezing the events beside it.
+ * `event_font_size` sized calendar label icons through `--mdc-icon-size` and label images
+ * through `height`, so the same mistakes drew a label icon 300px across and an image at its
+ * natural size. Every one of those places now takes any valid font size (see
+ * `scaleFontSize` and the stylesheet), so what is left to refuse is a value that is not a
+ * font size at all.
+ *
+ * Kept apart from {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, because the two accept
+ * different things: a keyword such as `large` and a percentage are good font sizes and bad
+ * icon sizes. That table is also reconciled against every `--mdc-icon-size` in the
+ * stylesheet, which no font size feeds.
+ *
+ * Entries are option paths, as in the icon-size table, so the two weather `font_size`
+ * options are named by where they live.
+ */
+export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'title_font_size',
+  'week_number_font_size',
+  'weekday_font_size',
+  'day_font_size',
+  'month_font_size',
+  'event_font_size',
+  'time_font_size',
+  'location_font_size',
+  'description_font_size',
+  'weather.date.font_size',
+  'weather.event.font_size',
+]);
+
+/** Every option that folds an unusable value: the icon sizes, then the font sizes. */
+export const FOLDED_OPTIONS: ReadonlyArray<string> = [
+  ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
+];
+
+/**
+ * The rule that decides whether an option's value folds, or `undefined` for an option that
+ * never folds.
+ *
+ * @param key - Option path
+ * @returns {@link toValidSize}, {@link toValidFontSize}, or `undefined`
+ */
+function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
+  if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return toValidSize;
+  }
+
+  return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
+}
+
+/**
  * Every CSS length unit: absolute, font-relative, viewport and container. `%` is not one —
  * see {@link toValidSize}.
  */
@@ -529,6 +591,23 @@ const SIZE = new RegExp(`^\\+?(?:\\d*\\.)?\\d+(?:e[+-]?\\d+)?${LENGTH_UNIT}$`, '
 const SPACE_BEFORE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT})(?![a-z])`, 'gi');
 
 /**
+ * {@link SPACE_BEFORE_UNIT} for a font size, which can also be a percentage: `150 %` is as
+ * unreadable to CSS as `6 px`, and can only have meant `150%`.
+ */
+const SPACE_BEFORE_FONT_SIZE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT}|%)(?![a-z])`, 'gi');
+
+/** A percentage as CSS writes it, which for a font size is a share of the parent's. */
+const PERCENTAGE = /^\+?(?:\d*\.)?\d+(?:e[+-]?\d+)?%$/i;
+
+/**
+ * The keywords `font-size` takes beyond its lengths and percentages: the absolute sizes, the
+ * two relative steps, `math`, and the CSS-wide keywords — see {@link toValidFontSize} for
+ * what the last group does here.
+ */
+const FONT_SIZE_KEYWORD =
+  /^(?:xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|larger|smaller|math|inherit|initial|unset|revert|revert-layer)$/i;
+
+/**
  * A value shaped like a CSS function — `calc()`, `min()`, `round()`, `var()` and the rest —
  * including one YAML spread over several lines.
  */
@@ -544,26 +623,28 @@ const DECLARATION_END = /[\s;]+$/;
 const IMPORTANT_FLAG = /!\s*important$/i;
 
 /**
- * Whether the browser can draw a size written as a function.
+ * Whether the browser accepts a value written as a function for a property.
  *
- * Asked about `border-top-width` because that property takes exactly what an icon can be
- * drawn at — a non-negative length, with no percentage and no `auto` — so its answer
- * refuses `calc(6pz)` and `calc(50%)` and accepts `round(up, 0.5em, 1px)`. Its own keywords
- * never reach it, because only a value shaped like a function is asked. A `var()` always
- * passes: the property it names is not known until layout.
+ * An icon size asks about `border-top-width`, because that property takes exactly what an
+ * icon can be drawn at — a non-negative length, with no percentage and no `auto` — so its
+ * answer refuses `calc(6pz)` and `calc(50%)` and accepts `round(up, 0.5em, 1px)`. A font size
+ * asks about `font-size` itself. Neither property's own keywords reach this, because only a
+ * value shaped like a function is asked. A `var()` always passes: the property it names is
+ * not known until layout.
  *
  * Where nothing can answer — the Node scripts that import this module — the value is kept.
  * The test suite's happy-dom does answer, and answers `true` to everything, so a test of
  * the refusing branch has to supply the browser's answer itself.
  *
- * @param value - A function-shaped size, already tidied
+ * @param property - The CSS property the value has to work in
+ * @param value - A function-shaped value, already tidied
  * @returns `true` unless a browser says it cannot use the value
  */
-function browserCanDraw(value: string): boolean {
+function browserAccepts(property: string, value: string): boolean {
   return (
     typeof CSS === 'undefined' ||
     typeof CSS.supports !== 'function' ||
-    CSS.supports('border-top-width', value)
+    CSS.supports(property, value)
   );
 }
 
@@ -591,7 +672,7 @@ function browserCanDraw(value: string): boolean {
  * a unit CSS does not have — which is how a typo arrives — each released the icon's own
  * size.
  *
- * A function is checked by the browser, through {@link browserCanDraw}, once its spaces are
+ * A function is checked by the browser, through {@link browserAccepts}, once its spaces are
  * closed up — and refused outright if it holds a percentage, so that answer does not depend
  * on which browser is asking. The one value nothing here can check is a `var()` or `env()`
  * naming a property that holds no length.
@@ -601,16 +682,64 @@ function browserCanDraw(value: string): boolean {
  *   when the value cannot be one
  */
 export function toValidSize(value: unknown): string | undefined {
+  return withDeclarationSyntax(value, sizeOf);
+}
+
+/**
+ * A font size, tidied, or `undefined` when the value is not one.
+ *
+ * Judged as a font size rather than by {@link toValidSize}'s rule for icons, because
+ * `font-size` takes more: a percentage of the parent's size such as `150%`, the absolute
+ * keywords from `xx-small` to `xxx-large`, the relative steps `larger` and `smaller`, and
+ * `math`, beside every length an icon takes. The same spellings are forgiven — a bare
+ * number gains `px`, a space before the unit is closed up (`26 px`, `150 %`), a trailing
+ * semicolon is dropped, and an `!important` flag is kept as {@link toValidSize} keeps it.
+ *
+ * A function is asked about `font-size` itself, through {@link browserAccepts}, so
+ * `clamp(12px, 150%, 30px)` is kept where an icon size would refuse the percentage.
+ *
+ * Refused, and so folded: a negative size, a unit CSS does not have, and a word that is no
+ * font size (`big`, `auto`).
+ *
+ * The CSS-wide keywords `inherit`, `initial`, `unset`, `revert` and `revert-layer` are kept,
+ * unlike an icon size's. Each is a font size, and folding one would change what a card using
+ * it draws: `inherit` follows the text around it, and the default would replace that with a
+ * fixed size. The weekday, day and month carry their option as an inline style, so there the
+ * keyword means what it says. Elsewhere it reaches a custom property, where it applies to the
+ * property rather than to the font, so the rule reading it takes its own fallback or, having
+ * none, inherits. The one place that derives a length from a font size, the date column,
+ * takes them as the inherited size and `initial` as `medium` (see `scaleFontSize`).
+ *
+ * @param value - Raw configured value
+ * @returns The font size to use, with its `!important` flag if it carried one, or
+ *   `undefined` when the value cannot be one
+ */
+export function toValidFontSize(value: unknown): string | undefined {
+  return withDeclarationSyntax(value, fontSizeOf);
+}
+
+/**
+ * Removes what a CSS declaration adds around a value — trailing semicolons and an
+ * `!important` flag — judges the value that remains, and puts the flag back.
+ *
+ * @param value - Raw configured value
+ * @param judge - Tidies the bare value, or returns `undefined` when it is unusable
+ * @returns The tidied value, written ` !important` when it carried the flag, or `undefined`
+ */
+function withDeclarationSyntax(
+  value: unknown,
+  judge: (written: unknown) => string | undefined,
+): string | undefined {
   if (typeof value !== 'string') {
-    return sizeOf(value);
+    return judge(value);
   }
 
   const written = value.replace(DECLARATION_END, '').trim();
   if (!IMPORTANT_FLAG.test(written)) {
-    return sizeOf(written);
+    return judge(written);
   }
 
-  const size = sizeOf(written.replace(IMPORTANT_FLAG, '').replace(DECLARATION_END, '').trim());
+  const size = judge(written.replace(IMPORTANT_FLAG, '').replace(DECLARATION_END, '').trim());
   return size === undefined ? undefined : `${size} !important`;
 }
 
@@ -633,15 +762,41 @@ function sizeOf(written: unknown): string | undefined {
     return text;
   }
 
-  return SIZE_FUNCTION.test(text) && !text.includes('%') && browserCanDraw(text) ? text : undefined;
+  return SIZE_FUNCTION.test(text) && !text.includes('%') && browserAccepts('border-top-width', text)
+    ? text
+    : undefined;
+}
+
+/**
+ * The font-size half of {@link toValidFontSize}, for a value with its declaration syntax
+ * removed.
+ *
+ * @param written - The value, trimmed, or a value YAML typed as something other than text
+ * @returns The font size, tidied, or `undefined` when the value cannot be one
+ */
+function fontSizeOf(written: unknown): string | undefined {
+  const bare = bareNumber(written);
+  const text =
+    bare !== undefined
+      ? `${bare}px`
+      : typeof written === 'string'
+        ? written.replace(SPACE_BEFORE_FONT_SIZE_UNIT, '$1$2')
+        : '';
+
+  if (SIZE.test(text) || PERCENTAGE.test(text) || FONT_SIZE_KEYWORD.test(text)) {
+    return text;
+  }
+
+  return SIZE_FUNCTION.test(text) && browserAccepts('font-size', text) ? text : undefined;
 }
 
 /**
  * Whether a value written for an option would be folded to its shipped default.
  *
- * Only an option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} folds, and only a value
- * that is present and not blank: a missing or blank one means "not set", which takes the
- * default without being a mistake.
+ * Only an option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
+ * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} folds, and only a value that is present and not
+ * blank: a missing or blank one means "not set", which takes the default without being a
+ * mistake.
  *
  * @param key - Option path the value was written against: the name of a top-level option,
  *   or the dotted path of a nested one
@@ -649,23 +804,26 @@ function sizeOf(written: unknown): string | undefined {
  * @returns `true` when the value cannot be used and the default will stand in for it
  */
 export function foldsToDefault(key: string, value: unknown): boolean {
+  const validate = foldValidator(key);
+
   return (
-    LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) &&
+    validate !== undefined &&
     value !== undefined &&
     value !== null &&
     !(typeof value === 'string' && value.trim() === '') &&
-    toValidSize(value) === undefined
+    validate(value) === undefined
   );
 }
 
 /**
- * Reports a folded length at the configuration boundary.
+ * Reports a folded length or font size at the configuration boundary.
  *
  * Called from `setConfig`, through {@link validateFoldedLengths}, and from the
  * view-override validation rather than from {@link coercePixelLengthAgainst}, which the
  * editor runs on every keystroke.
  *
- * @param key - Option path in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}
+ * @param key - Option path in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
+ *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}
  * @param value - Raw value, before normalization
  * @param path - Where the value was written, as the diagnostic names it — the option path
  *   itself, or `column.time_icon_size` for a view override
@@ -675,15 +833,21 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
     return;
   }
 
+  const expected = FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+    ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
+    : 'a non-negative CSS length such as "6px" or "0.5em"';
+  // `title_font_size` ships unset, so folding it means leaving the title at the size it
+  // would have had without the option.
   const fallback = valueAtPath(DEFAULT_CONFIG, key);
-  Logger.warn(
-    `Invalid ${path} ${JSON.stringify(value)}: expected a non-negative CSS length such as ` +
-      `"6px" or "0.5em". Falling back to "${String(fallback)}".`,
-  );
+  const outcome =
+    fallback === undefined ? 'Ignoring it.' : `Falling back to "${String(fallback)}".`;
+
+  Logger.warn(`Invalid ${path} ${JSON.stringify(value)}: expected ${expected}. ${outcome}`);
 }
 
 /**
- * Reports every folded length in a merged configuration, on the values as written.
+ * Reports every folded length and font size in a merged configuration, on the values as
+ * written.
  *
  * Reads each option by its path, so a nested one such as `weather.date.icon_size` is
  * checked where it lives rather than looked for at the top level, where it never is.
@@ -692,7 +856,7 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
  *   values it folds
  */
 export function validateFoldedLengths(config: Types.Config): void {
-  for (const key of LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE) {
+  for (const key of FOLDED_OPTIONS) {
     validateFoldedLength(key, valueAtPath(config, key));
   }
 }
@@ -709,7 +873,7 @@ export function validateFoldedLengths(config: Types.Config): void {
  * | --------------------- | -------------- | ------------------------------------- |
  * | `title_font_size`     | `undefined`    | unset means "inherit the HA card size" |
  * | `progress_bar_width`  | `undefined`    | unset means "per placement" — 60px in list view, 80% in column |
- * | `progress_bar_height` | `calc(…)`      | derived from the time font size       |
+ * | `progress_bar_height` | `'0.75em'`     | follows the time font size            |
  * | `height`              | `'auto'`       | a CSS keyword                         |
  * | `max_height`          | `'none'`       | a CSS keyword                         |
  * | `axis_width`          | `'max-content'` | scales with the axis label text       |

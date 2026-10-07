@@ -235,16 +235,23 @@ describe('the fold is scoped to the options that need it', () => {
     ]);
   });
 
-  it.each(['day_spacing', 'weekday_font_size'])(
-    'leaves %s passing an unusable value through',
-    (key) => {
-      // The over-reach control. For these an unusable value only drops its own rule, and the
-      // existing contract — pinned in `pixel-length-coercion.test.ts` — is not to guess.
-      expect(Config.coercePixelLength(key, '10 px')).toBe('10 px');
-      expect(Config.coercePixelLength(key, '50%')).toBe('50%');
-      expect(Config.coercePixelLength(key, 'big')).toBe('big');
-    },
-  );
+  it('leaves day_spacing passing an unusable value through', () => {
+    // The over-reach control. For a plain length an unusable value only drops its own rule,
+    // and the existing contract — pinned in `pixel-length-coercion.test.ts` — is not to guess.
+    expect(Config.coercePixelLength('day_spacing', '10 px')).toBe('10 px');
+    expect(Config.coercePixelLength('day_spacing', '50%')).toBe('50%');
+    expect(Config.coercePixelLength('day_spacing', 'big')).toBe('big');
+  });
+
+  it('judges weekday_font_size by the font-size rule, not by this one', () => {
+    // A font size folds too, by its own rule, which keeps the percentage the indicator's rule
+    // refuses — see `font-size-fold.test.ts`.
+    expect(Config.coercePixelLength('weekday_font_size', '50%')).toBe('50%');
+    expect(Config.coercePixelLength('weekday_font_size', '10 px')).toBe('10px');
+    expect(Config.coercePixelLength('weekday_font_size', 'big')).toBe(
+      Config.DEFAULT_CONFIG.weekday_font_size,
+    );
+  });
 });
 
 /**
