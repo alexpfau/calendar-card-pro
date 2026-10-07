@@ -1059,6 +1059,12 @@ download would have to live outside the release assets entirely.
   Everything it validates is decided before a merge, so running it only on `main` meant a
   packaging mistake could only be found once `main` already carried it.
 - `release.yml` — tag-triggered draft release.
+- **Every workflow states its token permissions.** The repository's default `GITHUB_TOKEN`
+  is read-write, so a workflow with no `permissions:` block silently gets write access to
+  everything. `ci.yml` and `hacs-validate.yml` are `contents: read`; `release.yml` alone
+  has `contents: write`, which `softprops/action-gh-release` needs to create the draft.
+  Give a new workflow its block from the start — CodeQL reports a missing one as
+  `actions/missing-workflow-permissions`, but only once it reaches `main`.
 
 ## Dependabot and CodeQL
 

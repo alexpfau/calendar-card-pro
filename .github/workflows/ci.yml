@@ -19,6 +19,12 @@ on:
       - dev
       - 'feature/**'
 
+# Read-only, and stated rather than inherited. The repository's default token is
+# read-write, so without this block every step here could push to the repository —
+# while nothing in this job uses the token for anything but the checkout.
+permissions:
+  contents: read
+
 jobs:
   lint-build:
     runs-on: ubuntu-latest

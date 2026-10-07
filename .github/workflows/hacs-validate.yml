@@ -50,6 +50,13 @@ on:
     - cron: '0 0 * * *' # Run daily at midnight
   workflow_dispatch:
 
+# Read-only, for the reason given in ci.yml. hacs/action declares a `comment` input that
+# defaults to true, which reads as though it posts to the PR — but `action/action.py` in
+# hacs/integration never reads it, and only fetches repository data. If HACS ever starts
+# commenting, this job will need `pull-requests: write` as well.
+permissions:
+  contents: read
+
 jobs:
   validate-hacs:
     if: github.repository == 'alexpfau/calendar-card-pro'
