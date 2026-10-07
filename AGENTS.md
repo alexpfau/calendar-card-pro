@@ -1084,7 +1084,9 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
   the gate.
 - **CodeQL default setup** is enabled in the repository's code-security settings. It scans
-  pushes to `main` and `dev` (both protected) and same-repository pull requests into them.
+  pushes to `main` and same-repository pull requests into it, so the release PR is the first
+  scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
+  API report it as protected, but default setup did not scan a push to it.
 
 ## Docs site deployment
 
