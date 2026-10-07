@@ -1126,6 +1126,21 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   ES2019 and ES2020 lib types (`flatMap`, `Object.fromEntries`, `Promise.prototype.finally`)
   into a program whose own `lib` stops at ES2017, and `src/` uses them.
 
+- **The `overrides` entry in `package.json` moves vitepress onto vite 6, and it goes once
+  vitepress 2 is stable.** JSON has no comments, so this bullet is that entry's comment.
+  vitepress 1.6.4, the current `latest`, depends on `vite ^5.4.14`; vite 5 and its nested
+  esbuild 0.21 carry advisories that `npm audit fix` cannot clear without `--force`. vitepress
+  1 does not officially support vite 6, so the override was checked when it was added. Once
+  content hashes were normalized, all 23 built pages matched the vite 5 build. The only CSS
+  difference was 75 rules for six default-theme components the site never renders (team
+  page, sponsors), which vite 6 no longer ships. `docs:dev` rendered pages with a clean
+  console. When `latest` below reads 2.x, bump vitepress, delete the override, and re-run
+  `npm audit`:
+
+  ```bash
+  npm view vitepress dist-tags
+  ```
+
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
