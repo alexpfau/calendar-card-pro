@@ -20,6 +20,13 @@ empty_day_color: 'var(--secondary-text-color)' # Color for "No events" text
 hide_when_empty: true
 ```
 
+`event_font_size` takes any CSS font size: a length such as `14px` or `1.2em`, a percentage
+such as `120%`, a keyword such as `large`, or an expression such as `calc()` that works out to
+one. A space before the unit is closed up, so `14 px` reads as `14px`, and a negative size, a
+misspelled unit or a word that is not a font size falls back to `14px`. A calendar's icon or
+picture [label](/features/core-settings#choosing-how-a-label-is-read) is sized from it too,
+whatever form it takes.
+
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
 ### Custom Empty-Day Text
@@ -268,6 +275,9 @@ balloon across the event. For a size that follows the text around it, use `em`: 
 rather than `120%`. A `var()` is passed on as written, since the card cannot see what it
 refers to.
 
+`time_font_size` and `location_font_size` take the same font sizes as
+[`event_font_size`](#calendar-events-display), and fall back to `12px` the same way.
+
 ### Removing Country Names
 
 The `remove_location_country` option offers three modes:
@@ -354,6 +364,8 @@ with `show_location_allday: false` when `allday_badge: title` is meant to stand 
 
 `description_icon_size` takes the same sizes as the
 [time and location icons](#time-location-information), and falls back to `14px` the same way.
+`description_font_size` takes the same font sizes as the time and location text, and falls back
+to `12px`.
 
 Descriptions are automatically processed:
 
@@ -736,6 +748,10 @@ progress_bar_width: '80px'
 ```
 
 `progress_bar_width` has no shipped default. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to every view — and a [column exception](/features/column-view#overriding-options-in-column-view) gives the two views different widths.
+
+`progress_bar_height` ships as `0.75em`, three quarters of the time text, so the bar follows
+`time_font_size` whichever form that takes. A height you set in `em` is measured against the
+time text too, wherever the bar is drawn.
 
 ```yaml
 show_progress_bar: true

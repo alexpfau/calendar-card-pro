@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import {
-  DEFAULT_CONFIG,
-  LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
-  PROCESSING_TIME_KEYS,
-} from '../src/config/config';
+import { DEFAULT_CONFIG, FOLDED_OPTIONS, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -217,14 +213,14 @@ describe('resolveEffectiveConfig', () => {
 
     for (const key of COLUMN_OVERRIDE_KEYS) {
       // Numeric overrides use the root's normalization, so their distinguishing value
-      // must be a number rather than a rejected text sentinel. A folded length is refused
-      // the same way — a text sentinel lands on its default on both paths, and the test
-      // could no longer tell an applied override from an ignored one — so it gets a size.
+      // must be a number rather than a rejected text sentinel. A folded length or font size
+      // is refused the same way — a text sentinel lands on its default on both paths, and the
+      // test could no longer tell an applied override from an ignored one — so it gets a size.
       const reference = DEFAULT_CONFIG[key];
       const sentinel =
         typeof reference === 'number'
           ? reference + 17
-          : LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+          : FOLDED_OPTIONS.includes(key)
             ? '17em'
             : `__${key}__`;
       const config = buildConfig({
@@ -736,7 +732,10 @@ describe('validateColumnOverrides', () => {
     'month_separator_color',
   ])('accepts %s inside the block now that it renders in column view', (key) => {
     const config = buildConfig();
-    config.column = { [key]: 'iso' } as unknown as Types.ColumnOverrides;
+    // The value is beside the point here, which is whether the key is accepted, except that
+    // a font size is now validated as one: 'iso' would be refused as a font size.
+    const value = key === 'week_number_font_size' ? '12px' : 'iso';
+    config.column = { [key]: value } as unknown as Types.ColumnOverrides;
 
     validateColumnOverrides(config);
 

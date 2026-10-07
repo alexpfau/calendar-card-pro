@@ -6,7 +6,7 @@
 
 import {
   DEFAULT_CONFIG,
-  LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  FOLDED_OPTIONS,
   coercePixelLength,
   coercePixelLengthAgainst,
   normalizeNumericOptions,
@@ -859,7 +859,8 @@ export function isZeroLength(value: string): boolean {
  *
  * Several lengths in the card are derived from another rather than configured directly:
  * list separators sit at a multiple of `day_spacing` (a week rule a full spacing away, a
- * month rule one and a half), and the date column is 1.75× the `day_font_size` it holds.
+ * month rule one and a half), and the date column is 1.75× the `day_font_size` it holds,
+ * through {@link scaleFontSize}, which turns a font size into a length first.
  * Computing those with `parseFloat` and re-appending `px` silently discards the unit, so
  * `day_spacing: 2em` spaced the day tables by `2em` while spacing the rules between them
  * by `2px` — the rules collapsed into the content they were meant to divide — and a `2em`
@@ -890,6 +891,145 @@ export function scaleLength(value: string, factor: number): string {
   }
 
   return `calc(${factor} * (${trimmed}))`;
+}
+
+/**
+ * The sizes CSS Fonts suggests for the absolute font-size keywords, at a 16px default.
+ *
+ * Measured in Chromium, four of them draw a little smaller (`xx-small` 9px, `x-small` 10px,
+ * `small` 13px, `large` 18px) and none larger. A length derived from these is therefore
+ * never shorter there than the text it is derived from, which is the direction that matters
+ * for a box drawn around it.
+ */
+const ABSOLUTE_FONT_SIZE_PX: ReadonlyMap<string, number> = new Map([
+  ['xx-small', (16 * 3) / 5],
+  ['x-small', (16 * 3) / 4],
+  ['small', (16 * 8) / 9],
+  ['medium', 16],
+  ['large', (16 * 6) / 5],
+  ['x-large', (16 * 3) / 2],
+  ['xx-large', 16 * 2],
+  ['xxx-large', 16 * 3],
+]);
+
+/** A percentage anywhere in a value, with its number captured. */
+const PERCENTAGE_IN_VALUE = /((?:\d*\.)?\d+(?:e[+-]?\d+)?)%/gi;
+
+/**
+ * The font-size keywords that are relative to the parent's font, by the step each takes:
+ * `larger` and `smaller` the 1.2 Chromium takes, `math` none outside MathML, and the CSS-wide
+ * keywords other than `initial` none either, because each leaves the day number at the size
+ * it inherits.
+ */
+const RELATIVE_FONT_SIZE_STEP: ReadonlyMap<string, number> = new Map([
+  ['larger', 1.2],
+  ['smaller', 1 / 1.2],
+  ['math', 1],
+  ['inherit', 1],
+  ['unset', 1],
+  ['revert', 1],
+  ['revert-layer', 1],
+]);
+
+/**
+ * A font-size keyword standing as a token inside a larger value, such as the fallback of
+ * `var(--size, large)`, with the character before it captured. Not part of a longer name,
+ * so `--large-text` is left alone. A captured prefix rather than a lookbehind, which older
+ * Safari cannot parse at all — and a regular expression it cannot parse stops the card
+ * from loading.
+ */
+const KEYWORD_IN_VALUE = new RegExp(
+  `(^|[^\\w-])(${[...ABSOLUTE_FONT_SIZE_PX.keys(), ...RELATIVE_FONT_SIZE_STEP.keys(), 'initial'].join('|')})(?![\\w-])`,
+  'gi',
+);
+
+/**
+ * Multiplies a font size by a factor and returns a length, for a box sized from the text
+ * it holds: the list view's date column is 1.75 times its day number.
+ *
+ * {@link scaleLength} cannot do it alone, because a font size need not be a length. It made
+ * `large` into `calc(1.75 * (large))`, which no property can use, and `150%` into a `262.5%`
+ * width, a share of the card rather than of the text: measured in Chromium, the first gave
+ * the date column half the card and the second gave it all of it, squeezing the events
+ * beside it to nothing.
+ *
+ * The result is read on the element whose font size the day number's is relative to: the
+ * date cell, which holds it. So each kind of font size is first rewritten as a length
+ * relative to that font:
+ *
+ * - a length is scaled as it is, in its own unit (`26px` to `45.5px`, `2em` to `3.5em`);
+ * - a percentage is a share of that font, which is what `em` measures, so `150%` becomes
+ *   `2.625em`;
+ * - `larger` and `smaller` are a step of 1.2 from that font, which is the step Chromium
+ *   takes, and `math` is that font outside MathML, as is every CSS-wide keyword but
+ *   `initial`, because the day number's own style carries the option and so inherits;
+ * - an absolute keyword such as `large` depends on none of it, only on the browser's default
+ *   font size, which no CSS unit names (`rem` is Home Assistant's 14px root). It is taken at
+ *   {@link ABSOLUTE_FONT_SIZE_PX}, and so is `initial`, which is `medium`. The result can come
+ *   out a few pixels larger than in Chromium (3.5px at most, for `x-small` at 1.75 times),
+ *   never smaller.
+ *
+ * Inside a function the same rewrites apply token by token, so a percentage anywhere in it
+ * and a keyword in a `var()` fallback both become lengths calc() can multiply. A trailing
+ * `!important` belongs to the font-size declaration and is dropped. What cannot be rewritten
+ * is a custom property the `var()` names, because its value is not known until layout: the
+ * result follows one that holds a length, and not one that holds a percentage or a keyword.
+ *
+ * @param value - A font size, as `toValidFontSize` leaves it
+ * @param factor - Multiplier to apply
+ * @returns The scaled length
+ */
+export function scaleFontSize(value: string, factor: number): string {
+  const size = value
+    .trim()
+    .replace(/\s*!\s*important$/i, '')
+    .trim();
+  const keyword = keywordAsLength(size, factor);
+
+  if (keyword !== undefined) {
+    return keyword;
+  }
+
+  const percentage = /^\+?((?:\d*\.)?\d+(?:e[+-]?\d+)?)%$/i.exec(size);
+  if (percentage) {
+    // Multiplied before dividing, so `110%` gives `1.925em` rather than a binary tail.
+    return `${(Number.parseFloat(percentage[1]) * factor) / 100}em`;
+  }
+
+  // A function gets the same rewrites token by token: a percentage anywhere in it, and a
+  // keyword in a var() fallback, which calc() could not multiply either.
+  return scaleLength(
+    size
+      .replace(
+        PERCENTAGE_IN_VALUE,
+        (_match, number: string) => `${Number.parseFloat(number) / 100}em`,
+      )
+      .replace(
+        KEYWORD_IN_VALUE,
+        (_match, before: string, word: string) => `${before}${keywordAsLength(word, 1) ?? word}`,
+      ),
+    factor,
+  );
+}
+
+/**
+ * A font-size keyword as a length relative to the font its parent's size is measured in,
+ * scaled — see {@link scaleFontSize}.
+ *
+ * @param keyword - A value that may be a font-size keyword, in any case
+ * @param factor - Multiplier to apply
+ * @returns The length, or `undefined` when the value is not a keyword
+ */
+function keywordAsLength(keyword: string, factor: number): string | undefined {
+  const word = keyword.toLowerCase();
+  const absolute = ABSOLUTE_FONT_SIZE_PX.get(word === 'initial' ? 'medium' : word);
+
+  if (absolute !== undefined) {
+    return `${absolute * factor}px`;
+  }
+
+  const step = RELATIVE_FONT_SIZE_STEP.get(word);
+  return step === undefined ? undefined : `${factor * step}em`;
 }
 
 //-----------------------------------------------------------------------------
@@ -1440,7 +1580,7 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
 
   validatePastEventOpacity(overrides.past_event_opacity, `${block.blockKey}.past_event_opacity`);
 
-  for (const key of LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE) {
+  for (const key of FOLDED_OPTIONS) {
     if (ownKeys.has(key)) {
       validateFoldedLength(
         key,

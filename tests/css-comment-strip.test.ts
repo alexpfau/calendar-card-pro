@@ -279,11 +279,18 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(95_800);
-    // The wrapped rung's follow-up and the end time's baseline reset moved the ceiling last,
-    // from 90,600; see the paragraph above for what their notes buy that the declarations
-    // cannot say. The reading went 90,087 to 95,001, and the ceiling keeps roughly the slack
-    // the band had before rather than being opened wide enough to stop meaning anything.
+    expect(saved).toBeLessThan(98_200);
+    // The font sizes moved the ceiling last, from 95,800: the notes on why the label glyphs,
+    // their hanging indent, the week pill, the date's line heights and the own-row progress
+    // bar now size in em or 1 instead of multiplying a font-size option, and why the week row
+    // has no height. The reading went 95,001 to 97,381, taken with stripComments after the
+    // last comment in the change was written, and the ceiling keeps the slack it had.
+    //
+    // The wrapped rung's follow-up and the end time's baseline reset moved the ceiling before
+    // that, from 90,600; see the comment above this test for what their notes buy that the
+    // declarations cannot say. The reading went 90,087 to 95,001, and the ceiling keeps roughly
+    // the slack the band had before rather than being opened wide enough to stop meaning
+    // anything.
     //
     // 🚨 95,001 is the third reading this one commit produced, and the first two were wrong
     // in the two different ways the header warns about. 93,656 was taken while the same

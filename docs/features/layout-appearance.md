@@ -103,6 +103,10 @@ vertical_line_width: '3px' # Width of the colored event indicator line
 
 The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
 
+`title_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
+and the title keeps Home Assistant's card header size.
+
 When styling your calendar, you can use:
 
 - CSS color values (`#ff6c92`, `rgba(255,0,0,0.5)`)
@@ -165,6 +169,11 @@ month_separator_color: '#03a9f4'
 ```
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers.png" alt="Week Numbers" width="600"><br>
+
+`week_number_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do, and the pill is sized from it: 2.5
+times as wide and 1.5 times as tall as its font size. A value that is not a font size falls
+back to `12px`.
 
 This feature creates a sophisticated visual hierarchy with:
 
@@ -288,6 +297,17 @@ The date column appears on the left side of each day's events and helps users qu
 - **Today's date** using the `today_*` options
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+
+`weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
+such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or
+`inherit`, or an expression such as `calc()` that works out to one. A space before the unit is
+closed up, so `26 px` reads as `26px`, and a negative size, a misspelled unit or a word that is
+not a font size falls back to the option's default. The date column is 1.75 times as wide as
+the day number, whichever form you use. A keyword such as `x-large` depends on the browser's
+default text size, so for those the card assumes the usual 16px, and the column can come out a
+few pixels wider than the number needs. A `var()` is passed on as written, since the card
+cannot see what it refers to: the date column follows it when the property it names holds a
+length, but not a percentage or a keyword.
 
 ## 🌟 Today Indicator
 

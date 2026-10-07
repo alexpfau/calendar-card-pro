@@ -80,10 +80,11 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
     '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
-    // The date column is sized from the day number it holds. `day_font_size` is a CSS
-    // length, so scale it in the author's own unit: parsing it to a number would size an
-    // `em` font's column in `px` and reduce `calc(...)` to `NaN`.
-    '--calendar-card-date-column-width': ViewConfig.scaleLength(config.day_font_size, 1.75),
+    // The date column is sized from the day number it holds. `day_font_size` is a CSS font
+    // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
+    // is scaled, in the author's own unit where it has one. Parsing it to a number would size
+    // an `em` font's column in `px`, reduce `calc(...)` to `NaN`, and lose a keyword entirely.
+    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(config.day_font_size, 1.75),
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
       config.event_icon_vertical_alignment === 'top'
@@ -260,8 +261,13 @@ export const cardStyles = css`
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
 
+  /* No height of its own. It used to declare 1.5x the week-number font size, which is what the
+     pill below is tall, but the table's own font is the card's, so that height had to be
+     computed from the option's value -- and a percentage or a keyword is a valid font size and
+     no height at all. 150% made it 225% of the content's height, which the height option
+     sets: a 900px week row on a card set to 400px. The pill is this table's content, so the
+     row was never shorter than the declaration anyway. */
   .week-row-table {
-    height: calc(var(--calendar-card-week-number-font-size) * 1.5);
     width: 100%;
     table-layout: fixed;
     padding-left: 8px;
@@ -282,9 +288,13 @@ export const cardStyles = css`
     padding-right: 12px; /* Match date column padding */
   }
 
+  /* Sized in em because the pill carries the week-number font size itself, so em measures
+     that font whatever form the option takes. Multiplying the option's value instead broke on
+     every valid font size that is not a length: 150% drew the pill 171px wide across the
+     separator, and a keyword dropped the pill shape. */
   .week-number {
-    width: calc(var(--calendar-card-week-number-font-size) * 2.5);
-    height: calc(var(--calendar-card-week-number-font-size) * 1.5);
+    width: 2.5em;
+    height: 1.5em;
     display: inline-flex; /* Centering */
     align-items: center;
     justify-content: center;
@@ -301,7 +311,7 @@ export const cardStyles = css`
   /* iOS Safari needs a small optical vertical-alignment adjustment. */
   @supports (-webkit-touch-callout: none) {
     .week-number {
-      padding-top: calc(var(--calendar-card-week-number-font-size) * 0.1);
+      padding-top: 0.1em;
     }
   }
 
@@ -388,22 +398,27 @@ export const cardStyles = css`
     z-index: 1;
   }
 
+  /* line-height 1 rather than the font-size custom property read a second time: a unitless
+     line height is a multiple of the element's own font size, so it stays equal to it for any
+     font size. Read as a line height, 150% and 1.5em were 1.5x the font they had just set, and
+     a keyword was no line height at all, so the date's lines spread apart or fell back to the
+     inherited one. */
   .weekday {
     font-size: var(--calendar-card-font-size-weekday);
-    line-height: var(--calendar-card-font-size-weekday);
+    line-height: 1;
     color: var(--calendar-card-color-weekday);
   }
 
   .day {
     font-size: var(--calendar-card-font-size-day);
-    line-height: var(--calendar-card-font-size-day);
+    line-height: 1;
     font-weight: 500;
     color: var(--calendar-card-color-day);
   }
 
   .month {
     font-size: var(--calendar-card-font-size-month);
-    line-height: var(--calendar-card-font-size-month);
+    line-height: 1;
     text-transform: uppercase;
     color: var(--calendar-card-color-month);
   }
@@ -698,16 +713,21 @@ export const cardStyles = css`
    * after the label without changing .summary into flex or grid, which would
    * blockify the title. Prose labels are excluded because their width can
    * consume most of a narrow column. Offsets match each glyph label box plus
-   * its 4px gap. */
+   * its 4px gap.
+   *
+   * In em, because .summary carries the event font size and the glyphs inherit
+   * it, so em is that size in whatever form the option takes. The offsets used
+   * to add 4px to the option's value itself, and 150% made that a share of the
+   * row's width: 749px of padding, and a title wrapped one letter to a line. */
   .summary:has(> .label-icon),
   .summary:has(> .label-image) {
-    text-indent: calc(-1 * (var(--calendar-card-font-size-event) + 4px));
-    padding-inline-start: calc(var(--calendar-card-font-size-event) + 4px);
+    text-indent: calc(-1 * (1em + 4px));
+    padding-inline-start: calc(1em + 4px);
   }
 
   .summary:has(> .label-emoji) {
-    text-indent: calc(-1 * (var(--calendar-card-font-size-event) * 1.25 + 4px));
-    padding-inline-start: calc(var(--calendar-card-font-size-event) * 1.25 + 4px);
+    text-indent: calc(-1 * (1.25em + 4px));
+    padding-inline-start: calc(1.25em + 4px);
   }
 
   /* scroll_long_titles -------------------------------------------------------
@@ -879,14 +899,20 @@ export const cardStyles = css`
     margin-right: 4px;
   }
 
+  /* The glyph labels are sized in em for the reason the hanging indent above is: they
+     inherit the event font size from .summary, in whatever form it was written. Handed
+     the option's value directly, a keyword or a space before the unit reached
+     ha-svg-icon as a width it cannot use, leaving the icon at its SVG's 300px and an image
+     at its natural size, while 1.5em was applied a second time: a 31.5px icon where text
+     labels were drawn at 21px. */
   .label-icon {
-    --mdc-icon-size: var(--calendar-card-font-size-event);
+    --mdc-icon-size: 1em;
     vertical-align: middle;
     margin-right: 4px;
   }
 
   .label-image {
-    height: var(--calendar-card-font-size-event);
+    height: 1em;
     width: auto;
     vertical-align: middle;
     margin-right: 4px;
@@ -1780,11 +1806,17 @@ export const cardStyles = css`
      class, so source order is what lets the modifier win. Unscoped on purpose -- this is
      a placement, not a view. Flush left aligns it with the title above rather than the
      time below. THE ROW WIDTH is the 80%, a percentage because the row is as wide as the
-     column; ruled by the maintainer after seeing 75% live. */
+     column; ruled by the maintainer after seeing 75% live.
+
+     It carries the time font size because the inline bar inherits it from .time, and the
+     shipped height, 0.75em, has to mean three quarters of the time text in both
+     placements. The default used to multiply time_font_size itself, which no keyword or
+     percentage survives: the bar drew 0px tall for large or 150%. */
   .progress-bar-row {
     width: var(--calendar-card-progress-bar-width, 80%);
     margin-inline-start: 0;
     margin-top: 2px;
+    font-size: var(--calendar-card-font-size-time);
   }
 
   .progress-bar-filled {

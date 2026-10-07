@@ -359,10 +359,12 @@ describe('Y21b — a bare number typed into an editor text field', () => {
   it.each(TYPED_LENGTH_FIELDS)('coerces a number typed into %s', (key) => {
     expect(Config.coercePixelLength(key, '10')).toBe('10px');
     expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
-    // An icon cannot be drawn at a negative size, so an option that folds takes its default
-    // instead of `-2px` — see `icon-size-fold.test.ts`.
+    // An icon cannot be drawn at a negative size and no font size is negative, so an option
+    // that folds takes its default instead of `-2px` — see `icon-size-fold.test.ts` and
+    // `font-size-fold.test.ts`.
     expect(Config.coercePixelLength(key, '-2')).toBe(
-      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ||
+        Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
         ? (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]
         : '-2px',
     );
@@ -504,8 +506,10 @@ describe('length options whose default cannot mark them', () => {
   it.each(NAMED)('leaves an already-valid value for %s alone', (key) => {
     // The over-reach control for the named set: these accept units and keywords that the
     // pixel-defaulted options never see, and a percentage is the documented way to write
-    // `progress_bar_width` in column view.
-    for (const value of ['24px', '2em', '80%', 'auto', 'none', 'calc(1px + 2px)']) {
+    // `progress_bar_width` in column view. `title_font_size` is a font size, which `auto`
+    // and `none` are not — it folds those by its own rule — so it gets a font-size keyword.
+    const keywords = key === 'title_font_size' ? ['large', 'smaller'] : ['auto', 'none'];
+    for (const value of ['24px', '2em', '80%', ...keywords, 'calc(1px + 2px)']) {
       expect(Config.coercePixelLength(key, value)).toBe(value);
     }
   });

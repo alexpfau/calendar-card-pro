@@ -135,20 +135,24 @@ describe('the fold covers every option that sizes a Home Assistant icon', () => 
   /**
    * Options that reach `--mdc-icon-size` without folding, each for a stated reason.
    *
-   * `event_font_size` sizes the calendar label icons, but it is a font size first, and a
-   * keyword or a percentage is a valid font size, so folding everything else does not fit
-   * it. It is fixed on its own terms rather than here.
+   * Empty since the calendar label icons stopped reading `event_font_size` through a custom
+   * property. They are sized `1em` against the text they sit in, which the next test pins,
+   * so no option's value reaches them. A font size is folded on its own terms, by
+   * `FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE`, because a keyword or a percentage is a valid
+   * font size and no icon size.
    */
-  const NOT_FOLDED: ReadonlyMap<string, string> = new Map([
-    ['event_font_size', 'a font size first; keywords and percentages are valid there'],
-  ]);
+  const NOT_FOLDED: ReadonlyMap<string, string> = new Map();
+
+  /** Every `--mdc-icon-size` value in the card's stylesheet, comments removed. */
+  const ICON_DECLARATIONS = [
+    ...cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/--mdc-icon-size:\s*([^;]+);/g),
+  ].map((match) => match[1].trim());
 
   /** The custom property each `--mdc-icon-size` in the card's stylesheet reads. */
-  const ICON_PROPERTIES = [
-    ...cardStyles.cssText
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .matchAll(/--mdc-icon-size:\s*var\(\s*(--[\w-]+)/g),
-  ].map((match) => match[1]);
+  const ICON_PROPERTIES = ICON_DECLARATIONS.flatMap((value) => {
+    const property = /^var\(\s*(--[\w-]+)/.exec(value);
+    return property ? [property[1]] : [];
+  });
 
   /** Every string-valued option path the shipped defaults describe, nested ones included. */
   function stringPaths(source: Record<string, unknown>, parent?: string): string[] {
@@ -174,8 +178,20 @@ describe('the fold covers every option that sizes a Home Assistant icon', () => 
 
   it('finds the icon sizes in the stylesheet', () => {
     // The denominator, so an empty match cannot pass the reconciliation below vacuously.
-    expect(ICON_PROPERTIES.length).toBeGreaterThanOrEqual(7);
+    expect(ICON_PROPERTIES.length).toBeGreaterThanOrEqual(6);
     expect(ICON_PROPERTIES).toContain('--calendar-card-icon-size-time');
+  });
+
+  it('reads every icon size either from a custom property or in em', () => {
+    // What makes the reconciliation below exhaustive: a declaration that names no custom
+    // property is invisible to it, so the only other shape allowed is a size in em, which
+    // follows the text and cannot be unusable. Writing the label icons' size back as
+    // `var(--calendar-card-font-size-event)` fails the next test instead, because nothing
+    // folds `event_font_size` by the icon rule.
+    expect(ICON_DECLARATIONS.length).toBeGreaterThan(ICON_PROPERTIES.length);
+    expect(
+      ICON_DECLARATIONS.filter((value) => !value.startsWith('var(') && !/^[\d.]+em$/.test(value)),
+    ).toEqual([]);
   });
 
   it('folds every option an icon size is read from, and names nothing else', () => {
@@ -230,12 +246,13 @@ describe('the fold stops at the icon sizes', () => {
     'day_font_size',
     'weather.date.font_size',
     'weather.event.font_size',
-  ])('leaves %s passing an unusable value through', (path) => {
+  ])('judges %s as a font size, not as an icon size', (path) => {
     // The over-reach control. Font sizes take keywords and percentages, and the nested two
     // share a group with an icon size, so a fold keyed by group or by field name alone
-    // would reach them.
-    for (const value of ['14 px', '150%', 'large', 'big']) {
+    // would refuse them. They fold by their own rule, which keeps these.
+    for (const value of ['150%', 'large', 'larger', 'calc(1em + 50%)']) {
       expect(Config.coercePixelLength(path, value), `${path}: ${value}`).toBe(value);
+      expect(Config.toValidSize(value), `icon rule: ${value}`).toBeUndefined();
     }
   });
 
@@ -594,13 +611,20 @@ describe('the visual editor holds an icon size it cannot draw yet', () => {
     });
 
     it('lets the font size beside it keep its own rules', () => {
-      // The over-reach control in the editor: a font size is not folded, so what is typed
-      // into it is written as it stands, as before.
+      // The over-reach control in the editor: the font size beside an icon size is judged as
+      // a font size, so a percentage the icon rule would refuse is written as it stands. It
+      // holds `1r` on the way to `1rem` as the icon size does, by its own rule.
       let state: State = { config: start(), pending: {} };
-      state = type(state, 'shared', sibling, '1r');
+      state = type(state, 'shared', sibling, '150%');
 
-      expect(read(state.config, sibling)).toBe('1r');
+      expect(read(state.config, sibling)).toBe('150%');
       expect(read(state.config, path)).toBe('10px');
+
+      state = type(state, 'shared', sibling, '1r');
+      expect(read(state.config, sibling)).toBe('150%');
+      expect(read(Routing.workspaceFormData(state.config, 'shared', state.pending), sibling)).toBe(
+        '1r',
+      );
     });
   });
 });
