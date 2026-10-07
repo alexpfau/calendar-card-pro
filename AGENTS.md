@@ -1115,7 +1115,9 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   `typescript-eslint` parses through, and its peer range stops at `typescript <6.1.0`.
   Dependabot was told `@dependabot ignore this major version` on #641; that condition lives
   in Dependabot, not in `dependabot.yml`, so nothing in the repository shows it. Revisit once
-  this admits 7, then lift the ignore with `@dependabot unignore typescript`:
+  the command below admits 7. Upgrading to 7 by hand lifts the ignore by itself; so does
+  reopening #641, or commenting `@dependabot unignore typescript` on an open Dependabot
+  group PR:
 
   ```bash
   npm view @typescript-eslint/typescript-estree peerDependencies
