@@ -63,7 +63,7 @@ See [Shading the Weekend](https://calendar-card-pro.alexpfau.com/features/grid-v
 
 ### 🌘 How Faded a Finished Event Looks
 
-- **`past_event_opacity`** - A finished event has always been drawn at 60% strength, and that number was fixed. This takes anything from 0 to 100, so a calendar kept as a log can stop looking uniformly greyed out. `100` removes the dimming entirely; `0` makes the contents transparent while keeping the row, its actions and its accessible name. Settable per view, and only the contents dim — backgrounds, accent stripes and date headers are untouched (#176)
+- **`past_event_opacity`** - A finished event has always been drawn at 60% strength, and that number was fixed. This takes anything from 0 to 100, so a calendar kept as a log can stop looking uniformly grayed out. `100` removes the dimming entirely; `0` makes the contents transparent while keeping the row, its actions and its accessible name. Settable per view, and only the contents dim — backgrounds, accent stripes and date headers are untouched (#176)
 
 See [Past Events Display](https://calendar-card-pro.alexpfau.com/features/event-content#past-events-display).
 

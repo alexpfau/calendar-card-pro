@@ -153,7 +153,7 @@ time_grid:
 ```
 
 The default is `60`, one rule per hour, so every horizontal line on the card is a line
-the axis has labelled. Choose a finer setting when you schedule in quarter hours; the
+the axis has labeled. Choose a finer setting when you schedule in quarter hours; the
 hour rules are drawn more strongly than the ones between them, so the eye still finds
 the hour.
 
