@@ -337,8 +337,9 @@ indentation**, even where that looks wrong at the new nesting depth — which is
 An earlier version of this file claimed the opposite, and that claim was wrong: run
 `npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
 and breaking lines. The reason the claim survived so long is an asymmetry worth knowing —
-**Prettier preserves significant whitespace it already finds, so existing templates
-round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
+**Prettier preserves significant whitespace it already finds, so most existing templates
+round-trip unchanged** (since 3.9, one shape does not; see below), and it breaks as
+`</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
 uses it at **three** sites — the day-header weather badge, the event weather badge, and
@@ -369,6 +370,31 @@ the DOM is identical and no snapshot moves. What the directive buys there is the
 reading as the single line the browser sees, instead of the `>`-on-its-own-line form that
 is exactly what the comment above it is warning against. Keep it; it is documentation
 that happens to also be a guard, and the two other sites prove the guard is real.
+
+🚨 **Since Prettier 3.9, a template with a multi-line `${…}` in it does not round-trip.**
+3.9 puts such an interpolation on lines of its own (Prettier PR 18380), which
+re-indents every template nested inside it by two spaces. The `${` and `}` are JavaScript
+and add no text, but the nested template's indentation is text. When the bump landed,
+`npm run format` reflowed five templates, and the per-site experiment above split them
+three ways:
+
+| template                                | on reflow + `npm test`                 | kept as              |
+| --------------------------------------- | -------------------------------------- | -------------------- |
+| `renderDateContent` (`leaves.ts`)       | 27 fail: the list and column snapshots | `// prettier-ignore` |
+| `renderEventContent` (`leaves.ts`)      | 1 fails: the source-shape guard        | `// prettier-ignore` |
+| `renderEvent` (`render.ts`)             | 1 fails: the same guard                | `// prettier-ignore` |
+| `renderMainCardStructure` (`render.ts`) | suite green                            | reformatted          |
+| exception panel (`element.ts`)          | suite green                            | reformatted          |
+
+The guard is _"preserves no-output idioms at extraction seams"_ in `tests/list-dom.test.ts`,
+which pins `: ''}` directly before the next `${…}` in the source; the directive keeps that
+shape rather than loosening the guard. Each of the three carries a comment naming Prettier
+3.9, which tells them apart from the whitespace sites above. A green suite was not taken as
+proof for the other two, since `renderMainCardStructure` has no snapshot at all: each was
+rendered before and after the reflow and compared with the normalizer below, which found
+them equal and caught a planted text change as the control. The cost of the directives is
+that those three templates are no longer formatted by anything, so match the surrounding
+style by hand when editing inside them.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor

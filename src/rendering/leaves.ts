@@ -142,6 +142,10 @@ export function renderDateContent(
   const day = date.getDate();
   const month = translations.months[date.getMonth()];
 
+  // Prettier 3.9 would put the `${…}` below on lines of its own and re-indent the month
+  // template inside it, which moves the whitespace beside its text node and with it the
+  // list and column DOM snapshots.
+  // prettier-ignore
   return html`
     <div
       class="weekday"
@@ -633,6 +637,10 @@ export function renderEventContent(
     ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
     : timeValue;
 
+  // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
+  // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
+  // extraction seams" in tests/list-dom.test.ts).
+  // prettier-ignore
   return html`
     <div class="event-content">
       ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels)}
