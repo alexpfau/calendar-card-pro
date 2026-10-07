@@ -273,7 +273,7 @@ function findVariant(jsFiles) {
  * The two claims are held to different standards, because only one of them is reproducible.
  * A build's byte count is the same everywhere, so the uncompressed pair is exact. Deflate
  * output is not: the same bytes at the same level measured 57,860 under Node 25 (zlib-ng)
- * and 58,448 under the pinned Node 22 (zlib 1.3.1), and the page's own `gzip -9` gave 57,881
+ * and 58,448 under Node 22 (zlib 1.3.1), and the page's own `gzip -9` gave 57,881
  * under Apple gzip — a ~1% spread that happens to straddle a kilobyte, so the honest figure
  * is 57 or 58 depending on who is asking. The published pair is the one a Linux host gives,
  * since that is what Home Assistant runs on; the tolerance absorbs the rest. This is not

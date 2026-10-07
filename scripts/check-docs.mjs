@@ -1813,7 +1813,7 @@ function checkGateLists() {
     // lines, so matching only `run: <command>` cannot see them: a gate added as
     // `run: |` stayed invisible here while the three lists stayed silently short.
     // Read the block's own lines, but only where the command opens one — the
-    // pinning step is a shell script whose `npx npm@10.9.2 install` sits inside an
+    // pinning step is a shell script whose `npx npm@11 install` sits inside an
     // echoed error string, and lifting that would demand contributors run it.
     const opener = lines[index].match(/^(\s*)run:\s*[|>][-+]?\d*\s*$/);
     if (!opener) continue;
