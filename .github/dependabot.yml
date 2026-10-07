@@ -1,0 +1,40 @@
+# Version updates only. Dependabot reads this file from the default branch (`main`), so an
+# edit takes effect when it ships in a release, not when it lands on `dev`.
+#
+# "Dependabot security updates" is deliberately left off in the repository settings: those
+# PRs always target the default branch and ignore `target-branch`, which would route work
+# around `dev`. Alerts stay on; act on them through `dev`. See AGENTS.md, _Dependabot and
+# CodeQL_.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      runtime:
+        dependency-type: production
+        update-types: [minor, patch]
+      tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # Tracks the Node major pinned in .nvmrc, which CI and the docs build both run on.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']
