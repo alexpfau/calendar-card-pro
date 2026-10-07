@@ -672,8 +672,11 @@ export const cardStyles = css`
     margin-right: 12px;
   }
 
+  /* No font-size: the title inherits event_font_size from .summary, which every view draws
+     it inside, and font-size-nesting.test.ts fails if one does not. Declaring it here as
+     well applied a relative size twice, so 1.5em drew the title at 2.25x while the labels
+     beside it drew at 1.5x. */
   .event-title {
-    font-size: var(--calendar-card-font-size-event);
     font-weight: 500;
     line-height: 1.2;
     color: var(--calendar-card-color-event);
@@ -932,7 +935,7 @@ export const cardStyles = css`
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
 
-  /* Summary-row weather placement. These unscoped rules are the list-view
+  /* Summary-row weather placement. These rules are the list-view
    * counterpart to the more specific time-location placement below. Both
    * placements use the same secondary-text fallback so event weather color
    * stays consistent unless the user overrides it.
@@ -944,15 +947,18 @@ export const cardStyles = css`
    * row is unchanged and no text moves relative to its neighbors - but the
    * glyphs sit 1px lower than they did in v3.6.0.
    *
-   * This is safe to leave unscoped even though the row placement below also
-   * matches it: that placement declares the same font-size on the container
-   * at .time-location .event-weather, so the wrapper already computed this
-   * value by inheritance and the explicit declaration changes nothing there.
-   * Column view is unaffected for a second, independent reason - it always
-   * passes weatherPlacement: 'row', which leaves the title forecasts
-   * undefined, so it never emits this badge at all. */
+   * That font-size is scoped to the summary row, and the scope is load-bearing. The row
+   * placement below sets the same size on its container, .time-location .event-weather,
+   * and the wrapper inherits it there. Declaring it on the wrapper as well applied a
+   * relative weather.event.font_size twice in column and grid view: 150% drew the weather
+   * text at 2.25x. The scope sits in :where() so the selector keeps the specificity it had
+   * unscoped, and a theme rule written against the old selector still wins. Color does not
+   * compound, so its rule stays unscoped. */
   .event-weather .event-weather-text {
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  :where(.summary-row) > .event-weather > .event-weather-text {
     font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 
@@ -1101,11 +1107,15 @@ export const cardStyles = css`
   }
 
   /* Auto start margin right-aligns a countdown that wraps onto its own flex
-   * line; on the first line it behaves like the existing space-between gap. */
+   * line; on the first line it behaves like the existing space-between gap.
+   *
+   * No font-size: every placement draws the countdown inside .time, which carries
+   * time_font_size, and font-size-nesting.test.ts fails if one does not. Declaring it here
+   * as well applied a relative size twice, so 1.5em drew the countdown at 2.25x beside a
+   * time at 1.5x. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
-    font-size: var(--calendar-card-font-size-time);
     margin-inline-start: auto;
     margin-inline-end: 12px;
     white-space: nowrap;
@@ -1671,7 +1681,9 @@ export const cardStyles = css`
    * line-height is relative: leaving the row at the inherited event font size
    * builds a strut from 14px while the chips render at 12px, so the text's
    * baseline sits ~2px below the icon under flex-start and the row reads as
-   * misaligned next to .time and .description, which both size their own row. */
+   * misaligned next to .time and .description, which both size their own row.
+   * The text inherits the size from here, and only from here: the summary row's
+   * rule that sizes it is scoped so it cannot apply a relative size twice. */
   .time-location .event-weather {
     display: flex;
     flex-wrap: nowrap;
@@ -2420,7 +2432,6 @@ export const cardStyles = css`
        macOS Calendar draws none either. The timed blocks keep theirs: they are tinted at
        20% and need an edge to name the calendar. */
     border-radius: 999px;
-    font-size: var(--calendar-card-font-size-event);
   }
 
   /* Squared back off where the event carries on past the window edge. Logical corners,
@@ -2435,6 +2446,9 @@ export const cardStyles = css`
     border-end-end-radius: 4px;
   }
 
+  /* The banner's only text, so it carries event_font_size and the banner around it does not,
+     as .summary carries it in a timed block. Both used to, and a relative size applied
+     twice: 1.5em drew a banner title at 2.25x. */
   .grid-banner-title {
     font-size: var(--calendar-card-font-size-event);
     font-weight: 500;
@@ -2501,7 +2515,15 @@ export const cardStyles = css`
     padding: 2px 4px;
     border-radius: 4px;
     border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
-    font-size: var(--calendar-card-font-size-event);
+    /* No font-size: .summary inside carries event_font_size, as in list and column view.
+       The block carried it too, so a relative size compounded three times on the way to
+       the title (1.5em drew it at 3.375x), and the time, location, description, weather,
+       progress bar and overflow label measured their own relative sizes against the event
+       size. They now measure against the card's text, which the block passes down. So does
+       an em written in vertical_line_width, as in list and column view, or in
+       hour_line_width, as the hour rules themselves already did. Nothing needs the block
+       to carry the event size: the rungs below query block height in px, and the title
+       fitter reads the title's computed size. */
     line-height: 1.25;
     container: calendar-card-grid-event / size;
     /* The block's clearance from the hour rule it starts on and the one it ends at. The

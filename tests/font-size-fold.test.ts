@@ -775,12 +775,14 @@ describe('the stylesheet reads a font size only as a font size', () => {
   });
 
   it('finds the properties and the declarations it reconciles', () => {
-    // The denominators, so an empty scan cannot pass the reconciliation below vacuously.
+    // The denominators, so an empty scan cannot pass the reconciliation below vacuously. The
+    // event size is declared twice, on .summary and on the grid banner's title; each is the
+    // only element along its chain that sets it (see font-size-nesting.test.ts).
     expect(FONT_PROPERTIES).toEqual(FONT_SIZES.map(([, property]) => property));
     expect(DECLARATIONS.length).toBeGreaterThan(500);
     expect(
       DECLARATIONS.filter(({ value }) => value.includes('--calendar-card-font-size-event')).length,
-    ).toBeGreaterThanOrEqual(4);
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it('never reads one as a length', () => {
