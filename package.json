@@ -49,7 +49,7 @@
     "@typescript-eslint/parser": "^8.57.2",
     "cross-env": "^10.1.0",
     "esbuild": "^0.25.12",
-    "eslint": "^9.39.4",
+    "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
