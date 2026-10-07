@@ -1110,6 +1110,22 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   npm 10 with the #404 error. If `.nvmrc` and Dependabot's default npm ever land on different
   majors again, pin Dependabot with `"packageManager": "npm@<version>"` in `package.json`,
   which it installs through corepack, rather than repairing its PRs by hand.
+- **TypeScript is held at 6.x until `typescript-eslint` supports 7.** TypeScript 7's package
+  entry (`"."` → `lib/version.cjs`) no longer exports the classic compiler API that
+  `typescript-eslint` parses through, and its peer range stops at `typescript <6.1.0`.
+  Dependabot was told `@dependabot ignore this major version` on #641; that condition lives
+  in Dependabot, not in `dependabot.yml`, so nothing in the repository shows it. Revisit once
+  this admits 7, then lift the ignore with `@dependabot unignore typescript`:
+
+  ```bash
+  npm view @typescript-eslint/typescript-estree peerDependencies
+  ```
+
+  TypeScript 6 also stopped including every `@types` package by default, so `tsconfig.json`
+  names `node`. Keep it: besides the Node globals the tests use, `@types/node` is what brings
+  ES2019 and ES2020 lib types (`flatMap`, `Object.fromEntries`, `Promise.prototype.finally`)
+  into a program whose own `lib` stops at ES2017, and `src/` uses them.
+
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening

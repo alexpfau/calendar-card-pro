@@ -190,7 +190,7 @@ describe('hide_when_empty leaves an empty card visible when off', () => {
     _applyVisibility(): void;
   }
 
-  function hiddenWith(hideWhenEmpty: boolean): boolean {
+  function hiddenWith(hideWhenEmpty: boolean): HTMLElement['hidden'] {
     const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
     card.setConfig({ entities: ['calendar.personal'], hide_when_empty: hideWhenEmpty });
     card._applyVisibility();

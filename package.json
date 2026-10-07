@@ -58,7 +58,7 @@
     "prettier": "^3.9.9",
     "rollup": "^4.64.2",
     "rollup-plugin-esbuild": "^6.2.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.10"
   },
