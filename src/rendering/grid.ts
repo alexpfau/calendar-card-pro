@@ -201,7 +201,7 @@ function renderGridSeparator(
  * 🚨 It starts at the first day column, not at the card's edge, and both earlier answers
  * were wrong in opposite directions. `1 / -1` runs the rule across the hour axis as well,
  * which puts a horizontal line beside the hour labels where macOS Calendar has none;
- * cancelling the card's inset on top of that ran it out to the card's own edges and made
+ * canceling the card's inset on top of that ran it out to the card's own edges and made
  * the grid look framed by the card rather than ruled inside it. `2 / -1` is the range the
  * hourly rules already use — `renderRules` spans `2 / span columnCount`, which ends on the
  * same line — so the horizontal rules of the grid now all begin and end together, at the
@@ -296,7 +296,7 @@ function renderGridBoundary(
  * from an inline height, so "matching the hour rules that precede it" is one value read
  * twice rather than a literal repeated in two files.
  *
- * @param color - Resolved colour for one hour rule
+ * @param color - Resolved color for one hour rule
  * @returns The closing rule
  */
 function renderGridEndRule(color: string): TemplateResult {
@@ -339,7 +339,7 @@ function renderGridEndRule(color: string): TemplateResult {
  * stay one column wide.
  *
  * Both halves of adjacency are required, and the second is not redundant. Two weekend days
- * can be neighbouring **columns** without being neighbouring **dates** — a card with
+ * can be neighboring **columns** without being neighboring **dates** — a card with
  * `show_empty_days: false` can drop every weekday between a Sunday and the next Saturday,
  * which would otherwise bleed a tint across a gutter six days wide.
  *
@@ -419,7 +419,7 @@ function paintsSomething(value: string): boolean {
  * cannot drift apart — the misalignment that appears the moment a label is laid out by
  * one rule and a block by another.
  *
- * Labels are centred on their rule where their line box fits, then clamped inside the
+ * Labels are centered on their rule where their line box fits, then clamped inside the
  * axis so a short fixed-height grid cannot create scrollable overflow.
  *
  * 🚨 There is nothing special about the band's own end here, and there used to be. Every
@@ -434,7 +434,7 @@ function paintsSomething(value: string): boolean {
  * the bottom, entirely ABOVE the closing rule. The treatment is symmetric with the first
  * by construction rather than by a second declaration, and it is why the label cannot
  * influence the card's height: it is absolutely positioned inside an `overflow: hidden`
- * axis whose height is the body row's, so there is no box for it to grow. Centring it on
+ * axis whose height is the body row's, so there is no box for it to grow. Centering it on
  * the rule instead would need `overflow: visible` here, which is the one declaration
  * keeping a compressed axis from extending the card past its configured `height`.
  *
@@ -549,7 +549,7 @@ function formatAxisLabel(minutes: number, use24h: boolean, withMinutes: boolean)
  * not a tidy-up. Translucent ink composites rather than merging, so two identical patterns
  * are not one pattern drawn twice — they are one pattern drawn at nearly twice the ink.
  * Measured on the deployed build at the shipped `slot_minutes: 60`: an hour rule came back
- * `rgb(197, 197, 197)` where a vertical day rule of the same colour and width came back
+ * `rgb(197, 197, 197)` where a vertical day rule of the same color and width came back
  * `rgb(224, 224, 224)`, which is 0.226 alpha against 0.12. The stylesheet claimed the two
  * families carried identical ink and they had not since the slot gradient arrived.
  *
@@ -610,7 +610,7 @@ function renderRules(
  *
  * The gap the stylesheet reaches for is `--calendar-card-grid-event-gap`, the same
  * property that already holds a block a pixel clear of its column edges, so a block clears
- * its neighbours by one value on every side. A block starting at 13:00 used to draw its
+ * its neighbors by one value on every side. A block starting at 13:00 used to draw its
  * top edge exactly on the 13:00 rule, which reads as the block hanging off the line rather
  * than sitting under it; macOS Calendar leaves the same small gap it leaves between
  * columns.
@@ -647,7 +647,7 @@ function verticalGeometry(placement: Grid.EventPlacement): Record<string, string
  * Render one timed event as a block positioned by its clock time.
  *
  * Lane geometry is expressed with `calc()` against a percentage width so a block keeps
- * a real gutter beside its neighbour at any column width. Vertical geometry is pure
+ * a real gutter beside its neighbor at any column width. Vertical geometry is pure
  * percentage: nothing here knows the band's pixel height, which is what lets a fixed
  * content height compress the whole grid with no arithmetic.
  *
@@ -1054,7 +1054,7 @@ export function renderGridGroupedEvents(
   // The two horizontal rules framing the all-day band, each on its own option now.
   //
   // 🚨 They used to be one option — `day_separator_*`, which also drew the vertical rules
-  // and coloured the hour rules. `day_separator_*` has meant *the rule between two days*
+  // and colored the hour rules. `day_separator_*` has meant *the rule between two days*
   // since the card shipped, and driving four visually distinct rules from it made all four
   // impossible to configure apart. The upper rule is `day_header_separator_*`, a grid-only
   // key that already existed and already named this boundary and which the renderer never
@@ -1107,7 +1107,7 @@ export function renderGridGroupedEvents(
   // computes no layout. Shrinking the card drives that share to zero at about twice the
   // header height, but the band does not vanish there: it floors at its own 4px padding
   // and keeps `overflow-y: auto` with its full scrollHeight (127px for six banners), so
-  // its events are still scrollable and still a labelled tab stop -- unreachable by mouse
+  // its events are still scrollable and still a labeled tab stop -- unreachable by mouse
   // at that size, never dropped. Past the same threshold the non-compressing header plus
   // the body's 50% floor exceed the declared height, so the container overflows and
   // `ha-card`'s `overflow: hidden` clips the bottom of the axis (10px at 80px, 20px at

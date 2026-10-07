@@ -415,7 +415,7 @@ describe('No two adjacent fields share a label', () => {
     return [...new Set(found)].sort();
   }
 
-  // The accent mode and the colour it governs are both `Accent Color`, on the card and
+  // The accent mode and the color it governs are both `Accent Color`, on the card and
   // again on the per-calendar subform, in English and in all ten translations — which is
   // why no English-only rename fixes it. Reusing the already-translated
   // `accent_color_mode.option.custom.label` looks free and is not: the dropdown's own

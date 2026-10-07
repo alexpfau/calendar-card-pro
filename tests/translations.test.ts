@@ -12,7 +12,7 @@ import { formatEventTime } from '../src/utils/format';
  * This deliberately does not duplicate `scripts/check-i18n.mjs`. That script is a
  * static check on the four-place wiring — it reads the files on disk and compares
  * keys, so it owns "a language file exists but was never imported or registered".
- * This suite asserts the *runtime behaviour* those files produce, which is the part
+ * This suite asserts the *runtime behavior* those files produce, which is the part
  * a static check cannot see:
  *
  *   - that a registered language actually resolves to its own translations rather
@@ -191,7 +191,7 @@ describe('the weekday casing split is intentional and stays that way', () => {
   // the difference is deliberate: `daysOfWeek` is a standalone day-header label, while
   // `fullDaysOfWeek` is only ever emitted mid-sentence, after `multiDay`, as
   // `till måndag, 5 jan`. Five contributors encoded exactly that — lower-case running
-  // text against a capitalised label.
+  // text against a capitalized label.
   //
   // A review of all 35 languages found 17 getting it wrong. Ten are now fixed and are
   // pinned here alongside the original five. The remaining seven are deliberately absent:
@@ -202,7 +202,7 @@ describe('the weekday casing split is intentional and stays that way', () => {
   //
   // Nothing else in the repo can catch a regression here. The single live consumer
   // renders without asserting, and no other test touches these arrays. Before this suite,
-  // normalising `понедельника` to the dictionary form failed nothing anywhere, and it is
+  // normalizing `понедельника` to the dictionary form failed nothing anywhere, and it is
   // the sort of edit that looks like tidying.
   const SPLIT_CORRECT = [
     'nb',
@@ -222,7 +222,7 @@ describe('the weekday casing split is intentional and stays that way', () => {
     'vi',
   ] as const;
 
-  it.each(SPLIT_CORRECT)('%s keeps running-text lower-case against a capitalised label', (code) => {
+  it.each(SPLIT_CORRECT)('%s keeps running-text lower-case against a capitalized label', (code) => {
     const { fullDaysOfWeek, daysOfWeek } = getTranslations(code);
 
     for (const [index, running] of fullDaysOfWeek.entries()) {
@@ -277,14 +277,14 @@ describe('the weekday casing split is intentional and stays that way', () => {
       summary: 'Spanning event',
     };
 
-    it('capitalises the leading word in sv while leaving the weekday lower-case', () => {
+    it('capitalizes the leading word in sv while leaving the weekday lower-case', () => {
       const { multiDay, fullDaysOfWeek } = getTranslations('sv');
       const weekday = fullDaysOfWeek[endsBeyondTomorrow.getDay()];
       const rendered = formatEventTime(spanning, buildConfig(), 'sv');
 
-      // Non-vacuity, both halves. If `multiDay` were stored capitalised the first
+      // Non-vacuity, both halves. If `multiDay` were stored capitalized the first
       // assertion would pass without `capitalizeFirstLetter` doing anything, and if the
-      // weekday were stored capitalised the last would pass for the wrong reason.
+      // weekday were stored capitalized the last would pass for the wrong reason.
       expect(multiDay).toBe(multiDay.toLocaleLowerCase('sv'));
       expect(weekday).toBe(weekday.toLocaleLowerCase('sv'));
 
@@ -298,8 +298,8 @@ describe('the weekday casing split is intentional and stays that way', () => {
       expect(rendered).toContain(` ${weekday},`);
     });
 
-    it('leaves a language that genuinely capitalises weekdays alone', () => {
-      // German capitalises every noun, so `bis Montag` is correct and `de` was not
+    it('leaves a language that genuinely capitalizes weekdays alone', () => {
+      // German capitalizes every noun, so `bis Montag` is correct and `de` was not
       // among the languages changed. Without this the suite would still pass if the
       // lower-casing had been applied indiscriminately to all 35 languages.
       const { fullDaysOfWeek } = getTranslations('de');

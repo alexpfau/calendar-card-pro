@@ -117,9 +117,9 @@ describe('resolveBand', () => {
     });
   });
 
-  // Half-honouring the config is the failure mode this guards: an unparseable start
+  // Half-honoring the config is the failure mode this guards: an unparseable start
   // paired with a configured 23:00 end would silently widen the band rather than
-  // fall back to something the user can recognise.
+  // fall back to something the user can recognize.
   it.each([
     ['bad start', 'nonsense', '23:00'],
     ['bad end', '06:00', 'nonsense'],
@@ -141,7 +141,7 @@ describe('axisLabelMinutes', () => {
 
   // The end boundary is treated exactly as an interior one: a boundary on the cadence
   // earns a label, anything else earns none. `21:30` therefore stops at 21 at the hourly
-  // cadence, and is itself labelled at the half-hourly one.
+  // cadence, and is itself labeled at the half-hourly one.
   it('omits a closing boundary that is off the cadence', () => {
     const minutes = axisLabelMinutes(band('07:00', '11:30'), 60);
 
@@ -154,7 +154,7 @@ describe('axisLabelMinutes', () => {
   });
 
   // Hour 24 is 1440, which every offered cadence divides, so a band ending at midnight is
-  // always labelled; `formatAxisLabel` is the one place that has to know it spells as
+  // always labeled; `formatAxisLabel` is the one place that has to know it spells as
   // midnight rather than as an hour 24.
   it('emits the closing minute for a band ending at midnight, at every cadence', () => {
     for (const cadence of [30, 60, 120, 180]) {

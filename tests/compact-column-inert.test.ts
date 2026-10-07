@@ -199,7 +199,7 @@ describe('compact-mode limits are inert in column view', () => {
     expect(group(FIRST_DAY_ONLY, overrides, 'column')).toHaveLength(5);
   });
 
-  it('still honours show_empty_days: false inside the column block', () => {
+  it('still honors show_empty_days: false inside the column block', () => {
     // The regression guard for how the gate is implemented. The empty-day filter once
     // sat inside the same bare-`isExpanded` block as the per-entity cap, so gating that
     // block wholesale — or the tempting shortcut of treating column view as always

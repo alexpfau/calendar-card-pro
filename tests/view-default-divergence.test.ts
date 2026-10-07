@@ -31,10 +31,10 @@ import {
  * the whole suite green, because `for (const k of Object.keys(TABLE))` runs one fewer time
  * and says nothing. Here the union of every divergent key is crossed with every view that
  * has a block, and each resulting cell must be either owned by that view's table or
- * explicitly acknowledged below. Both directions fail: a missing acknowledgement and a stale
+ * explicitly acknowledged below. Both directions fail: a missing acknowledgment and a stale
  * one that no longer describes a real cell.
  *
- * The acknowledgements live here rather than in `src/config/view.ts` on purpose. They are
+ * The acknowledgments live here rather than in `src/config/view.ts` on purpose. They are
  * documentation of a decision, they would be dead weight in the eager bundle, and
  * `scripts/editor-glossary.mjs` is the standing precedent for reconciliation data kept
  * outside `src/`.
@@ -179,7 +179,7 @@ describe('cross-view divergent defaults', () => {
     expect(missing).toEqual([]);
   });
 
-  it('carries no acknowledgement for a cell that no longer needs one', () => {
+  it('carries no acknowledgment for a cell that no longer needs one', () => {
     const stale: string[] = [];
     for (const [view, entries] of Object.entries(CROSS_VIEW_ACKNOWLEDGEMENTS)) {
       for (const key of Object.keys(entries)) {
@@ -200,7 +200,7 @@ describe('cross-view divergent defaults', () => {
     expect(stale).toEqual([]);
   });
 
-  it('gives every acknowledgement a reason of substance', () => {
+  it('gives every acknowledgment a reason of substance', () => {
     const thin: string[] = [];
     for (const [view, entries] of Object.entries(CROSS_VIEW_ACKNOWLEDGEMENTS)) {
       for (const [key, ack] of Object.entries(entries)) {
@@ -211,7 +211,7 @@ describe('cross-view divergent defaults', () => {
     expect(thin).toEqual([]);
   });
 
-  describe('each acknowledgement is true of the running code', () => {
+  describe('each acknowledgment is true of the running code', () => {
     for (const { key, view } of UNOWNED_CELLS) {
       const ack = CROSS_VIEW_ACKNOWLEDGEMENTS[view]?.[key];
 

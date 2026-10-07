@@ -62,7 +62,7 @@ function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): F
  *
  * A `constant` node is a section label, not a setting, so it is not a "field" for the
  * purposes of these assertions — every test here is about which *options* survive the
- * filter. Heading behaviour has its own test below, so excluding them here narrows what
+ * filter. Heading behavior has its own test below, so excluding them here narrows what
  * each assertion is about rather than hiding anything.
  */
 function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
@@ -252,7 +252,7 @@ describe('editor filter: what counts as customized', () => {
    * The editor is handed raw YAML — its `setConfig` is a plain merge, while the card
    * normalizes on every one of its own — so this is asked through `config.ts` rather than
    * with a bare comparison. A quoted `'3'` renders an identical card, and a `-1` is
-   * discarded by the card in favour of the default; neither is a customization, and a
+   * discarded by the card in favor of the default; neither is a customization, and a
    * predicate that compared the raw values would report both as one.
    */
   it('reads a numeric option the way the card reads it', () => {
@@ -262,7 +262,7 @@ describe('editor filter: what counts as customized', () => {
     expect(visibleFields(quoted, { customizedOnly: true })).not.toContain('days_to_show');
     expect(visibleFields(negative, { customizedOnly: true })).not.toContain('days_to_show');
 
-    // ...and the value the card would honour is still reported, quoted or not.
+    // ...and the value the card would honor is still reported, quoted or not.
     const quotedSeven = buildConfig({ days_to_show: '7' as unknown as number });
     expect(visibleFields(quotedSeven, { customizedOnly: true })).toContain('days_to_show');
   });
@@ -458,7 +458,7 @@ describe('editor filter: the per-calendar settings', () => {
    * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
    * user had configured disappeared from the filter that promises to show exactly that.
    *
-   * With a custom colour the panel survives, but the colour field arrives with no control
+   * With a custom color the panel survives, but the color field arrives with no control
    * saying where it comes from and no way back to following the card.
    */
   it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
@@ -481,7 +481,7 @@ describe('editor filter: the per-calendar settings', () => {
     expect(kept(following, 'home_assistant')).toEqual(['accent_color_mode']);
     expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
 
-    // The control still stores nothing of its own, so a calendar that has set no colour
+    // The control still stores nothing of its own, so a calendar that has set no color
     // keeps neither and its panel drops out whole — as it did before.
     expect(kept(untouched, 'inherit')).toEqual([]);
   });
@@ -856,7 +856,7 @@ describe('editor filter: section headings', () => {
   });
 
   it('keeps a heading whose section still has an option, and drops the rest', () => {
-    // "colour" reaches the appearance fields and nothing else, so exactly one heading
+    // "color" reaches the appearance fields and nothing else, so exactly one heading
     // should survive — the one that still has something under it.
     const entry = { entity: 'calendar.a' };
     const ctx = ctxFor(buildConfig({ entities: [entry] }), { query: 'accent' });

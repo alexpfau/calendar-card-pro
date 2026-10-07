@@ -12,7 +12,7 @@ import * as ViewConfig from '../../config/view';
  * Turns a config key into readable text, as a last resort.
  *
  * @param key - Config key or string key
- * @returns The key with separators replaced and the first letter capitalised
+ * @returns The key with separators replaced and the first letter capitalized
  */
 export function humanize(key: string): string {
   const words = key.split('.').pop()!.replace(/_/g, ' ');
@@ -109,7 +109,7 @@ export function qualifiedKey(name: string, path: ReadonlyArray<string> = []): st
 /**
  * Resolves the label for a schema node.
  *
- * Honours `titleKey`, so that a node states its own key rather than having one derived
+ * Honors `titleKey`, so that a node states its own key rather than having one derived
  * from where it sits. Labels and helpers were asymmetric here until the day-header rule
  * needed it — helpers respected the override and labels did not — and nothing noticed,
  * because the only nodes carrying one were expandables, and `ha-form-expandable` renders
@@ -117,7 +117,7 @@ export function qualifiedKey(name: string, path: ReadonlyArray<string> = []): st
  * `stringKey`.
  *
  * @param language - Effective language code
- * @param schema - The node being labelled
+ * @param schema - The node being labeled
  * @param path - Enclosing group names, outermost first
  * @returns Label text, never empty
  */

@@ -278,7 +278,7 @@ function renderWeekRow(
     : Constants.UI.SEPARATOR_SPACING.WEEK;
 
   // The row carries half the separator spacing below it, and pulls up by whatever the
-  // day table's own margin already contributed, so the rule lands centred on the gap.
+  // day table's own margin already contributed, so the rule lands centered on the gap.
   const rowStyle = {
     marginTop: isFirstWeek ? '0px' : ViewConfig.scaleLength(config.day_spacing, multiplier / 2 - 1),
     marginBottom: ViewConfig.scaleLength(config.day_spacing, multiplier / 2),

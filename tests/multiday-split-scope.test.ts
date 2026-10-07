@@ -110,7 +110,7 @@ describe('multi-day splitting is resolved per view', () => {
     ).resolves.toBe(3);
   });
 
-  it('honours the column escape hatch even when the top-level option is on', async () => {
+  it('honors the column escape hatch even when the top-level option is on', async () => {
     // The regression: `true` at fetch time used to pre-split the event, and no
     // later stage could put it back together.
     const config = buildConfig({
@@ -123,7 +123,7 @@ describe('multi-day splitting is resolved per view', () => {
     await expect(daysShowing(conference, config, 'column', 'col-escape')).resolves.toBe(1);
   });
 
-  it('honours the column escape hatch when the top-level option is off', async () => {
+  it('honors the column escape hatch when the top-level option is off', async () => {
     const config = buildConfig({
       view: 'column',
       column: { split_multiday_events: false },
@@ -142,7 +142,7 @@ describe('multi-day splitting is resolved per view', () => {
     await expect(daysShowing(conference, config, 'list', 'entity-on')).resolves.toBe(3);
   });
 
-  it('honours a per-entity opt-out in column view too', async () => {
+  it('honors a per-entity opt-out in column view too', async () => {
     // Column used to ignore per-entity precedence outright. The card-level escape hatch
     // could always produce the same unsplit layout for every calendar at once, so the
     // rule only ever forbade the mixed form — and the editor went on offering the

@@ -94,7 +94,7 @@ function timedEvent(hour: number): Types.CalendarEventData {
 }
 
 describe('hourly forecast matching', () => {
-  it('prefers the forecast for the event hour over any neighbour', async () => {
+  it('prefers the forecast for the event hour over any neighbor', async () => {
     const forecasts = await process([hourly(12, 'sunny'), hourly(14, 'rainy')], 'hourly');
 
     expect(WeatherUtils.findForecastForEvent(timedEvent(12), forecasts)?.condition).toBe('sunny');
@@ -127,7 +127,7 @@ describe('hourly forecast matching', () => {
     expect(WeatherUtils.findForecastForEvent(timedEvent(3), forecasts)?.condition).toBe('sunny');
   });
 
-  it('never borrows a nearer hour from a neighbouring day', async () => {
+  it('never borrows a nearer hour from a neighboring day', async () => {
     // 19:00 on the 18th is one hour from the event by clock time and would win
     // outright if the day were not part of the key comparison; 06:00 on the
     // event's own day is twelve hours away and is the correct answer.

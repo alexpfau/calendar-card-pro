@@ -386,7 +386,7 @@ describe('a fixed content height compresses the band, a max height does not', ()
     expect(band.getAttribute('aria-label')).toBe('All day');
   });
 
-  it('leaves the band unfocusable and unlabelled when it cannot scroll', () => {
+  it('leaves the band unfocusable and unlabeled when it cannot scroll', () => {
     // The control for the case above. The name is tied to the tab stop, not to the band:
     // an unfocusable band is read through its banners and needs no group of its own, so a
     // role and label that appeared unconditionally would be noise on every default card.
@@ -1236,7 +1236,7 @@ describe('separators between grid days', () => {
     // horizontal hour rule have to carry the same ink at the shipped defaults. They did
     // not: the slot gradient and the hour gradient coincide at the shipped
     // `slot_minutes: 60` and translucent ink composites, so an hour rule measured
-    // rgb(197, 197, 197) on the deployed build where a day rule of the same colour and
+    // rgb(197, 197, 197) on the deployed build where a day rule of the same color and
     // width measured rgb(224, 224, 224).
     //
     // Two options now, not one. `day_separator_*` means the rule between two days and has
@@ -1534,7 +1534,7 @@ describe('separators between grid days', () => {
   it('joins two weekend days only when they are adjacent DATES, not just columns', () => {
     // Column adjacency is not date adjacency, and treating it as such would bleed a tint
     // across a gutter six days wide. `show_empty_days: false` drops every event-free day,
-    // so a Sunday and the following Saturday can end up as neighbouring columns.
+    // so a Sunday and the following Saturday can end up as neighboring columns.
     const config = spanConfig({ days_to_show: 11 });
     config.time_grid = { show_empty_days: false } as Types.TimeGridOverrides;
 
@@ -1669,7 +1669,7 @@ describe('separators between grid days', () => {
 
   it('starts the band rules where the hour rules start, not at the card edge', () => {
     // Two earlier answers were wrong in opposite directions. `1 / -1` carries a rule
-    // across the hour axis, where macOS Calendar has none; cancelling the card's inset
+    // across the hour axis, where macOS Calendar has none; canceling the card's inset
     // on top of that ran both rules out to the card's own edges and made the grid read
     // as framed by the card rather than ruled inside it.
     //
@@ -1951,13 +1951,13 @@ describe('the axis', () => {
       element.textContent?.trim(),
     );
 
-    // 11:00 is labelled because it falls on the cadence, not because it is the end — the
+    // 11:00 is labeled because it falls on the cadence, not because it is the end — the
     // end boundary is treated exactly as an interior one. `axisLabelMinutes` emits it, so
     // there is one label list rather than a label list with a special case appended to it.
     expect(labels).toEqual(['8', '9', '10', '11']);
   });
 
-  it('leaves a band end that is off the cadence unlabelled', () => {
+  it('leaves a band end that is off the cadence unlabeled', () => {
     // The maintainer's rule at the shipped hourly cadence: no labels beyond the full-hour
     // ones. A closing label at `10:30` names a time no other label names, half an hour
     // below the `10` that does. The half-hourly cadence is the case below, where every
@@ -1982,7 +1982,7 @@ describe('the axis', () => {
 
   it('reads a 24:00 band end as midnight rather than as hour 24', () => {
     // `24:00` is the one bound that is a minute count rather than a clock reading, and it
-    // is reachable straight from the editor. It IS a whole hour, so it is labelled — and
+    // is reachable straight from the editor. It IS a whole hour, so it is labeled — and
     // unwrapped it labels `24` in 24-hour mode and — worse, because it looks like a real
     // time — `12 PM` in 12-hour mode, since 24 is not less than 12 and 24 % 12 is 0.
     for (const [use24h, expected] of [
@@ -2129,7 +2129,7 @@ describe('the axis', () => {
 
   it('labels the closing boundary only where it is a whole hour', () => {
     // The other half of the same rule, and the half that differs from it: `21:30` at
-    // 30-minute slots IS ruled and is still not labelled, because there are no labels
+    // 30-minute slots IS ruled and is still not labeled, because there are no labels
     // beyond the full-hour ones. Both are asserted from one render so the pair cannot be
     // read as agreeing when it does not.
     const container = renderGrid(
@@ -2300,13 +2300,13 @@ describe('the axis', () => {
       buildConfig({ view: 'grid', days_to_show: 3, time_grid: { start_time: 'nonsense' } }),
     );
 
-    // 07:00-22:00, so 09:00 is 120 minutes into a 900-minute band. A half-honoured band
+    // 07:00-22:00, so 09:00 is 120 minutes into a 900-minute band. A half-honored band
     // would put it somewhere else entirely.
     expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo((120 / 900) * 100, 6);
   });
 });
 
-describe('how often the axis is labelled', () => {
+describe('how often the axis is labeled', () => {
   function labelsAt(
     cadence: Types.TimeGridAxisLabelMinutes | undefined,
     use24h: boolean,
@@ -2861,7 +2861,7 @@ describe('malformed events do not crash grid rendering', () => {
  * Scoping it to `.grid-event-disclosure` would be correct right now and would arm both
  * traps for the next view that sets `splitTimeEnd: true` -- the `normalizeEntities` /
  * `serializeEntities` shape, where a note describes a hazard completely and correctly for
- * its neighbour and protects only itself. So the rule is unscoped, which is inert for every
+ * its neighbor and protects only itself. So the rule is unscoped, which is inert for every
  * view that does not emit the element, and this pins that it stays that way.
  *
  * Reconciled rather than listed: the callers are enumerated from source, so a second one

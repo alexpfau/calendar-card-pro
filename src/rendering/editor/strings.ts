@@ -132,7 +132,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Calendars ------------------------------------------------------------
   //
   // The panel helper earns its line by naming the half of this panel the title does
-  // not: it is not only *which* calendars, it is where each one's label, colours and
+  // not: it is not only *which* calendars, it is where each one's label, colors and
   // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
   'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',

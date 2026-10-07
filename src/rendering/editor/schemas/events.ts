@@ -39,12 +39,12 @@ export const ALLDAY_BADGE_STYLE_OPTIONS: ReadonlyArray<string> = [
 ];
 
 /**
- * The colours a treatment can be drawn in.
+ * The colors a treatment can be drawn in.
  *
  * Two sources and an escape hatch, which is the same shape `accent_color_mode` has one
  * control up: the keywords are stored as themselves, and `custom` stands for "the stored
- * value is a colour". Ordered by how many events they can tell apart -- `accent` gives every
- * calendar its own, `text` gives them all the row's, and a custom colour gives them all one
+ * value is a color". Ordered by how many events they can tell apart -- `accent` gives every
+ * calendar its own, `text` gives them all the row's, and a custom color gives them all one
  * the user picked.
  */
 export const ALLDAY_BADGE_COLOR_MODES: ReadonlyArray<string> = ['accent', 'text', 'custom'];
@@ -69,20 +69,20 @@ const ACCENT_COLOR_MODES = ['custom', 'home_assistant'] as const;
  */
 /**
  * The all-day badge controls: where the pill goes, and -- once it goes anywhere -- which of
- * the four treatments draws it and in which colour.
+ * the four treatments draws it and in which color.
  *
  * Both styling controls are hidden while the position is off, following `accent_color_mode`
- * and its colour picker. A styling control for a thing that is not drawn is a control that
+ * and its color picker. A styling control for a thing that is not drawn is a control that
  * cannot do anything, and offering it invites the reading that setting it turns the feature
  * on.
  *
- * The colour follows the treatment rather than leading it, because the two are a shape and
+ * The color follows the treatment rather than leading it, because the two are a shape and
  * then a fill: which of the four is the more consequential pick and the one carrying a
- * default worth keeping, and it reads oddly to choose a colour for a shape not yet named.
+ * default worth keeping, and it reads oddly to choose a color for a shape not yet named.
  *
  * @param language - Effective language code
  * @param position - Currently configured position, already resolved
- * @param colorMode - Derived badge colour mode
+ * @param colorMode - Derived badge color mode
  * @returns The fields, which is one field or three
  */
 function alldayBadgeFields(
@@ -94,7 +94,7 @@ function alldayBadgeFields(
 
   if (position === null) return [positionField];
 
-  // The mode and the colour it governs share a row for the reason `accent_color_mode`
+  // The mode and the color it governs share a row for the reason `accent_color_mode`
   // documents above: a grid collapses to one column on a narrow viewport, so a conditional
   // field placed after the row lands below whatever else the row held.
   const colorField =
@@ -239,7 +239,7 @@ function progressGroup(
  * @param showProgressBar - Whether the progress bar is shown
  * @param accentMode - Derived card accent mode
  * @param badgePosition - Resolved all-day badge position, or null when off
- * @param badgeColorMode - Derived all-day badge colour mode
+ * @param badgeColorMode - Derived all-day badge color mode
  * @param view - Layout whose headings are being built
  * @returns The panel's schema
  */
@@ -309,10 +309,10 @@ const eventsSchema = Helpers.memoizeLast(
     // picking one has already picked a color that is being overridden. It
     // forward-references the accent the next control decides; the helper says so.
     bool('accent_event_text'),
-    // The mode and the colour it governs are one control, so they share a row. A grid
+    // The mode and the color it governs are one control, so they share a row. A grid
     // collapses to a single column on a narrow viewport, so a conditional field placed
     // after this row would land below whatever else the row held — which is how the
-    // colour input ended up separated from its dropdown by `vertical_line_width` on a
+    // color input ended up separated from its dropdown by `vertical_line_width` on a
     // phone while reading correctly on a desktop.
     accentMode === 'custom'
       ? row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), color('accent_color'))

@@ -3,7 +3,7 @@
  *
  * The feature is a **value**, not a mode: `accent` written into one of the five governed
  * color options means "this event's own calendar accent". A literal could not express it —
- * one literal is one color, and this needs one per calendar — and a flag that greyed the
+ * one literal is one color, and this needs one per calendar — and a flag that grayed the
  * fields out would leave five controls looking editable and doing nothing.
  *
  * The mechanism is the cascade. Each of those colors already reaches its text through a
@@ -238,7 +238,7 @@ describe('the ink an accent-colored surface is painted in', () => {
     expect(generateCustomPropertiesObject(explicit)['--calendar-card-color-time']).toBe(
       'rgb(9, 8, 7)',
     );
-    // ...while its neighbours, still on the sentinel, take the ink from the same render.
+    // ...while its neighbors, still on the sentinel, take the ink from the same render.
     expect(written['--calendar-card-color-event']).toBe(`var(${ACCENT_INK_PROPERTY})`);
   });
 
@@ -402,7 +402,7 @@ describe('accent event text, view by view', () => {
     expect(accentPropertiesOf(overflow)).toEqual({});
   });
 
-  it('pins the grid defaults for all five, so "on in grid" is a value and not a rumour', () => {
+  it('pins the grid defaults for all five, so "on in grid" is a value and not a rumor', () => {
     for (const [key] of ACCENT_TEXT_OPTIONS) {
       expect(
         (ViewConfig.TIME_GRID_DEFAULT_OVERRIDES as Record<string, unknown>)[key],

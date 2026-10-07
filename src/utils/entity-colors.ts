@@ -39,7 +39,7 @@ export function isEntityColorSentinel(value: unknown): boolean {
  * A sentinel rather than a mode flag, for the same reason as the one above: the fields it
  * governs stay real and independently settable, so `time_color: accent` alone is a
  * meaningful thing to write. A literal color could not express it at all — one literal is
- * one color, and this needs one per calendar — and a flag that greyed the fields out would
+ * one color, and this needs one per calendar — and a flag that grayed the fields out would
  * leave five controls looking editable and doing nothing.
  *
  * The spelling is not new vocabulary. `allday_badge_color` has shipped accepting `accent`

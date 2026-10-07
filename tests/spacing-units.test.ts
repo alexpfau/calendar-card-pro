@@ -9,7 +9,7 @@ import * as EventUtils from '../src/utils/events';
 
 /**
  * `day_spacing` is a CSS length, not a pixel count. The docs type it `string`, the
- * column tests name `2em` and `calc(...)` as legal, and ordinary day tables honour
+ * column tests name `2em` and `calc(...)` as legal, and ordinary day tables honor
  * whatever the author wrote by passing it straight into `--calendar-card-day-spacing`.
  *
  * The list separators did not. Every one of them ran the value through `parseFloat` and
@@ -100,7 +100,7 @@ describe('scaleLength', () => {
   });
 });
 
-describe('list separator spacing honours the configured unit', () => {
+describe('list separator spacing honors the configured unit', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FROZEN_NOW);

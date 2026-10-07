@@ -2,7 +2,7 @@
  * Per-calendar configuration edits must reprocess the cached payload.
  *
  * `hasConfigChanged()` reduces `entities` to a sorted list of entity **IDs**, which is
- * the right question to ask about the *API request* — changing a calendar's colour does
+ * the right question to ask about the *API request* — changing a calendar's color does
  * not move the fetch window. But `setConfig()` used that single boolean to decide
  * whether to do anything at all, so an edit that changed only a per-calendar option fell
  * through to "no work required".
@@ -154,7 +154,7 @@ describe('per-calendar configuration changes reprocess cached events', () => {
       expect(spy).toHaveBeenCalledTimes(1);
       // `false` is the whole point: the raw payload is still valid, only the decoration
       // derived from it is stale. Passing `true` here would work but would spend an API
-      // call on every colour tweak in the editor.
+      // call on every color tweak in the editor.
       expect(spy).toHaveBeenCalledWith(false);
     },
   );
@@ -174,7 +174,7 @@ describe('per-calendar configuration changes reprocess cached events', () => {
 
   it('does no work when only a presentational option changes', () => {
     // The control that stops the fix from degenerating into "reprocess on every
-    // setConfig", which would restore correctness by throwing away the memoisation the
+    // setConfig", which would restore correctness by throwing away the memoization the
     // card depends on to stay cheap under card-mod.
     const spy = reconfigure({ show_location: true }, { show_location: false });
 
@@ -444,7 +444,7 @@ describe('card-level processing-time options reprocess cached events', () => {
 
   it('does no work when a card-level processing-time option is reapplied unchanged', () => {
     // The control that stops the branch above from degenerating into "reprocess on every
-    // setConfig", which would restore correctness by throwing away the memoisation.
+    // setConfig", which would restore correctness by throwing away the memoization.
     const spy = reconfigure({ event_type: 'timed' }, { event_type: 'timed' });
 
     expect(spy).not.toHaveBeenCalled();

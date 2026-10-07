@@ -8,7 +8,7 @@
  * for the other survived every UTC assertion.
  *
  * Under a real zone the two differ by the offset, so every hourly lookup would
- * miss its exact match and quietly settle for whichever neighbouring hour the
+ * miss its exact match and quietly settle for whichever neighboring hour the
  * nearest-hour walk happened to land on — a forecast for the wrong time of day
  * rendered with no error.
  *

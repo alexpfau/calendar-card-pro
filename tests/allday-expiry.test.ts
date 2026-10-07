@@ -351,7 +351,7 @@ describe('allday_expires_at: what it deliberately does not touch', () => {
    * time misfires, which is why nothing caught it — the option is unset in `DEFAULT_CONFIG`.
    *
    * The genuinely all-day counterpart is pinned above by *retires split segments one day at
-   * a time*, and that is the behaviour a broader fix would break: exempting every
+   * a time*, and that is the behavior a broader fix would break: exempting every
    * `_isMultiDaySegment` would stop the waste feed retiring at all once a collection spans
    * a weekend. The distinction is the segment's **origin**, not its shape.
    */
@@ -449,7 +449,7 @@ describe('allday_expires_at: values it accepts and values it refuses', () => {
    * were not there, rather than silently emptying a calendar because someone wrote `10am`.
    *
    * The fixture is today's event, so falling back to midnight leaves it showing; the
-   * default's own behaviour is pinned separately in the first describe block.
+   * default's own behavior is pinned separately in the first describe block.
    */
   it.each(['10am', '24:00', '10:60', '10', 'morning', '', '1000'])(
     '%s falls back to the default',

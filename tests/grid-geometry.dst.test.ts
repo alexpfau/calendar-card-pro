@@ -33,7 +33,7 @@ import {
  * They agree on 363 days a year. On a spring-forward day the second is an hour short
  * for every instant after the transition, because that day only contains 23 hours of
  * elapsed time, so a 14:00 meeting is drawn at 13:00. On a fall-back day it is an hour
- * long. That is not a rounding artefact — it is a whole slot, in a view whose entire
+ * long. That is not a rounding artifact — it is a whole slot, in a view whose entire
  * purpose is putting events at the right height.
  *
  * This is not hypothetical. A widely-used HA calendar card surveyed while this module

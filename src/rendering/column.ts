@@ -100,7 +100,7 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
 }
 
 /**
- * Render one vertical rule, centred in the gutter to the inline-start of a column.
+ * Render one vertical rule, centered in the gutter to the inline-start of a column.
  *
  * The separator overlays the column's grid cell and is pulled into the gutter, so
  * enabling a rule paints the boundary without moving any columns.

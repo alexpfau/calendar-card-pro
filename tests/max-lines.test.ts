@@ -74,7 +74,7 @@ describe('per-field max-lines custom properties', () => {
     expect(props['--calendar-card-grid-title-lines-expanded']).toBe('2');
   });
 
-  it('honours a per-field value overridden inside a column block', () => {
+  it('honors a per-field value overridden inside a column block', () => {
     const config = buildConfig({ time_max_lines: 0, column: { time_max_lines: 1 } });
     // The override lives in the column block; generateCustomPropertiesObject reads
     // the resolved top-level value, so this asserts only that the key round-trips
@@ -86,7 +86,7 @@ describe('per-field max-lines custom properties', () => {
 /**
  * The fifth line limit, and the one that does not sit at the top level.
  *
- * `weather.event.max_lines` lives beside its neighbours `icon_size` / `font_size` /
+ * `weather.event.max_lines` lives beside its neighbors `icon_size` / `font_size` /
  * `color` rather than becoming a fifth top-level `*_max_lines`, and it clamps the only
  * thing in the per-event weather row long enough to wrap: the condition stated in words,
  * which the column layout adds.

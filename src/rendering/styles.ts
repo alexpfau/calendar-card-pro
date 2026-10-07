@@ -539,7 +539,7 @@ export const cardStyles = css`
    *
    * The raw accent is not a text color. macOS Calendar spends an event's color three ways
    * and only one of them is undiluted: the stripe is the accent at full strength, the block
-   * is the accent at low opacity, and the text is a third colour derived from both. Painting
+   * is the accent at low opacity, and the text is a third color derived from both. Painting
    * text in the accent itself measured 2.16:1 for a blue calendar and 2.32:1 for a coral one
    * against their own blocks in the light theme, where normal text wants 4.5:1 -- and the
    * failures invert in the dark theme, where a purple calendar read 1.89:1.
@@ -556,7 +556,7 @@ export const cardStyles = css`
    * including why the progress bar is NOT painted from here.
    *
    * The weights are --badge-ink's, deliberately, and the tiers are the same three: an sRGB
-   * floor, an OKLCH mix that keeps the hue, and a relative-colour tier that puts the chroma
+   * floor, an OKLCH mix that keeps the hue, and a relative-color tier that puts the chroma
    * back. An event's title and the badge sitting inside it are two inks derived from one
    * accent; deriving them by two different rules is a difference a user can see and cannot
    * explain. */
@@ -766,7 +766,7 @@ export const cardStyles = css`
   }
 
   /* The label hanging indent above is for wrapped lines and does nothing useful on
-     a flex row; neutralise the padding it adds so the scrolling title keeps its
+     a flex row; neutralize the padding it adds so the scrolling title keeps its
      full width. Matched at the same specificity as the :has rules it overrides, and
      placed after them, so it wins the cascade. */
   .summary.summary-scroll:has(> .label-icon),
@@ -1016,7 +1016,7 @@ export const cardStyles = css`
     align-items: var(--calendar-card-event-icon-vertical-alignment);
   }
 
-  /* A badge row centres regardless of what event_icon_vertical_alignment says, and is
+  /* A badge row centers regardless of what event_icon_vertical_alignment says, and is
      allowed to shrink below its content.
 
      align-items: that option exists to decide where an icon sits against text that may wrap
@@ -1025,7 +1025,7 @@ export const cardStyles = css`
      pill and the clock are different heights, and at that point top-alignment is simply the
      wrong answer: the pill is sized from the font and the icon from time_icon_size, so
      raising time_font_size makes the pill the taller of the two and flex-start hangs the
-     icon off its top edge. At equal heights centre and flex-start are identical, so this
+     icon off its top edge. At equal heights center and flex-start are identical, so this
      changes nothing at the default and only helps once the two diverge.
 
      min-width: this is what makes the pill's own ellipsis reachable, and without it that
@@ -1147,22 +1147,22 @@ export const cardStyles = css`
    * defaults the rule had already overridden -- a broken pill is not a pill, and the wrapped
    * version put the second line outside the shape entirely.
    *
-   * ===== Why the colours are derived, and why the ring carries the weight =====
+   * ===== Why the colors are derived, and why the ring carries the weight =====
    *
-   * All three colours come from one input, the calendar accent, resolved by the BROWSER at
+   * All three colors come from one input, the calendar accent, resolved by the BROWSER at
    * paint time. That matters because an accent may be a theme token such as
    * var(--primary-color), which JavaScript cannot decompose into channels -- see the comment
    * on computeRGBA in utils/helpers.ts, which records the shipped bug where this card tried
    * exactly that and silently fell back to a hardcoded blue. So no lookup table from accent
-   * to text colour can be built here, and none is needed: color-mix resolves the token.
+   * to text color can be built here, and none is needed: color-mix resolves the token.
    *
-   * The ink mixes the accent INTO the primary text colour rather than replacing it, and the
+   * The ink mixes the accent INTO the primary text color rather than replacing it, and the
    * wash mixes it into the card background, so both invert with the theme on their own -- no
    * light-dark(), no media query.
    *
    * The ring carries visibility; the fill does not. That is the opposite of the obvious
    * arrangement and was measured, not guessed. A saturated fill is loud for what is secondary
-   * information, and it wrecks legibility: at 70% the muted time colour measured 3.24:1 on the
+   * information, and it wrecks legibility: at 70% the muted time color measured 3.24:1 on the
    * default blue and 2.12:1 on pink, both failing WCAG AA. But a pale fill alone dissolves
    * once event_background_opacity tints the row in the same accent, which is the failure the
    * 70% attempt was made to fix. A 1px boundary resolves it, because a crisp edge survives a
@@ -1196,7 +1196,7 @@ export const cardStyles = css`
       var(--calendar-card-background-color, var(--card-background-color))
     );
     /* The source used RAW, by the two treatments that show it undiluted. It exists so those
-       two stop naming --calendar-card-event-accent directly: with all three colours behind
+       two stop naming --calendar-card-event-accent directly: with all three colors behind
        tokens, allday_badge_color switches the source by redefining three properties in one
        place, and no shape rule has to know a source exists. */
     --badge-solid: var(--calendar-card-event-accent);
@@ -1246,21 +1246,21 @@ export const cardStyles = css`
   }
 
   /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
-     that treatment draws it -- the same colour, from the same token, so "matching" is a
+     that treatment draws it -- the same color, from the same token, so "matching" is a
      fact rather than a description. So the four are orthogonal: subtle is the wash, outline
      is the ring, tinted is both, filled is the solid.
      It was not true until 4.2. The ring was 40% of the ink, which is the sweep's answer
      recorded in the base rule, and the reasoning was that a ring on a wash would otherwise
-     read as a second colour. Sound for a chromatic accent, and false for a neutral one:
-     weakening a colour preserves its hue, so 40% blue still reads as blue, softer -- but
-     black has no hue to preserve, so 40% black reads as GREY, which is a different colour
+     read as a second color. Sound for a chromatic accent, and false for a neutral one:
+     weakening a color preserves its hue, so 40% blue still reads as blue, softer -- but
+     black has no hue to preserve, so 40% black reads as GRAY, which is a different color
      rather than a quieter one. Measured on canvas pixels over a white card, the ring's
      distance from its own ink was 227 for a black title against 146-165 for every chromatic
-     source, and the black pill read as a grey ring that had wandered in around black text.
+     source, and the black pill read as a gray ring that had wandered in around black text.
      Reported against a live card, at allday_badge_color: text.
      Special-casing the text source was the obvious repair and is the wrong one: it would
      reintroduce exactly the "one treatment is the exception" shape that splitting shape from
-     colour had just removed. A ring that always matches its ink has no exception in it.
+     color had just removed. A ring that always matches its ink has no exception in it.
      This rule also used to not exist -- the base declared these three and tinted was
      whatever you got by naming no other treatment. That worked and was still wrong: the
      class in the DOM matched nothing, the treatment could not be reconciled against the
@@ -1269,7 +1269,7 @@ export const cardStyles = css`
     color: var(--badge-ink);
     background-color: var(--badge-wash);
     /* 🚨 --badge-solid, NOT currentColor. Outline's ring is written as currentColor and that
-       is correct there, because outline sets its own colour to --badge-solid -- so the two
+       is correct there, because outline sets its own color to --badge-solid -- so the two
        rules would read as identical rings and paint DIFFERENT ones, the only difference
        being which token each rule's own color declaration happens to name. Measured: the bar beside the
        event and outline's ring both draw #03a9f4, while tinted's currentColor ring drew
@@ -1281,7 +1281,7 @@ export const cardStyles = css`
        failing WCAG AA, against 6.11 / 6.66 / 5.77 for the mixed ink. So the two halves of
        this rule answer to different constraints and cannot share a token.
        The text source is unaffected: there --badge-solid and --badge-ink are both the row's
-       own colour, so the ring stays exactly the ink, which is what the black pill needs. */
+       own color, so the ring stays exactly the ink, which is what the black pill needs. */
     box-shadow: inset 0 0 0 1px var(--badge-solid);
   }
 
@@ -1295,8 +1295,8 @@ export const cardStyles = css`
     /* 1.05em of line box plus 0.32em of padding is 1.37em of the badge's own font, which at
        the 0.85em it is set to comes back to 1.165em of the time font -- 14px at the 12px
        default, so the shipped look is unchanged, and it grows with the option.
-       The padding is asymmetric because the INK is not centred in the line box. A line box
-       centres the font's em square, and the em square reserves descender depth that an
+       The padding is asymmetric because the INK is not centered in the line box. A line box
+       centers the font's em square, and the em square reserves descender depth that an
        uppercase label never uses, so the caps sit high with dead space under them. The shift
        is (padding-top - padding-bottom) / 2.
        0.033em is a MEASURED font constant, not a guess. Fourteen sizes from 12px to 48px
@@ -1348,7 +1348,7 @@ export const cardStyles = css`
     /* Taller than the badge, and symmetric where the badge is not. Both differences come
        from the same fact: this pill wraps the user's own words rather than one uppercase
        label, so its content is mixed case WITH descenders and, very often, an emoji.
-       Symmetric because mixed-case text is centred on the em square by definition -- the
+       Symmetric because mixed-case text is centered on the em square by definition -- the
        badge's correction exists only because uppercase leaves the descender depth empty, and
        applying it here would push real descenders toward the lower edge.
        Taller because an emoji is drawn to a larger box than a Latin glyph and overflows a
@@ -1357,7 +1357,7 @@ export const cardStyles = css`
        -- about a sixth more, which is the smallest increase that cleared the emoji at every
        size measured. */
     /* A little smaller than the title it wraps, which is the other half of not shouting --
-       the pill already carries the accent colour and a border. 0.95 rather than the badge's
+       the pill already carries the accent color and a border. 0.95 rather than the badge's
        0.85 because this holds the user's own prose while the badge holds one short uppercase
        label, so it has to stay comfortably readable.
        Relative, never absolute: every other number in this rule is em of the pill's OWN font,
@@ -1373,7 +1373,7 @@ export const cardStyles = css`
     padding-block: 0.21em;
     padding-inline: 0.55em;
     /* One step lighter than the title it sits in, because the pill is already carrying the
-       calendar's colour and a border -- at the title's own 500 it read as shouting.
+       calendar's color and a border -- at the title's own 500 it read as shouting.
        400 and not 450: Home Assistant ships Roboto as STATIC faces (100/300/400/500/700/900),
        not as a variable font, so the whole 425-500 range resolves to 500 under the CSS
        font-matching rule that a target between 400 and 500 searches upward first. Measured
@@ -1382,7 +1382,7 @@ export const cardStyles = css`
        deliberate, which is worse than 500. If HA ever ships a variable Roboto, 450 becomes
        reachable and is the nicer value -- re-measure before assuming it is. */
     font-weight: 400;
-    /* Sit on the text's own centre line, and give back the height the capsule borrowed.
+    /* Sit on the text's own center line, and give back the height the capsule borrowed.
        Both lines exist because an inline-block with overflow: hidden takes its baseline from
        its BOTTOM MARGIN EDGE rather than from the text inside it -- a rule that exists so a
        scrollable box does not hang its last line into the paragraph below, and that here made
@@ -1390,7 +1390,7 @@ export const cardStyles = css`
        overhang: measured 22.39px without the pill against 31.50px with it, and the gap from
        the title's text down to the time row went from 5.59px to 11.77px, which is the
        double-spaced look reported against a live card.
-       vertical-align: middle re-centres the pill on the text rather than hanging it, which
+       vertical-align: middle re-centers the pill on the text rather than hanging it, which
        recovers most of it (gap 7.97px). The rest is that the capsule is genuinely taller than
        a line of text, and a negative block margin hands that difference back to the line box
        without moving what is painted -- for an atomic inline the line box measures the MARGIN
@@ -1416,15 +1416,15 @@ export const cardStyles = css`
     margin-block: -0.17em;
   }
 
-  /* Centre the CAPS rather than the em square, where the browser can.
+  /* Center the CAPS rather than the em square, where the browser can.
      The measured correction above removes the average error but not the per-size scatter,
      because that comes from baseline snapping rather than from the padding. text-box-trim
      removes the cause instead of compensating for it: it trims the line box to the cap
-     height and the alphabetic baseline, so what symmetric padding then centres IS the ink.
+     height and the alphabetic baseline, so what symmetric padding then centers IS the ink.
      Exact at every size, and in any font, without this stylesheet knowing that font's
      metrics.
      Only the time badge takes it. The title pill's content is mixed case with descenders and
-     emoji, where the em square is the right thing to centre and cap-to-baseline is not.
+     emoji, where the em square is the right thing to center and cap-to-baseline is not.
      0.3295em keeps the height at the 1.37em the fallback draws: trimming leaves the cap
      height, which is near enough 0.711em in the fonts Home Assistant ships, and
      (1.37 - 0.711) / 2 is 0.3295. A font with different metrics gets a pill sized to its own
@@ -1447,11 +1447,11 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
-  /* Boundary with no wash, in the calendar's colour exactly as configured.
+  /* Boundary with no wash, in the calendar's color exactly as configured.
    *
    * The mirror image of tinted, one step further: that one draws the same ring over a wash
    * and mixes its LABEL for legibility, this one leaves the ground alone and leaves the
-   * label raw too. So both halves here are the colour the user configured, exactly.
+   * label raw too. So both halves here are the color the user configured, exactly.
    *
    * 🚨 That is a deliberate, maintainer-level decision and NOT an oversight, which is worth
    * saying because it is measurable and it measures badly. Raw accent as text on the card
@@ -1461,8 +1461,8 @@ export const cardStyles = css`
    * avoid.
    *
    * It is kept because outline promises WYSIWYG: a frame with text inside it, both in the
-   * colour that was asked for. The card now offers four shapes, three colour sources and a
-   * free-form colour, so a user who cannot read this combination on their background has
+   * color that was asked for. The card now offers four shapes, three color sources and a
+   * free-form color, so a user who cannot read this combination on their background has
    * many ways to change it -- and every one of them is a choice they can see the result of,
    * where a silent legibility mix is a choice made for them that makes the option not do
    * what it says. Configurability is the answer here rather than correction.
@@ -1470,7 +1470,7 @@ export const cardStyles = css`
    * The ring follows the same logic and needs no argument of its own: the vertical bar
    * beside every event is already the raw accent, and filled already paints it as its ground.
    *
-   * Setting colour rather than --badge-ink is also what keeps the chroma block below from
+   * Setting color rather than --badge-ink is also what keeps the chroma block below from
    * reaching it: there is nothing here to correct. */
   .allday-pill-outline {
     color: var(--badge-solid);
@@ -1478,7 +1478,7 @@ export const cardStyles = css`
     box-shadow: inset 0 0 0 1px currentColor;
   }
 
-  /* The loud one, for people who want the calendar colour to read as a solid chip.
+  /* The loud one, for people who want the calendar color to read as a solid chip.
 
      Text is the CARD BACKGROUND rather than a derivation of the accent, because on a
      saturated ground the only reliably legible ink is the page's own extreme -- near-white
@@ -1501,13 +1501,13 @@ export const cardStyles = css`
 
   /* ===== Progressive enhancement: keep the accent's chroma =====
    *
-   * Everything above mixes in sRGB, and mixing a saturated colour toward white or black
+   * Everything above mixes in sRGB, and mixing a saturated color toward white or black
    * necessarily desaturates it. On a dark theme --badge-ink is 30% accent into a near-white
-   * text colour, so a vivid pink arrives as blush rose -- legible, but visibly a different
-   * colour from the accent it is meant to name, which is what the maintainer reported seeing.
+   * text color, so a vivid pink arrives as blush rose -- legible, but visibly a different
+   * color from the accent it is meant to name, which is what the maintainer reported seeing.
    *
    * OKLCH interpolation keeps chroma across the mix instead of cutting through the middle of
-   * the sRGB cube, so the same 30/70 split arrives recognisably as this calendar's colour.
+   * the sRGB cube, so the same 30/70 split arrives recognizably as this calendar's color.
    * Because color-mix resolves at paint time this still works when the accent is a theme
    * token JavaScript could never read, and the accent weight is raised now that the mix no
    * longer costs saturation.
@@ -1526,14 +1526,14 @@ export const cardStyles = css`
    * so every published image resolved the branch the OS was never going to pick.
    *
    * Mixing into --primary-text-color and into the card background fixes it at the root
-   * rather than correcting for it: those are the THEME's own colours, so they already invert
+   * rather than correcting for it: those are the THEME's own colors, so they already invert
    * when the theme does, whatever the OS is doing. The wash can no longer collide with the
    * card either, since it is defined relative to the card instead of at an absolute
    * lightness -- which retires the 0.26-to-0.38 tuning that collision previously forced.
    *
    * Gated on OKLCH interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
    * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
-   * rule below still needs relative colour syntax and keeps its own, higher gate. */
+   * rule below still needs relative color syntax and keeps its own, higher gate. */
   @supports (color: color-mix(in oklch, red, blue)) {
     .allday-badge,
     .allday-title-pill {
@@ -1552,15 +1552,15 @@ export const cardStyles = css`
 
   /* Second tier: put the chroma back that the mix above had to spend on lightness.
    *
-   * color-mix couples the two axes -- 45% of the way to a near-white text colour is also 45%
-   * of the accent's chroma -- which is the very desaturation the sRGB rule was criticised
+   * color-mix couples the two axes -- 45% of the way to a near-white text color is also 45%
+   * of the accent's chroma -- which is the very desaturation the sRGB rule was criticized
    * for, merely less of it. Measured on #e67c73 the mix lands at c 0.060 against the 0.12
    * the light-dark() version aimed at, so on its own it is a fix for the theme fault that
    * reintroduces the pastel one.
    *
-   * Relative colour syntax accepts any colour as its origin, including a color-mix(), so the
+   * Relative color syntax accepts any color as its origin, including a color-mix(), so the
    * two compose: take the LIGHTNESS from the mix, which is theme-correct because it was
-   * mixed into a theme colour, and multiply the chroma back up to roughly the accent's own.
+   * mixed into a theme color, and multiply the chroma back up to roughly the accent's own.
    * That recovers what light-dark() was for -- lightness and chroma set independently --
    * without asking the browser a question about the operating system.
    *
@@ -1602,12 +1602,12 @@ export const cardStyles = css`
   /* filled gains what no mix can give it. clamp(0, calc((l - 0.55) * -1000), 1) is a step
    * function on the SOURCE's OWN lightness -- above 0.55 it floors to 0 and the ink is
    * black, below it ceils to 1 and the ink is white -- with chroma 0 so the result is a true
-   * neutral. That is the per-colour decision the sRGB rule can only approximate, and it is
+   * neutral. That is the per-color decision the sRGB rule can only approximate, and it is
    * the whole reason no lookup table is needed: the browser makes it, per event, for free.
    * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
-   * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
+   * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
   @supports (color: oklch(from red l c h)) {
     .allday-pill-filled {
@@ -1616,9 +1616,9 @@ export const cardStyles = css`
     }
   }
 
-  /* ===== The second axis: which colour feeds all of the above =====
+  /* ===== The second axis: which color feeds all of the above =====
    *
-   * allday_badge_style names a SHAPE and allday_badge_color names the colour that shape
+   * allday_badge_style names a SHAPE and allday_badge_color names the color that shape
    * is drawn in, so four treatments cover both sources rather than one of them owning a
    * treatment of its own. Until 4.2 the accent-free look was a sixth class called neutral,
    * which meant exactly one shape could be had without an accent -- and which shape that was
@@ -1626,27 +1626,27 @@ export const cardStyles = css`
    * room for one.
    *
    * Two of the three sources need nothing here at all. accent is the default the base rule
-   * already describes, and a CUSTOM COLOUR arrives as the pill's own
-   * --calendar-card-event-accent, because a colour the whole card shares is just the accent
+   * already describes, and a CUSTOM COLOR arrives as the pill's own
+   * --calendar-card-event-accent, because a color the whole card shares is just the accent
    * overridden -- so every rule above works on it untouched, chroma recovery included.
    *
-   * text is the one that cannot be expressed as a colour before the render, because it is
-   * whatever the pill is nested in: the time colour on the time row, the title colour on the
+   * text is the one that cannot be expressed as a color before the render, because it is
+   * whatever the pill is nested in: the time color on the time row, the title color on the
    * title. The renderer publishes that as --badge-source and this block points the three
    * tokens at it.
    *
    * 🚨 --badge-source is a published token and NOT currentColor, and the difference is
-   * filled. currentColor resolves against the element's own computed colour -- which is
+   * filled. currentColor resolves against the element's own computed color -- which is
    * the thing the treatments SET. subtle, tinted and outline get away with it because each
    * sets color to the inherited value anyway, so reading it back is identity. filled
    * deliberately sets a CONTRASTING ink, so its own ground would resolve to its own ink: a
-   * pill filled with the colour of its letters. There is no ordering fix, because
+   * pill filled with the color of its letters. There is no ordering fix, because
    * currentColor always names the final computed value regardless of declaration order.
    *
    * The ink is the source EXACTLY, where the accent path mixes 45% into --primary-text-color.
    * That mix is a legibility step -- a raw accent measured 3.24:1 on the default blue and
-   * 2.12:1 on pink -- and its job is to make a named colour readable against the card. For
-   * the colour the row is ALREADY painted in, that operation is identity: it is legible here
+   * 2.12:1 on pink -- and its job is to make a named color readable against the card. For
+   * the color the row is ALREADY painted in, that operation is identity: it is legible here
    * by construction, since it is the text the user is reading. Running it through the mix
    * anyway would land the label 45% of the way toward the primary text and draw the pill
    * darker than the time beside it, which is the one quality this source exists for.
@@ -1658,7 +1658,7 @@ export const cardStyles = css`
    * is given up by not being a mix, because there is no accent here whose chroma a mix could
    * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
    * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
-   * the two sources carry the same quantity of wash and differ only in whose colour it is.
+   * the two sources carry the same quantity of wash and differ only in whose color it is.
    *
    * The selector is compound rather than a bare class, and both blocks above are the reason.
    * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
@@ -2163,7 +2163,7 @@ export const cardStyles = css`
        do — they stop at the day tracks, where the hour rules stop. What it still buys is
        the cramp fallback: overflow-x: auto scrolls this element, so the inset has to be
        inside the scrollable area or a cramped grid scrolls within a 16px frame instead of
-       edge to edge. Cancelling the inset against the card rather than against this
+       edge to edge. Canceling the inset against the card rather than against this
        element's own padding is what would put it outside, which is 16px of phantom scroll
        nobody asked for.
 
@@ -2222,7 +2222,7 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 
-  /* The renderer clamps top between half-line insets, so this centres on its rule while
+  /* The renderer clamps top between half-line insets, so this centers on its rule while
      it fits and remains inside a compressed axis. Right-aligned against the gutter's
      inner edge, which is where the eye looks for a scale. */
   .grid-axis-label {
@@ -2246,7 +2246,7 @@ export const cardStyles = css`
      defaults, and each family now has its own option to say so: hour_line_color arrives
      here as --calendar-card-grid-rule-color, day_separator_color paints the verticals, and
      both ship var(--divider-color) at half strength. Dimming belongs in those defaults,
-     where a user who supplies a colour still gets exactly what they asked for -- an
+     where a user who supplies a color still gets exactly what they asked for -- an
      opacity here would halve theirs too, and it would halve only one of the two families.
 
      Before the split, the verticals and the horizontals were literally the same option,
@@ -2257,7 +2257,7 @@ export const cardStyles = css`
      The two patterns coincide exactly at the shipped slot_minutes: 60, and painting one
      pattern twice is NOT a no-op, because translucent ink composites. That is why the
      renderer sends --calendar-card-grid-slot-color as transparent whenever the slot is the
-     hour; see renderRules for the measurement. Below the hour it sends the real colour and
+     hour; see renderRules for the measurement. Below the hour it sends the real color and
      the overlap is kept, so a rule that is both a slot boundary and an hour boundary reads
      heavier than one that is only a slot boundary. */
   .grid-rules {
@@ -2310,12 +2310,12 @@ export const cardStyles = css`
 
   /* ----- The grid's own rules -----
 
-     🚨 Both families take their colour from --calendar-card-grid-rule-paint, written
+     🚨 Both families take their color from --calendar-card-grid-rule-paint, written
      inline by the renderer, rather than from an inline background-color. That is not
      indirection for its own sake: happy-dom's CSS value parser drops any declaration it
      cannot parse, and the shipped grid default is a color-mix(), so an inline
      background-color is stored as the empty string and every DOM assertion about a rule's
-     colour silently stops measuring anything. Custom properties are stored verbatim. The
+     color silently stops measuring anything. Custom properties are stored verbatim. The
      same trap is recorded on .grid-event for calc() containing var().
 
 
@@ -2500,7 +2500,7 @@ export const cardStyles = css`
   }
 
   /* Absolute, because a block's position is its start time. min-height is what keeps a
-     ten-minute event legible, and it belongs here rather than in the placement maths:
+     ten-minute event legible, and it belongs here rather than in the placement math:
      CSS resolves it against the band's real pixel height, which the geometry module
      deliberately does not know. */
   .grid-event {
@@ -2527,7 +2527,7 @@ export const cardStyles = css`
     line-height: 1.25;
     container: calendar-card-grid-event / size;
     /* The block's clearance from the hour rule it starts on and the one it ends at. The
-       same gap it already keeps from its column edges, so a block clears its neighbours by
+       same gap it already keeps from its column edges, so a block clears its neighbors by
        one value on all four sides -- an event at 13:00 sits UNDER the 13:00 rule instead of
        hanging off it, the way macOS Calendar draws it.
 
@@ -2674,12 +2674,12 @@ export const cardStyles = css`
      result is a flat vertical cut through a digit — "10:00 - 12" with the colon of the
      second time sheared in half.
 
-     This is a backstop now rather than the primary defence, and it is worth saying why it
+     This is a backstop now rather than the primary defense, and it is worth saying why it
      is still here. grid-time-fit.ts measures the row against its block and hides it rather
      than let it be cut, so in a settled layout nothing reaches this rule. What it covers
      is the frame between a resize and the measurement that follows it, where the class
      from the previous layout is still on the element and the block beneath it has already
-     changed width. A sheared glyph for one frame is a rendering artefact; without this
+     changed width. A sheared glyph for one frame is a rendering artifact; without this
      rule it is a sheared glyph that persists until something else provokes a re-measure.
 
      Note also that an ellipsis is not neutral inside a clock reading. "🕐 10:00 - 1…" on
@@ -2872,9 +2872,9 @@ export const cardStyles = css`
 
      🚨 Resetting display alone is half the job, and the missing half was a visible defect.
      That same .time span rule also sets vertical-align: middle, which it is entitled to:
-     on an inline-block that re-centres the box on the surrounding text. Taking the display
+     on an inline-block that re-centers the box on the surrounding text. Taking the display
      back to inline does not take the alignment back with it, and on an inline box middle
-     means something else -- the box centre is aligned to the parent's baseline plus half
+     means something else -- the box center is aligned to the parent's baseline plus half
      its x-height, which is not where the parent's own text sits. The start time is an
      anonymous inline on that baseline, so the two halves of one clock reading end up on
      two baselines.
@@ -2944,7 +2944,7 @@ export const cardStyles = css`
      line two reverts to text-overflow's initial clip. Measured in the stale-class frame the
      backstop is written for -- the wrap class from the previous layout still on a block
      that has already narrowed -- line two rendered "- 12:" with the colon cut vertically in
-     half, the exact artefact that rule prevents one line up. text-overflow alone does not
+     half, the exact artifact that rule prevents one line up. text-overflow alone does not
      fix it: it needs a scroll container on this element, because overflow: hidden lives on
      .time-actual and does not inherit. Both declarations were A/B'd live against the same
      row; with only text-overflow it still sheared.

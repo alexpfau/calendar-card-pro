@@ -61,7 +61,7 @@ describe('grid disclosure safety', () => {
   it('keeps every detail row when the title alone is what overflows', () => {
     // The maintainer's report: a 2.5-hour event whose title wrapped to three lines in a
     // narrow column rendered with neither its time nor its location, while a taller
-    // neighbour with a two-line title showed both. No detail row was responsible for the
+    // neighbor with a two-line title showed both. No detail row was responsible for the
     // overflow, so withdrawing them could never resolve it — but the loop hid every one of
     // them on the way to discovering that, and left the block overflowing anyway.
     //
@@ -253,7 +253,7 @@ describe('grid disclosure safety', () => {
   it('clamps a two-line row to one line rather than withdrawing it for a single pixel', () => {
     // The maintainer's report: a block showing its title and its time, then no location at
     // all, with a line of empty space below where the address should have been. Widening the
-    // window brought the address back, correctly ellipsised.
+    // window brought the address back, correctly ellipsized.
     //
     // The block overflows by 15px with a two-line address of 14.4px lines. One line has to
     // go, and one line then fits -- but the old count charged the row `ceil(15 / 14.4)`, two

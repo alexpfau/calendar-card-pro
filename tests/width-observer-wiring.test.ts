@@ -103,7 +103,7 @@ const NARROW = 300;
 
 /**
  * Inside the hysteresis band: past the 460px decision edge but short of the
- * centred enter edge a first measurement has to clear. A card measured here
+ * centered enter edge a first measurement has to clear. A card measured here
  * first lands in list view; one that already holds a column fit keeps it.
  */
 const INSIDE_HYSTERESIS_BAND = 464;

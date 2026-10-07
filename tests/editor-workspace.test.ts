@@ -444,7 +444,7 @@ describe('the shared workspace', () => {
     expect(seen).toEqual([]);
   });
 
-  // The distinguishing behaviour. The same edit made in the List workspace lands in
+  // The distinguishing behavior. The same edit made in the List workspace lands in
   // `list:`; made here it lands at the top level, which is the whole point of the layer.
   it('writes an edit to the top level rather than into any block', async () => {
     const editor = await mount({ view: 'list' });

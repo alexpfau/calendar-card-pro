@@ -151,7 +151,7 @@ describe('every registered view is internally consistent', () => {
   });
 });
 
-describe('behaviour follows the registry', () => {
+describe('behavior follows the registry', () => {
   // These are the tests that mean something. Each repoints the registry and requires the
   // resolver to follow; an implementation that still reads `config.column` directly, or
   // still tests `view !== 'column'`, fails them while passing everything else.
@@ -235,7 +235,7 @@ describe('behaviour follows the registry', () => {
 
   // 🚨 The one test that proves the *view selection* is registry-driven rather than a
   // hardcoded `view !== 'column'`. With column the only registered view the two are
-  // behaviourally identical, so nothing else here can tell them apart — regressing
+  // behaviorally identical, so nothing else here can tell them apart — regressing
   // `resolveEffectiveConfig` to a literal comparison passes every other assertion in
   // this file and the whole existing suite. Registering a second view is what makes the
   // difference observable, which is the same reason the real grid view will be the

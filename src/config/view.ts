@@ -460,7 +460,7 @@ export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * list view's own defaults:
  *
  * - `day_header_gap` is `8px` — the vertical space between a day's header and its
- *   first event. The separator, when present, sits centred in that gap.
+ *   first event. The separator, when present, sits centered in that gap.
  * - `day_header_separator_width` is `0px` — no rule by default. `day_header_gap`
  *   keeps the header spacing stable when the rule is off.
  * - `day_header_separator_color` is `var(--divider-color)`, Home Assistant's semantic
@@ -498,7 +498,7 @@ export const COLUMN_DEFAULTS = {
  * Calendar gives an hour, and it is enough to seat two stacked lines of event text.
  *
  * `slot_minutes: 60` rules once an hour, so the ruling and the labels say the same thing.
- * A half-hour default drew a second, unlabelled rule between every pair of hours, which
+ * A half-hour default drew a second, unlabeled rule between every pair of hours, which
  * doubles the horizontal lines on the card without adding a single readable landmark —
  * the eye then has to count rules to find an hour. A finer setting is still there for
  * anyone scheduling in fifteen-minute blocks, and the hour rule is drawn over the slot
@@ -869,9 +869,9 @@ export function isZeroLength(value: string): boolean {
  *
  * A simple `<number><unit>` length is scaled arithmetically so the common pixel case
  * still emits a plain `15px` rather than a `calc()` a reader has to evaluate. Anything
- * else — `calc()`, `var()`, or a unit this does not recognise — is wrapped and handed to
+ * else — `calc()`, `var()`, or a unit this does not recognize — is wrapped and handed to
  * the browser, which can resolve at layout time what this cannot resolve at render time.
- * The wrap parenthesises the operand, because `calc(1.5 * var(--x, 1em + 2px))` would
+ * The wrap parenthesizes the operand, because `calc(1.5 * var(--x, 1em + 2px))` would
  * otherwise bind the multiplication to only the first term of a defaulted variable.
  *
  * The arithmetic is deliberately not rounded, matching what the previous pixel-only path
@@ -1078,7 +1078,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  *
  * 🚨 **Vertical only.** These two used to drive three visually distinct rules — the
  * verticals between days, the rule under the date row, and the heavier one under the
- * all-day band — plus the horizontal hour rules, which took their colour from
+ * all-day band — plus the horizontal hour rules, which took their color from
  * `day_separator_color` as well. That silently redefined an option that has meant *the
  * rule between two days* since the card shipped, and it made four rules impossible to
  * configure apart: a user widening the day rules got four heavier horizontals they never
@@ -1090,14 +1090,14 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * 🚨 The gray is `var(--divider-color)` at **half** strength, and the halving lives here —
  * in the option's own default — rather than as an `opacity` on `.grid-rules`, which is
  * where it used to be. An element opacity dims one of the two rule families and not the
- * other, and it dims a colour the user supplied as well as the one the card shipped. As a
+ * other, and it dims a color the user supplied as well as the one the card shipped. As a
  * default it does neither, and a user writing `day_separator_color: red` gets red at full
  * strength on the rules that option still owns.
  *
  * The claim this replaces — that the two families already carried identical ink — was
  * false when it was written, and measuring is what found it. On the deployed build an hour
  * rule came back `rgb(197, 197, 197)` against `rgb(224, 224, 224)` for a vertical day rule
- * of the same colour and width: 0.226 alpha against 0.12, because the slot gradient and
+ * of the same color and width: 0.226 alpha against 0.12, because the slot gradient and
  * the hour gradient coincide at the shipped `slot_minutes: 60` and translucent ink
  * composites rather than merging. That doubling is fixed in `renderRules`; this halving is
  * the separate question of how heavy one rule should be, and the answer is macOS
@@ -1355,7 +1355,7 @@ export function hasDivergentDefault(key: string, view: Types.EffectiveView): boo
  * card's height, and capping events across a time grid would empty later day columns.
  *
  * @param view - View currently being rendered
- * @returns `true` when `compact_*` keys should be honoured
+ * @returns `true` when `compact_*` keys should be honored
  */
 export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
   return view === 'list';
@@ -1661,7 +1661,7 @@ export const GRID_AXIS_PADDING_END_PX = 8;
 const GRID_AXIS_PADDING_PX = GRID_AXIS_PADDING_START_PX + GRID_AXIS_PADDING_END_PX;
 
 /**
- * Conservative pixel reservation for a content-sized grid axis labelled on the hour,
+ * Conservative pixel reservation for a content-sized grid axis labeled on the hour,
  * **at the shipped {@link GRID_AXIS_BASE_FONT_PX} label size**.
  *
  * The actual track is measured by CSS from the widest hour label. Width fitting runs
@@ -1683,7 +1683,7 @@ const GRID_AXIS_PADDING_PX = GRID_AXIS_PADDING_START_PX + GRID_AXIS_PADDING_END_
 const GRID_MAX_CONTENT_AXIS_PX = 48;
 
 /**
- * The same reservation for an axis labelled below the hour.
+ * The same reservation for an axis labeled below the hour.
  *
  * 🚨 This second constant is the whole reason `axis_label_minutes` is more than a
  * formatting change. A cadence under an hour puts minutes on every label, so `12 AM`
@@ -1713,7 +1713,7 @@ const GRID_MAX_CONTENT_AXIS_MINUTES_PX = 72;
  * view straight back. Two thresholds make the switch a Schmitt trigger, so a card
  * sitting on the boundary settles instead of flapping.
  *
- * The band is centred on the computed threshold: half above to enter, half below to
+ * The band is centered on the computed threshold: half above to enter, half below to
  * leave. That keeps the calculated threshold as the midpoint while absorbing scrollbar
  * width and sub-pixel rounding.
  */
@@ -1734,7 +1734,7 @@ export const VIEW_SWITCH_HYSTERESIS_PX = 32;
  * Substituting the default rather than clamping to zero keeps the value that reaches
  * the renderer a valid length, so the separator offset — `calc(-0.5 * (gap + width))`,
  * which turns a negative gap into a *positive* margin and survives the browser's
- * validity check — stays centred in the gutter it is drawn in.
+ * validity check — stays centered in the gutter it is drawn in.
  *
  * This mirrors the `parsed > 0` guard {@link normalizeColumnValue} already applies to
  * `min_day_width`, the other operand of the same expression. Zero is legitimate here
@@ -2017,11 +2017,11 @@ export function resolveMinDaysFallback(
  *
  * The fallback this function models is **wholesale**: below the threshold it answers
  * list view, never column view with fewer columns. That is a property of *this
- * function*, not of the card — do not cite it as product behaviour. {@link
+ * function*, not of the card — do not cite it as product behavior. {@link
  * resolveColumnFit} reduces the column count to what fits and only falls back to list
  * when even `min_days_to_show` will not fit, so the card does render column view with
  * fewer columns than were asked for. `docs/features/column-view.md` describes that
- * behaviour; this block describes only the view half it is pinned against.
+ * behavior; this block describes only the view half it is pinned against.
  *
  * @param requestedView - The configured view
  * @param measuredWidthPx - Measured card width, or `null` before first measurement
@@ -2040,12 +2040,12 @@ export function resolveEffectiveView(
     return requestedView;
   }
 
-  // Before the first measurement, honour the request to avoid flashing the fallback.
+  // Before the first measurement, honor the request to avoid flashing the fallback.
   if (measuredWidthPx === null || measuredWidthPx <= 0) {
     return requestedView;
   }
 
-  // Schmitt trigger, centred on the threshold: enter half a band above, leave half a
+  // Schmitt trigger, centered on the threshold: enter half a band above, leave half a
   // band below.
   const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
   const effectiveThreshold =

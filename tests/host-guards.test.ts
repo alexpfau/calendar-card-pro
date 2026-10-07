@@ -2,7 +2,7 @@
  * Guards in the card host that a mutation sweep left standing, and what each turned out
  * to be.
  *
- * Behaviour pins closed here:
+ * Behavior pins closed here:
  * - a refresh interval that silently reverted to the built-in default;
  * - the error state for a card with no calendars configured;
  * - `startRefreshTimer` / `updateEvents` refusing to re-arm work after disconnect
@@ -85,7 +85,7 @@ function recordingHass(): { hass: unknown; attempts: number } {
   } as unknown as { hass: unknown; attempts: number };
 }
 
-describe('the refresh timer honours the configured interval', () => {
+describe('the refresh timer honors the configured interval', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FROZEN_NOW);
@@ -99,7 +99,7 @@ describe('the refresh timer honours the configured interval', () => {
   it('schedules the next refresh at refresh_interval, not the built-in default', async () => {
     // `refresh_interval` reaches this read already normalized, so the `|| DEFAULT` beside it
     // is defensive and never fires — which is exactly why dropping the configured value in
-    // favour of the default went unnoticed. The default is 30 minutes; 5 is chosen so the
+    // favor of the default went unnoticed. The default is 30 minutes; 5 is chosen so the
     // two cannot be confused.
     const element = card({ refresh_interval: 5 });
     const timeout = vi.spyOn(window, 'setTimeout');
@@ -196,7 +196,7 @@ describe('weather setup requires a Home Assistant connection', () => {
 
   it('attempts nothing when hass is absent', async () => {
     // Pins the contract, not a mutant. The guard this looks like it is testing is masked
-    // three times over — see the file header — so no behavioural test can kill it, and
+    // three times over — see the file header — so no behavioral test can kill it, and
     // claiming otherwise would be the "check that cannot fail" this suite exists to avoid.
     // What is genuinely worth holding is the outcome: a card configured for weather that
     // has not yet received `hass` subscribes to nothing and does not reject.

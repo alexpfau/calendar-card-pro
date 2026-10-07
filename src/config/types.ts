@@ -430,7 +430,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    *
    * Strings rather than integer hours because minute precision costs nothing here and a
    * band starting at `06:30` is a real thing to want. A bad value resets **both**, so a
-   * half-honoured band cannot masquerade as one the user asked for.
+   * half-honored band cannot masquerade as one the user asked for.
    */
   start_time?: string;
 
@@ -485,7 +485,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   /** Draw a line across today's column at the current time. */
   show_now_line?: boolean;
 
-  /** Colour of that line. */
+  /** Color of that line. */
   now_line_color?: string;
 
   /**
@@ -508,7 +508,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    * distinct rules from them, which made the three impossible to configure apart and
    * silently redefined a long-standing option for one view.
    *
-   * Named for the hour rather than for the slot because the labelled rules are the hours,
+   * Named for the hour rather than for the slot because the labeled rules are the hours,
    * and because it reads beside `hour_height`: one says how tall an hour is, the other how
    * its boundary is drawn. A finer `slot_minutes` subdivides the same ruling and its rules
    * are painted in this same ink, one step lighter where they are not also an hour.
@@ -776,7 +776,7 @@ export interface CalendarEventData {
    * carrying it, but only the middle ones can ever be read: the first and last keep their
    * `dateTime`, so the expiry branch's `isAllDayEvent` test excludes them before this is
    * consulted. Removing it from those two therefore breaks no test — it records provenance
-   * there, not behaviour, and the alternative is a flag that lies about half its subjects.
+   * there, not behavior, and the alternative is a flag that lies about half its subjects.
    *
    * Carried into the display copies alongside `_isMultiDaySegment` for symmetry, though
    * only the expiry filter reads it today — that filter runs before the copies are built.
@@ -1032,7 +1032,7 @@ export interface HassEntity {
  * selects an entity.
  *
  * The first entry of a suggestion list is the canonical recipe and carries no
- * `label`; any further entry is a labelled variant naming only what differs.
+ * `label`; any further entry is a labeled variant naming only what differs.
  */
 export interface EntitySuggestion {
   label?: string;

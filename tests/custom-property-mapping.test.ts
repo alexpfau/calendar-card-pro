@@ -17,7 +17,7 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  * Every value below is distinct, so the assertions fail not only when a mapping is dropped
  * but also when two are crossed. That is the failure this file is really aimed at: a
  * property that carries *a* value looks correct in a browser until someone notices their
- * location colour is following their time colour.
+ * location color is following their time color.
  */
 type Pair = readonly [option: string, property: string, value: string];
 
@@ -165,7 +165,7 @@ describe('custom property mapping', () => {
  * never asserted.
  *
  * v4 turned these into a real override surface: the badges used to carry their size and
- * colour as inline `style` attributes that no theme could reach, and `theming.md` now
+ * color as inline `style` attributes that no theme could reach, and `theming.md` now
  * publishes all six properties with defaults.
  *
  * 🚨 The pairs below do **not** pin the `|| '14px'` fallbacks in `styles.ts`, and an
@@ -228,7 +228,7 @@ describe('weather custom properties', () => {
   );
 
   it('keeps the two placements independent', () => {
-    // The badges sit beside different text colours and keep separate fallbacks; setting
+    // The badges sit beside different text colors and keep separate fallbacks; setting
     // one must not move the other. A single shared read would pass both tables above.
     const props = propsFor({
       weather: { entity: 'weather.home', date: { icon_size: '41px' } },

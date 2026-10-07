@@ -88,7 +88,7 @@ export function valueSource(
 ): 'card' | 'inherited' | 'default' | 'own' | undefined {
   const view = viewForWorkspace(workspace);
   // Shared has nothing to be sourced *from*: it is the base every other answer refers to,
-  // so labelling its controls would say "this value comes from here" on every row.
+  // so labeling its controls would say "this value comes from here" on every row.
   if (view === undefined) return undefined;
 
   const block = ViewConfig.viewBlockFor(view);

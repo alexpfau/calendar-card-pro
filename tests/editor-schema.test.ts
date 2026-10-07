@@ -404,7 +404,7 @@ describe('editor: dead keys are pruned, dormant keys are kept', () => {
     expect(toStoredConfig(config).date_vertical_alignment).toBe('top');
   });
 
-  it('keeps an unrecognised key inside the block rather than silently deleting it', () => {
+  it('keeps an unrecognized key inside the block rather than silently deleting it', () => {
     const config = columnConfig({
       column: { not_a_real_option: 'x' } as unknown as Types.ColumnOverrides,
     });
@@ -433,7 +433,7 @@ describe('editor: start_date_offset survives being typed', () => {
     return applyFormChange(config, before, after, pending);
   }
 
-  it('recognises a partial expression as not yet committable', () => {
+  it('recognizes a partial expression as not yet committable', () => {
     expect(isCommittableOffset('-')).toBe(false);
     expect(isCommittableOffset('')).toBe(false);
     expect(isCommittableOffset('+')).toBe(false);
@@ -810,7 +810,7 @@ describe('editor: change detection', () => {
     ]);
   });
 
-  it('recognises every synthetic key it must keep out of the config', () => {
+  it('recognizes every synthetic key it must keep out of the config', () => {
     for (const key of ['height_mode', 'start_date_mode', 'start_date_fixed', 'start_date_offset']) {
       expect(isSyntheticKey(key)).toBe(true);
     }
@@ -841,7 +841,7 @@ describe('editor: change detection', () => {
 
     // `entities` is passed through as-is, so it arrives in the normalized object form
     // `setConfig` produced rather than as the bare string the user wrote. That is the
-    // shipped behaviour and the per-entity widget owns narrowing it; asserted here so
+    // shipped behavior and the per-entity widget owns narrowing it; asserted here so
     // that it is a recorded fact rather than a surprise when that widget lands.
     expect(Object.keys(stored).sort()).toEqual(['column', 'days_to_show', 'entities', 'view']);
     expect(stored.column).toEqual({ min_day_width: 200 });
@@ -1208,7 +1208,7 @@ describe('editor: displayed view and the Layout panel', () => {
     // 🚨 And the order of the three gutter controls is pinned, because it is a decision
     // rather than an accident. `axis_label_minutes` qualifies `show_axis_labels` and is
     // moot without it, so it must follow the switch — a cadence read before the control
-    // that turns labelling off is half an answer. Nothing else notices this: reordering
+    // that turns labeling off is half an answer. Nothing else notices this: reordering
     // the row leaves the whole suite and every gate green, which is exactly why it is
     // asserted here rather than left to a comment.
     const gutter = nodes
@@ -1376,7 +1376,7 @@ describe('editor: the width table', () => {
   });
 });
 
-describe('editor: the memoiser', () => {
+describe('editor: the memoizer', () => {
   it('returns the previous result while the arguments hold', () => {
     let calls = 0;
     const build = memoizeLast((n: number) => {
@@ -1412,7 +1412,7 @@ describe('editor: the memoiser', () => {
     expect(() => build(1)).toThrow();
 
     // Committing the arguments before calling would leave this retry returning an
-    // uninitialised result rather than recomputing.
+    // uninitialized result rather than recomputing.
     expect(build(1)).toEqual({ n: 1 });
   });
 
@@ -1428,11 +1428,11 @@ describe('editor: the memoiser', () => {
     expect(calls).toBe(1);
   });
 
-  it('actually memoises the panel schema it is used for', () => {
+  it('actually memoizes the panel schema it is used for', () => {
     const ctx = { view: 'column' as const, config: columnConfig(), language: 'en' };
 
     // A fresh context object each time, which is the case that would defeat a
-    // memoiser keyed on the context rather than on the values read from it.
+    // memoizer keyed on the context rather than on the values read from it.
     const first = buildLayoutSchema({ ...ctx });
     expect(buildLayoutSchema({ ...ctx, config: columnConfig() })).toBe(first);
   });
@@ -1665,7 +1665,7 @@ describe('editor: the panel set', () => {
    * value empty.
    *
    * An omitted type is the whole hazard, so the rule is that none may be omitted rather
-   * than that the four typed fields must be kept apart from their neighbours. Which fields
+   * than that the four typed fields must be kept apart from their neighbors. Which fields
    * sit next to which is a function of config and would have to be re-reasoned every time a
    * conditional field is added; "every text selector declares its type" is a property of the
    * schema this can simply read.
@@ -1683,9 +1683,9 @@ describe('editor: the panel set', () => {
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),
-      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // And the color field sits behind TWO gates: the badge has to be on AND its color
       // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
-      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      // The mode is read off the value's shape, so any color puts the picker in custom.
       buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
     ];
 
@@ -1788,7 +1788,7 @@ describe('editor: the panel set', () => {
    * `editor` sections are dormant but still present — and several of their keys are
    * spelled exactly like the new ones. `refresh_on_navigate`, `event_color` and
    * `show_location` are all among them, so a field with no string of its own would be
-   * labelled from copy written for the editor that was replaced, and a check that only
+   * labeled from copy written for the editor that was replaced, and a check that only
    * asked whether *something* resolved would pass.
    */
   it('gives every field a label of its own, not one inherited from the old editor', () => {
@@ -1825,9 +1825,9 @@ describe('editor: the panel set', () => {
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),
-      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // And the color field sits behind TWO gates: the badge has to be on AND its color
       // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
-      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      // The mode is read off the value's shape, so any color puts the picker in custom.
       buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
@@ -2125,9 +2125,9 @@ describe('editor: the calendars picker', () => {
   });
 
   /**
-   * The behaviour that makes a picker safe to use at all. Home Assistant's multi-entity
+   * The behavior that makes a picker safe to use at all. Home Assistant's multi-entity
    * selector hands back a list of ids, so writing it through would replace every
-   * per-calendar object with a bare string — silently deleting the label, colour and
+   * per-calendar object with a bare string — silently deleting the label, color and
    * filters the user configured for it.
    */
   it('keeps a calendar object through being deselected and selected again', () => {
@@ -2438,11 +2438,11 @@ describe('editor: the Separators panel', () => {
   });
 
   /**
-   * The grid-only keys were labelled `time_grid.*` while a collapsible earned them that
+   * The grid-only keys were labeled `time_grid.*` while a collapsible earned them that
    * prefix. A bare `scope` nests data without nesting labels, so without `blockScope`
    * stamping the key back on they would silently fall back to a humanized field name.
    */
-  it('keeps the grid-only rules labelled from their own strings', () => {
+  it('keeps the grid-only rules labeled from their own strings', () => {
     const panel = PANELS.find((entry) => entry.id === 'separators')!;
     const config = gridConfig();
     const nodes = [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))];
@@ -2526,7 +2526,7 @@ describe('editor: the Events panel opening run', () => {
    * heading — a bare option above the first one would be captioned by nothing.
    */
   it('captions each subject, with state before accent and the title kept together', () => {
-    // The default config resolves the accent mode to `custom`, so the conditional colour
+    // The default config resolves the accent mode to `custom`, so the conditional color
     // field is present — which is the shape the row was designed around.
     //
     // The content run leads, and its five switches are the reason the four groups below
@@ -2661,7 +2661,7 @@ describe('editor: the Time Range & Content panel', () => {
   });
 
   it('treats a zero limit as a limit, because the card does', () => {
-    // `compact_events_to_show: 0` is a valid setting and the card honours it, so the
+    // `compact_events_to_show: 0` is a valid setting and the card honors it, so the
     // modifier is live. A truthiness test here would hide a control that is working.
     expect(namesIn(buildConfig({ compact_events_to_show: 0 }))).toContain(
       'compact_events_complete_days',
@@ -3301,7 +3301,7 @@ describe('editor: per-calendar settings', () => {
     const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
     const names = forms.map((form) => schemaOf(form).map((node) => node.name));
 
-    // The calendar with an icon label gets the picker and the icon colour; the one with
+    // The calendar with an icon label gets the picker and the icon color; the one with
     // no label at all gets neither, and its shape dropdown reads *None*.
     expect(names[0]).toContain('label_icon_color');
     expect(names[1]).not.toContain('label_icon_color');
@@ -3319,7 +3319,7 @@ describe('editor: per-calendar settings', () => {
    * leaves the person picker permanently unrendered while every schema-level test of it still
    * passes. Checked by dropping it: 2810 unit tests, none of them noticed.
    */
-  it('renders the person picker for a calendar labelled with a person, through the chassis', async () => {
+  it('renders the person picker for a calendar labeled with a person, through the chassis', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
     element.setConfig({
@@ -3368,7 +3368,7 @@ describe('editor: per-calendar settings', () => {
     // is exactly the state reading the value back cannot express.
     expect(dispatched.at(-1)!.entities).toEqual([{ entity: 'calendar.a', label_type: 'icon' }]);
 
-    // The picker is now on screen, empty, with the colour that only applies to it.
+    // The picker is now on screen, empty, with the color that only applies to it.
     const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
     expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
 
@@ -3438,11 +3438,11 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
-   * The same failure one door along. An icon label's colour field is shown only while the
+   * The same failure one door along. An icon label's color field is shown only while the
    * label *is* an icon, so clearing the icon picker to choose another one used to remove
    * the label, re-derive the shape as *None*, and take both controls away at once.
    */
-  it('keeps the icon picker and its colour on screen while the icon is cleared', async () => {
+  it('keeps the icon picker and its color on screen while the icon is cleared', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
     element.setConfig({
@@ -3461,7 +3461,7 @@ describe('editor: per-calendar settings', () => {
     const names = schemaOf(form).map((node) => node.name);
 
     expect(names, 'the picker survived being cleared').toContain('label');
-    expect(names, 'so did the icon colour').toContain('label_icon_color');
+    expect(names, 'so did the icon color').toContain('label_icon_color');
     expect((form as unknown as { data: Record<string, unknown> }).data.label_type).toBe('icon');
   });
 
@@ -3790,10 +3790,10 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
-   * The colour did nothing unless the label was an icon, and said so in a helper under
+   * The color did nothing unless the label was an icon, and said so in a helper under
    * every calendar. Shown only where it applies, the sentence is no longer needed.
    */
-  it('shows the label icon colour only where there is an icon to colour', () => {
+  it('shows the label icon color only where there is an icon to color', () => {
     const declared = entitySchema().schema;
 
     for (const type of ['none', 'text', 'image']) {
@@ -4049,10 +4049,10 @@ describe('editor: per-calendar settings', () => {
 
   /**
    * A shape the card does not know is not a shape. `normalizeEntities` drops it, so the
-   * value is read instead — a misspelling degrades to the pre-`label_type` behaviour
+   * value is read instead — a misspelling degrades to the pre-`label_type` behavior
    * rather than to a blank control.
    */
-  it('ignores a shape it does not recognise', () => {
+  it('ignores a shape it does not recognize', () => {
     const [entry] = normalizeEntities([
       { entity: 'calendar.a', label: 'mdi:home', label_type: 'banana' },
     ] as unknown as Array<Types.EntityConfig>);
@@ -4070,13 +4070,13 @@ describe('editor: per-calendar settings', () => {
    * The scope of that sentence is the honest part. A configuration that already spells
    * `label_type` — which no released version read, so it can only have been invented —
    * *does* change: the key is live now and wins over the value. That is the intended
-   * behaviour of the key and there is no way to have both, so it is stated rather than
+   * behavior of the key and there is no way to have both, so it is stated rather than
    * papered over.
    *
    * Worth pinning against a list rather than an argument, because the failure it guards
    * is silent: a label that resolved one way in v3 and another way here would change what
    * a dashboard draws with no error anywhere. The list is deliberately adversarial —
-   * `label: ''`, no label at all, a stray icon colour on a text label.
+   * `label: ''`, no label at all, a stray icon color on a text label.
    */
   it('leaves every configuration written before the shape key existed alone', () => {
     const legacy: ReadonlyArray<Record<string, unknown>> = [
@@ -4109,8 +4109,8 @@ describe('editor: per-calendar settings', () => {
       const written = fromEntityFormData('calendar.a', toEntityFormData(entry), entry);
 
       const expected: Record<string, unknown> = { ...raw };
-      // The two things the editor legitimately normalises: an empty label is absent, and
-      // an icon colour on a label that is not an icon is inert and is not carried.
+      // The two things the editor legitimately normalizes: an empty label is absent, and
+      // an icon color on a label that is not an icon is inert and is not carried.
       if (expected.label === '') delete expected.label;
       if (resolveLabelType(expected.label, undefined) !== 'icon') delete expected.label_icon_color;
 
@@ -4164,12 +4164,12 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
-   * The icon colour is dropped when the label stops being an icon — but only then. It
+   * The icon color is dropped when the label stops being an icon — but only then. It
    * used to go on *any* edit to a calendar whose label was not an icon, so changing
-   * `show_time` on a calendar carrying a stray colour from hand-written YAML deleted it
+   * `show_time` on a calendar carrying a stray color from hand-written YAML deleted it
    * silently. An unrelated edit must not delete a setting the user cannot see.
    */
-  it('drops the icon colour on the move away from an icon, and not before', () => {
+  it('drops the icon color on the move away from an icon, and not before', () => {
     const iconned = { entity: 'calendar.a', label: 'mdi:home', label_icon_color: '#f00' };
 
     // The move away takes it.
@@ -4294,7 +4294,7 @@ describe('editor: per-calendar settings', () => {
   /**
    * Per-entity and card-level `split_multiday_events` are the same word for two
    * different scopes, and they now answer the same question the same way: the card-level
-   * key is a real column override, and the per-calendar one is honoured wherever the
+   * key is a real column override, and the per-calendar one is honored wherever the
    * card-level one is. Only grid fixes the answer by layout — all-day events span as one
    * banner, and timed events use Grid's daily coverage — so neither form reaches it.
    *
@@ -4763,7 +4763,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
    * A synthetic dropdown has no config key of its own; it derives a mode from whatever the
    * card actually stores, and turns a pick back into that storage. Both halves are
    * hand-written per field, so the vocabulary check above can pass while a value that is
-   * offered stores nothing the derive step recognises. The user then picks an option and
+   * offered stores nothing the derive step recognizes. The user then picks an option and
    * watches the form snap back to the one they left.
    *
    * @returns Each synthetic dropdown's field name paired with the values it offers
@@ -4806,7 +4806,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
    * into the user's YAML. Covered explicitly here, both directions, so the gate exists even
    * though the discovery cannot reach it.
    */
-  it('round-trips the badge colour mode, which no discovery reaches', () => {
+  it('round-trips the badge color mode, which no discovery reaches', () => {
     const on = { ...DEFAULT_CONFIG, allday_badge: 'time' } as Types.Config;
 
     // The keywords store themselves.
@@ -4816,7 +4816,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       expect(deriveSyntheticData(moved.config, moved.pending).allday_badge_color_mode).toBe(mode);
     }
 
-    // `custom` has no spelling of its own -- it means "the stored value is a colour" -- so it
+    // `custom` has no spelling of its own -- it means "the stored value is a color" -- so it
     // must seed one rather than write its own name, which is the exact failure the sibling
     // mode shipped once.
     const custom = pick(on, {}, 'allday_badge_color_mode', 'custom');
@@ -4825,11 +4825,11 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'custom',
     );
 
-    // A colour already stored is kept when `custom` is re-entered from `custom` -- which is
+    // A color already stored is kept when `custom` is re-entered from `custom` -- which is
     // what the carry in `apply` is for -- but it does NOT survive a trip through a keyword,
     // and that is structural rather than a choice. One key holds either a keyword or a
-    // colour, so storing `accent` is what overwrites it; there is nowhere left for the old
-    // value to be. `accent_color_mode` loses its colour to the Home Assistant sentinel in
+    // color, so storing `accent` is what overwrites it; there is nowhere left for the old
+    // value to be. `accent_color_mode` loses its color to the Home Assistant sentinel in
     // exactly the same way. Pinned so the loss is a documented contract rather than a
     // surprise somebody later "fixes" by writing the mode's own name into the key.
     const chosen = { ...on, allday_badge_color: '#b5651d' } as Types.Config;

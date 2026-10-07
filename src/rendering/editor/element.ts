@@ -352,7 +352,7 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Resolves a label for any field in any panel.
    *
-   * @param schema - Node being labelled
+   * @param schema - Node being labeled
    * @param _data - Form data, unused
    * @param options - Descent options supplied by `ha-form`
    * @returns Label text
@@ -897,7 +897,7 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param ctx - Schema context
    * @param key - String key
-   * @returns The string, humanised as a last resort
+   * @returns The string, humanized as a last resort
    */
   private _string(ctx: SchemaCtx, key: string): string {
     return EditorLocalize.lookup(ctx.language, key) ?? EditorLocalize.humanize(key);

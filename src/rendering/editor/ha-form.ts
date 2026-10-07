@@ -67,7 +67,7 @@ interface BaseSchema {
    * from its position.
    *
    * Home Assistant extends the label path for `ha-form-expandable` and for nothing else,
-   * so a field nested for *storage* by a named `grid` is labelled as though it were at
+   * so a field nested for *storage* by a named `grid` is labeled as though it were at
    * the top level. That is usually right — a `grid` is layout. It is wrong when the same
    * field name means different things in different blocks, which is exactly the case the
    * day-header rule presents: `column:` and `time_grid:` both hold a `day_header_gap`,

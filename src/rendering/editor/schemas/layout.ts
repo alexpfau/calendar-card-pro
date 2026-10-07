@@ -203,7 +203,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
 
     // The gutter, and the two options qualifying it. `axis_label_minutes` follows
     // `show_axis_labels` because it is moot without it — a cadence read before the switch
-    // that turns labelling off is half an answer — and it sits with `axis_width` because
+    // that turns labeling off is half an answer — and it sits with `axis_width` because
     // the two move together: below the hour every label carries minutes, which is what
     // makes a content-sized gutter wider.
     heading('heading_hour_labels'),

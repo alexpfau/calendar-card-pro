@@ -18,7 +18,7 @@ import * as EventUtils from '../src/utils/events';
  * placement none of them affected; `column-dom.test.ts` asserts *where* the badge goes,
  * never what it looks like once it is there.
  *
- * ## Why the composition is asserted by modelling the CSS
+ * ## Why the composition is asserted by modeling the CSS
  *
  * The separators are `span + span::before` in the stylesheet, chosen so the markup stays
  * identical in both placements and the DOM snapshots stay untouched. happy-dom does not
@@ -262,23 +262,23 @@ describe('weather presentation', () => {
     });
   });
 
-  describe('colour', () => {
+  describe('color', () => {
     /*
      * The row is one of four siblings inside .time-location and the other three are
      * `--secondary-text-color`. The badge was the odd one out twice over: its text
-     * colour was shipped as a *default*, which the visual editor copies into the user's
-     * YAML on the first edit, and its icon was given no colour at all and inherited.
+     * color was shipped as a *default*, which the visual editor copies into the user's
+     * YAML on the first edit, and its icon was given no color at all and inherited.
      */
-    it('ships no colour default, so each placement can supply its own', () => {
+    it('ships no color default, so each placement can supply its own', () => {
       // The `progress_bar_width` shape. A shipped default is merged in before render,
       // and from that point a value the user chose is indistinguishable from one they
       // never touched — which is exactly how a card nobody had styled ended up with a
-      // primary-coloured weather row.
+      // primary-colored weather row.
       expect(DEFAULT_CONFIG.weather?.event?.color).toBeUndefined();
       expect(DEFAULT_CONFIG.weather?.date?.color).toBeUndefined();
     });
 
-    it('leaves row colour to the stylesheet rather than inline styles', () => {
+    it('leaves row color to the stylesheet rather than inline styles', () => {
       const element = badge(weatherConfig({ show_temp: true }), 'row');
       const icon = element.querySelector('ha-icon');
       const text = element.querySelector('.event-weather-text > span');
@@ -293,7 +293,7 @@ describe('weather presentation', () => {
       expect(icon?.getAttribute('style')).toBeNull();
     });
 
-    it('does not reintroduce inline styles for a configured colour', () => {
+    it('does not reintroduce inline styles for a configured color', () => {
       const config = weatherConfig({ show_temp: true });
       config.weather!.event!.color = 'rgb(1, 2, 3)';
       const element = badge(config, 'row');
@@ -302,10 +302,10 @@ describe('weather presentation', () => {
       expect(element.querySelector('.event-weather-text > span')?.getAttribute('style')).toBeNull();
     });
 
-    it('keeps the day header on the primary colour, whose neighbours it matches', () => {
+    it('keeps the day header on the primary color, whose neighbors it matches', () => {
       // Checked because the report asked whether the day header had inherited the same
       // assumption. It had not: the weekday, day number and month all default to the
-      // primary colour, so the badge beside them is right to.
+      // primary color, so the badge beside them is right to.
       const config = buildConfig();
       config.weather = { entity: 'weather.home', position: 'date', date: { show_high_temp: true } };
 

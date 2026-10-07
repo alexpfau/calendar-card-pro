@@ -110,7 +110,7 @@ function eventContents(container: ParentNode): string[] {
  * the list view has a newline. That is very nearly the equivalence `list-dom.test.ts`'s
  * serializer already applies (`>\s+<`), widened by one character to `>\s*<` so that "no
  * whitespace between two tags" and "some whitespace between two tags" also compare equal,
- * which is the precise artefact the fold creates. Whitespace *adjacent to text* still
+ * which is the precise artifact the fold creates. Whitespace *adjacent to text* still
  * survives verbatim, which is the half that is load-bearing.
  *
  * The countdown is the second placement folded here, and it is folded the other way
@@ -459,7 +459,7 @@ describe('column view DOM', () => {
   });
 
   describe('per-view overrides', () => {
-    it('honours a column override of show_empty_days', () => {
+    it('honors a column override of show_empty_days', () => {
       // The override plumbing's only end-to-end proof. `show_empty_days` is resolved
       // inside `groupEventsByDay`, so an override that never reaches it validates
       // clean and does nothing — the silent no-op spec E-1 forbids. Asserting on the
@@ -523,7 +523,7 @@ describe('column view DOM', () => {
       const baseline = EventUtils.groupEventsByDay(EVENTS, uncapped, false, 'en', 'column');
 
       // The fixture's first day alone carries more than the budget, so the list drops
-      // every later day — the exact behaviour that deletes columns in a grid.
+      // every later day — the exact behavior that deletes columns in a grid.
       expect(listDays.length).toBeLessThan(columnDays.length);
       expect(columnDays.length).toBe(3);
 
@@ -552,7 +552,7 @@ describe('column view DOM', () => {
       // ⚠️ This assertion is the *reverse* of the one that shipped here first, which held
       // that A3-D ruled the per-entity cap column-safe because rebasing it per column would
       // multiply it by `days_to_show`. That reasoning is sound for the rebase, but it was
-      // read as licence to leave the cap live, and the version of this test that encoded it
+      // read as license to leave the cap live, and the version of this test that encoded it
       // carried its own refutation in a warning comment: the bucket key is
       // `entityId__configIdx` — one budget per entity for the whole *card*, not per day — so
       // on a single-entity card a cap of 1 leaves one event in the entire grid and collapses
@@ -741,7 +741,7 @@ describe('column view DOM', () => {
       expect(container.querySelectorAll('.column-week-number').length).toBeGreaterThan(0);
     });
 
-    it('centres the rule in the gutter for any spacing and width', () => {
+    it('centers the rule in the gutter for any spacing and width', () => {
       const container = renderColumnContainer(
         EVENTS,
         spanConfig({ day_spacing: '20px', day_separator_width: '4px' }),
@@ -749,13 +749,13 @@ describe('column view DOM', () => {
 
       const rule = requireElement<HTMLElement>(container, '.column-separator');
 
-      // Half the gutter plus half the rule pulls a 4px line to sit centred across the
+      // Half the gutter plus half the rule pulls a 4px line to sit centered across the
       // 20px gap. Asserted as the expression rather than a computed number because
       // day_spacing can be any CSS length, including one the browser resolves.
       expect(rule.style.marginInlineStart).toBe('calc(-0.5 * (20px + 4px))');
     });
 
-    it('honours a separator width overridden inside the column block', () => {
+    it('honors a separator width overridden inside the column block', () => {
       const config = spanConfig({ day_separator_width: '0px' });
       config.column = { day_separator_width: '2px' };
 
@@ -859,7 +859,7 @@ describe('column view DOM', () => {
     it('renders no rule by default', () => {
       // B2 originally ruled this visible, on the argument that the element exists only
       // in column view and is structural rather than decorative. Live review overturned
-      // that: beside the coloured accent bars on each event, a full-width rule reads as
+      // that: beside the colored accent bars on each event, a full-width rule reads as
       // a table border. B2 was formally amended and the rule now ships off, in line
       // with every list separator.
       //
@@ -898,7 +898,7 @@ describe('column view DOM', () => {
       );
     });
 
-    it('falls back to the default colour when only a width is set', () => {
+    it('falls back to the default color when only a width is set', () => {
       const config = buildConfig();
       config.column = { day_header_separator_width: '1px' };
 
@@ -909,7 +909,7 @@ describe('column view DOM', () => {
       expect(style).toContain(COLUMN_DEFAULTS.day_header_separator_color);
     });
 
-    it('honours a configured colour', () => {
+    it('honors a configured color', () => {
       const config = buildConfig();
       config.column = {
         day_header_separator_width: '1px',
@@ -939,7 +939,7 @@ describe('column view DOM', () => {
       expect(style.replace(/\s/g, '')).toContain('--calendar-card-column-header-gap:8px');
     });
 
-    it('honours a configured gap', () => {
+    it('honors a configured gap', () => {
       const config = buildConfig();
       config.column = { day_header_gap: '20px' };
 
@@ -1163,7 +1163,7 @@ describe('column view DOM', () => {
       }
     });
 
-    it('carries the accent colour on the event wrapper', () => {
+    it('carries the accent color on the event wrapper', () => {
       const container = renderColumnContainer(SINGLE_EVENT, buildConfig());
       const style = requireElement(container, '.event').getAttribute('style') ?? '';
 
@@ -1223,7 +1223,7 @@ describe('column view DOM', () => {
     });
 
     /**
-     * A per-entity `split_multiday_events` is honoured in column view exactly as in list
+     * A per-entity `split_multiday_events` is honored in column view exactly as in list
      * view, and these two tests are a matched pair: the same event, the same opt-out, the
      * same outcome in both views.
      *
@@ -1251,7 +1251,7 @@ describe('column view DOM', () => {
           : event,
       );
 
-    it('honours a per-entity opt-out, as list view always has', () => {
+    it('honors a per-entity opt-out, as list view always has', () => {
       const container = renderColumnContainer(optedOutOfSplitting(), buildConfig());
       const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
         column.textContent?.includes('Conference'),
@@ -1290,7 +1290,7 @@ describe('column view DOM', () => {
       }
     });
 
-    it('still honours a per-entity opt-out in list view', () => {
+    it('still honors a per-entity opt-out in list view', () => {
       // Top-level `true` so the opt-out is the only thing that can hold the event
       // together; with the default `false` the event would stay whole either way and
       // the test would pass without asserting anything.
@@ -1354,7 +1354,7 @@ describe('column view DOM', () => {
      *
      * The list view floats the indicator inside its date cell using
      * `today_indicator_position` as a percentage pair, which works because that cell is
-     * roughly 66px wide and centre-aligned -- 15% lands the dot in the margin beside
+     * roughly 66px wide and center-aligned -- 15% lands the dot in the margin beside
      * the date. A column header is the full track width with its date flush left, so
      * the same 15% resolves *into* the day number. Column view therefore drops
      * percentage positioning and emits the indicator as a leading item on the weekday

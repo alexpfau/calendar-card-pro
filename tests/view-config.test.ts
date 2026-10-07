@@ -62,7 +62,7 @@ const Logger = await import('../src/utils/logger');
 const warnMock = vi.mocked(Logger.warn);
 
 describe('resolveViewOption — E4, both directions', () => {
-  it('honours an override of false against a top-level true', () => {
+  it('honors an override of false against a top-level true', () => {
     const config = buildConfig({
       show_location: true,
       column: { show_location: false },
@@ -74,7 +74,7 @@ describe('resolveViewOption — E4, both directions', () => {
 
   // The mirror. `!== false` passes the case above and fails this one, which is the
   // whole reason both are here.
-  it('honours an override of true against a top-level false', () => {
+  it('honors an override of true against a top-level false', () => {
     const config = buildConfig({
       show_location: false,
       column: { show_location: true },
@@ -136,12 +136,12 @@ describe('resolveViewOption — inheritance', () => {
 describe('resolveViewOption — falsy values are values', () => {
   // Each of these is falsy, so any `||`, `??`-on-falsy or truthiness check would
   // discard it and inherit the top-level value instead.
-  it('honours an override of false', () => {
+  it('honors an override of false', () => {
     const config = buildConfig({ show_time: true, column: { show_time: false } });
     expect(resolveViewOption(config, 'show_time', 'column')).toBe(false);
   });
 
-  it('honours an override of 0', () => {
+  it('honors an override of 0', () => {
     const config = buildConfig({
       description_max_lines: 3,
       column: { description_max_lines: 0 },
@@ -149,7 +149,7 @@ describe('resolveViewOption — falsy values are values', () => {
     expect(resolveViewOption(config, 'description_max_lines', 'column')).toBe(0);
   });
 
-  it('honours an override of an empty string', () => {
+  it('honors an override of an empty string', () => {
     const config = buildConfig({ empty_day_text: 'Nothing on', column: { empty_day_text: '' } });
     expect(resolveViewOption(config, 'empty_day_text', 'column')).toBe('');
   });
@@ -204,7 +204,7 @@ describe('resolveEffectiveConfig', () => {
    * The parity contract.
    *
    * Two resolvers now answer the same question, and the bulk one is reached by far
-   * the more travelled path. Asserting them equal over every declared key means a key
+   * the more traveled path. Asserting them equal over every declared key means a key
    * added to `COLUMN_OVERRIDE_KEYS` is covered the moment it is declared, and neither
    * resolver can be changed in isolation without this failing.
    */
@@ -404,7 +404,7 @@ describe('resolveEffectiveConfig', () => {
     it('pins every grid divergent default by value, in both directions', () => {
       // 🚨 A test that walks this table cannot notice a row leaving it — the loop above
       // runs one fewer time and stays green — and it turns out it cannot notice one
-      // ARRIVING either. Five colour rows were added here in the same afternoon as this
+      // ARRIVING either. Five color rows were added here in the same afternoon as this
       // pin, with every gate passing and nothing in the suite recording that grid now
       // resolves five options the card level never asked it to. Both directions are
       // silent, because this table changes what the card *tells* the user rather than
@@ -989,7 +989,7 @@ describe('column view config surface', () => {
    *
    * `today_indicator_color` shipped absent from the override list while `today_indicator`
    * and `_size` were both present, so a card could override whether the dot appears and
-   * how large it is but not what colour it is. Nothing failed -- an override list is a
+   * how large it is but not what color it is. Nothing failed -- an override list is a
    * flat array, and a missing entry is indistinguishable from a deliberate exclusion
    * until someone tries to use it. Asserting the cluster as a unit means the next key
    * added to it cannot be half-wired the same way.
@@ -1155,7 +1155,7 @@ describe('computeColumnThresholdPx', () => {
     // negative value and renders no gutter. Subtracting it from the threshold would
     // reserve space the layout is not saving and select columns that cannot fit: this
     // configuration thresholds at 252px unguarded, so a 280px card renders three 83px
-    // columns against the 140px floor it was told to honour. Tracks are `minmax(0, 1fr)`,
+    // columns against the 140px floor it was told to honor. Tracks are `minmax(0, 1fr)`,
     // so the arithmetic is the only thing holding that floor.
     const config = buildConfig();
     config.column = { day_spacing: '-100px', min_day_width: 140 };
@@ -1178,7 +1178,7 @@ describe('computeColumnThresholdPx', () => {
 });
 
 describe('resolveEffectiveView', () => {
-  // The Schmitt trigger is centred on the threshold, so neither edge is the threshold
+  // The Schmitt trigger is centered on the threshold, so neither edge is the threshold
   // itself. Deriving both from the exported constant rather than hardcoding 508/476
   // (the default threshold is now 472; 492 below is a deliberate round test input)
   // means widening the band cannot leave these tests asserting a stale geometry while
@@ -1225,18 +1225,18 @@ describe('resolveEffectiveView', () => {
     expect(resolveEffectiveView('column', 200, THRESHOLD, 'column')).toBe('list');
   });
 
-  it('centres the band on the threshold rather than hanging it below', () => {
+  it('centers the band on the threshold rather than hanging it below', () => {
     // The band used to run from the threshold down to threshold - 32, so a card had to
     // reach the *full* computed threshold to enter column view but only lost it a full
     // band later. Widening a window therefore felt far stickier than narrowing it, which
-    // is the behaviour this centring exists to fix. Assert both edges relative to the
+    // is the behavior this centering exists to fix. Assert both edges relative to the
     // threshold so a regression to the asymmetric form fails here rather than in a
     // subjective "feels wrong" report.
     expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('list');
     expect(resolveEffectiveView('column', ENTER, THRESHOLD, 'list')).toBe('column');
     expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'column')).toBe('column');
     expect(resolveEffectiveView('column', LEAVE - 1, THRESHOLD, 'column')).toBe('list');
-    // The total width of the band is what protects against oscillation, and centring
+    // The total width of the band is what protects against oscillation, and centering
     // must not have changed it.
     expect(ENTER - LEAVE).toBe(VIEW_SWITCH_HYSTERESIS_PX);
   });
@@ -1263,7 +1263,7 @@ describe('resolveViewOnMeasurement', () => {
   it('applies the hysteresis band once a measurement has confirmed the view', () => {
     // Same width, same rendered view, different history: now the band is earned. The
     // width has to sit *inside* the band for the contrast to mean anything, which the
-    // original 464 no longer does now that the band is centred -- 464 is below the
+    // original 464 no longer does now that the band is centered -- 464 is below the
     // leaving edge, so it would resolve to a list either way and the test would pass
     // for the wrong reason.
     const insideBand = THRESHOLD - 1;
@@ -1378,7 +1378,7 @@ describe('resolveMinDaysFallback', () => {
     expect(resolveMinDaysFallback(buildConfig())).toBe('list');
   });
 
-  it('honours an explicit cramp', () => {
+  it('honors an explicit cramp', () => {
     const config = buildConfig();
     config.column = { min_days_fallback: 'cramp' };
 
@@ -1389,7 +1389,7 @@ describe('resolveMinDaysFallback', () => {
     // The trap this function exists to close. `normalizeColumnValue` has no notion of
     // an enum, so a typo arrives here as a plain string -- and a naive
     // `value === 'list' ? 'list' : 'cramp'` would read every typo as an instruction to
-    // cramp, which is the behaviour the user did not ask for.
+    // cramp, which is the behavior the user did not ask for.
     const config = buildConfig();
 
     for (const value of ['lst', 'List', 'columns', '', 'true']) {
@@ -1404,7 +1404,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
   //
   // min_days_to_show defaults to days_to_show, at which the staircase has exactly one
   // step and must be indistinguishable from the boundary it replaces. Anything else is
-  // a silent behavioural change shipped to every existing column-view user, none of
+  // a silent behavioral change shipped to every existing column-view user, none of
   // whom asked for the feature.
   //
   // Swept rather than spot-checked, and swept across both hysteresis states, because
@@ -1541,7 +1541,7 @@ describe('resolveColumnFit — reduction', () => {
     const config = build({ min_days_fallback: 'cramp' });
 
     // Columns now narrower than min_day_width, which is the entire point: the
-    // minimum is a judgement about legibility and the user is entitled to overrule it.
+    // minimum is a judgment about legibility and the user is entitled to overrule it.
     expect(resolveColumnFit('column', config, 471, null)).toEqual({ view: 'column', columns: 3 });
     expect(resolveColumnFit('column', config, 200, null)).toEqual({ view: 'column', columns: 3 });
     expect(resolveColumnFit('column', config, 1, null)).toEqual({ view: 'column', columns: 3 });
@@ -1571,7 +1571,7 @@ describe('resolveColumnFit — reduction', () => {
 
   it('keeps adjacent hysteresis bands from overlapping at a pathological width floor', () => {
     // With min_day_width at 12 and a 10px gutter the boundaries sit 22px apart,
-    // so an unclamped +/-16 band would reach past its neighbour and the trigger would
+    // so an unclamped +/-16 band would reach past its neighbor and the trigger would
     // oscillate rather than damp. The clamp caps the half-band at (22 - 1) / 2.
     //
     // Swept over every width in the dense region, asserting the only property that
@@ -1767,7 +1767,7 @@ describe('resolveColumnFit — grid reduction', () => {
   });
 
   // Both values are Apple's, and both are load-bearing for how the grid reads: one rule
-  // per hour means every rule on the card is a labelled one, and 48px is enough for two
+  // per hour means every rule on the card is a labeled one, and 48px is enough for two
   // stacked lines of event text. Pinned by value because nothing else would notice either
   // of them moving — a finer ruling and a shorter hour both still render.
   it('rules the axis once an hour, at an hour height that seats two lines of text', () => {
