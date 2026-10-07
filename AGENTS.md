@@ -174,13 +174,13 @@ Those nine are every npm gate CI runs, so a green local run should mean a green 
 **provided you run them on the Node version in `.nvmrc`.** CI reads that file, and results
 that pass through zlib or npm are not portable across majors. A gate reconciling the gzipped
 transfer sizes documented in `docs/guide/installation.md` was written and proven green on
-Node 25, then failed in CI on Node 22: Node 24+ ships zlib-ng and Node 22 ships classic
-zlib, so identical bundle bytes compressed to 57,860 and 58,448 — a ~1% spread that happened
-to straddle a kilobyte. Nothing was wrong with the bundle or the figure. `nvm use` first, or
-run the gate under the pin without switching:
+Node 25, then failed in CI on Node 22, the pin at the time: the two runtimes compress with
+different zlib builds, so identical bundle bytes compressed to 57,860 and 58,448 — a ~1%
+spread that happened to straddle a kilobyte. Nothing was wrong with the bundle or the figure.
+`nvm use` first, or run the gate under the pin without switching:
 
 ```bash
-npx -y -p node@22 node scripts/check-bundle.mjs
+npx -y -p node@24 node scripts/check-bundle.mjs
 ```
 
 This is the same class of failure as the `.nvmrc` / `.node-version` drift described under
@@ -189,15 +189,17 @@ disagreed, here the developer disagreed with both. Byte counts are reproducible 
 asserted exactly; anything a compressor or a package manager produces needs either the
 pinned runtime or a tolerance.
 
-**Matching the major is not always enough.** `.nvmrc` says `22`, and `setup-node` resolves
-that to the newest 22.x at run time — so a gate whose oracle is data bundled _inside_ Node
-can disagree between two runtimes that are both honestly "Node 22".
-`tests/first-day-of-week-locale.test.ts` reads week-start data from the runtime's own CLDR
+**Matching the major is not always enough.** `.nvmrc` pins only the major, and `setup-node`
+resolves it to the newest patch at run time — so a gate whose oracle is data bundled _inside_
+Node can disagree between two runtimes that are both honestly on the pinned major. It
+happened on Node 22, the pin before Node 24. `tests/first-day-of-week-locale.test.ts` reads
+week-start data from the runtime's own CLDR
 via `Intl.Locale`, and CLDR 48 moved Iceland from Monday to Sunday: Node 22.18.0 ships CLDR
 47 and fails, Node 22.23.2 ships CLDR 48 and passes, on identical source. A reviewer running
 22.18.0 reported the suite red on a tip where CI was green and proposed deleting the correct
 `is: 0` entry — a change that would have turned CI red and shipped the wrong week start to
-Icelandic users. The command above is written as `node@22`, not `node@22.18.0`, precisely
+Icelandic users. The command above is written as `node@24`, not an exact patch such as
+`node@24.21.0`, precisely
 because the floating form resolves the same way CI does; pinning an exact patch reintroduces
 the problem it looks like it is solving. When a local gate disagrees with a green CI run on
 the same commit, suspect the runtime before the code.
@@ -832,7 +834,7 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    `.packages[""].version`:
 
    ```bash
-   npx npm@10.9.2 install --package-lock-only
+   npx npm@11 install --package-lock-only
    ```
 
    `npm ci` validates dependencies but never the root version, and exits 0 on a mismatch,
@@ -1073,12 +1075,15 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   lockfile refresh by hand, on the npm the docs build uses:
 
   ```bash
-  npx npm@10.9.2 audit fix --package-lock-only   # never --force
+  npx npm@11 audit fix --package-lock-only   # never --force
   ```
 
-- **Dependabot rewrites `package-lock.json` with its own npm.** CI's `npm ci` on the `.nvmrc`
-  runtime is what proves the result still installs on the docs build — see _Docs site
-  deployment_.
+- **Dependabot rewrites `package-lock.json` with npm 11**, the major it picks for a v3
+  lockfile, which is why the toolchain moved from Node 22 to Node 24. Its first PR, written
+  by npm 11, dropped vitest's nested `esbuild` tree and then failed `npm ci` on Node 22's
+  npm 10 with the #404 error. If `.nvmrc` and Dependabot's default npm ever land on different
+  majors again, pin Dependabot with `"packageManager": "npm@<version>"` in `package.json`,
+  which it installs through corepack, rather than repairing its PRs by hand.
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
@@ -1121,11 +1126,11 @@ and serves `docs/.vitepress/dist` as static assets.
 
   ```bash
   mkdir /tmp/lockcheck && cp package.json package-lock.json /tmp/lockcheck/
-  cd /tmp/lockcheck && npx npm@10.9.2 ci --dry-run
+  cd /tmp/lockcheck && npx npm@11 ci --dry-run
   ```
 
   A non-zero exit here means the next merge to `main` will fail to deploy. Fix it with
-  `npx npm@10.9.2 install --package-lock-only` and commit the result.
+  `npx npm@11 install --package-lock-only` and commit the result.
 
 - A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
   separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by

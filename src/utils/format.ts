@@ -625,8 +625,8 @@ const WEEKDAY_NAMES = [
  *
  * This is a table rather than a call into `Intl.Locale.prototype.getWeekInfo` for three
  * reasons: that API is ES2020+ and the project targets ES2017, its availability varies by
- * engine — Node 22, the version this project pins, exposes only the older `weekInfo`
- * getter while Node 25 also has the `getWeekInfo()` method, and browsers differ the same
+ * engine — Node 22 exposes only the older `weekInfo` getter while Node 24 and later also
+ * have the `getWeekInfo()` method, and browsers differ the same
  * way — and the input domain here is closed, because `hass.locale.language` is always one
  * of the languages Home Assistant ships. Home Assistant itself hits this and falls back to
  * a third-party package. `tests/first-day-of-week-locale.test.ts` pins every entry
