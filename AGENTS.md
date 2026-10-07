@@ -1098,6 +1098,10 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
   API report it as protected, but default setup did not scan a push to it.
+- **One CodeQL alert is dismissed rather than fixed**: js/incomplete-multi-character-sanitization
+  on `HTML_MARKUP` in `src/utils/format.ts`. The function is not a sanitizer and its output
+  only ever reaches a Lit text binding; the docblock above the pattern says why, and why the
+  obvious fix would be a regression. Do not reopen it without reading that first.
 
 ## Docs site deployment
 
