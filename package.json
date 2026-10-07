@@ -59,8 +59,9 @@
     "rollup": "^4.64.2",
     "rollup-plugin-esbuild": "^6.2.1",
     "typescript": "^6.0.3",
+    "vite": "^8.3.3",
     "vitepress": "^1.6.4",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.3"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
