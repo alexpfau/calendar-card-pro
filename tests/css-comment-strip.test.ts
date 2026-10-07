@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(98_200);
-    // The font sizes moved the ceiling last, from 95,800: the notes on why the label glyphs,
+    expect(saved).toBeLessThan(100_000);
+    // The nested font sizes moved the ceiling last, from 98,200: the notes on why the title,
+    // the countdown, the grid block and the banner no longer declare a font size their
+    // ancestor already sets, and why the weather text's size is scoped to the summary row.
+    // The reading went 97,381 to 99,191, taken with stripComments after the last comment in
+    // the change was written, and the ceiling keeps the slack it had.
+    //
+    // The font sizes moved it before that, from 95,800: the notes on why the label glyphs,
     // their hanging indent, the week pill, the date's line heights and the own-row progress
     // bar now size in em or 1 instead of multiplying a font-size option, and why the week row
     // has no height. The reading went 95,001 to 97,381, taken with stripComments after the

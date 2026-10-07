@@ -343,9 +343,12 @@ describe('card stylesheet', () => {
     });
 
     it('the strut and the title cannot drift apart', () => {
-      // Asserted as an invariant rather than as two literals, so changing the
-      // title's size or leading has to move both or fail here.
-      expect(declared('.summary', 'font-size')).toBe(declared('.event-title', 'font-size'));
+      // The title declares no font size of its own and inherits the one .summary sets, so
+      // the two cannot differ at any value. Declaring the same property on both kept them
+      // equal only at px sizes: a relative one applied twice, and 1.5em drew the title at
+      // 2.25x inside a strut at 1.5x. The leading is still asserted as an invariant rather
+      // than as two literals, so changing it has to move both or fail here.
+      expect(declared('.event-title', 'font-size')).toBe('');
       expect(declared('.summary', 'line-height')).toBe(declared('.event-title', 'line-height'));
     });
 
