@@ -1132,6 +1132,14 @@ and serves `docs/.vitepress/dist` as static assets.
   A non-zero exit here means the next merge to `main` will fail to deploy. Fix it with
   `npx npm@11 install --package-lock-only` and commit the result.
 
+- **`.npmrc` pins the public registry, and must never hold anything else.** npm writes the
+  registry it resolved from into every `resolved` URL, so a machine-wide `registry=` setting
+  such as a corporate mirror leaks its host into the lockfile. From there it reaches CI, the
+  docs build and every contributor's install. That had happened to 208 entries before the
+  file existed. Project config overrides the user's `~/.npmrc`, which is the point. The file
+  is committed, so never put a token or any other credential in it; per-user auth belongs
+  in `~/.npmrc`.
+
 - A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
   separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by
   fetching the live page, not by reading check names:
