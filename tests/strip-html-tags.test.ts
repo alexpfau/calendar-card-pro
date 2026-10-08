@@ -270,6 +270,35 @@ describe('markup, which must strip exactly as it did before #576', () => {
   });
 });
 
+describe('the output is plain text, not markup', () => {
+  // 🚨 **`stripHtmlTags` is not a sanitizer, and these rows pin why it does not need to
+  // be.** CodeQL's js/incomplete-multi-character-sanitization flags `HTML_MARKUP` because
+  // one pass can leave a `<script` or a `<!--` behind. That is true, and it is harmless:
+  // the decode step turns `&lt;script&gt;` straight back into `<script>` on purpose, so no
+  // regex in front of it could make the result safe to parse as HTML. Nothing parses it.
+  // The description reaches the card through a Lit text binding, which `list-dom.test.ts`
+  // pins in "renders a description as text, never as markup".
+  //
+  // The `<script>` and `<b>` rows are also what stop the obvious "fix". Re-running the
+  // regex until nothing changes satisfies the query and fails both — it turns `a <<b>b> c`
+  // into `a  c` where a browser shows `a <b> c`. The comment row survives that loop and is
+  // here for fidelity alone. Every expected value was measured in Chromium 154 against
+  // `div.innerHTML = input; div.textContent`, and the single pass agrees with all of them.
+  it('decodes escaped markup back into characters, by design', () => {
+    expect(renderedInBrowser('&lt;script&gt;alert(1)&lt;/script&gt;')).toBe(
+      '<script>alert(1)</script>',
+    );
+  });
+
+  it.each([
+    ['a script tag split around another', 'a <<script>script> b', 'a <script> b'],
+    ['a comment opener split around a comment', 'a <<!-- x -->!-- b', 'a <!-- b'],
+    ['a tag split around another', 'a <<b>b> c', 'a <b> c'],
+  ])('leaves what a browser leaves for %s', (_name, input, expected) => {
+    expect(renderedInBrowser(input)).toBe(expected);
+  });
+});
+
 describe('under the DOM vitest actually provides', () => {
   // 🚨 These pass with the regex deleted, and are kept anyway rather than mistaken for
   // coverage. happy-dom's textarea parses the markup, so it removes tags the regex would
