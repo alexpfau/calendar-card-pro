@@ -279,12 +279,12 @@ today_indicator: /local/custom-indicator.png # Image path
 today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
-today_indicator_position: "15% 50%" # Centered left in the date column (default)
-today_indicator_position: "15% 15%" # Top left
-today_indicator_position: "85% 15%" # Top right
+today_indicator_position: '15% 50%' # Centered left in the date column (default)
+today_indicator_position: '15% 15%' # Top left
+today_indicator_position: '85% 15%' # Top right
 
 # Restyle the indicator
-today_indicator_color: "#03a9f4" # Color — applies to the dot and to MDI icons (default)
+today_indicator_color: '#03a9f4' # Color — applies to the dot and to MDI icons (default)
 today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
 ```
 

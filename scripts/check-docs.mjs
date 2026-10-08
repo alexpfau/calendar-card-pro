@@ -50,6 +50,18 @@ const error = (msg) => errors.push(msg);
 const warn = (msg) => warnings.push(msg);
 
 /**
+ * Escapes a literal for use inside a regular expression.
+ *
+ * Every metacharacter, backslash included — the same body as `check-i18n.mjs`. This
+ * script used to escape only `.`, which is complete for an `X.Y.Z` version and silently
+ * wrong for anything carrying `+` or `(`: semver build metadata such as `4.1.0+1` became
+ * the pattern `4\.1\.0+1`, which cannot match its own heading.
+ */
+function escapeForRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Guard against a regex that matches nothing. Every extraction below runs against a
  * file that is known to contain the thing being extracted, so an empty result means
  * the source was restructured and this script has gone blind — not that all is well.
@@ -1744,16 +1756,14 @@ function checkReleaseVersion() {
   const notes = readFileSync(join(DOCS_DIR, 'RELEASE_NOTES.md'), 'utf8');
   // Anchored to the exact version: a patch release needs its own notes section, which
   // is also what the tag-time extractor looks for.
-  if (!new RegExp(`^# Calendar Card Pro v${version.replace(/\./g, '\\.')}\\b`, 'm').test(notes)) {
+  if (!new RegExp(`^# Calendar Card Pro v${escapeForRegExp(version)}\\b`, 'm').test(notes)) {
     error(
       `docs/RELEASE_NOTES.md has no "# Calendar Card Pro v${version}" section, but package.json ships ${version}. The release workflow extracts this section by exact version and fails without it.`,
     );
   }
 
   const whatsNew = readFileSync(join(DOCS_DIR, 'guide/whats-new.md'), 'utf8');
-  if (
-    !new RegExp(`^## (?:Latest Release: )?v${line.replace('.', '\\.')}\\s*$`, 'm').test(whatsNew)
-  ) {
+  if (!new RegExp(`^## (?:Latest Release: )?v${escapeForRegExp(line)}\\s*$`, 'm').test(whatsNew)) {
     error(
       `docs/guide/whats-new.md has no "## v${line}" entry, but package.json ships ${version}. The archive must cover every minor line.`,
     );
@@ -1769,7 +1779,7 @@ function checkReleaseVersion() {
     const rest = readme.slice(start + 1);
     const next = rest.search(/^## /m);
     const section = next === -1 ? rest : rest.slice(0, next);
-    if (!new RegExp(`v${line.replace('.', '\\.')}\\b`).test(section)) {
+    if (!new RegExp(`v${escapeForRegExp(line)}\\b`).test(section)) {
       error(
         `README.md's What's New section does not mention v${line}, but package.json ships ${version}. The landing page would advertise the previous release.`,
       );
@@ -1813,7 +1823,7 @@ function checkGateLists() {
     // lines, so matching only `run: <command>` cannot see them: a gate added as
     // `run: |` stayed invisible here while the three lists stayed silently short.
     // Read the block's own lines, but only where the command opens one — the
-    // pinning step is a shell script whose `npx npm@10.9.2 install` sits inside an
+    // pinning step is a shell script whose `npx npm@11 install` sits inside an
     // echoed error string, and lifting that would demand contributors run it.
     const opener = lines[index].match(/^(\s*)run:\s*[|>][-+]?\d*\s*$/);
     if (!opener) continue;
@@ -2774,7 +2784,14 @@ function checkAbsoluteSiteLinks(docs) {
   // backtick unencoded in a URI, so no genuine target can contain one. Widening the class
   // to what a URL can actually hold is what makes this safe by construction, rather than
   // patching the two forms that happened to be reported.
-  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]<>\`]*)`, 'g');
+  //
+  // A literal, not a pattern built from SITE. Built from the string, CodeQL followed the
+  // hostname into `new RegExp` and could not see the runtime escape, so it reported an
+  // unescaped `.` (js/incomplete-hostname-regexp); a literal is analyzed as written. The
+  // two can now drift apart, and the guard below is what catches it: a literal that no
+  // longer names the site the docs link to stops matching, and fewer than 20 matches is
+  // fatal.
+  const pattern = /https:\/\/calendar-card-pro\.alexpfau\.com([^)\s"'\]<>`]*)/g;
   let checked = 0;
 
   for (const file of surfaces) {

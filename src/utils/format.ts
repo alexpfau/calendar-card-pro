@@ -422,6 +422,21 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  *   description — `feeling </3 and >:( today` renders as `feeling :( today`. Neither is a
  *   shortcut: both are what a browser does with the same text, and both are what released
  *   v4.0.0 did. `<3` is unaffected, because `3` opens nothing.
+ *
+ * 🚨 **This is not a sanitizer, and CodeQL's js/incomplete-multi-character-sanitization
+ * alert on it is dismissed as a false positive on that basis.** The query is right that one
+ * pass can leave a `<script` behind — `a <<script>script> b` does, and so does a browser.
+ * It is wrong that this matters. The `<textarea>` step decodes `&lt;script&gt;` straight
+ * back into `<script>` on purpose, so the output is plain text by contract and no pattern
+ * here could make it safe to parse as HTML. Nothing parses it: the textarea is RCDATA, and
+ * the description reaches the card through a Lit text binding in `renderEventContent`.
+ *
+ * Do not "fix" the alert by re-running the regex until nothing changes. That satisfies the
+ * query and turns `a <<b>b> c` into `a  c`, where a browser shows `a <b> c`. If a
+ * description is ever rendered as HTML, it needs a real sanitizer at that sink rather than
+ * a stricter pattern here. `tests/strip-html-tags.test.ts` pins the plain-text contract and
+ * `tests/list-dom.test.ts` pins the text binding; each goes red under the change it guards
+ * against.
  */
 const HTML_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g;
 
@@ -625,8 +640,8 @@ const WEEKDAY_NAMES = [
  *
  * This is a table rather than a call into `Intl.Locale.prototype.getWeekInfo` for three
  * reasons: that API is ES2020+ and the project targets ES2017, its availability varies by
- * engine — Node 22, the version this project pins, exposes only the older `weekInfo`
- * getter while Node 25 also has the `getWeekInfo()` method, and browsers differ the same
+ * engine — Node 22 exposes only the older `weekInfo` getter while Node 24 and later also
+ * have the `getWeekInfo()` method, and browsers differ the same
  * way — and the input domain here is closed, because `hass.locale.language` is always one
  * of the languages Home Assistant ships. Home Assistant itself hits this and falls back to
  * a third-party package. `tests/first-day-of-week-locale.test.ts` pins every entry

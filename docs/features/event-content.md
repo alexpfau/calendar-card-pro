@@ -256,7 +256,7 @@ remove_location_country: false
 remove_location_country: true
 
 # Option 3: Specify exactly which countries to remove (perfect for international users)
-remove_location_country: "USA|United States|Canada"
+remove_location_country: 'USA|United States|Canada'
 ```
 
 These options provide significant flexibility:

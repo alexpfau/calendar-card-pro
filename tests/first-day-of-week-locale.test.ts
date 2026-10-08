@@ -91,10 +91,10 @@ const HA_LANGUAGES = [
  * Read CLDR's first day of week straight from the runtime, as the day number this card
  * uses (0 = Sunday). CLDR numbers days 1 = Monday .. 7 = Sunday, so `% 7` maps Sunday to 0.
  *
- * Two spellings exist and the project's own runtimes disagree about which: Node 22 — the
- * version CI and the docs deploy are pinned to — exposes only the `weekInfo` getter, while
- * Node 25 also has the `getWeekInfo()` method. That split is exactly why the card ships a
- * table instead of calling this at runtime.
+ * Two spellings exist and runtimes disagree about which: Node 22 exposes only the
+ * `weekInfo` getter, while Node 24 — the version CI and the docs deploy are pinned to — also
+ * has the `getWeekInfo()` method. That split is exactly why the card ships a table instead
+ * of calling this at runtime.
  */
 function cldrFirstDay(tag: string): number | undefined {
   const locale = new Intl.Locale(tag) as unknown as {
@@ -109,24 +109,26 @@ function cldrFirstDay(tag: string): number | undefined {
  * The runtime's own CLDR and ICU versions, named in every failure message below.
  *
  * The oracle above is not a fixture — it is data that ships inside whatever Node is running,
- * and `.nvmrc` pins only the major (`22`), so `actions/setup-node` resolves the newest 22.x
- * at run time. Those patch releases do not agree: 22.18.0 carries CLDR 47, where Iceland
- * starts the week on Monday, and 22.23.2 carries CLDR 48, where it starts on Sunday. The
- * same commit therefore passes or fails depending on which Node 22 you happen to have.
+ * and `.nvmrc` pins only the major, so `actions/setup-node` resolves the newest patch at run
+ * time. Those patch releases do not agree: on Node 22, the pin before Node 24, 22.18.0
+ * carried CLDR 47, where Iceland starts the week on Monday, and 22.23.2 carried CLDR 48,
+ * where it starts on Sunday. The same commit therefore passed or failed depending on which
+ * Node 22 you happened to have.
  *
  * A bare `is: expected 1, got 0` reads like a table defect, and was diagnosed as one: a
  * reviewer on 22.18.0 reported this suite as red on a tip where CI was green, and proposed
  * deleting a correct entry — which would have inverted the failure onto the runtime that
  * actually gates the branch. Naming the version turns that ten-minute misread into a
- * one-line one, so run the gates on the *current* 22.x, not merely on some Node 22.
+ * one-line one, so run the gates on the newest patch of the pinned major, not merely on
+ * some release of it.
  */
 const RUNTIME_CLDR = `CLDR ${process.versions.cldr} / ICU ${process.versions.icu} (Node ${process.versions.node})`;
 
 /** Points at the runtime before the table, because that is where the fault usually is. */
 const CLDR_HINT =
   `runtime is ${RUNTIME_CLDR}. A mismatch here more often means this Node's CLDR differs ` +
-  `from the one CI resolves than that the table is wrong — reproduce on the newest 22.x ` +
-  `before changing FIRST_DAY_BY_LOCALE.`;
+  `from the one CI resolves than that the table is wrong — reproduce on the newest patch ` +
+  `of the .nvmrc major before changing FIRST_DAY_BY_LOCALE.`;
 
 describe('CLDR oracle', () => {
   it('is available and correct, so the table comparison below means something', () => {

@@ -5,6 +5,13 @@ on:
     tags:
       - 'v*'
 
+# The one workflow that writes, and only to contents: softprops/action-gh-release needs it
+# to create the draft release and upload its assets. Stated explicitly because the
+# repository's default token is read-write, which would otherwise grant every other scope
+# as well.
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest

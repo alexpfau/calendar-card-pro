@@ -71,13 +71,15 @@ export function renderMainCardStructure(
     >
       <ha-ripple></ha-ripple>
 
-      ${isLoading
-        ? html`
-            <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
-              <div class="spinner" aria-hidden="true"></div>
-            </div>
-          `
-        : nothing}
+      ${
+        isLoading
+          ? html`
+              <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                <div class="spinner" aria-hidden="true"></div>
+              </div>
+            `
+          : nothing
+      }
 
       <!-- Title is always rendered with the same structure, even if empty.
            A templated title holds the h1 open from first paint, so the header
@@ -88,9 +90,11 @@ export function renderMainCardStructure(
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
       <div class="header-container">
-        ${title || titlePending
-          ? html`<h1 class="card-header">${title}</h1>`
-          : html`<div class="card-header-placeholder"></div>`}
+        ${
+          title || titlePending
+            ? html`<h1 class="card-header">${title}</h1>`
+            : html`<div class="card-header-placeholder"></div>`
+        }
       </div>
 
       <!-- Content container is always present -->
@@ -500,6 +504,10 @@ function renderEvent(
     'past-event': presentation.isPastEvent,
   };
 
+  // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
+  // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
+  // extraction seams" in tests/list-dom.test.ts).
+  // prettier-ignore
   return html`
     <tr>
       ${index === 0
