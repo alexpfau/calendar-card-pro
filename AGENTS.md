@@ -129,11 +129,22 @@ card busts. It is strictly better than the content hashes it replaced, which nev
 responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
 itself changes, so a shared-module change reloaded the card and left a stale editor.
 
-🚨 **`import.meta` compiles to `{}` under esbuild `target: 'es2017'`.** That makes
+🚨 **`import.meta` compiles to `{}` under any esbuild target below `es2020`.** That makes
 `import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
-other gate — it typechecks, builds, lints and tests clean. `supported: { 'import-meta':
-true }` in the `esbuild()` options is what prevents it, and `check:bundle` asserts the
+other gate — it typechecks, builds, lints and tests clean. The target is `es2021` since
+v5, which keeps it as written, but it was `es2017` for years and survived only because
+`supported: { 'import-meta': true }` in the `esbuild()` options declared it. That flag
+stays as the guard against the target ever dropping again, and `check:bundle` asserts the
 result. Do not remove either.
+
+**Why `es2021` and no lower or higher.** The esbuild plugin transforms our own TypeScript
+only; Lit 3 arrives untransformed and already uses `??=`, so ES2021 is the bundle's real
+floor whatever the target says. Lowering our code beneath it cost bytes and bought no
+browser, and a higher target would let our own code raise the floor. `tsconfig.json`
+stays at `ES2017` on purpose: the plugin hands it to esbuild, which derives
+`useDefineForClassFields` from its `target`, and Lit's decorated properties need the
+assignment semantics an `ES2017` target implies. Raising that one is a different change
+with a different risk.
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
 and rewrites both output filenames _and_ the custom element names, so a dev build
