@@ -6,9 +6,7 @@ const MAX_OPERATORS = 8;
 
 /** Result of parsing a `start_date` expression. */
 export type ParseResult =
-  | { kind: 'ok'; date: Date }
-  | { kind: 'error'; message: string }
-  | { kind: 'nomatch' };
+  { kind: 'ok'; date: Date } | { kind: 'error'; message: string } | { kind: 'nomatch' };
 
 const WEEKDAYS: Readonly<Record<string, number>> = {
   sunday: 0,

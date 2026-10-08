@@ -564,10 +564,10 @@ describe('the grid hour axis follows the same clock convention as event times', 
     // Fifteen hours plus the band's own closing label.
     expect(labels).toHaveLength(16);
     expect(labels[0].style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe('0%');
-    expect(labels.at(-1)?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
+    expect(labels.slice(-1)[0]?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
       '100%',
     );
-    expect(labels.at(-2)?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
+    expect(labels.slice(-2)[0]?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
       '93.33333333333333%',
     );
   });
@@ -2003,7 +2003,7 @@ describe('the axis', () => {
         element.textContent?.trim(),
       );
 
-      expect(labels.at(-1)).toBe(expected);
+      expect(labels.slice(-1)[0]).toBe(expected);
     }
   });
 
@@ -2026,7 +2026,7 @@ describe('the axis', () => {
     const labels = Array.from(container.querySelectorAll<HTMLElement>('.grid-axis-label'));
 
     expect(labels[0].style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe('0%');
-    expect(labels.at(-1)?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
+    expect(labels.slice(-1)[0]?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
       '100%',
     );
   });
@@ -2146,7 +2146,7 @@ describe('the axis', () => {
     );
 
     expect(container.querySelectorAll('.grid-boundary-body-end')).toHaveLength(1);
-    expect(labels.at(-1)).toBe('21');
+    expect(labels.slice(-1)[0]).toBe('21');
     expect(labels).toHaveLength(15);
   });
 
@@ -2405,7 +2405,7 @@ describe('how often the axis is labeled', () => {
     const hourly = labelsAt(60, true, '20:00', '21:30');
 
     expect(half).toEqual(['20:00', '20:30', '21:00', '21:30']);
-    expect(half.at(-1)).toBe('21:30');
+    expect(half.slice(-1)[0]).toBe('21:30');
     expect(hourly).toEqual(['20', '21']);
     expect(hourly).not.toContain('21:30');
   });
@@ -2474,7 +2474,9 @@ describe('how often the axis is labeled', () => {
       [120, '0'],
       [180, '0'],
     ] as const) {
-      expect(labelsAt(cadence, true, '21:00', '24:00').at(-1), `cadence ${cadence}`).toBe(expected);
+      expect(labelsAt(cadence, true, '21:00', '24:00').slice(-1)[0], `cadence ${cadence}`).toBe(
+        expected,
+      );
     }
   });
 

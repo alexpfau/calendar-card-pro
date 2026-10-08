@@ -2,7 +2,8 @@ import { FlatCompat } from '@eslint/eslintrc';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import prettierPlugin from 'eslint-plugin-prettier';
-import importPlugin from 'eslint-plugin-import';
+import { importX } from 'eslint-plugin-import-x';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import prettierConfig from 'eslint-config-prettier';
 
 const compat = new FlatCompat();
@@ -25,7 +26,7 @@ export default [
     plugins: {
       '@typescript-eslint': tsPlugin,
       prettier: prettierPlugin,
-      import: importPlugin,
+      'import-x': importX,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
@@ -33,7 +34,7 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
-      'import/order': [
+      'import-x/order': [
         'warn',
         {
           groups: ['builtin', 'external', 'internal', ['sibling', 'parent'], 'index', 'unknown'],
@@ -54,12 +55,12 @@ export default [
       ],
     },
     settings: {
-      'import/resolver': {
-        typescript: {
+      'import-x/resolver-next': [
+        createTypeScriptImportResolver({
           project: './tsconfig.json',
           alwaysTryTypes: true,
-        },
-      },
+        }),
+      ],
     },
   },
   {
@@ -113,7 +114,7 @@ export default [
     },
     plugins: {
       prettier: prettierPlugin,
-      import: importPlugin,
+      'import-x': importX,
     },
     rules: {
       ...prettierConfig.rules,
@@ -124,7 +125,7 @@ export default [
       'no-unreachable': 'error',
       'no-constant-condition': 'error',
       'no-self-compare': 'error',
-      'import/order': [
+      'import-x/order': [
         'warn',
         {
           groups: ['builtin', 'external', 'internal', ['sibling', 'parent'], 'index', 'unknown'],

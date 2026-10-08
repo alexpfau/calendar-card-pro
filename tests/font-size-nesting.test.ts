@@ -727,8 +727,8 @@ function sizedText(runs: ReturnType<typeof analyzeAll>['runs']): Record<string, 
         const winner = own.get(node);
         if (!winner) continue;
         if (winner.reads.length > 0) {
-          const options = optionsOf(winner.reads).map(
-            (property) => OPTION_OF_PROPERTY.get(property)!,
+          const options = optionsOf(winner.reads).map((property) =>
+            OPTION_OF_PROPERTY.get(property)!,
           );
           sizedBy = (options.length > 0 ? options : winner.reads).join(' + ');
           break;

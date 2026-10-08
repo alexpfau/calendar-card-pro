@@ -730,7 +730,7 @@ describe('grid disclosure observer lifecycle', () => {
     const root = card.shadowRoot!;
     root.innerHTML = '<div class="grid-event"></div>';
     card.updated(new Map());
-    const gridObserver = RecordingResizeObserver.instances.at(-1)!;
+    const gridObserver = RecordingResizeObserver.instances.slice(-1)[0]!;
     expect(RecordingResizeObserver.instances).toHaveLength(2);
     expect(gridObserver.observed).toHaveLength(1);
 
@@ -774,7 +774,7 @@ describe('grid disclosure observer lifecycle', () => {
     `;
     card.updated(new Map());
 
-    const gridObserver = RecordingResizeObserver.instances.at(-1)!;
+    const gridObserver = RecordingResizeObserver.instances.slice(-1)[0]!;
     const labels = gridObserver.observed.map((el) => el.className);
     expect(labels).toContain('grid-event');
     expect(labels).toContain('summary');
@@ -861,7 +861,7 @@ describe('grid disclosure observer lifecycle', () => {
     });
 
     card.updated(new Map());
-    const observer = FiringResizeObserver.instances.at(-1)!;
+    const observer = FiringResizeObserver.instances.slice(-1)[0]!;
 
     let scheduleCount = 0;
     const originalSchedule = card._scheduleGridDisclosureSafety.bind(card);

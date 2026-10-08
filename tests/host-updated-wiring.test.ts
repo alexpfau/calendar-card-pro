@@ -161,7 +161,7 @@ describe('updated(): title template subscription lifecycle', () => {
     await mount(card);
 
     expect(subscriptions).toHaveLength(1);
-    expect(subscriptions[0].updates.at(-1)).toBe('{{ states("sensor.x") }}');
+    expect(subscriptions[0].updates.slice(-1)[0]).toBe('{{ states("sensor.x") }}');
   });
 
   it('reuses one subscription across updates instead of creating another', async () => {
@@ -177,7 +177,7 @@ describe('updated(): title template subscription lifecycle', () => {
     expect(subscriptions).toHaveLength(1);
     expect(card._titleSubscription).toBe(first);
     // Control: it is genuinely being kept in step, not merely kept alive.
-    expect(subscriptions[0].updates.at(-1)).toBe('{{ states("sensor.y") }}');
+    expect(subscriptions[0].updates.slice(-1)[0]).toBe('{{ states("sensor.y") }}');
   });
 
   it('keeps the subscription in step when hass changes', async () => {

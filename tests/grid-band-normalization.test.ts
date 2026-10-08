@@ -49,7 +49,7 @@ function draw(raw: Record<string, unknown>): { first: string; last: string } {
     label.textContent!.trim(),
   );
   expect(labels.length).toBeGreaterThan(1);
-  return { first: labels[0], last: labels.at(-1)! };
+  return { first: labels[0], last: labels.slice(-1)[0]! };
 }
 
 function formFor(editor: Editor, key: string): Form {

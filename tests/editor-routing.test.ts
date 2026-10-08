@@ -563,7 +563,7 @@ describe('rendered form frames preserve edit intent', () => {
         expect(owner(editor, 'event_font_size').data.event_font_size).toBe(text);
       }
       const block = View.OVERRIDE_BLOCK_BY_VIEW[view];
-      expect(block ? seen.at(-1)?.[block] : seen.at(-1)).toMatchObject({
+      expect(block ? seen.slice(-1)[0]?.[block] : seen.slice(-1)[0]).toMatchObject({
         event_font_size: '24px',
       });
     },
@@ -578,7 +578,7 @@ describe('rendered form frames preserve edit intent', () => {
       await editor.updateComplete;
       expect(owner(editor, 'hour_height').data.time_grid).toHaveProperty('hour_height', text);
     }
-    expect(seen.at(-1)?.time_grid).toHaveProperty('hour_height', '60px');
+    expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('hour_height', '60px');
   });
 
   it('preserves synthetic height input using the same scoped pending text', async () => {
@@ -592,7 +592,7 @@ describe('rendered form frames preserve edit intent', () => {
       await editor.updateComplete;
       expect(owner(editor, 'card_height').data.card_height).toBe(text);
     }
-    expect(seen.at(-1)?.time_grid).toHaveProperty('height', '24em');
+    expect(seen.slice(-1)[0]?.time_grid).toHaveProperty('height', '24em');
   });
 
   it('keeps format-only edits without writing an equivalent override again', async () => {
@@ -669,11 +669,11 @@ describe('rendered form frames preserve edit intent', () => {
     // Changing another field leaves the checkbox's accidental reset exposed.
     emit(form, { ...data, event_color: '#112233', event_font_size: '24px' });
     await editor.updateComplete;
-    expect(seen.at(-1)?.time_grid).toMatchObject({
+    expect(seen.slice(-1)[0]?.time_grid).toMatchObject({
       event_color: '#112233',
       event_font_size: '24px',
     });
-    expect(seen.at(-1)?.time_grid).not.toHaveProperty('time_color');
+    expect(seen.slice(-1)[0]?.time_grid).not.toHaveProperty('time_color');
   });
 
   it('recognizes a second edit returning to the originally rendered value', async () => {
@@ -683,7 +683,7 @@ describe('rendered form frames preserve edit intent', () => {
     emit(form, { ...data, event_font_size: '24px' });
     emit(form, { ...data, event_font_size: '23px' });
     await editor.updateComplete;
-    expect(seen.at(-1)?.time_grid).toMatchObject({ event_font_size: '23px' });
+    expect(seen.slice(-1)[0]?.time_grid).toMatchObject({ event_font_size: '23px' });
   });
 
   it('replaces the picker with a targeted reset that preserves unrelated values', async () => {

@@ -32,6 +32,12 @@ on:
     branches:
       - 'feature/**'
 
+# Read-only, and stated rather than inherited. The repository's default token is
+# read-write, so without this block every step here could push to the repository —
+# while nothing in this job uses the token for anything but the checkout.
+permissions:
+  contents: read
+
 jobs:
   lint-build:
     runs-on: ubuntu-latest
@@ -68,7 +74,7 @@ jobs:
           LOCK=$(node -p "require('./package-lock.json').version")
           LOCK_ROOT=$(node -p "require('./package-lock.json').packages[''].version")
           if [ "$PKG" != "$LOCK" ] || [ "$PKG" != "$LOCK_ROOT" ]; then
-            echo "::error::Version drift — package.json=$PKG, package-lock.json=$LOCK, packages['']=$LOCK_ROOT. Fix with: npx npm@10.9.2 install --package-lock-only"
+            echo "::error::Version drift — package.json=$PKG, package-lock.json=$LOCK, packages['']=$LOCK_ROOT. Fix with: npx npm@11 install --package-lock-only"
             exit 1
           fi
           NVMRC=$(tr -d ' \r\n' < .nvmrc)

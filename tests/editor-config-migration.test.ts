@@ -171,13 +171,13 @@ describe('ambiguous legacy configurations', () => {
     await choose(editor, 'shared-root');
     await change(editor, 'title', 'Shared');
 
-    expect(reports.at(-1)).toEqual({
+    expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
       title: 'Shared',
       event_font_size: '18px',
     });
-    expect(reports.at(-1)).not.toHaveProperty('list.event_font_size');
+    expect(reports.slice(-1)[0]).not.toHaveProperty('list.event_font_size');
   });
 
   it('does not reconcile moved List values into Grid later in the same editor', async () => {
@@ -190,9 +190,9 @@ describe('ambiguous legacy configurations', () => {
     await choose(editor, 'keep-list');
     await change(editor, 'view', 'grid');
 
-    expect(reports.at(-1)).not.toHaveProperty('time_grid');
+    expect(reports.slice(-1)[0]).not.toHaveProperty('time_grid');
     expect(editor.shadowRoot!.querySelector('[data-grid-reconciliation]')).toBeNull();
-    expect(View.resolveEffectiveConfig(merged(reports.at(-1)!), 'grid')).toMatchObject({
+    expect(View.resolveEffectiveConfig(merged(reports.slice(-1)[0]!), 'grid')).toMatchObject({
       event_font_size: '12px',
       show_past_events: true,
       day_spacing: '1px',
@@ -205,8 +205,8 @@ describe('ambiguous legacy configurations', () => {
     await choose(editor, 'shared-root');
     await change(editor, 'view', 'grid');
 
-    expect(reports.at(-1)).toHaveProperty('event_font_size', '18px');
-    expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '18px');
+    expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '18px');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '18px');
     expect(editor.shadowRoot!.querySelector('[data-grid-reconciliation]')).not.toBeNull();
   });
 
@@ -224,7 +224,7 @@ describe('ambiguous legacy configurations', () => {
 
       expect(blocker(editor)!.textContent).toContain('Either choice keeps Grid looking the same');
       await choose(editor, choice);
-      const after = View.resolveEffectiveConfig(merged(reports.at(-1)!), 'grid');
+      const after = View.resolveEffectiveConfig(merged(reports.slice(-1)[0]!), 'grid');
 
       expect(after.event_font_size).toBe(before.event_font_size);
       expect(after.show_past_events).toBe(before.show_past_events);
@@ -284,7 +284,7 @@ describe('automatic adoption paths', () => {
     expect(blocker(editor)).toBeNull();
     await change(editor, 'title', 'Column');
 
-    expect(reports.at(-1)).toEqual({
+    expect(reports.slice(-1)[0]).toEqual({
       config_version: Config.CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
       view: 'column',
@@ -292,9 +292,9 @@ describe('automatic adoption paths', () => {
       event_font_size: '18px',
       list: { today_indicator_position: 'left' },
     });
-    expect(View.resolveEffectiveConfig(merged(reports.at(-1)!), 'column').event_font_size).toBe(
-      '18px',
-    );
+    expect(
+      View.resolveEffectiveConfig(merged(reports.slice(-1)[0]!), 'column').event_font_size,
+    ).toBe('18px');
   });
 
   it.each([{ list: { event_font_size: '20px' } }, { time_grid: { event_font_size: '12px' } }])(
@@ -305,7 +305,7 @@ describe('automatic adoption paths', () => {
       expect(blocker(editor)).toBeNull();
       await change(editor, 'title', 'Layered');
 
-      expect(reports.at(-1)).toMatchObject({
+      expect(reports.slice(-1)[0]).toMatchObject({
         config_version: Config.CURRENT_CONFIG_VERSION,
         event_font_size: '18px',
         ...block,
@@ -430,7 +430,7 @@ describe('configuration version states', () => {
 
     expect(blocker(editor)).toBeNull();
     await change(editor, 'title', 'Echoed');
-    expect(reports.at(-1)).toMatchObject({
+    expect(reports.slice(-1)[0]).toMatchObject({
       config_version: Config.CURRENT_CONFIG_VERSION,
       title: 'Echoed',
       list: { event_font_size: '18px' },
@@ -521,7 +521,7 @@ describe('All Layouts follows shared values rather than List', () => {
       await change(editor, key, other);
       await change(editor, key, chosen);
     }
-    const saved = reports.at(-1)!;
+    const saved = reports.slice(-1)[0]!;
     const chosen = Object.fromEntries(
       Object.entries(values).map(([key, [, value]]) => [key, value]),
     );
@@ -530,8 +530,8 @@ describe('All Layouts follows shared values rather than List', () => {
     const reopened = await mount(saved);
     await change(reopened.editor, 'view', 'grid');
     await change(editor, 'view', 'grid');
-    expect(reopened.reports.at(-1)?.time_grid).toMatchObject(chosen);
-    expect(reopened.reports.at(-1)?.time_grid).toEqual(reports.at(-1)?.time_grid);
+    expect(reopened.reports.slice(-1)[0]?.time_grid).toMatchObject(chosen);
+    expect(reopened.reports.slice(-1)[0]?.time_grid).toEqual(reports.slice(-1)[0]?.time_grid);
   });
 
   it('keeps default-valued roots when migration explicitly chooses shared storage', async () => {
@@ -543,14 +543,14 @@ describe('All Layouts follows shared values rather than List', () => {
     };
     const { editor, reports } = await mount(chosen);
     await choose(editor, 'shared-root');
-    expect(reports.at(-1)).toMatchObject({
+    expect(reports.slice(-1)[0]).toMatchObject({
       ...chosen,
       config_version: Config.CURRENT_CONFIG_VERSION,
     });
 
-    const reopened = await mount(reports.at(-1)!);
+    const reopened = await mount(reports.slice(-1)[0]!);
     await change(reopened.editor, 'view', 'grid');
-    expect(reopened.reports.at(-1)?.time_grid).toMatchObject(chosen);
+    expect(reopened.reports.slice(-1)[0]?.time_grid).toMatchObject(chosen);
   });
 
   it('retains every authored divergent root default without materializing unrelated defaults', async () => {
@@ -563,7 +563,7 @@ describe('All Layouts follows shared values rather than List', () => {
       ...authored,
     });
     await change(editor, 'title', 'Shared choices');
-    expect(reports.at(-1)).toEqual({
+    expect(reports.slice(-1)[0]).toEqual({
       entities: ['calendar.anna'],
       config_version: Config.CURRENT_CONFIG_VERSION,
       title: 'Shared choices',
@@ -587,7 +587,7 @@ describe('compact expansion after editor migration', () => {
     };
     const { editor, reports } = await mount(raw);
     await change(editor, 'title', 'Compact calendar');
-    const migrated = reports.at(-1)!;
+    const migrated = reports.slice(-1)[0]!;
     expect(migrated).toHaveProperty(`list.${key}`, limit);
     expect(migrated).not.toHaveProperty(key);
 

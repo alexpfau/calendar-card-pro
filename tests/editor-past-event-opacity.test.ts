@@ -171,7 +171,7 @@ describe('past-event opacity editor contract', () => {
       change(origin, { ...origin.data, past_event_opacity: '0' });
       await editor.updateComplete;
       const block = Routing.destination('past_event_opacity', workspace);
-      const saved = reports.at(-1)!;
+      const saved = reports.slice(-1)[0]!;
       expect(saved.view).toBe('grid');
       if (block) {
         expect(saved[block]).toEqual({ past_event_opacity: 0 });
@@ -196,7 +196,7 @@ describe('past-event opacity editor contract', () => {
       const form = opacityForm(editor);
       change(form, { ...form.data, past_event_opacity: null });
       await editor.updateComplete;
-      const cleared = reports.at(-1)!;
+      const cleared = reports.slice(-1)[0]!;
       if (block) expect(cleared).not.toHaveProperty(block);
       else expect(cleared).not.toHaveProperty('past_event_opacity');
       expect(opacityForm(editor).data.past_event_opacity).toBe(block ? 75.25 : 60);

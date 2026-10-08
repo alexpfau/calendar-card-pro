@@ -19,26 +19,26 @@ The `start_date` option can be configured in multiple ways:
 - **Relative date expressions**: Use dynamic offsets relative to the current date
 
   ```yaml
-  start_date: "today+7"  # Always show events starting 7 days in the future
-  start_date: "+3"       # Shorthand for today+3 (3 days from today)
-  start_date: "today-2"  # Show events starting from 2 days ago
-  start_date: "-1"       # Shorthand for today-1 (yesterday)
+  start_date: 'today+7' # Always show events starting 7 days in the future
+  start_date: '+3' # Shorthand for today+3 (3 days from today)
+  start_date: 'today-2' # Show events starting from 2 days ago
+  start_date: '-1' # Shorthand for today-1 (yesterday)
   ```
 
 - **Week anchors**: Start from the first day of the current week
 
   ```yaml
-  start_date: "start_of_week"    # First day of this week - Monday or Sunday, per first_day_of_week
-  start_date: "start_of_week+7"  # First day of next week
-  start_date: "start_of_week-7"  # First day of last week
+  start_date: 'start_of_week' # First day of this week - Monday or Sunday, per first_day_of_week
+  start_date: 'start_of_week+7' # First day of next week
+  start_date: 'start_of_week-7' # First day of last week
   ```
 
 - **Weekday names**: Jump to the next occurrence of a given weekday
 
   ```yaml
-  start_date: "saturday"  # The next Saturday (today counts, if today is Saturday)
-  start_date: "today+sat" # Same thing, written explicitly
-  start_date: "monday+1w" # One week after that Monday
+  start_date: 'saturday' # The next Saturday (today counts, if today is Saturday)
+  start_date: 'today+sat' # Same thing, written explicitly
+  start_date: 'monday+1w' # One week after that Monday
   ```
 
 ### Relative Expression Syntax

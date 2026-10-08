@@ -106,10 +106,10 @@ describe('all-day badge controls follow the layouts that render badges', () => {
   it('does not drop inactive YAML when an unrelated Grid value changes', async () => {
     const { editor, reports } = await mount();
     await change(editor, 'show_description', true);
-    expect(reports.at(-1)).toHaveProperty('allday_badge', 'title');
-    expect(reports.at(-1)).toHaveProperty('allday_badge_color', '#123456');
-    expect(reports.at(-1)).toHaveProperty('time_grid.allday_badge', 'time');
-    expect(reports.at(-1)).toHaveProperty('time_grid.allday_badge_color', '#abcdef');
-    expect(reports.at(-1)).toHaveProperty('time_grid.show_description', true);
+    expect(reports.slice(-1)[0]).toHaveProperty('allday_badge', 'title');
+    expect(reports.slice(-1)[0]).toHaveProperty('allday_badge_color', '#123456');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.allday_badge', 'time');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.allday_badge_color', '#abcdef');
+    expect(reports.slice(-1)[0]).toHaveProperty('time_grid.show_description', true);
   });
 });

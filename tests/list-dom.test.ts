@@ -645,6 +645,28 @@ describe('list view DOM', () => {
     expect(requireElement(description, 'span').textContent?.trim()).toBe('Bring ID');
   });
 
+  it('renders a description as text, never as markup', () => {
+    // The sink that lets `stripHtmlTags` be safe without being a sanitizer. It decodes
+    // `&lt;img …&gt;` into a real `<img …>` string by design, so the only thing between a
+    // calendar's description and the DOM is that the description is bound as text. Binding
+    // it with `unsafeHTML` turns this red — and would need a real sanitizer, not a stricter
+    // regex in `format.ts`.
+    const event = timedEvent('2026-06-17', '14:00', '15:00', 'Escaped markup', {
+      description:
+        'Note &lt;img src=x onerror=alert(1)&gt; and &lt;script&gt;alert(2)&lt;/script&gt;',
+    });
+    const container = renderListContainer([event], buildConfig({ show_description: true }));
+    const description = requireElement(
+      eventCellByTitle(container, 'Escaped markup'),
+      '.description',
+    );
+
+    expect(description.querySelector('img, script')).toBeNull();
+    expect(requireElement(description, 'span').textContent?.trim()).toBe(
+      'Note <img src=x onerror=alert(1)> and <script>alert(2)</script>',
+    );
+  });
+
   it('omits locations when show_location is false', () => {
     const container = renderListContainer(
       [

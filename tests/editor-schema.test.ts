@@ -3366,7 +3366,9 @@ describe('editor: per-calendar settings', () => {
     // The shape is what is stored; nothing is seeded into the picker for the user to
     // clear first. It has to be stored here, because an icon shape with no icon in it
     // is exactly the state reading the value back cannot express.
-    expect(dispatched.at(-1)!.entities).toEqual([{ entity: 'calendar.a', label_type: 'icon' }]);
+    expect(dispatched.slice(-1)[0]!.entities).toEqual([
+      { entity: 'calendar.a', label_type: 'icon' },
+    ]);
 
     // The picker is now on screen, empty, with the color that only applies to it.
     const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
@@ -4508,7 +4510,7 @@ describe('editor: direct view controls in the chassis', () => {
 
     const formIndex = routedFormIndex(element, 'event_font_size');
     await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
-    expect(dispatched.at(-1)!.column).toEqual({ event_font_size: '22px' });
+    expect(dispatched.slice(-1)[0]!.column).toEqual({ event_font_size: '22px' });
 
     // Set back to what it inherits: the key goes, the row stays.
     await fire(
@@ -4517,7 +4519,7 @@ describe('editor: direct view controls in the chassis', () => {
       { event_font_size: DEFAULT_CONFIG.event_font_size },
       formIndex,
     );
-    expect(dispatched.at(-1)).not.toHaveProperty('column');
+    expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
     await fire(element, 'ha-form.panel-form', { event_font_size: '24px' }, formIndex);
@@ -4527,7 +4529,7 @@ describe('editor: direct view controls in the chassis', () => {
     expect(reset).not.toBeNull();
     reset!.click();
     await element.updateComplete;
-    expect(dispatched.at(-1)).not.toHaveProperty('column');
+    expect(dispatched.slice(-1)[0]).not.toHaveProperty('column');
     expect(rowShown()).toBe(true);
   });
 
@@ -4583,7 +4585,7 @@ describe('editor: stored and rendered union values', () => {
 
     await fire(element, 'ha-form.panel-form', { week_number_mode: 'none' }, formIndex);
 
-    expect(dispatched.at(-1)!.column).toEqual({ show_week_numbers: null });
+    expect(dispatched.slice(-1)[0]!.column).toEqual({ show_week_numbers: null });
 
     // The row survives the echo, and still shows the shape that was chosen.
     const data = (

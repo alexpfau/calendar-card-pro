@@ -67,7 +67,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
         [block]: { show_description: true },
       });
       await change(editor, 'show_description', false);
-      const saved = reports.at(-1)!;
+      const saved = reports.slice(-1)[0]!;
       if (view === 'list') expect(saved).toHaveProperty('list.show_description', false);
       else expect(saved).not.toHaveProperty(block);
 
@@ -79,7 +79,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s serialized editor state',
       await change(editor, 'show_description', true);
       await change(editor, 'editing_workspace', view);
 
-      const stored = reports.at(-1)!;
+      const stored = reports.slice(-1)[0]!;
       expect(stored).toHaveProperty('show_description', true);
       if (view === 'list') expect(stored).toHaveProperty('list.show_description', false);
       else expect(stored).not.toHaveProperty(block);
@@ -99,16 +99,16 @@ it.each([false, true])('retains an explicit divergent Grid default (echo=%s)', a
     time_grid: { event_font_size: '18px' },
   });
   await change(editor, 'event_font_size', '12px');
-  expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '12px');
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
   if (echo) {
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig(reports.slice(-1)[0]!);
     await editor.updateComplete;
   }
   await change(editor, 'editing_workspace', 'shared');
   await change(editor, 'event_font_size', '20px');
   await change(editor, 'editing_workspace', 'grid');
-  expect(reports.at(-1)).toHaveProperty('event_font_size', '20px');
-  expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '12px');
+  expect(reports.slice(-1)[0]).toHaveProperty('event_font_size', '20px');
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.event_font_size', '12px');
   expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
 });
 
@@ -120,9 +120,9 @@ it('keeps incomplete scoped text through a save and an echo', async () => {
   await change(editor, 'card_height', '');
   expect(reports).toHaveLength(0);
   await change(editor, 'show_description', true);
-  expect(reports.at(-1)).toHaveProperty('time_grid.height', '400px');
+  expect(reports.slice(-1)[0]).toHaveProperty('time_grid.height', '400px');
   expect(formFor(editor, 'card_height').data.card_height).toBe('');
-  editor.setConfig(reports.at(-1)!);
+  editor.setConfig(reports.slice(-1)[0]!);
   await editor.updateComplete;
   expect(formFor(editor, 'card_height').data.card_height).toBe('');
 });

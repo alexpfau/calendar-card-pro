@@ -146,11 +146,11 @@ describe('axisLabelMinutes', () => {
     const minutes = axisLabelMinutes(band('07:00', '11:30'), 60);
 
     expect(minutes).toEqual([420, 480, 540, 600, 660]);
-    expect(minutes.at(-1)).toBe(660);
+    expect(minutes.slice(-1)[0]).toBe(660);
   });
 
   it('labels a closing half hour once the cadence reaches it', () => {
-    expect(axisLabelMinutes(band('07:00', '11:30'), 30).at(-1)).toBe(690);
+    expect(axisLabelMinutes(band('07:00', '11:30'), 30).slice(-1)[0]).toBe(690);
   });
 
   // Hour 24 is 1440, which every offered cadence divides, so a band ending at midnight is
@@ -158,9 +158,10 @@ describe('axisLabelMinutes', () => {
   // midnight rather than as an hour 24.
   it('emits the closing minute for a band ending at midnight, at every cadence', () => {
     for (const cadence of [30, 60, 120, 180]) {
-      expect(axisLabelMinutes(band('21:00', '24:00'), cadence).at(-1), `cadence ${cadence}`).toBe(
-        1440,
-      );
+      expect(
+        axisLabelMinutes(band('21:00', '24:00'), cadence).slice(-1)[0],
+        `cadence ${cadence}`,
+      ).toBe(1440);
     }
   });
 
@@ -188,7 +189,7 @@ describe('axisLabelMinutes', () => {
   // leaves the shipped 22:00 end bare, so it buys the first boundary by selling the last —
   // the very boundary the end-boundary sweep exists to serve.
   it('labels the shipped band end at the two-hourly cadence, which band phasing would not', () => {
-    expect(axisLabelMinutes(band('07:00', '22:00'), 120).at(-1)).toBe(1320);
+    expect(axisLabelMinutes(band('07:00', '22:00'), 120).slice(-1)[0]).toBe(1320);
   });
 
   it('thins to the coarsest cadence without dropping the boundaries that fall on it', () => {

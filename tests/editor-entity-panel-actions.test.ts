@@ -256,7 +256,7 @@ describe('duplicate and remove buttons', () => {
         b.textContent?.trim(),
       ),
     ).toEqual(['Copy Settings', 'Paste Settings', 'Duplicate']);
-    expect([...row.children].at(-1)!.textContent?.trim()).toBe('Remove');
+    expect([...row.children].slice(-1)[0]!.textContent?.trim()).toBe('Remove');
   });
 
   it('holds Remove visually apart from the actions that can be undone', () => {

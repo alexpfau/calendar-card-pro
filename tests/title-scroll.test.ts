@@ -509,14 +509,14 @@ describe('scroll_long_titles lifecycle', () => {
     card.shadowRoot!.appendChild(title);
     card._syncTitleScroll();
     card.classList.add('calendar-card-title-scroll-paused');
-    const previousResize = RecordingResizeObserver.instances.at(-1)!;
-    const previousIntersection = RecordingIntersectionObserver.instances.at(-1)!;
+    const previousResize = RecordingResizeObserver.instances.slice(-1)[0]!;
+    const previousIntersection = RecordingIntersectionObserver.instances.slice(-1)[0]!;
 
     card._syncTitleScroll();
 
     expect(previousResize.disconnected).toBe(true);
     expect(previousIntersection.disconnected).toBe(true);
-    expect(RecordingResizeObserver.instances.at(-1)?.observed).toContain(title);
+    expect(RecordingResizeObserver.instances.slice(-1)[0]?.observed).toContain(title);
     expect(card.classList).toContain('calendar-card-title-scroll-paused');
 
     card.remove();
@@ -557,8 +557,8 @@ describe('scroll_long_titles lifecycle', () => {
     card.shadowRoot?.appendChild(title);
     card._syncTitleScroll();
 
-    const firstResize = RecordingResizeObserver.instances.at(-1)!;
-    const firstIntersection = RecordingIntersectionObserver.instances.at(-1)!;
+    const firstResize = RecordingResizeObserver.instances.slice(-1)[0]!;
+    const firstIntersection = RecordingIntersectionObserver.instances.slice(-1)[0]!;
     expect(firstResize.observed).toContain(card);
 
     card.remove();

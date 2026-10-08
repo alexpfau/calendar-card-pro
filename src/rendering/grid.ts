@@ -1185,28 +1185,32 @@ export function renderGridGroupedEvents(
       ${gridDays.map((day, index) =>
         renderDayHeader(day, config, language, index, weatherForecasts, hass),
       )}
-      ${bandRows > 0
-        ? html`
-            <div
-              class="grid-allday-band"
-              role=${fixedHeight ? 'group' : nothing}
-              aria-label=${fixedHeight
-                ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
-                : nothing}
-              tabindex=${fixedHeight ? '0' : nothing}
-              style=${styleMap({
-                gridColumn: `1 / span ${gridDays.length + 1}`,
-                gridRow: '3',
-                gridTemplateColumns: 'subgrid',
-                gridTemplateRows: `repeat(${bandRows}, auto)`,
-              })}
-            >
-              ${banners.map((banner) =>
-                renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
-              )}
-            </div>
-          `
-        : nothing}
+      ${
+        bandRows > 0
+          ? html`
+              <div
+                class="grid-allday-band"
+                role=${fixedHeight ? 'group' : nothing}
+                aria-label=${
+                  fixedHeight
+                    ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
+                    : nothing
+                }
+                tabindex=${fixedHeight ? '0' : nothing}
+                style=${styleMap({
+                  gridColumn: `1 / span ${gridDays.length + 1}`,
+                  gridRow: '3',
+                  gridTemplateColumns: 'subgrid',
+                  gridTemplateRows: `repeat(${bandRows}, auto)`,
+                })}
+              >
+                ${banners.map((banner) =>
+                  renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
+                )}
+              </div>
+            `
+          : nothing
+      }
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
       ${renderRules(band, slotMinutes, gridDays.length, hourLineColor)}
       ${Grid.bandEndHasRule(band, slotMinutes) ? renderGridEndRule(hourLineColor) : nothing}
@@ -1387,13 +1391,15 @@ function renderDayBody(
 
         return placement ? renderOverflow(overflow, placement) : nothing;
       })}
-      ${nowPct === null
-        ? nothing
-        : html`<div
-            class="grid-now-line"
-            aria-hidden="true"
-            style=${styleMap({ top: `${nowPct}%` })}
-          ></div>`}
+      ${
+        nowPct === null
+          ? nothing
+          : html`<div
+              class="grid-now-line"
+              aria-hidden="true"
+              style=${styleMap({ top: `${nowPct}%` })}
+            ></div>`
+      }
     </div>
   `;
 }

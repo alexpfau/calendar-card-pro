@@ -115,7 +115,7 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
 
 /** Observe inherited typography, language, and direction changes across shadow boundaries. */
 function observeTypographyAncestors(observer: MutationObserver, host: HTMLElement): void {
-  for (let ancestor: Element | null = host; ancestor; ) {
+  for (let ancestor: Element | null = host; ancestor;) {
     observer.observe(ancestor, {
       attributes: true,
       attributeOldValue: true,
