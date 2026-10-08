@@ -322,6 +322,8 @@ Provides core functionality across the card:
     and ellipsis criterion still fits; otherwise keeps the labels' normal wrapping.
     The same batched measurement runs before Grid disclosure and List/Column title scrolling
   - Measures complete timed label/title groups after the normal Grid disclosure transaction
+  - Compares text by its line boxes, not its font's content area, which overhangs a line
+    whose line-height is below ascent plus descent (12px Roboto in Firefox, Noto Sans anywhere)
   - Tries symmetric compact insets before scaling, protecting every text part's font floor
   - Uses bounded, batched layout reads and writes; the host owns dirty-block tracking,
     resize/font/image/content invalidation, and disconnect cleanup

@@ -161,6 +161,36 @@ function parkRange(range: Range, document: Document): void {
   range.collapse(true);
 }
 
+/** The nearest ancestor that lays the text out in line boxes, rather than an inline box. */
+function lineContainer(node: Node): Element | null {
+  for (let element = node.parentElement; element; element = element.parentElement) {
+    const display = getComputedStyle(element).display;
+    if (display !== 'inline' && display !== 'contents') return element;
+  }
+  return null;
+}
+
+/**
+ * A text rectangle is the font's content area, not its line box. Where line-height is below
+ * ascent plus descent, the content area pokes out above and below its line: 12px Roboto
+ * measures 15px in a 14.4px line in Firefox, so every first line starts 0.3px above its own
+ * box, and an emoji's fallback font adds a pixel below. Fonts with taller metrics, such as
+ * Noto Sans, do the same in every engine. That band belongs to no line box, the title's own
+ * overflow clip already cuts it, and it scales with the font, so it is not a clipped title.
+ * Trim a rectangle to its line container, but only one whose center lies inside it: a line
+ * clamped away or pushed out of its container keeps its full rectangle and still fails.
+ */
+function lineBox(rect: DOMRect, container: DOMRect | undefined): DOMRect {
+  if (!container) return rect;
+  const center = (rect.top + rect.bottom) / 2;
+  if (center < container.top || center > container.bottom) return rect;
+  const top = Math.max(rect.top, container.top);
+  const bottom = Math.min(rect.bottom, container.bottom);
+  return top === rect.top && bottom === rect.bottom
+    ? rect
+    : new DOMRect(rect.left, top, rect.width, bottom - top);
+}
+
 // A live Range participates in later DOM mutations until collected. Reuse one cursor and
 // return rectangle snapshots, then park it outside the card so it cannot retain a removed card.
 function textRuns(element: Element): TextRun[] {
@@ -175,11 +205,12 @@ function textRuns(element: Element): TextRun[] {
       if (start < 0) continue;
       range.setStart(node, start);
       range.setEnd(node, text.trimEnd().length);
+      const container = lineContainer(node)?.getBoundingClientRect();
       runs.push({
         node,
         start,
         text: text.slice(start).trimEnd(),
-        rects: Array.from(range.getClientRects()),
+        rects: Array.from(range.getClientRects(), (rect) => lineBox(rect, container)),
       });
     }
     return runs;
