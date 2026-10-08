@@ -13,20 +13,27 @@ event_color: 'var(--primary-text-color)'
 
 # Empty days display
 show_empty_days: true # Show days with no events
-empty_day_text: 'Leftovers' # Replaces "No upcoming events" on any empty day
+empty_day_text: 'Leftovers' # Replaces "No events" on any empty day
 empty_day_color: 'var(--secondary-text-color)' # Color for "No events" text
 
 # Or remove the card entirely when there is nothing to show
 hide_when_empty: true
 ```
 
+`event_font_size` takes any CSS font size: a length such as `14px` or `1.2em`, a percentage
+such as `120%`, a keyword such as `large`, or an expression such as `calc()` that works out to
+one. A space before the unit is closed up, so `14 px` reads as `14px`, and a negative size, a
+misspelled unit or a word that is not a font size falls back to `14px`. A calendar's icon or
+picture [label](/features/core-settings#choosing-how-a-label-is-read) is sized from it too,
+whatever form it takes.
+
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
 ### Custom Empty-Day Text
 
-The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
+The default message is deliberately date-neutral — "No events", not "No upcoming events" — because the card draws empty days in the past as readily as in the future, and a past day is not waiting for anything. An empty day often means something specific to you, though. A meal-plan calendar reads far better with "Leftovers", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 
-The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
+The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows when `show_empty_days` is off and there is nothing at all to display. That single row sits on the range's own reference date, which is today only when your `start_date` resolves to today — a card pointed at last week shows last week's date there.
 
 ```yaml
 days_to_show: 7
@@ -36,15 +43,27 @@ empty_day_text: 'Leftovers'
 
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
+Your text is kept exactly as written. It is never translated, trimmed or migrated, so a message that happens to match an older default stays as you typed it, and a message of only spaces is treated as your wording rather than as no wording at all. Clearing the option entirely — leaving it out, or setting it empty — brings the translated default back.
+
 ::: info Wording Only, Never Layout
 `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
 :::
 
 The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
-If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
+If you would rather the card disappear completely instead of showing "No events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
+
+The count covers the **full configured date range**, after past-event and per-calendar
+filters, but before display-only limits. A card can therefore remain visible when all
+qualifying events fall outside Grid's drawn hours, on days dropped by responsive density,
+or beyond a compact limit. Those limits change what is drawn, not whether the date range
+has events.
+
+When past events are hidden, the card disappears on its first repaint after the last event
+expires, without waiting for another calendar fetch. This does not add an event-expiry
+timer; Home Assistant updates and the card's existing refreshes still drive repaints.
 
 ::: info What Never Triggers Hiding
 Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
@@ -241,8 +260,23 @@ location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
 
+An event that starts and ends in the same minute, such as a reminder, has a time row that
+reads its start time once: `9:41` rather than `9:41 - 9:41`, whatever `show_end_time` says. An
+event that runs into a later minute keeps its range.
+
 Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
 their locations as long as `show_location` is still on.
+
+`time_icon_size` and `location_icon_size` take a CSS length such as `14px`, `1em` or
+`0.875rem`, or an expression such as `calc()` that works out to one, and tolerate a space
+before the unit, so `14 px` reads as `14px`. A percentage, a negative size, a keyword such as
+`large` or a misspelled unit falls back to `14px`, because each would otherwise let the icon
+balloon across the event. For a size that follows the text around it, use `em`: `1.2em`
+rather than `120%`. A `var()` is passed on as written, since the card cannot see what it
+refers to.
+
+`time_font_size` and `location_font_size` take the same font sizes as
+[`event_font_size`](#calendar-events-display), and fall back to `12px` the same way.
 
 ### Removing Country Names
 
@@ -328,6 +362,11 @@ description_icon_size: '14px'
 Set `show_description_allday: false` to hide descriptions only on all-day events. It pairs
 with `show_location_allday: false` when `allday_badge: title` is meant to stand alone.
 
+`description_icon_size` takes the same sizes as the
+[time and location icons](#time-location-information), and falls back to `14px` the same way.
+`description_font_size` takes the same font sizes as the time and location text, and falls back
+to `12px`.
+
 Descriptions are automatically processed:
 
 - **HTML tags** are stripped for clean, readable text — only real markup, so prose such as `temp < 5 and pressure > 3` is left as written
@@ -356,6 +395,10 @@ Anna's Birthday  →  Anna's Birthday (50)
 ```
 
 The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
+
+Splitting an occurrence across New Year does not change that count halfway through it.
+Every segment uses the original start's year; a separate occurrence starting in the new
+year gets the new count.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 
@@ -406,6 +449,9 @@ location_max_lines: 2 # Allow locations up to two lines
 description_max_lines: 3 # Allow descriptions up to three lines
 ```
 
+A calendar label stays inline before the title and shares its line limit, rather than
+taking a separate row above the clamped text. This also applies to merged-calendar labels.
+
 Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in both list and column view, and each can be overridden inside a `column:` block to clamp differently per view:
 
 ```yaml
@@ -413,6 +459,73 @@ title_max_lines: 0 # Unlimited in list view
 column:
   title_max_lines: 1 # But single-line in the denser column view
 ```
+
+Grid keeps those normal line limits whenever a complete first label/title line fits.
+Its [short timed title fallback](/features/grid-view#short-timed-titles) is the exception:
+it keeps every label but uses one static line, reducing vertical padding before reducing
+the whole group's font size. Clipping a later normal line does not activate that fallback.
+
+## ↔️ Scrolling Long Titles
+
+A long event title normally wraps onto a second line and makes the row taller. Turn on `scroll_long_titles` and a title too wide for the space is kept to one line and scrolls sideways instead, so the whole of it can still be read on a narrow card:
+
+```yaml
+scroll_long_titles: true
+```
+
+Off by default, because it changes titles from wrapping to a single line and because motion
+on an always-on dashboard is a matter of taste. Only titles that genuinely overflow move;
+one that already fits stays still. Empty-day messages and Grid all-day banners stay static.
+
+Calendar labels stay stationary. A short label keeps its natural single-line width when
+the complete label run leaves room for useful title text. Longer or combined labels keep
+wrapping when that space is needed, including in narrow Grid columns. A label and the
+title beside it share one vertical center, whether the label is text, an emoji, an icon,
+a picture, or several of those merged together.
+
+In supported browsers, **visible titles on the same card start their forward passes
+together**. Each keeps its own reading pace, pauses briefly at its ending, then returns
+quickly and waits at its **beginning** until the next shared start. Returns are deliberately
+individual, not synchronized. Shorter titles therefore show their useful beginnings while
+the longest visible title finishes.
+
+The start and end pauses are each 0.6 seconds. Forward travel takes at least 2.8 seconds,
+at up to 45 CSS pixels per second; a small overflow moves more slowly rather than rushing
+through a tiny trip. Each return takes 0.2-0.6 seconds. There is no travel or cycle cap, so a
+very long visible title can lengthen the wait before shorter titles repeat.
+
+Titles clipped out of the card's scrolling area do not set the group's period. A new or
+changed title waits at its beginning until surviving readers finish their current cycle;
+a wholly new scene starts fresh. Ordinary Home Assistant updates and opacity or color edits
+do not restart unchanged readers.
+
+The travel follows the text direction: left-to-right titles move left, and right-to-left
+titles move right to reveal their ending. Changes to inherited direction take effect
+without requiring a resize or a calendar refresh. Resizing or redrawing measures the text's
+untransformed width, so an animation already in progress cannot lengthen its own next cycle.
+
+Scrolling replaces `title_max_lines` for as long as it is on: you cannot scroll a single line sideways and clamp it to several lines at once, so scrolling wins and the title is always one line. It is a card-wide motion option rather than a per-calendar one — mixing scrolling and static titles in the same list would look chaotic — but it can be set per view, which is where it earns its keep. The card is at its narrowest in the [grid layout](/features/grid-view), where titles wrap the most, so a common setup is to scroll only there and leave the wider list wrapping:
+
+```yaml
+scroll_long_titles: false # Wrap in the roomy list view
+time_grid:
+  scroll_long_titles: true # Scroll in the narrow grid columns
+```
+
+The animation respects the operating system's **reduce motion** setting: turning that on
+stops it immediately and leaves a static, truncated line. Turning `scroll_long_titles` off
+also stops it immediately. When the whole card is scrolled offscreen, its group pauses in
+place, including during a quick return or a beginning wait, and resumes when it reappears.
+
+Browsers without CSS `linear()` easing or the required native animation-clock facilities
+keep the older independent animation and its original timing, including its instant reset
+at the end. They do not receive synchronized starts or quick returns. The option remains
+the same; there is no second motion setting or dashboard-wide coordinator.
+
+Grid's [short timed title fallback](/features/grid-view#short-timed-titles) also stays static,
+with all labels retained. Scrolling resumes when the block has room for its normal title.
+
+This is the sideways counterpart to [Limiting Lines Per Field](#limiting-lines-per-field): reach for `title_max_lines` when you would rather a long title wrap to a fixed number of lines and truncate, and `scroll_long_titles` when you would rather keep one line and scroll it. See [`scroll_long_titles`](/reference/configuration#event-column) in the configuration reference.
 
 ## ⏳ Countdown Display
 
@@ -458,11 +571,142 @@ Control visibility of events that have already occurred:
 show_past_events: true # Show events that have already ended
 ```
 
-When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
+When enabled, finished event contents use 60% opacity in every view. Set
+`past_event_opacity` to any number from **0 to 100**, including fractions, to change that
+strength. `100` removes the built-in dimming; `1` means 1%, not full strength.
+
+```yaml
+show_past_events: true
+past_event_opacity: 75.5
+time_grid:
+  past_event_opacity: 100 # Keep finished events at full strength in Grid
+```
+
+The top-level value is shared. `list:`, `column:`, and `time_grid:` can each override it;
+there is no different Grid default. A view with no override inherits the shared value.
+Clearing the option (a blank or `null`) restores inheritance in a view, or 60 at the top
+level. Invalid values are ignored rather than clamped or treated as zero.
+
+Only the contents dim: titles, labels, pictures, icons, and the detail rows that are still
+eligible to appear. Grid all-day banners dim their titles, including continuation marks.
+Outer background fills and accent stripes stay unchanged, as do ordinary title and label
+colors underneath the opacity layer. The [theming hook](/features/theming#past-event-opacity)
+retains the existing `.past-event` selectors.
+
+::: warning Transparent Is Not Hidden
+`past_event_opacity: 0` makes contents transparent but keeps event boxes, counts, actions,
+and configured accessible names. To remove finished events, use `show_past_events: false`
+in the relevant view instead. Dimming does not restore filtered events, countdowns, or
+progress bars.
+:::
+
+An event becomes past after its displayed end, not when it starts. Today's all-day events
+stay at normal strength until the next local midnight. Split rows use their own ends;
+Grid all-day banners use the original event's end. Changing opacity does not change these
+rules or fetch calendar data. Grid's [now line](/features/grid-view#the-now-line) is
+independent of dimming.
+
+Empty-day notices in list and column views follow the same dimming, judged on their own
+date rather than on an end time. A notice dims once its whole local calendar date has
+ended, so today's stays at full strength from midnight to midnight and future days are
+never dimmed. Grid is unaffected, because it represents an empty day with an empty column
+rather than a notice.
+
+::: tip Past Notices Dim Even With Past Events Hidden
+`show_past_events` decides which real events are eligible, and the card pads its window
+with empty days afterwards. A past day whose events were filtered away can therefore still
+show a notice, and that notice dims like any other past date. Visibility and dimming are
+separate questions.
+:::
+
+A notice changes state on the card's next ordinary repaint after its date ends, not on a
+timer of its own. Home Assistant updates and the card's existing refreshes drive that, the
+same way finished events are re-judged — so a card left open across midnight updates when
+it next repaints rather than at the stroke of twelve.
+
+In the [editor](/features/editor), find **Past Event Opacity** under **Events → Event
+State**, in any workspace.
+
+**→ [Event Column in the configuration reference](/reference/configuration#event-column)**
+
+## 🎨 Event Text in Calendar Colors
+
+Write `accent` into any of the card's event-text color options and that text is drawn in
+**each event's own calendar color** rather than in one color for the whole card — the way
+macOS Calendar tints a block's text to match its calendar:
+
+```yaml
+type: custom:calendar-card-pro
+view: grid
+entities:
+  - entity: calendar.work
+    accent_color: '#E8A33D'
+  - entity: calendar.personal
+    accent_color: '#7B1FA2'
+time_color: accent
+```
+
+::: tip Visual Editor
+The **Event Content** section opens with **Use Calendar Colors For Event Text**, which sets
+all five at once. Its state is read back from the five options rather than stored, so
+editing one of them by hand can never leave the switch claiming something else. Switching
+it off returns all five to their standard colors rather than to anything set before.
+:::
+
+`accent` is a value, not a mode, so the five options it is accepted by stay real and stay
+independent. Setting it on one of them tints one thing and leaves the rest alone, which is
+what the example above does — only the time follows the calendar; the title keeps
+`event_color`.
+
+The five it is accepted by are `event_color` (the title), `time_color`, `location_color`,
+`description_color`, and `progress_bar_color` (the bar and its track) — everything inside
+the event box. Four of them are text and take the mixed color described below;
+`progress_bar_color` is the exception and takes the accent at full strength, because a
+filled bar has nothing written on it and belongs with the block's own accent stripe. The **event weather badge** follows too, and it works a little differently
+because it has no color of its own to replace: `weather.event.color` ships unset, so an
+unset badge on an event whose title is already taking the accent takes it as well. Give
+`weather.event.color` a color and that color wins; write `accent` into it and the badge
+opts in from any view, on its own.
+
+::: tip Grid View Starts All Five at `accent`
+Grid view is the only view that defaults them on, for the same reason it is the only one
+that shades weekends: a grid block is a tinted box, and colored text on a tinted ground of
+the same color reads as one thing. A list row has no such ground, so the same text reads as
+a fault rather than as a grouping. Both other views accept `accent` — set it yourself if you
+want it.
+
+**→ [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default)**
+:::
+
+Nothing else changes about the text. The secondary rows have no additional dimming — the
+title carries the weight, at `font-weight: 500` against normal. Finished events still use
+the shared [past-content opacity](#past-events-display), applied after their colors resolve.
+
+Two things are deliberately left out. An **empty day** belongs to no calendar, so its _No
+upcoming events_ notice keeps `empty_day_color`; so does the grid's **`+N` overflow block**,
+which stands for several events at once. The badge in the **day header** is left out for the
+same reason — it belongs to the day rather than to any calendar on it, and it is unaffected
+by all of this.
+
+::: tip The Text Is a Mix, Not the Raw Accent
+macOS Calendar spends a calendar's color three ways and only one of them is undiluted: the
+bar is the accent at full strength, the block is the accent at low opacity, and the text is
+a third, more legible color derived from it. The card does the same. Text takes the accent
+mixed toward `--primary-text-color`, which is near-black in a light theme and near-white in
+a dark one — so one rule darkens a pale accent on a light theme and lightens a dark one on a
+dark theme, and the hue you chose survives either way.
+
+The effect is stronger in light themes than in dark ones, which is the same asymmetry Apple
+shows. Measured against a grid block's own tint, a coral calendar went from 2.3:1 to 7.4:1 in
+the light theme and a purple one from 1.9:1 to 5.5:1 in the dark theme, where normal text
+wants 4.5:1.
+:::
+
+**→ [Event Column](/reference/configuration#event-column)** — every option named above.
 
 ## 🌈 Weekend Day Styling
 
-Weekend days (Saturday and Sunday) can be styled differently from weekdays to make them stand out in your calendar. You can customize:
+Weekend days can be styled differently from the rest of the week to make them stand out in your calendar. Which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set — Saturday and Sunday in most countries, Friday and Saturday in others. You can customize:
 
 - `weekend_weekday_color`: Sets the text color for weekday names (e.g., "Sat", "Sun")
 - `weekend_day_color`: Sets the text color for the day number
@@ -504,6 +748,10 @@ progress_bar_width: '80px'
 ```
 
 `progress_bar_width` has no shipped default. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to every view — and a [column exception](/features/column-view#overriding-options-in-column-view) gives the two views different widths.
+
+`progress_bar_height` ships as `0.75em`, three quarters of the time text, so the bar follows
+`time_font_size` whichever form that takes. A height you set in `em` is measured against the
+time text too, wherever the bar is drawn.
 
 ```yaml
 show_progress_bar: true

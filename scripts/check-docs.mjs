@@ -177,6 +177,12 @@ function buildConstantResolver() {
 const COVERAGE_EXCLUDES = ['development/', 'architecture.md', 'RELEASE_NOTES.md'];
 
 /**
+ * The prose files at the repository root, which `listDocs` cannot reach because it walks
+ * `docs/` only. Check 12 reads these as well; see its docblock for why.
+ */
+const ROOT_PROSE = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md'].map((name) => join(ROOT, name));
+
+/**
  * RELEASE_NOTES.md is exempt from the example convention as well, for the opposite
  * reason: it is a record of what shipped. Editing a two-year-old release note to satisfy
  * a convention introduced later would falsify it.
@@ -220,6 +226,9 @@ const isStructural = (raw) => raw.startsWith('[') || raw.startsWith('{');
  * touching an entry.
  */
 const VERIFIED_RUNTIME_FALLBACKS = new Map([
+  // Editor metadata has no runtime fallback. Absence means the configuration predates
+  // the marker and stays on the legacy path until the editor adopts it.
+  ['config_version', '-'],
   // utils/events.ts — absent or unparseable resolves to today ("Falling back to today").
   ['start_date', 'Today'],
   // config/config.ts `toValidNumber(…, 1)` — the 1 is a floor, not a default. Absent
@@ -366,7 +375,7 @@ function isDocumented(field, text, fencedContent) {
 }
 
 /**
- * This is the safety net for restructuring. The docs are being reorganised in phases,
+ * This is the safety net for restructuring. The docs are being reorganized in phases,
  * and the one unacceptable outcome is losing content while moving it. An option may
  * live on whichever page suits it — the reference table, a feature page, or both — but
  * it must be findable on at least one of them.
@@ -490,10 +499,27 @@ function checkCopyableExamples(docs) {
     const rel = relative(ROOT, file);
     if (EXAMPLE_EXCLUDES.some((ex) => relative(DOCS_DIR, file) === ex)) continue;
     const text = readFileSync(file, 'utf8');
-    const blocks = text.match(/^```ya?ml\n[\s\S]*?^```/gm) || [];
-    blocks.forEach((block, i) => {
+    const blocks = [...text.matchAll(/^```ya?ml\n[\s\S]*?^```/gm)];
+    blocks.forEach((match, i) => {
+      const block = match[0];
       if (!/^\s*type:\s*custom:calendar-card-pro\s*$/m.test(block)) return;
       complete++;
+      const firstLine = text.slice(0, match.index).split('\n').length;
+      const topLevel = new Map();
+      block.split('\n').forEach((line, blockLine) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (!key) return;
+        const lineNumber = firstLine + blockLine;
+        const previous = topLevel.get(key[1]);
+        if (previous !== undefined) {
+          error(
+            `${rel}:${lineNumber}: yaml block #${i + 1} repeats top-level key ` +
+              `\`${key[1]}\`; first declared at ${rel}:${previous}`,
+          );
+        } else {
+          topLevel.set(key[1], lineNumber);
+        }
+      });
       const decl = block.match(/^([ \t]*)entities:[ \t]*(.*)$/m);
       if (!decl) {
         error(
@@ -532,6 +558,39 @@ function checkCopyableExamples(docs) {
     );
   }
   return complete;
+}
+
+/**
+ * Reconciles the editor-maintained configuration format with the reference.
+ *
+ * @returns The documented format version
+ */
+function checkConfigVersion() {
+  const source = readFileSync(CONFIG_TS, 'utf8');
+  const declared = source.match(/export const CURRENT_CONFIG_VERSION\s*=\s*(\d+);/);
+  if (!declared) {
+    console.error(
+      `\n✗ FATAL: could not locate CURRENT_CONFIG_VERSION in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const reference = readFileSync(REFERENCE_DOC, 'utf8');
+  const documented = reference.match(/Current editor format:\s*`(\d+)`/);
+  if (!documented) {
+    error(
+      'docs/reference/configuration.md does not state the current editor format for `config_version`.',
+    );
+    return Number(declared[1]);
+  }
+
+  if (documented[1] !== declared[1]) {
+    error(
+      `docs/reference/configuration.md says config format ${documented[1]}, but ` +
+        `CURRENT_CONFIG_VERSION is ${declared[1]}.`,
+    );
+  }
+  return Number(documented[1]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1083,7 +1142,23 @@ function checkPageIntros(docs) {
 // Checks 12-15 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
-/** Check 12: US spelling around US-spelled config options. */
+/**
+ * Check 12: US spelling around US-spelled config options.
+ *
+ * The corpus is `docs/` **plus the three prose files at the repository root**, which sat
+ * outside every style check until they were added here. `AGENTS.md` had accumulated 19
+ * lines of British spelling and `README.md` one, none of it visible to a gate, while
+ * `AGENTS.md` itself told contributors to use US spelling — the file stating the rule was
+ * the file breaking it. The root three are the only `.md` outside `docs/` that a human
+ * reads as prose; everything else at that level is a config or a template.
+ *
+ * The word list is the one that has actually appeared here, not a general British
+ * lexicon. Adding a term is cheap and adding a wrong one is not: each entry is matched
+ * case-insensitively as a substring, so a term that is also a legitimate identifier,
+ * CSS keyword or API value would fail the gate on correct text. `cancelled` is the live
+ * example of that hazard — it is the RFC 5545 `STATUS` value, so it is safe here only
+ * because this card never reads that property. Check before extending.
+ */
 const BRITISH = [
   ['colour', 'color'],
   ['customis', 'customiz'],
@@ -1095,6 +1170,13 @@ const BRITISH = [
   ['analyse', 'analyze'],
   ['cancelled', 'canceled'],
   ['travelling', 'traveling'],
+  ['artefact', 'artifact'],
+  ['normalis', 'normaliz'],
+  ['generalis', 'generaliz'],
+  ['defence', 'defense'],
+  ['catalogue', 'catalog'],
+  ['licence', 'license'],
+  ['modelling', 'modeling'],
 ];
 
 function checkSpelling(docs) {
@@ -1645,13 +1727,16 @@ function report(counts) {
       `${counts.gates} CI gates checked, ` +
       `${counts.enums} enumerated options checked, ` +
       `${counts.sentinels} sentinel rows checked, ` +
+      `${counts.gridDefaults} grid divergent defaults reconciled, ` +
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
+      `${counts.listFences} YAML examples checked for list-only keys, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
+      `config format v${counts.configVersion} documented, ` +
       `release surfaces checked against v${counts.version}.\n`,
   );
 
@@ -1685,13 +1770,11 @@ function report(counts) {
 /**
  * Shared options with column-view default overrides must say so in the reference table.
  */
-function readColumnDefaultOverrides() {
+function readDefaultOverrides(table) {
   const src = readFileSync(VIEW_TS, 'utf8');
-  const block = src.match(/COLUMN_DEFAULT_OVERRIDES[^=]*=\s*\{([\s\S]*?)\n\}/);
+  const block = src.match(new RegExp(`${table}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`));
   if (!block) {
-    console.error(
-      `\n✗ FATAL: could not locate COLUMN_DEFAULT_OVERRIDES in ${relative(ROOT, VIEW_TS)}.\n`,
-    );
+    console.error(`\n✗ FATAL: could not locate ${table} in ${relative(ROOT, VIEW_TS)}.\n`);
     process.exit(2);
   }
 
@@ -1700,8 +1783,13 @@ function readColumnDefaultOverrides() {
     const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*$/);
     if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
   }
-  assertFound(out, 'COLUMN_DEFAULT_OVERRIDES keys', VIEW_TS);
+  assertFound(out, `${table} keys`, VIEW_TS);
   return out;
+}
+
+/** The column table, named so the call sites read as two instances of one check. */
+function readColumnDefaultOverrides() {
+  return readDefaultOverrides('COLUMN_DEFAULT_OVERRIDES');
 }
 
 function checkColumnDefaultOverrides(overrides) {
@@ -1728,6 +1816,103 @@ function checkColumnDefaultOverrides(overrides) {
       );
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Check 17b — the grid divergent-default table says what the code actually does
+// ---------------------------------------------------------------------------
+
+/**
+ * `TIME_GRID_DEFAULT_OVERRIDES` and the table on `docs/features/grid-view.md` list the
+ * same options, and the prose count above it agrees with both.
+ *
+ * 🚨 This gate was **documented before it existed**. `tests/view-config.test.ts` said the
+ * count was reconciled here, and a grep for `TIME_GRID`, `grid-view` or `divergent` in
+ * this file returned zero — against four hits for `COLUMN_DEFAULT_OVERRIDES` and two for
+ * `column-view`, so the search was working and the check was simply absent. The thirteen
+ * entries agreed with the docs by luck. That is worse than no gate: a comment saying the
+ * reconciliation exists is exactly what stops the next person adding it.
+ *
+ * Reconciled on the KEY SET rather than on the values, and the asymmetry with the column
+ * check beside it is deliberate. Column view's reference rows quote their divergent value
+ * verbatim; grid's table renders some of them for a reader instead — `day_separator_color`
+ * reads "Half-strength `var(--divider-color)`" where the code holds a `color-mix()`. A
+ * value comparison would therefore have to be loosened to the point of proving nothing,
+ * while the key set is exact and catches the failure that actually happens: a row arriving
+ * or leaving on one side only.
+ *
+ * @param {Map<string, string>} overrides parsed from `view.ts`
+ * @returns {number} rows reconciled
+ */
+function checkGridDefaultOverrides(overrides) {
+  const file = join(DOCS_DIR, 'features', 'grid-view.md');
+  const text = readFileSync(file, 'utf8');
+  // Matched on the heading TEXT, not on its emoji: h2 emoji are a docs-style convention
+  // that may be restyled, and a gate that stops finding its own section over one would be
+  // reporting a missing table rather than a changed heading.
+  const section = text.split(/^##\s+\S*\s*Options That Start From a Different Default\s*$/m)[1];
+
+  if (section === undefined) {
+    error(
+      'docs/features/grid-view.md: no "Options That Start From a Different Default" section, ' +
+        'so the grid divergent defaults are documented nowhere a reader can find them',
+    );
+    return 0;
+  }
+
+  const table = section.split(/\n## /)[0];
+  const documented = new Set();
+  for (const line of table.split('\n')) {
+    const m = line.match(/^\|\s*`([a-z0-9_]+)`\s*\|/);
+    if (m) documented.add(m[1]);
+  }
+
+  // A denominator beside the verdict: an empty table would otherwise report as two clean
+  // set differences.
+  if (documented.size === 0) {
+    error('docs/features/grid-view.md: the divergent-default table has no option rows');
+    return 0;
+  }
+
+  for (const key of overrides.keys()) {
+    if (!documented.has(key)) {
+      error(
+        `${key}: in TIME_GRID_DEFAULT_OVERRIDES but has no row in the grid-view table, so ` +
+          'grid silently resolves an option the page does not say it changes',
+      );
+    }
+  }
+  for (const key of documented) {
+    if (!overrides.has(key)) {
+      error(
+        `${key}: has a row in the grid-view divergent-default table but is not in ` +
+          'TIME_GRID_DEFAULT_OVERRIDES, so the page describes a default the card does not use',
+      );
+    }
+  }
+
+  const word = NUMBER_WORDS[overrides.size];
+  const claim = table.match(
+    new RegExp(`\\b(${NUMBER_WORDS.join('|')})\\s+shared options do not inherit`, 'i'),
+  );
+  if (!claim) {
+    error(
+      'docs/features/grid-view.md: the divergent-default section no longer opens with a ' +
+        'spelled-out count of the options, which is the sentence this gate reconciles',
+    );
+  } else if (word === undefined) {
+    error(
+      `TIME_GRID_DEFAULT_OVERRIDES has ${overrides.size} entries, past the end of ` +
+        'NUMBER_WORDS — append the missing words rather than dropping the prose count',
+    );
+  } else if (claim[1].toLowerCase() !== word.toLowerCase()) {
+    error(
+      `docs/features/grid-view.md: says "${claim[0]}", but TIME_GRID_DEFAULT_OVERRIDES has ` +
+        `${overrides.size}. Write "${word} shared options do not inherit".`,
+    );
+  }
+
+  return documented.size;
 }
 
 // ---------------------------------------------------------------------------
@@ -1993,6 +2178,21 @@ const SENTINEL_OPTIONS = [
     file: 'src/utils/entity-icons.ts',
     constant: 'ENTITY_ICON_SENTINEL',
   },
+  {
+    // The five governed by `accent`. Listed field by field rather than derived from
+    // ACCENT_TEXT_OPTIONS, because this file parses source text and cannot import: the
+    // pairing of option to property is reconciled in `tests/accent-event-text.test.ts`,
+    // and what is reconciled here is that every one of them tells the reader the word.
+    fields: [
+      'event_color',
+      'time_color',
+      'location_color',
+      'description_color',
+      'progress_bar_color',
+    ],
+    file: 'src/utils/entity-colors.ts',
+    constant: 'ACCENT_TEXT_SENTINEL',
+  },
 ];
 
 /**
@@ -2119,10 +2319,10 @@ const RUNTIME_ENUMS = [
     option: 'allday_badge_color',
     file: 'src/utils/helpers.ts',
     constant: 'ALLDAY_BADGE_COLOR_SOURCES',
-    // Two keywords, and the value set is otherwise OPEN -- any CSS colour is legal -- so the
+    // Two keywords, and the value set is otherwise OPEN -- any CSS color is legal -- so the
     // table check here reconciles only the two that are closed. That is the honest scope: a
     // page listing `accent` and `text` must list both, and no page can be asked to tabulate
-    // every colour.
+    // every color.
     noun: 'color sources',
     // Falls back to the accent, which is what the badge was drawn in before this key existed.
     fallback: 'accent',
@@ -2300,7 +2500,31 @@ function checkRuntimeEnumUsages(enums, docs) {
 // Check 22 — the migration table lists exactly the options the card still reports
 // ---------------------------------------------------------------------------
 
-const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+// Indexed by the count they spell, so entries may only ever be appended — a word
+// inserted anywhere but the end silently renumbers every check that reads this.
+const NUMBER_WORDS = [
+  'Zero',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+  'Twenty',
+];
 
 /**
  * The removed-key maps in config.ts, keyed by the option a user may still have.
@@ -2740,6 +2964,79 @@ function checkReadmeFragmentLinks() {
 }
 
 // ---------------------------------------------------------------------------
+// Check 30 — no example writes a list-only option at the top level
+// ---------------------------------------------------------------------------
+
+/**
+ * The five keys `VIEW_SCOPE` scopes to list alone, read from the source rather than
+ * listed here. A hand-written copy would silently stop covering the next one somebody
+ * scopes to list, which is the failure this project has already had in several tables.
+ *
+ * @returns The list-only config keys
+ */
+function readListOnlyKeys() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const block = src.match(/VIEW_SCOPE[^=]*=\s*\{([\s\S]*?)\n\};/);
+  if (!block) {
+    console.error(`\n✗ FATAL: could not locate VIEW_SCOPE in ${relative(ROOT, VIEW_TS)}.\n`);
+    process.exit(2);
+  }
+  const keys = new Set();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {2}([a-z0-9_]+):\s*new Set<[^>]*>\(\[([^\]]*)\]\)/);
+    if (m && m[2].replace(/['\s]/g, '') === 'list') keys.add(m[1]);
+  }
+  assertFound(keys, 'list-only VIEW_SCOPE keys', VIEW_TS);
+  return keys;
+}
+
+/**
+ * Since v5 these belong inside `list:`. Writing one at the top level still *works* —
+ * that compatibility is permanent, because a YAML-mode user never opens the editor that
+ * would move it — but an example teaching the old arrangement teaches a reader to write
+ * a config the editor will silently rewrite under them.
+ *
+ * `RELEASE_NOTES.md` is exempt for the reason `AGENTS.md` gives: it records what was
+ * announced at the time and is not rewritten. `whats-new.md` is exempt on the same
+ * grounds.
+ *
+ * The check reads column 0 only, so a per-calendar `compact_events_to_show` under
+ * `entities:` is untouched — that one is an entity option and has no `list:` home.
+ *
+ * @param {string[]} docs - Every published page
+ * @param {Set<string>} listOnly - Keys from `readListOnlyKeys`
+ * @returns The number of fences inspected, so a short corpus is visible in the report
+ */
+function checkListBlockExamples(docs, listOnly) {
+  const exempt = ['RELEASE_NOTES.md', 'guide/whats-new.md'];
+  let fences = 0;
+  for (const file of [...docs, ...ROOT_PROSE]) {
+    if (isExcluded(file, exempt)) continue;
+    const rel = relative(ROOT, file);
+    const text = readFileSync(file, 'utf8');
+    // The language group is deliberately not optional: an optional one skips a `json`
+    // opener and then runs the lazy body on to the wrong closing delimiter.
+    const re = /```([a-z]*)\n([\s\S]*?)```/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m[1] !== 'yaml' && m[1] !== 'yml') continue;
+      fences++;
+      const line0 = text.slice(0, m.index).split('\n').length;
+      m[2].split('\n').forEach((line, i) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (key && listOnly.has(key[1])) {
+          error(
+            `${rel}:${line0 + 1 + i}: \`${key[1]}\` is list-only and sits at the top level — ` +
+              'move it inside a `list:` block',
+          );
+        }
+      });
+    }
+  }
+  return fences;
+}
+
+// ---------------------------------------------------------------------------
 // Check 29 — absolute links into the docs site resolve to a real page and heading
 // ---------------------------------------------------------------------------
 
@@ -2840,11 +3137,15 @@ function main() {
   checkDefaults(defaults, rows, buildConstantResolver());
   checkColumnDefaults(readColumnDefaults(), readColumnRows());
   checkColumnDefaultOverrides(readColumnDefaultOverrides());
+  const gridDefaults = checkGridDefaultOverrides(
+    readDefaultOverrides('TIME_GRID_DEFAULT_OVERRIDES'),
+  );
   checkWeatherScopes(readWeatherScopeDefaults(), readWeatherScopeRows(), fields);
   checkCoverage(fields, docs);
   checkFences(docs);
   checkSilentMarkdown(docs);
   const complete = checkCopyableExamples(docs);
+  const configVersion = checkConfigVersion();
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
   const links = checkInternalLinks(docs);
@@ -2854,7 +3155,7 @@ function main() {
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
   checkPageIntros(docs);
-  checkSpelling(docs);
+  checkSpelling([...docs, ...ROOT_PROSE]);
   checkOptionTables(docs);
   checkOptionNoun(docs);
   checkCrossLinks(docs);
@@ -2871,6 +3172,7 @@ function main() {
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
+  const listFences = checkListBlockExamples(docs, readListOnlyKeys());
   const citations = checkCitations();
   const languages = checkLanguageCounts();
 
@@ -2887,13 +3189,16 @@ function main() {
       gates,
       enums,
       sentinels,
+      gridDefaults,
       runtimeEnums,
       removed,
       reachable,
       themed,
       citations,
+      listFences,
       languages,
       readmeAnchors,
+      configVersion,
       version,
     }),
   );

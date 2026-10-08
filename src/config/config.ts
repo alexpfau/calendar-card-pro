@@ -11,7 +11,10 @@ import * as Logger from '../utils/logger';
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
+export const CURRENT_CONFIG_VERSION = 5;
+
 export const DEFAULT_CONFIG: Types.Config = {
+  config_version: undefined,
   entities: [],
   view: 'list',
   start_date: undefined,
@@ -75,12 +78,15 @@ export const DEFAULT_CONFIG: Types.Config = {
   today_month_color: undefined, // Inherit from month_color or weekend_month_color,
 
   event_background_opacity: 0,
+  past_event_opacity: 60,
   show_past_events: false,
   show_countdown: false,
   show_countdown_allday: true,
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
-  progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
+  // Three quarters of the time text: every bar carries the time font size, so `em` follows
+  // it in both placements, whatever font size `time_font_size` holds.
+  progress_bar_height: '0.75em',
   // Deliberately absent: each progress-bar placement supplies its own width fallback.
   progress_bar_width: undefined,
   // Top alignment keeps icons level with the first line when text wraps.
@@ -111,6 +117,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_description: false,
   show_description_allday: true,
   title_max_lines: 0,
+  scroll_long_titles: false,
   description_max_lines: 0,
   description_font_size: '12px',
   description_color: 'var(--secondary-text-color)',
@@ -149,8 +156,41 @@ export const DEFAULT_CONFIG: Types.Config = {
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
 
+  list: undefined,
   column: undefined,
+  time_grid: undefined,
 };
+
+export type ConfigVersionState =
+  | { readonly kind: 'legacy'; readonly version?: number }
+  | { readonly kind: 'current'; readonly version: number }
+  | { readonly kind: 'future'; readonly version: number }
+  | { readonly kind: 'invalid'; readonly value: unknown };
+
+/**
+ * Classifies the authored configuration format without coercing it.
+ *
+ * @param config - Raw configuration before defaults are merged
+ * @returns The version state the editor must honor
+ */
+export function configVersionState(config: Readonly<Record<string, unknown>>): ConfigVersionState {
+  if (!Object.prototype.hasOwnProperty.call(config, 'config_version')) {
+    return { kind: 'legacy' };
+  }
+
+  const value = config.config_version;
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    return { kind: 'invalid', value };
+  }
+  if (value < CURRENT_CONFIG_VERSION) return { kind: 'legacy', version: value };
+  if (value > CURRENT_CONFIG_VERSION) return { kind: 'future', version: value };
+  return { kind: 'current', version: value };
+}
 
 //-----------------------------------------------------------------------------
 // CONFIGURATION UTILITIES
@@ -176,6 +216,35 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
   return parsed;
 }
 
+/**
+ * Parses a finite percentage without treating a clear or boolean as zero.
+ *
+ * @param value - Raw YAML or selector value
+ * @returns A number from 0 through 100, or undefined
+ */
+export function toValidPercentage(value: unknown): number | undefined {
+  const parsed = toValidNumber(value);
+  return parsed !== undefined && parsed <= 100 ? parsed : undefined;
+}
+
+/**
+ * Reports invalid past-content opacity at the configuration or editor write boundary.
+ *
+ * @param value - Raw value; missing, null and blank values mean clear
+ * @param path - Option path used in the diagnostic
+ */
+export function validatePastEventOpacity(value: unknown, path = 'past_event_opacity'): void {
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '') ||
+    toValidPercentage(value) !== undefined
+  ) {
+    return;
+  }
+  Logger.warn(`Ignoring "${path}": expected a finite percentage from 0 to 100.`);
+}
+
 // Also read by the editor's upgrade path.
 export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
@@ -195,7 +264,7 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
  * A plain spread merges the top level only, so a `weather:` block naming just `entity:`
  * replaced the whole default sub-tree and arrived with `position`, `date` and `event` all
  * `undefined` — even though each is published with a default. That produced two defects in
- * v4 review, both fixed at the symptom: `resolveWeatherPosition` had to centralise a
+ * v4 review, both fixed at the symptom: `resolveWeatherPosition` had to centralize a
  * `position` default the subscribe and render halves were resolving differently, and
  * `isCustomized` had to treat an absent value as not-customized so the editor's filter
  * stopped flagging keys the user never wrote. This is the cause behind both.
@@ -284,6 +353,9 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
     toValidNumber(config.refresh_interval, 1) ?? DEFAULT_CONFIG.refresh_interval;
   config.event_background_opacity =
     toValidNumber(config.event_background_opacity, 0) ?? DEFAULT_CONFIG.event_background_opacity;
+  validatePastEventOpacity(config.past_event_opacity);
+  config.past_event_opacity =
+    toValidPercentage(config.past_event_opacity) ?? DEFAULT_CONFIG.past_event_opacity;
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.
@@ -312,19 +384,36 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * Values that carry no bare number, and genuinely numeric options, pass through untouched
  * — except a missing one. A blank YAML value parses as `null`, which means "no value
  * supplied" rather than a value to preserve, so a length-valued option falls back to what
- * it ships with.
+ * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
+ * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter still: any value that is not a size
+ * they can be drawn at falls back the same way.
  *
- * @param key - Option the value was written against
+ * @param key - Option the value was written against: its name, or its dotted path inside a
+ *   nested group, such as `weather.date.icon_size`
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
 export function coercePixelLength(key: string, value: unknown): unknown {
-  return coercePixelLengthAgainst(
-    (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key],
-    value,
-    key,
-  );
+  return coercePixelLengthAgainst(valueAtPath(DEFAULT_CONFIG, key), value, key);
+}
+
+/**
+ * Reads an option by its path: its name at the top level, or a dotted path such as
+ * `weather.date.icon_size` inside a nested group.
+ *
+ * @param source - Configuration to read, or `DEFAULT_CONFIG` for the shipped default
+ * @param path - Option path
+ * @returns The value, or `undefined` when any step is missing or not an object
+ */
+function valueAtPath(source: unknown, path: string): unknown {
+  let value = source;
+
+  for (const step of path.split('.')) {
+    value = isPlainObject(value) ? value[step] : undefined;
+  }
+
+  return value;
 }
 
 /**
@@ -339,8 +428,11 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
- * @param key - Top-level option name, where one applies. Only consulted for the options in
- *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself.
+ * @param key - Option path, where one applies: the name at the top level, or the dotted path
+ *   of a nested option. Only consulted for the options in
+ *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself, and
+ *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
+ *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
@@ -361,9 +453,17 @@ export function coercePixelLengthAgainst(
   //
   // Deliberately narrow. An empty string, `NaN` and `Infinity` also reach here and are
   // pinned as pass-through by `tests/pixel-length-coercion.test.ts`: none of them throws,
-  // and substituting a default for them would replace a dead rule with a guess.
+  // and substituting a default for them would replace a dead rule with a guess. The one
+  // exception is the table checked next, where an unusable value is not a dead rule.
   if (value === null || value === undefined) {
     return lengthValued ? shippedDefault : value;
+  }
+
+  // For these options an unusable value releases the element's own size instead of
+  // dropping one rule, so anything that is not a size they can be drawn at is folded.
+  const validate = key === undefined ? undefined : foldValidator(key);
+  if (validate !== undefined) {
+    return validate(value) ?? shippedDefault;
   }
 
   const bare = bareNumber(value);
@@ -375,26 +475,414 @@ export function coercePixelLengthAgainst(
 }
 
 /**
+ * Length options whose unusable value takes the layout down with it, so it is folded to
+ * the shipped default rather than passed through.
+ *
+ * For most lengths a value the browser cannot use costs only its own rule: the declaration
+ * is dropped and a gap or a font size quietly reverts. These are different, because they
+ * size icons, and an icon has a size of its own. Each reaches Home Assistant's
+ * `ha-svg-icon` as `--mdc-icon-size`, which it reads as `width: var(--mdc-icon-size,
+ * 24px)`. That fallback covers a missing property, not one holding something `width`
+ * cannot use — so `6 px` leaves the icon's box `auto` and its SVG takes the browser's
+ * default 300px width (#620). `today_indicator_size` took over today's column header that
+ * way and filled the date column in list view, and an image indicator went to its natural
+ * size. The clock, location, description and weather icons blew up the same way, to 300px
+ * across in list and column view, except that a day header's weather icon stopped at the
+ * width of its column. In grid view the time fit dropped the clock icon rather than draw
+ * it that wide.
+ *
+ * Measured in Chromium, the same failure follows from a negative size, a percentage, a
+ * keyword such as `large`, a decimal comma and a unit typo — not only from the space. So
+ * the fold is decided by {@link toValidSize}, which accepts what an icon can be drawn at,
+ * rather than by a list of known mistakes.
+ *
+ * Entries are option paths: the name of a top-level option, and the dotted path of a
+ * nested one, because `icon_size` on its own names an option in both `weather.date` and
+ * `weather.event`. Consulted wherever {@link coercePixelLengthAgainst} is handed a path:
+ * every level of the `setConfig` walk, every view override, and the editor's comparisons,
+ * so all three agree on the folded value.
+ */
+export const LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'today_indicator_size',
+  'time_icon_size',
+  'location_icon_size',
+  'description_icon_size',
+  'weather.date.icon_size',
+  'weather.event.icon_size',
+]);
+
+/**
+ * Font-size options whose unusable value is folded to the shipped default rather than passed
+ * through, judged as a font size by {@link toValidFontSize}.
+ *
+ * On its own a font size the browser cannot use is harmless: the declaration is dropped and
+ * the text inherits. The damage came from the places that also read these as lengths. The
+ * date column is 1.75 times `day_font_size` wide, so `26 px` or a misspelled unit made the
+ * width invalid and the column took half the card, squeezing the events beside it.
+ * `event_font_size` sized calendar label icons through `--mdc-icon-size` and label images
+ * through `height`, so the same mistakes drew a label icon 300px across and an image at its
+ * natural size. Every one of those places now takes any valid font size (see
+ * `scaleFontSize` and the stylesheet), so what is left to refuse is a value that is not a
+ * font size at all.
+ *
+ * Kept apart from {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, because the two accept
+ * different things: a keyword such as `large` and a percentage are good font sizes and bad
+ * icon sizes. That table is also reconciled against every `--mdc-icon-size` in the
+ * stylesheet, which no font size feeds.
+ *
+ * Entries are option paths, as in the icon-size table, so the two weather `font_size`
+ * options are named by where they live.
+ */
+export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'title_font_size',
+  'week_number_font_size',
+  'weekday_font_size',
+  'day_font_size',
+  'month_font_size',
+  'event_font_size',
+  'time_font_size',
+  'location_font_size',
+  'description_font_size',
+  'weather.date.font_size',
+  'weather.event.font_size',
+]);
+
+/** Every option that folds an unusable value: the icon sizes, then the font sizes. */
+export const FOLDED_OPTIONS: ReadonlyArray<string> = [
+  ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
+];
+
+/**
+ * The rule that decides whether an option's value folds, or `undefined` for an option that
+ * never folds.
+ *
+ * @param key - Option path
+ * @returns {@link toValidSize}, {@link toValidFontSize}, or `undefined`
+ */
+function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
+  if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return toValidSize;
+  }
+
+  return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
+}
+
+/**
+ * Every CSS length unit: absolute, font-relative, viewport and container. `%` is not one —
+ * see {@link toValidSize}.
+ */
+const LENGTH_UNIT =
+  '(?:px|cm|mm|q|in|pt|pc|r?em|r?ex|r?cap|r?ch|r?ic|r?lh|[sld]?v(?:w|h|i|b|min|max)|cq(?:w|h|i|b|min|max))';
+
+/**
+ * A size as CSS writes it — a non-negative number, in any notation CSS reads, and a unit:
+ * `6px`, `.75rem`, `1REM`, `1e1px`.
+ */
+const SIZE = new RegExp(`^\\+?(?:\\d*\\.)?\\d+(?:e[+-]?\\d+)?${LENGTH_UNIT}$`, 'i');
+
+/**
+ * A number, whitespace, then a length unit, anywhere in a value — `6 px`, which is what
+ * #620 typed. CSS reads that as a number followed by a word, which is never valid, so
+ * closing it up cannot change the meaning of a value that already worked. Global, and so
+ * only ever handed to `replace`, which resets `lastIndex` itself; a `test` or `exec` on it
+ * would carry position from one call into the next.
+ */
+const SPACE_BEFORE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT})(?![a-z])`, 'gi');
+
+/**
+ * {@link SPACE_BEFORE_UNIT} for a font size, which can also be a percentage: `150 %` is as
+ * unreadable to CSS as `6 px`, and can only have meant `150%`.
+ */
+const SPACE_BEFORE_FONT_SIZE_UNIT = new RegExp(`(\\d)\\s+(${LENGTH_UNIT}|%)(?![a-z])`, 'gi');
+
+/** A percentage as CSS writes it, which for a font size is a share of the parent's. */
+const PERCENTAGE = /^\+?(?:\d*\.)?\d+(?:e[+-]?\d+)?%$/i;
+
+/**
+ * The keywords `font-size` takes beyond its lengths and percentages: the absolute sizes, the
+ * two relative steps, `math`, and the CSS-wide keywords — see {@link toValidFontSize} for
+ * what the last group does here.
+ */
+const FONT_SIZE_KEYWORD =
+  /^(?:xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|larger|smaller|math|inherit|initial|unset|revert|revert-layer)$/i;
+
+/**
+ * A value shaped like a CSS function — `calc()`, `min()`, `round()`, `var()` and the rest —
+ * including one YAML spread over several lines.
+ */
+const SIZE_FUNCTION = /^[a-z][a-z-]*\([\s\S]*\)$/i;
+
+/**
+ * Semicolons and whitespace at the end of a value — where a CSS declaration ends, and
+ * nothing a size contains.
+ */
+const DECLARATION_END = /[\s;]+$/;
+
+/** An `!important` flag at the end of a value, in any case and spacing CSS accepts. */
+const IMPORTANT_FLAG = /!\s*important$/i;
+
+/**
+ * Whether the browser accepts a value written as a function for a property.
+ *
+ * An icon size asks about `border-top-width`, because that property takes exactly what an
+ * icon can be drawn at — a non-negative length, with no percentage and no `auto` — so its
+ * answer refuses `calc(6pz)` and `calc(50%)` and accepts `round(up, 0.5em, 1px)`. A font size
+ * asks about `font-size` itself. Neither property's own keywords reach this, because only a
+ * value shaped like a function is asked. A `var()` always passes: the property it names is
+ * not known until layout.
+ *
+ * Where nothing can answer — the Node scripts that import this module — the value is kept.
+ * The test suite's happy-dom does answer, and answers `true` to everything, so a test of
+ * the refusing branch has to supply the browser's answer itself.
+ *
+ * @param property - The CSS property the value has to work in
+ * @param value - A function-shaped value, already tidied
+ * @returns `true` unless a browser says it cannot use the value
+ */
+function browserAccepts(property: string, value: string): boolean {
+  return (
+    typeof CSS === 'undefined' ||
+    typeof CSS.supports !== 'function' ||
+    CSS.supports(property, value)
+  );
+}
+
+/**
+ * A size an icon or an image can be drawn at, tidied, or `undefined` when there is none.
+ *
+ * Accepts a non-negative CSS length — a number and a length unit — and forgives the
+ * spellings that can only have meant one: a bare number, which gains `px` as it does for
+ * every length option; whitespace between a number and its unit, which is closed up, so
+ * `6 px` becomes `6px`, inside a `calc()` as well; and a trailing semicolon, which no size
+ * can contain and which the card already tolerated by accident, because the first render
+ * writes the style attribute as text.
+ *
+ * An `!important` flag after the size is kept, written ` !important`, the one spelling
+ * Lit's `styleMap` reads as the declaration's priority rather than as part of its value.
+ * The card already honored it that way, so `20px !important` drew at 20px and outranked an
+ * `!important` declaration of the same property from card-mod or a theme. Folding it, or
+ * keeping the size and dropping the flag, would each have changed what such a card drew.
+ *
+ * Everything else is refused, and each kind was measured breaking an icon in Chromium. A
+ * percentage resolves against a different box in every rule that reads it: the today
+ * indicator's dot drew 150px wide for `50%`, the weekday's offset grew past 300px for
+ * `150%`, and even inside `min(20px, 50%)`, where the clock icon itself drew at 20px, the
+ * box around it went 300px wide. A negative size, a keyword such as `large` or `auto`, and
+ * a unit CSS does not have — which is how a typo arrives — each released the icon's own
+ * size.
+ *
+ * A function is checked by the browser, through {@link browserAccepts}, once its spaces are
+ * closed up — and refused outright if it holds a percentage, so that answer does not depend
+ * on which browser is asking. The one value nothing here can check is a `var()` or `env()`
+ * naming a property that holds no length.
+ *
+ * @param value - Raw configured value
+ * @returns The size to use, with its `!important` flag if it carried one, or `undefined`
+ *   when the value cannot be one
+ */
+export function toValidSize(value: unknown): string | undefined {
+  return withDeclarationSyntax(value, sizeOf);
+}
+
+/**
+ * A font size, tidied, or `undefined` when the value is not one.
+ *
+ * Judged as a font size rather than by {@link toValidSize}'s rule for icons, because
+ * `font-size` takes more: a percentage of the parent's size such as `150%`, the absolute
+ * keywords from `xx-small` to `xxx-large`, the relative steps `larger` and `smaller`, and
+ * `math`, beside every length an icon takes. The same spellings are forgiven — a bare
+ * number gains `px`, a space before the unit is closed up (`26 px`, `150 %`), a trailing
+ * semicolon is dropped, and an `!important` flag is kept as {@link toValidSize} keeps it.
+ *
+ * A function is asked about `font-size` itself, through {@link browserAccepts}, so
+ * `clamp(12px, 150%, 30px)` is kept where an icon size would refuse the percentage.
+ *
+ * Refused, and so folded: a negative size, a unit CSS does not have, and a word that is no
+ * font size (`big`, `auto`).
+ *
+ * The CSS-wide keywords `inherit`, `initial`, `unset`, `revert` and `revert-layer` are kept,
+ * unlike an icon size's. Each is a font size, and folding one would change what a card using
+ * it draws: `inherit` follows the text around it, and the default would replace that with a
+ * fixed size. The weekday, day and month carry their option as an inline style, so there the
+ * keyword means what it says. Elsewhere it reaches a custom property, where it applies to the
+ * property rather than to the font, so the rule reading it takes its own fallback or, having
+ * none, inherits. The one place that derives a length from a font size, the date column,
+ * takes them as the inherited size and `initial` as `medium` (see `scaleFontSize`).
+ *
+ * @param value - Raw configured value
+ * @returns The font size to use, with its `!important` flag if it carried one, or
+ *   `undefined` when the value cannot be one
+ */
+export function toValidFontSize(value: unknown): string | undefined {
+  return withDeclarationSyntax(value, fontSizeOf);
+}
+
+/**
+ * Removes what a CSS declaration adds around a value — trailing semicolons and an
+ * `!important` flag — judges the value that remains, and puts the flag back.
+ *
+ * @param value - Raw configured value
+ * @param judge - Tidies the bare value, or returns `undefined` when it is unusable
+ * @returns The tidied value, written ` !important` when it carried the flag, or `undefined`
+ */
+function withDeclarationSyntax(
+  value: unknown,
+  judge: (written: unknown) => string | undefined,
+): string | undefined {
+  if (typeof value !== 'string') {
+    return judge(value);
+  }
+
+  const written = value.replace(DECLARATION_END, '').trim();
+  if (!IMPORTANT_FLAG.test(written)) {
+    return judge(written);
+  }
+
+  const size = judge(written.replace(IMPORTANT_FLAG, '').replace(DECLARATION_END, '').trim());
+  return size === undefined ? undefined : `${size} !important`;
+}
+
+/**
+ * The size half of {@link toValidSize}, for a value with its declaration syntax removed.
+ *
+ * @param written - The value, trimmed, or a value YAML typed as something other than text
+ * @returns The size, tidied, or `undefined` when the value cannot be one
+ */
+function sizeOf(written: unknown): string | undefined {
+  const bare = bareNumber(written);
+  const text =
+    bare !== undefined
+      ? `${bare}px`
+      : typeof written === 'string'
+        ? written.replace(SPACE_BEFORE_UNIT, '$1$2')
+        : '';
+
+  if (SIZE.test(text)) {
+    return text;
+  }
+
+  return SIZE_FUNCTION.test(text) && !text.includes('%') && browserAccepts('border-top-width', text)
+    ? text
+    : undefined;
+}
+
+/**
+ * The font-size half of {@link toValidFontSize}, for a value with its declaration syntax
+ * removed.
+ *
+ * @param written - The value, trimmed, or a value YAML typed as something other than text
+ * @returns The font size, tidied, or `undefined` when the value cannot be one
+ */
+function fontSizeOf(written: unknown): string | undefined {
+  const bare = bareNumber(written);
+  const text =
+    bare !== undefined
+      ? `${bare}px`
+      : typeof written === 'string'
+        ? written.replace(SPACE_BEFORE_FONT_SIZE_UNIT, '$1$2')
+        : '';
+
+  if (SIZE.test(text) || PERCENTAGE.test(text) || FONT_SIZE_KEYWORD.test(text)) {
+    return text;
+  }
+
+  return SIZE_FUNCTION.test(text) && browserAccepts('font-size', text) ? text : undefined;
+}
+
+/**
+ * Whether a value written for an option would be folded to its shipped default.
+ *
+ * Only an option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
+ * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} folds, and only a value that is present and not
+ * blank: a missing or blank one means "not set", which takes the default without being a
+ * mistake.
+ *
+ * @param key - Option path the value was written against: the name of a top-level option,
+ *   or the dotted path of a nested one
+ * @param value - Raw value, before normalization
+ * @returns `true` when the value cannot be used and the default will stand in for it
+ */
+export function foldsToDefault(key: string, value: unknown): boolean {
+  const validate = foldValidator(key);
+
+  return (
+    validate !== undefined &&
+    value !== undefined &&
+    value !== null &&
+    !(typeof value === 'string' && value.trim() === '') &&
+    validate(value) === undefined
+  );
+}
+
+/**
+ * Reports a folded length or font size at the configuration boundary.
+ *
+ * Called from `setConfig`, through {@link validateFoldedLengths}, and from the
+ * view-override validation rather than from {@link coercePixelLengthAgainst}, which the
+ * editor runs on every keystroke.
+ *
+ * @param key - Option path in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
+ *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}
+ * @param value - Raw value, before normalization
+ * @param path - Where the value was written, as the diagnostic names it — the option path
+ *   itself, or `column.time_icon_size` for a view override
+ */
+export function validateFoldedLength(key: string, value: unknown, path: string = key): void {
+  if (!foldsToDefault(key, value)) {
+    return;
+  }
+
+  const expected = FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+    ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
+    : 'a non-negative CSS length such as "6px" or "0.5em"';
+  // `title_font_size` ships unset, so folding it means leaving the title at the size it
+  // would have had without the option.
+  const fallback = valueAtPath(DEFAULT_CONFIG, key);
+  const outcome =
+    fallback === undefined ? 'Ignoring it.' : `Falling back to "${String(fallback)}".`;
+
+  Logger.warn(`Invalid ${path} ${JSON.stringify(value)}: expected ${expected}. ${outcome}`);
+}
+
+/**
+ * Reports every folded length and font size in a merged configuration, on the values as
+ * written.
+ *
+ * Reads each option by its path, so a nested one such as `weather.date.icon_size` is
+ * checked where it lives rather than looked for at the top level, where it never is.
+ *
+ * @param config - Merged configuration, before {@link normalizeLengthOptions} replaces the
+ *   values it folds
+ */
+export function validateFoldedLengths(config: Types.Config): void {
+  for (const key of FOLDED_OPTIONS) {
+    validateFoldedLength(key, valueAtPath(config, key));
+  }
+}
+
+/**
  * Length-valued options whose shipped default cannot mark them as such.
  *
  * Inferring length-ness from the default is right for almost every option and is what
  * keeps this from being a list somebody has to remember to update — but it can only work
- * when the default *is* a pixel length. These five ship something else, so the inference
+ * when the default *is* a pixel length. These six ship something else, so the inference
  * reads them as ordinary strings and returns every value untouched:
  *
  * | Option                | Ships          | Why it is not a pixel length          |
  * | --------------------- | -------------- | ------------------------------------- |
  * | `title_font_size`     | `undefined`    | unset means "inherit the HA card size" |
  * | `progress_bar_width`  | `undefined`    | unset means "per placement" — 60px in list view, 80% in column |
- * | `progress_bar_height` | `calc(…)`      | derived from the time font size       |
+ * | `progress_bar_height` | `'0.75em'`     | follows the time font size            |
  * | `height`              | `'auto'`       | a CSS keyword                         |
  * | `max_height`          | `'none'`       | a CSS keyword                         |
+ * | `axis_width`          | `'max-content'` | scales with the axis label text       |
  *
- * All five reach CSS where a length is expected, so a bare number breaks them exactly as
+ * All six reach CSS where a length is expected, so a bare number breaks them exactly as
  * it breaks `day_spacing`: `font-size: var(--calendar-card-font-size-title, …)` given a
  * unitless `24` **substitutes** rather than falling back, so the declaration goes invalid
  * at computed-value time and the title silently drops to its inherited size — worse than
- * never setting the option. Three of the five are free-text fields in the visual editor,
+ * never setting the option. Four of the six are free-text fields in the visual editor,
  * where typing `24` is the natural thing to do.
  *
  * `today_indicator_position` is deliberately absent. It ships `'15% 50%'`, which is a
@@ -402,8 +890,9 @@ export function coercePixelLengthAgainst(
  * ambiguous — `20` could mean `20%` or `20px`, and it is parsed by
  * `parseIndicatorPosition` rather than handed to CSS. Appending a unit would be a guess.
  *
- * Only consulted at the top level of the walk, so a nested key that happens to share one
- * of these names cannot pick up the exception by accident.
+ * Holds top-level names only. A nested option reaches the check under its whole dotted path,
+ * such as `weather.date.font_size`, so a nested key that happens to share one of these names
+ * cannot pick up the exception by accident.
  */
 export const LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT: ReadonlySet<string> = new Set([
   'title_font_size',
@@ -411,6 +900,7 @@ export const LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT: ReadonlySet<string> = new Set
   'progress_bar_height',
   'height',
   'max_height',
+  'axis_width',
 ]);
 
 /**
@@ -496,7 +986,6 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
   coerceLengthsAgainst(
     config as unknown as Record<string, unknown>,
     DEFAULT_CONFIG as unknown as Record<string, unknown>,
-    true,
   );
 
   return config;
@@ -508,27 +997,31 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
  * Writes only changed values. Nested callers use the return value to attach rebuilt
  * objects only when needed.
  *
+ * Every value is coerced under its option path — `weather.date.icon_size`, not
+ * `icon_size` — which is how the tables that name options find a nested one, and how a
+ * nested key that shares a top-level option's name is kept from being taken for it.
+ *
  * @param target - Configuration level to normalize in place
  * @param defaults - The matching level of `DEFAULT_CONFIG`
- * @param topLevel - Whether this is the outermost level, where option names are the ones
- *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT} names
+ * @param parent - Option path of this level, or `undefined` at the top
  * @returns Whether anything at or below this level changed
  */
 function coerceLengthsAgainst(
   target: Record<string, unknown>,
   defaults: Record<string, unknown>,
-  topLevel = false,
+  parent?: string,
 ): boolean {
   let changed = false;
 
   for (const key of Object.keys(target)) {
     const value = target[key];
     const shipped = defaults[key];
+    const path = parent === undefined ? key : `${parent}.${key}`;
 
     if (isPlainObject(value) && isPlainObject(shipped)) {
       const rebuilt = { ...value };
 
-      if (coerceLengthsAgainst(rebuilt, shipped)) {
+      if (coerceLengthsAgainst(rebuilt, shipped, path)) {
         target[key] = rebuilt;
         changed = true;
       }
@@ -536,7 +1029,7 @@ function coerceLengthsAgainst(
       continue;
     }
 
-    const coerced = coercePixelLengthAgainst(shipped, value, topLevel ? key : undefined);
+    const coerced = coercePixelLengthAgainst(shipped, value, path);
 
     if (coerced !== value) {
       target[key] = coerced;
@@ -816,6 +1309,21 @@ const SUGGESTION_GRID_OPTIONS = {
 const SUGGESTION_COLUMN_LABEL = 'Columns';
 
 /**
+ * The label distinguishing the time-grid suggestion.
+ *
+ * Named for the `time_grid:` block a user will meet in YAML rather than for the
+ * `view: grid` value, because the block is what they will edit. Untranslated for
+ * the same reason as the column label above.
+ *
+ * Deliberately still "Time Grid" where the editor's own view tile now reads "Grid". The
+ * tile sits beside "List" and "Columns" and is read by someone already inside the card,
+ * where the extra word is noise; this label is read in Home Assistant's card picker by
+ * someone who has never seen the card, beside a "Columns" entry it has to be told apart
+ * from. Grep for "Time Grid" and you will find both — that is the split, and it is meant.
+ */
+const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
+
+/**
  * Build the opinionated starting configuration for a set of calendar entities.
  *
  * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
@@ -832,6 +1340,7 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
 function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string, unknown> {
   return {
     type: 'custom:calendar-card-pro-dev',
+    config_version: CURRENT_CONFIG_VERSION,
     entities: [...entities],
     days_to_show: 3,
     show_location: true,
@@ -862,17 +1371,21 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * The two configs differ only by `view`, so they share the same event-cache key.
- * Changing fetch-affecting options in the column suggestion would make each picker
- * preview issue its own calendar request.
+ * The three configs differ only by `view` and, for the grid, `show_location` — none of
+ * which is fetch-affecting, so they share one event-cache key. Changing a member of
+ * `FETCH_TIME_KEYS` in any of them would make each picker preview issue its own calendar
+ * request.
  *
- * The column preview renders as columns rather than falling back to a list,
+ * The column and grid previews render as themselves rather than falling back to a list,
  * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
  * returns the requested view whenever that flag is set.
  *
+ * Note `grid_options` here is Home Assistant's own sections-layout sizing key and has
+ * nothing to do with `view: 'grid'`; all three suggestions carry it.
+ *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker
- * @returns A two-entry suggestion list, or `null` when nothing should be offered
+ * @returns A three-entry suggestion list, or `null` when nothing should be offered
  */
 export function getEntitySuggestion(
   hass: Types.Hass | null | undefined,
@@ -903,6 +1416,20 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'column',
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_TIME_GRID_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'grid',
+        // The one deliberate divergence between the three previews. A time-grid block is
+        // read by its position and height, and a full postal address is several lines that
+        // push everything else out of a lunchtime meeting — so the grid preview shows the
+        // title and the clock and stops there. `show_location` is render-time, so this
+        // costs nothing: all three still resolve to one cache key and one calendar request.
+        show_location: false,
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

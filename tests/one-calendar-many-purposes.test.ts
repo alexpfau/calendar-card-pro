@@ -265,7 +265,7 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
     expect(GUIDE_ENTITIES[6]).toMatchObject({ filter_field: 'description', replace_with: 'Busy' });
     expect(GUIDE_CONFIG).toMatchObject({ allday_badge: 'title', allday_badge_style: 'filled' });
 
-    // 🚨 The page's legend is the COLOUR, not the shape: a pink capsule is a birthday only
+    // 🚨 The page's legend is the COLOR, not the shape: a pink capsule is a birthday only
     // because each pill takes its own calendar's accent. `allday_badge_color` decides that,
     // and the page relies on its DEFAULT rather than writing it out -- so a change of that
     // default would draw every pill alike and silently retire the whole guide, with its YAML

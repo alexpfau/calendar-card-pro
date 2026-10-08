@@ -6,6 +6,7 @@ import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
+import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 
@@ -22,14 +23,15 @@ import * as EventUtils from '../src/utils/events';
  *
  * So rather than pin the two known instances, this sweeps **every** key in
  * `DEFAULT_CONFIG`, sets it to `null` one at a time, and drives the real pipeline
- * through **both** renderers. A new option added without a guard fails here on the day
+ * through **all three** renderers. Grid-only options get a second sweep through the
+ * `time_grid:` block. A new option added without a guard fails here on the day
  * it is added, which is the only version of this test worth having.
  *
- * ## Why both views
+ * ## Why all three views
  *
- * `renderGroupedEvents` does not dispatch on view — the column view is a separate
- * renderer in `column.ts`. Sweeping the list alone would cover 93 keys through one of
- * two paths and miss the view v4 exists to add. That is not hypothetical: with the
+ * `renderGroupedEvents` does not dispatch on view — column and grid are separate
+ * renderers in `column.ts` and `grid.ts`. Sweeping the list alone would cover the keys
+ * through only one of three paths and miss the views v4 and v5 exist to add. That is not hypothetical: with the
  * length coercion removed, the list crashes on 2 keys and the column on **3** — the
  * same two plus `day_spacing`, which only the column renderer reads (via
  * `sanitizeGutter`). Validated against the list alone, that third instance of the
@@ -46,9 +48,9 @@ import * as EventUtils from '../src/utils/events';
  *
  * The card element itself is deliberately not constructed — same reasoning as
  * `list-dom.test.ts`: that would need a fake `hass`, a mocked `callApi` and an async
- * fetch, none of which this gate is about. The two render paths used here
- * (`groupEventsByDay` → `renderGroupedEvents` / `renderColumnGroupedEvents` → Lit) are
- * what `render()` dispatches to.
+ * fetch, none of which this gate is about. The three render paths used here
+ * (`groupEventsByDay` → the list, column, or grid renderer → Lit) are what `render()`
+ * dispatches to.
  */
 
 /** The five normalization/validation calls `setConfig` makes, in source order. */
@@ -74,6 +76,14 @@ function renderColumn(config: Types.Config): void {
   const container = document.createElement('div');
   const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'column');
   litRender(Column.renderColumnGroupedEvents(days, config, 'en'), container);
+}
+
+/** The grid equivalent — a third independent renderer with its own option block. */
+function renderGrid(config: Types.Config): void {
+  const container = document.createElement('div');
+  const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'grid');
+  litRender(Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null), container);
 }
 
 describe('null-valued config options', () => {
@@ -115,6 +125,43 @@ describe('null-valued config options', () => {
     } as unknown as Partial<Types.Config>);
 
     expect(() => renderColumn(config)).not.toThrow();
+  });
+
+  it.each(keys)('survives %s: null in the grid view', (key) => {
+    const config = realSetConfigPipeline({
+      entities: ['calendar.test'],
+      view: 'grid',
+      [key]: null,
+    } as unknown as Partial<Types.Config>);
+
+    expect(() => renderGrid(config)).not.toThrow();
+  });
+
+  const gridKeys = Object.keys(
+    ViewConfig.TIME_GRID_DEFAULTS,
+  ) as (keyof typeof ViewConfig.TIME_GRID_DEFAULTS)[];
+
+  // Grid-only keys plus every key the block may override. The two halves resolve through
+  // different functions — `resolveTimeGridOption` and `resolveEffectiveConfig` — and only
+  // the first was swept. That was survivable while no override key had a divergent grid
+  // default, because a card-level null was then the same null the renderer read and the
+  // card-level sweep covered it. `day_spacing` broke that: grid substitutes its own value,
+  // so the block is now the *only* place a null for it can reach the renderer.
+  const gridBlockKeys = [...new Set<string>([...gridKeys, ...ViewConfig.TIME_GRID_OVERRIDE_KEYS])];
+
+  it('sweeps a non-trivial number of grid-only keys', () => {
+    expect(gridKeys.length).toBeGreaterThan(10);
+    expect(gridBlockKeys.length).toBeGreaterThan(gridKeys.length);
+  });
+
+  it.each(gridBlockKeys)('survives time_grid.%s: null in the grid view', (key) => {
+    const config = realSetConfigPipeline({
+      entities: ['calendar.test'],
+      view: 'grid',
+      time_grid: { [key]: null },
+    } as unknown as Partial<Types.Config>);
+
+    expect(() => renderGrid(config)).not.toThrow();
   });
 
   it('detects a crash when the length coercion is skipped (positive control)', () => {
@@ -187,5 +234,43 @@ describe('null-valued config options', () => {
     });
 
     expect(crashed).toEqual(['day_spacing', 'day_separator_width', 'week_separator_width']);
+  });
+
+  it('detects a crash in the grid renderer too (positive control, third path)', () => {
+    // Grid has its own consumers: `day_spacing` reaches the timed-event gutter, while
+    // `week_separator_width` reaches the day-header separator. Pin the exact non-empty
+    // result so this control cannot pass merely because an unrelated key started throwing.
+    //
+    // 🚨 `day_spacing` is absent from the card-level set and its absence is the finding,
+    // not a gap: grid substitutes its own `2px` default for that key, so a card-level
+    // value — null included — never reaches the renderer at all. The block sweep above is
+    // where a null for it can still arrive, and it is guarded there by a different
+    // mechanism; see the second assertion.
+    const crashIn = (place: 'card' | 'block') =>
+      keys.filter((k) => {
+        const config = {
+          ...Config.DEFAULT_CONFIG,
+          entities: ['calendar.test'],
+          view: 'grid',
+          ...(place === 'card' ? { [k]: null } : { time_grid: { [k]: null } }),
+        } as unknown as Types.Config;
+        config.entities = Config.normalizeEntities(config.entities);
+        Config.normalizeNumericOptions(config);
+        // normalizeLengthOptions deliberately omitted.
+        try {
+          renderGrid(config);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+
+    expect(crashIn('card')).toEqual(['week_separator_width']);
+    // `[]`, and the line above is what makes that readable rather than vacuous: the same
+    // probe returns a key on the card-level arm in the same run. The block arm is empty
+    // because `resolveEffectiveConfig` coerces every block value on its way onto the
+    // config, so the block never depends on `normalizeLengthOptions` the way the card
+    // level does. The `time_grid.*` sweep above is what covers that path.
+    expect(crashIn('block')).toEqual([]);
   });
 });

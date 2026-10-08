@@ -15,8 +15,8 @@
  * the field at all cannot pass by making the absence assertion trivially true.
  *
  * The UV badge's two conditions -- `uv_index !== undefined` and the threshold comparison
- * -- mask each other: `undefined >= n` is false for every threshold, so neutralising
- * either one alone leaves behaviour unchanged and no test can distinguish it. Both are
+ * -- mask each other: `undefined >= n` is false for every threshold, so neutralizing
+ * either one alone leaves behavior unchanged and no test can distinguish it. Both are
  * therefore deliberately kept, and the assertions below pin the combined outcome, which
  * does fail when both conditions are removed together.
  */

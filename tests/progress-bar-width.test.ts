@@ -83,10 +83,8 @@ describe('progress_bar_width', () => {
     });
 
     it('is eligible for a column override in the first place', () => {
-      // The mechanism the three cases above rest on, and the reason the per-view
-      // placement needed no new
-      // plumbing. The editor derives its exceptions widget from this list too, so
-      // removing the key would take the option out of the UI as well as out of YAML.
+      // The resolver and editor routing both use this list. Without this key, a
+      // Column edit would no longer target the column block.
       expect(COLUMN_OVERRIDE_KEYS).toContain('progress_bar_width');
     });
   });

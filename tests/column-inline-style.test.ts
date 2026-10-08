@@ -5,7 +5,7 @@
  *
  * Both views paint two things directly onto the event element's `style` attribute
  * rather than through a CSS custom property: the per-calendar accent border and the
- * event background colour that `event_background_opacity` turns on. The two bindings
+ * event background color that `event_background_opacity` turns on. The two bindings
  * are written out character-for-character identically in `render.ts` (list) and
  * `column.ts` (column).
  *
@@ -62,18 +62,18 @@ describe('column view inline style bindings', () => {
   });
 
   describe('the per-calendar accent border', () => {
-    it('paints the configured accent colour onto the column event', () => {
+    it('paints the configured accent color onto the column event', () => {
       expect(eventStyle('column', { accent_color: '#ff0000' })).toContain('solid #ff0000');
     });
 
-    it('paints the same accent colour onto the list event', () => {
+    it('paints the same accent color onto the list event', () => {
       // Control: already covered by the list DOM snapshot, so a failure here means the
       // assertion shape is wrong rather than the column view being broken.
       expect(eventStyle('list', { accent_color: '#ff0000' })).toContain('solid #ff0000');
     });
   });
 
-  describe('the event background colour', () => {
+  describe('the event background color', () => {
     it('draws a background on the column event once an opacity is configured', () => {
       expect(eventStyle('column', { event_background_opacity: 50 })).toContain(
         'background-color: #03a9f4',

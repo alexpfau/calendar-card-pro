@@ -148,7 +148,17 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v4.2
+### Latest Release: v5.0
+
+- 🗓️ **Grid View**: Set [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. Overlapping events sit side by side, all-day events span their dates in a band above the axis, and a line marks the current time on today's column
+- 🎛️ **Edit the Layout You Mean**: Choose All Layouts for shared values, or List, Columns, or Grid for that layout's own [editor workspace](https://calendar-card-pro.alexpfau.com/features/editor#options-for-the-selected-view). The displayed layout stays independent; controls show effective values and offer Reset, while untouched Grid defaults stay out of YAML
+- ↔️ **Scrolling Long Titles**: [`scroll_long_titles`](https://calendar-card-pro.alexpfau.com/features/event-content#scrolling-long-titles) keeps a too-wide title on one line and scrolls it sideways when it actually overflows, so the end of a long meeting subject can be read instead of wrapping the row taller or being lost
+- 🎨 **Event Text in Each Calendar's Color**: Write `accent` into [`event_color`, `time_color`, `location_color`, `description_color` or `progress_bar_color`](https://calendar-card-pro.alexpfau.com/features/event-content#event-text-in-calendar-colors) and that field follows the calendar its event came from, so a glance at a busy day tells you whose it is
+- 🌍 **Weekends That Match Where You Live**: The card asked for Saturday and Sunday everywhere; it now [takes the weekend from the country set in Home Assistant](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only), or from its language when no country is set, which is Friday and Saturday in Israel and much of the Arab world and Sunday alone in India. Weekend colors, the `days_of_week` filter and Grid's [weekend shading](https://calendar-card-pro.alexpfau.com/features/grid-view#shading-the-weekend) all agree now
+- 🌗 **Set How Faded Finished Events Look**: [`past_event_opacity`](https://calendar-card-pro.alexpfau.com/features/event-content#past-events-display) replaces the fixed 60% dimming with anything from 0 to 100, and takes a value per view — `100` keeps finished events at full strength, which a calendar kept as a log has wanted for a while
+- 🐛 **Empty Days Say Something True**: the default message dropped "upcoming" in all 35 languages, because a day already behind you is not waiting for anything — and a finished day's notice now fades along with the events around it instead of sitting bright among them
+
+### v4.2
 
 - 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every contributing calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) instead of only the first; set `duplicate_accent_color` to give shared events a color of their own
 - 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) now say "tomorrow" for the next date and stop skipping days between later dates; same-day starts keep clock countdowns, while distant dates retain natural month/year wording
@@ -167,20 +177,12 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 ### v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](https://calendar-card-pro.alexpfau.com/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
-- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#column-view-exceptions)
+- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#view-exceptions)
 - ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
 - ⚡ **Fewer Round-Trips on Every Page Load**: One card load asked Home Assistant for the same events up to four times; requests are now deduplicated, and two display-only switches no longer discard a valid cache entry
 - 🌍 **Eleven Editor Languages**: Nine newly translated in full — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — alongside US and British English, with per-string fallback so a partial translation still renders
 - 🐛 **Dates, Clocks and Week Numbers**: [Week numbers](https://calendar-card-pro.alexpfau.com/features/layout-appearance#week-numbers-visual-separators) were wrong for one date in seven outside UTC, the clock format disagreed with Home Assistant's own locale data for 33 of its 64 languages, and `first_day_of_week: system` returned Monday to everyone
 - ⚠️ **Breaking**: Manual installs now copy [two files](https://calendar-card-pro.alexpfau.com/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](https://calendar-card-pro.alexpfau.com/features/theming#weather-custom-properties) instead of inline styles
-
-### v3.6
-
-- 📚 **A Documentation Site**: The full manual now lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com) — a page per feature, a [complete configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and [ready-made examples](https://calendar-card-pro.alexpfau.com/reference/examples)
-- 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list replaced the whole calendar with a red error box; malformed entries are now discarded
-- 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired — edits now apply immediately
-- 🐛 **Disappearing and Ellipsised Text**: Titles gained a `…` when nothing had been truncated, and long words in descriptions and locations were clipped mid-character with no warning
-- 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 
@@ -205,7 +207,7 @@ Then open a Pull Request against the `dev` branch.
 
 💡 Got a feature request? **Open a GitHub Issue** or start a **discussion**!
 
-### 🏆 Acknowledgements
+### 🏆 Acknowledgments
 
 - **Original design inspiration** from [Calendar Add-on & Calendar Designs](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) by **[@kdw2060](https://github.com/kdw2060)**.
 - **Interaction patterns** inspired by Home Assistant's [Tile Card](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts), which is licensed under the [Apache License 2.0](https://github.com/home-assistant/frontend/blob/dev/LICENSE.md).

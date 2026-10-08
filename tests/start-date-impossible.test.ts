@@ -91,7 +91,7 @@ describe('fixed start dates that are not impossible', () => {
     vi.useRealTimers();
   });
 
-  it('still honours an explicit in-range date', () => {
+  it('still honors an explicit in-range date', () => {
     const window = EventUtils.getTimeWindow(3, '2025-07-01', 1);
     expect(FormatUtils.getLocalDateKey(window.start)).toBe('2025-07-01');
     expect(window.start.getHours()).toBe(0);
@@ -144,7 +144,7 @@ describe('relative start dates that overflow the representable range', () => {
     },
   );
 
-  it('honours an in-range negative offset even when it is absurd', () => {
+  it('honors an in-range negative offset even when it is absurd', () => {
     // The negative operand above is deliberately larger than the positive ones, because
     // `Date`'s bounds are not symmetric about 2025: forward reaches +275760 in ~273,735
     // years, backward reaches -271821 in ~273,846. So 99,999,999 days overflows forward

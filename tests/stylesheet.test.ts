@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
 import { cardStyles } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
 
@@ -31,9 +32,9 @@ import * as Helpers from '../src/utils/helpers';
  *
  * The first version of this file parsed `cssText` into a real stylesheet and
  * asserted on `CSSStyleDeclaration`. That does not work here: happy-dom's value
- * parser silently drops both `display: -webkit-box` (unrecognised value) and
+ * parser silently drops both `display: -webkit-box` (unrecognized value) and
  * `text-indent: calc(-1 * ...)` (negative multiplier) while keeping every
- * neighbouring declaration -- so the two constructs carrying all the layout risk
+ * neighboring declaration -- so the two constructs carrying all the layout risk
  * are exactly the two it cannot see. Chromium parses both correctly; the hanging
  * indent is confirmed live. The parser is wrong, not the CSS.
  *
@@ -41,7 +42,7 @@ import * as Helpers from '../src/utils/helpers';
  * string Lit hands to the browser.
  *
  * It deliberately pins **invariants that have broken, or that other code depends
- * on**, not the declarations themselves. A gate that fails on every colour tweak
+ * on**, not the declarations themselves. A gate that fails on every color tweak
  * gets updated reflexively and stops being a gate.
  */
 
@@ -158,6 +159,75 @@ describe('card stylesheet', () => {
     expect(rulesFor('.event-title')).toHaveLength(1);
   });
 
+  describe('calendar labels beside title text', () => {
+    const labeledSummary = '.summary:not(.summary-scroll):has(> .event-title:not(:only-child))';
+
+    it.each(['.label-icon', '.label-image'])(
+      'centers title text with %s rather than leaving it on the baseline',
+      (label) => {
+        // Compare actual text ranges in a browser: the title's bottom padding makes its
+        // element box look centered even while the text itself sits above the picture.
+        expect(declared(`.summary:has(> ${label}) > .event-title`, 'vertical-align')).toBe(
+          'middle',
+        );
+      },
+    );
+
+    it.each(['.label-icon', '.label-image'])(
+      'keeps a merged prose label level with the title beside %s',
+      (label) => {
+        expect(declared(`.summary:has(> ${label}) > .calendar-label`, 'vertical-align')).toBe(
+          'middle',
+        );
+      },
+    );
+
+    it.each(['.label-icon', '.label-image', '.calendar-label', '.label-emoji'])(
+      'centers scrolling text, not its padded viewport, beside %s',
+      (label) => {
+        // Widened from the icon/picture pair to every label kind: a flex row centers
+        // boxes, so the title's own bottom padding sat its glyphs one pixel above a
+        // prose or emoji label's. Matched against real markup rather than by selector
+        // text, so an equivalent rewrite of the rule cannot fail this for no reason.
+        const reset = '.summary-scroll:has(> :not(.event-title)) > .event-title';
+        expect(declared(reset, 'padding-bottom')).toBe('0');
+        expect(declared('.summary-scroll', 'align-items')).toBe('center');
+
+        const summary = document.createElement('div');
+        summary.className = 'summary summary-scroll';
+        summary.innerHTML = `<span class="${label.slice(1)}"></span><span class="event-title"></span>`;
+        expect(summary.querySelector('.event-title')!.matches(reset)).toBe(true);
+      },
+    );
+
+    it('leaves an unlabeled scrolling title on its own padding', () => {
+      // Nothing sits beside it to align to, so its row height must not move.
+      const summary = document.createElement('div');
+      summary.className = 'summary summary-scroll';
+      summary.innerHTML = '<span class="event-title"></span>';
+      expect(
+        summary
+          .querySelector('.event-title')!
+          .matches('.summary-scroll:has(> :not(.event-title)) > .event-title'),
+      ).toBe(false);
+    });
+
+    it('clamps the shared labeled line without moving the title below its labels', () => {
+      expect(declared('.summary', '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-title-max-lines)',
+      );
+      expect(declared(labeledSummary, 'display')).toBe('var(--calendar-card-title-display)');
+      expect(declared(labeledSummary, '-webkit-box-orient')).toBe('vertical');
+      expect(declared(`${labeledSummary} > .event-title`, 'display')).toBe('inline');
+    });
+
+    it('leaves unlabeled and prose-only title alignment unchanged', () => {
+      expect(declared('.event-title', 'vertical-align')).toBe('');
+      expect(declared('.calendar-label', 'vertical-align')).toBe('');
+      expect(declared('.event-title', 'padding-bottom')).toBe('2px');
+    });
+  });
+
   describe('the blockification trap', () => {
     /*
      * `.summary` is a flex *item* of the event row and holds the label and
@@ -167,6 +237,11 @@ describe('card stylesheet', () => {
      */
     it('.summary is not a flex or grid container', () => {
       expect(declared('.summary', 'display')).not.toMatch(/flex|grid/);
+    });
+
+    it('withdraws only the grid detail row the host marks as clipped', () => {
+      const selector = '.grid-event-disclosure .grid-event-detail-clipped';
+      expect(declared(selector, 'display')).toBe('none !important');
     });
 
     it('.event-title does not hardcode a display value', () => {
@@ -233,10 +308,10 @@ describe('card stylesheet', () => {
       expect(declared('.time .time-actual:has(.allday-badge)', 'min-width')).toBe('0');
     });
 
-    it('centres a badge row rather than following event_icon_vertical_alignment', () => {
+    it('centers a badge row rather than following event_icon_vertical_alignment', () => {
       // The pill is sized from its own font and the icon from time_icon_size, so raising
       // time_font_size makes the pill the taller of the two and flex-start hangs the icon off
-      // its top edge. At the 12px default the two heights match and centre and flex-start are
+      // its top edge. At the 12px default the two heights match and center and flex-start are
       // indistinguishable, which is why this only shows up once someone scales the type.
       expect(declared('.time .time-actual:has(.allday-badge)', 'align-items')).toBe('center');
       expect(declared('.time-actual', 'align-items')).toBe(
@@ -268,9 +343,12 @@ describe('card stylesheet', () => {
     });
 
     it('the strut and the title cannot drift apart', () => {
-      // Asserted as an invariant rather than as two literals, so changing the
-      // title's size or leading has to move both or fail here.
-      expect(declared('.summary', 'font-size')).toBe(declared('.event-title', 'font-size'));
+      // The title declares no font size of its own and inherits the one .summary sets, so
+      // the two cannot differ at any value. Declaring the same property on both kept them
+      // equal only at px sizes: a relative one applied twice, and 1.5em drew the title at
+      // 2.25x inside a strut at 1.5x. The leading is still asserted as an invariant rather
+      // than as two literals, so changing it has to move both or fail here.
+      expect(declared('.event-title', 'font-size')).toBe('');
       expect(declared('.summary', 'line-height')).toBe(declared('.event-title', 'line-height'));
     });
 
@@ -332,13 +410,13 @@ describe('card stylesheet', () => {
       '.summary:has(> .label-image)',
       '.summary:has(> .label-emoji)',
     ])('%s hangs the label in the margin', (selector) => {
-      // A hanging indent is a negative text-indent cancelled by an equal
+      // A hanging indent is a negative text-indent canceled by an equal
       // padding: the first line starts back at the label, every wrapped line
       // starts at the padding edge. One without the other is not an indent.
       //
-      // Compared as normalised expressions rather than raw strings, because
+      // Compared as normalized expressions rather than raw strings, because
       // `calc(-1 * (A + 4px))` and `calc(-1 * calc(A + 4px))` are the same
-      // quantity -- a bare parenthesised sub-expression inside calc() is valid
+      // quantity -- a bare parenthesized sub-expression inside calc() is valid
       // and is what the source uses. Pinning one spelling would fail on a purely
       // cosmetic edit.
       const indent = expr(declared(selector, 'text-indent'));
@@ -410,15 +488,15 @@ describe('card stylesheet', () => {
       // flex item or a literal -webkit-box, flex line collection moves the whole
       // "· Clear, night" item to the next line before the browser ever considers the
       // break opportunity after the comma. The generated display custom property resolves
-      // to inline when max_lines is 0, and to -webkit-box only when the user asks to clamp.
+      // to inline when max_lines is 0, and to an inline box when the user asks to clamp.
       expect(declared('.time-location .event-weather .weather-condition', 'display')).toBe(
         'var(--calendar-card-weather-event-condition-display)',
       );
     });
 
     it('clamps the words with the same mechanism as every other line limit', () => {
-      // -webkit-line-clamp only takes effect on a -webkit-box, and unlimited is the
-      // keyword `none`, which generateCustomPropertiesObject emits when the option is 0.
+      // -webkit-line-clamp needs a WebKit box display, and unlimited is the keyword `none`,
+      // which generateCustomPropertiesObject emits when the option is 0.
       const selector = '.time-location .event-weather .weather-condition';
 
       expect(declared(selector, '-webkit-box-orient')).toBe('vertical');
@@ -449,7 +527,7 @@ describe('card stylesheet', () => {
 
     it('keeps the separator in the text, spaced by margins rather than positioned', () => {
       // The maintainer's report: `29° · UV0` / `· Teilweise bewölkt` — the dot
-      // travelling down with the words it introduces. It did that because it was an
+      // traveling down with the words it introduces. It did that because it was an
       // absolutely positioned `::before` painted at its chip's origin, so when the chip
       // wrapped the dot wrapped with it, and the break opportunity (a `::after` on the
       // *previous* chip) sat in front of the dot rather than behind it.
@@ -476,7 +554,7 @@ describe('card stylesheet', () => {
       // The maintainer's ruling: one spacing for both rows, so a countdown and a
       // weather condition in the same event punctuate identically. Both now state it the
       // same way, as a plain 4px margin — which is also what makes it exact. The gutter
-      // this replaced centred the glyph inside `2 * 4px + 0.28em`, and 0.28em is only an
+      // this replaced centered the glyph inside `2 * 4px + 0.28em`, and 0.28em is only an
       // estimate of a middot: measured live at 20px text the glyph is 5.21px against the
       // 5.6px reserved, so each gap came out at 4.195px rather than 4px.
       const gap = declared('.column-events .time-countdown::before', 'margin-inline-end');
@@ -491,7 +569,7 @@ describe('card stylesheet', () => {
     it('stops hyphenating the generated condition, and only that', () => {
       // `.content-container` sets `hyphens: auto` for the card, which is right for text
       // a user wrote and wrong for a translated condition -- it produced `Sun-`/`ny`.
-      // `manual` rather than `none`, so an explicit soft hyphen is still honoured.
+      // `manual` rather than `none`, so an explicit soft hyphen is still honored.
       expect(declared('.time-location .event-weather .weather-condition', 'hyphens')).toBe(
         'manual',
       );
@@ -542,7 +620,7 @@ describe('card stylesheet', () => {
       // mid-word. Nothing was clipping it: at the default `max_lines: 0` the display
       // property resolves to `inline`, and `overflow` does not apply to a non-replaced
       // inline box, so the `overflow: hidden` on the condition is inert exactly when the
-      // bug appears. The text genuinely left the column and the neighbour painted over
+      // bug appears. The text genuinely left the column and the neighbor painted over
       // it. Set `max_lines` and the element becomes a `-webkit-box`, `overflow` starts
       // applying and the symptom hides itself -- which is why this asserts the default.
       //
@@ -573,7 +651,7 @@ describe('card stylesheet', () => {
       // version of it paired `break-word` with `position: absolute`, on the grounds
       // that a dot out of flow "is not part of any character sequence a break can land
       // inside". That was true, and it also produced the defect the maintainer then
-      // reported: the dot travelled to the next line with its chip.
+      // reported: the dot traveled to the next line with its chip.
       //
       // In flow, the guarantee comes instead from the *absence of a legal break
       // opportunity* in front of the dot. The gaps are margins, and a margin is not a
@@ -669,7 +747,7 @@ describe('card stylesheet', () => {
       expect(declared('.column-date-content .weather', 'display')).toBe('');
     });
 
-    it('reads weather size and colour from the emitted custom properties', () => {
+    it('reads weather size and color from the emitted custom properties', () => {
       expect(declared('.date-column .weather', 'font-size')).toBe(
         'var(--calendar-card-weather-date-font-size, 12px)',
       );
@@ -756,16 +834,36 @@ describe('card stylesheet', () => {
     });
 
     it('keys the row on the placement, not on the view', () => {
-      // `.progress-bar-row` is emitted by a placement parameter, so it must be styled
-      // unqualified. Scoping it under `.column-events` would tie a *placement* to a
-      // *view*, and a future layout that asks for the row would silently get the inline
-      // styling. Same reasoning as the named view predicates, one level down.
+      // `.progress-bar-row` is emitted by a placement parameter, so its *styling* must be
+      // unqualified. Scoping the width or the margins under `.column-events` would tie a
+      // *placement* to a *view*, and a future layout that asks for the row would silently
+      // get the inline styling. Same reasoning as the named view predicates, one level down.
+      //
+      // Visibility is a different question, and it is allowed to be view-scoped. Grid's
+      // disclosure ladder decides which rows a block is tall enough to show, and it already
+      // does exactly this for .time, .location, .description and .event-weather. So a
+      // view-qualified rule may set `display` and nothing else — that is the line drawn
+      // here, and it is the one that actually protects the placement: a scoped rule which
+      // only reveals or hides cannot leak styling into another view.
       const rules = RULES.filter((rule) =>
         rule.selectors.some((selector) => selector.includes('progress-bar-row')),
       );
+      const isUnqualified = (rule: { selectors: string[] }) =>
+        rule.selectors.every((selector) => selector === '.progress-bar-row');
 
-      expect(rules).toHaveLength(1);
-      expect(rules[0].selectors).toEqual(['.progress-bar-row']);
+      const styling = rules.filter(isUnqualified);
+      expect(styling).toHaveLength(1);
+      expect(styling[0].selectors).toEqual(['.progress-bar-row']);
+
+      for (const rule of rules.filter((rule) => !isUnqualified(rule))) {
+        const props = rule.body
+          .split(';')
+          .map((declaration) => declaration.split(':')[0].trim())
+          .filter(Boolean);
+        expect(props, `${rule.selectors.join(', ')} may only govern visibility`).toEqual([
+          'display',
+        ]);
+      }
     });
 
     it('sits flush left, aligned with the title above it', () => {
@@ -1049,7 +1147,7 @@ describe('card stylesheet', () => {
      * found a hit and the option looked wired up — but `.time`'s own later rule sets
      * `align-items: center` at equal specificity, and source order wins. And even had it
      * applied, `.time`'s children are `.time-actual` plus a countdown or progress bar, so
-     * it would have tilted those and left the icon centred regardless: the icon is one
+     * it would have tilted those and left the icon centered regardless: the icon is one
      * level deeper.
      *
      * These tests are written against the *containers whose children are (icon, text)*,
@@ -1064,9 +1162,9 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('the time row itself stays centred, which is a different question', () => {
+    it('the time row itself stays centered, which is a different question', () => {
       // Not an oversight: .time lays out siblings, not the icon. Restoring the variable
-      // here would tilt the countdown and still leave the icon centred -- the exact
+      // here would tilt the countdown and still leave the icon centered -- the exact
       // half-fix this test exists to prevent.
       expect(declared('.time', 'align-items')).toBe('center');
     });
@@ -1085,7 +1183,7 @@ describe('card stylesheet', () => {
      * The sibling of the icon-alignment bug above, and the half nobody guarded. When the
      * icon option
      * was pinned end to end, `date_vertical_alignment` -- the older option the icon one
-     * was modelled on -- kept a single assertion on its default value and nothing at all
+     * was modeled on -- kept a single assertion on its default value and nothing at all
      * on its wiring.
      *
      * Both ends could therefore be severed with every gate green: `styles.ts` could stop
@@ -1154,7 +1252,7 @@ describe('card stylesheet', () => {
       ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
     });
 
-    it('pins the cap-centring padding, not just that trimming happens', () => {
+    it('pins the cap-centering padding, not just that trimming happens', () => {
       // The @supports block's own comment spends a paragraph deriving 0.3295em from
       // (1.37 - 0.711) / 2, and nothing held the result: changing it to 0.32em left the suite
       // green. The existing test asserts the properties and the scope, never the value.
@@ -1225,7 +1323,7 @@ describe('card stylesheet', () => {
       // baseline: the summary row grew from 22.39px to 31.50px and the gap from the title's
       // text down to the time row went 5.59px -> 11.77px, reported as double spacing.
       //
-      // vertical-align: middle re-centres the pill on the text; the negative block margin
+      // vertical-align: middle re-centers the pill on the text; the negative block margin
       // hands back the height the capsule borrowed, because for an atomic inline the line box
       // measures the margin box. Measured after: the text-to-text gap matches a row with no
       // pill exactly at 14px and 22px, and is within one pixel of it at 18px and 28px, which
@@ -1259,7 +1357,7 @@ describe('card stylesheet', () => {
     /*
      * `allday_badge` names a position and `allday_badge_style` names a treatment, so the
      * five treatments have to mean the same thing at both. The stylesheet does that by
-     * declaring the box and the colour derivations ONCE against both selectors, and giving
+     * declaring the box and the color derivations ONCE against both selectors, and giving
      * each position only the type decisions that genuinely differ.
      *
      * The list below is ALLDAY_BADGE_STYLES itself, not a second copy of it, so a sixth
@@ -1302,14 +1400,14 @@ describe('card stylesheet', () => {
       expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
     });
 
-    it('spreads the four across two shapes, and reaches every colour through a token', () => {
+    it('spreads the four across two shapes, and reaches every color through a token', () => {
       // Nothing read a treatment's OWN declarations before this, in either direction, so the
       // scale's shape was unpinned: which treatments draw a ring and which draw a wash were
       // facts about the stylesheet that no test could see.
       //
       // The pairing is the design. `allday_badge_style` names a SHAPE and
-      // `allday_badge_color` names the colour it is drawn in, so two rings (outline, tinted)
-      // and two washes (subtle, filled is the solid) each come in every colour rather than
+      // `allday_badge_color` names the color it is drawn in, so two rings (outline, tinted)
+      // and two washes (subtle, filled is the solid) each come in every color rather than
       // one shape owning the accent-free look. Until 4.2 that look was a sixth class called
       // `neutral`, so exactly one shape could be had without an accent -- and which one that
       // was changed twice in an evening, because there was only ever room for one.
@@ -1333,11 +1431,11 @@ describe('card stylesheet', () => {
     });
 
     it('lets no treatment reach the accent except through a token', () => {
-      // This is what makes the colour axis one block rather than four. Every treatment reads
+      // This is what makes the color axis one block rather than four. Every treatment reads
       // --badge-ink, --badge-wash or --badge-solid, so `allday_badge_color` switches the
       // source by redefining three properties in one place and no shape rule has to know a
       // source exists. A rule that named --calendar-card-event-accent directly would keep
-      // working in the default colour and silently ignore the other two, which is a failure
+      // working in the default color and silently ignore the other two, which is a failure
       // no rendering test would catch either: the accent IS the default.
       //
       // outline and filled are the two that did name it, and are the reason this exists.
@@ -1359,16 +1457,16 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('draws tinted ring and outline ring in the same colour, from the same token', () => {
+    it('draws tinted ring and outline ring in the same color, from the same token', () => {
       // 🚨 Both rules wrote `inset 0 0 0 1px currentColor` and painted DIFFERENT rings,
       // because currentColor resolves against each rule's own `color`: outline sets
       // --badge-solid (the raw accent) and tinted sets --badge-ink (the 45% legibility mix).
       // Two identical-looking declarations, one token apart, and the difference is invisible
-      // in the source -- which is why this reconciles the RESOLVED colour rather than the
+      // in the source -- which is why this reconciles the RESOLVED color rather than the
       // text of the declaration.
       //
       // It matters because the ring sits four pixels from the event's vertical bar, which is
-      // the raw accent, so a mixed ring reads as the wrong colour against it. Reported from
+      // the raw accent, so a mixed ring reads as the wrong color against it. Reported from
       // a live card.
       //
       // A ring is a boundary nobody reads, so it belongs with the bar; the LABEL is read and
@@ -1377,7 +1475,7 @@ describe('card stylesheet', () => {
       const ringToken = (style: string) => {
         const shadow = declared(`.allday-pill-${style}`, 'box-shadow');
         if (shadow === 'inset 0 0 0 1px currentColor') {
-          // currentColor means "whatever this rule's own colour is".
+          // currentColor means "whatever this rule's own color is".
           return declared(`.allday-pill-${style}`, 'color');
         }
         return shadow.replace('inset 0 0 0 1px ', '');
@@ -1393,10 +1491,10 @@ describe('card stylesheet', () => {
       expect(declared('.allday-pill-tinted', 'color')).toBe('var(--badge-ink)');
     });
 
-    it('points all three tokens at the row ink for the text colour source', () => {
-      // `allday_badge_color: text` is the one source that cannot be resolved to a colour
-      // before the render, because it is whatever the pill is nested in -- the time colour on
-      // the time row, the title colour on the title. The renderer publishes that as
+    it('points all three tokens at the row ink for the text color source', () => {
+      // `allday_badge_color: text` is the one source that cannot be resolved to a color
+      // before the render, because it is whatever the pill is nested in -- the time color on
+      // the time row, the title color on the title. The renderer publishes that as
       // --badge-source and this block points the three tokens at it. A source that redefined
       // only two would leave one treatment drawing the accent beside two that did not.
       const selector = '.allday-badge.allday-source-text';
@@ -1413,17 +1511,17 @@ describe('card stylesheet', () => {
       expect(shared).toHaveLength(1);
 
       // 🚨 --badge-source is a published token and NOT currentColor, and the difference is
-      // `filled`. currentColor resolves against the element's own computed colour -- the
+      // `filled`. currentColor resolves against the element's own computed color -- the
       // thing the treatments SET -- so filled, which deliberately sets a CONTRASTING ink,
-      // would resolve its own ground to its own ink and draw a pill filled with the colour of
+      // would resolve its own ground to its own ink and draw a pill filled with the color of
       // its letters. There is no ordering fix: currentColor always names the final computed
       // value. The other three get away with it only because each sets `color` to the
       // inherited value anyway.
       expect(shared[0].body).not.toContain('currentColor');
 
       // The ink is the source EXACTLY, where the accent path mixes 45% into the primary text
-      // colour for legibility. That mix's job is to make a NAMED colour readable against the
-      // card; for the colour the row is already painted in it is identity, and running it
+      // color for legibility. That mix's job is to make a NAMED color readable against the
+      // card; for the color the row is already painted in it is identity, and running it
       // anyway would draw the label darker than the time beside it.
       expect(declared(selector, '--badge-ink')).toBe('var(--badge-source)');
 
@@ -1536,7 +1634,7 @@ describe('card stylesheet', () => {
       expect(titleBox).toBeLessThan(badgeBox * 1.25);
     });
 
-    it('centres the badge on its caps where the browser can, and on the em square otherwise', () => {
+    it('centers the badge on its caps where the browser can, and on the em square otherwise', () => {
       // The fallback padding is asymmetric because an uppercase label leaves the em square's
       // descender depth empty, so the caps sit high in it. That correction is a measured font
       // constant and it removes the AVERAGE error, but not the per-size scatter: the browser
@@ -1544,12 +1642,12 @@ describe('card stylesheet', () => {
       // that no em-valued padding can flatten.
       //
       // text-box-trim removes the cause rather than compensating for it -- it trims the line
-      // box to the cap height and the alphabetic baseline, so symmetric padding then centres
+      // box to the cap height and the alphabetic baseline, so symmetric padding then centers
       // the ink itself. Measured across fourteen sizes from 12px to 48px at 8x device scale:
       // mean residual +0.027em before, +0.006em after, worst case halved.
       //
       // The title pill must NOT take it: its content is mixed case with descenders and emoji,
-      // where the em square is the right thing to centre and cap-to-baseline is not.
+      // where the em square is the right thing to center and cap-to-baseline is not.
       const css = cardStyles.cssText;
       expect(css).toContain('text-box-trim: trim-both');
       expect(css).toContain('text-box-edge: cap alphabetic');
@@ -1572,7 +1670,7 @@ describe('card stylesheet', () => {
     it('reaches the title pill from the OKLCH enhancement, not just the badge', () => {
       // The chroma-recovery blocks redefine --badge-ink and --badge-wash. Naming only
       // .allday-badge there would leave the title pill on the sRGB fallback: visibly a
-      // different colour from the time badge on the same card, in the same treatment, with
+      // different color from the time badge on the same card, in the same treatment, with
       // nothing in either rule to say why.
       //
       // Scanned out of the raw text rather than through `rulesFor`, and that is not a
@@ -1588,7 +1686,7 @@ describe('card stylesheet', () => {
         return prelude;
       });
 
-      // Base, both OKLCH tiers, and the text colour source. The last one is why the count is
+      // Base, both OKLCH tiers, and the text color source. The last one is why the count is
       // stated rather than merely bounded: it redefines the same two tokens at (0,2,0) from
       // outside any @supports, and a source block that named only one position would put the
       // title pill on the accent while the time badge followed the row -- the same failure
@@ -1598,6 +1696,730 @@ describe('card stylesheet', () => {
         expect(prelude).toContain('.allday-badge');
         expect(prelude).toContain('.allday-title-pill');
       }
+    });
+  });
+
+  describe('the grid view box model', () => {
+    it('composes a block from its placement and its per-edge clearance', () => {
+      // The half `grid-dom.test.ts` structurally cannot see. The renderer writes four
+      // custom properties at most and never `top` or `height`, so what a browser resolves
+      // exists only here — and it exists only if all four names agree across two files.
+      //
+      // Compared as one map rather than four assertions, because the failure this guards
+      // is a name drifting on one side: an unknown custom property resolves to nothing,
+      // the whole `calc()` becomes invalid at computed-value time, and every block in the
+      // grid collapses to `top: auto` — which reads as a broken renderer rather than as a
+      // typo in a stylesheet.
+      const gap = 'var(--calendar-card-grid-event-gap)';
+      const ruleWidth = 'var(--calendar-card-grid-rule-width)';
+      // Prettier wraps a long `calc()` and pads inside the brackets when it does — a
+      // three-term height comes back as `var( --name )` and a two-term one does not — so
+      // bracket padding is normalized away. Runs of whitespace collapse to ONE space
+      // rather than to nothing, deliberately: `calc(a -b)` is invalid CSS and stripping
+      // every space would make this assertion blind to exactly that.
+      const spacing = (value: string) =>
+        value.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+
+      expect({
+        above: spacing(declared('.grid-event', '--calendar-card-grid-block-gap-above')),
+        below: declared('.grid-event', '--calendar-card-grid-block-gap-below'),
+        minimum: declared('.grid-event', '--calendar-card-grid-block-min-height'),
+        minHeight: declared('.grid-event', 'min-height'),
+        maxHeight: declared('.grid-event', 'max-height'),
+        top: spacing(declared('.grid-event', 'top')),
+        height: spacing(declared('.grid-event', 'height')),
+      }).toEqual({
+        // Asymmetric on purpose, and the asymmetry is the fix rather than an oversight: an
+        // hour rule is painted DOWNWARD from its boundary, so a block one gap past that
+        // boundary lands on the rule's underside with no background between them, while
+        // the next rule starts a gap after the block ends and that side already reads.
+        // Measured on the deployed build at one device pixel per CSS pixel — the rule
+        // painted at row 711 and the block's first row was 712, against a clear row 758
+        // under a block ending at 757.
+        above: `calc(${gap} + ${ruleWidth})`,
+        // The default IS the clearance, so an edge the event owns says nothing and a
+        // clipped one writes `0px` over this.
+        below: gap,
+        minimum: 'min(14px, 100%)',
+        minHeight: 'var(--calendar-card-grid-block-min-height)',
+        maxHeight: '100%',
+        top: 'clamp(0px, calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above)), calc(100% - var(--calendar-card-grid-block-min-height)))',
+        height:
+          'calc(var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(--calendar-card-grid-block-gap-below))',
+      });
+
+      // Reconciled rather than restated. The width a block clears above has to be the
+      // width the gradients actually paint, so both ends are read here: a literal `1px`
+      // returning to either one would leave them free to drift while a declaration-only
+      // assertion stayed green. Four occurrences within `background-image` alone — a start
+      // and a stop position in each of the two gradients — so the mask below, which names
+      // the same property for its own reason, cannot pad the count.
+      const painted = declared('.grid-rules', 'background-image');
+
+      expect(painted, 'no background-image on .grid-rules').not.toBe('');
+      // The width itself is NOT declared here any more: it is `hour_line_width`, written
+      // on `.grid-container` by the renderer, so a declaration in the stylesheet would be
+      // a fourth opinion and would win over nothing. `grid-dom.test.ts` pins the write.
+      expect(declared('.grid-container', '--calendar-card-grid-rule-width')).toBe('');
+      expect(painted.match(/var\(--calendar-card-grid-rule-width\)/g)).toHaveLength(4);
+      expect(painted).not.toContain('+ 1px');
+      // ...and the rule closing the body at `end_time` reads the same property, so
+      // "matching the hour rules" is one value read twice rather than a literal.
+      expect(declared('.grid-boundary-body-end', 'height')).toBe(
+        'var(--calendar-card-grid-rule-width)',
+      );
+
+      // The floor that catches a block shorter than its own two gaps: the height resolves
+      // negative, CSS clamps it to zero, and this is what is left.
+      expect(declared('.grid-event', 'min-height')).toBe(
+        'var(--calendar-card-grid-block-min-height)',
+      );
+    });
+
+    it('keeps positioned event boxes inside their percentage geometry', () => {
+      // happy-dom cannot prove the 17:00 pixel edge is aligned with the 17:00 rule; it
+      // does not do layout. What this stylesheet gate can prove is the declaration that
+      // makes the browser include padding and borders inside the height emitted by the
+      // grid renderer, rather than adding them below it.
+      expect(declared('.grid-event', 'box-sizing')).toBe('border-box');
+    });
+
+    it('keeps all-day banners inside their grid tracks', () => {
+      // Same failure class as `.grid-event`: the card does not set global box sizing, so
+      // a padded banner is content-box unless this rule says otherwise.
+      expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
+    });
+
+    it('paints the grid in the one order its rules depend on', () => {
+      // A ladder, not five independent numbers, and the rung that matters is the band's:
+      // the vertical day rules run through the all-day row, so a spanning banner has to
+      // paint over them or it reads as chopped into days. That was previously prevented
+      // by keeping the rules out of the band entirely, and `grid-dom.test.ts` now asserts
+      // they cross it — so this is the other half of that claim.
+      //
+      // Compared as a whole map so a rung leaving fails as loudly as one changing: a
+      // per-selector assertion cannot notice a `z-index` being deleted from a rule that
+      // still exists.
+      const ladder = Object.fromEntries(
+        ['.grid-separator', '.grid-allday-band', '.grid-boundary'].map((selector) => [
+          selector,
+          declared(selector, 'z-index'),
+        ]),
+      );
+
+      expect(ladder).toEqual({
+        '.grid-separator': '1',
+        '.grid-allday-band': '2',
+        '.grid-boundary': '3',
+      });
+
+      // The blocks sit below the rules by being positioned rather than by a z-index, so
+      // the ladder above is only meaningful while this stays a positioned element.
+      expect(declared('.grid-day-body', 'position')).toBe('relative');
+      // ...and the tint and the hour lines sit below everything by carrying neither.
+      expect(declared('.grid-weekend', 'z-index')).toBe('');
+      expect(declared('.grid-rules', 'z-index')).toBe('');
+    });
+
+    it('draws the hour rules at the same ink as the day rules, not half of it', () => {
+      // The two families are one system in the reader's eye, so they have to match, and
+      // matching them is a claim about two files: the color of a vertical rule comes from
+      // TIME_GRID_DEFAULT_OVERRIDES and the horizontal ones are painted here.
+      //
+      // The claim used to be that both were `var(--divider-color)` at full strength, and it
+      // was false: the two gradients coincide at the shipped `slot_minutes: 60` and
+      // translucent ink composites, so an hour rule measured rgb(197, 197, 197) on the
+      // deployed build against rgb(224, 224, 224) for a day rule of the same color and
+      // width. Neither side names a color any more — both take the renderer's resolved
+      // value, which is what makes them equal by construction rather than by agreement
+      // between two literals.
+      const painted = declared('.grid-rules', 'background-image');
+
+      expect(painted, 'no background-image on .grid-rules').not.toBe('');
+      expect(painted).not.toContain('var(--divider-color)');
+      expect(painted).toContain('var(--calendar-card-grid-rule-color)');
+      expect(painted).toContain('var(--calendar-card-grid-slot-color)');
+      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
+
+      // The dilution lives in the option's own default, so a user's color is never
+      // quietly halved. Half of the divider token, spelled as a mix rather than as an
+      // alpha, so it follows a theme that redefines the token.
+      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
+        'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      );
+
+      // ...and only then: nothing may dim one side of the pair. An element opacity is
+      // exactly the thing that cannot tell a shipped default from a color a user chose.
+      expect(declared('.grid-rules', 'opacity')).toBe('');
+      expect(declared('.grid-separator', 'opacity')).toBe('');
+      expect(declared('.grid-boundary', 'opacity')).toBe('');
+    });
+
+    it('lets the frame draw the topmost body line, and the gradient not draw it again', () => {
+      // A band opening on the hour puts a gradient rule at 0%, exactly where the band's
+      // lower frame rule sits, and translucent ink composites rather than merging — the
+      // overlap paints darker than either and reads as a thin rule stacked on a thicker
+      // one. Measured on the deployed build at that boundary: rgb(173, 173, 173) above
+      // rgb(224, 224, 224), three translucent layers against one.
+      //
+      // Offsetting the gradient does not fix it and was tried: a repeating gradient tiles
+      // in both directions from its first stop, so one whole period of offset is the same
+      // phase as none. The mask is the fix, so what this pins is that it exists, that it
+      // erases exactly the rule's own width, and that the prefixed form is there for the
+      // Chrome versions inside grid view's floor.
+      const body = RULES.find((rule) => rule.selectors.includes('.grid-rules'))?.body ?? '';
+      const erased = `transparent 0 var(--calendar-card-grid-rule-width)`;
+
+      expect(body).toContain(`mask-image: linear-gradient(`);
+      expect(
+        body.match(/-webkit-mask-image:/g),
+        'the prefixed form is load-bearing on Chrome 117',
+      ).toHaveLength(1);
+      expect(body.match(new RegExp(erased.replace(/[()-]/g, '\\$&'), 'g'))).toHaveLength(2);
+    });
+
+    it('clears each band rule by its own width, at any width the user picks', () => {
+      // The upper rule is drawn at the top of row 3 and the lower one at its end, which is
+      // exactly where the first and last banner would otherwise be — so the band's padding
+      // has to be the rule plus the breathing room, not a pair of literals that happen to
+      // suit today's defaults.
+      //
+      // One property per edge, and that is the half a single-property version got wrong.
+      // `frame-width * 2` for the lower edge was only ever right while the lower rule was
+      // a fixed multiple of the upper one; the two are separate options now, so a doubling
+      // would mis-pad the band the moment either moved.
+      //
+      // Read as a pair, because the evenness is the claim: two assertions on two literals
+      // cannot notice one of them being right for the wrong reason.
+      expect({
+        start: declared('.grid-allday-band', 'padding-block-start'),
+        end: declared('.grid-allday-band', 'padding-block-end'),
+      }).toEqual({
+        start: 'calc(var(--calendar-card-grid-band-top-width, 0px) + 2px)',
+        end: 'calc(var(--calendar-card-grid-band-bottom-width, 0px) + 2px)',
+      });
+    });
+
+    it('keeps the band rules unbroken and out of the row sizing', () => {
+      // An explicit height is what stops a rule stretching to fill its row, and it is also
+      // what keeps its height out of the track sizing — so turning the frame on cannot
+      // change how tall the band or the axis is. Which EDGE of its row a rule sits on is
+      // the renderer's call rather than the stylesheet's, because it depends on whether
+      // there is a band to grow into; `grid-dom.test.ts` pins both answers.
+      expect(declared('.grid-boundary', 'align-self')).toBe('');
+      expect(declared('.grid-boundary', 'pointer-events')).toBe('none');
+    });
+
+    it('leaves the band rules inside the grid rather than out to the card edges', () => {
+      // `.grid-boundary` used to cancel the card's inset with a negative inline margin so
+      // the rules reached the card's own edges. They span the day tracks now, which is
+      // where the hourly rules already stop, so there is no inset left to escape and the
+      // margin is gone.
+      //
+      // Reconciled as a set rather than asserted one rule at a time, because the three
+      // container declarations still have to cancel exactly: the cramp fallback scrolls
+      // `.grid-container`, so the inset has to stay inside the scrollable area or a
+      // cramped grid gains 16px of phantom horizontal scroll.
+      const inset = 'var(--calendar-card-grid-inset)';
+      const bleed = `calc(-1 * ${inset})`;
+
+      expect({
+        cardInset: declared('.calendar-card-pro.grid-view', 'padding-inline'),
+        containerBleed: declared('.grid-container', 'margin-inline'),
+        containerInset: declared('.grid-container', 'padding-inline'),
+        boundaryBleed: declared('.grid-boundary', 'margin-inline'),
+      }).toEqual({
+        cardInset: inset,
+        containerBleed: bleed,
+        containerInset: inset,
+        boundaryBleed: '',
+      });
+
+      // And the property has to be defined, or the three that remain resolve to nothing
+      // and the whole grid loses its inset while this assertion stays green.
+      expect(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')).toBe('16px');
+    });
+
+    it('shades a weekend day in grid view and in no other', () => {
+      // Reconciled as a whole selector set rather than one assertion per rule: a
+      // `toContain` cannot notice a selector *arriving*, and the failure this guards is
+      // the shading being offered back to the list or column day containers, which have
+      // no fixed height for a stripe to run down.
+      const shading = RULES.filter((rule) =>
+        rule.body.includes('var(--calendar-card-grid-weekend'),
+      );
+
+      expect(shading).toHaveLength(1);
+      // The stripe, not the day body: the tint spans the all-day band as well, which a
+      // background on the body cannot reach.
+      expect(new Set(shading[0].selectors)).toEqual(new Set(['.grid-weekend']));
+      // Transparent, not a color: nothing is painted unless the option resolves to
+      // something, and the renderer writes the property only then.
+      expect(shading[0].body).toContain(
+        'background-color: var(--calendar-card-grid-weekend, transparent)',
+      );
+      // No view's day container may carry a weekend rule — not the other two, which have
+      // no fixed height for a stripe to run down, and not grid's own body, which would
+      // stop the tint at the top of the time grid.
+      expect(
+        RULES.filter((rule) =>
+          rule.selectors.some((selector) =>
+            ['.day-table.weekend', '.day-column.weekend', '.grid-day-body.weekend'].includes(
+              selector,
+            ),
+          ),
+        ),
+      ).toEqual([]);
+    });
+
+    it('reserves the accent edge for timed blocks, not for all-day banners', () => {
+      // The transparent placeholder edge is what the renderer colors in. A banner has
+      // none at all now: its whole fill is the calendar's color, so an edge added
+      // nothing, and at a pill end it curved into a crescent. Asserted as a pair so the
+      // rule cannot pass by the accent disappearing from the grid altogether.
+      expect(declared('.grid-event', 'border-inline-start')).toBe(
+        'var(--calendar-card-line-width-vertical) solid transparent',
+      );
+      expect(declared('.grid-banner', 'border-inline-start')).toBe('');
+    });
+
+    it('rounds a banner end only where the event genuinely starts or ends', () => {
+      // The shape is the claim: a fully rounded end says the event begins or ends inside
+      // the window, and a squared one says it carries on past the edge. The renderer
+      // already emits `continues-before` / `continues-after`; these three rules are what
+      // makes them visible without reading a glyph.
+      expect(declared('.grid-banner', 'border-radius')).toBe('999px');
+      expect(declared('.grid-banner.continues-before', 'border-start-start-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-before', 'border-end-start-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-after', 'border-start-end-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-after', 'border-end-end-radius')).toBe('4px');
+
+      // The half that matters and that four positive assertions cannot state: neither
+      // continuation rule may touch the *other* end. One that squared both would leave the
+      // banner saying nothing — the same shape whichever edge it ran past, and the same
+      // shape as an event that stayed inside the window on that side.
+      const cornersOf = (selector: string) =>
+        new Set(
+          rulesFor(selector)
+            .flatMap((rule) => rule.body.split(';'))
+            .map((decl) => decl.slice(0, decl.indexOf(':')).trim())
+            .filter((prop) => prop.startsWith('border-') && prop.endsWith('-radius')),
+        );
+
+      expect(cornersOf('.grid-banner.continues-before')).toEqual(
+        new Set(['border-start-start-radius', 'border-end-start-radius']),
+      );
+      expect(cornersOf('.grid-banner.continues-after')).toEqual(
+        new Set(['border-start-end-radius', 'border-end-end-radius']),
+      );
+    });
+
+    it('gates grid event disclosure on block height alone, and the time row in JS', () => {
+      // This is a stylesheet gate because happy-dom does not evaluate container queries.
+      // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it
+      // proves the renderer emits short blocks into the CSS-only mechanism and that the
+      // thresholds live in CSS rather than in the percentage geometry.
+      //
+      // Reconciled as a whole map rather than asserted rung by rung. `scanRules()` is a
+      // top-level scanner and skips at-rules by design, so every rule in this ladder is
+      // invisible to `RULES` and to `declared()` — which means a `toContain` per rung was
+      // the only guard, and that idiom cannot notice a rung *leaving*: drop one and the
+      // remaining assertions all still pass. Comparing the full map by value fails in both
+      // directions, on a removed rung and on an unexplained new one.
+      //
+      // Width is pinned as an absence. The 40px rung used to carry `min-width: 60px`,
+      // which was arithmetically right about the string it was calibrated on -- an 18px
+      // clock icon plus `10:00` plus an ellipsis -- and wrong about the question, because
+      // it charged that arithmetic to every row including the ones drawing `10:00` alone.
+      // A constant cannot follow the type scale, the icon size, the digit count or a
+      // 12-hour locale, so the decision moved to `grid-time-fit.ts` where it is measured.
+      // `openings` is the denominator: the pattern below only understands a height with an
+      // optional width, so a rung written in any other shape would silently drop out of
+      // the ladder and read as a deletion. Counting the raw openings separately makes that
+      // a loud failure instead of a quiet one -- and it is what stops a reintroduced width
+      // term disappearing from this comparison rather than failing it.
+      const ladder: { minHeight: number; minWidth: number | null; selectors: string[] }[] = [];
+      const openings = [...CSS.matchAll(/@container calendar-card-grid-event /g)].length;
+      const opening =
+        /@container calendar-card-grid-event \(min-height: (\d+)px\)(?: and \(min-width: (\d+)px\))?\s*\{/g;
+      let match = opening.exec(CSS);
+      while (match !== null) {
+        let depth = 1;
+        let cursor = opening.lastIndex;
+        while (cursor < CSS.length && depth > 0) {
+          if (CSS[cursor] === '{') depth += 1;
+          else if (CSS[cursor] === '}') depth -= 1;
+          cursor += 1;
+        }
+        const body = CSS.slice(opening.lastIndex, cursor - 1);
+        ladder.push({
+          minHeight: Number(match[1]),
+          minWidth: match[2] === undefined ? null : Number(match[2]),
+          selectors: [...body.matchAll(/([^{}]+)\{/g)]
+            .flatMap((rule) => rule[1].split(','))
+            .map((selector) => selector.replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .sort(),
+        });
+        match = opening.exec(CSS);
+      }
+      ladder.sort((a, b) => a.minHeight - b.minHeight);
+
+      expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
+      expect(ladder).toHaveLength(openings);
+      expect(ladder).toEqual([
+        { minHeight: 19, minWidth: null, selectors: ['.grid-event-disclosure .summary-row'] },
+        {
+          minHeight: 36,
+          minWidth: null,
+          selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        },
+        // The rung that reveals the time row, and the only one whose selectors are
+        // qualified. Height and width are independent here -- height is duration x
+        // hour_height, width is day width / concurrent columns -- so a 2-hour block is
+        // 96px tall whether it is 400px or 29px wide, and asking only about height
+        // revealed a time row into blocks far too narrow to hold one. The width half of
+        // that question is now asked in JS, against the string the row will really draw,
+        // and its answer arrives as `.grid-time-fits`.
+        //
+        // The class gates the clamp as well as the reveal, because the two are one
+        // decision: the title yields its second line exactly when the time row appears.
+        // `:where()` is what keeps that from breaking the rungs below -- a plain
+        // `.grid-event-disclosure.grid-time-fits .event-title` is 0,3,0 and would beat the
+        // 72px and 96px rungs at 0,2,0, stranding tall narrow blocks on the compact clamp.
+        {
+          minHeight: 40,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure:where(.grid-time-fits) .event-title',
+            '.grid-event-disclosure:where(.grid-time-fits) .summary',
+            '.grid-event-disclosure:where(.grid-time-fits) .time',
+          ],
+        },
+        { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
+        {
+          minHeight: 72,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure .description',
+            '.grid-event-disclosure .event-title',
+            '.grid-event-disclosure .event-weather',
+            '.grid-event-disclosure .location',
+            '.grid-event-disclosure .summary',
+          ],
+        },
+        {
+          minHeight: 96,
+          minWidth: null,
+          selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        },
+      ]);
+
+      // Everything the ladder reveals must start hidden, or its rung is decorative.
+      for (const row of ['.time', '.location', '.description', '.event-weather']) {
+        expect(declared(`.grid-event-disclosure ${row}`, 'display')).toBe('none');
+      }
+
+      // Stated twice on purpose, and the second one is the durable half. The map above
+      // pins every width as `null` and would fail on a reintroduced constant -- but only
+      // while the rung it sits on is still in the map. Asking the raw text whether the
+      // container name is ever followed by a width fails even if the ladder is rewritten
+      // around it, which is the shape a constant would come back in.
+      expect(CSS).not.toMatch(/@container calendar-card-grid-event[^{]*min-width/);
+    });
+
+    it('spends the clock icon before the end time, and the end time before the row', () => {
+      // The ladder's rungs in CSS. `grid-time-fit.ts` decides which one a block is on and
+      // writes the class; these rules are the whole of what a class does, so a rung that
+      // stops hiding — or blockifying — anything is a rung that silently stops existing.
+      //
+      // Pinned by value rather than by `toContain`, because the ordering matters: every
+      // degradation has to sit after the 40px rung, or a block that reaches a lower rung
+      // gets its icon back from the reveal it just passed through.
+      const degradation = [
+        ...CSS.matchAll(/\.grid-time-(no-icon|no-end|wrap)([^{]*)\{([^}]*)\}/g),
+      ].map((rule) => ({
+        rung: rule[1],
+        target: rule[2].replace(/\s+/g, ' ').trim(),
+        body: rule[3].replace(/\s+/g, ' ').trim(),
+      }));
+
+      expect(degradation).toEqual([
+        { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
+        { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-end',
+          body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
+        },
+      ]);
+
+      // The end time is inline, never inline-block. `.time span` makes every span in a
+      // time row an inline-block, and an inline-block is a block container: leading white
+      // space on its first line is stripped, so the separator this element carries would
+      // vanish and a row would read `10:0012:00`.
+      expect(declared('.time .time-actual .time-end', 'display')).toBe('inline');
+
+      // 🚨 And it must reset the alignment that came with that display, which is a separate
+      // declaration in the same rule and was missing. `.time span` sets `vertical-align:
+      // middle` alongside `inline-block`, where it correctly re-centers the box on the
+      // surrounding text; on an inline box `middle` means box-center against the parent's
+      // baseline plus half an x-height, which is not where the parent's own text sits. The
+      // start time is an anonymous inline on that baseline, so a clock reading ends up
+      // split across two of them. Measured on one live dashboard at 0.625px on 74 of 74
+      // one-line grid rows, and injecting exactly this declaration took all 74 to zero.
+      //
+      // Pinned as a pair, because either one alone is the bug: `inline` without the reset
+      // is the misalignment above, and the reset without `inline` is `10:0012:00`.
+      expect(declared('.time .time-actual .time-end', 'vertical-align')).toBe('baseline');
+
+      // Neither is scoped to grid, deliberately — `grid-dom.test.ts` reconciles that
+      // against the callers that can draw a split range, which is where the reasoning is.
+      expect(declared('.grid-event-disclosure .time .time-actual .time-end', 'display')).toBe('');
+
+      // The source of the alignment being reset. If this ever stops saying `middle` the
+      // reset above becomes a no-op that reads as load-bearing -- so reconcile against it
+      // rather than trusting the rule to stay put.
+      expect(declared('.time span', 'vertical-align')).toBe('middle');
+      expect(declared('.time span', 'display')).toBe('inline-block');
+
+      // The wrapped rung turns that same stripping into the mechanism rather than the bug:
+      // as a block the element starts a line, loses the separator's leading space, and
+      // reads `- 12:00` under `10:00`. It is scoped to a class only the wrapped rung sets,
+      // so the inline default above is untouched for every other view and every other rung.
+      expect(
+        declared('.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end', 'display'),
+      ).toBe('block');
+
+      // 🚨 And it must carry its own ellipsis, which is not decoration. Blockifying the
+      // element takes it out of the outer span's line box, so the ellipsis declared there
+      // stops reaching it and line two falls back to text-overflow's initial `clip`.
+      // Captured live in the stale-class frame the backstop rule is written for: line two
+      // rendered `- 12:` with the colon cut vertically in half — the precise artifact that
+      // rule exists to prevent, one line down. `overflow` is required with it, because the
+      // `hidden` that makes an ellipsis possible sits on `.time-actual` and does not
+      // inherit; an A/B on the same live row with only `text-overflow` still sheared.
+      expect(
+        declared('.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end', 'overflow'),
+      ).toBe('hidden');
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end',
+          'text-overflow',
+        ),
+      ).toBe('ellipsis');
+
+      // Line one needs no declaration of its own and must not grow one by cargo cult: its
+      // text becomes an anonymous block box inside the outer span, and the browser applies
+      // that span's ellipsis to it. Pinned here so the pairing stays legible — the ellipsis
+      // line two needs explicitly is the one line one already inherits structurally.
+      expect(
+        declared(
+          '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)',
+          'display',
+        ),
+      ).toBe('block');
+      expect(
+        declared(
+          '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)',
+          'text-overflow',
+        ),
+      ).toBe('ellipsis');
+
+      // Every degradation must come after the rung that reveals the row.
+      const reveal = CSS.indexOf('@container calendar-card-grid-event (min-height: 40px)');
+      expect(reveal).toBeGreaterThan(-1);
+      expect(CSS.indexOf('.grid-time-no-icon')).toBeGreaterThan(reveal);
+      expect(CSS.indexOf('.grid-time-no-end')).toBeGreaterThan(reveal);
+      expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(reveal);
+
+      // `no-end` and `wrap` are mutually exclusive by construction — the ladder never sets
+      // both, and a withdrawn wrap swaps one for the other — but they target the same
+      // element at the same specificity, so if that ever stopped holding source order would
+      // silently decide it. Pin the order that makes a withdrawal safe: `wrap` last means
+      // a stale `wrap` would win, so the withdrawal must remove it rather than mask it.
+      expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(CSS.indexOf('.grid-time-no-end'));
+    });
+
+    it('keeps grid detail rows from being sliced under wrapped titles', () => {
+      // happy-dom has no layout engine, so this does not measure the narrow-column failure
+      // directly. It pins the CSS contract that fixes it in browsers: the grid-only wrapper
+      // gets the event box height, the title area is allowed to shrink and clip, and the
+      // detail rows keep their full line height instead of becoming half-visible text.
+      expect(declared('.grid-event-disclosure', 'height')).toBe('100%');
+      expect(declared('.grid-event-disclosure .event-content', 'height')).toBe('100%');
+      expect(declared('.grid-event-disclosure .summary-row', 'display')).toBe('none');
+      expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 0 auto');
+      expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
+      expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
+      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
+      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-grid-title-lines-compact)',
+      );
+      expect(CSS).toContain('-webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);');
+      expect(CSS).toContain('-webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);');
+      expect(declared('.grid-event-disclosure .time', 'flex')).toBe('0 0 auto');
+      expect(declared('.grid-event-disclosure .time', 'min-width')).toBe('0');
+      expect(declared('.grid-event-disclosure .time', 'overflow')).toBe('hidden');
+      expect(declared('.grid-event-disclosure .time', 'text-overflow')).toBe('ellipsis');
+      expect(declared('.grid-event-disclosure .time', 'white-space')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time', 'flex-wrap')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time-actual', 'min-width')).toBe('0');
+      expect(declared('.grid-event-disclosure .time-text', 'white-space')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'overflow')).toBe(
+        'visible',
+      );
+      expect(
+        declared('.grid-event-disclosure .time .time-actual .time-text', 'text-overflow'),
+      ).toBe('clip');
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'white-space')).toBe(
+        'normal',
+      );
+      expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
+    });
+
+    it('ends a too-narrow grid time on an ellipsis rather than mid-glyph', () => {
+      // The defect this pins: a grid time row was cut through a digit -- "10:00 - 12" with
+      // the second colon sheared in half -- rather than ellipsized. happy-dom has no layout
+      // engine, so this is the CSS contract, measured in Chromium against the real cascade
+      // and recorded here.
+      //
+      // Why none of the ellipsis declarations one test above did this job: `.time` is a
+      // block whose only child is the block-level flex box `.time-actual`, so it has no
+      // inline content to ellipsize; `.time-actual` is `display: flex`, and text-overflow
+      // does not apply to a flex container. The element that actually clips is the span
+      // inside, and it inherits `display: -webkit-box` from the time_max_lines rule. A
+      // -webkit-box cannot draw a text-overflow ellipsis at all, and the clamp that would
+      // draw its own resolves to `none` at the shipped default of time_max_lines: 0. So it
+      // hid the overflow and marked nothing. Adding `text-overflow: ellipsis` to the span
+      // alone renders pixel-identically to the defect; blockifying it is the part that
+      // works.
+      const span =
+        '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)';
+      expect(declared(span, 'display')).toBe('block');
+      expect(declared(span, 'text-overflow')).toBe('ellipsis');
+
+      // The clamp being replaced is already unreachable here, which is why blockifying
+      // costs nothing: grid pins this text to one line, so no line count above one can be
+      // reached whatever time_max_lines is set to.
+      expect(declared('.grid-event-disclosure .time', 'white-space')).toBe('nowrap');
+
+      // Scoping, in both directions. The unscoped rule must keep -webkit-box, because list
+      // and column rely on it and on their own `white-space: normal` to *wrap* this text
+      // instead of slicing it -- both were measured at zero clipped rows and the fix must
+      // not reach them. If this assertion fails, the fix has leaked out of grid.
+      const global = '.time .time-actual > span:not(.time-text):not(.allday-badge)';
+      expect(declared(global, 'display')).toBe('-webkit-box');
+      expect(declared(global, 'text-overflow')).toBe('');
+      expect(rulesFor(span)).toHaveLength(1);
+      expect(rulesFor(global)).toHaveLength(1);
+
+      // `.time-text` keeps its own path and is excluded from the selector above. It wraps
+      // by design so a folded countdown breaks inside itself rather than dropping the whole
+      // flex item to its own line; ellipsizing it would regress that.
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'white-space')).toBe(
+        'normal',
+      );
+    });
+
+    it('sizes the grid axis gutter from its visible labels with fixed inline padding', () => {
+      // The gutter is `max-content` so it is exactly as wide as the widest hour label and
+      // no wider, with the breathing room fixed either side rather than baked into a
+      // width. A translated all-day caption used to sit in this column and set that
+      // width for everything else; it was dropped, so the hours decide it again.
+      expect(declared('.grid-axis', 'box-sizing')).toBe('border-box');
+      expect(declared('.grid-axis', 'padding-inline')).toBe('4px 8px');
+      expect(declared('.grid-axis', 'overflow')).toBe('hidden');
+      expect(declared('.grid-axis-label', 'top').replace(/\s+/g, ' ')).toBe(
+        'clamp(0px, calc(var(--calendar-card-grid-axis-label-top) - 0.5em), calc(100% - 1em))',
+      );
+      expect(declared('.grid-axis-sizer', 'visibility')).toBe('hidden');
+      expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
+    });
+
+    it('lets the all-day track shrink and scroll while the time track retains its floor', () => {
+      expect(declared('.grid-container', 'grid-template-rows').replace(/\s+/g, ' ')).toBe(
+        'auto auto var(--calendar-card-grid-allday-height, auto) var(--calendar-card-grid-body-height, 720px)',
+      );
+      expect(declared('.grid-allday-band', 'min-height')).toBe('0');
+      expect(declared('.grid-allday-band', 'overflow-y')).toBe('auto');
+      expect(declared('.grid-allday-band', 'align-content')).toBe('start');
+    });
+
+    it('prevents invisible sizing labels from creating phantom vertical scroll overflow', () => {
+      expect(declared('.grid-axis-sizer', 'height')).toBe('0');
+      expect(declared('.grid-axis-sizer', 'overflow')).toBe('hidden');
+    });
+
+    it('dims a past all-day banner, which has no event-content to dim', () => {
+      // `.past-event .event-content` is the card's only dimming rule, and a grid banner
+      // emits a bare title span rather than an event-content wrapper -- so it carried the
+      // past-event class from the day it was written with nothing selecting it. A finished
+      // holiday stayed bright while the finished meeting under it dimmed.
+      expect(declared('.past-event .event-content', 'opacity')).toBe(
+        'var(--calendar-card-past-event-opacity, 0.6)',
+      );
+      expect(declared('.grid-banner.past-event .grid-banner-title', 'opacity')).toBe(
+        'var(--calendar-card-past-event-opacity, 0.6)',
+      );
+      for (const selector of ['.event', '.grid-event', '.grid-banner', '.event-title']) {
+        expect(declared(selector, 'opacity'), selector).toBe('');
+      }
+    });
+
+    it('matches all-day banner titles to timed event titles', () => {
+      expect(declared('.grid-banner-title', 'font-size')).toBe(
+        'var(--calendar-card-font-size-event)',
+      );
+      expect(declared('.grid-banner-title', 'font-weight')).toBe('500');
+      expect(declared('.grid-banner-title', 'line-height')).toBe('1.2');
+      expect(declared('.grid-banner-title', 'color')).toBe('var(--calendar-card-color-event)');
+    });
+
+    it('breaks a grid event title at spaces, and inside a word only as a last resort', () => {
+      // Three values, three different failures, and the middle one is the trap. The
+      // inherited `hyphens: auto` broke `Conference` as `Con-fer-en` in a lane-split
+      // block, so it read as three words. Correcting that to `overflow-wrap: normal`
+      // was worse: a word wider than the block overflowed and was clipped
+      // horizontally, and since the clamp was never reached there was no ellipsis to
+      // mark it — the block rendered `Conferen` with the `ce` silently gone, verified
+      // live at 7 columns. `break-word` prefers spaces and breaks inside a word only
+      // when that word cannot fit a line alone, so no character is ever dropped.
+      expect(declared('.grid-event-disclosure .event-title', 'overflow-wrap')).toBe('break-word');
+      expect(declared('.grid-event-disclosure .event-title', 'word-break')).toBe('normal');
+      expect(declared('.grid-event-disclosure .event-title', 'hyphens')).toBe('manual');
+    });
+
+    it('draws clipped grid events with a subtle continuation mark on the block edge', () => {
+      expect(declared('.grid-event.clipped-top', 'border-block-start')).toBe('');
+      expect(declared('.grid-event.clipped-bottom', 'border-block-end')).toBe('');
+      expect(declared('.grid-event.clipped-top::before', 'border-block-start')).toBe(
+        '1px dashed currentColor',
+      );
+      expect(declared('.grid-event.clipped-bottom::after', 'border-block-start')).toBe(
+        '1px dashed currentColor',
+      );
+      expect(declared('.grid-event.clipped-top::before', 'opacity')).toBe('0.45');
+
+      // Both marks sit ON the block's own edge, and this is a declaration check standing
+      // in for a paint one — happy-dom lays nothing out, so the pixel rows were measured
+      // on the deployed build at one device pixel per CSS pixel, on a block clipped at
+      // both ends of an 09:00–12:00 band whose closing rule painted row 1905:
+      //
+      //   edge     1px (before)                  0 (after)
+      //   top      dashes row 1763, one row of   dashes row 1762, flush under the band's
+      //            block background below the    lower rule, which ends at 1761.56
+      //            rule that ends at 1761.56
+      //   bottom   dashes row 1904, the row      dashes row 1905, the rule's own row —
+      //            ABOVE the closing rule        the translucent rule composites over
+      //                                          them at (113,130,137) against the
+      //                                          (121,139,147) they paint alone
+      //
+      // The pair reads asymmetrically and paints symmetrically: the mark is the
+      // pseudo-element's only box, a border-block-start on a zero-height box, so top: 0
+      // lands on the block's first row and bottom: 0 on its last.
+      expect(declared('.grid-event.clipped-top::before', 'top')).toBe('0');
+      expect(declared('.grid-event.clipped-bottom::after', 'bottom')).toBe('0');
     });
   });
 });

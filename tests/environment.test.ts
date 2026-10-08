@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
  * an all-day event or a relative time depends on the process running in a known
  * timezone. `vitest.config.mjs` pins it via `test.env.TZ`, which works because
  * Vitest sets the variable before a worker's first `Date` use — but that is a
- * behaviour of the runner, not a guarantee of the language, and it would break
+ * behavior of the runner, not a guarantee of the language, and it would break
  * silently: the suite would keep passing on a maintainer's machine and start
  * disagreeing with CI, or agree with CI while both asserted the wrong day.
  *

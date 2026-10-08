@@ -115,6 +115,7 @@ export default defineConfig({
           { text: 'Visual Configuration Editor', link: '/features/editor' },
           { text: 'Core Settings', link: '/features/core-settings' },
           { text: 'Column View', link: '/features/column-view' },
+          { text: 'Grid View', link: '/features/grid-view' },
           { text: 'Event Content & Display', link: '/features/event-content' },
           { text: 'Layout & Appearance', link: '/features/layout-appearance' },
         ],

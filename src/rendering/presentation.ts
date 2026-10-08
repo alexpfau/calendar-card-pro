@@ -4,6 +4,7 @@
  * Both list and column views use these derived values so event content cannot drift.
  */
 
+import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
 import * as Types from '../config/types';
 import * as EntityColors from '../utils/entity-colors';
@@ -22,6 +23,14 @@ interface EventPresentation {
   entityAccentColor: string;
 
   entityAccentBackgroundColor: string;
+
+  /**
+   * Custom properties the event element sets so its own text reads the calendar accent.
+   *
+   * Empty unless a governed color option holds the `accent` sentinel, and empty for an
+   * empty-day row whatever the config says.
+   */
+  accentTextProperties: Readonly<Record<string, string>>;
 
   contentParts: EventContentParts;
 }
@@ -48,7 +57,29 @@ export function buildEventPresentation(
 
   let isPastEvent = false;
 
-  if (!isEmptyDay) {
+  if (isEmptyDay) {
+    // An empty-day placeholder is not an event and has no interval. `groupEventsByDay`
+    // builds it with `start.date === end.date ===` the date it is drawn on, so the only
+    // question it can answer is whether that displayed local date has already ended.
+    //
+    // 🚨 This branch exists so the placeholder never reaches the real all-day branch
+    // below, and that is not tidiness. A real all-day event's `end.date` is EXCLUSIVE,
+    // so that branch subtracts a day to find the last date the event occupies. Run a
+    // placeholder through it and the subtraction names the day BEFORE the one on
+    // screen — which makes `today > endDate` true for today's own notice and dims it
+    // from the moment it appears. Deleting this branch and dropping the `!isEmptyDay`
+    // guard is the obvious-looking simplification and it is the one thing here that is
+    // immediately visible to every user.
+    //
+    // `parseAllDayDate` rather than `new Date(dateString)`: the latter reads the date
+    // as UTC, which lands a day early for every user behind UTC. Both halves are
+    // pinned in `tests/past-empty-day-opacity.dst.test.ts`.
+    //
+    // Derived at render time, like real-event dimming. No midnight timer is added, so a
+    // notice changes state on the next ordinary repaint after its date ends rather than
+    // exactly at midnight.
+    isPastEvent = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) < today : false;
+  } else {
     const isAllDayEvent = !event.start.dateTime;
 
     if (isAllDayEvent) {
@@ -196,7 +227,7 @@ export function buildEventPresentation(
   // disagree about which events qualify.
   //
   // `!isEmptyDay` is the one guard the two positions do NOT share, and leaving it out shipped
-  // a pill around "No upcoming events". An empty day is a placeholder the card invents for a
+  // a pill around the empty-day notice. An empty day is a placeholder the card invents for a
   // day with nothing on it, not an event, and it carries a date-only start — so it looks
   // exactly like an all-day event to `allDayLabel` and qualified. The time position never
   // showed it because a badge is only PLACED inside the `shouldShowTime` branch and that
@@ -239,6 +270,7 @@ export function buildEventPresentation(
 
   const contentParts: EventContentParts = {
     eventTime,
+    eventTimeEnd: eventTimeParts.end,
     allDayBadge,
     titlePill,
     eventLocation,
@@ -256,6 +288,7 @@ export function buildEventPresentation(
     isPastEvent,
     entityAccentColor,
     entityAccentBackgroundColor,
+    accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
     contentParts,
   };
 }

@@ -59,7 +59,7 @@ const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Reco
  * A `text` selector carrying a type other than `text` (`date`, `number`, `time`, `search`)
  * is excluded: those do not hand back a bare numeric string. `text` itself counts, and is
  * now declared explicitly on every free-text field — an omitted type let `ha-form` reuse a
- * neighbour's input and keep its `type="date"`, which is how the `start_date` expression
+ * neighbor's input and keep its `type="date"`, which is how the `start_date` expression
  * field became a date picker. This predicate used to read "no type at all"; that was the
  * same intent when omission was how free text was spelled, and would have silently matched
  * nothing once it stopped being.
@@ -359,7 +359,15 @@ describe('Y21b — a bare number typed into an editor text field', () => {
   it.each(TYPED_LENGTH_FIELDS)('coerces a number typed into %s', (key) => {
     expect(Config.coercePixelLength(key, '10')).toBe('10px');
     expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
-    expect(Config.coercePixelLength(key, '-2')).toBe('-2px');
+    // An icon cannot be drawn at a negative size and no font size is negative, so an option
+    // that folds takes its default instead of `-2px` — see `icon-size-fold.test.ts` and
+    // `font-size-fold.test.ts`.
+    expect(Config.coercePixelLength(key, '-2')).toBe(
+      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ||
+        Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+        ? (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]
+        : '-2px',
+    );
   });
 
   /**
@@ -498,8 +506,10 @@ describe('length options whose default cannot mark them', () => {
   it.each(NAMED)('leaves an already-valid value for %s alone', (key) => {
     // The over-reach control for the named set: these accept units and keywords that the
     // pixel-defaulted options never see, and a percentage is the documented way to write
-    // `progress_bar_width` in column view.
-    for (const value of ['24px', '2em', '80%', 'auto', 'none', 'calc(1px + 2px)']) {
+    // `progress_bar_width` in column view. `title_font_size` is a font size, which `auto`
+    // and `none` are not — it folds those by its own rule — so it gets a font-size keyword.
+    const keywords = key === 'title_font_size' ? ['large', 'smaller'] : ['auto', 'none'];
+    for (const value of ['24px', '2em', '80%', ...keywords, 'calc(1px + 2px)']) {
       expect(Config.coercePixelLength(key, value)).toBe(value);
     }
   });
@@ -558,10 +568,22 @@ describe('length options whose default cannot mark them', () => {
 
   it('only applies the exception at the top level', () => {
     // The named set holds bare option names, and the walk descends into nested groups. A
-    // nested key that happened to share one of these names must not inherit the exception
-    // — the guard is positional, so this pins it rather than relying on today's shape.
+    // nested key that happened to share one of these names must not inherit the exception.
+    // The walk hands a nested key over under its dotted path, which is what keeps it apart,
+    // so this pins both the helper and the walk rather than relying on today's shape.
     expect(Config.coercePixelLengthAgainst(undefined, 24)).toBe(24);
     expect(Config.coercePixelLengthAgainst(undefined, 24, 'title_font_size')).toBe('24px');
+    expect(Config.coercePixelLengthAgainst(undefined, 24, 'weather.title_font_size')).toBe(24);
+
+    const config = {
+      weather: { date: { title_font_size: 24 } },
+    } as unknown as Types.Config;
+    Config.normalizeLengthOptions(config);
+
+    expect(
+      (config as unknown as Record<string, Record<string, Record<string, unknown>>>).weather.date
+        .title_font_size,
+    ).toBe(24);
   });
 });
 

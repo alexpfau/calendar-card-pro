@@ -38,9 +38,17 @@ import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
+import * as GridUtils from './utils/grid';
+import * as GridTimeFit from './utils/grid-time-fit';
+import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Templates from './utils/templates';
+import {
+  TitleMotionController,
+  type TitleScrollMeasurement,
+  supportsTitleMotion,
+} from './utils/title-motion-controller';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
 
@@ -104,6 +112,144 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
     customElements.define(tagName, component as CustomElementConstructor);
   }
 }
+
+/** Observe inherited typography, language, and direction changes across shadow boundaries. */
+function observeTypographyAncestors(observer: MutationObserver, host: HTMLElement): void {
+  for (let ancestor: Element | null = host; ancestor;) {
+    observer.observe(ancestor, {
+      attributes: true,
+      attributeOldValue: true,
+      // Compact boxes may not resize when a language change alters normal hyphenation.
+      attributeFilter: ['style', 'class', 'dir', 'lang'],
+    });
+    const root = ancestor.getRootNode();
+    ancestor = ancestor.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
+  }
+}
+
+/** The host's offscreen animation state does not change its typography. */
+function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): boolean {
+  if (record.target !== host || record.attributeName !== 'class') return false;
+  const typographyClasses = (value: string) =>
+    value
+      .split(/\s+/)
+      .filter((name) => name && name !== 'calendar-card-title-scroll-paused')
+      .sort()
+      .join(' ');
+  return typographyClasses(record.oldValue ?? '') === typographyClasses(host.className);
+}
+
+/**
+ * How far content may exceed its box before the grid calls it clipped.
+ *
+ * Sub-pixel layout puts `scrollHeight` a pixel over `clientHeight` on content that visibly
+ * fits, so both the overflow test and the line-fitting arithmetic forgive that pixel. They
+ * share the constant because they have to agree: a row is asked to give back only the
+ * overflow this does not already absolve, and charging it the raw difference costs it a
+ * whole extra line every time the overflow lands just past a line box.
+ */
+const GRID_FIT_TOLERANCE_PX = 1;
+
+/**
+ * Whether rendered event content exceeds its available height by more than rounding noise.
+ *
+ * @param content - The event content whose rendered dimensions to compare
+ * @returns Whether a disclosed detail row is clipped
+ */
+export function gridContentOverflows(
+  content: Pick<HTMLElement, 'clientHeight' | 'scrollHeight'>,
+): boolean {
+  return content.scrollHeight > content.clientHeight + GRID_FIT_TOLERANCE_PX;
+}
+
+/**
+ * Resolves a computed `line-height` to pixels, including the `normal` keyword.
+ *
+ * `getComputedStyle` returns a used pixel value for both a length and a unitless ratio, but
+ * `normal` stays a keyword — and a keyword parses to `NaN`, which would make every line count
+ * derived from it garbage. 1.2 is the ratio browsers use for `normal` at ordinary font stacks;
+ * an approximation is acceptable here because a wrong count only costs one line of fitting,
+ * and the caller re-measures and withdraws the row if the clamp did not resolve the overflow.
+ *
+ * @param style - The row text's computed `line-height` and `font-size`
+ * @returns The line box height in pixels, or 0 when neither value is usable
+ */
+export function resolveLineHeightPx(
+  style: Pick<CSSStyleDeclaration, 'lineHeight' | 'fontSize'>,
+): number {
+  if (style.lineHeight.endsWith('px')) {
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    if (Number.isFinite(lineHeight) && lineHeight > 0) {
+      return lineHeight;
+    }
+  }
+
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0;
+}
+
+/**
+ * How many of a grid detail row's lines still fit once the block's overflow is paid for.
+ *
+ * Returned counts below 1 mean the row cannot show even its first line, so the caller
+ * withdraws it rather than clamping it. The count can never exceed what the row already
+ * draws, because `renderedHeightPx` is measured after the user's own `*_max_lines` clamp has
+ * applied — so this pass can only ever reduce what is shown, never restore a line the
+ * configuration had already taken away.
+ *
+ * The row is charged for the overflow `gridContentOverflows` does not already forgive, not
+ * for the raw difference. The two must agree about what fits, and a pixel is not free here:
+ * `Math.ceil` rounds it up to a whole line box, so an address overflowing by one line plus
+ * one pixel used to be told two lines had to go. At two rendered lines that came out at
+ * zero, the clamp was refused as impossible, and the caller withdrew the address entirely —
+ * leaving a line of empty space in the block where one ellipsized line belonged.
+ *
+ * Erring toward more lines is the safe direction: the caller re-measures after applying a
+ * clamp and withdraws the row anyway if the clamp did not resolve the overflow. A count that
+ * is too generous is corrected; a count that is too stingy is never revisited.
+ *
+ * @param overflowPx - How far the block's content exceeds its box
+ * @param renderedHeightPx - The row text's current rendered height
+ * @param lineHeightPx - One line box, from `resolveLineHeightPx`
+ * @returns The number of lines the row may keep, which may be zero or negative
+ */
+export function fittedGridDetailLines(
+  overflowPx: number,
+  renderedHeightPx: number,
+  lineHeightPx: number,
+): number {
+  if (lineHeightPx <= 0) {
+    return 0;
+  }
+
+  const currentLines = Math.max(1, Math.round(renderedHeightPx / lineHeightPx));
+  const mustRecoverPx = overflowPx - GRID_FIT_TOLERANCE_PX;
+  return currentLines - Math.max(0, Math.ceil(mustRecoverPx / lineHeightPx));
+}
+
+/**
+ * The disclosed grid detail rows, most expendable first, and how each one may be shortened.
+ *
+ * `lineProperty` names the custom property the row's own stylesheet rule already reads for
+ * `-webkit-line-clamp`, so setting it inline on the row cascades to the text span and reuses
+ * the shipped clamp — including the ellipsis it draws on the last visible line.
+ *
+ * Only the two rows whose content is a paragraph carry one. `.time` is `white-space: nowrap`
+ * inside a grid block and so is one line by construction: there is no line count left to
+ * reduce, which is why it is all-or-nothing here. What that single line does horizontally is
+ * a separate problem, settled in the stylesheet by blockifying the span so it can draw an
+ * ellipsis; this pass only ever decides whether the row is shown at all.
+ * `.event-weather` clamps a chip run whose text stays `display: inline` unless
+ * `weather.event.max_lines` is set, so a line count alone would not bind. `.progress-bar-row`
+ * has no text at all. Those three remain all-or-nothing.
+ */
+export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: string | null }> = [
+  { selector: '.description', lineProperty: '--calendar-card-description-max-lines' },
+  { selector: '.location', lineProperty: '--calendar-card-location-max-lines' },
+  { selector: '.event-weather', lineProperty: null },
+  { selector: '.progress-bar-row', lineProperty: null },
+  { selector: '.time', lineProperty: null },
+];
 
 //-----------------------------------------------------------------------------
 // MAIN COMPONENT CLASS
@@ -193,11 +339,12 @@ class CalendarCardPro extends LitElement {
   /**
    * Monotonic ticket for in-flight event requests.
    *
-   * `updateEvents()` awaits the API, and `setConfig()` can regenerate `_instanceId` and
-   * start a second request during that await. The two requests go to different
-   * calendars, so their latencies are unrelated and the older one can settle last.
-   * Comparing the ticket a request started with against the current value is what tells
-   * a superseded response to discard itself instead of committing.
+   * `updateEvents()` awaits the API, and two entry points can bump this during that
+   * await: `setConfig()` regenerating `_instanceId` and starting a second request, and
+   * `disconnectedCallback` superseding any fetch that is still open so a detached
+   * `setConfig` cannot stamp a late response with a new identity. Comparing the ticket
+   * a request started with against the current value is what tells a superseded
+   * response to discard itself instead of committing.
    */
   private _eventRequestGeneration = 0;
   private _language = '';
@@ -205,6 +352,16 @@ class CalendarCardPro extends LitElement {
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
   private _weatherUnsubscribers: Array<() => void> = [];
+  /**
+   * Monotonic ticket for weather forecast setup and callbacks.
+   *
+   * Bumped by `_setupWeatherSubscriptions`, by `disconnectedCallback`, and by
+   * an entity switch that blanks `weatherForecasts` before the next setup
+   * microtask runs. Callbacks close over the ticket they were registered with
+   * and no-op when it no longer matches — otherwise a late emit after blank
+   * (or after unsubscribe) rewrites the previous entity's forecast onto the
+   * card under the new configuration.
+   */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
   /**
@@ -226,6 +383,15 @@ class CalendarCardPro extends LitElement {
      * profile, so it can move while the config object stays identical.
      */
     firstWeekday: number;
+    /**
+     * Resolved weekend days, joined. Neither `config` nor `language` covers them: they
+     * follow the country set in Home Assistant, or its language when no country is set,
+     * and either can change while the config object stays identical. Keyed on the result
+     * rather than on the two inputs, so a change that leaves the weekend where it was
+     * keeps the memo.
+     */
+    weekendDaysKey: string;
+    evaluatedAt: number;
     count: number;
   };
   private _effectiveConfigCache?: {
@@ -235,9 +401,36 @@ class CalendarCardPro extends LitElement {
   };
 
   private _activePointerId: number | null = null;
+  private _pointerStart: { x: number; y: number } | null = null;
+  private _pointerMoved = false;
   private _holdTriggered = false;
   private _holdTimer: number | null = null;
   private _holdIndicator: HTMLElement | null = null;
+  /** Element that currently holds pointer capture for the active card gesture, if any. */
+  private _pointerCaptureTarget: Element | null = null;
+  private _capturedPointerId: number | null = null;
+  private _releasingPointerCapture = false;
+
+  /**
+   * Whether the card has a tap action to advertise to pointer and keyboard users.
+   */
+  private get _hasTapAction(): boolean {
+    return Boolean(this.config.tap_action && this.config.tap_action.action !== 'none');
+  }
+
+  /**
+   * Whether the card has a hold action to advertise to pointer users.
+   */
+  private get _hasHoldAction(): boolean {
+    return Boolean(this.config.hold_action && this.config.hold_action.action !== 'none');
+  }
+
+  /**
+   * Whether the card has any pointer-level action to advertise or track.
+   */
+  private get _hasCardAction(): boolean {
+    return this._hasTapAction || this._hasHoldAction;
+  }
 
   /**
    * Card width in CSS pixels, as most recently measured.
@@ -252,11 +445,69 @@ class CalendarCardPro extends LitElement {
   private _columnCount = 0;
 
   private _resizeObserver: ResizeObserver | null = null;
+  private _gridDisclosureObserver: ResizeObserver | null = null;
+  private _gridDisclosureRaf: number | null = null;
+  private _gridDisclosureReleaseRaf: number | null = null;
+  private _gridDisclosureTargets = new Map<Element, HTMLElement>();
+  private _gridDisclosureDirty = new Set<HTMLElement>();
+  private _gridDisclosureMutations: MutationObserver | null = null;
+  private _gridDisclosureAssetsCleanup: (() => void) | null = null;
+  /**
+   * Last size delivered for each disclosure target.
+   *
+   * Apply temporarily changes layout while suppression is armed. An unchanged notification
+   * is therefore self-generated and safe to ignore, but a real resize during those two
+   * frames must still schedule another fit pass or the old withdrawal becomes permanent.
+   */
+  private _gridDisclosureObservedSizes = new WeakMap<Element, { width: number; height: number }>();
+  /**
+   * When true, unchanged ResizeObserver callbacks for grid disclosure are ignored.
+   *
+   * `_applyGridDisclosureSafety` always restores then may re-hide detail rows, which
+   * reflows observed title/block nodes and would otherwise re-schedule apply from its
+   * own layout. A notification carrying a genuinely new target size still gets through,
+   * because ResizeObserver will not repeat it after suppression clears. Generation bumps
+   * invalidate pending double-rAF clears after stop or a newer apply.
+   */
+  private _gridDisclosureSuppressRo = false;
+  private _gridDisclosureSuppressGeneration = 0;
+  /**
+   * Cancels `document.fonts` work armed while grid disclosure is active.
+   *
+   * Drops the `loadingdone` listener and marks the `fonts.ready` callback inactive so a
+   * late promise resolve cannot schedule disclosure after stop.
+   */
+  private _gridDisclosureFontsCleanup: (() => void) | null = null;
+
+  /**
+   * Repaint timer for the grid's now line, and the local day it last painted.
+   *
+   * Only ever running in grid view. The line is the only thing on the card that goes
+   * stale purely with the passage of time — everything else changes when `hass` does.
+   */
+  private _nowLineTimerId: number | null = null;
+
+  private _nowLineDayKey: string | null = null;
 
   /**
    * Pending trailing timer for the last width measurement.
    */
   private _widthSettleTimerId: number | null = null;
+
+  /**
+   * Observers and pending work for `scroll_long_titles`.
+   *
+   * Kept apart from the grid disclosure observer above, which reshapes layout by hiding
+   * detail rows and so has to suppress its own re-entrancy. Title scrolling only ever adds
+   * a transform animation and inline custom properties, and neither resizes the box the
+   * observer measures, so it needs no such guard.
+   */
+  private _titleScrollObserver: ResizeObserver | null = null;
+  private _titleScrollIntersectionObserver: IntersectionObserver | null = null;
+  private _titleScrollMutations: MutationObserver | null = null;
+  private _titleScrollRaf: number | null = null;
+  private _titleScrollFontsCleanup: (() => void) | null = null;
+  private _titleMotion: TitleMotionController | null = null;
 
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
@@ -289,7 +540,7 @@ class CalendarCardPro extends LitElement {
       this.isExpanded,
       this.effectiveLanguage,
       this.effectiveView,
-      this.hass?.locale,
+      this.hass,
     );
   }
 
@@ -357,6 +608,9 @@ class CalendarCardPro extends LitElement {
       this.config.first_day_of_week,
       this.hass?.locale,
     );
+    const weekendDaysKey = FormatUtils.getWeekendDays(this.hass).join(',');
+    // Expiry and relative date windows can change without new events or configuration.
+    const evaluatedAt = Date.now();
     const cache = this._visibleCountCache;
 
     if (
@@ -365,7 +619,9 @@ class CalendarCardPro extends LitElement {
       cache.config === this.config &&
       cache.view === view &&
       cache.language === language &&
-      cache.firstWeekday === firstWeekday
+      cache.firstWeekday === firstWeekday &&
+      cache.weekendDaysKey === weekendDaysKey &&
+      cache.evaluatedAt === evaluatedAt
     ) {
       return cache.count;
     }
@@ -377,7 +633,7 @@ class CalendarCardPro extends LitElement {
           true,
           language,
           view,
-          this.hass?.locale,
+          this.hass,
         ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
       : 0;
 
@@ -387,6 +643,8 @@ class CalendarCardPro extends LitElement {
       view,
       language,
       firstWeekday,
+      weekendDaysKey,
+      evaluatedAt,
       count,
     };
 
@@ -428,12 +686,20 @@ class CalendarCardPro extends LitElement {
     this._syncEntityColors();
 
     this._startWidthObserver();
+
+    // Disconnect tears title-scrolling observers down, and reconnect does not
+    // necessarily schedule a Lit update. Reacquire from the existing shadow DOM
+    // immediately; the first connection still gets its normal post-render sync.
+    this._syncTitleScroll();
+    this._syncGridDisclosureSafety();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
 
     this._stopWidthObserver();
+    this._stopGridDisclosureObserver();
+    this._stopTitleScrollObserver();
 
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
@@ -443,8 +709,17 @@ class CalendarCardPro extends LitElement {
     this._titleSubscription?.destroy();
     this._titleSubscription = undefined;
 
+    // Supersede any in-flight updateEvents. Detached setConfig can rewrite
+    // `_instanceId` while a pre-disconnect fetch is still open; without this
+    // bump the late response is not superseded, commits the old calendar's
+    // events, and stamps them with the *new* identity so
+    // `eventsMatchCurrentQuery` treats the mismatch as current.
+    this._eventRequestGeneration++;
+    this.isLoading = false;
+
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
+      this._refreshTimerId = undefined;
     }
 
     if (this._initialLoadRetryId) {
@@ -461,6 +736,14 @@ class CalendarCardPro extends LitElement {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
     }
+
+    this._releaseActivePointerCapture();
+    this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
+    this._holdTriggered = false;
+
+    this._stopNowLineTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -508,6 +791,94 @@ class CalendarCardPro extends LitElement {
     }, Constants.TIMING.WIDTH_SETTLE_DELAY);
   }
 
+  //-----------------------------------------------------------------------------
+  // NOW LINE
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Whether the card is currently drawing a now line that needs repainting.
+   *
+   * Both halves matter. Outside grid view there is no line, and with `show_now_line`
+   * off there is none either — starting a timer for either case would make every list
+   * card pay a repaint a minute for something it cannot display.
+   */
+  private get _wantsNowLine(): boolean {
+    return (
+      this.effectiveView === 'grid' &&
+      ViewConfig.resolveTimeGridOption(this.config, 'show_now_line')
+    );
+  }
+
+  /**
+   * Starts or stops the now-line repaint to match what the card is currently rendering.
+   *
+   * Called from `updated()` rather than `connectedCallback`, because the view can change
+   * after connection — a width fallback or an edit to `view` both flip it — and a timer
+   * acquired once at connection would either never start or never stop.
+   *
+   * 🚨 The `isConnected` guard matches `_syncEntityColors`: Lit can still run `updated()`
+   * after `disconnectedCallback` stopped the interval, and re-arming here would leave a
+   * detached card ticking `requestUpdate` / `updateEvents` with nothing to tear it down
+   * again until the element is reattached.
+   */
+  private _syncNowLineTimer(): void {
+    if (!this.isConnected || !this._wantsNowLine || document.visibilityState === 'hidden') {
+      this._stopNowLineTimer();
+      return;
+    }
+
+    if (this._nowLineTimerId !== null) {
+      return;
+    }
+
+    // Repaint once a minute, using the precise wall-clock position at each render.
+    // The interval need not align with a wall-clock minute to keep that cadence.
+    this._nowLineTimerId = window.setInterval(() => {
+      this._tickNowLine();
+    }, Constants.TIMING.NOW_LINE_INTERVAL);
+
+    // Keep the key across stops so a hidden or disconnected card can detect that midnight
+    // passed before the timer was reacquired.
+    const dayKey = FormatUtils.getLocalDateKey(new Date());
+    if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
+      this._nowLineDayKey = dayKey;
+      Logger.debug('Local day rolled over while the now-line timer was stopped, refreshing events');
+      this.updateEvents(true);
+      return;
+    }
+
+    this._nowLineDayKey = dayKey;
+  }
+
+  private _stopNowLineTimer(): void {
+    if (this._nowLineTimerId !== null) {
+      clearInterval(this._nowLineTimerId);
+      this._nowLineTimerId = null;
+    }
+  }
+
+  /**
+   * Repaints the now line, and the whole card when the local day has rolled over.
+   *
+   * The rollover check is why this is not simply `requestUpdate()`. At midnight every
+   * day header is wrong, "today" has moved to a different column and the events on
+   * screen are a day out of date — a repaint would move the line to the top of a column
+   * that is no longer today. Refetching is the only thing that fixes that.
+   */
+  private _tickNowLine(): void {
+    const dayKey = FormatUtils.getLocalDateKey(new Date());
+
+    if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
+      this._nowLineDayKey = dayKey;
+      Logger.debug('Local day rolled over, refreshing events');
+      this.updateEvents(true);
+      return;
+    }
+
+    this._nowLineDayKey = dayKey;
+    this.requestUpdate();
+  }
+
   private _stopWidthObserver(): void {
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
@@ -516,6 +887,450 @@ class CalendarCardPro extends LitElement {
       clearTimeout(this._widthSettleTimerId);
       this._widthSettleTimerId = null;
     }
+  }
+
+  /**
+   * Stops observing grid disclosure targets and cancels any document.fonts work.
+   *
+   * Clears the ResizeObserver, the pending rAF, the loadingdone listener, and the
+   * active flag on the fonts.ready callback so a late promise resolve cannot schedule
+   * apply after this returns.
+   */
+  private _stopGridDisclosureObserver(): void {
+    this._gridDisclosureObserver?.disconnect();
+    this._gridDisclosureObserver = null;
+
+    this._gridDisclosureFontsCleanup?.();
+    this._gridDisclosureFontsCleanup = null;
+    this._gridDisclosureMutations?.disconnect();
+    this._gridDisclosureMutations = null;
+    this._gridDisclosureAssetsCleanup?.();
+    this._gridDisclosureAssetsCleanup = null;
+    this._gridDisclosureTargets.clear();
+    this._gridDisclosureDirty.clear();
+
+    if (this._gridDisclosureRaf !== null) {
+      cancelAnimationFrame(this._gridDisclosureRaf);
+      this._gridDisclosureRaf = null;
+    }
+    if (this._gridDisclosureReleaseRaf !== null) {
+      cancelAnimationFrame(this._gridDisclosureReleaseRaf);
+      this._gridDisclosureReleaseRaf = null;
+    }
+
+    // Invalidate any pending double-rAF that would clear RO suppress after apply.
+    this._gridDisclosureSuppressGeneration += 1;
+    this._gridDisclosureSuppressRo = false;
+  }
+
+  /**
+   * Fits the disclosed grid details into their block, by the line rather than by the row.
+   *
+   * Container queries make the usual case cheap, but their fixed pixel rungs cannot account
+   * for a theme or configuration that enlarges text. Keep the title visible and, from the
+   * bottom up, first shorten and then — only if shortening cannot help — withdraw the
+   * optional rows until the remaining disclosed content fits.
+   *
+   * Shortening comes first because withdrawal reads as a bug. A 2.5-hour event with a
+   * five-line postal address showed its title and its time and then nothing at all, with
+   * roughly three empty lines sitting inside the block below them: the whole location row
+   * had been given up because its last line did not fit. `-webkit-line-clamp` is already how
+   * `location_max_lines` and `description_max_lines` limit those rows, and it supplies the
+   * ellipsis on the last visible line for free, so the fix is to compute how many lines the
+   * remaining space holds and set that row's own clamp property inline. The clamp can only
+   * tighten: the line count is measured after the user's configured limit has applied, so a
+   * `location_max_lines: 2` stays at two even where four would have fitted.
+   *
+   * Measuring requires restoring every hidden and every clamped detail row first, so every
+   * apply can reflow observed title/block nodes even when the final result is unchanged.
+   * Suppress ResizeObserver until two animation frames later so that reflow cannot re-arm
+   * schedule.
+   */
+  private _applyGridDisclosureSafety(blocks?: Iterable<HTMLElement>): void {
+    this._gridDisclosureSuppressGeneration += 1;
+    const generation = this._gridDisclosureSuppressGeneration;
+    this._gridDisclosureSuppressRo = true;
+    const pending = Array.from(
+      blocks ??
+        this.renderRoot.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
+    );
+    const titles = pending
+      .map(GridTitleFit.gridTitleTarget)
+      .filter((target): target is GridTitleFit.GridTitleTarget => target !== null);
+    titles.forEach(GridTitleFit.resetGridTitle);
+    GridTitleFit.reserveScrollingLabelWidths(titles.map((target) => target.title));
+
+    try {
+      const transactions = pending.flatMap((block) => {
+        const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
+        if (!content) return [];
+        const detailRows = GRID_DETAIL_ROWS.map((row) => ({
+          lineProperty: row.lineProperty,
+          element: content.querySelector<HTMLElement>(row.selector),
+        })).filter(
+          (row): row is { lineProperty: string | null; element: HTMLElement } =>
+            row.element !== null,
+        );
+
+        for (const row of detailRows) {
+          row.element.classList.remove('grid-event-detail-clipped');
+          if (row.lineProperty) {
+            row.element.style.removeProperty(row.lineProperty);
+          }
+        }
+        return [{ block, content, detailRows, withdrawn: [] as HTMLElement[] }];
+      });
+
+      const wrappedTimes = this._applyGridTimeFit(pending);
+
+      // A wrap is decided on width but paid for in height, so settle that here, before
+      // anything else competes for the same pixels. Withdrawing it lands on exactly the
+      // class set the rung below produces, which is what makes the loop underneath see an
+      // identical state whether or not any row was ever offered a wrap - so no location,
+      // weather, description or progress row can be withdrawn *because* a time row
+      // wrapped. That is the opportunistic constraint, held by construction rather than by
+      // ordering care.
+      const unaffordable = transactions.filter(
+        (transaction) =>
+          wrappedTimes.has(transaction.block) && gridContentOverflows(transaction.content),
+      );
+      for (const transaction of unaffordable) {
+        const target = wrappedTimes.get(transaction.block);
+        if (target) GridTimeFit.demoteGridTimeWrap(target);
+      }
+
+      // Keep the existing priority/rollback transaction, but batch each row's reads and
+      // writes across blocks. Otherwise restoring one block forces layout for the next.
+      for (const { selector } of GRID_DETAIL_ROWS) {
+        const choices = transactions.flatMap((transaction) => {
+          if (!gridContentOverflows(transaction.content)) return [];
+          const row = transaction.detailRows.find(({ element }) => element.matches(selector));
+          if (!row || row.element.getClientRects().length === 0) return [];
+          const lines = row.lineProperty
+            ? this._gridDetailLineCount(transaction.content, row.element)
+            : 0;
+          return [{ transaction, row, lines }];
+        });
+        for (const { row, lines } of choices) {
+          if (row.lineProperty && lines > 0) {
+            row.element.style.setProperty(row.lineProperty, String(lines));
+          }
+        }
+        const withdrawals = choices.filter(
+          ({ transaction, lines }) => lines < 1 || gridContentOverflows(transaction.content),
+        );
+        for (const { transaction, row } of withdrawals) {
+          if (row.lineProperty) row.element.style.removeProperty(row.lineProperty);
+          row.element.classList.add('grid-event-detail-clipped');
+          transaction.withdrawn.push(row.element);
+        }
+      }
+      // A too-tall title cannot be repaired by sacrificing details. Restore them if the
+      // transaction did not fit; title rescue below makes its own, separate decision.
+      const rollbacks = transactions.filter(({ content }) => gridContentOverflows(content));
+      for (const { withdrawn } of rollbacks) {
+        withdrawn.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
+      }
+      const compact: GridTitleFit.GridTitleTarget[] = [];
+      const centered: GridTitleFit.GridTitleTarget[] = [];
+      for (const target of titles) {
+        if (!GridTitleFit.normalGridTitleFits(target)) {
+          compact.push(target);
+          continue;
+        }
+        const details = GRID_DETAIL_ROWS.flatMap(({ selector }) =>
+          Array.from(target.disclosure.querySelectorAll<HTMLElement>(selector)),
+        );
+        if (details.length && details.every((detail) => detail.getClientRects().length === 0)) {
+          centered.push(target);
+        }
+      }
+      GridTitleFit.centerGridTitles(centered);
+      GridTitleFit.fitCompactGridTitles(compact);
+      const resumed = titles
+        .filter(
+          (target) =>
+            (target.previousMode === 'compact' || target.previousMode === 'blank') &&
+            target.block.dataset.gridTitleFit !== 'compact' &&
+            target.block.dataset.gridTitleFit !== 'blank' &&
+            target.title.classList.contains('title-scrollable'),
+        )
+        .map((target) => target.title);
+      if (resumed.length) this._measureTitleScroll(resumed);
+      this._titleMotion?.refresh();
+    } finally {
+      // Two frames: layout from the class toggle, then the RO notifications that follow it.
+      if (this._gridDisclosureReleaseRaf !== null) {
+        cancelAnimationFrame(this._gridDisclosureReleaseRaf);
+      }
+      this._gridDisclosureReleaseRaf = requestAnimationFrame(() => {
+        this._gridDisclosureReleaseRaf = requestAnimationFrame(() => {
+          this._gridDisclosureReleaseRaf = null;
+          if (generation === this._gridDisclosureSuppressGeneration) {
+            this._gridDisclosureSuppressRo = false;
+          }
+        });
+      });
+    }
+  }
+
+  /**
+   * Fit each block's time row across, before the vertical pass decides what to withdraw.
+   *
+   * Runs first so the vertical budget sees the row set the width decision actually leaves
+   * behind: a row this pass hides is not a row the height pass has to pay for, and a row it
+   * strips an icon from is no shorter but is finally readable.
+   *
+   * Phased so that the whole card costs three style recalculations rather than three per
+   * block. Each phase is entirely reads or entirely writes, and the second read depends on
+   * the second write, which is why there are three and not two.
+   *
+   * @param blocks - The timed grid blocks being fitted
+   */
+  private _applyGridTimeFit(
+    blocks: ReadonlyArray<HTMLElement>,
+  ): ReadonlyMap<HTMLElement, GridTimeFit.GridTimeTarget> {
+    const pairs = blocks
+      .map((block) => ({ block, target: GridTimeFit.gridTimeTarget(block) }))
+      .filter(
+        (pair): pair is { block: HTMLElement; target: GridTimeFit.GridTimeTarget } =>
+          pair.target !== null,
+      );
+    const wrapped = new Map<HTMLElement, GridTimeFit.GridTimeTarget>();
+    if (pairs.length === 0) return wrapped;
+
+    const targets = pairs.map(({ target }) => target);
+
+    targets.forEach(GridTimeFit.prepareGridTimeMeasurement);
+    const available = targets.map(GridTimeFit.measureGridTimeAvailable);
+    targets.forEach(GridTimeFit.releaseGridTimeWidth);
+    const base = targets.map((target, index) =>
+      GridTimeFit.measureGridTimeCosts(target, available[index]),
+    );
+    // The wrapped width needs the row in its wrapped shape, which is a write, so it cannot
+    // share a phase with the read above. Keep each phase batched across every block: four
+    // alternations rather than two is still a constant number of layout flushes, where
+    // measuring one block at a time would be one per block.
+    targets.forEach(GridTimeFit.openGridTimeWrapMeasurement);
+    const wrapWidths = targets.map(GridTimeFit.measureGridTimeWrapped);
+    targets.forEach(GridTimeFit.settleGridTimeWrapMeasurement);
+
+    const fits = base.map((costs, index) =>
+      GridTimeFit.gridTimeFit({ ...costs, wrapped: wrapWidths[index] }),
+    );
+    pairs.forEach(({ block, target }, index) => {
+      GridTimeFit.applyGridTimeFit(target, fits[index]);
+      if (fits[index].wrap) wrapped.set(block, target);
+    });
+
+    return wrapped;
+  }
+
+  /**
+   * Measure how many lines of a detail row fit, before the batched clamp write.
+   *
+   * Measures the text span rather than the row, because the row is a flex line that also
+   * carries an icon; the span is both what wraps and what the clamp rule targets.
+   *
+   * @param content - The block's disclosed content, whose overflow is being paid for
+   * @param row - The detail row to shorten
+   * @returns Fitting line count, or zero when the row must be withdrawn
+   */
+  private _gridDetailLineCount(content: HTMLElement, row: HTMLElement): number {
+    const text = row.querySelector<HTMLElement>('span') ?? row;
+    const lineHeight = resolveLineHeightPx(getComputedStyle(text));
+    const fitted = fittedGridDetailLines(
+      content.scrollHeight - content.clientHeight,
+      text.getBoundingClientRect().height,
+      lineHeight,
+    );
+
+    return Math.max(0, fitted);
+  }
+
+  /**
+   * Reconciles the disclosure safety fallback after layout has settled.
+   */
+  private _scheduleGridDisclosureSafety(all = true): void {
+    if (all) {
+      this._gridDisclosureTargets.forEach((block) => this._gridDisclosureDirty.add(block));
+    }
+    if (this._gridDisclosureRaf !== null) return;
+
+    this._gridDisclosureRaf = requestAnimationFrame(() => {
+      this._gridDisclosureRaf = null;
+      // A deferred fonts.ready can resolve after stop/disconnect. Match the weather
+      // and entity-color guards: never apply disclosure safety on a detached card or
+      // after the view has left the grid.
+      if (!this.isConnected || this.effectiveView !== 'grid') {
+        return;
+      }
+      const dirty = Array.from(this._gridDisclosureDirty).filter((block) => block.isConnected);
+      this._gridDisclosureDirty.clear();
+      if (dirty.length) this._applyGridDisclosureSafety(dirty);
+    });
+  }
+
+  /**
+   * Observes timed grid blocks and title metrics that stay visible under the clip fallback.
+   *
+   * Block height is absolute time geometry, so a late font load or a theme that only
+   * enlarges the title can overflow `.event-content` without resizing `.grid-event`.
+   * Observing `.summary` / `.event-title` catches that without watching optional detail
+   * rows: those rows can be `display: none` after the safety pass, so observing them
+   * re-fires ResizeObserver from the apply pass that just hid them.
+   * Apply also suppresses RO for two frames after every measure, because unclip→reclip
+   * reflows the title/block nodes we *do* observe even when the final clip state matches.
+   * `document.fonts` covers detail-row font loads; `updated()` re-applies after
+   * config/theme edits as a backstop.
+   */
+  private _syncGridDisclosureSafety(remeasure = true): void {
+    if (
+      !this.isConnected ||
+      this.effectiveView !== 'grid' ||
+      typeof ResizeObserver === 'undefined'
+    ) {
+      this._stopGridDisclosureObserver();
+      return;
+    }
+    if (!remeasure && this._gridDisclosureObserver) return;
+
+    const blocks = this.renderRoot.querySelectorAll<HTMLElement>(
+      '.grid-event:not(.grid-event-overflow)',
+    );
+    if (!blocks.length) {
+      this._stopGridDisclosureObserver();
+      return;
+    }
+
+    if (!this._gridDisclosureObserver) {
+      this._gridDisclosureObserver = new ResizeObserver((entries) => {
+        let targetChangedSize = false;
+        for (const entry of entries) {
+          const previous = this._gridDisclosureObservedSizes.get(entry.target);
+          const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+          this._gridDisclosureObservedSizes.set(entry.target, next);
+          if (
+            previous === undefined ||
+            previous.width !== next.width ||
+            previous.height !== next.height
+          ) {
+            const block = this._gridDisclosureTargets.get(entry.target);
+            if (block) this._gridDisclosureDirty.add(block);
+            targetChangedSize = true;
+          }
+        }
+
+        if (this._gridDisclosureSuppressRo && !targetChangedSize) return;
+        if (targetChangedSize) this._scheduleGridDisclosureSafety(false);
+      });
+      this._watchGridDisclosureFonts();
+    }
+    const current = new Set<HTMLElement>(blocks);
+    for (const [target, block] of this._gridDisclosureTargets) {
+      if (!current.has(block) || !block.contains(target)) {
+        this._gridDisclosureObserver.unobserve(target);
+        this._gridDisclosureTargets.delete(target);
+      }
+    }
+    // Title stays visible under the clip class; detail rows do not — see the method doc.
+    const contentTargets = '.summary, .event-title';
+    blocks.forEach((block) => {
+      for (const target of [block, ...block.querySelectorAll(contentTargets)]) {
+        if (this._gridDisclosureTargets.has(target)) continue;
+        this._gridDisclosureTargets.set(target, block);
+        this._gridDisclosureObserver?.observe(target);
+      }
+    });
+    this._scheduleGridDisclosureSafety();
+  }
+
+  /** Watch font loads, inherited theme changes, and late/recycled title content once per bind. */
+  private _watchGridDisclosureFonts(): void {
+    const onImage = (event: Event): void => {
+      if (!(event.target instanceof HTMLImageElement) || !event.target.matches('.label-image')) {
+        return;
+      }
+      const block = event.target.closest<HTMLElement>('.grid-event');
+      if (block) {
+        this._gridDisclosureDirty.add(block);
+        this._scheduleGridDisclosureSafety(false);
+      }
+    };
+    this.renderRoot.addEventListener('load', onImage, true);
+    this.renderRoot.addEventListener('error', onImage, true);
+    this._gridDisclosureAssetsCleanup = () => {
+      this.renderRoot.removeEventListener('load', onImage, true);
+      this.renderRoot.removeEventListener('error', onImage, true);
+    };
+    const fonts = document.fonts;
+    if (fonts) {
+      // fonts.ready is a Promise: removeEventListener cannot cancel it. Flag the
+      // callback dead in cleanup so a late resolve after stop/disconnect cannot
+      // re-arm a disclosure rAF the way a leaked weather subscription does.
+      let active = true;
+      const onFonts = (): void => {
+        if (!active) return;
+        this._scheduleGridDisclosureSafety();
+      };
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+      }
+      this._gridDisclosureFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      this._gridDisclosureMutations = new MutationObserver((records) => {
+        let all = false;
+        for (const record of records) {
+          if (record.type === 'attributes') {
+            if (isScrollPauseOnlyMutation(record, this)) continue;
+            all = true;
+          } else {
+            const element =
+              record.target instanceof Element ? record.target : record.target.parentElement;
+            const block = element?.closest<HTMLElement>('.grid-event:not(.grid-event-overflow)');
+            if (block) this._gridDisclosureDirty.add(block);
+            else if (element?.closest('style')) all = true;
+          }
+        }
+        if (all || this._gridDisclosureDirty.size) this._scheduleGridDisclosureSafety(all);
+      });
+      this._gridDisclosureMutations.observe(this.renderRoot, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      observeTypographyAncestors(this._gridDisclosureMutations, this);
+    }
+  }
+
+  /** Unrelated Home Assistant state ticks must not remeasure thousands of unchanged blocks. */
+  private _gridDisclosureChanged(changedProps: PropertyValues): boolean {
+    if (changedProps.size !== 1 || !changedProps.has('hass')) return true;
+    const previous = changedProps.get('hass') as Types.Hass | undefined;
+    if (
+      !previous ||
+      !this.hass ||
+      previous.locale?.language !== this.hass.locale?.language ||
+      previous.locale?.time_format !== this.hass.locale?.time_format ||
+      previous.locale?.first_weekday !== this.hass.locale?.first_weekday
+    ) {
+      return true;
+    }
+    return this.config.entities.some((entry) => {
+      const entity = typeof entry === 'string' ? entry : entry.entity;
+      const label = typeof entry === 'string' ? undefined : entry.label;
+      return (
+        previous.states[entity] !== this.hass?.states[entity] ||
+        (label?.startsWith('person.') && previous.states[label] !== this.hass?.states[label])
+      );
+    });
   }
 
   /**
@@ -548,16 +1363,25 @@ class CalendarCardPro extends LitElement {
     this.requestUpdate();
   }
 
-  updated(changedProps: PropertyValues) {
-    if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
-      this.updateEvents(true);
-    }
-
+  /** Resolve language before rendering so the current update uses the new strings. */
+  protected willUpdate(changedProps: PropertyValues): void {
     if (
-      (changedProps.has('hass') && this.hass?.locale) ||
+      changedProps.has('hass') ||
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
+    }
+  }
+
+  updated(changedProps: PropertyValues) {
+    // Reconciled after every update rather than acquired once: the view can change after
+    // connection — a width fallback or an edit to `view` both flip it — so a timer taken
+    // in `connectedCallback` would either never start or never stop.
+    this._syncNowLineTimer();
+    this._syncGridDisclosureSafety(this._gridDisclosureChanged(changedProps));
+
+    if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
+      this.updateEvents(true);
     }
 
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
@@ -575,8 +1399,15 @@ class CalendarCardPro extends LitElement {
     // the new entity never supplies that forecast type, indefinitely. Deliberately not
     // done for other weather edits: the entity is unchanged there, so blanking the
     // forecast would only produce a flicker.
+    //
+    // Setup only runs on a microtask (and can be delayed further while a previous
+    // subscribe await is still open), so blanking alone is not enough: the still-live
+    // callback still holds the previous setup ticket and will write the old forecast
+    // back until that ticket moves. Bump and unsubscribe here so the blank sticks.
     if (weatherEntityChanged) {
       this.weatherForecasts = { daily: {}, hourly: {} };
+      this._weatherSetupVersion++;
+      this._cleanupWeatherSubscriptions();
     }
 
     if (hassJustAvailable || weatherConfigChanged) {
@@ -596,6 +1427,7 @@ class CalendarCardPro extends LitElement {
     }
 
     this._applyVisibility();
+    this._syncTitleScroll();
   }
 
   //-----------------------------------------------------------------------------
@@ -604,8 +1436,17 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Keep the title template subscription aligned with the current config.
+   *
+   * 🚨 The `isConnected` guard matches `_syncEntityColors` / `_syncNowLineTimer`:
+   * `disconnectedCallback` destroys the subscription, then a queued `updated()` can
+   * still run with a hass/config change and recreate it on a detached card — leaving
+   * a live template subscription (and its `requestUpdate` path) with nothing on screen.
    */
   private _updateTitleSubscription(): void {
+    if (!this.isConnected) {
+      return;
+    }
+
     const isTemplated = Templates.isTemplate(this.config.title);
 
     if (!isTemplated) {
@@ -667,6 +1508,236 @@ class CalendarCardPro extends LitElement {
     );
   }
 
+  //-----------------------------------------------------------------------------
+  // TITLE SCROLL (scroll_long_titles)
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Reconciles horizontal title scrolling after every render.
+   *
+   * Measurement observers rebind as titles change; the visible cohort and native clocks
+   * survive those rebinds. A card that never enables the option returns immediately.
+   *
+   * Shares the detached-card guard the other reconcilers use, and re-measures after a
+   * card/title resize, a late font load, or an inherited style or direction change.
+   * This `updated()` pass is the backstop after a config or data change. A separate
+   * IntersectionObserver pauses the animation while the card is off-screen — these live
+   * on 24/7 wall panels.
+   */
+  private _syncTitleScroll(): void {
+    if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+      this._stopTitleScrollObserver();
+      return;
+    }
+
+    const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    this._stopTitleScrollObserver(titles.length === 0);
+    if (!titles.length) {
+      return;
+    }
+
+    if (!this._titleMotion && supportsTitleMotion()) {
+      this._titleMotion = new TitleMotionController(this, () => this._scheduleTitleScrollMeasure());
+    }
+    this._titleMotion?.sync(titles);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this._titleScrollObserver = new ResizeObserver(() => this._scheduleTitleScrollMeasure());
+      // The card catches a width change that reflows every title at once; each title catches
+      // its own. A transform animation resizes neither, so this cannot re-arm itself.
+      this._titleScrollObserver.observe(this);
+      titles.forEach((title) => {
+        this._titleScrollObserver?.observe(title);
+        const summary = title.parentElement;
+        if (summary) {
+          this._titleScrollObserver?.observe(summary);
+          Array.from(summary.children).forEach((label) =>
+            this._titleScrollObserver?.observe(label),
+          );
+        }
+      });
+    }
+
+    if (!this._titleMotion && typeof IntersectionObserver !== 'undefined') {
+      this._titleScrollIntersectionObserver = new IntersectionObserver((entries) => {
+        const offscreen = entries.every((entry) => !entry.isIntersecting);
+        this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
+      });
+      this._titleScrollIntersectionObserver.observe(this);
+    }
+
+    // A direction change can leave every observed width unchanged.
+    if (typeof MutationObserver !== 'undefined') {
+      this._titleScrollMutations = new MutationObserver((records) => {
+        if (records.some((record) => !isScrollPauseOnlyMutation(record, this))) {
+          this._scheduleTitleScrollMeasure();
+        }
+      });
+      this._titleScrollMutations.observe(this.renderRoot, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      observeTypographyAncestors(this._titleScrollMutations, this);
+    }
+
+    const fonts = document.fonts;
+    if (fonts) {
+      // fonts.ready is a Promise removeEventListener cannot cancel, so flag the callback
+      // dead in cleanup — the same pattern the disclosure observer uses.
+      let active = true;
+      const onFonts = (): void => {
+        if (active) this._scheduleTitleScrollMeasure();
+      };
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+      }
+      this._titleScrollFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
+    }
+
+    this._scheduleTitleScrollMeasure();
+  }
+
+  /**
+   * Measures on the next frame, so layout has settled and reads are batched.
+   */
+  private _scheduleTitleScrollMeasure(): void {
+    if (this._titleScrollRaf !== null) {
+      cancelAnimationFrame(this._titleScrollRaf);
+    }
+    this._titleScrollRaf = requestAnimationFrame(() => {
+      this._titleScrollRaf = null;
+      if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+        return;
+      }
+      this._measureTitleScroll();
+    });
+  }
+
+  /**
+   * Toggles the scrolling class per title and publishes the overflow distance and duration.
+   *
+   * The text's own offsetWidth is unaffected by its animation. The viewport's scrollWidth
+   * is not: translated RTL overflow can enlarge it on each measurement. Read all intrinsic
+   * extents before changing classes, then travel toward the unread end in the text's direction.
+   * Duration keeps a constant speed over the moving part of the cycle, with a short-trip floor.
+   */
+  private _measureTitleScroll(
+    titles: Iterable<HTMLElement> = this.renderRoot.querySelectorAll<HTMLElement>(
+      '.event-title.title-scrollable',
+    ),
+  ): void {
+    const current = Array.from(titles);
+    GridTitleFit.reserveScrollingLabelWidths(current);
+    const candidates = current.flatMap((title) => {
+      const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
+      if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
+      const content = title.querySelector<HTMLElement>('.event-title-scroll');
+      return content ? [{ title, content }] : [];
+    });
+    // WebKit rounds an inline fragment's offsetWidth differently from an inline-block.
+    // Measure pending text in the same local-pixel box it will move in, then restore its
+    // static ellipsis before paint. Otherwise an unchanged tick withdraws a reader over
+    // a one-pixel measurement-only change. Existing moving effects never change display.
+    const inline = this._titleMotion?.enhanced
+      ? candidates
+          .filter(({ content }) => getComputedStyle(content).display === 'inline')
+          .map(({ content }) => ({
+            content,
+            display: content.style.getPropertyValue('display'),
+            priority: content.style.getPropertyPriority('display'),
+          }))
+      : [];
+    for (const { content } of inline) {
+      content.style.setProperty('display', 'inline-block', 'important');
+    }
+    let measurements: TitleScrollMeasurement[];
+    try {
+      measurements = candidates.map(({ title, content }) => {
+        const style = getComputedStyle(title);
+        return {
+          title,
+          content,
+          distance: content.offsetWidth - title.clientWidth,
+          direction: style.direction === 'rtl' ? 1 : -1,
+          signature: JSON.stringify([
+            content.textContent,
+            style.font,
+            style.letterSpacing,
+            style.wordSpacing,
+            style.textTransform,
+          ]),
+        };
+      });
+    } finally {
+      for (const { content, display, priority } of inline) {
+        if (display) content.style.setProperty('display', display, priority);
+        else content.style.removeProperty('display');
+      }
+    }
+    measurements.forEach(({ title, distance, direction }) => {
+      if (
+        distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX &&
+        !title.classList.contains('empty-day-title')
+      ) {
+        const seconds = Math.max(
+          Constants.TITLE_SCROLL.MIN_DURATION_S,
+          distance /
+            (Constants.TITLE_SCROLL.SPEED_PX_PER_S * Constants.TITLE_SCROLL.TRAVEL_FRACTION),
+        );
+        title.style.setProperty('--calendar-card-title-scroll-distance', `${distance}px`);
+        title.style.setProperty('--calendar-card-title-scroll-direction', String(direction));
+        title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
+        title.classList.add('title-overflowing');
+      } else {
+        title.classList.remove('title-overflowing');
+        title.style.removeProperty('--calendar-card-title-scroll-distance');
+        title.style.removeProperty('--calendar-card-title-scroll-direction');
+        title.style.removeProperty('--calendar-card-title-scroll-duration');
+      }
+    });
+    this._titleMotion?.measure(measurements);
+  }
+
+  /**
+   * Tears down the title-scroll observers, cancels pending work, and clears the pause class.
+   *
+   * @param clearPause - Keep false during active rebinding so offscreen titles stay paused
+   */
+  private _stopTitleScrollObserver(clearPause = true): void {
+    this._titleScrollObserver?.disconnect();
+    this._titleScrollObserver = null;
+
+    this._titleScrollIntersectionObserver?.disconnect();
+    this._titleScrollIntersectionObserver = null;
+
+    this._titleScrollMutations?.disconnect();
+    this._titleScrollMutations = null;
+
+    this._titleScrollFontsCleanup?.();
+    this._titleScrollFontsCleanup = null;
+
+    if (this._titleScrollRaf !== null) {
+      cancelAnimationFrame(this._titleScrollRaf);
+      this._titleScrollRaf = null;
+    }
+
+    if (clearPause) {
+      this._titleMotion?.dispose();
+      this._titleMotion = null;
+      this.renderRoot.querySelectorAll('[data-scroll-labels]').forEach((summary) => {
+        summary.removeAttribute('data-scroll-labels');
+      });
+      this.classList.remove('calendar-card-title-scroll-paused');
+    }
+  }
+
   /**
    * Generate style properties from configuration. Returns a style object for use with styleMap.
    */
@@ -678,7 +1749,16 @@ class CalendarCardPro extends LitElement {
    * Handle visibility changes to refresh data when returning to the page
    */
   private _handleVisibilityChange = () => {
+    // A hidden tab must not keep repainting, and a tab coming back must not wait a
+    // minute for its line to catch up. `_syncNowLineTimer` does both, and the
+    // `requestUpdate` below it is what redraws immediately on return.
+    this._syncNowLineTimer();
+
     if (document.visibilityState === 'visible') {
+      if (this._wantsNowLine) {
+        this.requestUpdate();
+      }
+
       const now = Date.now();
       if (now - this._lastUpdateTime > Constants.TIMING.VISIBILITY_REFRESH_THRESHOLD) {
         Logger.debug('Visibility changed to visible, updating events');
@@ -706,7 +1786,7 @@ class CalendarCardPro extends LitElement {
    * because `updateEvents()` happens to flip `isLoading` on its way through, which is
    * incidental rather than designed and does not happen when that method returns early.
    * Every other subscription in this file is acquired in `connectedCallback`; this one now
-   * matches its neighbours.
+   * matches its neighbors.
    *
    * 🚨 The `isConnected` guard is what stops the `updated()` call site undoing
    * `disconnectedCallback`. Lit does not cancel an update scheduled before the element
@@ -730,9 +1810,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Start the refresh timer
+   * Start the refresh timer.
+   *
+   * 🚨 Guarded on `isConnected` for the same reason as `_syncNowLineTimer`:
+   * `setConfig` always ends here, and a config edit (or a late `setConfig` after
+   * the card left the DOM) must not re-arm a periodic `updateEvents` loop on a
+   * detached element. `connectedCallback` starts the timer once the card is live.
    */
   private startRefreshTimer() {
+    if (!this.isConnected) {
+      if (this._refreshTimerId) {
+        clearTimeout(this._refreshTimerId);
+        this._refreshTimerId = undefined;
+      }
+      return;
+    }
+
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
     }
@@ -786,6 +1879,12 @@ class CalendarCardPro extends LitElement {
         this.config,
         type,
         (forecasts) => {
+          // The stream can still deliver after unsubscribe (or after a newer
+          // setup has already blanked forecasts for an entity switch). Without
+          // this ticket check the previous entity's forecast is written back.
+          if (this._weatherSetupVersion !== version) {
+            return;
+          }
           this.weatherForecasts = {
             ...this.weatherForecasts,
             [type]: forecasts,
@@ -826,11 +1925,95 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Release any pointer capture taken for the active card gesture.
+   *
+   * `releasePointerCapture` fires `lostpointercapture` synchronously. The
+   * matching handler must not treat that as an external abort, or it would
+   * re-enter cancel in the middle of pointerup after the action has already
+   * run (or while the rest of up is still clearing state). The flag below is
+   * only set for the duration of our own release call.
+   */
+  private _releaseActivePointerCapture(): void {
+    this._releasingPointerCapture = true;
+    try {
+      if (
+        this._pointerCaptureTarget &&
+        this._capturedPointerId !== null &&
+        this._pointerCaptureTarget.hasPointerCapture?.(this._capturedPointerId)
+      ) {
+        try {
+          this._pointerCaptureTarget.releasePointerCapture(this._capturedPointerId);
+        } catch {
+          // Already released or the pointer ended — nothing left to clean up.
+        }
+      }
+
+      this._pointerCaptureTarget = null;
+      this._capturedPointerId = null;
+    } finally {
+      this._releasingPointerCapture = false;
+    }
+  }
+
+  /**
+   * Capture the active pointer on the card so move/up survive leaving its box.
+   *
+   * Without capture, a hold that has already painted its indicator dies if the
+   * finger slips a pixel past the card edge: `pointerleave` clears the gesture
+   * and the matching `pointerup` never arrives on the card. Capture keeps the
+   * sequence intact until up or cancel.
+   */
+  private _captureActivePointer(ev: PointerEvent): void {
+    this._releaseActivePointerCapture();
+
+    const target = ev.currentTarget;
+    if (!(target instanceof Element) || typeof target.setPointerCapture !== 'function') {
+      return;
+    }
+
+    try {
+      target.setPointerCapture(ev.pointerId);
+      this._pointerCaptureTarget = target;
+      this._capturedPointerId = ev.pointerId;
+    } catch {
+      // Synthetic or inactive pointers throw — fall back to the uncaptured path.
+    }
+  }
+
+  /**
    * Handle pointer down events for hold detection
+   *
+   * Only the primary button and primary contact can start a card gesture, and
+   * one already-active pointer keeps ownership until up/cancel. A right-click
+   * still delivers `pointerdown` with `button === 2`; a second touch arrives
+   * with `isPrimary === false`. Accepting either armed or transferred the hold
+   * to an input that was not the gesture the user began. Touch and pen primary
+   * contacts report `button === 0`; unit stubs may omit either field.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    if (typeof ev.button === 'number' && ev.button !== 0) {
+      return;
+    }
+    if (!this._hasCardAction) {
+      return;
+    }
+    if (ev.isPrimary === false || this._activePointerId !== null) {
+      return;
+    }
+
     this._activePointerId = ev.pointerId;
+    this._pointerStart = { x: ev.clientX, y: ev.clientY };
+    this._pointerMoved = false;
     this._holdTriggered = false;
+    this._captureActivePointer(ev);
+
+    // Defensive cleanup for an indicator left by an externally interrupted prior
+    // gesture. Ordinary multi-touch never reaches here: the active/primary guard above
+    // keeps the first contact's indicator and ownership intact.
+    if (this._holdIndicator) {
+      Feedback.removeHoldIndicator(this._holdIndicator);
+      this._holdIndicator = null;
+    }
 
     // Both operands are load-bearing, and the second alone was the defect: optional
     // chaining makes `null?.action !== 'none'` true, so a bare `hold_action:` in YAML —
@@ -847,6 +2030,11 @@ class CalendarCardPro extends LitElement {
         if (this._activePointerId === ev.pointerId) {
           this._holdTriggered = true;
 
+          if (this._holdIndicator) {
+            Feedback.removeHoldIndicator(this._holdIndicator);
+            this._holdIndicator = null;
+          }
+
           this._holdIndicator = Feedback.createHoldIndicator(ev, this.config);
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
@@ -854,25 +2042,83 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Handle pointer up events to execute actions
+   * Cancel a pending card gesture once it becomes a scroll or drag.
+   *
+   * Movement after the hold threshold has already fired does not cancel the
+   * hold: the indicator is the user's confirmation that the long-press landed,
+   * and a few pixels of slip while lifting is normal on touch. Only motion
+   * before that threshold turns the gesture into a drag.
    */
-  private _handlePointerUp(ev: PointerEvent) {
-    if (ev.pointerId !== this._activePointerId) return;
+  private _handlePointerMove(ev: PointerEvent) {
+    if (
+      ev.pointerId !== this._activePointerId ||
+      this._pointerMoved ||
+      this._holdTriggered ||
+      !this._pointerStart
+    ) {
+      return;
+    }
+
+    const deltaX = ev.clientX - this._pointerStart.x;
+    const deltaY = ev.clientY - this._pointerStart.y;
+    if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+      return;
+    }
+
+    this._pointerMoved = true;
 
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
     }
 
-    if (this._holdTriggered && this.config.hold_action) {
+    if (this._holdIndicator) {
+      Feedback.removeHoldIndicator(this._holdIndicator);
+      this._holdIndicator = null;
+    }
+  }
+
+  /**
+   * Handle pointer up events to execute actions
+   *
+   * Only the primary button ends a card gesture. Mice share one `pointerId`
+   * across buttons, so a right-button release arrives with the same id as the
+   * left-button press that armed the hold. Without this guard that release
+   * fired `hold_action`/`tap_action` and cleared state while the primary
+   * button was still down. Touch and pen primary contacts report `button === 0`;
+   * unit stubs may omit the field entirely.
+   */
+  private _handlePointerUp(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId) return;
+    if (typeof ev.button === 'number' && ev.button !== 0) return;
+
+    if (this._holdTimer) {
+      clearTimeout(this._holdTimer);
+      this._holdTimer = null;
+    }
+
+    if (
+      !this._pointerMoved &&
+      this._holdTriggered &&
+      this.config.hold_action &&
+      this.config.hold_action.action !== 'none'
+    ) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
-    } else if (!this._holdTriggered && this.config.tap_action) {
+    } else if (
+      !this._pointerMoved &&
+      !this._holdTriggered &&
+      this.config.tap_action &&
+      this.config.tap_action.action !== 'none'
+    ) {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
+    this._releaseActivePointerCapture();
     this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
     this._holdTriggered = false;
 
     if (this._holdIndicator) {
@@ -882,15 +2128,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Handle pointer cancel/leave events to clean up
+   * Handle pointer cancel events to clean up an aborted gesture
    */
-  private _handlePointerCancel() {
+  private _handlePointerCancel(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId) {
+      return;
+    }
+
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
     }
 
+    this._releaseActivePointerCapture();
     this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
     this._holdTriggered = false;
 
     if (this._holdIndicator) {
@@ -900,10 +2153,80 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Geometric leave is not a gesture end while the card still holds capture.
+   *
+   * `pointerleave` fires when the hit-test leaves the card even though the finger
+   * is still down. With capture, move and up keep arriving on the card, so
+   * canceling here is what made a post-threshold hold die if the finger slipped
+   * a pixel past the edge — the indicator had already confirmed the long-press,
+   * then leave wiped it and the outside up never reached the listener. Without
+   * capture, leave remains the only cleanup path for a contact that left.
+   */
+  private _handlePointerLeave(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId) {
+      return;
+    }
+
+    const target = ev.currentTarget;
+    if (
+      target instanceof Element &&
+      this._capturedPointerId === ev.pointerId &&
+      target.hasPointerCapture?.(ev.pointerId)
+    ) {
+      return;
+    }
+
+    this._handlePointerCancel(ev);
+  }
+
+  /**
+   * Capture is what keeps leave from aborting a gesture still in progress. When the
+   * browser or another element forcibly releases that capture — OS gesture, scroll
+   * takeover, a second setPointerCapture — leave has often already been ignored under
+   * the capture assumption, and the matching up may never reach the card. Treat the
+   * loss like cancel so the hold indicator and active-pointer bookkeeping cannot stick
+   * until the next unrelated down.
+   *
+   * Our own `releasePointerCapture` on up/cancel also fires this synchronously. That
+   * path sets `_releasingPointerCapture` so this handler stays out of the way: the
+   * action decision has already run (or cancel already cleaned up), and re-entering
+   * cancel mid-up would only thrash state the rest of up is about to clear.
+   */
+  private _handleLostPointerCapture(ev: PointerEvent) {
+    if (this._releasingPointerCapture) {
+      return;
+    }
+
+    if (ev.pointerId !== this._activePointerId && ev.pointerId !== this._capturedPointerId) {
+      return;
+    }
+
+    this._handlePointerCancel(ev);
+  }
+
+  /**
    * Handle keyboard navigation for accessibility
+   *
+   * The listener is bound on `<ha-card>` and keydown bubbles, so it sees keystrokes aimed
+   * at every focusable descendant too. That was harmless while the card had none; the
+   * grid's scroll regions carry `tabindex="0"` precisely so a keyboard user can scroll
+   * them, and Space is a scroll container's own page-down key. Without the guard, focusing
+   * one and pressing Space runs the card's tap action instead of scrolling — so the
+   * affordance the tab stop exists to provide is the one thing it cannot do.
+   *
+   * Every focusable element here lives in this shadow root, so the event is not
+   * retargeted and comparing target with currentTarget is exact. A synthetic event with
+   * neither set — how the direct-call tests drive this — compares equal and still runs,
+   * which is why the pin below dispatches a real bubbling event instead.
    */
   private _handleKeyDown(ev: KeyboardEvent) {
+    if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
+
     if (ev.key === 'Enter' || ev.key === ' ') {
+      // Match pointer-up: default and explicit `tap_action: none` must not activate.
+      if (!this.config.tap_action || this.config.tap_action.action === 'none') {
+        return;
+      }
       ev.preventDefault();
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
@@ -935,9 +2258,31 @@ class CalendarCardPro extends LitElement {
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
+    // Reported here, on the value as written, because normalizing is what replaces it.
+    Config.validateFoldedLengths(this.config);
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
+    if (this.config.time_grid) {
+      const start = ViewConfig.resolveTimeGridOption(this.config, 'start_time');
+      const end = ViewConfig.resolveTimeGridOption(this.config, 'end_time');
+      if (GridUtils.resolveBand(start, end).usedFallback) {
+        Logger.warn(
+          `Invalid time_grid time range "${start} - ${end}": expected HH:mm bounds with the end after the start ` +
+            `(24:00 is allowed for the end). Falling back to ${GridUtils.DEFAULT_BAND_START}-${GridUtils.DEFAULT_BAND_END}.`,
+        );
+      }
+      // Read raw rather than through `resolveTimeGridOption`, which returns the value
+      // already folded — the point of the message is to name what was written.
+      const axisWidth = this.config.time_grid.axis_width;
+      if (axisWidth !== undefined && ViewConfig.normalizeAxisWidth(axisWidth).usedFallback) {
+        Logger.warn(
+          `Invalid time_grid axis_width "${axisWidth}": expected a pixel length such as "128px", or "max-content". ` +
+            `Other CSS lengths cannot be reserved before the grid is laid out, so the day columns would be ` +
+            `fitted against the wrong axis width. Falling back to "max-content".`,
+        );
+      }
+    }
 
     // Column fitting is hysteretic: it holds the current answer inside a band so
     // the layout does not oscillate. Discarding that state on every setConfig()
@@ -987,6 +2332,13 @@ class CalendarCardPro extends LitElement {
    */
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);
+
+    // Detached setConfig still reaches here (and the no-hass branch arms a 1.5s
+    // retry). connectedCallback re-runs updateEvents on attach; cache hits still
+    // reprocess with the current config, so skipping while detached is safe.
+    if (!this.isConnected) {
+      return;
+    }
 
     // Take a ticket before anything can await. Any call that starts after this one
     // supersedes it, and a superseded response must not touch card state — committing
@@ -1090,11 +2442,12 @@ class CalendarCardPro extends LitElement {
     const isLimit = (value: unknown): boolean =>
       typeof value === 'number' && Number.isFinite(value);
 
-    if (isLimit(this.config.compact_events_to_show) || isLimit(this.config.compact_days_to_show)) {
+    const config = this.effectiveConfig;
+    if (isLimit(config.compact_events_to_show) || isLimit(config.compact_days_to_show)) {
       return true;
     }
 
-    return (this.config.entities ?? []).some(
+    return (config.entities ?? []).some(
       (entity) =>
         typeof entity === 'object' && entity !== null && isLimit(entity.compact_events_to_show),
     );
@@ -1130,15 +2483,29 @@ class CalendarCardPro extends LitElement {
     const handlers = {
       keyDown: (ev: KeyboardEvent) => this._handleKeyDown(ev),
       pointerDown: (ev: PointerEvent) => this._handlePointerDown(ev),
+      pointerMove: (ev: PointerEvent) => this._handlePointerMove(ev),
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
-      pointerCancel: () => this._handlePointerCancel(),
-      pointerLeave: () => this._handlePointerCancel(),
+      pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
+      pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
+      lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
     };
 
     let content: TemplateResult;
 
-    const renderDays = (days: Types.EventsByDay[]): TemplateResult =>
-      this.effectiveView === 'column'
+    const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
+      if (this.effectiveView === 'grid') {
+        return Render.renderGridGroupedEvents(
+          this._columnCount > 0 && this._columnCount < days.length
+            ? days.slice(0, this._columnCount)
+            : days,
+          this.effectiveConfig,
+          this.effectiveLanguage,
+          this.weatherForecasts,
+          this.safeHass,
+        );
+      }
+
+      return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
             this._columnCount > 0 && this._columnCount < days.length
               ? days.slice(0, this._columnCount)
@@ -1155,6 +2522,7 @@ class CalendarCardPro extends LitElement {
             this.weatherForecasts,
             this.safeHass,
           );
+    };
 
     if (this.isInitialLoad) {
       content = Render.renderCardContent('loading', this.effectiveLanguage);
@@ -1165,8 +2533,9 @@ class CalendarCardPro extends LitElement {
     } else {
       // No separate empty-events branch: `groupedEvents` groups `this.events`, which is
       // already the empty array in that case, with exactly the arguments a dedicated
-      // branch would pass. Column view's `show_empty_days` default still fills the card
-      // with empty day columns from here.
+      // branch would pass. Column and grid views both default `show_empty_days` on, so
+      // an eventless card still fills from here — with empty day columns in column view
+      // and a full empty time axis in grid.
       content = renderDays(this.groupedEvents);
     }
 
@@ -1178,6 +2547,8 @@ class CalendarCardPro extends LitElement {
       this.isLoading,
       this.isTitlePending,
       this.effectiveView,
+      this._hasTapAction,
+      this._hasHoldAction,
     );
   }
 }

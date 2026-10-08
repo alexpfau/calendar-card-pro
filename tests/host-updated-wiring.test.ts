@@ -1,7 +1,7 @@
 /**
  * The card host's `updated()` lifecycle hook and the two helpers it drives.
  *
- * A mutation sweep over this region broke 19 of 22 behaviours with the entire
+ * A mutation sweep over this region broke 19 of 22 behaviors with the entire
  * suite green. The three that were caught were caught for a reason worth
  * recording: `hide_when_empty`'s only existing test calls `_applyVisibility()`
  * **directly** (`tests/off-value-guards.test.ts:196`), so the gate's own logic
@@ -229,6 +229,23 @@ describe('updated(): title template subscription lifecycle', () => {
     await card.updateComplete;
 
     expect(card.renderedTitle).toBe('');
+  });
+
+  it('does not recreate the subscription when sync runs after disconnect', async () => {
+    const card = make({ title: '{{ states("sensor.x") }}' });
+    await mount(card);
+    expect(subscriptions).toHaveLength(1);
+
+    card.remove();
+    expect(card._titleSubscription).toBeUndefined();
+    expect(subscriptions[0].destroyed).toBe(1);
+
+    // Same shape as the now-line timer leak: disconnect tears the resource down,
+    // then a late updated() path would otherwise re-arm it on a detached card.
+    (card as CardUnderTest & { _updateTitleSubscription(): void })._updateTitleSubscription();
+
+    expect(card._titleSubscription).toBeUndefined();
+    expect(subscriptions).toHaveLength(1);
   });
 });
 

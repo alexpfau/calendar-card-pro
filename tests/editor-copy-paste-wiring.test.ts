@@ -20,6 +20,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import * as Config from '../src/config/config';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
 
@@ -66,7 +67,7 @@ async function renderEditor(entities: ReadonlyArray<unknown>): Promise<Harness> 
   const element = document.createElement('editor-copy-paste-probe') as EditorHost;
   element.hass = { states: {}, locale: { language: 'en' } };
   document.body.appendChild(element);
-  element.setConfig({ entities });
+  element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities });
   await element.updateComplete;
 
   const emitted: Array<Record<string, unknown>> = [];
@@ -171,7 +172,7 @@ describe('editor copy/paste buttons', () => {
     harness.action(1, 'Paste Settings').click();
     await harness.element.updateComplete;
 
-    // The pasted config has to have travelled back into the editor for this to flip.
+    // The pasted config has to have traveled back into the editor for this to flip.
     expect(harness.action(1, 'Copy Settings').hasAttribute('disabled')).toBe(false);
   });
 

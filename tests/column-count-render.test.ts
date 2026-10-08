@@ -1,5 +1,5 @@
 /**
- * The measured column count must actually reach the markup.
+ * The measured day-column count must actually reach the markup.
  *
  * Deciding how many day columns fit and rendering that many are two separate steps.
  * `width-settle.test.ts` covers the first one thoroughly -- it drives real measurements
@@ -21,7 +21,8 @@
  * They assert which days survive rather than how many, because a count alone is not
  * enough: slicing the same number of days off the *end* of the list keeps the count
  * correct while showing the wrong week, and that mutation passed a count-only version of
- * this file.
+ * this file. Grid view is included because it reuses the same width resolver; proving only
+ * column view was exactly the gap that let grid ignore the measured count.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,14 +56,15 @@ const DAYS = 7;
 const ALL_DAYS = [17, 18, 19, 20, 21, 22, 23];
 
 /**
- * Mount a column card showing `DAYS` empty days, with the column count applied.
+ * Mount a card showing `DAYS` empty days, with the measured day-column count applied.
  *
+ * @param view - View to render
  * @param columnCount - Value to place on the host before rendering
  * @returns The day-of-month of each rendered column, in document order
  */
-async function renderedDays(columnCount: number): Promise<number[]> {
+async function renderedDays(view: 'column' | 'grid', columnCount: number): Promise<number[]> {
   const config = buildConfig({ days_to_show: DAYS });
-  config.view = 'column';
+  config.view = view;
 
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(config);
@@ -74,12 +76,14 @@ async function renderedDays(columnCount: number): Promise<number[]> {
   card.requestUpdate();
   await card.updateComplete;
 
-  return [...(card.shadowRoot?.querySelectorAll('.day-column') ?? [])].map((column) =>
+  const selector = view === 'grid' ? '.grid-day-header' : '.day-column';
+
+  return [...(card.shadowRoot?.querySelectorAll(selector) ?? [])].map((column) =>
     Number(column.querySelector('.day')?.textContent?.trim()),
   );
 }
 
-describe('rendered column count', () => {
+describe('rendered day-column count', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FROZEN_NOW);
@@ -93,24 +97,29 @@ describe('rendered column count', () => {
   it('renders every configured day when no measurement has capped it', async () => {
     // The positive control. Without it, a slice that always returned an empty list
     // would still satisfy the capping assertion below.
-    expect(await renderedDays(0)).toEqual(ALL_DAYS);
+    expect(await renderedDays('column', 0)).toEqual(ALL_DAYS);
   });
 
   it('renders only as many day columns as were measured to fit', async () => {
-    expect(await renderedDays(4)).toEqual(ALL_DAYS.slice(0, 4));
+    expect(await renderedDays('column', 4)).toEqual(ALL_DAYS.slice(0, 4));
+    expect(await renderedDays('grid', 4)).toEqual(ALL_DAYS.slice(0, 4));
   });
 
   it('keeps the earliest days rather than any four of them', async () => {
     // Guards the direction of the slice. Taking the last four days keeps the count
     // right and shows the wrong week; the card must always start from today.
-    const rendered = await renderedDays(4);
+    const rendered = await renderedDays('column', 4);
     expect(rendered[0]).toBe(ALL_DAYS[0]);
     expect(rendered).not.toEqual(ALL_DAYS.slice(-4));
+
+    const gridRendered = await renderedDays('grid', 4);
+    expect(gridRendered[0]).toBe(ALL_DAYS[0]);
+    expect(gridRendered).not.toEqual(ALL_DAYS.slice(-4));
   });
 
   it('renders every day when more columns fit than are configured', async () => {
     // The slice is guarded by `_columnCount < days.length`; a count above the
     // configured range must not truncate or pad.
-    expect(await renderedDays(DAYS + 3)).toEqual(ALL_DAYS);
+    expect(await renderedDays('column', DAYS + 3)).toEqual(ALL_DAYS);
   });
 });

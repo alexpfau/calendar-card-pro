@@ -7,6 +7,7 @@ import * as EntityColors from './entity-colors';
 import * as EntityIcons from './entity-icons';
 import * as EventAge from './event-age';
 import * as FormatUtils from './format';
+import * as Grid from './grid';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
@@ -167,7 +168,7 @@ function processRawEvents(
 }
 
 /**
- * Drop events that are missing a start or an end.
+ * Drop events with unusable dates or text before they reach the shared pipeline.
  *
  * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
  * `start` and `end` without checking they are there, because Home Assistant's calendar API
@@ -176,17 +177,59 @@ function processRawEvents(
  * while grouping does not cost that one event a row: it costs the whole card, taking every
  * other calendar's events down with it.
  *
- * Applied at both entry points, because they are reachable independently: the fetch path
- * processes events before they are ever grouped, while `groupEventsByDay` deduplicates
- * whatever it is handed before any of that filtering has run.
+ * Applied at both entry points, because they are reachable independently: grouping must
+ * also reject malformed input before deriving daily occurrences or comparing duplicates.
  *
  * @param events Events to check
- * @returns Only those events with both a start and an end
+ * @returns Events with matching, parseable endpoints and string-valued text
  */
 function keepWellFormedEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
 ): Types.CalendarEventData[] {
-  return events.filter((event) => Boolean(event.start) && Boolean(event.end));
+  const valid = events.filter((event) => {
+    if (!event || !Helpers.isConfigBlock(event.start) || !Helpers.isConfigBlock(event.end)) {
+      return false;
+    }
+
+    const fields = [
+      event.start.date,
+      event.start.dateTime,
+      event.end.date,
+      event.end.dateTime,
+      event.summary,
+      event.location,
+      event.description,
+    ];
+    if (fields.some((value) => value != null && typeof value !== 'string')) return false;
+
+    if (event.start.dateTime) {
+      return (
+        !event.start.date &&
+        !event.end.date &&
+        typeof event.end.dateTime === 'string' &&
+        Number.isFinite(Date.parse(event.start.dateTime)) &&
+        Number.isFinite(Date.parse(event.end.dateTime))
+      );
+    }
+
+    return (
+      !event.end.dateTime &&
+      [event.start.date, event.end.date].every(
+        (value) =>
+          typeof value === 'string' &&
+          FormatUtils.getLocalDateKey(FormatUtils.parseAllDayDate(value)) === value,
+      )
+    );
+  });
+
+  const malformedCount = events.length - valid.length;
+  if (malformedCount > 0) {
+    Logger.warn(
+      `Ignoring ${malformedCount} malformed calendar event(s): expected matching, parseable start/end values and string text fields`,
+    );
+  }
+
+  return valid;
 }
 
 /**
@@ -206,12 +249,14 @@ function keepWellFormedEvents(
  * @param events Events to deduplicate
  * @param config Card configuration, already resolved for the view being rendered
  * @param enabled Whether `filter_duplicates` is on for this view
+ * @param signatureFor Original event identity and the eligible display occurrence to compare
  * @returns The surviving events, with merged rows carrying `_mergedFrom`
  */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
   enabled: boolean,
+  signatureFor: (event: Types.CalendarEventData) => string = generateEventSignature,
 ): Types.CalendarEventData[] {
   if (!enabled || events.length < 2) {
     return events;
@@ -227,7 +272,7 @@ function deduplicateEvents(
     for (const event of events) {
       if (event._entityId !== entityId) continue;
 
-      const signature = generateEventSignature(event);
+      const signature = signatureFor(event);
 
       // Recorded *before* the duplicate test below, because a copy about to be dropped is
       // precisely what this has to remember. One entry per distinct calendar, taken from
@@ -250,7 +295,7 @@ function deduplicateEvents(
   const survivors: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    const signature = generateEventSignature(event);
+    const signature = signatureFor(event);
 
     // The same test the previous `filter` made, negated: drop a copy only when some other
     // copy of its signature was kept. An event whose calendar is not in `entities` reaches
@@ -277,11 +322,9 @@ function deduplicateEvents(
 // list changes whenever either does and `serializeEntities` already forces a reprocess —
 // belt and braces, but the render-time read is the load-bearing half.
 //
-// They run **after** `processMultiDayEvents`, which is the opposite of where
-// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
-// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
-// *class* must precede it. These two read an event's *day* instead, which only exists once
-// the splitter has decided how many days the event occupies.
+// They run after daily coverage is resolved: List/Column use `processMultiDayEvents`,
+// while Grid uses `splitGridEventByDay` to keep every timed segment timed. Event-class
+// filtering runs earlier, before the List splitter can reshape a timed middle day.
 
 /**
  * Which day a grouped event is drawn on.
@@ -359,8 +402,8 @@ function parseTimeOfDay(
  * absent. It is reported once per distinct value, because this runs per event and a silent
  * typo is a support question nobody can answer.
  *
- * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
- * refresh interval, so an event retires on the first render after its moment passes.
+ * Nothing schedules a render at the returned instant. An event retires on the first
+ * render after its moment passes.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated
@@ -419,12 +462,22 @@ function resolveDaysOfWeek(
 /**
  * Whether a day satisfies one calendar's `days_of_week`.
  *
+ * Which days are the weekend is resolved from the country set in Home Assistant, or its
+ * language when no country is set, not fixed at Saturday and Sunday — see
+ * {@link FormatUtils.isWeekendDate}, which the weekend colors and shading read too so the
+ * filter and the styling cannot disagree about a Friday.
+ *
  * @param displayDate The day the row would land on
  * @param filter The calendar's resolved filter
+ * @param hass Home Assistant, whose country and language decide which days are the weekend
  * @returns True when the row may stay
  */
-function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
-  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+function dayPassesWeekFilter(
+  displayDate: Date,
+  filter: Types.DaysOfWeekFilter,
+  hass?: FormatUtils.WeekendSource | null,
+): boolean {
+  return FormatUtils.isWeekendDate(displayDate, hass) === (filter === 'weekends');
 }
 
 /**
@@ -435,7 +488,8 @@ function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter):
  * @param isExpanded Whether the card is in expanded mode
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
- * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
+ * @param hass Home Assistant, whose locale lets `first_day_of_week: system` follow it and
+ *   whose country and language tell `days_of_week` which days are the weekend
  * @returns Day buckets containing the matching events
  */
 export function groupEventsByDay(
@@ -444,7 +498,7 @@ export function groupEventsByDay(
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
-  hassLocale?: { language?: string; first_weekday?: string },
+  hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Types.EventsByDay[] {
   // Resolved once, at the boundary, so every read below is view-aware without each
   // one having to remember to ask for itself. Roughly a dozen override-capable
@@ -456,38 +510,28 @@ export function groupEventsByDay(
   // on its own terms rather than to fix a live defect.
   const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
 
-  const events = deduplicateEvents(
-    keepWellFormedEvents(rawEvents),
-    config,
-    config.filter_duplicates,
-  );
+  const events = keepWellFormedEvents(rawEvents);
 
   const showEmptyDays = config.show_empty_days;
 
-  const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
-
-  // Always run the splitter and let `shouldSplitEvent` decide per event, rather
-  // than gating the call on the card-level value. A per-entity
-  // `split_multiday_events: true` has to win over a card-level `false`, and a
-  // gate here would never consult it. In column view `viewForcesMultidaySplit`
-  // ignores the per-entity opt-out instead, so later days of a multi-day event
-  // cannot vanish from their columns.
-  const splitEvents = processMultiDayEvents(
-    events,
-    config,
-    ViewConfig.viewForcesMultidaySplit(effectiveView),
-  );
+  // Expand only shapes list view. compactLimitsApply already required that, but the
+  // empty-day filter and the empty-day synthesis arm keyed on bare `isExpanded`, so a
+  // leftover true after list → column/grid still widened an empty calendar from one day
+  // to the full window when `show_empty_days` was false — the same layout change A3-D
+  // forbade from the expand gesture itself. Scope every expand branch the same way.
+  const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
+  const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
   const referenceDate = getStartDateReference(
     config,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
   );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
 
-  // Upper bound of the configured window. Multi-day events are split into
-  // per-day segments just above, and a segment can land past the window when an
+  // Upper bound of the configured window. Multi-day events become
+  // per-day segments below, and a segment can land past the window when an
   // event starts inside it but runs beyond. Splitting used to happen at fetch
   // time, where `processRawEvents` trimmed those segments before they were ever
   // grouped; now that it is view-scoped and happens here, the same bound has to
@@ -495,6 +539,22 @@ export function groupEventsByDay(
   // have events, not a date range — would fill with days past the window.
   const windowEnd = new Date(referenceStart);
   windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
+
+  // Grid needs occupied dates before any per-day filter or empty-day omission.
+  // Its splitter keeps timed middle days timed and all-day banner identity intact.
+  const sourceSignatures = new Map<Types.CalendarEventData, string>();
+  const displayDays = new Map<Types.CalendarEventData, string>();
+  const splitEvents = events.flatMap((event) => {
+    const occurrences =
+      ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
+        ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
+        : processMultiDayEvents([event], config);
+    if (config.filter_duplicates) {
+      const signature = generateEventSignature(event);
+      occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
+    }
+    return occurrences;
+  });
 
   const now = new Date();
 
@@ -573,7 +633,10 @@ export function groupEventsByDay(
         ? undefined
         : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
 
-      if (isAllDayEvent && now >= allDayExpiryInstant(endDate, configuredExpiry)) {
+      const allDayEnd = event._gridSource?.end.date
+        ? Grid.addDays(FormatUtils.parseAllDayDate(event._gridSource.end.date), -1)
+        : endDate;
+      if (isAllDayEvent && now >= allDayExpiryInstant(allDayEnd, configuredExpiry)) {
         return false;
       }
     }
@@ -582,18 +645,54 @@ export function groupEventsByDay(
 
     if (
       daysOfWeek &&
-      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek, hass)
     ) {
       return false;
     }
 
+    if (config.filter_duplicates) {
+      displayDays.set(
+        event,
+        FormatUtils.getLocalDateKey(resolveDisplayDate(startDate, endDate, referenceStart)),
+      );
+    }
     return true;
   });
 
+  // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
+  // calendar also discards the eligible copy behind it. Compare original intervals, not
+  // sliced endpoints: distinct multi-day events can share an identical middle day.
+  const firstEligible = new Map<string, Types.CalendarEventData>();
+  if (config.filter_duplicates && effectiveView !== 'grid') {
+    for (const event of upcomingEvents) {
+      const signature = sourceSignatures.get(event)!;
+      const previous = firstEligible.get(signature);
+      if (
+        !previous ||
+        getEntityIndex(event._entityId, config) < getEntityIndex(previous._entityId, config)
+      ) {
+        firstEligible.set(signature, event);
+      }
+    }
+  }
+  const visibleEvents = deduplicateEvents(
+    upcomingEvents,
+    config,
+    config.filter_duplicates,
+    (event) => {
+      const signature = sourceSignatures.get(event)!;
+      const first = firstEligible.get(signature);
+      // An eligible unsplit winner represents the whole event. A lower-priority calendar
+      // opting into splitting must not add its own rows beside that winner.
+      const wholeEvent = first !== undefined && !first._isMultiDaySegment;
+      return JSON.stringify([signature, wholeEvent ? null : displayDays.get(event)]);
+    },
+  );
+
   const eventsByDay: Record<string, Types.EventsByDay> = {};
 
-  if (upcomingEvents.length > 0) {
-    upcomingEvents.forEach((event) => {
+  if (visibleEvents.length > 0) {
+    visibleEvents.forEach((event) => {
       const isAllDayEvent = !event.start.dateTime;
 
       let startDate: Date | null;
@@ -659,8 +758,16 @@ export function groupEventsByDay(
       // `split_multiday_events: false` an ongoing event's display date is clamped to the
       // window start, which moves every day — so reading the display date would make the
       // count change from one day to the next while the card just sits there.
+      const sourceStart = event._gridSource?.start ?? event._sourceStart;
+      const occurrenceStart = sourceStart?.dateTime
+        ? new Date(sourceStart.dateTime)
+        : sourceStart?.date
+          ? FormatUtils.parseAllDayDate(sourceStart.date)
+          : startDate;
       const ageCount =
-        markerYear === null ? null : EventAge.resolveAgeCount(startDate.getFullYear(), markerYear);
+        markerYear === null
+          ? null
+          : EventAge.resolveAgeCount(occurrenceStart.getFullYear(), markerYear);
 
       const summary = event.summary || '';
 
@@ -748,12 +855,15 @@ export function groupEventsByDay(
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
+        _sourceStart: event._sourceStart,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
+        _gridSource: event._gridSource,
       });
     });
   }
 
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale);
 
   Object.values(eventsByDay).forEach((day) => {
     const dayDate = new Date(day.timestamp);
@@ -844,7 +954,7 @@ export function groupEventsByDay(
     }
   }
 
-  if (!isExpanded && !showEmptyDays) {
+  if (!expandApplies && !showEmptyDays) {
     days = days.filter(
       (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
     );
@@ -952,7 +1062,7 @@ export function groupEventsByDay(
 
     let endDateForEmptyDays: Date;
 
-    if (isExpanded) {
+    if (expandApplies) {
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     } else if (days.length === 0) {
@@ -1048,12 +1158,6 @@ function processEvents(
   const processedEvents: Types.CalendarEventData[] = [];
 
   const wellFormed = keepWellFormedEvents(events);
-  const malformedCount = events.length - wellFormed.length;
-  if (malformedCount > 0) {
-    Logger.warn(
-      `Ignoring ${malformedCount} calendar event(s) missing a start or end; the calendar integration returned an incomplete payload`,
-    );
-  }
 
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1080,7 +1184,7 @@ function processEvents(
   // view-scoped override can never undo it — `column: { split_multiday_events:
   // false }` was silently defeated whenever the top-level value was `true`.
   // `groupEventsByDay` resolves the option per view and splits there instead,
-  // which also avoids materialising segments that fall outside the window.
+  // which also avoids materializing segments that fall outside the window.
   Logger.debug(`Processed ${processedEvents.length} events after filtering`);
   return processedEvents;
 }
@@ -1088,12 +1192,11 @@ function processEvents(
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  ignorePerEntityOverride = false,
 ): Types.CalendarEventData[] {
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    if (!shouldSplitEvent(event, config, ignorePerEntityOverride)) {
+    if (!shouldSplitEvent(event, config)) {
       result.push(event);
       continue;
     }
@@ -1131,13 +1234,8 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   return false;
 }
 
-function shouldSplitEvent(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-  ignorePerEntityOverride = false,
-): boolean {
+function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config): boolean {
   if (
-    !ignorePerEntityOverride &&
     event._entityId &&
     event._matchedConfig &&
     typeof event._matchedConfig.split_multiday_events !== 'undefined'
@@ -1157,6 +1255,7 @@ function formatAllDayDate(date: Date): string {
 
 function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEventData[] {
   const segments: Types.CalendarEventData[] = [];
+  const sourceStart = event._sourceStart ?? event.start;
 
   if (event.start.date && event.end.date) {
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
@@ -1175,6 +1274,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { date: currentDateStr },
         end: { date: nextDateStr },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
       };
 
       segments.push(segment);
@@ -1186,12 +1286,8 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const firstDayEnd = new Date(startDateTime);
     firstDayEnd.setHours(23, 59, 59, 999);
 
-    // An event that ends at exactly local midnight occupies no time on the following
-    // day, so it is not multi-day. Testing against the last millisecond of the start
-    // day treated it as one and pushed a zero-length segment (start === end) into the
-    // next day's bucket, which surfaced as a phantom entry there. Testing against the
-    // next day's first millisecond instead keeps the event whole and preserves the end
-    // time the user actually set, rather than truncating it to 23:59:59.999.
+    // Midnight opens the next date but occupies no time there. Keep a one-day event
+    // whole, preserving its actual end instead of replacing it with 23:59:59.999.
     const nextDayStart = new Date(firstDayEnd.getTime() + 1);
 
     if (nextDayStart < endDateTime) {
@@ -1200,6 +1296,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
         _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
@@ -1226,20 +1323,24 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
           _splitFromTimedEvent: true,
         };
 
         segments.push(middleDaySegment);
       }
 
-      const lastDaySegment: Types.CalendarEventData = {
-        ...event,
-        start: { dateTime: lastDayStart.toISOString() },
-        end: { dateTime: endDateTime.toISOString() },
-        _isMultiDaySegment: true,
-        _splitFromTimedEvent: true,
-      };
-      segments.push(lastDaySegment);
+      if (endDateTime > lastDayStart) {
+        const lastDaySegment: Types.CalendarEventData = {
+          ...event,
+          start: { dateTime: lastDayStart.toISOString() },
+          end: { dateTime: endDateTime.toISOString() },
+          _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
+          _splitFromTimedEvent: true,
+        };
+        segments.push(lastDaySegment);
+      }
     } else {
       segments.push({ ...event });
     }
@@ -1486,7 +1587,12 @@ function resolveAccentColor(
     return fromHomeAssistant ?? Config.DEFAULT_CONFIG.accent_color;
   }
 
-  return config.accent_color;
+  // The visual editor can clear a card-wide color to `null`. List and column normally
+  // leave event backgrounds transparent, so that malformed value stayed dormant there;
+  // grid's non-zero background opacity sends it through `convertToRGBA`, where a null
+  // color cannot be parsed. Treat an empty color like the missing per-calendar value
+  // above and fall back to the shipped accent.
+  return config.accent_color || Config.DEFAULT_CONFIG.accent_color;
 }
 
 /**
@@ -1532,7 +1638,7 @@ export function getEntityLabel(
  * follows it.
  *
  * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
- * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
+ * `renderLabel` draws nothing at all. That is the same nothing an unlabeled calendar draws,
  * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
  * title as though a label were there. It mirrors the colors' own fall-through, where a
  * calendar the registry has no color for renders the color it would have had anyway. A
@@ -1559,7 +1665,7 @@ export function resolveEntityLabel(
 
   // An explicit shape outranks either stand-in, so `label_type: text` still renders the words.
   // `getLabelType` reads each as the shape it resolves *to* — the sentinel as an icon, a
-  // person as an image — precisely so this is the only way to say otherwise; honouring it
+  // person as an image — precisely so this is the only way to say otherwise; honoring it
   // here as well is what keeps the two halves telling one story.
   const declared = getEntitySetting(entityId, 'label_type', config, event);
   if (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image')) {
@@ -1567,7 +1673,7 @@ export function resolveEntityLabel(
   }
 
   // 🚨 `label` here, `entityId` one line down, and the two are different entities. The icon
-  // belongs to the calendar being labelled, so it is looked up by the calendar's own id; the
+  // belongs to the calendar being labeled, so it is looked up by the calendar's own id; the
   // picture belongs to the *person the label names*, which is a different entity that the
   // calendar knows nothing about. Passing `entityId` to both reads as tidy and finds nothing,
   // because a calendar carries no `entity_picture` — so the failure looks like the option
@@ -1582,7 +1688,7 @@ export function resolveEntityLabel(
  *
  * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
  * labels to draw. That second case is deliberate: with one label the row renders through
- * the single-label path it always did, so a merge involving an unlabelled calendar looks
+ * the single-label path it always did, so a merge involving an unlabeled calendar looks
  * exactly as it looks today rather than showing the label of a calendar that did not win.
  *
  * @param event Event to describe, carrying `_mergedFrom` if it is a merged row
@@ -2106,7 +2212,20 @@ function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Da
 /**
  * Calculate the week number using the majority-day rule.
  *
+ * ISO weeks are anchored on Monday, so on a Sunday-start card a plain ISO number leaves
+ * Sunday in the outgoing week and breaks the week before Monday instead of before Sunday.
+ * Rolling Sunday forward onto the following Monday's number puts the boundary where the
+ * configured first day says it belongs, and gives the week the six days that are already
+ * the majority of it.
+ *
+ * The method is resolved through {@link FormatUtils.resolveWeekNumberMethod} rather than
+ * read off the config, because `show_week_numbers: null` hides the number while still
+ * computing one, and it computes it as ISO. Branching on the raw value skipped the
+ * correction for exactly that case — the one where the rule is the only thing marking the
+ * week, so nothing on screen contradicted it (#621).
+ *
  * @param date Date to calculate from
+ * @param config Card configuration
  * @param firstDayOfWeek First day of the week, where 0 is Sunday
  * @returns Week number adjusted for majority ownership
  */
@@ -2117,7 +2236,9 @@ export function calculateWeekNumberWithMajorityRule(
 ): number | null {
   let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 
-  if (config.show_week_numbers === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
+  const method = FormatUtils.resolveWeekNumberMethod(config.show_week_numbers);
+
+  if (method === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
     const nextDay = new Date(date);
     nextDay.setDate(nextDay.getDate() + 1);
     weekNumber = FormatUtils.getISOWeekNumber(nextDay);

@@ -15,7 +15,7 @@
   "at": "o",
   "endsToday": "kończy się dziś",
   "endsTomorrow": "kończy się jutro",
-  "noEvents": "Brak nadchodzących wydarzeń",
+  "noEvents": "Brak wydarzeń",
   "loading": "Ładowanie wydarzeń z kalendarza...",
   "error": "Błąd: encja kalendarza nie została znaleziona lub jest niepoprawnie skonfigurowana"
 }

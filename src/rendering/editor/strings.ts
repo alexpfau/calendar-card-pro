@@ -25,15 +25,50 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',
 
   // --- View -----------------------------------------------------------------
-  view: 'Layout',
+  view: 'Card Displays',
   'view.option.list.label': 'List',
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
   'view.option.column.description': 'Days side by side',
+  'view.option.grid.label': 'Grid',
+  'view.option.grid.description': 'Days side by side on an hour axis',
   'view.helper':
-    'Column layout needs width. Below the threshold in the table, the same card ' +
-    'renders as a list — so both layouts are live for one card, and the list ' +
-    'settings still matter.',
+    'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
+  editing_workspace: 'Editing Settings For',
+  'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
+  'editing_workspace.shared_note':
+    'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
+  'value_source.card': 'Applies to the whole card.',
+  'value_source.inherited': 'Uses the card-wide value unless you change it here.',
+  'value_source.default': 'Uses this layout’s default until you change it here.',
+  'value_source.own': 'Set for this layout.',
+  'value_source.reset': 'Reset {option}',
+  'editing_workspace.option.shared.label': 'All Layouts',
+  'editing_workspace.option.list.label': 'List',
+  'editing_workspace.option.column.label': 'Columns',
+  'editing_workspace.option.grid.label': 'Grid',
+  'grid_reconciliation.title': 'Existing Values Kept for Grid',
+  'grid_reconciliation.message':
+    'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
+  'grid_reconciliation.dismiss': 'Dismiss',
+  'config_migration.title': 'Choose How to Upgrade This Card',
+  'config_migration.list_message':
+    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps the card looking the same right now.',
+  'config_migration.grid_message':
+    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps Grid looking the same right now and decides what List uses later.',
+  'config_migration.affected': 'Choose what these settings mean: {options}.',
+  'config_migration.keep_list': 'Keep my existing List appearance',
+  'config_migration.keep_list_note':
+    'Recommended. Keep these values specific to List; other layouts keep their own settings and defaults.',
+  'config_migration.use_shared': 'Use these settings for all layouts',
+  'config_migration.use_shared_note':
+    'Keep these values shared. A layout’s own settings and built-in defaults can still take precedence.',
+  'config_migration.future_title': 'This Card Uses a Newer Configuration',
+  'config_migration.future_message':
+    'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',
+  'config_migration.invalid_title': 'Configuration Version Is Invalid',
+  'config_migration.invalid_message':
+    'The card has an invalid configuration version ({value}). Correct it in YAML before using the visual editor.',
 
   // --- Width table ----------------------------------------------------------
   'width_table.title': 'This card renders',
@@ -66,9 +101,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
-  'card_height.helper': 'The card is always this tall, scrolling if the events do not fit.',
+  'card_height.helper':
+    'The calendar content area is always this tall. List and column views scroll if the events do not fit; ' +
+    'grid view compresses the time axis.',
   card_max_height: 'Maximum Height',
-  'card_max_height.helper': 'The card grows with its content up to this height, then scrolls.',
+  'card_max_height.helper':
+    'The calendar content area grows with its content up to this height, then scrolls.',
 
   // --- Column density -------------------------------------------------------
   'column.density': 'Column Density',
@@ -88,11 +126,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
   'column.day_header_gap': 'Day Header Gap',
   'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
+  'time_grid.day_header_gap': 'Day Header Gap',
+  'time_grid.day_header_gap.helper': 'Space between a grid heading and the content below it.',
 
   // --- Calendars ------------------------------------------------------------
   //
   // The panel helper earns its line by naming the half of this panel the title does
-  // not: it is not only *which* calendars, it is where each one's label, colours and
+  // not: it is not only *which* calendars, it is where each one's label, colors and
   // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
   'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
@@ -144,7 +184,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
   'entity.color': 'Event Color',
-  'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',
+  'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
   'entity.accent_color': 'Accent Color',
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
@@ -157,7 +197,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
-  'entity.label_icon_color.helper': 'Left empty, the icon takes the text colour around it.',
+  'entity.label_icon_color.helper': 'Left empty, the icon takes the text color around it.',
 
   'entity.show_time': 'Event Times',
   'entity.show_time.option.inherit.label': 'Follow the card',
@@ -198,12 +238,24 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
+  heading_time_range: 'Time Range',
+  heading_gap_and_rule: 'Gap & Rule',
+  heading_hour_labels: 'Hour Labels',
+  heading_on_the_grid: 'On the Grid',
+  heading_card_size: 'Card Size & Spacing',
+  heading_accent: 'Accent',
+  heading_title: 'Title',
+  heading_icon_and_badge: 'Icon & Badge',
+  heading_icons: 'Icons',
+  heading_between_days: 'Between Days',
+  heading_across_the_grid: 'Across the Grid',
   heading_filters: 'Event Filtering',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
   heading_appearance: 'Label & Colors',
   heading_details: 'Event Details',
+  heading_event_state: 'Event State',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
@@ -241,12 +293,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'the minute.',
   'entity.days_of_week': 'Days of the Week',
   'entity.days_of_week.option.inherit.label': 'Every day',
-  'entity.days_of_week.option.weekdays.label': 'Monday to Friday only',
-  'entity.days_of_week.option.weekends.label': 'Saturday and Sunday only',
+  'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
+  'entity.days_of_week.option.weekends.label': 'Weekend days only',
   'entity.days_of_week.helper':
-    'Which days this calendar may put events on. A multi-day event keeps only the days ' +
-    'that qualify, so a holiday running through a weekend still shows on the weekdays ' +
-    'around it.',
+    'Which dates this calendar may show events on. Weekend days follow the country set in ' +
+    'Home Assistant, or its language when no country is set. Grid checks every covered ' +
+    'date. List and Columns check each day only when multi-day splitting is enabled; ' +
+    'otherwise they check the event’s display date.',
 
   // --- Text replacement -----------------------------------------------------
   //
@@ -279,32 +332,92 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Exceptions -----------------------------------------------------------
   //
-  // The surface for "this option has a different value in column layout". Worded as
+  // The surface for "this option has a different value in this layout". Worded as
   // exceptions throughout, because that is what they are: the card has one
   // configuration, and a handful of options may depart from it in one layout.
-  'exceptions.title': 'Column View Exceptions',
-  'exceptions.summary.none': 'Every option above applies to both layouts',
-  'exceptions.summary.one': '1 option differs in column layout',
-  'exceptions.summary.many': '{count} options differ in column layout',
-  exceptions: 'Options With An Exception',
-  'exceptions.helper':
-    'Pick the options that should take a different value when this card renders as ' +
-    'columns. Removing one returns it to the shared value above.',
   'column.height': 'Height',
-  'column.height.helper': 'A fixed height for the column layout. Use auto to let it grow.',
   'column.max_height': 'Maximum Height',
-  'column.max_height.helper':
-    'The height the column layout may grow to before it scrolls. Use none for no limit.',
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
   'column.allday_badge': 'All-Day Badge',
   'column.allday_badge_style': 'All-Day Badge Style',
   'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
-  'column.show_empty_days.helper':
-    'Column layout defaults this to on, whatever the shared setting above says.',
-  'column.split_multiday_events.helper':
-    'Column layout defaults this to on, whatever the shared setting above says.',
+  'time_grid.density': 'Grid Density',
+  'time_grid.density.helper':
+    'How narrow a day column may get before the grid gives up a day, and what it does ' +
+    'when it runs out.',
+  'time_grid.min_day_width': 'Minimum Day Width',
+  'time_grid.min_day_width.helper':
+    'The narrowest a day column may be. The default 100px keeps three days at 383px, ' +
+    'or 399px when entering from the list fallback.',
+  'time_grid.min_days_to_show': 'Fewest Day Columns',
+  'time_grid.min_days_to_show.helper':
+    'How far the grid may reduce the day count to keep the time layout. Defaults to 1, ' +
+    'because a one-day grid is still a useful day view with a now line.',
+  'time_grid.min_days_fallback': 'When Too Narrow',
+  'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
+  'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
+  'time_grid.axis': 'Time Axis',
+  'time_grid.start_time': 'First Hour',
+  'time_grid.start_time.helper':
+    'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +
+    'the card shows and not only how it looks.',
+  'time_grid.end_time': 'Last Hour',
+  'time_grid.end_time.helper':
+    'As HH:mm, or 24:00 for the end of the day. If either time cannot be read, both fall ' +
+    'back to 07:00 and 22:00 together.',
+  'time_grid.slot_minutes': 'Grid Lines Every',
+  'time_grid.slot_minutes.helper':
+    'Spacing of the rules across the axis. Ruling only — an hour is the same height ' +
+    'whichever you pick.',
+  'time_grid.slot_minutes.option.15.label': '15 minutes',
+  'time_grid.slot_minutes.option.20.label': '20 minutes',
+  'time_grid.slot_minutes.option.30.label': '30 minutes',
+  'time_grid.slot_minutes.option.60.label': '1 hour',
+  'time_grid.weekend_background_color': 'Weekend Shading',
+  'time_grid.weekend_background_color.helper':
+    'Tints a weekend day column from the date row down, so a week reads at a glance. Any ' +
+    'CSS color — keep it faint, since event text sits on top of it. Which days count as ' +
+    'the weekend follows the country set in Home Assistant, or its language when no ' +
+    'country is set.',
+  'time_grid.hour_height': 'Height Per Hour',
+  'time_grid.hour_height.helper':
+    "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
+    'the axis compresses to fit instead.',
+  'time_grid.hour_line_width': 'Hour Rule Width',
+  'time_grid.hour_line_color': 'Hour Rule Color',
+  'time_grid.allday_band_line_width': 'All-Day Band Rule Width',
+  'time_grid.allday_band_line_color': 'All-Day Band Rule Color',
+  'time_grid.axis_width': 'Hour Label Width',
+  'time_grid.show_axis_labels': 'Show Hour Labels',
+  'time_grid.axis_label_minutes': 'Axis Labels Every',
+  'time_grid.axis_label_minutes.helper':
+    'How often the gutter names a time. Independent of the grid lines, so a label can ' +
+    'sit where no rule is drawn. Below an hour every label carries minutes — 12:00, ' +
+    '12:30 — which widens the gutter.',
+  'time_grid.axis_label_minutes.option.30.label': '30 minutes',
+  'time_grid.axis_label_minutes.option.60.label': '1 hour',
+  'time_grid.axis_label_minutes.option.120.label': '2 hours',
+  'time_grid.axis_label_minutes.option.180.label': '3 hours',
+  'time_grid.show_now_line': 'Now Line',
+  'time_grid.show_now_line.helper':
+    "Marks the current time on today's column. Hidden when now falls outside the hours " +
+    'above, rather than pinned to an edge.',
+  'time_grid.now_line_color': 'Now Line Color',
+  'time_grid.allday_band_max_rows': 'Most All-Day Rows',
+  'time_grid.allday_band_max_rows.helper':
+    'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
+    'of long events would push the axis off the card.',
+  'time_grid.max_simultaneous_events': 'Most Events Side By Side',
+  'time_grid.max_simultaneous_events.helper':
+    'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
+    'is hidden without being counted.',
+  'time_grid.height': 'Height',
+  'time_grid.max_height': 'Maximum Height',
+  'time_grid.show_week_numbers': 'Week Numbers',
+  'time_grid.allday_badge': 'All-Day Badge',
+  'time_grid.remove_location_country': 'Remove Country From Location',
 
   // --- Defaults a view substitutes -------------------------------------------
   //
@@ -312,6 +425,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // statement is that the view has already decided the option, which is information
   // about the control the user is looking at — an exception row would be two rows of
   // chrome on every card that has asked for none.
+  'view_default.grid':
+    'Time grid starts this option from {value}, whatever the shared setting above says. ' +
+    'Add a grid exception below to change it.',
   'view_default.column.show_empty_days':
     'Column layout shows empty days whatever this is set to, so that the columns keep ' +
     'matching consecutive days. Add an exception below to change that.',
@@ -348,7 +464,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'compact_events_complete_days.helper':
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
-  content: 'What The Card Shows',
   show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
   empty_day_text: 'Empty Day Text',
@@ -417,8 +532,25 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   month_font_size: 'Month Font Size',
   month_color: 'Month Color',
 
+  accent_event_text: 'Use Calendar Colors For Event Text',
+  'accent_event_text.helper':
+    'Draws each event\u2019s title, time, location, description and progress bar in the ' +
+    'color of the calendar it came from, rather than in one color for the whole card. ' +
+    'Grid does this by default. Each of those five options also takes the value ' +
+    'accent on its own, so one field can follow the calendar while the rest do not \u2014 ' +
+    'and switching this off returns all five to their standard colors rather than to ' +
+    'anything set before.',
+
   weekend_colors: 'Weekend Colors',
-  'weekend_colors.helper': 'Each of these falls back to its weekday equivalent when left empty.',
+  // 🚨 Deliberately free of the word this file spells Color, which is what
+  // `generate-en-gb.mjs` substitutes on. `editor-translations.test.ts` uses this exact
+  // label/helper pair as its witness that a partial language falls back per key: the label
+  // carries the word and is always overridden, the helper does not and never is. Put it
+  // back in and that test fails, on a claim about the generator rather than about wording.
+  'weekend_colors.helper':
+    'Which days count as the weekend follows the country set in Home Assistant, or its ' +
+    'language when no country is set. Each of these falls back to its weekday equivalent ' +
+    'when left empty.',
   weekend_weekday_color: 'Weekend Weekday Color',
   weekend_day_color: 'Weekend Day Number Color',
   weekend_month_color: 'Weekend Month Color',
@@ -481,8 +613,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   event_background_opacity: 'Event Background Opacity',
   'event_background_opacity.helper':
     'Tints each event with its accent color. Zero leaves it untinted.',
+  past_event_opacity: 'Past Event Opacity',
+  'past_event_opacity.helper':
+    'Opacity of finished event contents and Grid banner titles, and of past-day notices in ' +
+    'List and Columns: 0-100%, including fractions. ' +
+    '60% is the default; 100% removes dimming; 0% makes contents transparent, not hidden. ' +
+    'Empty-day notices dim once their own local date has ended, whenever they are shown. ' +
+    'Backgrounds and accent stripes stay unchanged.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
+  scroll_long_titles: 'Scroll Long Titles',
+  'scroll_long_titles.helper':
+    'Where supported, visible overflowing titles start together, return quickly one by one, ' +
+    'and wait at their beginnings. Forces one line in either text direction and overrides ' +
+    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
@@ -565,18 +709,31 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Separators -----------------------------------------------------------
   'panel.separators': 'Separators',
   'panel.separators.helper': 'The rules the card draws between days, weeks and months.',
+  // Grid alone gathers horizontal rules — the hour lines and the band edge — beside the
+  // vertical day, week and month ones, so "Separators" describes only half of what the
+  // panel holds there. The field labels in it already say "Rule".
+  'panel.separators.grid': 'Rules',
+  'panel.separators.grid.helper':
+    'Every rule the grid draws, both between the days and across all of them.',
   day_separator_width: 'Day Rule Width',
   day_separator_color: 'Day Rule Color',
   week_separator_width: 'Week Rule Width',
   week_separator_color: 'Week Rule Color',
   month_separator_width: 'Month Rule Width',
   month_separator_color: 'Month Rule Color',
-  'column.day_header_separator': 'Day Header Rule',
-  'column.day_header_separator.helper':
+  // The rule's own explanation moved onto the width field when the collapsible around it
+  // became a sub-heading. A heading carries no helper, so leaving the text on the group
+  // key would have deleted it from the editor rather than relocated it.
+  'column.day_header_separator_width': 'Day Header Rule Width',
+  'column.day_header_separator_width.helper':
     'The rule under a column heading. It sits inside the day header gap, so switching ' +
     'it off does not move the events.',
-  'column.day_header_separator_width': 'Day Header Rule Width',
   'column.day_header_separator_color': 'Day Header Rule Color',
+  'time_grid.day_header_separator_width': 'Day Header Rule Width',
+  'time_grid.day_header_separator_width.helper':
+    'The one unbroken rule between the date row and the all-day band, running the day ' +
+    'columns and their gaps but not the hour gutter. Set the width to 0 to remove it.',
+  'time_grid.day_header_separator_color': 'Day Header Rule Color',
 
   // --- Weather --------------------------------------------------------------
   //
@@ -612,8 +769,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions',
   'event.show_conditions.helper':
-    'Shows the condition icon. In the column layout the icon is always shown, because ' +
-    'the row shares an icon edge with the time and location, and this adds the ' +
+    'Shows the condition icon. In column and grid layouts the icon is always shown, ' +
+    'because the row shares an icon edge with the time and location, and this adds the ' +
     'condition in words instead.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index',
@@ -627,15 +784,26 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.color': 'Color',
   'event.max_lines': 'Weather Line Limit',
   'event.max_lines.helper':
-    'Zero means no limit. Only the column layout writes the condition out in words, ' +
-    'so only there can this row reach a second line. The temperature and UV index are ' +
-    'never truncated.',
+    'Zero means no limit. Column and grid layouts write the condition out in words, so ' +
+    'only those layouts can make this row reach a second line. The temperature and UV ' +
+    'index are never truncated.',
 
   // --- Actions & Refresh ----------------------------------------------------
   'panel.actions': 'Actions & Refresh',
   'panel.actions.helper': 'What a tap does, and how often the card re-reads its calendars.',
   tap_action: 'Tap Action',
   hold_action: 'Hold Action',
+  // Home Assistant names its own actions; this is the one the card adds, and both
+  // dropdowns resolve it through the same key. See `hass-localize.ts` for how it reaches
+  // HA's action editor at all.
+  //
+  // Wording carried over verbatim from the hand-rolled v3 editor, which offered this
+  // action and had it translated into all nine languages. Inventing a shorter English
+  // label here would have been an invitation to guess nine translations; this one was
+  // written by the people who speak them. It also says what the action does, which a bare
+  // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
+  // below, for toggling an entity rather than the card.
+  'card_action.option.expand.label': 'Toggle Compact/Expanded View',
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',
@@ -646,6 +814,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Phrased as what the option *does* apply to, never as "this does nothing".
   // A column card renders as a list on a narrow screen, so a list-only option on a
   // column card is still the live control for what that card shows on a phone.
+  'scope.column_list_only': 'Applies to the list and column layouts, not to the time grid.',
+  'scope.column_list_only.split_multiday_events':
+    'Grid derives daily coverage itself. All-day events use spanning banners across included ' +
+    'columns; timed events use a block per included day.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
@@ -653,8 +825,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
   'scope.list_only.compact_mode':
-    'No effect in column view. These only shorten the list layout, which also appears ' +
-    'on narrow screens; in columns, limits would remove whole days instead.',
+    'No effect in side-by-side layouts. These only shorten the list layout, which also ' +
+    'appears on narrow screens; otherwise, limits would remove whole days instead.',
 };
 
 /**

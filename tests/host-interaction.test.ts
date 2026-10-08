@@ -3,8 +3,8 @@
  *
  * `src/interaction/` is well covered, but that module only ever sees a call that the
  * host has already decided to make. Deciding *whether* to make it -- arming the hold
- * timer, matching the pointer that started the gesture, recognising the two activation
- * keys, and labelling an action as tap or hold -- lives in `calendar-card-pro.ts` and
+ * timer, matching the pointer that started the gesture, recognizing the two activation
+ * keys, and labeling an action as tap or hold -- lives in `calendar-card-pro.ts` and
  * was measured to be unguarded: a mutation sweep of that file left five separate
  * interaction mutations alive with the whole suite green.
  *
@@ -41,15 +41,44 @@ interface CardUnderTest extends HTMLElement {
   isInitialLoad: boolean;
   handleAction(actionConfig: unknown): void;
   _handlePointerDown(ev: PointerEvent): void;
+  _handlePointerMove(ev: PointerEvent): void;
   _handlePointerUp(ev: PointerEvent): void;
+  _handlePointerCancel(ev: PointerEvent): void;
+  _handlePointerLeave(ev: PointerEvent): void;
+  _handleLostPointerCapture(ev: PointerEvent): void;
   _handleKeyDown(ev: KeyboardEvent): void;
   _holdTriggered: boolean;
+  _holdIndicator: HTMLElement | null;
+  _activePointerId: number | null;
+  _releasingPointerCapture: boolean;
   readonly updateComplete: Promise<boolean>;
 }
 
 /** A minimal stand-in for a real PointerEvent, which happy-dom does not construct. */
-function pointer(pointerId: number): PointerEvent {
-  return { pointerId, clientX: 0, clientY: 0 } as PointerEvent;
+function pointer(
+  pointerId: number,
+  clientX = 0,
+  clientY = 0,
+  extras: { button?: number; isPrimary?: boolean } = {},
+): PointerEvent {
+  return { pointerId, clientX, clientY, ...extras } as PointerEvent;
+}
+
+/** Dispatch a bubbling pointer event with the fields the host reads. */
+function dispatchPointer(
+  target: EventTarget,
+  type: string,
+  pointerId: number,
+  clientX: number,
+  clientY: number,
+): void {
+  const event = new Event(type, { bubbles: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+  });
+  target.dispatchEvent(event);
 }
 
 async function mount(overrides: Record<string, unknown> = {}): Promise<CardUnderTest> {
@@ -93,22 +122,133 @@ describe('host pointer handling', () => {
     expect(card._holdTriggered).toBe(true);
   });
 
-  it('ignores a hold timer belonging to a pointer that is no longer active', async () => {
+  it('ignores a non-primary mouse button so right-click does not arm hold', async () => {
     const card = await mount({ hold_action: { action: 'expand' } });
 
-    card._handlePointerDown(pointer(1));
-    // A second finger lands before the first one's timer fires, taking over the gesture.
-    card._handlePointerDown(pointer(2));
+    card._handlePointerDown(pointer(1, 0, 0, { button: 2 }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
 
-    // The surviving timer is the second pointer's, so a hold is still recognised --
-    // but the first pointer's timer must not have been the one to set it.
+    expect(card._holdTriggered).toBe(false);
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still arms hold for an explicit primary button 0', async () => {
+    // Without this, a handler that rejected every numeric `button` would pass the
+    // right-click case while breaking every real mouse and touch contact.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+
+    expect(card._holdTriggered).toBe(true);
+  });
+
+  it('does not let a right-click interrupt an in-flight primary gesture', async () => {
+    // Before the button guard, a context-menu click restarted the hold timer mid-press.
+    // Advance just shy of the threshold, inject a right-click, then finish the remainder:
+    // if the timer was reset the remaining window is too short and hold never fires.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const threshold = Constants.TIMING.HOLD_THRESHOLD;
+
+    card._handlePointerDown(pointer(7, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(threshold - 50);
+    card._handlePointerDown(pointer(8, 0, 0, { button: 2 }));
+    vi.advanceTimersByTime(100);
+    card._handlePointerUp(pointer(7, 0, 0, { button: 0 }));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('does not end a primary hold when a secondary button releases on the same pointerId', async () => {
+    // Mice reuse one pointerId across buttons. Left-down arms the gesture; a
+    // right-button pointerup with the same id used to run hold/tap and clear
+    // state while the left button was still down.
+    const card = await mount({
+      hold_action: { action: 'expand' },
+      tap_action: { action: 'none' },
+    });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
     expect(card._holdTriggered).toBe(true);
 
-    // Releasing the pointer that never became active must do nothing at all.
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(card._holdTriggered).toBe(true);
+
+    card._handlePointerUp(pointer(1, 0, 0, { button: 0 }));
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('does not fire a tap when a secondary button releases before the hold threshold', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(50);
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+
+    card._handlePointerUp(pointer(1, 0, 0, { button: 0 }));
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it('does not let a second touch steal the active gesture', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
+    card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+
+    expect(card._holdTriggered).toBe(true);
+    expect(card._activePointerId).toBe(1);
+
     handleAction.mockClear();
     card._handlePointerUp(pointer(1));
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('keeps the original hold indicator when a second finger lands', async () => {
+    // Only the primary touch owns the gesture. Transferring ownership to a second
+    // finger used to require replacing the first body-level indicator and made the
+    // second contact capable of firing an action the user began with the first.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(11, 0, 0, { isPrimary: true }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    const first = card._holdIndicator;
+    expect(first).toBeTruthy();
+    expect(first!.parentNode).toBe(document.body);
+
+    card._handlePointerDown(pointer(12, 0, 0, { isPrimary: false }));
+    expect(card._activePointerId).toBe(11);
+    expect(card._holdIndicator).toBe(first);
+
+    card._handlePointerUp(pointer(12));
     expect(handleAction).not.toHaveBeenCalled();
+    expect(card._holdIndicator).toBe(first);
+
+    card._handlePointerUp(pointer(11));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_INDICATOR_FADEOUT + 10);
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(first!.parentNode).toBeNull();
+  });
+
+  it('does not cancel the active pointer when a different finger is canceled', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
+    card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
+    card._handlePointerCancel(pointer(2));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    card._handlePointerUp(pointer(1));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
   });
 
   it('runs the hold action when the active pointer is released after a hold', async () => {
@@ -132,6 +272,272 @@ describe('host pointer handling', () => {
     expect(handleAction).toHaveBeenCalledTimes(1);
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
+
+  it('does not fire a tap when tap_action is none', async () => {
+    // Defaults and the documented disable form. Host must not call into handleAction at
+    // all for a no-op tap — the interaction module also guards, but this path is what
+    // pointerup owns before that.
+    const card = await mount({
+      tap_action: { action: 'none' },
+      hold_action: { action: 'none' },
+    });
+
+    card._handlePointerDown(pointer(4));
+    vi.advanceTimersByTime(50);
+    card._handlePointerUp(pointer(4));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('does not capture or track a pointer when both actions are none', async () => {
+    const card = await mount({
+      tap_action: { action: 'none' },
+      hold_action: { action: 'none' },
+    });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+    };
+    const capture = vi.fn();
+    haCard.setPointerCapture = capture;
+
+    dispatchPointer(haCard, 'pointerdown', 41, 20, 20);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(card._activePointerId).toBeNull();
+  });
+
+  it('keeps a small pointer wobble as a tap', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(5, 100, 100));
+    card._handlePointerMove(pointer(5, 104, 103));
+    card._handlePointerUp(pointer(5, 104, 103));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it('does not turn a scroll or drag into a tap action', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(6, 100, 100));
+    card._handlePointerMove(pointer(6, 109, 100));
+    card._handlePointerUp(pointer(6, 109, 100));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('listens for pointer movement on the rendered card host', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card');
+    expect(haCard).toBeTruthy();
+
+    dispatchPointer(haCard!, 'pointerdown', 7, 100, 100);
+    dispatchPointer(haCard!, 'pointermove', 7, 109, 100);
+    dispatchPointer(haCard!, 'pointerup', 7, 109, 100);
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('does not turn a moved long press into a hold action', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(8, 100, 100));
+    card._handlePointerMove(pointer(8, 100, 109));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    card._handlePointerUp(pointer(8, 100, 109));
+
+    expect(card._holdTriggered).toBe(false);
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('keeps a hold that already fired when the finger slips on release', async () => {
+    // Hold runs on pointerup, not at the threshold. Movement after the
+    // indicator appears used to set _pointerMoved and clear _holdTriggered,
+    // so a normal touch lift after a successful long-press ran neither hold
+    // nor tap — the user saw the disc and got nothing.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(9, 100, 100));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+
+    card._handlePointerMove(pointer(9, 100, 120));
+    card._handlePointerUp(pointer(9, 100, 120));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('keeps a post-threshold hold when the pointer leaves under capture', async () => {
+    // pointerleave is geometric: the hit-test left the card while the finger is
+    // still down. Treating it like cancel after the hold indicator appeared used
+    // to wipe the gesture, and without capture the matching outside pointerup
+    // never arrived — same "saw the disc, got nothing" failure as a lift-slip.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 10, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(captured.has(10)).toBe(true);
+
+    dispatchPointer(haCard, 'pointerleave', 10, 100, 100);
+    expect(card._holdTriggered).toBe(true);
+
+    dispatchPointer(haCard, 'pointerup', 10, 100, 140);
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+    expect(captured.has(10)).toBe(false);
+  });
+
+  it('still cancels on leave when the pointer was never captured', async () => {
+    // Positive control for the capture path above: without capture, leave is the
+    // only cleanup when contact leaves the card, and must still abort the gesture.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(13, 100, 100));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+
+    card._handlePointerLeave(pointer(13, 100, 100));
+    expect(card._holdTriggered).toBe(false);
+
+    card._handlePointerUp(pointer(13, 100, 100));
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('cancels a gesture when pointer capture is lost externally', async () => {
+    // Leave under capture is ignored so a hold can finish outside the box. That
+    // only works while capture lasts. If the browser or another element strips
+    // capture without up/cancel — and leave already fired while capture held —
+    // nothing else cleaned the gesture: the hold disc stuck on document.body and
+    // _activePointerId stayed set until an unrelated later down.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 14, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+    expect(captured.has(14)).toBe(true);
+
+    // Geometric leave while capture still holds must not abort (covered above).
+    dispatchPointer(haCard, 'pointerleave', 14, 100, 140);
+    expect(card._holdTriggered).toBe(true);
+
+    // Capture is stripped without a matching up — the stuck-state defect.
+    captured.delete(14);
+    dispatchPointer(haCard, 'lostpointercapture', 14, 100, 140);
+
+    expect(card._holdTriggered).toBe(false);
+    expect(card._holdIndicator).toBeNull();
+    expect(card._activePointerId).toBeNull();
+
+    dispatchPointer(haCard, 'pointerup', 14, 100, 140);
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still runs hold when our own release fires lostpointercapture on up', async () => {
+    // releasePointerCapture fires lostpointercapture synchronously mid-up. The
+    // action currently runs before release, so a blind cancel-on-lost would not
+    // eat the hold today — but the path must stay green as a regression control
+    // for the external-loss case above. The next test pins the self-release guard.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+      // Mirror the browser: lost fires from release, while up is still running.
+      dispatchPointer(haCard, 'lostpointercapture', id, 100, 100);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 15, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+
+    dispatchPointer(haCard, 'pointerup', 15, 100, 100);
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+    expect(card._activePointerId).toBeNull();
+  });
+
+  it('ignores lostpointercapture while releasing our own capture', async () => {
+    // Without _releasingPointerCapture, the browser's synchronous lost event from
+    // our releasePointerCapture is indistinguishable from an external strip and
+    // would cancel mid-cleanup. Pin the flag window directly: external lost is
+    // the sibling case above.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 16, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+
+    card._releasingPointerCapture = true;
+    dispatchPointer(haCard, 'lostpointercapture', 16, 100, 100);
+
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+    expect(card._activePointerId).toBe(16);
+
+    card._releasingPointerCapture = false;
+  });
 });
 
 describe('host keyboard handling', () => {
@@ -149,6 +555,16 @@ describe('host keyboard handling', () => {
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
 
+  it.each(['Enter', ' '])('does not activate on %j when tap_action is none', async (key) => {
+    const card = await mount({ tap_action: { action: 'none' } });
+    const preventDefault = vi.fn();
+
+    card._handleKeyDown({ key, preventDefault } as unknown as KeyboardEvent);
+
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
   it('ignores other keys', async () => {
     // The negative control. Without it, a handler that fired on every keystroke would
     // pass both cases above.
@@ -158,9 +574,52 @@ describe('host keyboard handling', () => {
 
     expect(handleAction).not.toHaveBeenCalled();
   });
+
+  // The three cases below dispatch a real bubbling event rather than calling the handler,
+  // because the thing under test is which element the keystroke started from — and the
+  // direct-call cases above pass a synthetic object with neither target nor currentTarget,
+  // so they are blind to it by construction.
+  it('leaves Space to the grid scroll region it was aimed at', async () => {
+    // The listener sits on <ha-card> and keydown bubbles, so before the guard this ran the
+    // card's tap action instead of paging the scroller — the one affordance the tab stop
+    // exists to provide.
+    const card = await mount({
+      view: 'grid',
+      days_to_show: 7,
+      tap_action: { action: 'expand' },
+      time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
+    });
+
+    const region = card.shadowRoot?.querySelector<HTMLElement>('.grid-container');
+    expect(region).toBeTruthy();
+    expect(region?.tabIndex).toBe(0);
+
+    region?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still activates on Space aimed at the card itself', async () => {
+    // The positive control for the case above: a guard that swallowed everything would
+    // pass it while breaking the card's own keyboard activation.
+    const card = await mount({
+      view: 'grid',
+      days_to_show: 7,
+      tap_action: { action: 'expand' },
+      time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
+    });
+
+    const haCard = card.shadowRoot?.querySelector<HTMLElement>('ha-card');
+    expect(haCard).toBeTruthy();
+
+    haCard?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
 });
 
-describe('host handleAction labelling', () => {
+describe('host handleAction labeling', () => {
   beforeEach(() => {
     handleAction.mockClear();
     document.body.innerHTML = '';

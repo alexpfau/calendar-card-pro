@@ -17,6 +17,7 @@ import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 //-----------------------------------------------------------------------------
 // DAY BOUNDARIES
@@ -99,7 +100,7 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
 }
 
 /**
- * Render one vertical rule, centred in the gutter to the inline-start of a column.
+ * Render one vertical rule, centered in the gutter to the inline-start of a column.
  *
  * The separator overlays the column's grid cell and is pulled into the gutter, so
  * enabling a rule paints the boundary without moving any columns.
@@ -178,7 +179,9 @@ function renderColumnEvent(
   return html`
     <div
       class=${classMap(eventClasses)}
-      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+        presentation.accentTextProperties,
+      )}"
     >
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
         weatherForecasts,
@@ -216,26 +219,15 @@ function renderDayColumn(
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
-
   const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
-    ? nothing
-    : html`<div
-        class="column-header-separator"
-        style=${styleMap({
-          borderTopWidth: separatorWidth,
-          borderTopColor: separatorColor,
-          borderTopStyle: 'solid',
-        })}
-      ></div>`;
-
-  const todayIndicator = Leaves.renderTodayIndicator(config, isToday, 'inline');
-  const hasInlineIndicator = todayIndicator !== nothing;
+    ? null
+    : { width: separatorWidth, color: separatorColor };
 
   return html`
     <div
@@ -248,18 +240,15 @@ function renderDayColumn(
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}
     >
-      <div class="column-day-header">
-        <div
-          class=${classMap({
-            'column-date-content': true,
-            'with-today-indicator': hasInlineIndicator,
-          })}
-        >
-          ${todayIndicator}
-          ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
-        </div>
-      </div>
-      ${headerSeparator}
+      ${Leaves.renderSharedDayHeader(
+        dayDate,
+        config,
+        language,
+        isToday,
+        weatherContent,
+        headerSeparator,
+        hass,
+      )}
       <div class="column-events">
         ${repeat(
           day.events,
@@ -292,18 +281,7 @@ function renderColumnWeekNumber(
   visible: boolean,
   columnIndex: number,
 ): TemplateResult {
-  return html`
-    <div
-      class="column-week-number"
-      style=${styleMap({
-        gridColumn: String(columnIndex + 1),
-        gridRow: '1',
-        ...(visible ? {} : { visibility: 'hidden' }),
-      })}
-    >
-      <div class="week-number">${weekNumber ?? ''}</div>
-    </div>
-  `;
+  return Leaves.renderDayWeekNumber(weekNumber, visible, columnIndex + 1);
 }
 
 /**

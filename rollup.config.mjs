@@ -74,7 +74,7 @@ const stripCssComments = {
 
       const open = start + 4;
       let end = open;
-      // Find the closing backtick, honouring escapes. Interpolations cannot contain a
+      // Find the closing backtick, honoring escapes. Interpolations cannot contain a
       // backtick in this codebase, and the scan below leaves ${...} untouched anyway.
       while (end < code.length) {
         if (code[end] === '\\') {
@@ -181,12 +181,19 @@ function plugins() {
     json(),
     esbuild({
       tsconfig: 'tsconfig.json',
-      target: 'es2017',
-      // es2017 predates import.meta, so esbuild's default is to *lower* it — to the
-      // literal `{}`. That makes `import.meta.url` undefined, the editor URL
-      // unresolvable, and it happens silently: no build error, no type error, and a card
-      // that works perfectly until someone opens the editor. Declaring support keeps it
-      // as written; everything else stays at es2017. `check:bundle` asserts it survived.
+      // es2021 because the bundle already requires it: this plugin transforms our own
+      // TypeScript only, and Lit 3 ships untransformed `??=`, so no browser older than
+      // ES2021 could run the card whatever this says. Lowering our code further only paid
+      // for helpers and longhand that bought no compatibility. Not higher, because then
+      // our own code could raise that floor. `tsconfig.json` keeps `ES2017`: esbuild reads
+      // class-field semantics from it, and Lit's decorated properties need the
+      // assignment semantics that target implies.
+      target: 'es2021',
+      // import.meta is ES2020, so es2021 keeps it as written. The flag stays anyway: below
+      // es2020 esbuild *lowers* it to the literal `{}`, making `import.meta.url`
+      // undefined and the editor URL unresolvable — silently, with no build or type error
+      // and a card that works until someone opens the editor. It is what keeps a future
+      // drop in target from reintroducing that. `check:bundle` asserts it survived.
       supported: { 'import-meta': true },
       // Kept in step with output.sourcemap below; input maps would only be built and
       // then discarded.
@@ -211,6 +218,10 @@ function plugins() {
         drop_console: false,
         drop_debugger: true,
         pure_funcs: ['console.debug'],
+        // A second pass finds what the first exposed, such as inlining that only becomes
+        // possible once another call site is gone. Two, not more: a third shrank the raw
+        // file further but made the gzipped one larger, and gzipped is what transfers.
+        passes: 2,
       },
       format: {
         // Remove comments in production

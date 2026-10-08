@@ -1,0 +1,590 @@
+/**
+ * Layout-boundary measurements for scrolling labels and Grid's timed title disclosure.
+ *
+ * Only compact titles use zoom: scaling the existing group preserves authored CSS units,
+ * independently sized labels, fixed leading, and image proportions without compounding em.
+ * All preparation and candidate writes are batched; no font-step loop forces layout.
+ */
+
+const PRECISION = 1 / 64;
+const FLOOR = 10;
+const Segmenter = (
+  Intl as typeof Intl & {
+    Segmenter?: new (
+      locale?: string,
+      options?: { granularity: 'grapheme' },
+    ) => { segment(value: string): Iterable<{ segment: string; index: number }> };
+  }
+).Segmenter;
+const GRAPHEMES = Segmenter ? new Segmenter(undefined, { granularity: 'grapheme' }) : null;
+const MEASUREMENT_RANGES = new WeakMap<Document, Range>();
+
+interface Bounds {
+  top: number;
+  bottom: number;
+}
+
+interface TextRun {
+  node: Node;
+  start: number;
+  text: string;
+  rects: DOMRect[];
+}
+
+export interface GridTitleTarget {
+  block: HTMLElement;
+  disclosure: HTMLElement;
+  summary: HTMLElement;
+  row: HTMLElement;
+  title: HTMLElement;
+  previousMode: string | undefined;
+}
+
+interface CompactMeasurement {
+  target: GridTitleTarget;
+  font: number;
+  textFonts: number[];
+  height: number;
+  available: number;
+  shift: number;
+  textFits: boolean;
+  readable: boolean;
+}
+
+/**
+ * Select the largest one-CSS-pixel reduction that fits, including the terminal 10px floor.
+ * A deliberately smaller font is never enlarged or reduced.
+ */
+export function selectGridTitleFont(
+  configured: number,
+  measuredHeight: number,
+  availableHeight: number,
+): number | null {
+  if (
+    ![configured, measuredHeight, availableHeight].every(Number.isFinite) ||
+    configured <= 0 ||
+    measuredHeight <= 0 ||
+    availableHeight <= 0
+  ) {
+    return null;
+  }
+  if (measuredHeight <= availableHeight) return configured;
+  const minimum = Math.min(configured, FLOOR);
+  const ceiling = (configured * availableHeight) / measuredHeight;
+  if (ceiling < minimum) return null;
+  return Math.max(minimum, configured - Math.ceil(configured - ceiling));
+}
+
+/** The adjacent authored-font step, including a nonintegral last step down to the floor. */
+export function adjacentGridTitleFont(font: number, candidate: number, larger: boolean): number {
+  const steps = Math.ceil(font - candidate - 1e-7);
+  return larger ? font - Math.max(0, steps - 1) : Math.max(Math.min(font, FLOOR), font - steps - 1);
+}
+
+/**
+ * Lowest title step that also protects every text/emoji label's font floor.
+ * An already smaller text part keeps its authored size, so it forbids group reduction.
+ */
+export function minimumGridTitleFont(font: number, textFonts: number[]): number | null {
+  if (
+    ![font, ...textFonts].every((value) => Number.isFinite(value) && value > 0) ||
+    !textFonts.length
+  ) {
+    return null;
+  }
+  const scale = Math.max(...textFonts.map((size) => Math.min(size, FLOOR) / size));
+  const minimum = font * scale;
+  if (minimum <= Math.min(font, FLOOR) + 1e-7) return Math.min(font, FLOOR);
+  return font - Math.floor(font - minimum + 1e-7);
+}
+
+/**
+ * The prefix through the first useful grapheme, not a combining mark or an ellipsis alone.
+ * Engines without segmentation must fit the entire title rather than split a grapheme.
+ */
+export function gridTitlePrefix(text: string): string {
+  const trimmed = text.trim();
+  if (!/[\p{L}\p{N}\p{S}]/u.test(trimmed)) return '';
+  if (!GRAPHEMES) return trimmed;
+  for (const { segment, index } of GRAPHEMES.segment(trimmed)) {
+    if (/[\p{L}\p{N}\p{S}]/u.test(segment)) {
+      return trimmed.slice(0, index + segment.length);
+    }
+  }
+  return '';
+}
+
+/** Require useful title text after every unshortened label, plus the ellipsis when needed. */
+export function gridTitleHasUsefulWidth(
+  available: number,
+  full: number,
+  prefix: number,
+  ellipsis: number,
+): boolean {
+  return (
+    [available, full, prefix, ellipsis].every(Number.isFinite) &&
+    available > 0 &&
+    prefix > 0 &&
+    (full <= available || prefix + ellipsis <= available)
+  );
+}
+
+/** Reset only the transient Grid treatment; authored styles and label nodes stay intact. */
+export function resetGridTitle(target: GridTitleTarget): void {
+  delete target.block.dataset.gridTitleFit;
+  target.summary.style.removeProperty('--calendar-card-grid-title-scale');
+  target.row.style.removeProperty('--calendar-card-grid-title-shift');
+}
+
+/** Read the existing timed title nodes, excluding banners and overflow placeholders. */
+export function gridTitleTarget(block: HTMLElement): GridTitleTarget | null {
+  const disclosure = block.querySelector<HTMLElement>('.grid-event-disclosure');
+  const summary = disclosure?.querySelector<HTMLElement>('.summary');
+  const row = disclosure?.querySelector<HTMLElement>('.summary-row');
+  const title = summary?.querySelector<HTMLElement>('.event-title');
+  return disclosure && summary && row && title
+    ? { block, disclosure, summary, row, title, previousMode: block.dataset.gridTitleFit }
+    : null;
+}
+
+function measurementRange(document: Document): Range {
+  let range = MEASUREMENT_RANGES.get(document);
+  if (!range) {
+    range = document.createRange();
+    MEASUREMENT_RANGES.set(document, range);
+  }
+  return range;
+}
+
+function parkRange(range: Range, document: Document): void {
+  range.setStart(document, 0);
+  range.collapse(true);
+}
+
+/** The nearest ancestor that lays the text out in line boxes, rather than an inline box. */
+function lineContainer(node: Node): Element | null {
+  for (let element = node.parentElement; element; element = element.parentElement) {
+    const display = getComputedStyle(element).display;
+    if (display !== 'inline' && display !== 'contents') return element;
+  }
+  return null;
+}
+
+/**
+ * A text rectangle is the font's content area, not its line box. Where line-height is below
+ * ascent plus descent, the content area pokes out above and below its line: 12px Roboto
+ * measures 15px in a 14.4px line in Firefox, so every first line starts 0.3px above its own
+ * box, and an emoji's fallback font adds a pixel below. Fonts with taller metrics, such as
+ * Noto Sans, do the same in every engine. That band belongs to no line box, the title's own
+ * overflow clip already cuts it, and it scales with the font, so it is not a clipped title.
+ * Trim a rectangle to its line container, but only one whose center lies inside it: a line
+ * clamped away or pushed out of its container keeps its full rectangle and still fails.
+ */
+function lineBox(rect: DOMRect, container: DOMRect | undefined): DOMRect {
+  if (!container) return rect;
+  const center = (rect.top + rect.bottom) / 2;
+  if (center < container.top || center > container.bottom) return rect;
+  const top = Math.max(rect.top, container.top);
+  const bottom = Math.min(rect.bottom, container.bottom);
+  return top === rect.top && bottom === rect.bottom
+    ? rect
+    : new DOMRect(rect.left, top, rect.width, bottom - top);
+}
+
+// A live Range participates in later DOM mutations until collected. Reuse one cursor and
+// return rectangle snapshots, then park it outside the card so it cannot retain a removed card.
+function textRuns(element: Element): TextRun[] {
+  const document = element.ownerDocument;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const runs: TextRun[] = [];
+  const range = measurementRange(document);
+  try {
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent ?? '';
+      const start = text.search(/\S/u);
+      if (start < 0) continue;
+      range.setStart(node, start);
+      range.setEnd(node, text.trimEnd().length);
+      const container = lineContainer(node)?.getBoundingClientRect();
+      runs.push({
+        node,
+        start,
+        text: text.slice(start).trimEnd(),
+        rects: Array.from(range.getClientRects(), (rect) => lineBox(rect, container)),
+      });
+    }
+    return runs;
+  } finally {
+    parkRange(range, document);
+  }
+}
+
+function prefixWidth(run: TextRun | undefined, prefix: string): number {
+  const document = run?.node.ownerDocument;
+  if (!run || !document || !prefix) return 0;
+  const range = measurementRange(document);
+  try {
+    range.setStart(run.node, run.start);
+    range.setEnd(run.node, run.start + prefix.length);
+    return range.getBoundingClientRect().width;
+  } finally {
+    parkRange(range, document);
+  }
+}
+
+function labelRects(target: GridTitleTarget): DOMRect[] {
+  return Array.from(target.summary.children).flatMap((label) => {
+    if (label === target.title) return [];
+    return label.matches('.calendar-label')
+      ? textRuns(label).flatMap((run) => run.rects)
+      : Array.from(label.getClientRects());
+  });
+}
+
+function union(bounds: Bounds[]): Bounds {
+  return {
+    top: Math.min(...bounds.map((box) => box.top)),
+    bottom: Math.max(...bounds.map((box) => box.bottom)),
+  };
+}
+
+function inside(bounds: Bounds, clip: Bounds): boolean {
+  return bounds.top >= clip.top - PRECISION && bounds.bottom <= clip.bottom + PRECISION;
+}
+
+function px(value: string): number {
+  return Number.parseFloat(value) || 0;
+}
+
+/**
+ * Keeps a complete scrolling label run at natural width only when useful title text fits.
+ *
+ * WebKit may shrink even a short label to its automatically hyphenated min-content
+ * width. Test the natural run as one batch, then leave longer runs on their existing
+ * wrapping path. Native flex layout accounts for every label, gap, and authored unit.
+ */
+export function reserveScrollingLabelWidths(titles: Iterable<HTMLElement>): void {
+  const targets = Array.from(titles).flatMap((title) => {
+    const summary = title.parentElement;
+    const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
+    if (
+      !summary?.matches('.summary-scroll') ||
+      fit === 'compact' ||
+      fit === 'blank' ||
+      fit === 'measuring'
+    ) {
+      return [];
+    }
+    const labels = Array.from(summary.children).filter((label) => label !== title);
+    if (!labels.some((label) => label.matches('.calendar-label:not(.label-emoji)'))) {
+      summary.removeAttribute('data-scroll-labels');
+      return [];
+    }
+    return [{ title, summary, labels, reserved: summary.hasAttribute('data-scroll-labels') }];
+  });
+  if (!targets.length) return;
+
+  const canvas = targets[0].title.ownerDocument.createElement('canvas').getContext('2d');
+  const reserved = new Set<HTMLElement>();
+  let measured = false;
+  for (const { summary } of targets) summary.setAttribute('data-scroll-labels', '');
+  try {
+    for (const { title, summary, labels } of targets) {
+      const style = getComputedStyle(summary);
+      const borderBox =
+        px(style.width) +
+        (style.boxSizing === 'border-box'
+          ? 0
+          : px(style.paddingLeft) +
+            px(style.paddingRight) +
+            px(style.borderLeftWidth) +
+            px(style.borderRightWidth));
+      const bounds = summary.getBoundingClientRect();
+      const scale = borderBox > 0 ? bounds.width / borderBox : 0;
+      const left = bounds.left + (px(style.borderLeftWidth) + px(style.paddingLeft)) * scale;
+      const right = bounds.right - (px(style.borderRightWidth) + px(style.paddingRight)) * scale;
+      const titleBox = title.getBoundingClientRect();
+      const viewportStyle = getComputedStyle(title);
+      const runs = textRuns(title);
+      const first = runs[0];
+      const titleStyle = getComputedStyle(first?.node.parentElement ?? title);
+      if (canvas)
+        canvas.font = titleStyle.font || `${titleStyle.fontSize} ${titleStyle.fontFamily}`;
+      const ellipsis = canvas
+        ? (canvas.measureText('\u2026').width + px(titleStyle.letterSpacing)) * scale
+        : Infinity;
+      const titleInsets =
+        (px(viewportStyle.paddingLeft) +
+          px(viewportStyle.paddingRight) +
+          px(viewportStyle.borderLeftWidth) +
+          px(viewportStyle.borderRightWidth)) *
+        scale;
+      const labelsFit = labels.every((label) => {
+        const rect = label.getBoundingClientRect();
+        return rect.width > 0 && rect.left >= left - PRECISION && rect.right <= right + PRECISION;
+      });
+      const imagesReady = Array.from(summary.querySelectorAll('img')).every(
+        (image) => image.complete && image.naturalWidth > 0,
+      );
+      if (
+        scale > 0 &&
+        labelsFit &&
+        imagesReady &&
+        gridTitleHasUsefulWidth(
+          titleBox.width - titleInsets,
+          runs.flatMap((run) => run.rects).reduce((width, rect) => width + rect.width, 0),
+          prefixWidth(first, gridTitlePrefix(first?.text ?? '')),
+          ellipsis,
+        )
+      ) {
+        reserved.add(summary);
+      }
+    }
+    measured = true;
+  } finally {
+    for (const target of targets) {
+      target.summary.toggleAttribute(
+        'data-scroll-labels',
+        measured ? reserved.has(target.summary) : target.reserved,
+      );
+    }
+  }
+}
+
+function blockScale(block: HTMLElement): number {
+  const height = px(getComputedStyle(block).height);
+  return height > 0 ? block.getBoundingClientRect().height / height : 1;
+}
+
+function normalClip(target: GridTitleTarget): Bounds {
+  const style = getComputedStyle(target.block);
+  const rect = target.block.getBoundingClientRect();
+  const scale = blockScale(target.block);
+  return {
+    top: rect.top + (px(style.borderTopWidth) + px(style.paddingTop)) * scale,
+    bottom: rect.bottom - (px(style.borderBottomWidth) + px(style.paddingBottom)) * scale,
+  };
+}
+
+/**
+ * Test the actual first title glyph row and all label fragments, not whole-event overflow.
+ * Later wrapped lines may remain clipped exactly as they were before this feature.
+ */
+export function normalGridTitleFits(target: GridTitleTarget): boolean {
+  if (
+    getComputedStyle(target.row).getPropertyValue('--calendar-card-grid-title-eligible').trim() !==
+    '1'
+  ) {
+    return false;
+  }
+  if (
+    Array.from(target.summary.querySelectorAll('img')).some(
+      (image) => !image.complete || image.naturalWidth <= 0,
+    )
+  ) {
+    return false;
+  }
+  const runs = textRuns(target.title);
+  const first = runs[0]?.rects[0];
+  if (!first || first.height <= 0) return false;
+  const clip = normalClip(target);
+  const row = target.row.getBoundingClientRect();
+  const summary = target.summary.getBoundingClientRect();
+  const visible = {
+    top: Math.max(clip.top, row.top, summary.top),
+    bottom: Math.min(clip.bottom, row.bottom, summary.bottom),
+  };
+  const labels = labelRects(target);
+  return (
+    inside(first, visible) &&
+    labels.every(
+      (label) =>
+        inside(label, visible) &&
+        label.left >= summary.left - PRECISION &&
+        label.right <= summary.right + PRECISION,
+    )
+  );
+}
+
+function centeredShift(target: GridTitleTarget): number | null {
+  const clip = normalClip(target);
+  const row = target.row.getBoundingClientRect();
+  const glyphs = textRuns(target.summary).flatMap((run) => run.rects);
+  const bounds = union([
+    row,
+    ...glyphs.filter((glyph) => inside(glyph, row)),
+    ...labelRects(target),
+  ]);
+  if (!inside(bounds, clip)) return null;
+  const shift = (clip.top + clip.bottom - bounds.top - bounds.bottom) / 2;
+  // The caller offers a block whose detail rows are all invisible, which used to mean one
+  // thing: the block was too short to reveal any. The time row now asks about width as well
+  // as height, so a block can be tall and still disclose nothing — and centering one parks
+  // its title in mid-air. The maintainer's capture was a two-hour block about 55px wide
+  // whose two-line title sat with roughly 31px of clear space above and below it, which
+  // reads as broken rather than as deliberate.
+  //
+  // So ask the block what the eye asks: is there conspicuous dead space? One line box of
+  // the group's own text is the unit, because that is what the disclosure is denominated in
+  // — every rung in the stylesheet is a count of rows — and because it is the only
+  // scale-free answer. A pixel threshold would have to be recalibrated against
+  // event_font_size, a theme's type scale and zoom, all three of which move a line box and
+  // none of which move a constant. Shifting a group by less than one of its own lines is
+  // the nudge a small block wants; more than that is space something could have occupied.
+  //
+  // Deliberately not asked: how wide the block is. That would mean restating the width
+  // rung's own threshold in script, a second copy to keep in step, and it would answer only
+  // for the time row — location, description and weather are withheld on height alone. Dead
+  // space is one question that covers every reason a row is missing, including later ones.
+  //
+  // Refusing costs nothing worse than the top alignment a block with a visible time row
+  // already gets: no shift is written, so no data-grid-title-fit is set, so the transform
+  // keyed on that attribute never applies.
+  const line = Math.max(0, ...glyphs.map((glyph) => glyph.height));
+  if (Math.abs(shift) > line + PRECISION) return null;
+  return shift / blockScale(target.block);
+}
+
+/**
+ * Center complete title groups that nearly fill their block, without changing their
+ * ordinary wrapping. A group with a line box or more of slack on each side is left where
+ * it is; see centeredShift for why the block's height is not asked about directly.
+ */
+export function centerGridTitles(targets: GridTitleTarget[]): void {
+  const measurements = targets.map((target) => ({ target, shift: centeredShift(target) }));
+  for (const { target, shift } of measurements) {
+    if (shift === null) continue;
+    target.row.style.setProperty('--calendar-card-grid-title-shift', `${shift}px`);
+    target.block.dataset.gridTitleFit = 'centered';
+  }
+}
+
+function measureCompact(
+  target: GridTitleTarget,
+  canvas: CanvasRenderingContext2D | null,
+): CompactMeasurement {
+  const scale = blockScale(target.block);
+  const runs = textRuns(target.title);
+  const titleStyle = getComputedStyle(runs[0]?.node.parentElement ?? target.title);
+  const title = target.title.getBoundingClientRect();
+  const row = target.row.getBoundingClientRect();
+  const summary = target.summary.getBoundingClientRect();
+  const disclosure = target.disclosure.getBoundingClientRect();
+  const glyphs = runs.flatMap((run) => run.rects);
+  const labels = labelRects(target);
+  const bounds = union([row, ...glyphs, ...labels]);
+  const text = runs[0]?.text ?? '';
+  const prefix = gridTitlePrefix(text);
+  const zoom = px(getComputedStyle(target.summary).zoom) || 1;
+  if (canvas) canvas.font = titleStyle.font || `${titleStyle.fontSize} ${titleStyle.fontFamily}`;
+  const ellipsis = canvas
+    ? (canvas.measureText('\u2026').width + px(titleStyle.letterSpacing)) * scale * zoom
+    : Infinity;
+  const fullWidth = glyphs.reduce((width, rect) => width + rect.width, 0);
+  const usefulWidth = prefixWidth(runs[0], prefix);
+  const labelsFit = labels.every(
+    (label) =>
+      label.left >= summary.left - PRECISION &&
+      label.right <= summary.right + PRECISION &&
+      label.width > 0,
+  );
+  const imagesReady = Array.from(target.summary.querySelectorAll('img')).every(
+    (image) => image.complete && image.naturalWidth > 0,
+  );
+  return {
+    target,
+    font: px(titleStyle.fontSize),
+    textFonts: [
+      px(titleStyle.fontSize),
+      ...Array.from(target.summary.querySelectorAll<HTMLElement>('.calendar-label')).flatMap(
+        (label) =>
+          textRuns(label).map((run) =>
+            px(getComputedStyle(run.node.parentElement ?? label).fontSize),
+          ),
+      ),
+    ],
+    height: (bounds.bottom - bounds.top) / scale,
+    available: disclosure.height / scale,
+    shift: (disclosure.top + disclosure.bottom - bounds.top - bounds.bottom) / (2 * scale),
+    textFits: glyphs.every((glyph) => inside(glyph, title)),
+    readable:
+      labelsFit &&
+      imagesReady &&
+      gridTitleHasUsefulWidth(title.width, fullWidth, usefulWidth, ellipsis),
+  };
+}
+
+function verticalFit(measurement: CompactMeasurement): boolean {
+  return measurement.textFits && measurement.height <= measurement.available + PRECISION;
+}
+
+/**
+ * Try authored typography, a proportional candidate, then its adjacent step.
+ * Native normal leading and glyph hinting are discrete: verify that neighbor rather than
+ * trusting proportional arithmetic at a font boundary. Preparation is never painted.
+ */
+export function fitCompactGridTitles(targets: GridTitleTarget[]): void {
+  if (!targets.length) return;
+  const canvas = document.createElement('canvas').getContext('2d');
+  for (const target of targets) target.block.dataset.gridTitleFit = 'measuring';
+  try {
+    const measured = targets.map((target) => measureCompact(target, canvas));
+    const candidates = measured.map((measurement) => {
+      const minimum = minimumGridTitleFont(measurement.font, measurement.textFonts);
+      return {
+        ...measurement,
+        minimum,
+        candidate: Math.max(
+          minimum ?? measurement.font,
+          selectGridTitleFont(measurement.font, measurement.height, measurement.available) ??
+            Math.min(measurement.font, FLOOR),
+        ),
+      };
+    });
+    for (const { target, candidate, font } of candidates) {
+      target.summary.style.setProperty(
+        '--calendar-card-grid-title-scale',
+        String(font > 0 ? candidate / font : 1),
+      );
+    }
+    const verified = candidates.map((entry) => ({
+      ...entry,
+      result: measureCompact(entry.target, canvas),
+    }));
+    const neighbors = verified.map((entry) => ({
+      ...entry,
+      neighbor: Math.max(
+        entry.minimum ?? entry.font,
+        adjacentGridTitleFont(entry.font, entry.candidate, verticalFit(entry.result)),
+      ),
+    }));
+    for (const { target, neighbor, font } of neighbors) {
+      target.summary.style.setProperty(
+        '--calendar-card-grid-title-scale',
+        String(font > 0 ? neighbor / font : 1),
+      );
+    }
+    const compared = neighbors.map((entry) => ({
+      ...entry,
+      neighborResult: measureCompact(entry.target, canvas),
+    }));
+    for (const { target, candidate, font, minimum, result, neighbor, neighborResult } of compared) {
+      const useNeighbor =
+        verticalFit(neighborResult) && (neighbor > candidate || !verticalFit(result));
+      const chosen = useNeighbor ? neighborResult : result;
+      target.summary.style.setProperty(
+        '--calendar-card-grid-title-scale',
+        String(font > 0 ? (useNeighbor ? neighbor : candidate) / font : 1),
+      );
+      const fits = minimum !== null && verticalFit(chosen) && chosen.readable;
+      target.row.style.setProperty('--calendar-card-grid-title-shift', `${chosen.shift}px`);
+      target.block.dataset.gridTitleFit = fits ? 'compact' : 'blank';
+    }
+  } finally {
+    for (const target of targets) {
+      if (target.block.dataset.gridTitleFit === 'measuring') {
+        target.block.dataset.gridTitleFit = 'blank';
+      }
+    }
+  }
+}

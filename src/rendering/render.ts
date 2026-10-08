@@ -14,11 +14,13 @@ import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 /**
- * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call sites in the card's view dispatch read as a symmetrical pair rather than pulling from different modules.
+ * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
  */
 export { renderColumnGroupedEvents } from './column';
+export { renderGridGroupedEvents } from './grid';
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
@@ -34,6 +36,8 @@ export { renderColumnGroupedEvents } from './column';
  * @param isLoading Flag to mark the card as busy while events load
  * @param titlePending True while a templated title awaits its first value
  * @param effectiveView The view actually being rendered, after any width fallback
+ * @param hasTapAction Whether the card has a keyboard-accessible tap action
+ * @param hasHoldAction Whether the card has a pointer hold action
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -43,17 +47,26 @@ export function renderMainCardStructure(
   handlers: {
     keyDown: (ev: KeyboardEvent) => void;
     pointerDown: (ev: PointerEvent) => void;
+    pointerMove: (ev: PointerEvent) => void;
     pointerUp: (ev: PointerEvent) => void;
-    pointerCancel: (ev: Event) => void;
-    pointerLeave: (ev: Event) => void;
+    pointerCancel: (ev: PointerEvent) => void;
+    pointerLeave: (ev: PointerEvent) => void;
+    lostPointerCapture: (ev: PointerEvent) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
+  hasTapAction: boolean = false,
+  hasHoldAction: boolean = false,
 ): TemplateResult {
+  const isPointerInteractive = hasTapAction || hasHoldAction;
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
-  const cardClasses = ['calendar-card-pro', ViewConfig.viewCssClass(effectiveView)]
+  const cardClasses = [
+    'calendar-card-pro',
+    ViewConfig.viewCssClass(effectiveView),
+    isPointerInteractive ? 'card-interactive' : '',
+  ]
     .filter((cls) => cls !== '')
     .join(' ');
 
@@ -61,16 +74,18 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex="0"
+      tabindex=${hasTapAction ? '0' : nothing}
+      role=${hasTapAction ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
       @pointerdown=${handlers.pointerDown}
+      @pointermove=${handlers.pointerMove}
       @pointerup=${handlers.pointerUp}
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}
+      @lostpointercapture=${handlers.lostPointerCapture}
     >
-      <ha-ripple></ha-ripple>
-
+      ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${
         isLoading
           ? html`
@@ -267,7 +282,7 @@ function renderWeekRow(
     : Constants.UI.SEPARATOR_SPACING.WEEK;
 
   // The row carries half the separator spacing below it, and pulls up by whatever the
-  // day table's own margin already contributed, so the rule lands centred on the gap.
+  // day table's own margin already contributed, so the rule lands centered on the gap.
   const rowStyle = {
     marginTop: isFirstWeek ? '0px' : ViewConfig.scaleLength(config.day_spacing, multiplier / 2 - 1),
     marginBottom: ViewConfig.scaleLength(config.day_spacing, multiplier / 2),
@@ -315,6 +330,9 @@ function renderWeekRow(
  * @param config Card configuration
  * @param language - Language code for translations
  * @param isToday Whether the date is today
+ * @param weatherForecasts Fetched forecasts, if any
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered date column
  */
 function renderDateColumn(
@@ -323,10 +341,11 @@ function renderDateColumn(
   language: string,
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
 
-  return Leaves.renderDateContent(date, config, language, isToday, weatherContent);
+  return Leaves.renderDateContent(date, config, language, isToday, weatherContent, hass);
 }
 
 /**
@@ -352,7 +371,7 @@ export function renderDay(
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
-  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp));
+  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass);
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -490,7 +509,7 @@ function renderEvent(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
@@ -517,14 +536,16 @@ function renderEvent(
               rowspan="${day.events.length}"
               style="position: relative;"
             >
-              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts)}
+              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
               ${Leaves.renderTodayIndicator(config, isToday)}
             </td>
           `
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+          presentation.accentTextProperties,
+        )}"
       >
         ${Leaves.renderEventContent(event, config, presentation.contentParts, {
           weatherForecasts,

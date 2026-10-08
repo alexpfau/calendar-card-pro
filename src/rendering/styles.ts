@@ -2,9 +2,30 @@
 
 import { css } from 'lit';
 
+import { ACCENT_TEXT_OPTIONS } from './accent-text';
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+// Imported by name rather than reached through ViewConfig so that the one declaration
+// interpolating them stays inside prettier's 100-column limit. The qualified form is
+// four characters too long, and prettier answers that by breaking the declaration
+// across two lines -- which changes the emitted text from `4px 8px` to `4px\n  8px`
+// and fails the stylesheet assertion that pins it. Do not "tidy" these back.
+import { GRID_AXIS_PADDING_END_PX, GRID_AXIS_PADDING_START_PX } from '../config/view';
+import * as EntityColors from '../utils/entity-colors';
+
+/**
+ * The grid disclosure ladder can reveal one, two, or three title lines as the block grows.
+ * `title_max_lines` is a count, not a CSS length, so capping the ladder in TypeScript keeps
+ * the user's configured ceiling without relying on unsupported CSS math in line-clamp.
+ *
+ * @param configured - User-configured maximum title lines, where 0 means unlimited
+ * @param ladderMaximum - Lines the grid block's current height can support
+ * @returns The safe line count for that rung, or `none` when titles are unlimited
+ */
+function gridTitleLineRung(configured: number, ladderMaximum: number): string {
+  return configured > 0 ? String(Math.min(configured, ladderMaximum)) : 'none';
+}
 
 /**
  * Generate CSS custom properties from card configuration.
@@ -32,6 +53,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
+    '--calendar-card-past-event-opacity': String(config.past_event_opacity / 100),
     '--calendar-card-spacing-additional': config.additional_card_spacing,
     '--calendar-card-height': config.height || 'auto',
     '--calendar-card-max-height': config.max_height,
@@ -44,22 +66,25 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.description_max_lines > 0 ? String(config.description_max_lines) : 'none',
     '--calendar-card-title-max-lines':
       config.title_max_lines > 0 ? String(config.title_max_lines) : 'none',
+    '--calendar-card-grid-title-lines-compact': gridTitleLineRung(config.title_max_lines, 1),
+    '--calendar-card-grid-title-lines-medium': gridTitleLineRung(config.title_max_lines, 2),
+    '--calendar-card-grid-title-lines-expanded': gridTitleLineRung(config.title_max_lines, 3),
     '--calendar-card-time-max-lines':
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
       config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
-    // Keep the title inline until clamped, so a glyph label can share its first
-    // line and the hanging indent on .summary applies. The row-height difference
-    // this once showed against the blockified form was the .summary strut, not a
-    // property of inline layout; .summary now carries a matching strut.
+    // An unlimited title keeps inline flow. A labeled summary reuses this value:
+    // it is a flex item, so `inline` blockifies the summary without blockifying its
+    // children. Only a positive limit needs the shared line's WebKit clamp.
     '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
     '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
-    // The date column is sized from the day number it holds. `day_font_size` is a CSS
-    // length, so scale it in the author's own unit: parsing it to a number would size an
-    // `em` font's column in `px` and reduce `calc(...)` to `NaN`.
-    '--calendar-card-date-column-width': ViewConfig.scaleLength(config.day_font_size, 1.75),
+    // The date column is sized from the day number it holds. `day_font_size` is a CSS font
+    // size, which need not be a length (`150%`, `large`), so it is rewritten as one before it
+    // is scaled, in the author's own unit where it has one. Parsing it to a number would size
+    // an `em` font's column in `px`, reduce `calc(...)` to `NaN`, and lose a keyword entirely.
+    '--calendar-card-date-column-width': ViewConfig.scaleFontSize(config.day_font_size, 1.75),
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
       config.event_icon_vertical_alignment === 'top'
@@ -106,8 +131,19 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
         ? String(config.weather?.event?.max_lines)
         : 'none',
     '--calendar-card-weather-event-condition-display':
-      (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-box' : 'inline',
+      (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-inline-box' : 'inline',
   };
+
+  // The sentinel is not a color, so writing it here would make every rule that substitutes
+  // one of these properties invalid at computed-value time — and those rules are read by
+  // more than events: an empty-day row and the grid's `+N` block draw from the same
+  // properties and belong to no calendar. The shipped default stands in at card level, and
+  // the event element writes the accent over it for its own subtree.
+  for (const [key, property] of ACCENT_TEXT_OPTIONS) {
+    if (EntityColors.isAccentTextSentinel(config[key])) {
+      props[property] = String(Config.DEFAULT_CONFIG[key]);
+    }
+  }
 
   // Emit optional properties only when the user set them, so placement-specific
   // stylesheet fallbacks remain distinguishable from explicit choices.
@@ -125,7 +161,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   // Weather event color has no default. If absent, both placements use their
   // stylesheet fallback, matching the existing per-event badge color.
-  if (config.weather?.event?.color) {
+  //
+  // 🚨 The sentinel is excluded here for the reason the loop above exists: it is not a
+  // color, so writing it would make every rule substituting this property invalid at
+  // computed-value time — and the badge in the day-header position reads a different
+  // property but a card can carry both. Absence IS this option's shipped default, so
+  // leaving it unwritten is the same substitution the five governed options get, and the
+  // stylesheet's own fallback stands. The event element then writes the accent over it for
+  // its own subtree.
+  if (
+    config.weather?.event?.color &&
+    !EntityColors.isAccentTextSentinel(config.weather.event.color)
+  ) {
     props['--calendar-card-weather-event-color'] = config.weather.event.color;
   }
 
@@ -153,6 +200,10 @@ export const cardStyles = css`
       calc(var(--calendar-card-spacing-additional) + 16px) 8px;
 
     background: var(--calendar-card-background-color, var(--card-background-color));
+    cursor: default;
+  }
+
+  ha-card.card-interactive {
     cursor: pointer;
   }
 
@@ -210,8 +261,13 @@ export const cardStyles = css`
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
 
+  /* No height of its own. It used to declare 1.5x the week-number font size, which is what the
+     pill below is tall, but the table's own font is the card's, so that height had to be
+     computed from the option's value -- and a percentage or a keyword is a valid font size and
+     no height at all. 150% made it 225% of the content's height, which the height option
+     sets: a 900px week row on a card set to 400px. The pill is this table's content, so the
+     row was never shorter than the declaration anyway. */
   .week-row-table {
-    height: calc(var(--calendar-card-week-number-font-size) * 1.5);
     width: 100%;
     table-layout: fixed;
     padding-left: 8px;
@@ -232,9 +288,13 @@ export const cardStyles = css`
     padding-right: 12px; /* Match date column padding */
   }
 
+  /* Sized in em because the pill carries the week-number font size itself, so em measures
+     that font whatever form the option takes. Multiplying the option's value instead broke on
+     every valid font size that is not a length: 150% drew the pill 171px wide across the
+     separator, and a keyword dropped the pill shape. */
   .week-number {
-    width: calc(var(--calendar-card-week-number-font-size) * 2.5);
-    height: calc(var(--calendar-card-week-number-font-size) * 1.5);
+    width: 2.5em;
+    height: 1.5em;
     display: inline-flex; /* Centering */
     align-items: center;
     justify-content: center;
@@ -251,7 +311,7 @@ export const cardStyles = css`
   /* iOS Safari needs a small optical vertical-alignment adjustment. */
   @supports (-webkit-touch-callout: none) {
     .week-number {
-      padding-top: calc(var(--calendar-card-week-number-font-size) * 0.1);
+      padding-top: 0.1em;
     }
   }
 
@@ -338,22 +398,27 @@ export const cardStyles = css`
     z-index: 1;
   }
 
+  /* line-height 1 rather than the font-size custom property read a second time: a unitless
+     line height is a multiple of the element's own font size, so it stays equal to it for any
+     font size. Read as a line height, 150% and 1.5em were 1.5x the font they had just set, and
+     a keyword was no line height at all, so the date's lines spread apart or fell back to the
+     inherited one. */
   .weekday {
     font-size: var(--calendar-card-font-size-weekday);
-    line-height: var(--calendar-card-font-size-weekday);
+    line-height: 1;
     color: var(--calendar-card-color-weekday);
   }
 
   .day {
     font-size: var(--calendar-card-font-size-day);
-    line-height: var(--calendar-card-font-size-day);
+    line-height: 1;
     font-weight: 500;
     color: var(--calendar-card-color-day);
   }
 
   .month {
     font-size: var(--calendar-card-font-size-month);
-    line-height: var(--calendar-card-font-size-month);
+    line-height: 1;
     text-transform: uppercase;
     color: var(--calendar-card-color-month);
   }
@@ -470,6 +535,59 @@ export const cardStyles = css`
     border-radius: 0;
   }
 
+  /* ===== The ink an accent-colored event writes its text in =====
+   *
+   * The raw accent is not a text color. macOS Calendar spends an event's color three ways
+   * and only one of them is undiluted: the stripe is the accent at full strength, the block
+   * is the accent at low opacity, and the text is a third color derived from both. Painting
+   * text in the accent itself measured 2.16:1 for a blue calendar and 2.32:1 for a coral one
+   * against their own blocks in the light theme, where normal text wants 4.5:1 -- and the
+   * failures invert in the dark theme, where a purple calendar read 1.89:1.
+   *
+   * Mixing toward --primary-text-color is what makes one declaration answer both themes. The
+   * token is near-black in a light theme and near-white in a dark one, so the same mix
+   * darkens the accent on one and lightens it on the other, with no media query and no
+   * second code path -- and no dependency on the operating system, which is the fault the
+   * badge block further down records light-dark() having.
+   *
+   * The renderer writes the accent to --calendar-card-accent-ink-source on the event element
+   * and points each governed text property at this one, so the three tiers below are the
+   * only place the mix is stated. accent-text.ts carries the other half of the reasoning,
+   * including why the progress bar is NOT painted from here.
+   *
+   * The weights are --badge-ink's, deliberately, and the tiers are the same three: an sRGB
+   * floor, an OKLCH mix that keeps the hue, and a relative-color tier that puts the chroma
+   * back. An event's title and the badge sitting inside it are two inks derived from one
+   * accent; deriving them by two different rules is a difference a user can see and cannot
+   * explain. */
+  .event {
+    --calendar-card-accent-ink: color-mix(
+      in srgb,
+      var(--calendar-card-accent-ink-source) 30%,
+      var(--primary-text-color)
+    );
+  }
+
+  @supports (color: color-mix(in oklch, red, blue)) {
+    .event {
+      --calendar-card-accent-ink: color-mix(
+        in oklch,
+        var(--calendar-card-accent-ink-source) 45%,
+        var(--primary-text-color)
+      );
+    }
+  }
+
+  @supports (color: oklch(from red l c h)) {
+    .event {
+      --calendar-card-accent-ink: oklch(
+        from
+          color-mix(in oklch, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
+          l calc(c * 2.2) h
+      );
+    }
+  }
+
   .event-first.event-last {
     border-start-start-radius: 0;
     border-start-end-radius: var(--calendar-card-event-border-radius);
@@ -488,7 +606,16 @@ export const cardStyles = css`
   }
 
   .past-event .event-content {
-    opacity: 0.6;
+    opacity: var(--calendar-card-past-event-opacity, 0.6);
+  }
+
+  /* The grid's all-day banner is title-only, so it emits no event-content for the rule
+     above to reach. It carried the past-event class from the day it was written and that
+     class selected nothing, which meant a finished holiday stayed bright beside a
+     finished meeting that dimmed, and dimmed in list and column but not here. Same
+     opacity, applied to what the banner does emit. */
+  .grid-banner.past-event .grid-banner-title {
+    opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
   .event-content {
@@ -506,10 +633,16 @@ export const cardStyles = css`
   /* The 12px trailing gutter belongs on .summary. Putting it on the inline
    * title makes the hidden overflow box wider than the painted text and can
    * trigger false ellipses. Real title limits come from the title clamp;
-   * overflow hidden remains only as a backstop for unbreakable content. */
+   * overflow hidden remains only as a backstop for unbreakable content.
+   *
+   * It is conditional because it exists to separate the title from whatever shares its
+   * row — the weather chip in title placement, and nothing else. When the title is alone
+   * the gutter separates it from the edge of its own box, which in a grid block reads as
+   * the text starting hard against the left inset and stopping 12px short on the right.
+   * Keyed on having a sibling rather than on the view: this is a property of the row's
+   * contents, and a view-scoped margin would tie a shared leaf's styling to one renderer. */
   .summary {
     flex: 1;
-    margin-right: 12px;
     overflow: hidden;
     overflow-wrap: break-word;
     /* The title is inline, so each line box is max(this block's strut, the
@@ -530,45 +663,238 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
     padding-block: 0.2em;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
   }
 
+  /* The gutter itself. Separated from the rule above so the box model stays in one place
+     and only the separation is conditional. */
+  .summary:not(:only-child) {
+    margin-right: 12px;
+  }
+
+  /* No font-size: the title inherits event_font_size from .summary, which every view draws
+     it inside, and font-size-nesting.test.ts fails if one does not. Declaring it here as
+     well applied a relative size twice, so 1.5em drew the title at 2.25x while the labels
+     beside it drew at 1.5x. */
   .event-title {
-    font-size: var(--calendar-card-font-size-event);
     font-weight: 500;
     line-height: 1.2;
     color: var(--calendar-card-color-event);
     padding-bottom: 2px;
-    /* The hanging indent below is set on .summary, and text-indent inherits.
-       That is harmless while this span is inline, but the moment
-       title_max_lines blockifies it the inherited value would indent the
-       title's own first line as well. Neutralise it here once. */
+    /* Keep the summary's hanging indent from creating another first-line
+       offset if a theme or scrolling mode makes this span a block. */
     text-indent: 0;
-    /* Per-field line clamping. The clamp lands on this element because it is
-       what directly contains the text, and -webkit-line-clamp only takes
-       effect on a display: -webkit-box element. Unlimited is expressed as the
-       string 'none', emitted by generateCustomPropertiesObject when the option
-       is 0 -- see the note on --calendar-card-title-display for why the
-       display value is a variable rather than a literal here. */
+    /* Unlabeled titles clamp here. A labeled summary keeps this span inline and
+       clamps their shared line below, so a label cannot force the title onto a
+       separate row. Unlimited is 'none'; the display variable preserves inline
+       flow when no clamp was requested. */
     display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;
   }
 
+  /* Clamp the shared line; blockifying only the title puts it below its labels. */
+  .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    display: var(--calendar-card-title-display);
+    -webkit-box-orient: vertical;
+  }
+
+  .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title {
+    display: inline;
+  }
+
+  /* Match the labels' middle alignment, including prose in a merged label run. */
+  .summary:has(> .label-icon) > .event-title,
+  .summary:has(> .label-image) > .event-title,
+  .summary:has(> .label-icon) > .calendar-label,
+  .summary:has(> .label-image) > .calendar-label {
+    vertical-align: middle;
+  }
+
   /* Hanging indent for glyph labels. Wrapped title lines align with the text
    * after the label without changing .summary into flex or grid, which would
    * blockify the title. Prose labels are excluded because their width can
    * consume most of a narrow column. Offsets match each glyph label box plus
-   * its 4px gap. */
+   * its 4px gap.
+   *
+   * In em, because .summary carries the event font size and the glyphs inherit
+   * it, so em is that size in whatever form the option takes. The offsets used
+   * to add 4px to the option's value itself, and 150% made that a share of the
+   * row's width: 749px of padding, and a title wrapped one letter to a line. */
   .summary:has(> .label-icon),
   .summary:has(> .label-image) {
-    text-indent: calc(-1 * (var(--calendar-card-font-size-event) + 4px));
-    padding-inline-start: calc(var(--calendar-card-font-size-event) + 4px);
+    text-indent: calc(-1 * (1em + 4px));
+    padding-inline-start: calc(1em + 4px);
   }
 
   .summary:has(> .label-emoji) {
-    text-indent: calc(-1 * (var(--calendar-card-font-size-event) * 1.25 + 4px));
-    padding-inline-start: calc(var(--calendar-card-font-size-event) * 1.25 + 4px);
+    text-indent: calc(-1 * (1.25em + 4px));
+    padding-inline-start: calc(1.25em + 4px);
+  }
+
+  /* scroll_long_titles -------------------------------------------------------
+   *
+   * Off by default, so none of these selectors match a normal card and the
+   * wrapping title above is untouched. When on, the leaf adds summary-scroll and
+   * title-scrollable and wraps the text in event-title-scroll.
+   *
+   * .summary becomes a flex row so a per-calendar label keeps its place while
+   * only the title scrolls. That is the one place .summary is allowed to be flex:
+   * the wrapping-mode traps that forbid it (the hanging indent, the -webkit-box
+   * clamp) do not apply on a single non-wrapping line, and title_max_lines is
+   * deliberately overridden here because you cannot scroll one line and clamp it
+   * to several at the same time.
+   *
+   * .event-title is the fixed-width clip viewport. .event-title-scroll is the
+   * full-width inner element. It stays inline so the parent's text-overflow
+   * ellipsis is the static fallback (reduced motion, or motion allowed but no
+   * overflow). The measurement step in calendar-card-pro.ts promotes it to
+   * inline-block and animates it only once it has confirmed the content offsetWidth exceeds
+   * clientWidth. */
+  .summary-scroll {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* Applied only after the full natural label run leaves a useful title prefix.
+     Longer runs retain their existing wrapping instead of squeezing the title out. */
+  .summary-scroll[data-scroll-labels] > :not(.event-title) {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* The label hanging indent above is for wrapped lines and does nothing useful on
+     a flex row; neutralize the padding it adds so the scrolling title keeps its
+     full width. Matched at the same specificity as the :has rules it overrides, and
+     placed after them, so it wins the cascade. */
+  .summary.summary-scroll:has(> .label-icon),
+  .summary.summary-scroll:has(> .label-image),
+  .summary.summary-scroll:has(> .label-emoji) {
+    text-indent: 0;
+    padding-inline-start: 0;
+  }
+
+  .summary-scroll > .event-title.title-scrollable {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Center the text rather than its bottom-padded viewport, beside every label kind.
+     A flex row centers boxes, so the title's 2px of bottom padding sat its glyphs 1px
+     above a prose or emoji label's. Icons and pictures were reset here already; prose,
+     emoji and merged runs carrying neither were not, which is the misalignment this
+     widens to cover. An unlabeled title keeps its padding: nothing sits beside it to
+     align to, and its row height should not move. */
+  .summary-scroll:has(> :not(.event-title)) > .event-title {
+    padding-bottom: 0;
+  }
+
+  .event-title.title-scrollable .event-title-scroll {
+    display: inline;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .event-title.title-scrollable.title-overflowing {
+      text-overflow: clip;
+    }
+
+    .event-title.title-scrollable.title-overflowing .event-title-scroll {
+      display: inline-block;
+      animation: calendar-card-title-scroll var(--calendar-card-title-scroll-duration, 8s) linear
+        infinite;
+      will-change: transform;
+    }
+
+    /* Pending arrivals and changed titles show their beginning until a safe boundary.
+       The data attribute is only installed when all native enhancement facilities exist. */
+    .event-title.title-scrollable[data-title-motion='pending'] {
+      text-overflow: ellipsis;
+    }
+
+    .event-title.title-scrollable[data-title-motion='pending'] .event-title-scroll {
+      display: inline;
+      animation: none;
+      transform: none;
+      will-change: auto;
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='a'] .event-title-scroll,
+    .event-title.title-scrollable.title-overflowing[data-title-motion='b'] .event-title-scroll {
+      animation-duration: var(--calendar-card-title-cohort-period);
+      animation-timing-function: var(--calendar-card-title-cohort-curve);
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='a'] .event-title-scroll {
+      animation-name: calendar-card-title-cohort-a;
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='b'] .event-title-scroll {
+      animation-name: calendar-card-title-cohort-b;
+    }
+  }
+
+  /* Legacy fallback: keep the original independent snap and its original duration on
+     engines without linear() or native clock alignment. Its 15%-85% travel fraction
+     still matches TRAVEL_FRACTION; enhanced timings must never reach these keyframes. */
+  @keyframes calendar-card-title-scroll {
+    0%,
+    15% {
+      transform: translateX(0);
+    }
+    85%,
+    100% {
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
+    }
+  }
+
+  /* One interpolation interval is required: the whole-timeline linear() curve supplies
+     start dwell, forward travel, end dwell, quick return, and surplus beginning wait.
+     Two fixed names let a committed cohort acquire fresh, explicitly aligned clocks. */
+  @keyframes calendar-card-title-cohort-a {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
+    }
+  }
+
+  @keyframes calendar-card-title-cohort-b {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
+    }
+  }
+
+  /* A card scrolled off a 24/7 wall panel should not keep animating. The
+     measurement step toggles this host class from an IntersectionObserver. */
+  :host(.calendar-card-title-scroll-paused)
+    .event-title.title-scrollable.title-overflowing
+    .event-title-scroll {
+    animation-play-state: paused;
   }
 
   .calendar-label {
@@ -576,14 +902,20 @@ export const cardStyles = css`
     margin-right: 4px;
   }
 
+  /* The glyph labels are sized in em for the reason the hanging indent above is: they
+     inherit the event font size from .summary, in whatever form it was written. Handed
+     the option's value directly, a keyword or a space before the unit reached
+     ha-svg-icon as a width it cannot use, leaving the icon at its SVG's 300px and an image
+     at its natural size, while 1.5em was applied a second time: a 31.5px icon where text
+     labels were drawn at 21px. */
   .label-icon {
-    --mdc-icon-size: var(--calendar-card-font-size-event);
+    --mdc-icon-size: 1em;
     vertical-align: middle;
     margin-right: 4px;
   }
 
   .label-image {
-    height: var(--calendar-card-font-size-event);
+    height: 1em;
     width: auto;
     vertical-align: middle;
     margin-right: 4px;
@@ -603,7 +935,7 @@ export const cardStyles = css`
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
 
-  /* Summary-row weather placement. These unscoped rules are the list-view
+  /* Summary-row weather placement. These rules are the list-view
    * counterpart to the more specific time-location placement below. Both
    * placements use the same secondary-text fallback so event weather color
    * stays consistent unless the user overrides it.
@@ -615,15 +947,18 @@ export const cardStyles = css`
    * row is unchanged and no text moves relative to its neighbors - but the
    * glyphs sit 1px lower than they did in v3.6.0.
    *
-   * This is safe to leave unscoped even though the row placement below also
-   * matches it: that placement declares the same font-size on the container
-   * at .time-location .event-weather, so the wrapper already computed this
-   * value by inheritance and the explicit declaration changes nothing there.
-   * Column view is unaffected for a second, independent reason - it always
-   * passes weatherPlacement: 'row', which leaves the title forecasts
-   * undefined, so it never emits this badge at all. */
+   * That font-size is scoped to the summary row, and the scope is load-bearing. The row
+   * placement below sets the same size on its container, .time-location .event-weather,
+   * and the wrapper inherits it there. Declaring it on the wrapper as well applied a
+   * relative weather.event.font_size twice in column and grid view: 150% drew the weather
+   * text at 2.25x. The scope sits in :where() so the selector keeps the specificity it had
+   * unscoped, and a theme rule written against the old selector still wins. Color does not
+   * compound, so its rule stays unscoped. */
   .event-weather .event-weather-text {
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  :where(.summary-row) > .event-weather > .event-weather-text {
     font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 
@@ -681,7 +1016,7 @@ export const cardStyles = css`
     align-items: var(--calendar-card-event-icon-vertical-alignment);
   }
 
-  /* A badge row centres regardless of what event_icon_vertical_alignment says, and is
+  /* A badge row centers regardless of what event_icon_vertical_alignment says, and is
      allowed to shrink below its content.
 
      align-items: that option exists to decide where an icon sits against text that may wrap
@@ -690,7 +1025,7 @@ export const cardStyles = css`
      pill and the clock are different heights, and at that point top-alignment is simply the
      wrong answer: the pill is sized from the font and the icon from time_icon_size, so
      raising time_font_size makes the pill the taller of the two and flex-start hangs the
-     icon off its top edge. At equal heights centre and flex-start are identical, so this
+     icon off its top edge. At equal heights center and flex-start are identical, so this
      changes nothing at the default and only helps once the two diverge.
 
      min-width: this is what makes the pill's own ellipsis reachable, and without it that
@@ -772,11 +1107,15 @@ export const cardStyles = css`
   }
 
   /* Auto start margin right-aligns a countdown that wraps onto its own flex
-   * line; on the first line it behaves like the existing space-between gap. */
+   * line; on the first line it behaves like the existing space-between gap.
+   *
+   * No font-size: every placement draws the countdown inside .time, which carries
+   * time_font_size, and font-size-nesting.test.ts fails if one does not. Declaring it here
+   * as well applied a relative size twice, so 1.5em drew the countdown at 2.25x beside a
+   * time at 1.5x. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
-    font-size: var(--calendar-card-font-size-time);
     margin-inline-start: auto;
     margin-inline-end: 12px;
     white-space: nowrap;
@@ -808,22 +1147,22 @@ export const cardStyles = css`
    * defaults the rule had already overridden -- a broken pill is not a pill, and the wrapped
    * version put the second line outside the shape entirely.
    *
-   * ===== Why the colours are derived, and why the ring carries the weight =====
+   * ===== Why the colors are derived, and why the ring carries the weight =====
    *
-   * All three colours come from one input, the calendar accent, resolved by the BROWSER at
+   * All three colors come from one input, the calendar accent, resolved by the BROWSER at
    * paint time. That matters because an accent may be a theme token such as
    * var(--primary-color), which JavaScript cannot decompose into channels -- see the comment
    * on computeRGBA in utils/helpers.ts, which records the shipped bug where this card tried
    * exactly that and silently fell back to a hardcoded blue. So no lookup table from accent
-   * to text colour can be built here, and none is needed: color-mix resolves the token.
+   * to text color can be built here, and none is needed: color-mix resolves the token.
    *
-   * The ink mixes the accent INTO the primary text colour rather than replacing it, and the
+   * The ink mixes the accent INTO the primary text color rather than replacing it, and the
    * wash mixes it into the card background, so both invert with the theme on their own -- no
    * light-dark(), no media query.
    *
    * The ring carries visibility; the fill does not. That is the opposite of the obvious
    * arrangement and was measured, not guessed. A saturated fill is loud for what is secondary
-   * information, and it wrecks legibility: at 70% the muted time colour measured 3.24:1 on the
+   * information, and it wrecks legibility: at 70% the muted time color measured 3.24:1 on the
    * default blue and 2.12:1 on pink, both failing WCAG AA. But a pale fill alone dissolves
    * once event_background_opacity tints the row in the same accent, which is the failure the
    * 70% attempt was made to fix. A 1px boundary resolves it, because a crisp edge survives a
@@ -857,7 +1196,7 @@ export const cardStyles = css`
       var(--calendar-card-background-color, var(--card-background-color))
     );
     /* The source used RAW, by the two treatments that show it undiluted. It exists so those
-       two stop naming --calendar-card-event-accent directly: with all three colours behind
+       two stop naming --calendar-card-event-accent directly: with all three colors behind
        tokens, allday_badge_color switches the source by redefining three properties in one
        place, and no shape rule has to know a source exists. */
     --badge-solid: var(--calendar-card-event-accent);
@@ -907,21 +1246,21 @@ export const cardStyles = css`
   }
 
   /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
-     that treatment draws it -- the same colour, from the same token, so "matching" is a
+     that treatment draws it -- the same color, from the same token, so "matching" is a
      fact rather than a description. So the four are orthogonal: subtle is the wash, outline
      is the ring, tinted is both, filled is the solid.
      It was not true until 4.2. The ring was 40% of the ink, which is the sweep's answer
      recorded in the base rule, and the reasoning was that a ring on a wash would otherwise
-     read as a second colour. Sound for a chromatic accent, and false for a neutral one:
-     weakening a colour preserves its hue, so 40% blue still reads as blue, softer -- but
-     black has no hue to preserve, so 40% black reads as GREY, which is a different colour
+     read as a second color. Sound for a chromatic accent, and false for a neutral one:
+     weakening a color preserves its hue, so 40% blue still reads as blue, softer -- but
+     black has no hue to preserve, so 40% black reads as GRAY, which is a different color
      rather than a quieter one. Measured on canvas pixels over a white card, the ring's
      distance from its own ink was 227 for a black title against 146-165 for every chromatic
-     source, and the black pill read as a grey ring that had wandered in around black text.
+     source, and the black pill read as a gray ring that had wandered in around black text.
      Reported against a live card, at allday_badge_color: text.
      Special-casing the text source was the obvious repair and is the wrong one: it would
      reintroduce exactly the "one treatment is the exception" shape that splitting shape from
-     colour had just removed. A ring that always matches its ink has no exception in it.
+     color had just removed. A ring that always matches its ink has no exception in it.
      This rule also used to not exist -- the base declared these three and tinted was
      whatever you got by naming no other treatment. That worked and was still wrong: the
      class in the DOM matched nothing, the treatment could not be reconciled against the
@@ -930,7 +1269,7 @@ export const cardStyles = css`
     color: var(--badge-ink);
     background-color: var(--badge-wash);
     /* 🚨 --badge-solid, NOT currentColor. Outline's ring is written as currentColor and that
-       is correct there, because outline sets its own colour to --badge-solid -- so the two
+       is correct there, because outline sets its own color to --badge-solid -- so the two
        rules would read as identical rings and paint DIFFERENT ones, the only difference
        being which token each rule's own color declaration happens to name. Measured: the bar beside the
        event and outline's ring both draw #03a9f4, while tinted's currentColor ring drew
@@ -942,7 +1281,7 @@ export const cardStyles = css`
        failing WCAG AA, against 6.11 / 6.66 / 5.77 for the mixed ink. So the two halves of
        this rule answer to different constraints and cannot share a token.
        The text source is unaffected: there --badge-solid and --badge-ink are both the row's
-       own colour, so the ring stays exactly the ink, which is what the black pill needs. */
+       own color, so the ring stays exactly the ink, which is what the black pill needs. */
     box-shadow: inset 0 0 0 1px var(--badge-solid);
   }
 
@@ -956,8 +1295,8 @@ export const cardStyles = css`
     /* 1.05em of line box plus 0.32em of padding is 1.37em of the badge's own font, which at
        the 0.85em it is set to comes back to 1.165em of the time font -- 14px at the 12px
        default, so the shipped look is unchanged, and it grows with the option.
-       The padding is asymmetric because the INK is not centred in the line box. A line box
-       centres the font's em square, and the em square reserves descender depth that an
+       The padding is asymmetric because the INK is not centered in the line box. A line box
+       centers the font's em square, and the em square reserves descender depth that an
        uppercase label never uses, so the caps sit high with dead space under them. The shift
        is (padding-top - padding-bottom) / 2.
        0.033em is a MEASURED font constant, not a guess. Fourteen sizes from 12px to 48px
@@ -1009,7 +1348,7 @@ export const cardStyles = css`
     /* Taller than the badge, and symmetric where the badge is not. Both differences come
        from the same fact: this pill wraps the user's own words rather than one uppercase
        label, so its content is mixed case WITH descenders and, very often, an emoji.
-       Symmetric because mixed-case text is centred on the em square by definition -- the
+       Symmetric because mixed-case text is centered on the em square by definition -- the
        badge's correction exists only because uppercase leaves the descender depth empty, and
        applying it here would push real descenders toward the lower edge.
        Taller because an emoji is drawn to a larger box than a Latin glyph and overflows a
@@ -1018,7 +1357,7 @@ export const cardStyles = css`
        -- about a sixth more, which is the smallest increase that cleared the emoji at every
        size measured. */
     /* A little smaller than the title it wraps, which is the other half of not shouting --
-       the pill already carries the accent colour and a border. 0.95 rather than the badge's
+       the pill already carries the accent color and a border. 0.95 rather than the badge's
        0.85 because this holds the user's own prose while the badge holds one short uppercase
        label, so it has to stay comfortably readable.
        Relative, never absolute: every other number in this rule is em of the pill's OWN font,
@@ -1034,7 +1373,7 @@ export const cardStyles = css`
     padding-block: 0.21em;
     padding-inline: 0.55em;
     /* One step lighter than the title it sits in, because the pill is already carrying the
-       calendar's colour and a border -- at the title's own 500 it read as shouting.
+       calendar's color and a border -- at the title's own 500 it read as shouting.
        400 and not 450: Home Assistant ships Roboto as STATIC faces (100/300/400/500/700/900),
        not as a variable font, so the whole 425-500 range resolves to 500 under the CSS
        font-matching rule that a target between 400 and 500 searches upward first. Measured
@@ -1043,7 +1382,7 @@ export const cardStyles = css`
        deliberate, which is worse than 500. If HA ever ships a variable Roboto, 450 becomes
        reachable and is the nicer value -- re-measure before assuming it is. */
     font-weight: 400;
-    /* Sit on the text's own centre line, and give back the height the capsule borrowed.
+    /* Sit on the text's own center line, and give back the height the capsule borrowed.
        Both lines exist because an inline-block with overflow: hidden takes its baseline from
        its BOTTOM MARGIN EDGE rather than from the text inside it -- a rule that exists so a
        scrollable box does not hang its last line into the paragraph below, and that here made
@@ -1051,7 +1390,7 @@ export const cardStyles = css`
        overhang: measured 22.39px without the pill against 31.50px with it, and the gap from
        the title's text down to the time row went from 5.59px to 11.77px, which is the
        double-spaced look reported against a live card.
-       vertical-align: middle re-centres the pill on the text rather than hanging it, which
+       vertical-align: middle re-centers the pill on the text rather than hanging it, which
        recovers most of it (gap 7.97px). The rest is that the capsule is genuinely taller than
        a line of text, and a negative block margin hands that difference back to the line box
        without moving what is painted -- for an atomic inline the line box measures the MARGIN
@@ -1077,15 +1416,15 @@ export const cardStyles = css`
     margin-block: -0.17em;
   }
 
-  /* Centre the CAPS rather than the em square, where the browser can.
+  /* Center the CAPS rather than the em square, where the browser can.
      The measured correction above removes the average error but not the per-size scatter,
      because that comes from baseline snapping rather than from the padding. text-box-trim
      removes the cause instead of compensating for it: it trims the line box to the cap
-     height and the alphabetic baseline, so what symmetric padding then centres IS the ink.
+     height and the alphabetic baseline, so what symmetric padding then centers IS the ink.
      Exact at every size, and in any font, without this stylesheet knowing that font's
      metrics.
      Only the time badge takes it. The title pill's content is mixed case with descenders and
-     emoji, where the em square is the right thing to centre and cap-to-baseline is not.
+     emoji, where the em square is the right thing to center and cap-to-baseline is not.
      0.3295em keeps the height at the 1.37em the fallback draws: trimming leaves the cap
      height, which is near enough 0.711em in the fonts Home Assistant ships, and
      (1.37 - 0.711) / 2 is 0.3295. A font with different metrics gets a pill sized to its own
@@ -1108,11 +1447,11 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
-  /* Boundary with no wash, in the calendar's colour exactly as configured.
+  /* Boundary with no wash, in the calendar's color exactly as configured.
    *
    * The mirror image of tinted, one step further: that one draws the same ring over a wash
    * and mixes its LABEL for legibility, this one leaves the ground alone and leaves the
-   * label raw too. So both halves here are the colour the user configured, exactly.
+   * label raw too. So both halves here are the color the user configured, exactly.
    *
    * 🚨 That is a deliberate, maintainer-level decision and NOT an oversight, which is worth
    * saying because it is measurable and it measures badly. Raw accent as text on the card
@@ -1122,8 +1461,8 @@ export const cardStyles = css`
    * avoid.
    *
    * It is kept because outline promises WYSIWYG: a frame with text inside it, both in the
-   * colour that was asked for. The card now offers four shapes, three colour sources and a
-   * free-form colour, so a user who cannot read this combination on their background has
+   * color that was asked for. The card now offers four shapes, three color sources and a
+   * free-form color, so a user who cannot read this combination on their background has
    * many ways to change it -- and every one of them is a choice they can see the result of,
    * where a silent legibility mix is a choice made for them that makes the option not do
    * what it says. Configurability is the answer here rather than correction.
@@ -1131,7 +1470,7 @@ export const cardStyles = css`
    * The ring follows the same logic and needs no argument of its own: the vertical bar
    * beside every event is already the raw accent, and filled already paints it as its ground.
    *
-   * Setting colour rather than --badge-ink is also what keeps the chroma block below from
+   * Setting color rather than --badge-ink is also what keeps the chroma block below from
    * reaching it: there is nothing here to correct. */
   .allday-pill-outline {
     color: var(--badge-solid);
@@ -1139,7 +1478,7 @@ export const cardStyles = css`
     box-shadow: inset 0 0 0 1px currentColor;
   }
 
-  /* The loud one, for people who want the calendar colour to read as a solid chip.
+  /* The loud one, for people who want the calendar color to read as a solid chip.
 
      Text is the CARD BACKGROUND rather than a derivation of the accent, because on a
      saturated ground the only reliably legible ink is the page's own extreme -- near-white
@@ -1162,13 +1501,13 @@ export const cardStyles = css`
 
   /* ===== Progressive enhancement: keep the accent's chroma =====
    *
-   * Everything above mixes in sRGB, and mixing a saturated colour toward white or black
+   * Everything above mixes in sRGB, and mixing a saturated color toward white or black
    * necessarily desaturates it. On a dark theme --badge-ink is 30% accent into a near-white
-   * text colour, so a vivid pink arrives as blush rose -- legible, but visibly a different
-   * colour from the accent it is meant to name, which is what the maintainer reported seeing.
+   * text color, so a vivid pink arrives as blush rose -- legible, but visibly a different
+   * color from the accent it is meant to name, which is what the maintainer reported seeing.
    *
    * OKLCH interpolation keeps chroma across the mix instead of cutting through the middle of
-   * the sRGB cube, so the same 30/70 split arrives recognisably as this calendar's colour.
+   * the sRGB cube, so the same 30/70 split arrives recognizably as this calendar's color.
    * Because color-mix resolves at paint time this still works when the accent is a theme
    * token JavaScript could never read, and the accent weight is raised now that the mix no
    * longer costs saturation.
@@ -1187,14 +1526,14 @@ export const cardStyles = css`
    * so every published image resolved the branch the OS was never going to pick.
    *
    * Mixing into --primary-text-color and into the card background fixes it at the root
-   * rather than correcting for it: those are the THEME's own colours, so they already invert
+   * rather than correcting for it: those are the THEME's own colors, so they already invert
    * when the theme does, whatever the OS is doing. The wash can no longer collide with the
    * card either, since it is defined relative to the card instead of at an absolute
    * lightness -- which retires the 0.26-to-0.38 tuning that collision previously forced.
    *
    * Gated on OKLCH interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
    * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
-   * rule below still needs relative colour syntax and keeps its own, higher gate. */
+   * rule below still needs relative color syntax and keeps its own, higher gate. */
   @supports (color: color-mix(in oklch, red, blue)) {
     .allday-badge,
     .allday-title-pill {
@@ -1213,15 +1552,15 @@ export const cardStyles = css`
 
   /* Second tier: put the chroma back that the mix above had to spend on lightness.
    *
-   * color-mix couples the two axes -- 45% of the way to a near-white text colour is also 45%
-   * of the accent's chroma -- which is the very desaturation the sRGB rule was criticised
+   * color-mix couples the two axes -- 45% of the way to a near-white text color is also 45%
+   * of the accent's chroma -- which is the very desaturation the sRGB rule was criticized
    * for, merely less of it. Measured on #e67c73 the mix lands at c 0.060 against the 0.12
    * the light-dark() version aimed at, so on its own it is a fix for the theme fault that
    * reintroduces the pastel one.
    *
-   * Relative colour syntax accepts any colour as its origin, including a color-mix(), so the
+   * Relative color syntax accepts any color as its origin, including a color-mix(), so the
    * two compose: take the LIGHTNESS from the mix, which is theme-correct because it was
-   * mixed into a theme colour, and multiply the chroma back up to roughly the accent's own.
+   * mixed into a theme color, and multiply the chroma back up to roughly the accent's own.
    * That recovers what light-dark() was for -- lightness and chroma set independently --
    * without asking the browser a question about the operating system.
    *
@@ -1263,12 +1602,12 @@ export const cardStyles = css`
   /* filled gains what no mix can give it. clamp(0, calc((l - 0.55) * -1000), 1) is a step
    * function on the SOURCE's OWN lightness -- above 0.55 it floors to 0 and the ink is
    * black, below it ceils to 1 and the ink is white -- with chroma 0 so the result is a true
-   * neutral. That is the per-colour decision the sRGB rule can only approximate, and it is
+   * neutral. That is the per-color decision the sRGB rule can only approximate, and it is
    * the whole reason no lookup table is needed: the browser makes it, per event, for free.
    * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
-   * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
+   * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
   @supports (color: oklch(from red l c h)) {
     .allday-pill-filled {
@@ -1277,9 +1616,9 @@ export const cardStyles = css`
     }
   }
 
-  /* ===== The second axis: which colour feeds all of the above =====
+  /* ===== The second axis: which color feeds all of the above =====
    *
-   * allday_badge_style names a SHAPE and allday_badge_color names the colour that shape
+   * allday_badge_style names a SHAPE and allday_badge_color names the color that shape
    * is drawn in, so four treatments cover both sources rather than one of them owning a
    * treatment of its own. Until 4.2 the accent-free look was a sixth class called neutral,
    * which meant exactly one shape could be had without an accent -- and which shape that was
@@ -1287,27 +1626,27 @@ export const cardStyles = css`
    * room for one.
    *
    * Two of the three sources need nothing here at all. accent is the default the base rule
-   * already describes, and a CUSTOM COLOUR arrives as the pill's own
-   * --calendar-card-event-accent, because a colour the whole card shares is just the accent
+   * already describes, and a CUSTOM COLOR arrives as the pill's own
+   * --calendar-card-event-accent, because a color the whole card shares is just the accent
    * overridden -- so every rule above works on it untouched, chroma recovery included.
    *
-   * text is the one that cannot be expressed as a colour before the render, because it is
-   * whatever the pill is nested in: the time colour on the time row, the title colour on the
+   * text is the one that cannot be expressed as a color before the render, because it is
+   * whatever the pill is nested in: the time color on the time row, the title color on the
    * title. The renderer publishes that as --badge-source and this block points the three
    * tokens at it.
    *
    * 🚨 --badge-source is a published token and NOT currentColor, and the difference is
-   * filled. currentColor resolves against the element's own computed colour -- which is
+   * filled. currentColor resolves against the element's own computed color -- which is
    * the thing the treatments SET. subtle, tinted and outline get away with it because each
    * sets color to the inherited value anyway, so reading it back is identity. filled
    * deliberately sets a CONTRASTING ink, so its own ground would resolve to its own ink: a
-   * pill filled with the colour of its letters. There is no ordering fix, because
+   * pill filled with the color of its letters. There is no ordering fix, because
    * currentColor always names the final computed value regardless of declaration order.
    *
    * The ink is the source EXACTLY, where the accent path mixes 45% into --primary-text-color.
    * That mix is a legibility step -- a raw accent measured 3.24:1 on the default blue and
-   * 2.12:1 on pink -- and its job is to make a named colour readable against the card. For
-   * the colour the row is ALREADY painted in, that operation is identity: it is legible here
+   * 2.12:1 on pink -- and its job is to make a named color readable against the card. For
+   * the color the row is ALREADY painted in, that operation is identity: it is legible here
    * by construction, since it is the text the user is reading. Running it through the mix
    * anyway would land the label 45% of the way toward the primary text and draw the pill
    * darker than the time beside it, which is the one quality this source exists for.
@@ -1319,7 +1658,7 @@ export const cardStyles = css`
    * is given up by not being a mix, because there is no accent here whose chroma a mix could
    * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
    * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
-   * the two sources carry the same quantity of wash and differ only in whose colour it is.
+   * the two sources carry the same quantity of wash and differ only in whose color it is.
    *
    * The selector is compound rather than a bare class, and both blocks above are the reason.
    * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
@@ -1342,7 +1681,9 @@ export const cardStyles = css`
    * line-height is relative: leaving the row at the inherited event font size
    * builds a strut from 14px while the chips render at 12px, so the text's
    * baseline sits ~2px below the icon under flex-start and the row reads as
-   * misaligned next to .time and .description, which both size their own row. */
+   * misaligned next to .time and .description, which both size their own row.
+   * The text inherits the size from here, and only from here: the summary row's
+   * rule that sizes it is scoped so it cannot apply a relative size twice. */
   .time-location .event-weather {
     display: flex;
     flex-wrap: nowrap;
@@ -1477,11 +1818,17 @@ export const cardStyles = css`
      class, so source order is what lets the modifier win. Unscoped on purpose -- this is
      a placement, not a view. Flush left aligns it with the title above rather than the
      time below. THE ROW WIDTH is the 80%, a percentage because the row is as wide as the
-     column; ruled by the maintainer after seeing 75% live. */
+     column; ruled by the maintainer after seeing 75% live.
+
+     It carries the time font size because the inline bar inherits it from .time, and the
+     shipped height, 0.75em, has to mean three quarters of the time text in both
+     placements. The default used to multiply time_font_size itself, which no keyword or
+     percentage survives: the bar drew 0px tall for large or 150%. */
   .progress-bar-row {
     width: var(--calendar-card-progress-bar-width, 80%);
     margin-inline-start: 0;
     margin-top: 2px;
+    font-size: var(--calendar-card-font-size-time);
   }
 
   .progress-bar-filled {
@@ -1767,5 +2114,1056 @@ export const cardStyles = css`
     align-self: stretch;
     justify-self: start;
     pointer-events: none;
+  }
+
+  /* ===== GRID VIEW STYLES ===== */
+
+  /* Same 16px inset as column view, and for the same reason: the axis gutter is the
+     first track, so the card must supply the whole horizontal inset itself or the
+     hour labels sit inboard of the title.
+
+     Named rather than written twice, because the band rules below have to cancel it
+     exactly. A literal repeated in three rules is a literal that drifts in two of them. */
+  .calendar-card-pro.grid-view {
+    --calendar-card-grid-inset: 16px;
+    padding-inline: var(--calendar-card-grid-inset);
+  }
+
+  .calendar-card-pro.grid-view .card-header {
+    margin-inline-start: 0;
+  }
+
+  /* One grid for the whole view. The four rows -- week numbers, day headers, the
+     all-day band, the time body -- all resolve against this single column template,
+     which is what keeps the axis measuring the columns it is drawn beside. Laying the
+     rows out independently is the classic way for an axis to end up a few pixels out.
+
+     The body row takes its height from a custom property rather than from content,
+     because a time axis has a height whether or not anything is scheduled. Under a
+     fixed content height the property is overridden with a share of the content area
+     instead, and nothing needs recomputing: every block inside is positioned as a
+     percentage.
+
+     The all-day row is a custom property for the opposite reason. Its default of auto
+     sizes it to its banners, which is what an unconstrained card wants -- but an auto
+     track also takes min-content as its minimum, so it cannot give height back once
+     the content area is too short for both. Under a fixed height the renderer overrides it
+     with minmax(0, auto), which sizes the same way and is allowed to shrink. */
+  .grid-container {
+    display: grid;
+    grid-template-rows:
+      auto auto var(--calendar-card-grid-allday-height, auto)
+      var(--calendar-card-grid-body-height, 720px);
+    width: 100%;
+    /* Out to the card's edges and back in again, which nets to no change in where a
+       track starts: width is 100% of the padded card, the padding restores the inset,
+       and the border box lands exactly on the card's own edges.
+
+       It was introduced so the band rules could reach the card's edges and they no longer
+       do — they stop at the day tracks, where the hour rules stop. What it still buys is
+       the cramp fallback: overflow-x: auto scrolls this element, so the inset has to be
+       inside the scrollable area or a cramped grid scrolls within a 16px frame instead of
+       edge to edge. Canceling the inset against the card rather than against this
+       element's own padding is what would put it outside, which is 16px of phantom scroll
+       nobody asked for.
+
+       🚨 That is measured rather than reasoned, and the falsifier is cheap: deploy, open a
+       card with more day columns than fit at min_days_fallback: cramp, narrow the window
+       to a phone width, and read this element's clientWidth and its box against the card's.
+       With the pair it spans the card; with both declarations zeroed it is inset 16px at
+       each end and the scrolling strip is 32px narrower, while the columns and every track
+       position stay exactly where they were. A run in which the two arms agree has not
+       cramped -- check the scroll overflow is non-zero before believing either. */
+    margin-inline: calc(-1 * var(--calendar-card-grid-inset));
+    padding-inline: var(--calendar-card-grid-inset);
+    --calendar-card-grid-event-gap: 1px;
+    /* --calendar-card-grid-rule-width is NOT declared here. It is hour_line_width, and
+       the renderer writes it on this element, because three declarations a long way apart
+       have to agree on it: the gradients below paint the rule, .grid-boundary-body-end
+       closes the body with one, and a block's clearance above has to clear one. A default
+       here as well would be a fourth opinion and a literal duplicated in a file the
+       renderer cannot see.
+
+       It is deliberately NOT day_separator_width, which is the vertical rule between two
+       days -- somebody widening those is asking for heavier day boundaries, not for
+       twenty-four heavier hour lines. That is the whole reason the two are separate keys. */
+  }
+
+  /* ----- Time axis ----- */
+
+  .grid-axis {
+    position: relative;
+    box-sizing: border-box;
+    /* Interpolated, not written out, because the width fitter subtracts exactly this
+       padding before scaling its axis reservation by time_font_size and adds it back
+       after -- padding is fixed where the labels are not. A literal here would be a
+       second copy of a number that arithmetic elsewhere depends on matching, and the
+       drift would show up as mis-fitted day columns rather than as a visible defect. */
+    padding-inline: ${GRID_AXIS_PADDING_START_PX}px ${GRID_AXIS_PADDING_END_PX}px;
+    /* Labels are clamped to their half-line inset below. This is still needed when a
+       user makes the content area shorter than one line: the axis owns the clipping
+       instead of extending the calendar beyond its configured height. */
+    overflow: hidden;
+  }
+
+  .grid-axis-sizer {
+    visibility: hidden;
+    pointer-events: none;
+    /* Size only the width. Stacking invisible labels otherwise adds scrollable overflow
+       below a compressed time body even though the visible labels all fit inside it. */
+    height: 0;
+    overflow: hidden;
+  }
+
+  .grid-axis-sizer span {
+    display: block;
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* The renderer clamps top between half-line insets, so this centers on its rule while
+     it fits and remains inside a compressed axis. Right-aligned against the gutter's
+     inner edge, which is where the eye looks for a scale. */
+  .grid-axis-label {
+    position: absolute;
+    top: clamp(0px, calc(var(--calendar-card-grid-axis-label-top) - 0.5em), calc(100% - 1em));
+    inset-inline-end: 8px;
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
+  /* Two repeating gradients rather than an element per slot: a week at a 15-minute
+     resolution would otherwise cost several hundred empty divs. Each pattern starts at
+     the next clock boundary rather than at the configured band edge, so a 06:30 band
+     still rules whole hours at 07:00, 08:00 and onward.
+
+     🚨 No opacity here, and its absence is load-bearing. These lines and the vertical day
+     rules are one system in the reader's eye, so they have to carry the same ink, and an
+     element opacity dims only one of the two. They carry the same ink at the shipped
+     defaults, and each family now has its own option to say so: hour_line_color arrives
+     here as --calendar-card-grid-rule-color, day_separator_color paints the verticals, and
+     both ship var(--divider-color) at half strength. Dimming belongs in those defaults,
+     where a user who supplies a color still gets exactly what they asked for -- an
+     opacity here would halve theirs too, and it would halve only one of the two families.
+
+     Before the split, the verticals and the horizontals were literally the same option,
+     which guaranteed agreement and made disagreement impossible to ask for. Now agreement
+     is a default rather than a mechanism: a user can rule the paper one gray and box the
+     days in another, which is the point.
+
+     The two patterns coincide exactly at the shipped slot_minutes: 60, and painting one
+     pattern twice is NOT a no-op, because translucent ink composites. That is why the
+     renderer sends --calendar-card-grid-slot-color as transparent whenever the slot is the
+     hour; see renderRules for the measurement. Below the hour it sends the real color and
+     the overlap is kept, so a rule that is both a slot boundary and an hour boundary reads
+     heavier than one that is only a slot boundary. */
+  .grid-rules {
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        var(--calendar-card-grid-slot-color) var(--calendar-card-grid-slot-offset)
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width)),
+        transparent
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width))
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-slot-pct))
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        var(--calendar-card-grid-rule-color) var(--calendar-card-grid-hour-offset)
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width)),
+        transparent
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
+      );
+    /* The topmost line of the body belongs to the band's lower frame rule, and this is
+       what stops the gradient drawing it a second time. A band opening on the hour puts a
+       gradient rule at 0%, exactly where that frame rule is, and translucent ink does not
+       merge -- it composites, so the overlap paints darker than either and reads as a thin
+       rule stacked on a thicker one.
+
+       Masking rather than offsetting, and rather than insetting. A repeating gradient
+       tiles in BOTH directions from its first stop, so an offset of one whole period is
+       the same phase as none at all -- measured on the deployed build, an hour offset of
+       6.666667% against a 6.666667% period still painted a rule at the top. Insetting the
+       layer would work and would cost alignment: the percentages resolve against the
+       painting box, so a box one pixel shorter puts every rule up to half a pixel out from
+       the blocks it exists to align with. A mask changes no geometry at all.
+
+       The prefixed form is for Chrome 117 to 119, which is inside grid view's floor -- the
+       view already requires subgrid, which is Chrome 117, and unprefixed mask-image is
+       Chrome 120. */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0 var(--calendar-card-grid-rule-width),
+      #000 var(--calendar-card-grid-rule-width)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0 var(--calendar-card-grid-rule-width),
+      #000 var(--calendar-card-grid-rule-width)
+    );
+    pointer-events: none;
+  }
+
+  /* ----- The grid's own rules -----
+
+     🚨 Both families take their color from --calendar-card-grid-rule-paint, written
+     inline by the renderer, rather than from an inline background-color. That is not
+     indirection for its own sake: happy-dom's CSS value parser drops any declaration it
+     cannot parse, and the shipped grid default is a color-mix(), so an inline
+     background-color is stored as the empty string and every DOM assertion about a rule's
+     color silently stops measuring anything. Custom properties are stored verbatim. The
+     same trap is recorded on .grid-event for calc() containing var().
+
+
+     One painting ladder, and every rung is load-bearing:
+
+       .grid-weekend    plain grid item   the tint, behind everything
+       .grid-rules      plain grid item   the hour lines
+       .grid-day-body   position relative the blocks, above both
+       .grid-separator  z-index 1         the vertical day rules, above the blocks
+       .grid-allday-band z-index 2        banners paint over the rules crossing the band
+       .grid-boundary   z-index 3         the band's own rules, never covered by a banner
+
+     The band's rung is what lets the day rules run through it: without it a spanning
+     banner would be crossed by them and read as chopped into days, which is why they used
+     to stop at the band instead. */
+  .grid-separator {
+    background-color: var(--calendar-card-grid-rule-paint);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .grid-boundary {
+    background-color: var(--calendar-card-grid-rule-paint);
+    pointer-events: none;
+    z-index: 3;
+    /* No align-self and no inline margin, and both absences are deliberate. Which edge of
+       its row a rule sits on depends on whether there is an all-day band to grow up into,
+       so the renderer writes it rather than the stylesheet. The negative margin existed
+       only to cancel the card's own inset and reach the card's edges — past the hour axis,
+       which macOS Calendar leaves clear, and out over the padding, which made the grid
+       read as framed by the card rather than ruled inside it. The rules span the day
+       tracks only now, which is the range renderRules already uses, so every horizontal
+       rule in the grid starts and stops on the same two lines and there is no inset left
+       to escape. */
+  }
+
+  /* The rule closing the body at the configured end time. Its height is here rather than
+     inline because it has to match the hour rules exactly, and the hour rules take their
+     thickness from this same property — one value read twice, rather than a literal
+     repeated in a file the stylesheet cannot see. */
+  .grid-boundary-body-end {
+    height: var(--calendar-card-grid-rule-width);
+  }
+
+  /* ----- Day headers ----- */
+
+  .grid-day-header {
+    min-width: 0;
+  }
+
+  .grid-container > .column-week-number {
+    justify-self: start;
+    margin-bottom: 2px;
+  }
+
+  /* ----- All-day band ----- */
+
+  /* Its own nested grid so banners can span day columns while the band as a whole
+     spans the outer grid's full width. The row template is set inline from the number
+     of rows the packing actually needed, so an empty band costs no height. */
+  .grid-allday-band {
+    display: grid;
+    row-gap: 2px;
+    /* Clear space for each rule plus the same 2px of breathing room at each end, so the
+       banners sit evenly between the two rules whatever widths the user gave them. The
+       rules are drawn at z-index 3 and would otherwise cut across the first and last
+       banner.
+
+       One property per edge, because the two rules are separate options now:
+       day_header_separator_width above, allday_band_line_width below. A single frame width
+       doubled for the lower edge was right only while the lower rule was a fixed multiple
+       of the upper one, and it would silently mis-pad the band the moment either moved.
+
+       The fallback is 0px rather than a width on purpose: the properties are written on
+       every grid, so reaching a fallback means the whole custom-property chain is broken,
+       and 2px of plain inset is a better thing to fail to than a frame's worth of padding
+       around rules that are not there. */
+    padding-block-start: calc(var(--calendar-card-grid-band-top-width, 0px) + 2px);
+    padding-block-end: calc(var(--calendar-card-grid-band-bottom-width, 0px) + 2px);
+    /* Above the vertical day rules, which now run through this row: a spanning banner has
+       to paint over them or it reads as chopped into days. See the ladder above. */
+    z-index: 2;
+    /* The three below only matter when the band's track is shorter than its banners,
+       which a fixed content height can force. A grid item defaults to min-height: auto
+       and would refuse to shrink below its content, so the band has to opt out before
+       its own overflow can do anything; auto then scrolls rather than clipping, keeping
+       every banner reachable; and start stops the rows sharing out surplus height back
+       when the track is the taller of the two. */
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
+  }
+
+  .grid-banner {
+    display: flex;
+    align-items: center;
+    /* The card sets box-sizing only where a box needs it, not globally. These
+       positioned grid boxes combine percentage sizing with padding or borders, so
+       content-box would add the decoration outside the geometry the renderer wrote. */
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 1px 6px;
+    /* A pill, and the ends are load-bearing rather than decoration: a fully rounded end
+       is what says the event genuinely starts or ends there. The two continuation rules
+       below square an end back off to the block radius wherever it does not, so the
+       shape carries the same claim the arrow marks do — readable at a glance, before
+       anyone looks for a glyph. Clamped to half the height by the browser, so the value
+       only has to be larger than any banner can be tall.
+
+       🚨 No leading accent edge, unlike every other event surface in the card. A banner
+       already carries its calendar's color as its whole fill, so a bar on top of that
+       said nothing a reader could not see — and against a rounded cap it curved into a
+       crescent, which read as a second shape stuck to the pill rather than as an edge.
+       macOS Calendar draws none either. The timed blocks keep theirs: they are tinted at
+       20% and need an edge to name the calendar. */
+    border-radius: 999px;
+  }
+
+  /* Squared back off where the event carries on past the window edge. Logical corners,
+     so the squared end follows the text direction the same way the marks below do. */
+  .grid-banner.continues-before {
+    border-start-start-radius: 4px;
+    border-end-start-radius: 4px;
+  }
+
+  .grid-banner.continues-after {
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+  }
+
+  /* The banner's only text, so it carries event_font_size and the banner around it does not,
+     as .summary carries it in a timed block. Both used to, and a relative size applied
+     twice: 1.5em drew a banner title at 2.25x. */
+  .grid-banner-title {
+    font-size: var(--calendar-card-font-size-event);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The event runs past the window edge. Drawn as content rather than as a border so
+     it travels with the text direction. */
+  .grid-banner.continues-before .grid-banner-title::before {
+    content: '\\25C2\\00A0';
+  }
+
+  .grid-banner.continues-after .grid-banner-title::after {
+    content: '\\00A0\\25B8';
+  }
+
+  /* ----- Time body ----- */
+
+  .grid-day-body {
+    position: relative;
+    min-width: 0;
+  }
+
+  /* ----- Weekend shading -----
+
+     Grid only, and the option is grid-only too, so there is no shared property here and
+     no rule for the other two views' day containers. A grid column stands the full height
+     of the band whatever is in it, which is what makes the tint a stripe; a column-view
+     column is only as tall as that day's events, so the same tint would end at a different
+     height on every day and read as a rendering fault.
+
+     Its own element rather than a background on the day body, because it spans the all-day
+     band as well: see renderWeekendStripes. The weekend class stays on the header and the
+     body regardless, since a card-mod rule targeting either predates this and still works.
+
+     The fallback is transparent rather than a color: the renderer writes the property only
+     when the resolved value paints something, so absence is the off state.
+
+     The color itself is deliberately not a fixed gray. A theme token mixed down to a few
+     percent darkens a light theme and lightens a dark one, which is what a weekend tint
+     has to do to survive both. */
+  .grid-weekend {
+    background-color: var(--calendar-card-grid-weekend, transparent);
+    pointer-events: none;
+  }
+
+  /* Absolute, because a block's position is its start time. min-height is what keeps a
+     ten-minute event legible, and it belongs here rather than in the placement math:
+     CSS resolves it against the band's real pixel height, which the geometry module
+     deliberately does not know. */
+  .grid-event {
+    position: absolute;
+    /* See .grid-banner: height is a percentage of the time band, and padding/borders
+       must live inside that percentage or events visually run past their end rule. */
+    box-sizing: border-box;
+    overflow: hidden;
+    --calendar-card-grid-block-min-height: min(14px, 100%);
+    min-height: var(--calendar-card-grid-block-min-height);
+    max-height: 100%;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
+    /* No font-size: .summary inside carries event_font_size, as in list and column view.
+       The block carried it too, so a relative size compounded three times on the way to
+       the title (1.5em drew it at 3.375x), and the time, location, description, weather,
+       progress bar and overflow label measured their own relative sizes against the event
+       size. They now measure against the card's text, which the block passes down. So does
+       an em written in vertical_line_width, as in list and column view, or in
+       hour_line_width, as the hour rules themselves already did. Nothing needs the block
+       to carry the event size: the rungs below query block height in px, and the title
+       fitter reads the title's computed size. */
+    line-height: 1.25;
+    container: calendar-card-grid-event / size;
+    /* The block's clearance from the hour rule it starts on and the one it ends at. The
+       same gap it already keeps from its column edges, so a block clears its neighbors by
+       one value on all four sides -- an event at 13:00 sits UNDER the 13:00 rule instead of
+       hanging off it, the way macOS Calendar draws it.
+
+       🚨 The two edges are NOT symmetric, and reading them as symmetric is what left a
+       block flush against the rule above it for three releases. An hour rule is painted
+       DOWNWARD from its boundary, occupying the first pixel of the hour it opens -- so a
+       block placed one pixel past its own boundary lands on the rule's lower edge with no
+       background between the two, while at the other end the next rule starts a pixel
+       after the block stops and that gap is visible. Measured on the deployed build at
+       one device pixel per CSS pixel: the rule painted at row 711 and the block's first
+       row was 712, against a clear row 758 below a block ending at 757.
+
+       So the upper clearance has to cover the rule's own thickness as well as the gap,
+       and the lower one must not: adding it there would push the block a pixel clear of a
+       rule it is already a pixel clear of.
+
+       The renderer writes the two percentages and, for a clipped edge only, a 0px override
+       of the gap on that side; an edge the event genuinely owns says nothing and inherits
+       the default here. The composition lives in the stylesheet rather than in the
+       renderer because the geometry module knows minutes and percentages and deliberately
+       not pixels -- a percentage of a band whose height is still a custom property cannot
+       express one pixel, so the two have to meet at the browser.
+
+       Short blocks use the minimum-height floor. Clamp that marker upward at the band's
+       end so final-second events stay visible without adding scroll overflow. */
+    --calendar-card-grid-block-gap-above: calc(
+      var(--calendar-card-grid-event-gap) + var(--calendar-card-grid-rule-width)
+    );
+    --calendar-card-grid-block-gap-below: var(--calendar-card-grid-event-gap);
+    top: clamp(
+      0px,
+      calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above)),
+      calc(100% - var(--calendar-card-grid-block-min-height))
+    );
+    height: calc(
+      var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(
+          --calendar-card-grid-block-gap-below
+        )
+    );
+  }
+
+  .grid-event-accessible {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .grid-event-disclosure,
+  .grid-event-disclosure .event-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .grid-event-disclosure .summary-row {
+    --calendar-card-grid-title-eligible: 0;
+    display: none;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .grid-event-disclosure .summary {
+    min-height: 0;
+    padding-block: 0;
+  }
+
+  .grid-event-disclosure .summary,
+  .grid-event-disclosure .event-title {
+    -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
+  }
+
+  .grid-event-disclosure .event-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    /* Break at spaces, and inside a word only when that word cannot fit a line on its
+       own. The default here inserted soft hyphens, so a lane-split block rendered
+       Conference as Con-fer-en and read as three words. Plain normal is worse than
+       either: a word wider than the block then overflows and is clipped horizontally,
+       and because the clamp was never reached there is no ellipsis to say so — the
+       block showed Conferen with the ce silently gone. break-word keeps every
+       character on screen, which is the one property a calendar block cannot trade
+       away, since an unreadable title is still identifiable and a truncated one is
+       not. */
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
+  }
+
+  /* Clamp the whole title line. */
+  .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+  }
+
+  .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
+    > .event-title {
+    display: inline;
+  }
+
+  .grid-event-disclosure .calendar-label,
+  .grid-event-disclosure .label-icon,
+  .grid-event-disclosure .label-image {
+    margin-right: 0;
+    margin-inline-end: 4px;
+    unicode-bidi: isolate;
+  }
+
+  .grid-event-disclosure .time-location,
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    flex: 0 0 auto;
+  }
+
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .time-actual,
+  .grid-event-disclosure .time-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .grid-event-disclosure .time {
+    flex-wrap: nowrap;
+  }
+
+  .grid-event-disclosure .time .time-actual .time-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  /* Grid is the only view that forbids the time from wrapping, so it is the only one where
+     a too-narrow row has to end somewhere rather than flow onto a second line. Left alone
+     it ends mid-glyph: the span carrying the time inherits display: -webkit-box from the
+     time_max_lines rule, and a -webkit-box cannot draw a text-overflow ellipsis at all,
+     while the clamp that would draw its own is none at the shipped default of 0. The
+     result is a flat vertical cut through a digit — "10:00 - 12" with the colon of the
+     second time sheared in half.
+
+     This is a backstop now rather than the primary defense, and it is worth saying why it
+     is still here. grid-time-fit.ts measures the row against its block and hides it rather
+     than let it be cut, so in a settled layout nothing reaches this rule. What it covers
+     is the frame between a resize and the measurement that follows it, where the class
+     from the previous layout is still on the element and the block beneath it has already
+     changed width. A sheared glyph for one frame is a rendering artifact; without this
+     rule it is a sheared glyph that persists until something else provokes a re-measure.
+
+     Note also that an ellipsis is not neutral inside a clock reading. "🕐 10:00 - 1…" on
+     an event ending at 12:00 does not read as truncated, it reads as ending at one o'clock
+     — which is why the fit ladder drops the whole end time rather than trimming it, and
+     why this rule is not allowed to become the way a narrow row is handled.
+
+     Blockifying the span in grid restores the ellipsis and costs nothing, because the
+     clamp it replaces cannot act here: display: block is what -webkit-line-clamp needs and
+     does not get, so the time_max_lines clamp is off in grid whatever the option says.
+
+     🚨 That used to be argued from white-space instead -- "nowrap pins this text to one
+     line, so no line count above one is reachable" -- and the wrapped rung made the
+     premise false without touching the conclusion. Two lines are now reachable in grid.
+     The conclusion survives because it never depended on the line count: this rule is
+     unconditional within .grid-event-disclosure, so the clamp is disabled on a wrapped row
+     and an unwrapped one alike. Nor could it reach the second line if it were on, since
+     that line is a sibling block box rather than a line box of this element.
+
+     So time_max_lines: 1 does not collapse the wrapped rung, and should not. The second
+     line is an authored structural break chosen by the fit ladder against the block's own
+     height, not text that wrapped because it ran out of room -- verified live by setting
+     the option on the card and watching the row stay at two lines. Note the ellipsis
+     declarations on .time and .time-actual above cannot do this job — the first has no
+     inline content of its own and the second is a flex container, and text-overflow
+     applies to neither.
+
+     The end time sits inside this span rather than beside it, so the child combinator here
+     does not reach it and it keeps flowing inline — on every rung but one. The wrapped
+     rung blockifies it deliberately, under .grid-time-wrap, and carries its own overflow
+     and text-overflow because of it; see that rule below before concluding from this
+     paragraph that .time-end is never a block. That nesting is still what lets the ladder
+     hide an end time without blockifying anything.
+
+     Scoped to .grid-event-disclosure deliberately. Outside grid the same span keeps
+     white-space: normal and an .time-actual that does not hide its overflow, so it wraps
+     instead of slicing; list and column were measured at zero clipped rows and must stay
+     that way. .time-text keeps its own path, which wraps by design so a folded countdown
+     breaks inside itself. */
+  .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
+    display: block;
+    text-overflow: ellipsis;
+  }
+
+  /* The event starts before or ends after the visible band. */
+  .grid-event.clipped-top {
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+  }
+
+  .grid-event.clipped-bottom {
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  .grid-event.clipped-top::before,
+  .grid-event.clipped-bottom::after {
+    content: '';
+    position: absolute;
+    inset-inline: 4px;
+    border-block-start: 1px dashed currentColor;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  /* The continuation dashes sit ON the block's own edge, not inside it. Both offsets are
+     0 and both marks are drawn with border-block-start, which is what makes the pair
+     symmetric in painted rows despite reading asymmetrically: the pseudo-element's height
+     is its border and nothing else, so top: 0 paints the block's FIRST row and bottom: 0
+     paints its LAST — the border sits at the top of a one-pixel box whose bottom is on the
+     block's bottom edge.
+
+     🚨 The pixel they used to be inset by is the whole defect. Measured on the deployed
+     build at one device pixel per CSS pixel, on a clipped block in a 07:00-21:00 band: at
+     bottom: 1px the dash row was 1 above the closing rule with a row of block background
+     between them, so a mark meaning "this event continues" read as a second, fainter line
+     beside the grid line. At bottom: 0 the dash row IS the rule row.
+
+     Which is only legible because the rules are translucent. The closing rule and the
+     band's lower rule are both z-index 3 and paint over the blocks, so an opaque rule
+     would hide the mark rather than carry it; the shipped grays are a color-mix at half
+     strength, so the dashes composite through. Where the cadence draws no closing rule the
+     dashes stand alone on the block's last row, which is the honest answer there. */
+  .grid-event.clipped-top::before {
+    top: 0;
+  }
+
+  .grid-event.clipped-bottom::after {
+    bottom: 0;
+  }
+
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather,
+  .grid-event-disclosure .progress-bar-row {
+    display: none;
+  }
+
+  /* Container-query rungs are calibrated for the default typography. A theme or an explicit
+     event_font_size can make a disclosed row taller than the rung that revealed it; the host
+     measures that actual overflow and adds this class so no detail row is shown half-clipped. */
+  .grid-event-disclosure .grid-event-detail-clipped {
+    display: none !important;
+  }
+
+  @container calendar-card-grid-event (min-height: 19px) {
+    .grid-event-disclosure .summary-row {
+      --calendar-card-grid-title-eligible: 1;
+      display: flex;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 36px) {
+    .grid-event-disclosure .summary,
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
+    }
+  }
+
+  /* The renderer deliberately knows only percentages; the browser alone knows whether a
+     30-minute block became 24px or 44px in this card. Height container queries keep that
+     pixel decision in CSS, inside the shadow root, so the geometry module never gains a
+     hidden pixel scale.
+
+     The rungs below move two independent things: which rows are revealed, and how many
+     lines the title may take. Only the first is live in the shipped default. Title lines
+     ride on title_max_lines, which defaults to 0 meaning unlimited, and an unlimited
+     title resolves every rung to none — so by default the title simply wraps and the
+     block's own overflow: hidden cuts it off at the bottom. The ladder of 1, 2 and 3
+     lines applies only once a user sets a limit, and it is that configured case the
+     clamp is written for: the title waits until one full row fits, adds a second line
+     only when there is room, and yields back to one line when the time row appears.
+
+     This rung is the one place a width also has to be asked about, because the two axes
+     are independent: block height is duration times hour_height, block width is day width
+     divided by the number of concurrent columns, so a two-hour event is the same 96px tall
+     whether it is 400px or 37px wide. Height alone therefore reveals a time row into blocks
+     that cannot hold one — a measured 29.2 by 89 block clears this rung's height twice over
+     and has 0.66px less than a bare "10:00" needs.
+
+     But the width cannot be a number here. This rung used to carry and (min-width: 60px),
+     measured at the shipped 12px type as the clock icon's 18px plus "10:00" plus an
+     ellipsis, and it was right about all three of those figures and wrong about the
+     question. Two things were wrong with it. It spent the first 18px of every row on a
+     decorative clock — 39% of a 45.9px lane — before spending anything on the time, so a
+     block with room for "10:00" three times over showed nothing. And the ellipsis it was
+     calibrated around is a false statement inside a clock reading: at 72.9px the row
+     painted "10:00 - 1…" for an event ending at 12:00, which reads as one o'clock. An
+     ellipsis is honest on a title and a lie on a time.
+
+     A constant also cannot follow time_font_size, a theme's type scale, a themed
+     --calendar-card-icon-size-time, the hour's digit count ("9:00" is 6px narrower than
+     "10:00") or a 12-hour locale, where the same row needs 69px rather than 48. So the
+     width question moved to the host, which measures the row it is about to draw and gives
+     up the icon, then the end time, before it gives up the row: see grid-time-fit.ts. The
+     host publishes the answer as .grid-time-fits and this rung reads it, which is also why
+     the reveal cannot be written as a container query — a container query condition cannot
+     read a custom property, so there is no way to put a measured width back into this
+     selector.
+
+     Keeping the HEIGHT here is deliberate rather than leftover. It is the axis a container
+     query answers well, and it is independently load-bearing: a 79 by 33 block passes any
+     width test and must still stay closed, because 33px holds a title and nothing else.
+
+     The class sits on the whole rung rather than on the time row alone, which is what
+     keeps the sentence above true — the title yields its second line exactly when the time
+     row appears, so in a block too narrow for a time the title keeps the two lines the
+     36px rung gave it instead of shortening for a row that never arrives. Writing the class
+     inside :where() is what lets that keep working: a plain .grid-time-fits would raise
+     these selectors to 0,3,0 and beat the later 72px and 96px rungs, stranding a tall
+     narrow block on the compact clamp. :where() contributes nothing, so source order still
+     decides. */
+  @container calendar-card-grid-event (min-height: 40px) {
+    .grid-event-disclosure:where(.grid-time-fits) .summary,
+    .grid-event-disclosure:where(.grid-time-fits) .event-title {
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
+    }
+
+    .grid-event-disclosure:where(.grid-time-fits) .time {
+      display: block;
+    }
+  }
+
+  /* The end time is drawn inline, not inline-block, and that is load-bearing rather than
+     tidy. .time span above makes every span in a time row an inline-block, and an
+     inline-block is a block container: white space at the start of its first line is
+     removed, so the separator this element leads with would vanish and the row would read
+     "10:0012:00". An inline box is not the start of a line and keeps it.
+
+     🚨 Resetting display alone is half the job, and the missing half was a visible defect.
+     That same .time span rule also sets vertical-align: middle, which it is entitled to:
+     on an inline-block that re-centers the box on the surrounding text. Taking the display
+     back to inline does not take the alignment back with it, and on an inline box middle
+     means something else -- the box center is aligned to the parent's baseline plus half
+     its x-height, which is not where the parent's own text sits. The start time is an
+     anonymous inline on that baseline, so the two halves of one clock reading end up on
+     two baselines.
+
+     Measured, because it is small enough to argue away: every one-line grid row on the
+     dashboard, 74 of 74 across four views, drew its end time exactly 0.625px lower than
+     its start. Injecting vertical-align: baseline on this element took all 74 to exactly
+     zero, which is what makes this the cause rather than a plausible candidate.
+
+     That count is a reading of one dashboard on 2026-09-20 and is deliberately not
+     reproducible: the corpus changed days later when three capture cards stopped setting
+     show_end_time: false, which moves the population of this very element. It is recorded
+     as the evidence that settled a defect, not as a figure anyone should expect to obtain
+     again. What survives is the A/B -- offset on every row with middle, zero on every row
+     with baseline -- and that reproduces on any row that draws a split range.
+
+     🚨 Deliberately NOT scoped to .grid-event-disclosure, though grid is the only view
+     that can reach it today. .time-end is emitted only under splitTimeEnd, and grid.ts is
+     its only caller -- so a grid-scoped rule is correct now and arms both traps above for
+     the next view that sets that flag. Such a view would emit the element, inherit
+     inline-block and middle from .time span, fall outside a scoped reset, and reproduce
+     both the swallowed separator and the 0.625px split, with this paragraph sitting one
+     file away explaining the whole thing for the case it happens to cover. The unscoped
+     form costs nothing to check -- the element does not exist elsewhere, so the rule is
+     inert everywhere else by construction -- and it is the correct default for any view
+     that draws a split range, not a grid quirk. The rungs below still scope themselves to
+     grid, because those are decisions the fit ladder makes and it only runs there.
+     See tests/grid-dom.test.ts, which reconciles this against splitTimeEnd's callers. */
+  .time .time-actual .time-end {
+    display: inline;
+    vertical-align: baseline;
+  }
+
+  /* The rungs of the fit ladder that give something up. All are set by the host, which
+     measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
+     icon goes first because the block's own position already says this is a time; the end
+     time goes onto a second line next, where there is one to spare, and is given up
+     altogether only after that, because the block's bottom edge already draws it. */
+  .grid-event-disclosure.grid-time-no-icon .time .time-actual > ha-icon {
+    display: none;
+  }
+
+  .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
+    display: none;
+  }
+
+  /* The wrapped rung, where the lane is too narrow for the range on one line but the block
+     has a spare line to put the end time on. Blockifying this element is the whole
+     mechanism: the outer span is already a block in grid, so making the end time a block
+     too gives exactly two line boxes, decided here rather than by the browser. That matters
+     more than it looks. white-space stays nowrap throughout, so the overflow-wrap:
+     break-word inherited from .summary never gets a break opportunity and cannot shatter a
+     clock reading into "10:0" / "0 -"; and with no break opportunity the separator cannot
+     be orphaned onto a line of its own either. Both failure modes are removed by
+     construction, not tuned around.
+
+     The leading space the comment above works to preserve is stripped here, deliberately:
+     that same block-container rule reads "- 12:00" rather than " - 12:00", which is what
+     the second line wants. The inline rule is untouched for every other view and rung.
+
+     Set by the host only where the row measured narrow enough AND the block had the height
+     to spare - see grid-time-fit.ts and _applyGridDisclosureSafety.
+
+     🚨 overflow and text-overflow are both required here, and for the same reason the
+     backstop above exists rather than for tidiness. Blockifying this element takes it out
+     of its parent's line box, so the ellipsis declared on that parent stops reaching it and
+     line two reverts to text-overflow's initial clip. Measured in the stale-class frame the
+     backstop is written for -- the wrap class from the previous layout still on a block
+     that has already narrowed -- line two rendered "- 12:" with the colon cut vertically in
+     half, the exact artifact that rule prevents one line up. text-overflow alone does not
+     fix it: it needs a scroll container on this element, because overflow: hidden lives on
+     .time-actual and does not inherit. Both declarations were A/B'd live against the same
+     row; with only text-overflow it still sheared.
+
+     Line one needs nothing. Its text becomes an anonymous block box inside the outer span,
+     and Chromium applies that span's ellipsis to it -- verified rather than assumed, in the
+     same capture that caught line two. */
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-end {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* The progress bar earns its own rung. It is the one row here whose value is highest
+     exactly while an event is short — a meeting happening right now — so pairing it with
+     location and description at 72px would withhold it from the blocks most likely to want
+     it. It cannot join the 40px rung either, which has only about 4px of slack once the
+     title and the time have been drawn.
+
+     48px is measured rather than reasoned. In a browser, at the shipped fonts, the title row
+     is 18.8px and the row carrying the time plus the bar is 27.4px, so the content needs
+     46.2px; this is that, rounded up. Note these rungs query the CONTENT box, because
+     .grid-event sets container-type through the container shorthand with a size type, while
+     the block's own 4px of vertical padding sits outside it — so a rung of 48 is reached by
+     a block that measures 52px on screen. An earlier 52 here was picked from arithmetic and
+     carried 6px of dead slack, which pushed the bar out of every one-hour event at any
+     normal density.
+
+     It is still not reachable by a one-hour event at the default 48px hour height: that is
+     44px of content, so such a block draws its title and time and stops. The bar arrives
+     from about 52px of block, i.e. a longer event or a taller axis. That is a real limit of
+     the space rather than a threshold worth lowering — below 46.2px something would have to
+     be clipped, and clipping the time to show a progress bar is the worse trade. */
+  @container calendar-card-grid-event (min-height: 48px) {
+    .grid-event-disclosure .progress-bar-row {
+      display: block;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 72px) {
+    .grid-event-disclosure .summary,
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
+    }
+
+    .grid-event-disclosure .location,
+    .grid-event-disclosure .description,
+    .grid-event-disclosure .event-weather {
+      display: flex;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 96px) {
+    .grid-event-disclosure .summary,
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);
+    }
+  }
+
+  /* Compact only: scale the group, not its query container. */
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    position: absolute;
+    inset-block: 1px;
+    inset-inline: 4px;
+    height: auto;
+    justify-content: center;
+  }
+
+  .grid-event.clipped-top:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    inset-block-start: 2px;
+  }
+
+  .grid-event.clipped-bottom:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    inset-block-end: 2px;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .event-content {
+    height: auto;
+  }
+
+  .grid-event[data-grid-title-fit] .summary-row {
+    transform: translateY(var(--calendar-card-grid-title-shift, 0px));
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary-row {
+    display: flex;
+    overflow: visible;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary {
+    display: flex !important;
+    align-items: center;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    text-indent: 0;
+    overflow: visible;
+    white-space: nowrap;
+    -webkit-line-clamp: unset;
+    zoom: var(--calendar-card-grid-title-scale, 1);
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary
+    > :not(.event-title) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary
+    > .event-title {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .event-title-scroll {
+    display: inline !important;
+    animation: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .time-location {
+    display: none;
+  }
+
+  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank']) .summary-row {
+    visibility: hidden;
+  }
+
+  /* Stands in for events the column had no room to draw. Dashed so it reads as a
+     placeholder rather than as an event in its own right. */
+  .grid-event-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--secondary-text-color);
+    background: transparent;
+    color: var(--secondary-text-color);
+  }
+
+  .grid-event-overflow-label {
+    font-size: var(--calendar-card-font-size-time);
+    white-space: nowrap;
+  }
+
+  /* Inside today's column only, so it says where today has got to rather than drawing
+     a line across days it makes no claim about. */
+  .grid-now-line {
+    position: absolute;
+    inset-inline: 0;
+    height: 2px;
+    background: var(--calendar-card-grid-now-color, var(--error-color));
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* The dot that marks which column the line belongs to. */
+  .grid-now-line::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -3px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: inherit;
   }
 `;

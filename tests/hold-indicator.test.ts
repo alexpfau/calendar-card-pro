@@ -20,7 +20,16 @@ vi.mock('../src/utils/logger', () => ({
 }));
 
 function pointer(overrides: Partial<PointerEvent> = {}): PointerEvent {
-  return { pageX: 120, pageY: 340, pointerType: 'mouse', ...overrides } as PointerEvent;
+  // page* and client* intentionally disagree so a regression to page
+  // coordinates cannot hide behind equal numbers.
+  return {
+    clientX: 120,
+    clientY: 340,
+    pageX: 120 + 400,
+    pageY: 340 + 400,
+    pointerType: 'mouse',
+    ...overrides,
+  } as PointerEvent;
 }
 
 describe('the hold indicator', () => {
@@ -56,19 +65,27 @@ describe('the hold indicator', () => {
     expect(Number(indicator.style.opacity)).toBeLessThan(1);
   });
 
-  it('is positioned absolutely, so page coordinates mean what they say', () => {
+  it('is fixed to the viewport, so a scrolled page still draws under the finger', () => {
     const indicator = createHoldIndicator(pointer(), buildConfig());
-    expect(indicator.style.position).toBe('absolute');
+    expect(indicator.style.position).toBe('fixed');
   });
 
-  it('is drawn where the finger actually is', () => {
-    const here = createHoldIndicator(pointer({ pageX: 120, pageY: 340 }), buildConfig());
-    const there = createHoldIndicator(pointer({ pageX: 900, pageY: 15 }), buildConfig());
+  it('is drawn at client coordinates, not page coordinates', () => {
+    const scrolled = pointer({ clientX: 120, clientY: 340, pageX: 520, pageY: 740 });
+    const here = createHoldIndicator(scrolled, buildConfig());
+    const there = createHoldIndicator(
+      pointer({ clientX: 900, clientY: 15, pageX: 1300, pageY: 415 }),
+      buildConfig(),
+    );
 
     expect(here.style.left).toBe('120px');
     expect(here.style.top).toBe('340px');
     expect(there.style.left).toBe('900px');
     expect(there.style.top).toBe('15px');
+    // The page values differ by a typical dashboard scroll; using them would
+    // place the disc hundreds of pixels off the finger.
+    expect(here.style.left).not.toBe(`${scrolled.pageX}px`);
+    expect(here.style.top).not.toBe(`${scrolled.pageY}px`);
   });
 
   it.each([

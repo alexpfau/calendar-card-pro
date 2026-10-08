@@ -308,11 +308,11 @@ describe('event_background_opacity draws a background once it is set', () => {
       null,
     );
 
-  it('emits no background colour at the default of 0', () => {
+  it('emits no background color at the default of 0', () => {
     expect(presentation(0).entityAccentBackgroundColor).toBe('');
   });
 
-  it('emits a background colour once an opacity is configured', () => {
+  it('emits a background color once an opacity is configured', () => {
     expect(presentation(50).entityAccentBackgroundColor).not.toBe('');
   });
 });

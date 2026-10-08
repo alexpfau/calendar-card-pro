@@ -23,7 +23,7 @@ import * as EventUtils from '../src/utils/events';
 
 /**
  * `isZeroLength` decides whether a separator is drawn at all, so a zero it fails to
- * recognise is not a cosmetic miss: `createSeparatorStyle` gives week and month rules a
+ * recognize is not a cosmetic miss: `createSeparatorStyle` gives week and month rules a
  * `day_spacing`-derived margin above *and* below, and that margin does not scale with
  * the border width. A separator the predicate calls non-zero is therefore emitted with
  * an invisible border and a full pair of margins — the user asked for no separator and
@@ -106,7 +106,7 @@ describe('isZeroLength', () => {
     expect(isZeroLength(value)).toBe(false);
   });
 
-  it('recognises what the editor pipeline actually produces for a zero width', () => {
+  it('recognizes what the editor pipeline actually produces for a zero width', () => {
     // The reachability chain, asserted rather than described: a free-text editor field
     // hands back a unitless string, `coercePixelLength` appends `px`, and the result is
     // what the renderers test. Every step has to agree that this means "no separator".

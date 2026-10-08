@@ -7,7 +7,7 @@
   "endsToday": "ma este ér véget",
   "endsTomorrow": "holnap ér véget",
   "at": "itt:",
-  "noEvents": "Mára nincs több esemény",
+  "noEvents": "Nincs esemény",
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált"
 }

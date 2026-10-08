@@ -3,13 +3,20 @@
  * Defaults are stripped on write so opening the editor does not persist values the user never set.
  */
 
+import { normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
-const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
+/**
+ * Options stored as whole objects rather than option by option.
+ *
+ * Exported so a reconciliation can name them without re-listing them. A second copy is
+ * one more thing to forget, and forgetting is the failure mode these tables have.
+ */
+export const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 
 /** The nested groups of a `weather:` block, each defaulted option by option. */
 const WEATHER_GROUPS = ['date', 'event'] as const;
@@ -81,6 +88,13 @@ function inheritedColumnValue(
   return ViewConfig.COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
 }
 
+function inheritedTimeGridValue(
+  config: Readonly<Types.Config>,
+  key: keyof Types.TimeGridOverrides & keyof Types.Config,
+): unknown {
+  return ViewConfig.TIME_GRID_DEFAULT_OVERRIDES[key] ?? config[key];
+}
+
 /**
  * Strips redundant entries from a `column:` block.
  *
@@ -102,6 +116,7 @@ export function stripColumnDefaults(
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
 
     if (isSyntheticKey(key)) continue;
 
@@ -129,7 +144,7 @@ export function stripColumnDefaults(
         config,
         key as keyof Types.ColumnOverrides & keyof Types.Config,
       );
-      if (deepEqual(inherited, value)) continue;
+      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
       result[key] = value;
       continue;
     }
@@ -160,6 +175,95 @@ function resolvesTheSameWithout(config: Readonly<Types.Config>, key: string): bo
   );
 }
 
+export function stripTimeGridDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.time_grid;
+
+  if (!Helpers.isConfigBlock(block)) {
+    return undefined;
+  }
+
+  const overrideKeys = new Set<string>(ViewConfig.TIME_GRID_OVERRIDE_KEYS);
+  const gridDefaults = ViewConfig.TIME_GRID_DEFAULTS as Readonly<Record<string, unknown>>;
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
+    if (isSyntheticKey(key)) continue;
+
+    if (key in gridDefaults) {
+      const resolved = ViewConfig.normalizeTimeGridValue(
+        key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
+        value,
+      );
+      if (deepEqual(gridDefaults[key], resolved)) continue;
+      result[key] = resolved;
+      continue;
+    }
+
+    if (overrideKeys.has(key)) {
+      const inherited = inheritedTimeGridValue(
+        config,
+        key as keyof Types.TimeGridOverrides & keyof Types.Config,
+      );
+      if (Object.prototype.hasOwnProperty.call(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES, key)) {
+        result[key] = value;
+        continue;
+      }
+      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
+      result[key] = value;
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Strips a `list:` block to what the user actually authored.
+ *
+ * 🚨 Presence *is* authorship here, so unlike `stripColumnDefaults` this keeps a value
+ * that equals what the key would inherit. That is deliberate and it is the one line that
+ * makes `list:` worth having beyond symmetry.
+ *
+ * A block entry records authorship without needing a separate set of root keys.
+ * `retainAuthoredSharedValues` preserves divergent shared choices through save/reopen;
+ * List keeps explicit values for every supported override, not just the divergent keys.
+ *
+ * The cost is that a `list:` block can hold a line that changes nothing today. That is the
+ * point — it changes something the moment the shared root value beside it moves.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The authored block, or `undefined` when it holds nothing
+ */
+export function stripListDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.list;
+
+  if (!Helpers.isConfigBlock(block)) {
+    return undefined;
+  }
+
+  const overrideKeys = new Set<string>(ViewConfig.LIST_OVERRIDE_KEYS);
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
+    if (isSyntheticKey(key)) continue;
+    if (!overrideKeys.has(key)) continue;
+
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 /**
  * Removes the config keys that v3.0.0 deleted from the runtime.
  *
@@ -183,14 +287,137 @@ function pruneDeprecatedKeys(draft: Record<string, unknown>): void {
   });
 }
 
+const TARGET_BLOCK = ViewConfig.VIEW_BLOCKS.list;
+
 /**
- * Reduces a merged configuration to the smallest one that renders identically.
+ * Keys a v5 save moves out of the top level and into `list:`.
+ *
+ * Derived, never written out. Two groups, for two different reasons:
+ *
+ * 1. **List-only keys.** `VIEW_SCOPE` says no other view reads them, so the top level is
+ *    making a claim ("this is shared") that the card itself contradicts. Relocating them
+ *    corrects a factual error in the format and cannot change any view's rendering.
+ * 2. **Divergent-default keys.** Every view that disagrees with the shipped card-level
+ *    value does so because that value was written for list, back when list was the only
+ *    view. Recording them as list's is what lets a later change treat a *root* value as
+ *    genuinely shared instead of guessing whether it was meant for list.
+ *
+ * Group 2 narrows a key's scope, so it moves only after the user explicitly chooses
+ * {@link ListMigrationMode} `keep-list`.
+ *
+ * @returns The two relocation groups
+ */
+export function listRelocationKeys(): {
+  readonly listOnly: string[];
+  readonly divergent: string[];
+} {
+  const listOnly: string[] = [];
+  const divergent = new Set<string>();
+
+  for (const key of ViewConfig.LIST_OVERRIDE_KEYS) {
+    const scope = ViewConfig.VIEW_SCOPE[key];
+    if (scope && scope.size === 1 && scope.has('list')) listOnly.push(key);
+  }
+
+  for (const view of ViewConfig.VIEWS) {
+    const block = ViewConfig.viewBlockFor(view);
+    // Identity against the registry entry, never a comparison on the view's name. The
+    // target is *the block the migration writes into*, so a fourth view needs no edit
+    // here — and `tests/editor-schema.test.ts` forbids naming a view in this directory.
+    if (!block || block === TARGET_BLOCK) continue;
+    for (const key of Object.keys(block.defaultOverrides)) divergent.add(key);
+  }
+
+  return { listOnly, divergent: [...divergent].sort() };
+}
+
+/**
+ * Authored divergent root keys whose pre-v5 meaning is ambiguous.
+ *
+ * @param authored - Raw configuration before defaults are merged
+ * @returns Present root keys that another view gives a divergent default
+ */
+export function ambiguousRootKeys(authored: Readonly<Record<string, unknown>>): string[] {
+  const { divergent } = listRelocationKeys();
+  return divergent.filter((key) => Object.prototype.hasOwnProperty.call(authored, key));
+}
+
+export type ListMigrationMode = 'keep-list' | 'shared-root';
+
+export interface ListMigrationResult {
+  readonly config: Record<string, unknown>;
+  readonly movedRootKeys: ReadonlyArray<string>;
+}
+
+function retainAuthoredSharedValues(
+  stored: Record<string, unknown>,
+  authored: Readonly<Record<string, unknown>>,
+  authoredRootKeys: ReadonlySet<string>,
+): void {
+  // These roots can differ from a view's defaults. Their presence preserves the user's
+  // choice on a later editor view switch, even when the value equals DEFAULT_CONFIG.
+  for (const key of listRelocationKeys().divergent) {
+    const value = authored[key];
+    if (authoredRootKeys.has(key) && value !== undefined && value !== null) stored[key] = value;
+  }
+}
+
+/**
+ * Moves authored legacy root values into the `list:` block and stamps the v5 format.
+ *
+ * The authored shape is separate from the minimized stored shape so a root value equal to
+ * `DEFAULT_CONFIG` remains visible to migration after normal serialization strips it.
+ *
+ * @param stored - Minimized configuration prepared for writing
+ * @param authored - Raw configuration whose root presence records authorship
+ * @param mode - Whether ambiguous divergent roots belong to List or remain shared
+ * @returns A new stamped configuration and the root keys removed from it
+ */
+export function migrateListConfig(
+  stored: Readonly<Record<string, unknown>>,
+  authored: Readonly<Record<string, unknown>>,
+  mode: ListMigrationMode,
+): ListMigrationResult {
+  const { listOnly, divergent } = listRelocationKeys();
+  const moving = mode === 'keep-list' ? [...listOnly, ...divergent] : listOnly;
+  const migrated = { ...stored };
+  retainAuthoredSharedValues(migrated, authored, new Set(Object.keys(authored)));
+
+  const block: Record<string, unknown> = Helpers.isConfigBlock(migrated.list)
+    ? { ...(migrated.list as Record<string, unknown>) }
+    : {};
+
+  const movedRootKeys: string[] = [];
+  for (const key of moving) {
+    if (!Object.prototype.hasOwnProperty.call(authored, key)) continue;
+    // An existing block entry is the user's newer answer; the root value is the older one.
+    if (!Object.prototype.hasOwnProperty.call(block, key)) block[key] = authored[key];
+    delete migrated[key];
+    movedRootKeys.push(key);
+  }
+
+  if (Object.keys(block).length > 0) migrated.list = block;
+  else delete migrated.list;
+  migrated.config_version = Config.CURRENT_CONFIG_VERSION;
+
+  return { config: migrated, movedRootKeys };
+}
+
+/**
+ * Removes unused defaults while preserving explicitly authored shared view choices.
  *
  * @param config - Merged configuration as the form sees it
+ * @param authoredRootKeys - Raw root presence plus later root edits; never merged defaults
  * @returns The configuration to store
  */
-export function toStoredConfig(config: Readonly<Types.Config>): Record<string, unknown> {
+export function toStoredConfig(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string> = new Set(),
+): Record<string, unknown> {
   const draft = { ...(config as unknown as Record<string, unknown>) };
+  if (Config.toValidPercentage(draft.past_event_opacity) === undefined) {
+    delete draft.past_event_opacity;
+  }
 
   for (const key of Object.keys(draft)) {
     if (isSyntheticKey(key)) delete draft[key];
@@ -201,8 +428,14 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   const atomic = ATOMIC_KEYS.map((key) => [key, draft[key]] as const);
   for (const [key] of atomic) delete draft[key];
 
+  const list = stripListDefaults(config);
+  delete draft.list;
+
   const column = stripColumnDefaults(config);
   delete draft.column;
+
+  const grid = stripTimeGridDefaults(config);
+  delete draft.time_grid;
 
   const weather = stripWeatherDefaults(config);
   delete draft.weather;
@@ -211,6 +444,7 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
   );
+  retainAuthoredSharedValues(stored, draft, authoredRootKeys);
 
   for (const [key, value] of atomic) {
     if (value !== undefined && !deepEqual(value, Config.DEFAULT_CONFIG[key])) {
@@ -218,8 +452,16 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
     }
   }
 
+  if (list !== undefined) {
+    stored.list = list;
+  }
+
   if (column !== undefined) {
     stored.column = column;
+  }
+
+  if (grid !== undefined) {
+    stored.time_grid = grid;
   }
 
   if (weather !== undefined) {
@@ -227,6 +469,79 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   }
 
   return stored;
+}
+
+function gridReconciliations(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string>,
+  resetKeys: ReadonlySet<string>,
+): Array<{ key: string; value: unknown; reconciled: boolean }> {
+  const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
+  return Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES).flatMap(([key, gridDefault]) => {
+    if (resetKeys.has(key) || Object.prototype.hasOwnProperty.call(block, key)) return [];
+    const root = config[key as keyof Types.Config];
+    if (!authoredRootKeys.has(key) || root === undefined || root === null) return [];
+    const value = normalizeRootValue(key, root);
+    return [
+      {
+        key,
+        value,
+        reconciled: !deepEqual(value, normalizeRootValue(key, gridDefault)),
+      },
+    ];
+  });
+}
+
+/**
+ * Names authored root values the editor will preserve instead of substituting Grid defaults.
+ *
+ * An existing Grid value wins without reconciliation. Missing and null root values
+ * are unset; false and zero are authored values. Both comparison sides use the same coercion.
+ *
+ * @param config - Configuration before the editor switches the displayed view
+ * @param authoredRootKeys - Root keys captured before defaults were merged, plus later root edits
+ * @param resetKeys - Grid options reset in this editor session, unless reauthored in Shared
+ * @returns The conflicting options to name in one editor notice
+ */
+export function gridReconciliationKeys(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string>,
+  resetKeys: ReadonlySet<string> = new Set(),
+): ReadonlyArray<string> {
+  return gridReconciliations(config, authoredRootKeys, resetKeys)
+    .filter(({ reconciled }) => reconciled)
+    .map(({ key }) => key);
+}
+
+/**
+ * Copies authored root choices on a Grid transition, without materializing view defaults.
+ *
+ * This is continuity across an explicit view change, not a renderer precedence rule.
+ * Loading an already-Grid YAML card does not call it. The authored key set is editor-only:
+ * merging DEFAULT_CONFIG first would make every default look like a user choice.
+ * Existing block values are never pruned, even when they equal a Grid default.
+ *
+ * @param config - Configuration after the view changed
+ * @param resetKeys - Grid options reset in this editor session, unless reauthored in Shared
+ * @param authoredRootKeys - Authored root keys, never inferred from the merged configuration
+ * @returns The reconciled configuration, or the original when no authored value needs copying
+ */
+export function reconcileTimeGridValues(
+  config: Readonly<Types.Config>,
+  resetKeys: ReadonlySet<string> = new Set(),
+  authoredRootKeys: ReadonlySet<string> = new Set(),
+): Types.Config {
+  const changes = gridReconciliations(config, authoredRootKeys, resetKeys);
+  if (changes.length === 0) return config as Types.Config;
+  const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
+
+  return {
+    ...config,
+    time_grid: {
+      ...block,
+      ...Object.fromEntries(changes.map(({ key, value }) => [key, value])),
+    },
+  };
 }
 
 interface FormApplication {
@@ -262,7 +577,12 @@ export function applyFormChange(
 
   for (const key of changedKeys(previousData, nextData)) {
     if (!isSyntheticKey(key)) {
-      write(key, nextData[key]);
+      if (key === 'past_event_opacity') {
+        Config.validatePastEventOpacity(nextData[key]);
+        write(key, normalizeRootValue(key, nextData[key]));
+      } else {
+        write(key, nextData[key]);
+      }
       continue;
     }
 
@@ -287,16 +607,92 @@ export function applyFormChange(
 /**
  * Builds the `column:` block as the form should show it.
  *
+ * Two layers, and the order matters. The projection resolves every column-only key to
+ * what the card would actually use, so an option the user never set shows its effective
+ * value rather than blank. The stored block then goes back on top.
+ *
+ * 🚨 That second spread is load-bearing and was missing for a while. `COLUMN_DEFAULTS`
+ * holds only the column-*only* keys; the sixty-odd members of `COLUMN_OVERRIDE_KEYS` are
+ * a disjoint set, so a projection over `COLUMN_DEFAULTS` alone cannot see an override the
+ * user stored. The panel binds this whole object as one expandable `ha-form` field and
+ * writes it back wholesale on any change, so a key absent here is a key deleted from
+ * their YAML the moment they touch an unrelated slider. It is silent, it hits column as
+ * well as grid, and no test caught it because every fixture stored a `COLUMN_DEFAULTS`
+ * key, which the projection reproduces by accident.
+ *
  * @param config - Merged configuration, defaults already applied
  * @returns The block, with every unset option at its effective value
  */
 export function columnFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   return {
-    ...ViewConfig.COLUMN_DEFAULTS,
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.COLUMN_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveColumnOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
+        ),
+      ]),
+    ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config),
     ...(config.column ?? {}),
   };
 }
+
+/**
+ * Builds the `time_grid:` block as the form should show it.
+ *
+ * Same two layers as {@link columnFormBlock}, and the same reason the stored spread has
+ * to come last.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every unset option at its effective value
+ */
+export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return {
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.TIME_GRID_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveTimeGridOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
+        ),
+      ]),
+    ),
+    min_days_to_show: ViewConfig.resolveMinDaysToShow(config, 'grid'),
+    ...(config.time_grid ?? {}),
+  };
+}
+
+/**
+ * Builds the `list:` block as the form should show it.
+ *
+ * List has no block-only keys or divergent defaults to fill in. The workspace projection
+ * resolves inherited field values separately; this block contains only stored overrides.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The stored block, unprojected
+ */
+export function listFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return { ...((config.list ?? {}) as Record<string, unknown>) };
+}
+
+/**
+ * The form block builder for each view that owns one.
+ *
+ * A record rather than a conditional, because the conditional it replaces read
+ * `view === 'grid' ? grid : column` — correct while two views were registered and silently
+ * wrong the moment a third arrived, handing list the column projection and with it every
+ * `COLUMN_DEFAULTS` value. `tests/editor-value-round-trip.test.ts` reconciles this against
+ * `VIEW_BLOCKS`, so a view registered without a builder fails rather than inheriting one.
+ */
+export const VIEW_FORM_BLOCKS: Readonly<
+  Partial<Record<Types.EffectiveView, (config: Readonly<Types.Config>) => Record<string, unknown>>>
+> = {
+  list: listFormBlock,
+  column: columnFormBlock,
+  grid: timeGridFormBlock,
+};
 
 /**
  * Builds the `weather:` block as the form should show it.
@@ -371,30 +767,4 @@ export function stripWeatherDefaults(
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
-}
-
-/**
- * Builds the block as the exceptions widget should show it.
- *
- * @param config - Merged configuration, defaults already applied
- * @param keys - Options currently declared as exceptions
- * @returns The block, with every declared exception at its effective value
- */
-export function exceptionFormBlock(
-  config: Readonly<Types.Config>,
-  keys: ReadonlyArray<string>,
-): Record<string, unknown> {
-  const block = columnFormBlock(config);
-  const stored = (config.column ?? {}) as Record<string, unknown>;
-
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(stored, key) && stored[key] !== undefined) continue;
-
-    block[key] = inheritedColumnValue(
-      config,
-      key as keyof Types.ColumnOverrides & keyof Types.Config,
-    );
-  }
-
-  return block;
 }

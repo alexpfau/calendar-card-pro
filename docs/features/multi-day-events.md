@@ -22,6 +22,9 @@ When enabled, multi-day events are split in a way that preserves their original 
   - Middle days: Full all-day events
   - Last day: Event from start of day to end time (e.g., 00:00-15:00)
 
+A timed event ending exactly at midnight has no row on the date that midnight opens,
+even when it spans several days. An event ending after midnight still has a final-day row.
+
 This feature is especially useful for:
 
 - Visualizing event conflicts across multiple days
@@ -33,6 +36,13 @@ Because each row stands for a day rather than for the event as a whole, a [count
 The option can be applied globally to all calendars or controlled separately for each calendar entity.
 
 This is the `split_multiday_events` option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).
+
+::: tip Grid Uses Its Own Daily Coverage
+[Grid view](/features/grid-view) does not use `split_multiday_events`. Timed events keep
+timed segments on every included date; all-day events use spanning banners. Grid resolves
+those dates before weekday/weekend filtering or empty-day omission, so a continuation can
+remain even when the event's first date is excluded.
+:::
 
 ::: tip Column View Splits by Default
 In the [column layout](/features/column-view) this option starts from `true` rather than
@@ -47,6 +57,13 @@ column:
   split_multiday_events: false
 ```
 
-The per-calendar form of this option is read in list view only, for the same reason — see
-[Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view).
+The per-calendar form of this option works in the column layout too, so a single calendar
+can keep its events whole while the rest of the card splits:
+
+```yaml
+entities:
+  - entity: calendar.anna
+    split_multiday_events: false
+```
+
 :::

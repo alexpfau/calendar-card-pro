@@ -27,7 +27,7 @@ import { getTimeFormat24h } from '../src/utils/helpers';
  *   matches the `nb`/`nn` tags Home Assistant actually sends; and it simply
  *   asserted the wrong answer for Greek and Korean.
  * - an `/AM|PM|am|pm/` test on the formatted string for the `'system'` branch,
- *   which only recognised an unpunctuated Latin day period. It misread five
+ *   which only recognized an unpunctuated Latin day period. It misread five
  *   languages as 24-hour: Greek renders `1 μ.μ.`, Traditional Chinese `下午1時`,
  *   Arabic `1 م`, Albanian `1 m.d.` and Latin-American Spanish `1 p.m.` — the
  *   last two because the periods break the literal `pm` the regex looked for.
@@ -130,7 +130,7 @@ describe('24-hour clock detection follows the locale', () => {
   describe('falls back rather than guessing', () => {
     it.each([
       { name: 'no locale at all', locale: undefined },
-      { name: 'an unrecognised time_format', locale: { time_format: 'lunar', language: 'de' } },
+      { name: 'an unrecognized time_format', locale: { time_format: 'lunar', language: 'de' } },
       { name: "'language' with no language", locale: { time_format: 'language' } },
       { name: 'a malformed language tag', locale: { time_format: 'language', language: '!!' } },
     ])('$name uses the caller fallback', ({ locale }) => {

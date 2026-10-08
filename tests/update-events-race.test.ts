@@ -5,13 +5,17 @@
  * and again — after the await — when it commits the result. Between those two reads the
  * user can reconfigure the card. `setConfig()` regenerates `_instanceId` from the entity
  * list and immediately calls `updateEvents(true)`, so two requests can be in flight at
- * once, and nothing records which identity each of them started under.
+ * once. Each call takes a ticket from `_eventRequestGeneration` before awaiting; a
+ * response whose ticket no longer matches is discarded instead of committing.
  *
- * If the older request settles last it wins twice over: it replaces `events` with the
- * previous calendar's payload, and it stamps `_eventsInstanceId` with the *current*
- * identity. That second half is what makes the state unrecoverable rather than merely
- * stale — `eventsMatchCurrentQuery` now reports true, so the card believes the old
- * calendar's events belong to the new query and no later refresh treats them as suspect.
+ * Without that ticket, if the older request settles last it wins twice over: it replaces
+ * `events` with the previous calendar's payload, and it stamps `_eventsInstanceId` with
+ * the *current* identity. That second half is what makes the state unrecoverable rather
+ * than merely stale — `eventsMatchCurrentQuery` now reports true, so the card believes
+ * the old calendar's events belong to the new query and no later refresh treats them as
+ * suspect. The same shape appears on disconnect: a fetch started while connected can
+ * settle after a detached `setConfig` rewrote `_instanceId`, so `disconnectedCallback`
+ * bumps the ticket as well.
  *
  * The ordering is not exotic. Home Assistant calls `setConfig` on every keystroke in the
  * visual editor, and the two requests go to different calendars, so their latencies are
@@ -138,5 +142,40 @@ describe('a slow response must not overwrite a newer configuration', () => {
     // assertion above ever starts passing while this one fails, the fix has inverted the
     // problem rather than solved it.
     expect(await race(['old', 'new'])).toEqual(['Newer response']);
+  });
+
+  it('discards an in-flight response after disconnect even when setConfig rewrote the instance', async () => {
+    // Disconnect used to leave `_eventRequestGeneration` alone. A fetch started while
+    // connected could then settle after a detached setConfig had already rotated
+    // `_instanceId`, commit the previous calendar's events, and stamp them as matching
+    // the new query — the same unrecoverable state the header describes, reached through
+    // the lifecycle rather than through a second concurrent updateEvents.
+    const { hass, pending } = deferredHass();
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.hass = hass;
+
+    card.setConfig({ entities: [{ entity: 'calendar.old' }], days_to_show: 3 });
+    document.body.appendChild(card);
+    await flush();
+
+    expect(
+      pending.some((p) => p.path.includes('calendar.old')),
+      'old request must be open',
+    ).toBe(true);
+
+    card.remove();
+    card.setConfig({ entities: [{ entity: 'calendar.new' }], days_to_show: 3 });
+
+    settle(pending, 'calendar.old', 'Stale after disconnect');
+    await flush();
+
+    expect(card.events.map((e) => e.summary)).not.toContain('Stale after disconnect');
+
+    // Positive control: reconnect still loads the calendar the config now names.
+    document.body.appendChild(card);
+    await flush();
+    settle(pending, 'calendar.new', 'Fresh after reconnect');
+    await flush();
+    expect(card.events.map((e) => e.summary)).toEqual(['Fresh after reconnect']);
   });
 });

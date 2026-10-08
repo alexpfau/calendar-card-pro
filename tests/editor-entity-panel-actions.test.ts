@@ -26,6 +26,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
@@ -83,7 +84,7 @@ async function renderEditor(
   const element = document.createElement('editor-entity-actions-probe') as EditorHost;
   element.hass = { states, locale: { language: 'en' } };
   document.body.appendChild(element);
-  element.setConfig({ entities });
+  element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, entities });
   await element.updateComplete;
 
   const emitted: Array<Record<string, unknown>> = [];
@@ -170,7 +171,7 @@ describe('per-calendar secondary line', () => {
       { entity: 'calendar.family', event_type: 'timed' },
     ]);
 
-    // Counted across the whole list rather than among neighbours, because the two blocks
+    // Counted across the whole list rather than among neighbors, because the two blocks
     // for one calendar need not be adjacent — a user can drag anything between them.
     expect(harness.secondaries()).toEqual([
       'Entry 1 of 2 · Configured',
@@ -186,7 +187,7 @@ describe('per-calendar secondary line', () => {
     ]);
 
     // The label stays because it is the user's own answer to "which one is this". The
-    // number is added anyway: two differently-labelled panels give no hint that they are
+    // number is added anyway: two differently-labeled panels give no hint that they are
     // the same underlying calendar, which is the thing that explains the shared heading.
     expect(harness.secondaries()).toEqual(['Entry 1 of 2 · Birthdays', 'Entry 2 of 2 · Meetings']);
   });

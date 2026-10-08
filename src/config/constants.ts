@@ -60,9 +60,24 @@ export const TIMING = {
    * and short enough to be imperceptible against Home Assistant's own load.
    */
   WIDTH_SETTLE_DELAY: 100,
+
+  /**
+   * How often the grid view repaints its now line, in milliseconds.
+   *
+   * A minute, because that is the resolution the line is drawn at — anything finer
+   * repaints for a position that has not moved. It is deliberately not aligned to the
+   * wall-clock minute: the line slides continuously, so being up to a minute stale is
+   * invisible where the arithmetic to align it would not be.
+   */
+  NOW_LINE_INTERVAL: 60_000,
 };
 
 export const UI = {
+  /**
+   * Pointer travel that still counts as a tap rather than a scroll or drag.
+   */
+  POINTER_MOVE_TOLERANCE: 8,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,
@@ -74,6 +89,45 @@ export const UI = {
     TOUCH_SIZE: 100,
     POINTER_SIZE: 50,
   },
+};
+
+/**
+ * Tuning for `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing
+ * event titles. Read by the measurement step in calendar-card-pro.ts; the keyframes and
+ * the pause/reduced-motion behavior live in the stylesheet.
+ */
+export const TITLE_SCROLL = {
+  /** Overflow past which a title scrolls, in CSS pixels. Below it the title never moves. */
+  MIN_OVERFLOW_PX: 1,
+
+  /**
+   * Perceived travel speed, in CSS pixels per second, over the part of the cycle actually
+   * moving, except short trips that use the minimum forward duration.
+   */
+  SPEED_PX_PER_S: 45,
+
+  START_PAUSE_S: 0.6,
+  MIN_FORWARD_S: 2.8,
+  END_PAUSE_S: 0.6,
+  RETURN_SPEED_PX_PER_S: 360,
+  MIN_RETURN_S: 0.2,
+  MAX_RETURN_S: 0.6,
+
+  /**
+   * Legacy fallback's fraction spent moving rather than paused. Must match the
+   * calendar-card-title-scroll keyframes in styles.ts: 15%->85% is 70% travel, the
+   * remaining 30% split evenly as holds at the start and the end.
+   */
+  TRAVEL_FRACTION: 0.7,
+
+  /**
+   * Shortest legacy fallback cycle, in seconds.
+   *
+   * It also bounds how often the marquee's reset is seen. The cycle travels the overflow
+   * once and then restarts, so the floor is what stops a title that overflows by a few
+   * pixels from snapping back several times a second.
+   */
+  MIN_DURATION_S: 4,
 };
 
 /**

@@ -12,8 +12,8 @@ import * as EventUtils from '../src/utils/events';
  *
  * `event-first`, `event-middle`, `event-last` and `past-event` are what the card's own
  * stylesheet and every card-mod recipe hang rounded corners, separators and dimming on.
- * `.past-event .event-content { opacity: 0.6 }` in `styles.ts` is not a hook a user has
- * to opt into — it is how the card shows that an event has already happened, so losing
+ * The `.past-event .event-content` opacity rule in `styles.ts` defaults to 60% without
+ * an opt-in — it is how the card shows that an event has already happened, so losing
  * the class makes finished events look identical to upcoming ones.
  *
  * Both renderers compute these classes independently: `render.ts` for the list row and

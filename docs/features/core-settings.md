@@ -42,7 +42,7 @@ entities:
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                          |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
-| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (Monday to Friday) or `weekends` (Saturday and Sunday), judged on the day each row lands on. Unset, every day qualifies                                                                                                                                                                                                            |
+| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                               |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -138,6 +138,10 @@ entities:
   - entity: calendar.school
     label: /local/school.png # image
 ```
+
+Icons and pictures are vertically centered with the adjacent title text in List, Column,
+and timed Grid events, including merged-calendar labels. Grid's all-day banners remain
+title-only.
 
 `label_type` is for the cases where reading the value gets it wrong. Set it to `none`,
 `text`, `icon` or `image` and it wins over the value:
@@ -509,7 +513,7 @@ below, and it composes with the name filters: a block may set `event_type` and a
 
 ::: tip Listing a Calendar Twice in the Visual Editor
 Home Assistant's calendar picker hides a calendar you have already chosen, so the second
-listing cannot be added there. Use **Duplicate** at the foot of the calendar's own panel
+listing cannot be added there. Use **Duplicate** above the calendar's own settings
 instead: it lists the calendar again with the same settings, ready for you to change the
 one option that differs. The two panels are numbered so you can tell them apart, and
 **Remove** on the panel drops one block without taking the other — see
@@ -564,17 +568,18 @@ over, so this option has nothing left to do and the event stays.
 :::
 
 ::: tip It Takes Effect on the Next Refresh, Not on the Minute
-The card has one timer, the refresh interval, and nothing schedules a redraw at the time
-you name here. An event retires on the first render after its moment passes — which may be
-the refresh, a dashboard reload, or any edit that redraws the card. Expect the row to go
-within the refresh interval of the time you set, not exactly on it.
+Nothing schedules a redraw at the expiry time you name here. An event retires on the first
+render after its moment passes — a data refresh, Home Assistant update, dashboard reload,
+or edit can cause that render. Grid also repaints once a minute while its now line is
+enabled and the page is visible. These repaints are not an expiry alarm; do not expect
+the row to disappear at the exact time you set.
 :::
 
 ### Showing a Calendar on Weekdays Only
 
 `days_of_week` restricts one calendar to weekdays or to weekends. It takes `weekdays` for
-Monday to Friday and `weekends` for Saturday and Sunday; leave it out and every day
-qualifies, which is the default.
+every day except the weekend and `weekends` for the weekend days alone; leave it out and
+every day qualifies, which is the default.
 
 ```yaml
 entities:
@@ -591,13 +596,17 @@ without losing an event or showing one twice.
 ::: warning Pair This With `split_multiday_events` on a Calendar of Long Events
 The example above sets both, and on a holidays calendar it needs to. `days_of_week` judges
 the day a row **lands on**, and an event spanning several days is drawn as a single row on
-the first of them unless you split it. So a fortnight's holiday beginning on a Saturday is
-one Saturday row, and `weekdays` hides the whole fortnight rather than showing you its
+the first of them unless you split it. So a two-week vacation beginning on a Saturday is
+one Saturday row, and `weekdays` hides the whole vacation rather than showing you its
 weekdays.
 
-With `split_multiday_events: true` that same holiday becomes a row per day, each judged
+With `split_multiday_events: true` that same vacation becomes a row per day, each judged
 separately, and you get the Monday-to-Friday view you asked for. Column view already
 defaults the option to `true`, so this pairing only needs stating for list view.
+
+Grid always derives daily coverage, independently of `split_multiday_events`. It filters
+each timed segment and each all-day banner date, including continuations of events whose
+first day was excluded. Other calendars can still show events on the excluded days.
 :::
 
 ::: tip It Filters the Day a Row Lands On, Not the Day It Started
@@ -612,12 +621,26 @@ Filtering runs before the card pads out its window, so a Saturday whose only ent
 calendar supplied becomes an empty day like any other. With
 [`show_empty_days`](/reference/configuration#core-settings) off — the default in list view
 — that day is left out entirely and a later one takes its place. With it on, as column
-view defaults to, the day still appears carrying the usual _No upcoming events_ notice.
+view defaults to, the day still appears carrying the usual _No events_ notice.
 :::
 
-Weekend means Saturday and Sunday. That is the same definition the
-[weekend colors](/features/layout-appearance#date-column-customization) use, so a day
-this option treats as a weekend is a day the card already colors as one.
+Which days are the weekend comes from the country set in Home Assistant, under **Settings →
+System → Home information** (**General** before Home Assistant 2026.3), not from the card's
+own `language` option: Saturday and Sunday in most countries, Friday and Saturday in Israel
+and much of the Arab world, Thursday and Friday in Afghanistan, Friday alone in Iran, and
+Sunday alone in India and Uganda.
+
+With no country set, Home Assistant's language decides instead: Friday and Saturday in
+Arabic and Hebrew, Friday alone in Persian, Sunday alone in Hindi, Malayalam, Tamil and
+Telugu, and Saturday and Sunday in every other language. A language can speak for only one
+of the countries that use it, though — English gives an Israeli home Saturday and Sunday,
+and Arabic gives a Moroccan one Friday and Saturday — so set the country if your weekend
+comes out wrong.
+
+That is the same definition the
+[weekend colors](/features/layout-appearance#date-column-customization) and the weekend
+shading use, so a day this option treats as a weekend is a day the card already draws as
+one.
 
 ### Filtering Duplicate Events
 
@@ -631,12 +654,29 @@ entities:
 filter_duplicates: true
 ```
 
-An event counts as a duplicate of another when its **title**, **start**, **end** and
-**location** all match. The surviving copy is the one from the entry listed **first** in
+An event counts as a duplicate of another when its original **title**, **start**, **end** and
+**location** all match. Among copies that pass their calendar's filters, the surviving copy
+is the one from the eligible entry listed **first** in
 `entities`, carrying that entry's own `color` and `accent_color` — so reordering `entities`
 changes which calendar's styling a shared event shows. That same first-listed priority also
 picks the winner when the two competing entries are blocks of one calendar, which is what
 [keyword icon mapping](#mapping-icons-onto-events-by-keyword) relies on.
+
+Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
+that excludes a date cannot remove another calendar's eligible copy:
+
+```yaml
+filter_duplicates: true
+entities:
+  - entity: calendar.anna
+    days_of_week: weekdays
+  - calendar.ben
+```
+
+On a weekend, a shared event still appears from Ben's calendar. Daily occurrences are
+compared on their displayed dates, so a split multi-day event can have different contributing
+calendars on different days. An eligible first-listed unsplit List or Column copy keeps its
+single-row shape; lower-priority copies do not force it to split.
 
 When the merge spans two or more **distinct** calendars, the surviving row can do more than
 inherit one calendar's styling: it can name every calendar the event belongs to and take a
@@ -733,7 +773,7 @@ This technique lets you:
 - Use accent colors with backgrounds (when event_background_opacity > 0) for even more distinction
 - Avoid needing to create separate calendars for different event categories
 
-In the visual editor, build this with **Duplicate** at the foot of the calendar's panel —
+In the visual editor, build this with **Duplicate** above the calendar's settings —
 once for each extra block — and then give each copy its own filter, label and color. See
 [Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
 
@@ -932,28 +972,36 @@ Calendar Card Pro offers powerful controls for managing what appears in compact 
 # Total days to fetch from API and display when expanded
 days_to_show: 7
 
-# Event limit for compact mode
-compact_events_to_show: 5 # Preferred: New option name
+list:
+  # Event limit for compact mode
+  compact_events_to_show: 5 # Preferred: New option name
 
-# Day limit in compact mode
-compact_days_to_show: 2 # Fewer days to display in compact mode
+  # Day limit in compact mode
+  compact_days_to_show: 2 # Fewer days to display in compact mode
 
-# Ensure complete days are shown
-compact_events_complete_days: true # Never cut off a day's events mid-day
+  # Ensure complete days are shown
+  compact_events_complete_days: true # Never cut off a day's events mid-day
 ```
+
+Numeric limits follow the same rules inside `list:` as at the top level. Quoted values such
+as `compact_events_to_show: '5'` still limit the card and can be expanded. Blank, negative,
+or nonnumeric limits mean no limit; zero is valid for the event limit, but not the day limit.
 
 ::: warning Compact Mode Applies to List View Only
 All three options on this page cap the card as a whole, which a stack of days can express
-and a row of columns cannot: a limit of three events would fill the first column, spill into
+and a row of days cannot: a limit of three events would fill the first column, spill into
 the second and leave every later one blank. So `compact_events_to_show`,
 `compact_days_to_show` and `compact_events_complete_days` — including the per-calendar
-`compact_events_to_show` below — are read in list view and ignored in column view.
+`compact_events_to_show` below — are read in list view and ignored in column and grid view.
 
-They are not errors and they need not be removed: a card set to `view: column` renders as a
-list whenever it is too narrow for columns, and they all apply again the moment it does. To
-control how much a column view shows, use
+They are not errors and they need not be removed: a card set to `view: column` or
+`view: grid` renders as a list whenever it is too narrow for even `min_days_to_show` under
+the default `min_days_fallback: list`, and they all apply again the moment it does. To
+control how much a side-by-side view shows while it stays side-by-side, use
 [`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
-instead.
+for column view, or the matching
+[`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid, rather
+than compact caps.
 :::
 
 ### Entity-Level vs. Global Event Limits
@@ -980,7 +1028,8 @@ The `compact_days_to_show` option lets you display fewer days in compact mode:
 
 ```yaml
 days_to_show: 7 # Show 7 days when expanded
-compact_days_to_show: 2 # Show only the next 2 days with events in compact mode
+list:
+  compact_days_to_show: 2 # Show only the next 2 days with events in compact mode
 ```
 
 This is useful for dashboards where you want an initial view showing just the most immediate events, with the ability to expand to view the entire week.
@@ -990,8 +1039,9 @@ This is useful for dashboards where you want an initial view showing just the mo
 When using event limits, the `compact_events_complete_days` option ensures that partial days are never shown:
 
 ```yaml
-compact_events_to_show: 5
-compact_events_complete_days: true
+list:
+  compact_events_to_show: 5
+  compact_events_complete_days: true
 ```
 
 When enabled, this feature ensures that if at least one event from a day is shown, all events from that day will be displayed. This prevents confusion that might arise when some events from a day are visible but others are hidden.
@@ -1011,10 +1061,60 @@ These flexible controls allow you to:
 - **Provide complete context**: Ensure users can see all events for any shown day
 - **Support easy expansion**: Allow users to see the full calendar with a single tap
 
+## 🧱 Per-View Options
+
+Calendar Card Pro renders in three layouts, and each has a block of its own: `list:`,
+`column:` and `time_grid:`. Top-level presentation options form the **shared base**.
+For an option that a view can override, the card uses the view's explicit value first,
+then any built-in default specific to that view, then the shared value. List has no
+different built-in defaults; Column and Grid do.
+
+```yaml
+# Shared starting values
+event_font_size: 14px
+show_location: true
+
+column:
+  event_font_size: 11px # Column view only — narrower columns, smaller type
+```
+
+A block names what you want that layout to use explicitly. The example above shows
+locations in all three layouts, but the event font sizes are **14px in List, 11px in
+Column, and 12px in Grid**: Grid's own typography default takes precedence over the shared
+font size. Set `time_grid.event_font_size` as well if you want to change it there.
+See the [Column defaults](/features/column-view#options-that-start-from-a-different-default)
+and [Grid defaults](/features/grid-view#options-that-start-from-a-different-default) for
+the complete exception lists.
+
+Each block also holds the options only that layout has — the compact caps and date-cell
+settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those
+have no shared meaning and are not offered in All Layouts. Legacy List-only root values
+remain supported as described below.
+
+::: tip Older Configurations Keep Working
+Before v5 there was no `list:` block, so list options were written at the top level. They
+still are read there, permanently — nothing needs changing by hand. When an older card has
+top-level options that could mean either "List only" or "shared by every layout", the
+visual editor asks which meaning you want before it changes the configuration. If there is
+no such ambiguity, the first real editor save adopts the new arrangement automatically.
+:::
+
+In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
+to edit shared values or a named layout to edit only its block. Explicit shared choices
+whose defaults differ by layout remain in saved YAML even when they match the card default.
+Switching the displayed layout to Grid in the editor can copy those choices into
+`time_grid:` to preserve them; this is an editor action, not different YAML precedence.
+
+**→ [Column View](/features/column-view)** — what column may override, and what it ignores.
+**→ [Grid View](/features/grid-view)** — the same for the time grid.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
+
 ## 🧭 Column View
 
 Column view moved to its own page — it outgrew this one.
 
 **→ [Column View](/features/column-view)** — the layout, per-view overrides, spacing and the responsive fallbacks.
+
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the compact options and the two date-cell ones, which live inside `list:`.
 
 **→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — the full option table for everything on this page.

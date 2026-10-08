@@ -20,7 +20,7 @@
   "at": "在",
   "endsToday": "今天结束",
   "endsTomorrow": "明天结束",
-  "noEvents": "没有即将到来的活动",
+  "noEvents": "没有活动",
   "loading": "正在加载日历事件...",
   "error": "错误：找不到日历实体或配置不正确"
 }

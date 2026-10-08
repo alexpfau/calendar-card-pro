@@ -15,7 +15,7 @@
   "at": "plkst.",
   "endsToday": "beidzas šodien",
   "endsTomorrow": "beidzas rīt",
-  "noEvents": "Nav gaidāmu notikumu",
+  "noEvents": "Nav notikumu",
   "loading": "Ielādē kalendāra notikumus...",
   "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta"
 }

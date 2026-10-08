@@ -165,7 +165,7 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -196,7 +196,7 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -427,7 +427,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -458,7 +458,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -489,7 +489,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -520,7 +520,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -551,7 +551,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -582,7 +582,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -613,7 +613,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -644,7 +644,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -675,7 +675,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -706,7 +706,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -737,7 +737,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -768,7 +768,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -799,7 +799,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -830,7 +830,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -861,7 +861,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -892,7 +892,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -923,7 +923,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -2000,7 +2000,7 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -2031,7 +2031,7 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -2062,7 +2062,7 @@ exports[`column view DOM > renders with no events 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->

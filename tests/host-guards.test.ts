@@ -2,14 +2,19 @@
  * Guards in the card host that a mutation sweep left standing, and what each turned out
  * to be.
  *
- * Two were real gaps and are closed here: a refresh interval that silently reverted to
- * the built-in default, and the error state for a card with no calendars configured.
+ * Behavior pins closed here:
+ * - a refresh interval that silently reverted to the built-in default;
+ * - the error state for a card with no calendars configured;
+ * - `startRefreshTimer` / `updateEvents` refusing to re-arm work after disconnect
+ *   (detached `setConfig` still reaches both).
  *
  * The rest were **equivalent mutants**, and are recorded rather than tested, because a
  * test that appeared to pin one would be pinning the mutation's own absorption:
  *
- * - the retry-cleanup guard in `updateEvents` is followed by a branch that clears and
- *   re-arms the timer either way;
+ * - the retry-cleanup guard in `updateEvents` (clearing an existing no-hass timer once
+ *   `hass` is present) is followed by a branch that clears and re-arms either way when
+ *   `hass` is still missing — that pair is not the disconnect early-return, which *is*
+ *   pinned below;
  * - `hasCompactModeLimits`'s `Number.isFinite` check sits behind `toValidNumber`, which
  *   has already reduced every limit — card-level and per-entity — to `number | undefined`;
  * - the weather-setup early return is masked **three** times over. Its entity half is
@@ -22,6 +27,9 @@
  * The weather cases below therefore pin the *contract* rather than any mutant: a card
  * configured for weather but not yet given `hass` — the ordinary first-paint ordering —
  * subscribes to nothing and does not reject.
+ *
+ * In-flight `updateEvents` discarded on disconnect (generation bump) lives in
+ * `update-events-race.test.ts` — same supersede mechanism, lifecycle entry point.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,8 +44,12 @@ interface CardUnderTest extends HTMLElement {
   isInitialLoad: boolean;
   events: Types.CalendarEventData[];
   updateComplete: Promise<boolean>;
+  updateEvents(force?: boolean): Promise<void>;
   _setupWeatherSubscriptions(): Promise<void>;
   _weatherUnsubscribers: Array<() => void>;
+  _refreshTimerId?: number;
+  _initialLoadRetryId?: number;
+  startRefreshTimer(): void;
   renderedTitle?: string;
   readonly shadowRoot: ShadowRoot | null;
 }
@@ -73,7 +85,7 @@ function recordingHass(): { hass: unknown; attempts: number } {
   } as unknown as { hass: unknown; attempts: number };
 }
 
-describe('the refresh timer honours the configured interval', () => {
+describe('the refresh timer honors the configured interval', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FROZEN_NOW);
@@ -87,7 +99,7 @@ describe('the refresh timer honours the configured interval', () => {
   it('schedules the next refresh at refresh_interval, not the built-in default', async () => {
     // `refresh_interval` reaches this read already normalized, so the `|| DEFAULT` beside it
     // is defensive and never fires — which is exactly why dropping the configured value in
-    // favour of the default went unnoticed. The default is 30 minutes; 5 is chosen so the
+    // favor of the default went unnoticed. The default is 30 minutes; 5 is chosen so the
     // two cannot be confused.
     const element = card({ refresh_interval: 5 });
     const timeout = vi.spyOn(window, 'setTimeout');
@@ -102,6 +114,64 @@ describe('the refresh timer honours the configured interval', () => {
     expect(delays).not.toContain(30 * 60 * 1000);
 
     timeout.mockRestore();
+  });
+
+  it('does not re-arm the refresh timer after disconnect', async () => {
+    const element = card({ refresh_interval: 5 });
+    document.body.appendChild(element);
+    element.hass = { states: {}, callService: () => {}, locale: { language: 'en' } };
+    await element.updateComplete;
+    // Fake timers return a handle object rather than a bare number — presence is the pin.
+    expect(element._refreshTimerId).toBeTruthy();
+
+    element.remove();
+    expect(element._refreshTimerId).toBeUndefined();
+
+    // setConfig always ends in startRefreshTimer — without the isConnected guard
+    // that re-arms a detached card's updateEvents loop indefinitely.
+    element.setConfig(buildConfig({ entities: ['calendar.personal'], refresh_interval: 5 }));
+    expect(element._refreshTimerId).toBeUndefined();
+
+    // Positive control: reconnecting still schedules.
+    document.body.appendChild(element);
+    expect(element._refreshTimerId).toBeTruthy();
+  });
+});
+
+describe('updateEvents refuses work after disconnect', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  it('does not re-arm the no-hass retry after disconnect', async () => {
+    const element = card();
+    document.body.appendChild(element);
+    // No hass: the first load arms the 1.5s retry.
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeTruthy();
+
+    element.remove();
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    // Detached setConfig only reaches updateEvents when entities/processing change.
+    // An identical config is a silent no-op and cannot pin this guard — call the
+    // method, and also drive setConfig with a real entity change.
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    element.setConfig(buildConfig({ entities: ['calendar.work'] }));
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    // Positive control: reconnecting with still-missing hass arms it again.
+    document.body.appendChild(element);
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeTruthy();
   });
 });
 
@@ -126,7 +196,7 @@ describe('weather setup requires a Home Assistant connection', () => {
 
   it('attempts nothing when hass is absent', async () => {
     // Pins the contract, not a mutant. The guard this looks like it is testing is masked
-    // three times over — see the file header — so no behavioural test can kill it, and
+    // three times over — see the file header — so no behavioral test can kill it, and
     // claiming otherwise would be the "check that cannot fail" this suite exists to avoid.
     // What is genuinely worth holding is the outcome: a card configured for weather that
     // has not yet received `hass` subscribes to nothing and does not reject.

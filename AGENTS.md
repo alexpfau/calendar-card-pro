@@ -104,7 +104,7 @@ three ways:
 | `node zlib.gzipSync` (default)   | 56,907 |
 | `gzip -c` (level 6, the default) | 56,932 |
 
-A 140-byte spread is the same order as several real optimisations recorded in this file, so
+A 140-byte spread is the same order as several real optimizations recorded in this file, so
 an unqualified figure can manufacture a regression or hide one. **Raw size plus a hash is the
 comparison that cannot drift**; gzip is for reporting, and only against another figure taken
 the same way. Note also that equal raw sizes do not prove identity — hash them.
@@ -129,11 +129,22 @@ card busts. It is strictly better than the content hashes it replaced, which nev
 responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
 itself changes, so a shared-module change reloaded the card and left a stale editor.
 
-🚨 **`import.meta` compiles to `{}` under esbuild `target: 'es2017'`.** That makes
+🚨 **`import.meta` compiles to `{}` under any esbuild target below `es2020`.** That makes
 `import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
-other gate — it typechecks, builds, lints and tests clean. `supported: { 'import-meta':
-true }` in the `esbuild()` options is what prevents it, and `check:bundle` asserts the
+other gate — it typechecks, builds, lints and tests clean. The target is `es2021` since
+v5, which keeps it as written, but it was `es2017` for years and survived only because
+`supported: { 'import-meta': true }` in the `esbuild()` options declared it. That flag
+stays as the guard against the target ever dropping again, and `check:bundle` asserts the
 result. Do not remove either.
+
+**Why `es2021` and no lower or higher.** The esbuild plugin transforms our own TypeScript
+only; Lit 3 arrives untransformed and already uses `??=`, so ES2021 is the bundle's real
+floor whatever the target says. Lowering our code beneath it cost bytes and bought no
+browser, and a higher target would let our own code raise the floor. `tsconfig.json`
+stays at `ES2017` on purpose: the plugin hands it to esbuild, which derives
+`useDefineForClassFields` from its `target`, and Lit's decorated properties need the
+assignment semantics an `ES2017` target implies. Raising that one is a different change
+with a different risk.
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
 and rewrites both output filenames _and_ the custom element names, so a dev build
@@ -245,7 +256,7 @@ of the editor while its control, its helper text and its translations all stay p
 were pinned, and one of those (`view`) only because `VIEWS` drives the renderer as well.
 
 `checkEditorOptions` closes it in both directions, and the interesting part is how it gets
-the key. It cannot be modelled: **four** shapes are live — the node's own name (`view`), its
+the key. It cannot be modeled: **four** shapes are live — the node's own name (`view`), its
 group-qualified name (`column.min_days_fallback`), the per-calendar prefix
 (`entity.show_time`), and a key that is not the node's name at all, because
 `unionPickerField` labels the picker for a union option through the synthetic mode field
@@ -262,7 +273,7 @@ Two things to know before touching it. The sentinel is registered in
 `checkEditorTranslations` reconciles the entries it parses out of the index module's
 _source_ rather than the runtime object's keys, so a leaked entry is invisible to it, at 0
 errors when planted. And an option whose label is **not** an option-label key is an error
-rather than a skip — a dropdown labelled outside the string table is untranslatable, and
+rather than a skip — a dropdown labeled outside the string table is untranslatable, and
 treating it as out of scope is how a gate silently stops covering the thing it was written
 for.
 
@@ -327,7 +338,7 @@ week-number file's and the honest one. Do not assert a zone is the only one able
 failure without planting it in the other two.
 
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
-change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
+change.** The serializer normalizes whitespace _between tags only_; whitespace adjacent to
 a text node survives verbatim, so the literal source indentation inside an `html` template
 is part of the oracle. Moving a template therefore means **preserving its original absolute
 indentation**, even where that looks wrong at the new nesting depth — which is why
@@ -397,7 +408,7 @@ that those three templates are no longer formatted by anything, so match the sur
 style by hand when editing inside them.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
-and the gate's entire value is that it is the one artefact the person doing the refactor
+and the gate's entire value is that it is the one artifact the person doing the refactor
 does not get to edit. Fix the indentation, or — if the markup genuinely changed — read the
 diff line by line and commit it deliberately.
 
@@ -410,7 +421,7 @@ const norm = (s) => s.replace(/>\s+</g, '><');
 norm(before) === norm(after); // true  =>  inter-tag whitespace and nothing else
 ```
 
-Because that collapses only what the serializer already normalises, a `true` proves there
+Because that collapses only what the serializer already normalizes, a `true` proves there
 is no text change, **no text-adjacent indentation change**, and no attribute, class or
 element change — across the whole file, not just the hunks you looked at. Do **not**
 substitute `replace(/\s+/g, '')`: stripping _all_ whitespace also discards the significant
@@ -419,7 +430,7 @@ kind, so it will call a real text-adjacent regression clean. Check the entry cou
 like nothing at all.
 
 One deliberate exception, and it is not a typo to fix: `tests/column-dom.test.ts` carries
-**two independent normalisers**, one per comparison — neither calls the other.
+**two independent normalizers**, one per comparison — neither calls the other.
 `serialize()` uses `>\s+<`, as `list-dom` does, and backs the strict default-config
 comparison where no placement fires and the stronger assertion costs nothing.
 `eventContentsAtCommonPlacement()`, which folds the column's progress-bar row back to the
@@ -498,7 +509,7 @@ External contributors frequently open PRs against `main` by mistake. Retarget th
 failure accuses the repository rather than the name. HACS reads `hacs.json` and the README
 over the network from `raw.githubusercontent.com/{repo}/{ref}/{file}`, and
 `custom_components/hacs/base.py` strips `tags/` out of that URL unconditionally, to
-normalise release refs like `tags/v1.2.3`. A branch called `fix/void-element-end-tags`
+normalize release refs like `tags/v1.2.3`. A branch called `fix/void-element-end-tags`
 therefore requests `…-tags/hacs.json`, HACS rewrites it to `…-hacs.json`, and both fetches 404. The two content checks then report _"invalid 'hacs.json' file"_ and _"does not have
 images in the Readme file"_ while the six metadata checks pass, because those need no file
 fetch — **that 6-pass/2-fail split is the signature**, and the generic wording is the second
@@ -699,7 +710,7 @@ The README's quick-start YAML block is the one **deliberate** duplicate in the p
 is the HACS landing page, so it has to show a working config without sending the reader
 elsewhere first. `check:docs` pins it byte-for-byte to the first example in
 `docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
-Anything that _teaches_ (multiple calendars, per-calendar colours, compact mode) belongs
+Anything that _teaches_ (multiple calendars, per-calendar colors, compact mode) belongs
 only in `docs/`, never in the README.
 
 ### The two "What's New" surfaces
@@ -713,7 +724,7 @@ most likely way for a release to drift:
 | Span      | current major only, capped at 8 entries   | **every** minor line, back to v1.0 |
 | Selection | ruthless — relevance only                 | fuller, but still curated          |
 
-**Do not touch either in a feature PR.** They are organised by release, so a feature
+**Do not touch either in a feature PR.** They are organized by release, so a feature
 branch cannot know which version it will land in, and concurrent branches conflict in them.
 
 **In the release PR** (`dev` → `main`), update **both** alongside `docs/RELEASE_NOTES.md`.
@@ -1375,7 +1386,7 @@ which fields exist and only one of them says so.
 What catches it is a test that **reconciles the whitelist against `EntityConfig`** rather
 than walking either one, which is the same _pin the whole table by value_ discipline as the
 `Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
-one line of the projection fails that test plus every behavioural test for the dropped
+one line of the projection fails that test plus every behavioral test for the dropped
 option, which is the falsifier to run when adding one.
 
 ### There is a second hand-written projection, and it is between grouping and rendering
@@ -1387,7 +1398,7 @@ there is dropped silently between grouping and rendering, so the value is comput
 correctly, survives every intermediate stage, and simply is not there when a leaf renderer
 looks for it.
 
-It is easy to miss precisely because the neighbouring path does the opposite:
+It is easy to miss precisely because the neighboring path does the opposite:
 `splitMultiDayEvent` copies with a spread, so multi-day segments inherit any new field for
 free. Testing a stamp on a split segment therefore passes while the ordinary row fails, which
 points at multi-day handling rather than at the projection.
@@ -1403,9 +1414,9 @@ adding another.
 
 ### Proximity is not reach — a note about a family should be a reconciliation
 
-🚨 **A hazard documented beside the code that has it is not a defence.** This has now been
+🚨 **A hazard documented beside the code that has it is not a defense.** This has now been
 found three times, always in the same shape: a comment describes the trap _completely_ and
-_correctly_, for the neighbouring case, and the next member of the family arrived in a
+_correctly_, for the neighboring case, and the next member of the family arrived in a
 different pull request weeks later and was never added to it.
 
 - `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
@@ -1482,8 +1493,8 @@ Three things are easy to get wrong:
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
   committed only once they parse. Do not "simplify" that into a direct write.
-- **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
-  cards pass through `computeCssColor()`; this card writes colours straight into CSS
+- **Colors are `text`, not `ui_color`.** HA's color selector emits a theme token that
+  cards pass through `computeCssColor()`; this card writes colors straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
 
 ### The picker shows calendars; the panel list shows blocks
@@ -1530,7 +1541,7 @@ picker that no longer exists here, and should not be restored as the reason.
 A section heading is a `constant` schema node **with no `value`** — that renders as a bare
 bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
 a heading. The type was already declared and unused, so this needs no new mechanism, and
-`check:i18n` treats it as a labelled field and requires one English string for it —
+`check:i18n` treats it as a labeled field and requires one English string for it —
 enforcement, not cost.
 
 A heading is the one node type that can **actively lie**, because it makes a claim about
@@ -1656,8 +1667,8 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes roughly **45 KB raw and
-about 17 KB gzipped** off the eager path — nearly all of it the card, since
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes roughly **62 KB raw** off
+the eager path — nearly all of it the card, since
 `rendering/styles.ts` is where the reasoning lives and the editor's share has held at 860
 bytes across every rebase.
 
@@ -1724,11 +1735,11 @@ one had already drifted by several hundred before anyone reading it noticed.
 is worse than none, because it launders an untested claim as a verified one.
 
 **Four ways a check passes while proving nothing.** Each was found here, twice, against
-different artefacts.
+different artifacts.
 
 | #   | Failure                                                                                                                                                                                                                                         | Falsifier                                                                                                          |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 1   | **A metric derived from the fix's own hypothesis cannot falsify it.**                                                                                                                                                                           | Look at the artefact once with the metric switched off.                                                            |
+| 1   | **A metric derived from the fix's own hypothesis cannot falsify it.**                                                                                                                                                                           | Look at the artifact once with the metric switched off.                                                            |
 | 2   | **The representative input passes cleanly every time.** Pick the case most likely to _break_ the claim — and note that right language, right script and right class still cleared the rule once, because the property that mattered was length. | Name the input you would least like to run.                                                                        |
 | 3   | **A probe can be correct, correctly configured, honestly reported — and measuring the wrong thing.**                                                                                                                                            | Have someone derive it a second way; two independent derivations agreeing is worth more than either being careful. |
 | 4   | **A probe whose own structure supplies the finding** — the nastiest, because it yields a _positive claim that looks like evidence_ rather than a null.                                                                                          | Ask what result the probe is incapable of returning.                                                               |
@@ -1739,7 +1750,7 @@ different artefacts.
   produced one of each within an hour.** Row 4 above is the sweep manufacturing a
   _positive_: twelve mutations reported "caught (build error)", uniformly, because
   `execSync` throws on vitest's non-zero exit and the catch never read stdout, so a
-  generic `/error/` test relabelled every genuine test failure. The answer happened to be
+  generic `/error/` test relabeled every genuine test failure. The answer happened to be
   right and the evidence was worthless. The **inverse** is nastier, because it reads as a
   gap in the tests rather than a gap in the probe: a mutation that "moves" a template by
   adding an attribute changes nothing observable, reports SURVIVED, and invites you to
@@ -1756,7 +1767,7 @@ different artefacts.
   at makes a short count something you catch by reading rather than by luck. Compare
   `ls src/rendering/editor/*.ts` with `find src/rendering/editor -name '*.ts'` for a live
   flat glob that silently drops most of a nested tree. Plant a real violation and confirm
-  it is caught _before_ mutating. A mutation that changes no observable behaviour is
+  it is caught _before_ mutating. A mutation that changes no observable behavior is
   evidence about the corpus, not the code.
 - **A denominator bounds the corpus, not the search.** "0 of 1,939 lines" is a true,
   well-formed null that still misses every defect its pattern cannot express — a truncation
@@ -1791,7 +1802,7 @@ different artefacts.
 - **Regex a file for its _shape_, import it for its _values_.** And when the machine reads a
   table, ask whether it reads that _field_, and whether that field's consumer can match
   anything at all — read, acted upon, reachable are three different things.
-- **Normalise every dimension the writer does not control**, in this order: line-leading
+- **Normalize every dimension the writer does not control**, in this order: line-leading
   markup per line, then emphasis and code spans, then whitespace. Flattening first destroys
   the boundary the prefix rule needs. A markup-free fragment does _not_ survive reflow.
 
@@ -1807,7 +1818,7 @@ different artefacts.
   which is the direction that provokes an unnecessary restore.
 
 - **A fix is not finished at the site the report named — grep for the claim's other copies,
-  and re-read the neighbours of every line you touch.** Five review rounds on one branch
+  and re-read the neighbors of every line you touch.** Five review rounds on one branch
   found something in the _previous round's fix_ four times running, and mostly not in the fix
   itself: the corrections were right, their edges were not. A false string was corrected in
   the documentation and left standing in three other places, two of them in the source file
@@ -1837,7 +1848,7 @@ different artefacts.
   A document-to-document audit cannot see the last of those.
 - **Independent agreement is evidence about the code both reviewers read, not about the tip.**
   Two reviewers converging is the strongest corroboration available, and it held here — on a
-  defect the intervening 47 and 50 commits had already fixed. Convergence localises _when_,
+  defect the intervening 47 and 50 commits had already fixed. Convergence localizes _when_,
   not _whether_, so measure the reviewed SHA's distance before the finding and re-measure
   before acting — `git fetch` first, then `git rev-list --count <sha>..origin/<branch>`, never
   against a SHA quoted in a brief. Two passes here did that arithmetic correctly and still
@@ -1857,8 +1868,40 @@ different artefacts.
   defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
   probe. Where it does not, the regression test usually carries the reporter's scenario in its
   name.
+- **Two derivations agreeing is worth nothing unless the _mechanisms_ differ.** The row-3
+  falsifier says to have someone derive it a second way, and the bullet above closes on passes
+  that agreed because they shared a brief. Sharing runs deeper than sharing an input, and three
+  agreements collapsed in one day, each on a different shared component. Two regexes over one
+  file are **one parser**: a config-key count was reconciled at 102 twice because both patterns
+  spelled the class `[a-z_]+`, and `time_24h` is the only digit-bearing key in `Config`, so the
+  under-count was stably exactly one and never looked noisy. Two copies of a document compared
+  with `cmp` are **one instant**: a durable artifact and its off-session backstop reported
+  identical twice while the writer was still editing, so the reader was verifying a moving
+  target. A reachability trace and a harmlessness verdict are **one call site**: the trace
+  reached `widthFallbackDefaults` through the single field absent from `COLUMN_DEFAULTS`, and
+  the verdict then generalized from that field to the two that are present, which turn out to
+  be immune for unrelated local reasons instead. All three _raised_ confidence rather than
+  lowering it. **A runtime enumeration and a source parse are two mechanisms; two greps are
+  one.** Name the pair that carried the result, and prefer one that cannot share a parser, a
+  clock or a caller. The same failure has a social form — **a relayed claim acquires
+  corroboration it never earned**, because a claim passed on unchanged reaches the decider in
+  two voices when there was only ever one observation, and nothing in the second voice says it
+  is an echo. Relay the provenance with the claim, _"the other pass states X; I have not tested
+  it"_: one clause, and one source stays distinguishable from two. None of this is a mechanical
+  gate — nothing can detect from outside that two derivations share a parser — which is why it
+  sits with the prose conventions rather than with the reconciliations.
+- **Before asking whether the probe could be wrong, ask whether there is a probe.** The table
+  above is entirely about probes that exist, and the cheapest claim to get wrong is the one
+  nobody thought needed measuring. A pass asserted that widening an editor workspace type to
+  admit a fourth value would compile clean while `ReadonlySet.has()` silently returned `false`
+  for every scoped key — a landmine, reasoned carefully, relayed onward, and never typed into a
+  terminal. One command inverted it: the control exited 0 and silent, the widened alias produced
+  **11 errors**, and the two lines named with the most confidence were two of them, because
+  `.has()` rejects the widened union at the call rather than answering `false`. A claim cheap
+  enough to test and obvious enough not to bother is the one that enters the record as reasoning
+  and gets cited as fact.
 - **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
-  code facts with a behavioural result invites you to check the facts, find them exact, and
+  code facts with a behavioral result invites you to check the facts, find them exact, and
   carry the result across on that credit. A sibling pass's control-design example cited two
   lines that proved correct to the character, and the asymmetry built on them did not
   reproduce: the constant it described as harmlessly absorbed killed nearly as many tests as
@@ -1881,11 +1924,26 @@ different artefacts.
   Disabling the exact-hour lookup in `findForecastForEvent` left the suite green; disabling the
   closest-hour fallback instead left it green; disabling both turned it red. Every fixture's
   event began on an exact hourly key, so neither branch was ever the only one able to answer,
-  and deleting either on that evidence would have dropped live behaviour. Mutate surviving
+  and deleting either on that evidence would have dropped live behavior. Mutate surviving
   siblings _together_ before concluding anything, and where the pair proves jointly load-bearing
   the remedy is a fixture that separates them — an event whose start hour is deliberately not a
   key — rather than a deletion. With those fixtures added the once-invisible single mutation
   fails 5 of 17, so the same probe that proved the gap now proves it closed.
+
+  🚨 **The same masking is worse when it does _not_ go green, and that case is not a mutation
+  sweep at all — it is costing a proposed change.** A green result invites the suspicion this
+  rule is built on; a small non-zero result invites confidence, because it reads as a complete
+  measurement of a cheap change. Pricing a candidate fix to `resolveViewOption` gave **2 of
+  4,354** failing, which was reported as the whole blast radius. `resolveEffectiveConfig` is a
+  second, independent implementation of the same rule — it seeds `{ ...block.defaultOverrides }`
+  and returns `{ ...config, ...applied }`, so the view defaults spread _last_ and win by a
+  different mechanism, with no `??` to grep for — and it is the one the card itself calls.
+  Patching both gave **25 across 7 files**, adding the rendered-DOM suite the single-site figure
+  had missed entirely. So the first number was not merely 12× low; it was the wrong _kind_ of
+  answer, describing a resolver nicety where the change alters what users see. **Before quoting
+  a cost, ask whether the behavior you edited is implemented once** — a rule expressed both
+  per-key and in bulk is two sites, and the bulk one is usually the one production takes.
+
 - **"Already fixed at the tip" does not establish that a report was stale.** A triage run
   against a tip that has already absorbed the report cannot detect the report: it reports
   _already fixed, no action needed_ whether the finding was genuine prior art or was live
@@ -1916,7 +1974,7 @@ different artefacts.
   of its own taken at the tip — a bare linter run, a probe, a grep of the shipped text — the
   citation was decoration and the technical call still stands on the measurement. Where the
   citation _was_ the verdict, nothing was ever measured and the finding has to be retested
-  from scratch. Sweeping the back-catalogue and retracting every hit alike would trade a set
+  from scratch. Sweeping the back-catalog and retracting every hit alike would trade a set
   of unfounded dismissals for a set of equally unfounded reversals.
 
   Aim the check at what the verdict asserted, rather than at the bare fact that it names a
