@@ -816,6 +816,7 @@ Calendar Card Pro now includes a comprehensive visual editor that makes configur
 - **Smart Validation** - Type-specific input fields with validation ensure your configuration is always correct
 - **Visual Helpers** - Specialized selectors for today indicators, calendar labels, and other visual elements
 - **Enhanced Accessibility** - Inclusive design principles ensure the editor is usable by everyone
+
 </details>
 
 ### 🌦️ Weather Integration
@@ -1151,16 +1152,16 @@ Visually highlight the current day in your calendar with customizable indicators
 
 ```yaml
 # Enable and choose indicator type
-today_indicator: true     # Simple dot indicator
-today_indicator: pulse    # Animated pulsing dot
-today_indicator: glow     # Glowing dot effect
+today_indicator: true # Simple dot indicator
+today_indicator: pulse # Animated pulsing dot
+today_indicator: glow # Glowing dot effect
 today_indicator: mdi:star # Custom Material Design icon
-today_indicator: 🎯       # Emoji character
+today_indicator: 🎯 # Emoji character
 today_indicator: /local/custom-indicator.png # Custom image
 
 # Position the indicator precisely
-today_indicator_position: "15% 50%" # Left-center (default)
-today_indicator_position: "85% 15%" # Top-right corner
+today_indicator_position: '15% 50%' # Left-center (default)
+today_indicator_position: '85% 15%' # Top-right corner
 ```
 
 - **Multiple Indicator Types** - Choose from dots, animations, icons, emojis, or custom images
@@ -1331,10 +1332,10 @@ Define "floating" start dates relative to the current day:
 
 ```yaml
 # Start date examples:
-start_date: "today+7"  # Always show events starting 7 days from today
-start_date: "+3"       # Shorthand for today+3
-start_date: "today-2"  # Show events starting from 2 days ago
-start_date: "-1"       # Shorthand for today-1 (yesterday)
+start_date: 'today+7' # Always show events starting 7 days from today
+start_date: '+3' # Shorthand for today+3
+start_date: 'today-2' # Show events starting from 2 days ago
+start_date: '-1' # Shorthand for today-1 (yesterday)
 ```
 
 - **Automatic Adjustment** - Date range automatically updates as days pass
@@ -1480,12 +1481,12 @@ Calendar Card Pro now provides powerful filtering capabilities with regex-based 
 # Exclude specific events by pattern:
 entities:
   - entity: calendar.work
-    blocklist: "Private|Conference" # Hide private meetings and conferences
+    blocklist: 'Private|Conference' # Hide private meetings and conferences
 
 # Only show specific events:
 entities:
   - entity: calendar.family
-    allowlist: "Birthday|Anniversary" # Only show birthdays and anniversaries
+    allowlist: 'Birthday|Anniversary' # Only show birthdays and anniversaries
 ```
 
 - **Per-Entity Filtering** - Each calendar can have its own filter rules
@@ -1533,7 +1534,7 @@ Enhanced control over country names in location displays with three operating mo
 
 ```yaml
 # Option 1: Specify exactly which countries to remove
-remove_location_country: "USA|United States|Canada"
+remove_location_country: 'USA|United States|Canada'
 
 # Option 2: Use built-in country detection (previous behavior)
 remove_location_country: true

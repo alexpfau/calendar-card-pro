@@ -1,4 +1,4 @@
-/* eslint-disable import/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
+/* eslint-disable import-x/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
 /**
  * Localization module for Calendar Card Pro.
  */

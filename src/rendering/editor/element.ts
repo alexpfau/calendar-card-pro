@@ -636,23 +636,25 @@ export class CalendarCardProEditor extends LitElement {
             @value-changed=${(event: CustomEvent) =>
               this._exceptionsSelected(blockKey, eligible, event)}
           ></ha-form>
-          ${active.length === 0
-            ? nothing
-            : html`
-                <ha-form
-                  class="exception-form"
-                  .hass=${this.hass}
-                  .data=${data}
-                  .schema=${rows}
-                  .computeLabel=${(schemaNode: HaFormSchema) =>
-                    EditorLocalize.computeLabel(ctx.language, schemaNode, path)}
-                  .computeHelper=${(schemaNode: HaFormSchema) =>
-                    EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
-                  .localizeValue=${this._localizeValue}
-                  @value-changed=${(event: CustomEvent) =>
-                    this._exceptionChanged(blockKey, names, event)}
-                ></ha-form>
-              `}
+          ${
+            active.length === 0
+              ? nothing
+              : html`
+                  <ha-form
+                    class="exception-form"
+                    .hass=${this.hass}
+                    .data=${data}
+                    .schema=${rows}
+                    .computeLabel=${(schemaNode: HaFormSchema) =>
+                      EditorLocalize.computeLabel(ctx.language, schemaNode, path)}
+                    .computeHelper=${(schemaNode: HaFormSchema) =>
+                      EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
+                    .localizeValue=${this._localizeValue}
+                    @value-changed=${(event: CustomEvent) =>
+                      this._exceptionChanged(blockKey, names, event)}
+                  ></ha-form>
+                `
+          }
         </div>
       </ha-expansion-panel>
     `;

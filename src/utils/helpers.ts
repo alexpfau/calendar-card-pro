@@ -657,8 +657,7 @@ export type AlldayBadgeColorSource = (typeof ALLDAY_BADGE_COLOR_SOURCES)[number]
 
 /** What feeds a badge treatment's color, once `allday_badge_color` has been read. */
 export type AlldayBadgeColor =
-  | { source: AlldayBadgeColorSource }
-  | { source: 'custom'; color: string };
+  { source: AlldayBadgeColorSource } | { source: 'custom'; color: string };
 
 /** The source used when `allday_badge_color` is absent. */
 export const DEFAULT_ALLDAY_BADGE_COLOR: AlldayBadgeColorSource = 'accent';

@@ -337,8 +337,9 @@ indentation**, even where that looks wrong at the new nesting depth — which is
 An earlier version of this file claimed the opposite, and that claim was wrong: run
 `npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
 and breaking lines. The reason the claim survived so long is an asymmetry worth knowing —
-**Prettier preserves significant whitespace it already finds, so existing templates
-round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
+**Prettier preserves significant whitespace it already finds, so most existing templates
+round-trip unchanged** (since 3.9, one shape does not; see below), and it breaks as
+`</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
 uses it at **three** sites — the day-header weather badge, the event weather badge, and
@@ -369,6 +370,31 @@ the DOM is identical and no snapshot moves. What the directive buys there is the
 reading as the single line the browser sees, instead of the `>`-on-its-own-line form that
 is exactly what the comment above it is warning against. Keep it; it is documentation
 that happens to also be a guard, and the two other sites prove the guard is real.
+
+🚨 **Since Prettier 3.9, a template with a multi-line `${…}` in it does not round-trip.**
+3.9 puts such an interpolation on lines of its own (Prettier PR 18380), which
+re-indents every template nested inside it by two spaces. The `${` and `}` are JavaScript
+and add no text, but the nested template's indentation is text. When the bump landed,
+`npm run format` reflowed five templates, and the per-site experiment above split them
+three ways:
+
+| template                                | on reflow + `npm test`                 | kept as              |
+| --------------------------------------- | -------------------------------------- | -------------------- |
+| `renderDateContent` (`leaves.ts`)       | 27 fail: the list and column snapshots | `// prettier-ignore` |
+| `renderEventContent` (`leaves.ts`)      | 1 fails: the source-shape guard        | `// prettier-ignore` |
+| `renderEvent` (`render.ts`)             | 1 fails: the same guard                | `// prettier-ignore` |
+| `renderMainCardStructure` (`render.ts`) | suite green                            | reformatted          |
+| exception panel (`element.ts`)          | suite green                            | reformatted          |
+
+The guard is _"preserves no-output idioms at extraction seams"_ in `tests/list-dom.test.ts`,
+which pins `: ''}` directly before the next `${…}` in the source; the directive keeps that
+shape rather than loosening the guard. Each of the three carries a comment naming Prettier
+3.9, which tells them apart from the whitespace sites above. A green suite was not taken as
+proof for the other two, since `renderMainCardStructure` has no snapshot at all: each was
+rendered before and after the reflow and compared with the normalizer below, which found
+them equal and caught a planted text change as the control. The cost of the directives is
+that those three templates are no longer formatted by anything, so match the surrounding
+style by hand when editing inside them.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
@@ -1090,6 +1116,39 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   npm 10 with the #404 error. If `.nvmrc` and Dependabot's default npm ever land on different
   majors again, pin Dependabot with `"packageManager": "npm@<version>"` in `package.json`,
   which it installs through corepack, rather than repairing its PRs by hand.
+- **TypeScript is held at 6.x until `typescript-eslint` supports 7.** TypeScript 7's package
+  entry (`"."` → `lib/version.cjs`) no longer exports the classic compiler API that
+  `typescript-eslint` parses through, and its peer range stops at `typescript <6.1.0`.
+  Dependabot was told `@dependabot ignore this major version` on #641; that condition lives
+  in Dependabot, not in `dependabot.yml`, so nothing in the repository shows it. Revisit once
+  the command below admits 7. Upgrading to 7 by hand lifts the ignore by itself; so does
+  reopening #641, or commenting `@dependabot unignore typescript` on an open Dependabot
+  group PR:
+
+  ```bash
+  npm view @typescript-eslint/typescript-estree peerDependencies
+  ```
+
+  TypeScript 6 also stopped including every `@types` package by default, so `tsconfig.json`
+  names `node`. Keep it: besides the Node globals the tests use, `@types/node` is what brings
+  ES2019 and ES2020 lib types (`flatMap`, `Object.fromEntries`, `Promise.prototype.finally`)
+  into a program whose own `lib` stops at ES2017, and `src/` uses them.
+
+- **The `overrides` entry in `package.json` moves vitepress onto vite 6, and it goes once
+  vitepress 2 is stable.** JSON has no comments, so this bullet is that entry's comment.
+  vitepress 1.6.4, the current `latest`, depends on `vite ^5.4.14`; vite 5 and its nested
+  esbuild 0.21 carry advisories that `npm audit fix` cannot clear without `--force`. vitepress
+  1 does not officially support vite 6, so the override was checked when it was added. Once
+  content hashes were normalized, all 23 built pages matched the vite 5 build. The only CSS
+  difference was 75 rules for six default-theme components the site never renders (team
+  page, sponsors), which vite 6 no longer ships. `docs:dev` rendered pages with a clean
+  console. When `latest` below reads 2.x, bump vitepress, delete the override, and re-run
+  `npm audit`:
+
+  ```bash
+  npm view vitepress dist-tags
+  ```
+
 - **A bump to anything that reaches `dist/` can fail `check:bundle`**: `lit`, `dayjs`,
   `@mdi/js`, and the bundler chain. The gate reconciles the sizes `docs/guide/installation.md`
   quotes against the build, so correct the figure in the Dependabot PR rather than loosening
