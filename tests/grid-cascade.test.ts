@@ -255,17 +255,22 @@ describe('layoutCascade over generated days', () => {
 
   for (const threshold of [15, 30, 60]) {
     it(`never covers an earlier block's text or leading edge (threshold ${threshold}, ${SEEDS} days)`, () => {
+      // Checked in plain code and asserted once, like the lanes property below: an expect()
+      // per block and per overlapping pair left too little room under CI's timeout.
+      const failures: string[] = [];
       let nestedDays = 0;
       let minContentWidth = Infinity;
       let minHeader = Infinity;
 
-      for (let seed = 1; seed <= SEEDS; seed++) {
+      for (let seed = 1; seed <= SEEDS && failures.length < 10; seed++) {
         const day = randomDay(seed);
         const { placed, overflows } = layoutCascade(day, BAND, options(threshold));
 
         // Every event is drawn or counted.
         const counted = placed.length + overflows.reduce((n, o) => n + o.hidden.length, 0);
-        expect(counted, `seed ${seed}`).toBe(day.length);
+        if (counted !== day.length) {
+          failures.push(`seed ${seed}: ${counted} drawn or counted of ${day.length}`);
+        }
 
         if (placed.some((p) => p.depth > 1)) nestedDays++;
 
@@ -282,7 +287,8 @@ describe('layoutCascade over generated days', () => {
         ];
 
         for (const p of placed) {
-          expect(p.x1Pct - p.x0Pct, `seed ${seed} ${p.id} width`).toBeGreaterThan(EPS);
+          const width = p.x1Pct - p.x0Pct;
+          if (!(width > EPS)) failures.push(`seed ${seed} ${p.id}: width ${width}`);
           minContentWidth = Math.min(minContentWidth, p.contentX1Pct - p.x0Pct);
           const [top, bottom] = displayed(p);
           const header = p.contentEndMin - top;
@@ -311,24 +317,21 @@ describe('layoutCascade over generated days', () => {
 
             // Leading edge: anything painted over a block starts at least one indent in, or
             // past the block's own text region when that is narrower than an indent.
-            expect(
-              above.x0Pct,
-              `seed ${seed}: ${above.id} covers ${below.id}'s edge`,
-            ).toBeGreaterThanOrEqual(
-              below.x0Pct + Math.min(CASCADE_INDENT_PCT, below.contentX1Pct - below.x0Pct) - EPS,
-            );
+            const edge =
+              below.x0Pct + Math.min(CASCADE_INDENT_PCT, below.contentX1Pct - below.x0Pct) - EPS;
+            if (!(above.x0Pct >= edge)) {
+              failures.push(`seed ${seed}: ${above.id} covers ${below.id}'s edge`);
+            }
 
             // Text: nothing painted later intersects the uncovered region.
-            if (overlaps(text, aboveSpan)) {
-              expect(
-                above.x0Pct,
-                `seed ${seed}: ${above.id} covers ${below.id}'s text`,
-              ).toBeGreaterThanOrEqual(below.contentX1Pct - EPS);
+            if (overlaps(text, aboveSpan) && !(above.x0Pct >= below.contentX1Pct - EPS)) {
+              failures.push(`seed ${seed}: ${above.id} covers ${below.id}'s text`);
             }
           }
         }
       }
 
+      expect(failures).toEqual([]);
       // The generator must actually exercise nesting, or the checks above prove nothing.
       expect(nestedDays).toBeGreaterThan(SEEDS / 4);
       // Never narrower than the narrowest lane columns could give at the same cap (3).
