@@ -344,26 +344,50 @@ describe('layoutCascade over generated days', () => {
     ['an infinite threshold', Infinity],
     ['a threshold past the band', BAND.endMin - BAND.startMin + 1],
   ])('reproduces the side-by-side lanes exactly at %s', (_case, threshold) => {
-    for (let seed = 1; seed <= SEEDS; seed++) {
+    // Compared in plain code and asserted once. An expect() per placement came to about a
+    // million calls, which cost several times the layouts they checked and timed out on CI.
+    const mismatches: string[] = [];
+    let compared = 0;
+    let besideAnother = 0;
+    let withHidden = 0;
+
+    for (let seed = 1; seed <= SEEDS && mismatches.length < 10; seed++) {
       const day = randomDay(seed);
       for (const cap of [1, 2, 3, 5]) {
+        const where = `seed ${seed} cap ${cap}`;
         const lanes = layoutLanes(day, cap);
         const cascade = layoutCascade(day, BAND, options(threshold, cap));
-        const lanesById = new Map(
-          lanes.placed.map((p) => [p.id, (p.laneIndex / p.laneCount) * 100]),
-        );
-        expect(cascade.placed.length, `seed ${seed} cap ${cap}`).toBe(lanes.placed.length);
-        for (const p of cascade.placed) {
-          expect(p.depth).toBe(1);
-          expect(p.x0Pct, `seed ${seed} cap ${cap} ${p.id}`).toBeCloseTo(
-            lanesById.get(p.id) as number,
-            9,
+        if (cascade.placed.length !== lanes.placed.length) {
+          mismatches.push(
+            `${where}: ${cascade.placed.length} placed, lanes placed ${lanes.placed.length}`,
           );
+          continue;
+        }
+        const lanesById = new Map(lanes.placed.map((p) => [p.id, p]));
+        for (const p of cascade.placed) {
+          compared++;
+          const lane = lanesById.get(p.id);
+          const x0 = lane ? (lane.laneIndex / lane.laneCount) * 100 : NaN;
+          if (lane && lane.laneIndex > 0) besideAnother++;
+          // The tolerance toBeCloseTo(x0, 9) applies; the negated form also fails on NaN.
+          if (p.depth !== 1 || !(Math.abs(p.x0Pct - x0) < 5e-10)) {
+            mismatches.push(`${where} ${p.id}: depth ${p.depth}, x0 ${p.x0Pct}, lanes x0 ${x0}`);
+          }
         }
         const hiddenLanes = lanes.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
         const hiddenCascade = cascade.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();
-        expect(hiddenCascade, `seed ${seed} cap ${cap}`).toEqual(hiddenLanes);
+        if (hiddenLanes.length > 0) withHidden++;
+        if (hiddenCascade.join() !== hiddenLanes.join()) {
+          mismatches.push(`${where}: hides [${hiddenCascade}], lanes hide [${hiddenLanes}]`);
+        }
       }
     }
+
+    expect(mismatches).toEqual([]);
+    // Prove the corpus reached what is compared: placements, a lane other than the first,
+    // and the overflow. Equality over days that never overlapped would prove nothing.
+    expect(compared).toBeGreaterThan(SEEDS * 4);
+    expect(besideAnother).toBeGreaterThan(SEEDS);
+    expect(withHidden).toBeGreaterThan(SEEDS / 4);
   });
 });
