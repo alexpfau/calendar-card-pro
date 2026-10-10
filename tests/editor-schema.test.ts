@@ -670,6 +670,7 @@ describe('editor: the grid block as the form shows it', () => {
       show_now_line: true,
       now_line_color: 'var(--error-color)',
       max_simultaneous_events: 3,
+      overlap_layout: 'cascade',
       allday_band_max_rows: 3,
       axis_width: 'max-content',
       show_axis_labels: true,
@@ -4621,7 +4622,11 @@ describe('editor: stored and rendered union values', () => {
  * @returns Each dropdown's field name, path-qualified for sub-forms, mapped to its values
  */
 function editorOptions(): Map<string, string[]> {
+  // Grid first, so a field the list or column workspace also offers is recorded with their
+  // vocabulary rather than with a grid workspace that may withhold values; grid-only
+  // dropdowns such as `overlap_layout` are only discoverable from here.
   const configs = [
+    buildConfig({ view: 'grid' }),
     buildConfig({}),
     buildConfig({ view: 'column' }),
     buildConfig({ weather: { entity: 'weather.home' } }),
@@ -4675,6 +4680,7 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     show_week_numbers: { field: 'week_number_mode', editorOnly: ['none'] },
     position: { field: 'position' },
     min_days_fallback: { field: 'min_days_fallback' },
+    overlap_layout: { field: 'overlap_layout' },
     // Card-level and per-calendar share the field name. The per-calendar dropdown adds
     // `inherit`, which is the absent key rather than a mode of its own, so the card-level
     // control is the one whose vocabulary must match the union exactly.

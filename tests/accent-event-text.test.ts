@@ -391,9 +391,11 @@ describe('accent event text, view by view', () => {
     const crowded = renderView(
       'grid',
       twoCalendars({ time_grid: { max_simultaneous_events: 1 } } as Partial<Types.Config>),
+      // Both start at nine. Half an hour apart, the default cascade would draw the dentist
+      // over the standup rather than beside it, and there would be no overflow to test.
       [
         timed(17, '09:00', '11:00', 'Standup', 'calendar.work'),
-        timed(17, '09:30', '10:30', 'Dentist', 'calendar.home'),
+        timed(17, '09:00', '10:30', 'Dentist', 'calendar.home'),
       ],
     );
     const overflow = crowded.querySelector('.grid-event-overflow')!;
@@ -555,9 +557,11 @@ describe('the event weather badge', () => {
     const crowded = renderView(
       'grid',
       twoCalendars({ time_grid: { max_simultaneous_events: 1 } } as Partial<Types.Config>),
+      // Both start at nine. Half an hour apart, the default cascade would draw the dentist
+      // over the standup rather than beside it, and there would be no overflow to test.
       [
         timed(17, '09:00', '11:00', 'Standup', 'calendar.work'),
-        timed(17, '09:30', '10:30', 'Dentist', 'calendar.home'),
+        timed(17, '09:00', '10:30', 'Dentist', 'calendar.home'),
       ],
     );
     const overflow = crowded.querySelector<HTMLElement>('.grid-event-overflow')!;

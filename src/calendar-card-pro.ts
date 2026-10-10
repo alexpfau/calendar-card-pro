@@ -39,6 +39,7 @@ import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as GridUtils from './utils/grid';
+import * as CascadeThreshold from './utils/grid-cascade-threshold';
 import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
@@ -444,6 +445,15 @@ class CalendarCardPro extends LitElement {
    */
   private _columnCount = 0;
 
+  /**
+   * Minutes a later event must start below an earlier one for the grid's cascade to draw
+   * it on top, for the scale this card is drawn at. The floor until a render has been
+   * measured; see `_syncCascadeThreshold`.
+   */
+  private _cascadeThresholdMin = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN;
+
+  private _cascadeThresholdRaf: number | null = null;
+
   private _resizeObserver: ResizeObserver | null = null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
@@ -770,6 +780,10 @@ class CalendarCardPro extends LitElement {
       if (typeof width === 'number' && width > 0) {
         this._scheduleWidthMeasurement(width);
       }
+
+      // A height change resizes the time body without any width threshold moving, so the
+      // cascade's scale is re-read on every resize rather than only after a re-render.
+      this._scheduleCascadeThresholdSync();
     });
 
     this._resizeObserver.observe(this);
@@ -886,6 +900,65 @@ class CalendarCardPro extends LitElement {
     if (this._widthSettleTimerId !== null) {
       clearTimeout(this._widthSettleTimerId);
       this._widthSettleTimerId = null;
+    }
+
+    if (this._cascadeThresholdRaf !== null) {
+      cancelAnimationFrame(this._cascadeThresholdRaf);
+      this._cascadeThresholdRaf = null;
+    }
+  }
+
+  //-----------------------------------------------------------------------------
+  // CASCADE SCALE
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Coalesces resize notifications into one re-measurement per frame.
+   */
+  private _scheduleCascadeThresholdSync(): void {
+    if (this._cascadeThresholdRaf !== null || typeof requestAnimationFrame === 'undefined') {
+      return;
+    }
+
+    this._cascadeThresholdRaf = requestAnimationFrame(() => {
+      this._cascadeThresholdRaf = null;
+      this._syncCascadeThreshold();
+    });
+  }
+
+  /**
+   * Re-reads the scale the grid is drawn at and re-renders once if it moved the cascade's
+   * threshold.
+   *
+   * Stable by construction: the inputs are the time body's height, the event font size and
+   * a block's vertical chrome, and none of them depends on how events are laid out, so the
+   * render this triggers measures the same scale and stops. Raising takes effect at once;
+   * lowering waits out a little hysteresis, so a resize across a step boundary cannot flip
+   * the layout back and forth. See `grid-cascade-threshold.ts`.
+   */
+  private _syncCascadeThreshold(): void {
+    if (
+      !this.isConnected ||
+      this.effectiveView !== 'grid' ||
+      ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'overlap_layout') !== 'cascade'
+    ) {
+      return;
+    }
+
+    const band = GridUtils.resolveBand(
+      ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'start_time'),
+      ViewConfig.resolveTimeGridOption(this.effectiveConfig, 'end_time'),
+    );
+    const next = CascadeThreshold.cascadeThresholdMin(
+      CascadeThreshold.measureCascadeThreshold(this.renderRoot),
+      band.endMin - band.startMin,
+      this._cascadeThresholdMin,
+    );
+
+    if (next !== this._cascadeThresholdMin) {
+      Logger.debug(`Cascade threshold ${this._cascadeThresholdMin} -> ${next} minutes`);
+      this._cascadeThresholdMin = next;
+      this.requestUpdate();
     }
   }
 
@@ -1378,7 +1451,11 @@ class CalendarCardPro extends LitElement {
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
-    this._syncGridDisclosureSafety(this._gridDisclosureChanged(changedProps));
+    // The same gate as the disclosure pass: a hass refresh that changed nothing this card
+    // draws re-measures neither. A resize reaches the cascade through the width observer.
+    const gridChanged = this._gridDisclosureChanged(changedProps);
+    this._syncGridDisclosureSafety(gridChanged);
+    if (gridChanged) this._syncCascadeThreshold();
 
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
@@ -2502,6 +2579,8 @@ class CalendarCardPro extends LitElement {
           this.effectiveLanguage,
           this.weatherForecasts,
           this.safeHass,
+          undefined,
+          this._cascadeThresholdMin,
         );
       }
 

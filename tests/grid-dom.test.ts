@@ -835,12 +835,25 @@ describe('timed multi-day events stay in the time grid', () => {
   });
 });
 
-describe('overlapping events share the column', () => {
+/**
+ * `overlap_layout: columns`, the side-by-side lanes grid view drew before the cascade
+ * became its default. Pinned explicitly: under the default, the later of two overlapping
+ * events is drawn over the earlier one instead, so these assertions would describe a
+ * layout the default no longer draws.
+ */
+const columnsConfig = (time_grid: Types.TimeGridOverrides = {}): Types.Config =>
+  buildConfig({
+    view: 'grid',
+    days_to_show: 3,
+    time_grid: { overlap_layout: 'columns', ...time_grid },
+  });
+
+describe('with overlap_layout: columns, overlapping events share the column', () => {
   it('puts two overlapping events side by side', () => {
-    const container = renderGrid([
-      timed(17, '09:00', '11:00', 'Review'),
-      timed(17, '10:00', '12:00', 'Interview'),
-    ]);
+    const container = renderGrid(
+      [timed(17, '09:00', '11:00', 'Review'), timed(17, '10:00', '12:00', 'Interview')],
+      columnsConfig(),
+    );
 
     // Read the emitted attribute, not `style.width`: happy-dom's CSSOM discards a
     // `calc()` containing a custom property, so the property reads empty for a
@@ -871,10 +884,10 @@ describe('overlapping events share the column', () => {
     // measured pixel width. What is measured, in Chromium against the real cascade, is that
     // a block this size cannot hold the string below and that the unfixed rule cut it
     // mid-glyph.
-    const container = renderGrid([
-      timed(17, '09:00', '11:00', 'Review'),
-      timed(17, '10:00', '12:00', 'Interview'),
-    ]);
+    const container = renderGrid(
+      [timed(17, '09:00', '11:00', 'Review'), timed(17, '10:00', '12:00', 'Interview')],
+      columnsConfig(),
+    );
 
     const blocks = Array.from(container.querySelectorAll<HTMLElement>('.grid-event'));
     expect(blocks).toHaveLength(2);
@@ -919,7 +932,7 @@ describe('overlapping events share the column', () => {
         timed(17, '09:30', '12:00', 'C'),
         timed(17, '09:45', '12:00', 'D'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { max_simultaneous_events: 2 } }),
+      columnsConfig({ max_simultaneous_events: 2 }),
     );
 
     const overflow = container.querySelector('.grid-event-overflow');
@@ -938,13 +951,128 @@ describe('overlapping events share the column', () => {
         timed(17, '09:15', '12:00', 'Hidden one'),
         timed(17, '09:30', '12:00', 'Hidden two'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { max_simultaneous_events: 1 } }),
+      columnsConfig({ max_simultaneous_events: 1 }),
     );
 
     const title = container.querySelector('.grid-event-overflow')!.getAttribute('title');
 
     expect(title).toContain('Hidden one');
     expect(title).toContain('Hidden two');
+  });
+});
+
+describe('by default, a later event is drawn over a longer one it starts inside', () => {
+  const styleOf = (block: Element) => block.getAttribute('style') ?? '';
+  // The attribute is serialized without a space after each colon; tolerate either.
+  const declares = (block: Element, property: string, value: string) =>
+    new RegExp(`(?:^|;)\\s*${property}:\\s*${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(
+      styleOf(block),
+    );
+
+  it('nests it one indent in, running to the right edge, with the host keeping the rest', () => {
+    const [review, interview] = Array.from(
+      renderGrid([
+        timed(17, '09:00', '12:00', 'Review'),
+        timed(17, '10:00', '11:00', 'Interview'),
+      ]).querySelectorAll('.grid-event'),
+    );
+
+    // The emitted attribute, for the reason the side-by-side tests above give.
+    expect(declares(review, 'inset-inline-start', 'calc(0% +')).toBe(true);
+    expect(declares(review, 'width', 'calc(100% -')).toBe(true);
+    // ...and the matcher can say no: the same block is not a half-width lane.
+    expect(declares(review, 'width', 'calc(50% -')).toBe(false);
+    expect(
+      declares(interview, 'inset-inline-start', `calc(${GridUtils.CASCADE_INDENT_PCT}% +`),
+    ).toBe(true);
+    expect(declares(interview, 'width', `calc(${100 - GridUtils.CASCADE_INDENT_PCT}% -`)).toBe(
+      true,
+    );
+    expect(interview.classList.contains('grid-event-raised')).toBe(true);
+    expect(review.classList.contains('grid-event-raised')).toBe(false);
+
+    // The host's text keeps to the hour above the interview: 60 of its 180 minutes.
+    expect(review.classList.contains('grid-event-content-limited')).toBe(true);
+    expect(
+      (review as HTMLElement).style.getPropertyValue('--calendar-card-grid-text-block-ratio'),
+    ).toBe(String(60 / 180));
+    expect(styleOf(review)).not.toContain('--calendar-card-grid-text-inline-ratio');
+    expect(interview.classList.contains('grid-event-content-limited')).toBe(false);
+  });
+
+  it('keeps events that start together side by side, the longer first', () => {
+    const [office, standup] = Array.from(
+      renderGrid([
+        timed(17, '09:00', '09:15', 'Standup'),
+        timed(17, '09:00', '17:00', 'Office'),
+      ]).querySelectorAll('.grid-event'),
+    );
+
+    expect(office.textContent).toContain('Office');
+    expect(declares(office, 'inset-inline-start', 'calc(0% +')).toBe(true);
+    expect(declares(standup, 'inset-inline-start', 'calc(50% +')).toBe(true);
+    expect(standup.classList.contains('grid-event-raised')).toBe(true);
+
+    // The office extends under the standup, which is over within the quarter hour, but its
+    // text keeps to its own half: the standup covers the other half of its header.
+    expect(declares(office, 'width', 'calc(100% -')).toBe(true);
+    expect(
+      (office as HTMLElement).style.getPropertyValue('--calendar-card-grid-text-inline-ratio'),
+    ).toBe('0.5');
+  });
+
+  it('fills a stacked block opaquely over the card background, with no outline', () => {
+    const blocks = renderGrid([
+      timed(17, '09:00', '12:00', 'Review'),
+      timed(17, '10:00', '11:00', 'Interview'),
+    ]).querySelectorAll('.grid-event');
+
+    // The tint is laid over the card's own background rather than over the block beneath,
+    // so nothing under a stacked block shows through, and nothing else marks its edge.
+    expect(
+      declares(
+        blocks[1],
+        'background-color',
+        'var(--calendar-card-background-color, var(--card-background-color))',
+      ),
+    ).toBe(true);
+    expect(declares(blocks[1], 'background-image', 'linear-gradient(')).toBe(true);
+    expect(styleOf(blocks[0])).not.toContain('background-image');
+    expect(cardStyles.cssText).not.toMatch(/grid-event-raised[^}]*box-shadow/);
+  });
+
+  it('is the default, and overlap_layout: columns draws the lanes instead', () => {
+    const events = [
+      timed(17, '09:00', '12:00', 'Review'),
+      timed(17, '10:00', '11:00', 'Interview'),
+    ];
+    const cascade = renderGrid(events).querySelectorAll('.grid-event');
+    const columns = renderGrid(events, columnsConfig()).querySelectorAll('.grid-event');
+
+    expect(cascade[1].classList.contains('grid-event-raised')).toBe(true);
+    for (const block of columns) {
+      expect(declares(block, 'width', 'calc(50% -')).toBe(true);
+      expect(block.classList.contains('grid-event-raised')).toBe(false);
+      expect(block.classList.contains('grid-event-content-limited')).toBe(false);
+    }
+  });
+
+  it('never lets a lane extend under the overflow block, which is painted over everything', () => {
+    const container = renderGrid(
+      [
+        timed(17, '09:00', '12:00', 'A'),
+        timed(17, '09:05', '12:00', 'B'),
+        timed(17, '09:10', '12:00', 'C'),
+      ],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { max_simultaneous_events: 2 } }),
+    );
+    const blocks = Array.from(container.querySelectorAll('.grid-event:not(.grid-event-overflow)'));
+    const overflow = container.querySelector('.grid-event-overflow');
+
+    expect(overflow?.textContent?.trim()).toBe('+1');
+    expect(declares(overflow!, 'inset-inline-start', `calc(${(100 / 3) * 2}% +`)).toBe(true);
+    // Three lanes of a third: A extends under B but stops where the overflow lane starts.
+    expect(declares(blocks[0], 'width', `calc(${(100 / 3) * 2}% -`)).toBe(true);
   });
 });
 
@@ -2627,8 +2755,9 @@ describe('the grid reuses the shared leaves', () => {
 
   it('still lanes two events that both reach into the band', () => {
     // The control for the test above: the filter must narrow to the band, not to one event.
+    // Lanes are what `overlap_layout: columns` draws; the cascade would nest the talk.
     const config = buildConfig({ view: 'grid', days_to_show: 1 });
-    config.time_grid = { start_time: '18:00', end_time: '24:00' };
+    config.time_grid = { start_time: '18:00', end_time: '24:00', overlap_layout: 'columns' };
 
     const container = renderGrid(
       [timed(17, '08:00', '23:00', 'Long workshop'), timed(17, '19:00', '20:00', 'Evening talk')],

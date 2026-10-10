@@ -184,8 +184,10 @@ time_grid:
 ```
 
 `end_time: '23:30'` trims the empty last half hour so the drawn band carries more of the day.
-`max_simultaneous_events: 2` keeps each lane wide enough to read; a third overlapping event
-collapses into a counted `+1` block rather than squeezing all three. Below three days' worth
+`max_simultaneous_events: 2` keeps side-by-side blocks wide enough to read: events that start
+together share the width two at a time, and a third collapses into a counted `+1` block rather
+than squeezing all three. An event that starts well inside a longer one is drawn over it
+instead, which costs neither of them any width. Below three days' worth
 of width the card falls back to the list — see [Fitting Narrow
 Cards](/features/grid-view#fitting-narrow-cards).
 
