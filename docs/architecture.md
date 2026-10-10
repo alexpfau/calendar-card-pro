@@ -85,7 +85,11 @@ They share the card shell, event pipeline, and presentation models rather than d
 the card. `leaves.ts` holds reusable date, event-content, weather, and indicator renderers;
 `presentation.ts` computes layout-independent event details. `render.ts`, `column.ts`, and
 `grid.ts` arrange those pieces. Grid also uses the pure geometry in `utils/grid.ts` for
-wall-clock placement, overlapping lanes, and multi-day banner spans.
+wall-clock placement, overlap layout — cascaded by default, side-by-side lanes as an
+option — and multi-day banner spans. The cascade's one pixel-dependent input, how far
+below an event another must start before it may be drawn on top, is measured by the card
+after a render and converted in `utils/grid-cascade-threshold.ts`, so the geometry module
+itself still knows no pixels.
 
 The effective view can change with available width. Column and Grid can fall back to List
 or retain their side-by-side layout with horizontal scrolling, according to their density
@@ -348,7 +352,8 @@ Provides core functionality across the card:
 
 - **grid.ts**:
   - Resolves visible time bands and local wall-clock positions
-  - Splits timed events by day, packs overlapping lanes, and places all-day banners
+  - Splits timed events by day, lays overlapping events out (cascaded, or in side-by-side
+    lanes), and places all-day banners
   - Takes the current instant as input where needed, so geometry tests do not depend on
     DOM measurements or the running clock
 

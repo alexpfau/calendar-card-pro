@@ -602,6 +602,469 @@ function assignLanes<T extends LaneInput>(
 }
 
 //-----------------------------------------------------------------------------
+// CASCADED OVERLAPS
+//-----------------------------------------------------------------------------
+
+/**
+ * Inline offset of one nesting level, as a percentage of the day column.
+ *
+ * A share of the column rather than a pixel length, like every other horizontal value in
+ * this module, and that is what keeps the layout exact. Positions here are compared with
+ * each other — is that block to the left or the right of this one — and `50%` against
+ * "three indents of 9px" has no answer until the column has a width. Six percent is what
+ * macOS Calendar's 9pt indent comes to in a typical week column, and what Google Calendar
+ * draws in a narrow one.
+ */
+export const CASCADE_INDENT_PCT = 6;
+
+/**
+ * Deepest a block may be nested. A later event that could nest deeper goes beside its
+ * would-be host instead, so a chain of overlapping meetings becomes at most a three-step
+ * staircase rather than one that walks off the column.
+ */
+export const CASCADE_MAX_DEPTH = 3;
+
+/** Tuning for {@link layoutCascade}. */
+export interface CascadeOptions {
+  /**
+   * Minutes a later event has to start below an earlier event's visible top before it may
+   * be drawn over it. Closer than that, both need the same header rows, so they share the
+   * width side by side instead.
+   */
+  thresholdMin: number;
+
+  /** Inline offset of one nesting level, as a percentage of the day column. */
+  indentPct: number;
+
+  /** Deepest level an event may be nested at. */
+  maxDepth: number;
+
+  /** Side-by-side lanes one group of siblings may use before the rest collapse. */
+  maxLanes: number;
+}
+
+/** An event with cascaded geometry: percentages of the day column, minutes of the day. */
+export type CascadePlacement<T> = T & {
+  /** Inline start of the block. */
+  x0Pct: number;
+
+  /** Inline end of the block. */
+  x1Pct: number;
+
+  /** Inline end of the part of the block no later block covers, where its text goes. */
+  contentX1Pct: number;
+
+  /** Minute at which that uncovered part ends. */
+  contentEndMin: number;
+
+  /** 1 for a block nested in nothing. */
+  depth: number;
+
+  /** True when the block is painted over part of an earlier block. */
+  raised: boolean;
+};
+
+/** The block standing in for siblings a group had no lane for. */
+export interface CascadeOverflow<T> {
+  startMin: number;
+
+  endMin: number;
+
+  x0Pct: number;
+
+  x1Pct: number;
+
+  /** The events this block stands for, in start order. */
+  hidden: T[];
+}
+
+export interface CascadeLayout<T> {
+  /** Visible events, in paint order: a later entry may cover part of an earlier one. */
+  placed: CascadePlacement<T>[];
+
+  overflows: CascadeOverflow<T>[];
+}
+
+/** One group of siblings that overlap in time, sharing a host's region as lanes. */
+interface CascadeCluster<T> {
+  release: LaneRelease;
+  laneReleases: LaneRelease[];
+  needed: number;
+  members: CascadeNode<T>[];
+  region: { start: number; end: number; share: number; overflowStart: number } | null;
+}
+
+interface CascadeNode<T> {
+  event: T;
+  order: number;
+  top: number;
+  bottom: number;
+  release: LaneRelease;
+  host: CascadeNode<T> | null;
+  depth: number;
+  children: CascadeNode<T>[];
+  cluster: CascadeCluster<T>;
+  laneIndex: number;
+  hidden: boolean;
+  x0: number;
+  x1: number;
+  contentX1: number;
+  contentEnd: number;
+  raised: boolean;
+}
+
+/** Percentages are compared exactly up to float noise. */
+const CASCADE_EPSILON = 1e-6;
+
+/**
+ * Whether `candidate` is a better host than `current`: deeper wins, and among equals the
+ * one painted last, which is the one on top at the new event's start.
+ *
+ * @param candidate - Proposed host, `null` for the day column itself
+ * @param current - Host chosen so far
+ * @returns True when the candidate should replace the current host
+ */
+function isPreferredHost<T>(
+  candidate: CascadeNode<T> | null,
+  current: CascadeNode<T> | null,
+): boolean {
+  const candidateDepth = candidate?.depth ?? 0;
+  const currentDepth = current?.depth ?? 0;
+
+  if (candidateDepth !== currentDepth) {
+    return candidateDepth > currentDepth;
+  }
+
+  return (candidate?.order ?? -1) > (current?.order ?? -1);
+}
+
+/**
+ * Whether `ancestor` hosts `node`, directly or through other hosts.
+ *
+ * @param ancestor - Possible ancestor
+ * @param node - Possible descendant
+ * @returns True when `ancestor` is on `node`'s host chain
+ */
+function isHostOf<T>(ancestor: CascadeNode<T>, node: CascadeNode<T>): boolean {
+  for (let host = node.host; host; host = host.host) {
+    if (host === ancestor) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Whether an earlier node is still on screen when a later one starts.
+ *
+ * Only meaningful for `earlier` placed before `later`, which the sort guarantees, and
+ * reuses the lane packer's release rules, so an event ending at 10:00 has left by 10:00
+ * and two reminders at the same minute do meet.
+ *
+ * @param earlier - Node placed first
+ * @param later - Node placed after it
+ * @returns True when the two overlap in time
+ */
+function isRunningAt<T extends LaneInput>(earlier: CascadeNode<T>, later: CascadeNode<T>): boolean {
+  return !isFreeAt(earlier.release, later.event.startMin);
+}
+
+/**
+ * Lay a day's events out the way macOS and Google Calendar do: a later event that starts
+ * clearly below an earlier one is drawn over it, indented so the earlier one's leading edge
+ * stays visible, instead of both narrowing to side-by-side lanes for their whole length.
+ *
+ * Three passes, each with one job:
+ *
+ * 1. **Structure.** Events are taken in start order, longest first on ties. Each picks a
+ *    host among the events still on screen at its start. An event it starts at least
+ *    `thresholdMin` below may host it: it nests over that event's body, never its header.
+ *    An event it starts closer to than that may not, so it joins that event as a sibling
+ *    instead, under the same host. The deepest candidate wins, the one painted last on
+ *    ties. Siblings that overlap in time get side-by-side lanes exactly as `layoutLanes`
+ *    assigns them, overflow cap included.
+ * 2. **Geometry.** A host's children share the region from one indent inside it to its
+ *    inline end. A lane starts where its share starts and extends under the lanes after
+ *    it, but never over an earlier, still-running block that is not one of its hosts, and
+ *    never under the overflow lane.
+ * 3. **Text.** A block's text may use only what no later block covers: the rows above its
+ *    first nested child, and the columns before the first later block to its right. This
+ *    is the rule that keeps one block's text from ever sitting under another block. The
+ *    renderer hands that region to the disclosure ladder, which decides what fits in it.
+ *
+ * A dense day can nest so deep, or split a nested region so many ways, that a block would
+ * end up narrower than the narrowest lane side-by-side columns give at the same cap. Each
+ * such block's host is then barred from hosting, so its would-be children go beside it
+ * instead, and the layout runs again. Every round bars at least one more event, so this
+ * ends, and in the limit it is exactly `layoutLanes`: with nesting impossible, the lanes
+ * are the same lanes. `tests/grid-cascade.test.ts` holds both claims over generated days.
+ *
+ * @param events - Visible events of one day; not mutated, need not be sorted
+ * @param band - The visible band, which decides where a clipped block's header sits
+ * @param options - Threshold, indent, depth and lane caps
+ * @returns Visible blocks in paint order, and overflow blocks
+ */
+export function layoutCascade<T extends LaneInput>(
+  events: T[],
+  band: GridBand,
+  options: CascadeOptions,
+): CascadeLayout<T> {
+  const cap = Number.isFinite(options.maxLanes) ? Math.max(1, Math.floor(options.maxLanes)) : 1;
+  const minWidth = 100 / (cap + 1);
+  const sorted = [...events].sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
+  const barred = new Set<number>();
+
+  for (;;) {
+    const nodes = runCascade(sorted, band, options, cap, barred);
+    const newlyBarred = nodes
+      .filter(
+        (node) =>
+          !node.hidden &&
+          node.host !== null &&
+          (node.x1 - node.x0 < minWidth - CASCADE_EPSILON ||
+            node.contentX1 - node.x0 < minWidth - CASCADE_EPSILON),
+      )
+      .map((node) => (node.host as CascadeNode<T>).order)
+      .filter((order) => !barred.has(order));
+
+    if (newlyBarred.length === 0) {
+      return toCascadeLayout(nodes);
+    }
+
+    newlyBarred.forEach((order) => barred.add(order));
+  }
+}
+
+/**
+ * One layout run; see {@link layoutCascade}.
+ *
+ * @param sorted - Events in start order, longest first on ties
+ * @param band - The visible band
+ * @param options - Threshold, indent and depth
+ * @param cap - Resolved lane cap
+ * @param barred - Positions in `sorted` of events that may not host others
+ * @returns Every node, hidden ones included, in paint order
+ */
+function runCascade<T extends LaneInput>(
+  sorted: T[],
+  band: GridBand,
+  options: CascadeOptions,
+  cap: number,
+  barred: ReadonlySet<number>,
+): CascadeNode<T>[] {
+  const nodes: CascadeNode<T>[] = [];
+  const openClusters = new Map<CascadeNode<T> | null, CascadeCluster<T>>();
+
+  // Pass 1: structure, and lanes among each host's children.
+  for (const event of sorted) {
+    const top = Math.max(event.startMin, band.startMin);
+    let host: CascadeNode<T> | null = null;
+
+    for (const other of nodes) {
+      if (isFreeAt(other.release, event.startMin)) {
+        continue;
+      }
+
+      const nests =
+        !other.hidden &&
+        !barred.has(other.order) &&
+        other.depth < options.maxDepth &&
+        top - other.top >= options.thresholdMin;
+      const candidate = nests ? other : other.host;
+
+      if (isPreferredHost(candidate, host)) {
+        host = candidate;
+      }
+    }
+
+    let cluster = openClusters.get(host);
+
+    if (!cluster || isFreeAt(cluster.release, event.startMin)) {
+      cluster = { release: RELEASED, laneReleases: [], needed: 0, members: [], region: null };
+      openClusters.set(host, cluster);
+    }
+
+    // Mirrors `assignLanes`: a hidden lane never blocks a visible one.
+    let lane = cluster.laneReleases.findIndex((release) => isFreeAt(release, event.startMin));
+
+    if (lane < 0) {
+      lane = cluster.laneReleases.length;
+    }
+
+    if (lane < cap) {
+      cluster.laneReleases[lane] = releaseOf(event);
+    }
+
+    cluster.release = laterRelease(cluster.release, releaseOf(event));
+    cluster.needed = Math.max(cluster.needed, lane + 1);
+
+    const node: CascadeNode<T> = {
+      event,
+      order: nodes.length,
+      top,
+      bottom: Math.max(top, Math.min(event.endMin, band.endMin)),
+      release: releaseOf(event),
+      host,
+      depth: (host?.depth ?? 0) + 1,
+      children: [],
+      cluster,
+      laneIndex: Math.min(lane, cap),
+      hidden: lane >= cap,
+      x0: 0,
+      x1: 100,
+      contentX1: 100,
+      contentEnd: top,
+      raised: false,
+    };
+
+    host?.children.push(node);
+    cluster.members.push(node);
+    nodes.push(node);
+  }
+
+  // Pass 2: geometry, in paint order, so every earlier block is already placed.
+  for (const node of nodes) {
+    const cluster = node.cluster;
+
+    // A sibling group shares one region, decided when its first member is placed: the
+    // host's span minus anything already painted to its right that is on screen while the
+    // group is. A host extends under its own later siblings, and its children must not
+    // inherit that extension while those siblings are there.
+    if (!cluster.region) {
+      const start = node.host ? node.host.x0 + options.indentPct : 0;
+      let end = node.host ? node.host.x1 : 100;
+
+      for (const earlier of nodes) {
+        if (earlier.order >= node.order) {
+          break;
+        }
+
+        const onScreen = cluster.members.some((member) => isRunningAt(earlier, member));
+
+        if (onScreen && !isHostOf(earlier, node) && earlier.x0 > start + CASCADE_EPSILON) {
+          end = Math.min(end, earlier.x0);
+        }
+      }
+
+      const laneCount = cluster.needed > cap ? cap + 1 : cluster.needed;
+      const share = (end - start) / laneCount;
+      cluster.region = { start, end, share, overflowStart: start + cap * share };
+    }
+
+    const { start, end, share, overflowStart } = cluster.region;
+
+    node.x0 = start + node.laneIndex * share;
+    // A lane extends under the lanes after it, never under the overflow lane: the `+N`
+    // block is painted last, over everything, and must not sit on anyone's text.
+    node.x1 = node.hidden || cluster.needed <= cap ? end : overflowStart;
+
+    for (const earlier of nodes) {
+      if (earlier.order >= node.order) {
+        break;
+      }
+
+      if (!isRunningAt(earlier, node)) {
+        continue;
+      }
+
+      if (isHostOf(earlier, node)) {
+        node.raised = true;
+        continue;
+      }
+
+      if (earlier.x0 > node.x0 + CASCADE_EPSILON) {
+        node.x1 = Math.min(node.x1, earlier.x0);
+      }
+
+      if (earlier.x0 < node.x1 - CASCADE_EPSILON && node.x0 < earlier.x1 - CASCADE_EPSILON) {
+        node.raised = true;
+      }
+    }
+  }
+
+  const overflows = overflowRects(nodes);
+
+  // Pass 3: the part of each block no later block covers.
+  for (const node of nodes) {
+    node.contentEnd = node.children.reduce((end, child) => Math.min(end, child.top), node.bottom);
+    node.contentX1 = node.x1;
+
+    const coverers = [
+      ...nodes
+        .filter((later) => later.order > node.order && !later.hidden && !isHostOf(node, later))
+        .map((later) => ({ x0: later.x0, top: later.top, bottom: later.bottom })),
+      ...overflows.map((overflow) => ({
+        x0: overflow.x0Pct,
+        top: Math.max(overflow.startMin, band.startMin),
+        bottom: Math.min(overflow.endMin, band.endMin),
+      })),
+    ];
+
+    // An instant is drawn as a marker with height, so it owns at least its own row.
+    const textEnd = node.contentEnd > node.top ? node.contentEnd : node.top + CASCADE_EPSILON;
+
+    for (const cover of coverers) {
+      const coverBottom = cover.bottom > cover.top ? cover.bottom : cover.top + CASCADE_EPSILON;
+      const overlapsText = cover.top < textEnd && coverBottom > node.top;
+
+      if (overlapsText && cover.x0 > node.x0 + CASCADE_EPSILON) {
+        node.contentX1 = Math.min(node.contentX1, cover.x0);
+      }
+    }
+  }
+
+  return nodes;
+}
+
+/**
+ * The overflow blocks, as the rectangles they paint over everything else.
+ *
+ * @param nodes - Every node of a run
+ * @returns One block per sibling group that ran out of lanes
+ */
+function overflowRects<T extends LaneInput>(nodes: CascadeNode<T>[]): CascadeOverflow<T>[] {
+  const groups = new Map<CascadeCluster<T>, CascadeNode<T>[]>();
+
+  for (const node of nodes) {
+    if (node.hidden) {
+      groups.set(node.cluster, [...(groups.get(node.cluster) ?? []), node]);
+    }
+  }
+
+  return Array.from(groups.values()).map((group) => ({
+    startMin: Math.min(...group.map((node) => node.event.startMin)),
+    endMin: Math.max(...group.map((node) => node.event.endMin)),
+    x0Pct: group[0].x0,
+    x1Pct: group[0].x1,
+    hidden: group.map((node) => node.event),
+  }));
+}
+
+/**
+ * The public shape of a finished run.
+ *
+ * @param nodes - Every node of the final run
+ * @returns Visible blocks in paint order, and overflow blocks
+ */
+function toCascadeLayout<T extends LaneInput>(nodes: CascadeNode<T>[]): CascadeLayout<T> {
+  return {
+    placed: nodes
+      .filter((node) => !node.hidden)
+      .map((node) => ({
+        ...node.event,
+        x0Pct: node.x0,
+        x1Pct: node.x1,
+        contentX1Pct: node.contentX1,
+        contentEndMin: node.contentEnd,
+        depth: node.depth,
+        raised: node.raised,
+      })),
+    overflows: overflowRects(nodes),
+  };
+}
+
+//-----------------------------------------------------------------------------
 // SPLITTING TIMED EVENTS
 //-----------------------------------------------------------------------------
 

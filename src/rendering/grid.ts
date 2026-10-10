@@ -26,6 +26,7 @@ import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
+import * as CascadeThreshold from '../utils/grid-cascade-threshold';
 
 //-----------------------------------------------------------------------------
 // EVENT SORTING
@@ -644,6 +645,79 @@ function verticalGeometry(placement: Grid.EventPlacement): Record<string, string
 }
 
 /**
+ * How a block sits across its day column, decided by whichever overlap layout drew it.
+ */
+interface BlockHorizontal {
+  /** Inline geometry, and for a cascaded block the share of it its text may use. */
+  style: Record<string, string>;
+
+  /** Painted over part of an earlier block, so it must hide what is beneath it. */
+  raised: boolean;
+
+  /** A later block covers part of this one, so its text keeps to the rest. */
+  contentLimited: boolean;
+}
+
+/**
+ * Side-by-side lane geometry, which `overlap_layout: columns` draws.
+ *
+ * @param laneIndex - Zero-based lane
+ * @param laneCount - Lanes sharing the column
+ * @returns Inline geometry
+ */
+function laneHorizontal(laneIndex: number, laneCount: number): BlockHorizontal {
+  const laneWidth = 100 / laneCount;
+
+  return {
+    style: {
+      insetInlineStart: `calc(${laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
+      width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
+    },
+    raised: false,
+    contentLimited: false,
+  };
+}
+
+/**
+ * Cascaded geometry, plus the part of the block no later block covers.
+ *
+ * That part is handed over as two unitless ratios — of the block's displayed duration and
+ * of its width — and nothing else. The stylesheet turns them into the disclosure's size,
+ * because only it knows the pixels the conversion needs: the block's padding, its accent
+ * edge and the gaps it keeps, none of which the geometry module may know. See
+ * `.grid-event-content-limited`. A dimension nothing covers is left unwritten, so the
+ * stylesheet's own default applies there.
+ *
+ * @param event - Cascaded event
+ * @param band - The visible band
+ * @returns Inline geometry
+ */
+function cascadeHorizontal(
+  event: Grid.CascadePlacement<Types.CalendarEventData & Grid.LaneInput>,
+  band: Grid.GridBand,
+): BlockHorizontal {
+  const width = event.x1Pct - event.x0Pct;
+  const top = Math.max(event.startMin, band.startMin);
+  const bottom = Math.min(event.endMin, band.endMin);
+  const span = bottom - top;
+  const blockRatio = span > 0 ? (event.contentEndMin - top) / span : 1;
+  const inlineRatio = width > 0 ? (event.contentX1Pct - event.x0Pct) / width : 1;
+  const limitedBlock = blockRatio < 1 - 1e-6;
+  const limitedInline = inlineRatio < 1 - 1e-6;
+
+  return {
+    style: {
+      insetInlineStart: `calc(${event.x0Pct}% + var(--calendar-card-grid-event-gap))`,
+      width: `calc(${width}% - var(--calendar-card-grid-event-gap) * 2)`,
+      ...(limitedBlock ? { '--calendar-card-grid-text-block-ratio': String(blockRatio) } : {}),
+      ...(limitedInline ? { '--calendar-card-grid-text-inline-ratio': String(inlineRatio) } : {}),
+    },
+    raised: event.raised,
+    contentLimited: limitedBlock || limitedInline,
+  };
+}
+
+/**
  * Render one timed event as a block positioned by its clock time.
  *
  * Lane geometry is expressed with `calc()` against a percentage width so a block keeps
@@ -651,8 +725,9 @@ function verticalGeometry(placement: Grid.EventPlacement): Record<string, string
  * percentage: nothing here knows the band's pixel height, which is what lets a fixed
  * content height compress the whole grid with no arithmetic.
  *
- * @param event - Event to render, carrying its lane assignment
+ * @param event - Event to render
  * @param placement - Where it sits in the band
+ * @param horizontal - Where it sits across the column
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param weatherForecasts - Weather forecasts for event badges
@@ -660,8 +735,9 @@ function verticalGeometry(placement: Grid.EventPlacement): Record<string, string
  * @returns Rendered block
  */
 function renderTimedEvent(
-  event: Grid.LanePlacement<Types.CalendarEventData & Grid.LaneInput>,
+  event: Types.CalendarEventData & Grid.LaneInput,
   placement: Grid.EventPlacement,
+  horizontal: BlockHorizontal,
   config: Types.Config,
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
@@ -669,7 +745,17 @@ function renderTimedEvent(
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
-  const laneWidth = 100 / event.laneCount;
+  const tint = presentation.entityAccentBackgroundColor;
+
+  // A raised block hides whatever it covers: the tint is laid over the card's own
+  // background rather than over the block beneath it, so it reads exactly like a block
+  // standing alone and nothing below shows through.
+  const fill = horizontal.raised
+    ? {
+        backgroundColor: 'var(--calendar-card-background-color, var(--card-background-color))',
+        backgroundImage: tint ? `linear-gradient(${tint}, ${tint})` : 'none',
+      }
+    : { backgroundColor: tint };
 
   // Scope the accessible language to its own node. On a visual ancestor it selects a
   // hyphens:auto dictionary and can change prose labels' min-content width and wrapping.
@@ -681,13 +767,14 @@ function renderTimedEvent(
         'past-event': presentation.isPastEvent,
         'clipped-top': placement.clippedTop,
         'clipped-bottom': placement.clippedBottom,
+        'grid-event-raised': horizontal.raised,
+        'grid-event-content-limited': horizontal.contentLimited,
       })}
       style=${styleMap({
         ...verticalGeometry(placement),
-        insetInlineStart: `calc(${event.laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
-        width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
+        ...horizontal.style,
         borderInlineStartColor: presentation.entityAccentColor,
-        backgroundColor: presentation.entityAccentBackgroundColor,
+        ...fill,
         ...presentation.accentTextProperties,
       })}
     >
@@ -784,11 +871,10 @@ function gridTimedEventContentParts(
  * @returns Rendered overflow block
  */
 function renderOverflow(
-  overflow: Grid.LaneOverflow<Types.CalendarEventData & Grid.LaneInput>,
+  overflow: { startMin: number; endMin: number; hidden: Types.CalendarEventData[] },
   placement: Grid.EventPlacement,
+  horizontal: BlockHorizontal,
 ): TemplateResult {
-  const laneWidth = 100 / overflow.laneCount;
-
   // A bare numeral, deliberately. No card translation carries a "+N more" phrase, and
   // adding one would mean a new key in all 35 language files for a label that reads the
   // same in every one of them. The hidden summaries are on the title attribute.
@@ -800,8 +886,7 @@ function renderOverflow(
       title=${overflow.hidden.map((event) => event.summary ?? '').join('\n')}
       style=${styleMap({
         ...verticalGeometry(placement),
-        insetInlineStart: `calc(${overflow.laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
-        width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
+        ...horizontal.style,
       })}
     >
       <div class="grid-event-overflow-label">${label}</div>
@@ -993,6 +1078,9 @@ function layoutBanners(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param now - The instant to draw the now line at, injected so a whole render is
  *   evaluated against one clock reading
+ * @param cascadeThresholdMin - Minutes a later event must start below an earlier one to be
+ *   drawn over it, measured by the host for the scale the card is drawn at; the floor until
+ *   a first measurement exists. See `grid-cascade-threshold.ts`
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1002,6 +1090,7 @@ export function renderGridGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   now: Date = new Date(),
+  cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1222,6 +1311,7 @@ export function renderGridGroupedEvents(
           language,
           index,
           maxLanes,
+          cascadeThresholdMin,
           showNowLine,
           now,
           weatherForecasts,
@@ -1331,6 +1421,8 @@ function renderDayHeader(
  * @param language - Language code for translations
  * @param columnIndex - Zero-based day track
  * @param maxLanes - Overlap cap
+ * @param cascadeThresholdMin - Minutes below an earlier event a later one must start to be
+ *   drawn over it, under the cascade
  * @param showNowLine - Whether the now line is enabled
  * @param now - Instant to draw the now line at
  * @param weatherForecasts - Weather forecasts for event badges
@@ -1344,6 +1436,7 @@ function renderDayBody(
   language: string,
   columnIndex: number,
   maxLanes: number,
+  cascadeThresholdMin: number,
   showNowLine: boolean,
   now: Date,
   weatherForecasts?: Types.WeatherForecasts,
@@ -1359,7 +1452,55 @@ function renderDayBody(
   // on screen, was still counted as overlapping it. Narrow to what the band can actually
   // show first, so width is decided by what the reader can see.
   const visible = timed.filter((event) => Grid.intersectsBand(event.startMin, event.endMin, band));
-  const { placed, overflows } = Grid.layoutLanes(visible, maxLanes);
+  const cascade = ViewConfig.resolveTimeGridOption(config, 'overlap_layout') === 'cascade';
+  const blocks: Array<{
+    event: Types.CalendarEventData & Grid.LaneInput;
+    horizontal: BlockHorizontal;
+  }> = [];
+  const overflowBlocks: Array<{
+    overflow: { startMin: number; endMin: number; hidden: Types.CalendarEventData[] };
+    horizontal: BlockHorizontal;
+  }> = [];
+
+  if (cascade) {
+    const layout = Grid.layoutCascade(visible, band, {
+      thresholdMin: cascadeThresholdMin,
+      indentPct: Grid.CASCADE_INDENT_PCT,
+      maxDepth: Grid.CASCADE_MAX_DEPTH,
+      maxLanes,
+    });
+
+    for (const event of layout.placed) {
+      blocks.push({ event, horizontal: cascadeHorizontal(event, band) });
+    }
+
+    for (const overflow of layout.overflows) {
+      overflowBlocks.push({
+        overflow,
+        horizontal: {
+          style: {
+            insetInlineStart: `calc(${overflow.x0Pct}% + var(--calendar-card-grid-event-gap))`,
+            width: `calc(${overflow.x1Pct - overflow.x0Pct}% - var(--calendar-card-grid-event-gap) * 2)`,
+          },
+          raised: false,
+          contentLimited: false,
+        },
+      });
+    }
+  } else {
+    const { placed, overflows } = Grid.layoutLanes(visible, maxLanes);
+
+    for (const event of placed) {
+      blocks.push({ event, horizontal: laneHorizontal(event.laneIndex, event.laneCount) });
+    }
+
+    for (const overflow of overflows) {
+      overflowBlocks.push({
+        overflow,
+        horizontal: laneHorizontal(overflow.laneIndex, overflow.laneCount),
+      });
+    }
+  }
 
   // Only today's column carries the line, and only when the current time is inside the
   // band. A line drawn across every column would say nothing; one clamped to an edge
@@ -1376,20 +1517,28 @@ function renderDayBody(
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
     >
       ${repeat(
-        placed,
-        (event, index) => `${event._entityId}-${event.summary}-${index}`,
-        (event) => {
+        blocks,
+        ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
+        ({ event, horizontal }) => {
           const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
 
           return placement
-            ? renderTimedEvent(event, placement, config, language, weatherForecasts, hass)
+            ? renderTimedEvent(
+                event,
+                placement,
+                horizontal,
+                config,
+                language,
+                weatherForecasts,
+                hass,
+              )
             : nothing;
         },
       )}
-      ${overflows.map((overflow) => {
+      ${overflowBlocks.map(({ overflow, horizontal }) => {
         const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
 
-        return placement ? renderOverflow(overflow, placement) : nothing;
+        return placement ? renderOverflow(overflow, placement, horizontal) : nothing;
       })}
       ${
         nowPct === null

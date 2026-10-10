@@ -3128,6 +3128,77 @@ export const cardStyles = css`
     visibility: hidden;
   }
 
+  /* ----- Cascaded overlaps -----
+
+     overlap_layout: cascade draws a later event over part of a longer one. Two things
+     make that safe, and both live here.
+
+     A RAISED block is painted over an earlier one, and its fill is opaque: the renderer
+     lays the event tint over the card background instead of over the block beneath, so a
+     stacked block reads exactly like a block standing alone and nothing under it shows
+     through -- not the block's text, and not the hour rules, which is the cue macOS
+     Calendar gives too. There is deliberately no outline: the leading accent edge is what
+     separates a stacked block, as on macOS.
+
+     A CONTENT-LIMITED block has part of it covered by a later one. Its text keeps to the
+     uncovered part: above its first nested block, and before the first later block to its
+     right. The renderer writes that part as two unitless ratios and the conversion to a
+     size happens here, because it needs pixels the geometry module may not know -- the
+     block's 2px/4px padding, its accent edge, and the gaps above and below it.
+
+     The disclosure then becomes the size container instead of the block, so every rung
+     below answers for the space the text really has. A block nothing covers keeps the
+     container on itself, exactly as before.
+
+     Both formulas resolve to exactly the old size at a ratio of 1. In the normal state 100%
+     is the block's content box, so the padding is added back before scaling and taken off
+     after. In the compact state the disclosure is positioned against the padding box, which
+     already includes the padding; the 1px inset it keeps above and below is what the
+     2px in its formula pays for. */
+  .grid-event.grid-event-content-limited {
+    container: none;
+  }
+
+  .grid-event.grid-event-content-limited .grid-event-disclosure {
+    --calendar-card-grid-text-gaps: calc(
+      var(--calendar-card-grid-block-gap-above) + var(--calendar-card-grid-block-gap-below)
+    );
+    --calendar-card-grid-text-chrome: calc(
+      var(--calendar-card-line-width-vertical) + 2 * var(--calendar-card-grid-event-gap)
+    );
+    container: calendar-card-grid-event / size;
+    height: calc(
+      var(--calendar-card-grid-text-block-ratio, 1) *
+        (100% + 4px + var(--calendar-card-grid-text-gaps)) -
+        (4px + var(--calendar-card-grid-text-gaps))
+    );
+    width: calc(
+      var(--calendar-card-grid-text-inline-ratio, 1) *
+        (100% + 8px + var(--calendar-card-grid-text-chrome)) -
+        (8px + var(--calendar-card-grid-text-chrome))
+    );
+    overflow: hidden;
+  }
+
+  .grid-event.grid-event-content-limited:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    inset-block-end: auto;
+    inset-inline-end: auto;
+    height: calc(
+      var(--calendar-card-grid-text-block-ratio, 1) * (100% + var(--calendar-card-grid-text-gaps)) -
+        (2px + var(--calendar-card-grid-text-gaps))
+    );
+    width: calc(
+      var(--calendar-card-grid-text-inline-ratio, 1) *
+        (100% + var(--calendar-card-grid-text-chrome)) -
+        (8px + var(--calendar-card-grid-text-chrome))
+    );
+  }
+
   /* Stands in for events the column had no room to draw. Dashed so it reads as a
      placeholder rather than as an event in its own right. */
   .grid-event-overflow {
