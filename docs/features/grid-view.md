@@ -398,6 +398,12 @@ Events that start together are drawn side by side instead, because both need the
 the top for their titles. The longer one comes first, and once the shorter one is over, the
 longer one has the full width again for anything that starts inside it later.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps.png" alt="A grid card with overlapping events stacked: on Wednesday two events that start together share the width and a third is drawn on top of one of them; on Thursday three errands are drawn on top of a day-long conference"><br>
+
+On Wednesday, QA Window and Sprint Review start together and share the width, and Client Call,
+half an hour later, is drawn on top of Sprint Review. On Thursday the errands sit on top of the
+conference, a little indented, so its title stays readable above them and its edge beside them.
+
 ### When an Event Is Drawn on Top
 
 On a card at the default size, "well inside" means at least half an hour below the longer
@@ -447,10 +453,10 @@ time_grid:
   overlap_layout: columns
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps.png" alt="A grid card drawn with overlap_layout: columns, showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps_columns.png" alt="The same grid card drawn with overlap_layout: columns, showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
 
-Side by side, three events at once share Wednesday's column, while Thursday's conference runs
-two lanes wide. Each lane narrows rather than hiding anything.
+The same two days side by side. Three events at once share Wednesday's column, and Thursday's
+conference keeps half the width all day. Each lane narrows rather than hiding anything.
 
 ### How Many Fit Side by Side
 
