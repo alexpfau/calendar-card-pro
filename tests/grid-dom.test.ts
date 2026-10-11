@@ -1055,14 +1055,14 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     ).toBe('0.5');
   });
 
-  it('fills a stacked block from the card background up, with no outline', () => {
+  it('fills a stacked block from the card background up', () => {
     const blocks = renderGrid([
       timed(17, '09:00', '12:00', 'Review'),
       timed(17, '10:00', '11:00', 'Interview'),
     ]).querySelectorAll('.grid-event');
 
     // The tint is laid over the card's own background rather than over the block beneath,
-    // so a stacked block reads like one standing alone, and nothing else marks its edge.
+    // so a stacked block reads like one standing alone.
     expect(
       declares(
         blocks[1],
@@ -1072,7 +1072,39 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     ).toBe(true);
     expect(declares(blocks[1], 'background-image', 'linear-gradient(')).toBe(true);
     expect(styleOf(blocks[0])).not.toContain('background-image');
-    expect(cardStyles.cssText).not.toMatch(/grid-event-raised[^}]*box-shadow/);
+  });
+
+  // Two events from one calendar have identical fills, so without an outline the edge of
+  // one stacked on the other is lost. Each block outlines itself in its own accent.
+  it('outlines a stacked block in its own accent, and nothing beneath it', () => {
+    const blocks = renderGrid(
+      [
+        timed(17, '09:00', '12:00', 'Review', 'calendar.work'),
+        timed(17, '10:00', '11:00', 'Interview', 'calendar.home'),
+      ],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        entities: [
+          { entity: 'calendar.work', accent_color: '#03a9f4' },
+          { entity: 'calendar.home', accent_color: '#ff6c92' },
+        ],
+      }),
+    ).querySelectorAll('.grid-event');
+    const value = (block: Element, property: string) =>
+      new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(styleOf(block))?.[1].trim();
+
+    expect(blocks[1].classList.contains('grid-event-raised')).toBe(true);
+    expect(value(blocks[1], 'border-inline-start-color')).toBe('#ff6c92');
+    expect(value(blocks[1], '--calendar-card-grid-raised-accent')).toBe('#ff6c92');
+    expect(styleOf(blocks[0])).not.toContain('--calendar-card-grid-raised-accent');
+
+    // A hairline at 20% strength, drawn inside the block so it takes no room from the text.
+    // Quiet on purpose: enough to show where the block ends, too little to frame it.
+    const rule = /\.grid-event-raised\s*\{([^}]*)\}/.exec(cardStyles.cssText)?.[1] ?? '';
+    expect(rule.replace(/\s+/g, ' ')).toContain(
+      'box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent)',
+    );
   });
 
   it('is the default, and overlap_layout: columns draws the lanes instead', () => {

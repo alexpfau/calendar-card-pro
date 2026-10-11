@@ -749,10 +749,14 @@ function renderTimedEvent(
   // over the card's own background rather than over the block beneath it, so it reads
   // exactly like a block standing alone. Only a translucent card background lets anything
   // below show, and then faintly; never text, which the layout keeps out from under it.
+  // Its accent goes along for the outline the stylesheet draws: two events from one
+  // calendar have identical fills, so without it the edge of one stacked on the other is
+  // lost. See `.grid-event-raised`.
   const fill = horizontal.raised
     ? {
         backgroundColor: 'var(--calendar-card-background-color, var(--card-background-color))',
         backgroundImage: tint ? `linear-gradient(${tint}, ${tint})` : 'none',
+        '--calendar-card-grid-raised-accent': presentation.entityAccentColor,
       }
     : { backgroundColor: tint };
 

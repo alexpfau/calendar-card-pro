@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(101_700);
-    // The cascaded overlap layout moved the ceiling last, from 100,000: the notes on why a
+    expect(saved).toBeLessThan(102_700);
+    // The +N strip and the stacked-block outline moved the ceiling last, from 101,700: the
+    // notes on why the strip lets a count spill past its dashes rather than clip it, why a
+    // stacked block shows anything beneath it only on a translucent card, and why it carries
+    // a hairline in its own accent as an inset shadow rather than a border. The reading went
+    // 100,855 to 101,350 with the strip and to 101,822 with the outline, each taken with
+    // stripComments after the last comment in its change was written.
+    //
+    // The cascaded overlap layout moved it before that, from 100,000: the notes on why a
     // stacked block's fill is opaque and outline-free, why a covered block's text region
     // reaches the stylesheet as two unitless ratios rather than as sizes, and why the two
     // formulas differ between the normal and compact states. All three are conversions the

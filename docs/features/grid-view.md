@@ -426,11 +426,11 @@ overlapping it, can still cover its lower edge. Give the axis more height per ho
 happens on your card.
 
 A block drawn on top is filled with the card's own background before its color goes on, so it
-looks the same as a block standing alone, and like macOS it has no outline: its colored leading
-edge marks where it begins. On a solid card background nothing beneath it shows through. If
-your theme makes the card background translucent, the hour lines and the event underneath show
-through faintly, just as the dashboard shows through the rest of the card. Text never does,
-because none is ever placed there.
+looks the same as a block standing alone. A faint outline in its own calendar's color marks its
+edge, so two events from the same calendar stay apart where one is drawn over the other. On a
+solid card background nothing beneath it shows through. If your theme makes the card background
+translucent, the hour lines and the event underneath show through faintly, just as the dashboard
+shows through the rest of the card. Text never does, because none is ever placed there.
 
 Overlaps nest at most three deep. If nesting would ever squeeze a block narrower than the column
 split evenly among one event more than `max_simultaneous_events` allows, which is a quarter of

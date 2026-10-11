@@ -3138,8 +3138,15 @@ export const cardStyles = css`
      beneath, so a stacked block reads exactly like a block standing alone. On a solid card
      nothing under it shows through, which is the cue macOS Calendar gives too; a
      translucent card lets the hour rules and the block beneath show faintly, as it does
-     everywhere. Never text, which the layout keeps out from under it. There is deliberately
-     no outline: the leading accent edge is what separates a stacked block, as on macOS.
+     everywhere. Never text, which the layout keeps out from under it.
+
+     It also carries a hairline outline in its own accent, at 20% strength. Two events
+     from one calendar have identical fills, so a block stacked on another of its calendar
+     otherwise has no edge but its leading stripe. The accent rather than white or black,
+     so the line reads as part of the event rather than as a frame around it, and an inset
+     shadow rather than a border, so it takes no room from the text and none of the sizes
+     below have to know about it. Only raised blocks carry it: a block beneath has nothing
+     on top of it to be told apart from.
 
      A CONTENT-LIMITED block has part of it covered by a later one. Its text keeps to the
      uncovered part: above its first nested block, and before the first later block to its
@@ -3156,6 +3163,11 @@ export const cardStyles = css`
      after. In the compact state the disclosure is positioned against the padding box, which
      already includes the padding; the 1px inset it keeps above and below is what the
      2px in its formula pays for. */
+  .grid-event-raised {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent);
+  }
+
   .grid-event.grid-event-content-limited {
     container: none;
   }
