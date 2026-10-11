@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Sukrauti",
   "time_grid.overlap_layout.option.columns.label": "Greta",
   "time_grid.max_simultaneous_events": "Daugiausia įvykių greta",
-  "time_grid.max_simultaneous_events.helper": "Virš šios ribos likusieji susitraukia į vieną bloką, kuris nurodo, kiek jų atstoja. Niekas nėra paslepiama nesuskaičiavus.",
+  "time_grid.max_simultaneous_events.helper": "Daugiausia įvykių, piešiamų greta. Likusieji susitraukia į siaurą +N bloką krašte, todėl niekas nėra paslepiama nesuskaičiavus. Ant ilgesnio įvykio sukrautas įvykis neskaičiuojamas, nes jis yra ant to įvykio, o ne šalia jo.",
   "time_grid.height": "Aukštis",
   "time_grid.max_height": "Maksimalus aukštis",
   "time_grid.show_week_numbers": "Savaitės numeriai",

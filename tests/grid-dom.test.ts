@@ -81,6 +81,7 @@ function renderGrid(
   config: Types.Config = buildConfig({ view: 'grid', days_to_show: 3 }),
   hass: Types.Hass | null = null,
   weatherForecasts: Types.WeatherForecasts | undefined = undefined,
+  overflowStripPct?: number,
 ): HTMLElement {
   // Both of these mirror what the card host does, and skipping either renders something
   // the card never would. `groupEventsByDay` resolves per-view overrides, so grouping
@@ -93,7 +94,16 @@ function renderGrid(
   const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'grid');
   const container = document.createElement('div');
   litRender(
-    Grid.renderGridGroupedEvents(days, effective, language, weatherForecasts, hass, FROZEN_NOW),
+    Grid.renderGridGroupedEvents(
+      days,
+      effective,
+      language,
+      weatherForecasts,
+      hass,
+      FROZEN_NOW,
+      undefined,
+      overflowStripPct,
+    ),
     container,
   );
   return container;
@@ -1045,14 +1055,14 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     ).toBe('0.5');
   });
 
-  it('fills a stacked block opaquely over the card background, with no outline', () => {
+  it('fills a stacked block from the card background up, with no outline', () => {
     const blocks = renderGrid([
       timed(17, '09:00', '12:00', 'Review'),
       timed(17, '10:00', '11:00', 'Interview'),
     ]).querySelectorAll('.grid-event');
 
     // The tint is laid over the card's own background rather than over the block beneath,
-    // so nothing under a stacked block shows through, and nothing else marks its edge.
+    // so a stacked block reads like one standing alone, and nothing else marks its edge.
     expect(
       declares(
         blocks[1],
@@ -1094,10 +1104,42 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     const overflow = container.querySelector('.grid-event-overflow');
 
     expect(overflow?.textContent?.trim()).toBe('+1');
-    expect(declares(overflow!, 'inset-inline-start', `calc(${(100 / 3) * 2}% +`)).toBe(true);
-    // Three lanes of a third: A extends under B but stops where the overflow lane starts.
-    expect(declares(blocks[0], 'width', `calc(${(100 / 3) * 2}% -`)).toBe(true);
+    // Unmeasured, the strip takes its bound, a quarter. A extends under B but stops where
+    // the strip starts.
+    expect(declares(overflow!, 'inset-inline-start', 'calc(75% +')).toBe(true);
+    expect(declares(blocks[0], 'width', 'calc(75% -')).toBe(true);
+    expect(declares(blocks[1], 'inset-inline-start', 'calc(37.5% +')).toBe(true);
   });
+
+  it.each([
+    ['stacked', undefined],
+    ['side by side', 'columns'],
+  ] as const)(
+    'leaves the count a narrow strip and the event it draws the rest (%s)',
+    (_layout, overlapLayout) => {
+      const container = renderGrid(
+        [timed(17, '09:00', '12:00', 'Workshop'), timed(17, '09:10', '10:00', 'Call')],
+        buildConfig({
+          view: 'grid',
+          days_to_show: 3,
+          time_grid: { max_simultaneous_events: 1, overlap_layout: overlapLayout },
+        }),
+        null,
+        undefined,
+        7,
+      );
+      const workshop = container.querySelector('.grid-event:not(.grid-event-overflow)')!;
+      const strip = container.querySelector('.grid-event-overflow')!;
+
+      expect(workshop.textContent).toContain('Workshop');
+      expect(strip.textContent?.trim()).toBe('+1');
+      // The width the host measured for the count, not a lane of its own: at a cap of one
+      // that was half the column, taken from the one event on screen.
+      expect(declares(strip, 'inset-inline-start', 'calc(93% +')).toBe(true);
+      expect(declares(strip, 'width', 'calc(7% -')).toBe(true);
+      expect(declares(workshop, 'width', 'calc(93% -')).toBe(true);
+    },
+  );
 });
 
 describe('all-day events go in the band, not the body', () => {

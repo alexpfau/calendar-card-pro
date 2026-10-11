@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Na sebe",
   "time_grid.overlap_layout.option.columns.label": "Vedľa seba",
   "time_grid.max_simultaneous_events": "Najviac udalostí vedľa seba",
-  "time_grid.max_simultaneous_events.helper": "Nad túto hodnotu sa zvyšok zbalí do jedného bloku, ktorý hovorí, koľko udalostí zastupuje. Nič sa neskryje bez započítania.",
+  "time_grid.max_simultaneous_events.helper": "Najviac udalostí vykreslených vedľa seba. Zvyšok sa zbalí do úzkeho bloku +N pri okraji, takže sa nič neskryje bez započítania. Udalosť uložená na dlhšej udalosti sa nezapočítava, pretože leží na tejto udalosti, nie vedľa nej.",
   "time_grid.height": "Výška",
   "time_grid.max_height": "Maximálna výška",
   "time_grid.show_week_numbers": "Čísla týždňov",

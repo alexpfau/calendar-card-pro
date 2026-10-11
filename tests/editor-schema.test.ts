@@ -668,7 +668,7 @@ describe('editor: the grid block as the form shows it', () => {
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       hour_height: '48px',
       show_now_line: true,
-      now_line_color: 'var(--error-color)',
+      now_line_color: '#34d399',
       max_simultaneous_events: 3,
       overlap_layout: 'cascade',
       allday_band_max_rows: 3,

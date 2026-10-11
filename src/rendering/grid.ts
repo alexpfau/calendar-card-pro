@@ -659,19 +659,18 @@ interface BlockHorizontal {
 }
 
 /**
- * Side-by-side lane geometry, which `overlap_layout: columns` draws.
+ * A block spanning part of its day column, keeping a gap from whatever is beside it. This
+ * is all a side-by-side lane and a `+N` strip need; a cascaded block adds to it.
  *
- * @param laneIndex - Zero-based lane
- * @param laneCount - Lanes sharing the column
+ * @param x0Pct - Inline start, as a percentage of the column
+ * @param x1Pct - Inline end, as a percentage of the column
  * @returns Inline geometry
  */
-function laneHorizontal(laneIndex: number, laneCount: number): BlockHorizontal {
-  const laneWidth = 100 / laneCount;
-
+function spanHorizontal(x0Pct: number, x1Pct: number): BlockHorizontal {
   return {
     style: {
-      insetInlineStart: `calc(${laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
-      width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
+      insetInlineStart: `calc(${x0Pct}% + var(--calendar-card-grid-event-gap))`,
+      width: `calc(${x1Pct - x0Pct}% - var(--calendar-card-grid-event-gap) * 2)`,
     },
     raised: false,
     contentLimited: false,
@@ -707,8 +706,7 @@ function cascadeHorizontal(
 
   return {
     style: {
-      insetInlineStart: `calc(${event.x0Pct}% + var(--calendar-card-grid-event-gap))`,
-      width: `calc(${width}% - var(--calendar-card-grid-event-gap) * 2)`,
+      ...spanHorizontal(event.x0Pct, event.x1Pct).style,
       ...(limitedBlock ? { '--calendar-card-grid-text-block-ratio': String(blockRatio) } : {}),
       ...(limitedInline ? { '--calendar-card-grid-text-inline-ratio': String(inlineRatio) } : {}),
     },
@@ -747,9 +745,10 @@ function renderTimedEvent(
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
 
-  // A raised block hides whatever it covers: the tint is laid over the card's own
-  // background rather than over the block beneath it, so it reads exactly like a block
-  // standing alone and nothing below shows through.
+  // A raised block covers what is beneath it as the card itself does: the tint is laid
+  // over the card's own background rather than over the block beneath it, so it reads
+  // exactly like a block standing alone. Only a translucent card background lets anything
+  // below show, and then faintly; never text, which the layout keeps out from under it.
   const fill = horizontal.raised
     ? {
         backgroundColor: 'var(--calendar-card-background-color, var(--card-background-color))',
@@ -1081,6 +1080,9 @@ function layoutBanners(
  * @param cascadeThresholdMin - Minutes a later event must start below an earlier one to be
  *   drawn over it, measured by the host for the scale the card is drawn at; the floor until
  *   a first measurement exists. See `grid-cascade-threshold.ts`
+ * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of a day column,
+ *   measured by the host off a rendered label; `Infinity` until then, which leaves the strip
+ *   as wide as its bounds allow. See `grid-overflow-strip.ts`
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1091,6 +1093,7 @@ export function renderGridGroupedEvents(
   hass?: Types.Hass | null,
   now: Date = new Date(),
   cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
+  overflowStripPct = Infinity,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1312,6 +1315,7 @@ export function renderGridGroupedEvents(
           index,
           maxLanes,
           cascadeThresholdMin,
+          overflowStripPct,
           showNowLine,
           now,
           weatherForecasts,
@@ -1423,6 +1427,7 @@ function renderDayHeader(
  * @param maxLanes - Overlap cap
  * @param cascadeThresholdMin - Minutes below an earlier event a later one must start to be
  *   drawn over it, under the cascade
+ * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of the column
  * @param showNowLine - Whether the now line is enabled
  * @param now - Instant to draw the now line at
  * @param weatherForecasts - Weather forecasts for event badges
@@ -1437,6 +1442,7 @@ function renderDayBody(
   columnIndex: number,
   maxLanes: number,
   cascadeThresholdMin: number,
+  overflowStripPct: number,
   showNowLine: boolean,
   now: Date,
   weatherForecasts?: Types.WeatherForecasts,
@@ -1468,6 +1474,7 @@ function renderDayBody(
       indentPct: Grid.CASCADE_INDENT_PCT,
       maxDepth: Grid.CASCADE_MAX_DEPTH,
       maxLanes,
+      stripPct: overflowStripPct,
     });
 
     for (const event of layout.placed) {
@@ -1475,30 +1482,17 @@ function renderDayBody(
     }
 
     for (const overflow of layout.overflows) {
-      overflowBlocks.push({
-        overflow,
-        horizontal: {
-          style: {
-            insetInlineStart: `calc(${overflow.x0Pct}% + var(--calendar-card-grid-event-gap))`,
-            width: `calc(${overflow.x1Pct - overflow.x0Pct}% - var(--calendar-card-grid-event-gap) * 2)`,
-          },
-          raised: false,
-          contentLimited: false,
-        },
-      });
+      overflowBlocks.push({ overflow, horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct) });
     }
   } else {
-    const { placed, overflows } = Grid.layoutLanes(visible, maxLanes);
+    const { placed, overflows } = Grid.layoutLanes(visible, maxLanes, overflowStripPct);
 
     for (const event of placed) {
-      blocks.push({ event, horizontal: laneHorizontal(event.laneIndex, event.laneCount) });
+      blocks.push({ event, horizontal: spanHorizontal(event.x0Pct, event.x1Pct) });
     }
 
     for (const overflow of overflows) {
-      overflowBlocks.push({
-        overflow,
-        horizontal: laneHorizontal(overflow.laneIndex, overflow.laneCount),
-      });
+      overflowBlocks.push({ overflow, horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct) });
     }
   }
 

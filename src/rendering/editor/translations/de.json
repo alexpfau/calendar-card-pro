@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Gestapelt",
   "time_grid.overlap_layout.option.columns.label": "Nebeneinander",
   "time_grid.max_simultaneous_events": "Maximale Termine nebeneinander",
-  "time_grid.max_simultaneous_events.helper": "Darüber hinaus werden die übrigen zu einem Block zusammengefasst, der sagt, für wie viele er steht. Nichts wird ausgeblendet, ohne gezählt zu werden.",
+  "time_grid.max_simultaneous_events.helper": "Wie viele Termine höchstens nebeneinander gezeichnet werden. Die übrigen werden zu einem schmalen +N-Block am Rand zusammengefasst, sodass nichts ausgeblendet wird, ohne gezählt zu werden. Ein Termin, der über einem längeren gestapelt ist, zählt nicht mit, weil er auf diesem Termin liegt statt daneben.",
   "time_grid.height": "Höhe",
   "time_grid.max_height": "Maximale Höhe",
   "time_grid.show_week_numbers": "Wochennummern",

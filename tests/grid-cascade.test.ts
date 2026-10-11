@@ -4,6 +4,7 @@ import {
   CASCADE_INDENT_PCT,
   CASCADE_MAX_DEPTH,
   type GridBand,
+  OVERFLOW_STRIP_MAX_SHARE,
   layoutCascade,
   layoutLanes,
 } from '../src/utils/grid';
@@ -14,9 +15,9 @@ import {
  * Two kinds of test. The examples pin each rule on a day small enough to read. The
  * properties check what makes the layout safe at all, over generated days rather than
  * chosen ones: a later block never covers an earlier block's text or its leading edge,
- * every event is drawn or counted, nothing is narrower than plain columns would draw it,
- * and with nesting impossible the lanes are exactly `layoutLanes`'. A generated day is the
- * input least likely to have been picked because it passes.
+ * every event is drawn or counted, nothing is narrower than an even split among one lane
+ * more than the cap, and with nesting impossible the lanes are exactly `layoutLanes`'. A
+ * generated day is the input least likely to have been picked because it passes.
  *
  * The seeds are fixed, so a failure names a day that reproduces. Each property also asserts
  * that its corpus exercised the thing it checks — a run in which nothing nested would pass
@@ -146,6 +147,18 @@ function splitsACluster(day: Ev[], blocks: Array<{ hidden: Array<{ id: string }>
 }
 
 const at = (h: number, m = 0) => h * 60 + m;
+
+/**
+ * Where a side-by-side lane starts, derived from its topology alone: written out here
+ * rather than taken from the layout, so it is a second statement of the geometry and not
+ * a copy of it. A group that fits splits the column evenly; one that does not leaves a
+ * strip at the end, a quarter of the column at most and never more than an equal share.
+ */
+function laneX0(lane: { laneIndex: number; laneCount: number }, cap: number, stripPct: number) {
+  if (lane.laneCount <= cap) return (lane.laneIndex / lane.laneCount) * 100;
+  const strip = Math.min(stripPct > 0 ? stripPct : Infinity, 25, 100 / (cap + 1));
+  return (lane.laneIndex * (100 - strip)) / cap;
+}
 
 const OPTIONS = {
   thresholdMin: 30,
@@ -310,21 +323,25 @@ describe('layoutCascade, rule by rule', () => {
     expect(byId.test5.contentEndMin).toBe(at(9, 30));
   });
 
+  // Nothing nests at an infinite threshold, so with one lane the three errands beside the
+  // conference are hidden siblings.
+  const SUMMIT_DAY: Ev[] = [
+    { id: 'summit', startMin: at(7), endMin: at(22) },
+    { id: 'car', startMin: at(9), endMin: at(10, 30) },
+    { id: 'dentist', startMin: at(11, 30), endMin: at(12, 15) },
+    { id: 'coffee', startMin: at(15), endMin: at(16) },
+  ];
+
   it('counts siblings it has no lane for where each happens, one block per overlapping run', () => {
-    // Nothing nests at an infinite threshold, so with one lane the three errands beside the
-    // conference are hidden siblings. They never overlap one another, so each gets a block.
-    const { placed, overflows } = layoutCascade(
-      [
-        { id: 'summit', startMin: at(7), endMin: at(22) },
-        { id: 'car', startMin: at(9), endMin: at(10, 30) },
-        { id: 'dentist', startMin: at(11, 30), endMin: at(12, 15) },
-        { id: 'coffee', startMin: at(15), endMin: at(16) },
-      ],
-      BAND,
-      { ...OPTIONS, thresholdMin: Infinity, maxLanes: 1 },
-    );
+    const { placed, overflows } = layoutCascade(SUMMIT_DAY, BAND, {
+      ...OPTIONS,
+      thresholdMin: Infinity,
+      maxLanes: 1,
+    });
 
     expect(placed.map((p) => p.id)).toEqual(['summit']);
+    // They never overlap one another, so each gets a block. Before a column has been
+    // measured, the strip they share is as wide as its bounds allow: a quarter.
     expect(
       overflows.map(({ startMin, endMin, x0Pct, x1Pct, hidden }) => [
         startMin,
@@ -334,20 +351,68 @@ describe('layoutCascade, rule by rule', () => {
         hidden.map((e) => e.id),
       ]),
     ).toEqual([
-      [at(9), at(10, 30), 50, 100, ['car']],
-      [at(11, 30), at(12, 15), 50, 100, ['dentist']],
-      [at(15), at(16), 50, 100, ['coffee']],
+      [at(9), at(10, 30), 75, 100, ['car']],
+      [at(11, 30), at(12, 15), 75, 100, ['dentist']],
+      [at(15), at(16), 75, 100, ['coffee']],
     ]);
+  });
+
+  it('gives the event it can draw everything but the strip, which only holds a count', () => {
+    const { placed, overflows } = layoutCascade(SUMMIT_DAY, BAND, {
+      ...OPTIONS,
+      thresholdMin: Infinity,
+      maxLanes: 1,
+      stripPct: 7,
+    });
+
+    // Not half the column, as a lane of its own would have taken.
+    expect(placed[0]).toMatchObject({ id: 'summit', x0Pct: 0, x1Pct: 93, contentX1Pct: 93 });
+    expect(overflows.map(({ x0Pct, x1Pct }) => [x0Pct, x1Pct])).toEqual([
+      [93, 100],
+      [93, 100],
+      [93, 100],
+    ]);
+  });
+
+  it('bounds the strip by the region it sits in, not by the whole column', () => {
+    // Two siblings nested in a review, one lane: the region runs from one indent in.
+    const day: Ev[] = [
+      { id: 'review', startMin: at(9), endMin: at(17) },
+      { id: 'a', startMin: at(10), endMin: at(11) },
+      { id: 'b', startMin: at(10, 5), endMin: at(11) },
+    ];
+    const region = 100 - CASCADE_INDENT_PCT;
+    const stripOf = (stripPct: number) => {
+      const { placed, overflows } = layoutCascade(day, BAND, {
+        ...OPTIONS,
+        maxLanes: 1,
+        stripPct,
+      });
+      expect(byId(placed).a).toMatchObject({ x0Pct: CASCADE_INDENT_PCT, depth: 2 });
+      expect(byId(placed).a.x1Pct).toBe(overflows[0].x0Pct);
+      return overflows[0].x1Pct - overflows[0].x0Pct;
+    };
+
+    expect(stripOf(7)).toBeCloseTo(7, 9);
+    // Never more than a quarter of its region, however wide the count asks to be.
+    expect(stripOf(40)).toBeCloseTo(region * OVERFLOW_STRIP_MAX_SHARE, 9);
+    expect(OVERFLOW_STRIP_MAX_SHARE).toBe(0.25);
   });
 });
 
 describe('layoutCascade over generated days', () => {
   const SEEDS = 20000;
-  const options = (threshold: number, maxLanes = 3) => ({
+  // The strip each day is laid out with, by seed rather than as another loop, so the corpus
+  // costs no more than it did. Unmeasured; two widths a measured week and a measured
+  // three-day column ask for; and one wider than either bound, so both bounds are reached.
+  const STRIPS = [Infinity, 20, 7, 40];
+  const stripFor = (seed: number) => STRIPS[seed % STRIPS.length];
+  const options = (threshold: number, maxLanes = 3, stripPct = Infinity) => ({
     thresholdMin: threshold,
     indentPct: CASCADE_INDENT_PCT,
     maxDepth: CASCADE_MAX_DEPTH,
     maxLanes,
+    stripPct,
   });
 
   for (const threshold of [15, 30, 60]) {
@@ -362,7 +427,11 @@ describe('layoutCascade over generated days', () => {
 
       for (let seed = 1; seed <= SEEDS && failures.length < 10; seed++) {
         const day = randomDay(seed);
-        const { placed, overflows } = layoutCascade(day, BAND, options(threshold));
+        const { placed, overflows } = layoutCascade(
+          day,
+          BAND,
+          options(threshold, 3, stripFor(seed)),
+        );
 
         // Every event is drawn or counted.
         const counted = placed.length + overflows.reduce((n, o) => n + o.hidden.length, 0);
@@ -450,7 +519,8 @@ describe('layoutCascade over generated days', () => {
       expect(failures).toEqual([]);
       // The generator must actually exercise nesting, or the checks above prove nothing.
       expect(nestedDays).toBeGreaterThan(SEEDS / 4);
-      // Never narrower than the narrowest lane columns could give at the same cap (3).
+      // Never narrower than an even split among one lane more than the cap (3), the floor
+      // the strip's bounds keep side-by-side lanes at or above.
       expect(minContentWidth).toBeGreaterThanOrEqual(25 - 1e-9);
       // ...and every block keeps its full header, up to the threshold.
       expect(minHeader).toBeGreaterThanOrEqual(1 - 1e-9);
@@ -477,8 +547,8 @@ describe('layoutCascade over generated days', () => {
       const day = randomDay(seed);
       for (const cap of [1, 2, 3, 5]) {
         const where = `seed ${seed} cap ${cap}`;
-        const lanes = layoutLanes(day, cap);
-        const cascade = layoutCascade(day, BAND, options(threshold, cap));
+        const lanes = layoutLanes(day, cap, stripFor(seed));
+        const cascade = layoutCascade(day, BAND, options(threshold, cap, stripFor(seed)));
         if (cascade.placed.length !== lanes.placed.length) {
           mismatches.push(
             `${where}: ${cascade.placed.length} placed, lanes placed ${lanes.placed.length}`,
@@ -489,11 +559,21 @@ describe('layoutCascade over generated days', () => {
         for (const p of cascade.placed) {
           compared++;
           const lane = lanesById.get(p.id);
-          const x0 = lane ? (lane.laneIndex / lane.laneCount) * 100 : NaN;
+          const x0 = lane ? laneX0(lane, cap, stripFor(seed)) : NaN;
           if (lane && lane.laneIndex > 0) besideAnother++;
           // The tolerance toBeCloseTo(x0, 9) applies; the negated form also fails on NaN.
           if (p.depth !== 1 || !(Math.abs(p.x0Pct - x0) < 5e-10)) {
             mismatches.push(`${where} ${p.id}: depth ${p.depth}, x0 ${p.x0Pct}, lanes x0 ${x0}`);
+          }
+          if (lane && !(Math.abs(lane.x0Pct - x0) < 5e-10)) {
+            mismatches.push(`${where} ${p.id}: lanes draw x0 ${lane.x0Pct}, derived ${x0}`);
+          }
+        }
+        // Every strip sits where the last lane ends, out to the column's edge, in both.
+        for (const block of [...lanes.overflows, ...cascade.overflows]) {
+          const x0 = laneX0({ laneIndex: cap, laneCount: cap + 1 }, cap, stripFor(seed));
+          if (!(Math.abs(block.x0Pct - x0) < 5e-10) || block.x1Pct !== 100) {
+            mismatches.push(`${where}: strip ${block.x0Pct}-${block.x1Pct}, derived ${x0}-100`);
           }
         }
         const hiddenLanes = lanes.overflows.flatMap((o) => o.hidden.map((e) => e.id)).sort();

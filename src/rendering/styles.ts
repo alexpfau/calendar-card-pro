@@ -3133,12 +3133,13 @@ export const cardStyles = css`
      overlap_layout: cascade draws a later event over part of a longer one. Two things
      make that safe, and both live here.
 
-     A RAISED block is painted over an earlier one, and its fill is opaque: the renderer
-     lays the event tint over the card background instead of over the block beneath, so a
-     stacked block reads exactly like a block standing alone and nothing under it shows
-     through -- not the block's text, and not the hour rules, which is the cue macOS
-     Calendar gives too. There is deliberately no outline: the leading accent edge is what
-     separates a stacked block, as on macOS.
+     A RAISED block is painted over an earlier one, and its fill starts from the card
+     background: the renderer lays the event tint over that instead of over the block
+     beneath, so a stacked block reads exactly like a block standing alone. On a solid card
+     nothing under it shows through, which is the cue macOS Calendar gives too; a
+     translucent card lets the hour rules and the block beneath show faintly, as it does
+     everywhere. Never text, which the layout keeps out from under it. There is deliberately
+     no outline: the leading accent edge is what separates a stacked block, as on macOS.
 
      A CONTENT-LIMITED block has part of it covered by a later one. Its text keeps to the
      uncovered part: above its first nested block, and before the first later block to its
@@ -3200,11 +3201,19 @@ export const cardStyles = css`
   }
 
   /* Stands in for events the column had no room to draw. Dashed so it reads as a
-     placeholder rather than as an event in its own right. */
+     placeholder rather than as an event in its own right.
+
+     A narrow strip, sized for its count by grid-overflow-strip.ts, so the count gets the
+     full width rather than a block's text padding. A count wider still, two digits in a
+     large font, is let out past the dashes rather than clipped: a +12 cut down to a +1
+     would undercount what is hidden, and that is the one thing this block exists not to
+     do. */
   .grid-event-overflow {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding-inline: 0;
+    overflow: visible;
     border: 1px dashed var(--secondary-text-color);
     background: transparent;
     color: var(--secondary-text-color);
@@ -3221,7 +3230,7 @@ export const cardStyles = css`
     position: absolute;
     inset-inline: 0;
     height: 2px;
-    background: var(--calendar-card-grid-now-color, var(--error-color));
+    background: var(--calendar-card-grid-now-color, #34d399);
     pointer-events: none;
     z-index: 2;
   }

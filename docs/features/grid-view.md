@@ -283,7 +283,7 @@ keeps the relevant shared choices, even when they equal a root default.
 A custom window with half-hour slots and a label every two hours. Narrowing the band and
 thinning the labels keeps a long day readable without making the card taller.
 
-## 🔴 The Now Line
+## 🟢 The Now Line
 
 A line marks the current time on today's column, and only there. It is drawn from the same
 arithmetic as the events, so it cannot drift away from them.
@@ -291,8 +291,13 @@ arithmetic as the events, so it cannot drift away from them.
 ```yaml
 time_grid:
   show_now_line: true
-  now_line_color: var(--error-color)
+  now_line_color: '#34d399'
 ```
+
+It is emerald green by default, which reads as a quiet line on a white card. Any CSS color
+works, and `var(--error-color)` gives you your theme's red if you want it to stand out. Quote
+a hex value, as above: YAML reads an unquoted `#` as the start of a comment, and the color
+would be lost.
 
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.
@@ -420,11 +425,16 @@ taller than it lasts, so on a compressed axis an event starting soon after it, w
 overlapping it, can still cover its lower edge. Give the axis more height per hour if that
 happens on your card.
 
-A block drawn on top is opaque, so neither the text nor the hour lines beneath it show through,
-and like macOS it has no outline: its colored leading edge marks where it begins.
+A block drawn on top is filled with the card's own background before its color goes on, so it
+looks the same as a block standing alone, and like macOS it has no outline: its colored leading
+edge marks where it begins. On a solid card background nothing beneath it shows through. If
+your theme makes the card background translucent, the hour lines and the event underneath show
+through faintly, just as the dashboard shows through the rest of the card. Text never does,
+because none is ever placed there.
 
-Overlaps nest at most three deep, and if nesting would ever make a block narrower than plain
-side-by-side columns would draw it, those events go side by side instead.
+Overlaps nest at most three deep. If nesting would ever squeeze a block narrower than the column
+split evenly among one event more than `max_simultaneous_events` allows, which is a quarter of
+it at the default, those events go side by side instead.
 
 ### Side by Side Instead
 
@@ -453,8 +463,11 @@ time_grid:
 ```
 
 The collapsed block says how many it stands for — `+3` — and lists their titles on hover.
-Nothing is hidden without being counted. A cap of `1` still keeps the first event lane
-visible, then adds the overflow block beside it.
+Nothing is hidden without being counted. All it holds is that count, so it is a narrow strip at
+the edge of the column rather than a lane of its own, and the events that are drawn share the
+rest of the width. At a cap of `1`, the first event keeps all of the column but the strip. The
+strip widens with a larger `time_font_size`, and never takes more than a quarter of the space
+it sits in.
 
 A block only gathers hidden events that overlap one another. Three separate errands hidden
 beside a long conference get a `+1` each, at their own times, rather than one `+3` stretched

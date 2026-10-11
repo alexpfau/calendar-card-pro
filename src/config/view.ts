@@ -584,7 +584,11 @@ export const TIME_GRID_DEFAULTS = {
   weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   hour_height: '48px',
   show_now_line: true,
-  now_line_color: 'var(--error-color)',
+
+  // Emerald, to sit with the card's own colors rather than with the theme's error red. It
+  // is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
+  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
+  now_line_color: '#34d399',
   max_simultaneous_events: 3,
   overlap_layout: 'cascade',
   allday_band_max_rows: 3,

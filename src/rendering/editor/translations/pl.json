@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Warstwowo",
   "time_grid.overlap_layout.option.columns.label": "Obok siebie",
   "time_grid.max_simultaneous_events": "Najwięcej wydarzeń obok siebie",
-  "time_grid.max_simultaneous_events.helper": "Powyżej tej wartości reszta zwija się do jednego bloku mówiącego, za ile wydarzeń odpowiada. Nic nie jest ukrywane bez policzenia.",
+  "time_grid.max_simultaneous_events.helper": "Najwięcej wydarzeń rysowanych obok siebie. Reszta zwija się do wąskiego bloku +N przy krawędzi, więc nic nie jest ukrywane bez policzenia. Wydarzenie ułożone warstwowo na dłuższym nie jest liczone, bo leży na tamtym wydarzeniu, a nie obok niego.",
   "time_grid.height": "Wysokość",
   "time_grid.max_height": "Maksymalna wysokość",
   "time_grid.show_week_numbers": "Numery tygodni",

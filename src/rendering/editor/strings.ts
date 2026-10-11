@@ -419,8 +419,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.overlap_layout.option.columns.label': 'Side by side',
   'time_grid.max_simultaneous_events': 'Most Events Side By Side',
   'time_grid.max_simultaneous_events.helper':
-    'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
-    'is hidden without being counted.',
+    'The most events drawn side by side. The rest collapse into a narrow +N block at the ' +
+    'edge, so nothing is hidden without being counted. An event stacked over a longer one ' +
+    'does not count, because it sits on top of that event rather than beside it.',
   'time_grid.height': 'Height',
   'time_grid.max_height': 'Maximum Height',
   'time_grid.show_week_numbers': 'Week Numbers',

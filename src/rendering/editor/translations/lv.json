@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Sakrauti",
   "time_grid.overlap_layout.option.columns.label": "Blakus",
   "time_grid.max_simultaneous_events": "Visvairāk notikumu blakus",
-  "time_grid.max_simultaneous_events.helper": "Virs šī pārējie sakļaujas vienā blokā, kas norāda, cik notikumus tas aizstāj. Nekas netiek paslēpts, to nesaskaitot.",
+  "time_grid.max_simultaneous_events.helper": "Visvairāk notikumu, kas tiek attēloti blakus. Pārējie sakļaujas šaurā +N blokā malā, tāpēc nekas netiek paslēpts, to nesaskaitot. Notikums, kas sakrauts pāri garākam notikumam, netiek skaitīts, jo tas atrodas virs šī notikuma, nevis blakus.",
   "time_grid.height": "Augstums",
   "time_grid.max_height": "Maksimālais augstums",
   "time_grid.show_week_numbers": "Nedēļas numuri",

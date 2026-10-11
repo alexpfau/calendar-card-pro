@@ -400,8 +400,17 @@ export type LanePlacement<T> = T & {
   /** Zero-based lane within the cluster. */
   laneIndex: number;
 
-  /** Lanes the cluster needs; every member shares it, so widths line up. */
+  /**
+   * Lanes the cluster draws, the `+N` strip counted as one when it has one; every member
+   * shares it, so widths line up.
+   */
   laneCount: number;
+
+  /** Inline start of the lane, as a percentage of the day column. */
+  x0Pct: number;
+
+  /** Inline end of the lane, as a percentage of the day column. */
+  x1Pct: number;
 };
 
 /**
@@ -415,6 +424,12 @@ export interface LaneOverflow<T> {
   laneIndex: number;
 
   laneCount: number;
+
+  /** Inline start of the strip, as a percentage of the day column. */
+  x0Pct: number;
+
+  /** Inline end of the strip, as a percentage of the day column. */
+  x1Pct: number;
 
   /** The events this block stands for, in start order. */
   hidden: T[];
@@ -517,6 +532,78 @@ function overlappingRuns<I>(items: I[], eventOf: (item: I) => LaneInput): I[][] 
   return runs;
 }
 
+/** Most of its region the `+N` strip may take, however wide its label asks to be. */
+export const OVERFLOW_STRIP_MAX_SHARE = 0.25;
+
+/**
+ * Width of the strip a group's hidden events collapse into, in the units of its region.
+ *
+ * The strip only has to say how many events it stands for, so it is given the width a
+ * count such as `+3` needs, and every visible lane shares the rest. A lane's worth of
+ * width spent on a count was width each visible event lost: at a cap of one, the event
+ * the reader could see got half the column. That width is a length in pixels, which this
+ * module does not know, so the caller measures it and passes it in as a percentage; see
+ * `grid-overflow-strip.ts`.
+ *
+ * Two bounds keep it a strip. It never takes more than {@link OVERFLOW_STRIP_MAX_SHARE}
+ * of its region, so a narrow column keeps most of its width for events. And it is never
+ * wider than an equal share would be: that is the strip drawn as one more lane, so the
+ * visible lanes can come out wider than an equal split, and never narrower. Before the
+ * column has been measured, the bounds are all there is.
+ *
+ * @param regionPct - Width of the region the group's lanes share
+ * @param cap - Resolved lane cap
+ * @param preferredPct - Width the label needs, as a percentage of the day column;
+ *   `Infinity` when it has not been measured
+ * @returns The strip's width
+ */
+export function overflowStripWidth(regionPct: number, cap: number, preferredPct: number): number {
+  const bound = Math.min(regionPct * OVERFLOW_STRIP_MAX_SHARE, regionPct / (cap + 1));
+
+  // Also refuses NaN and zero: a strip with no width would hide events without counting them.
+  return preferredPct > 0 ? Math.min(preferredPct, bound) : bound;
+}
+
+/** How one group's region is shared out; see {@link shareRegion}. */
+interface RegionShares {
+  start: number;
+
+  end: number;
+
+  /** Width of each visible lane. */
+  share: number;
+
+  /** Where the `+N` strip begins; `end` when the group has none. */
+  overflowStart: number;
+}
+
+/**
+ * Share a region among the lanes one group needs, with a `+N` strip at its end when the
+ * group needs more than the cap allows.
+ *
+ * The single place lane widths are computed, for side-by-side columns and for the cascade
+ * alike, so the two cannot drift apart: in the limit where nothing nests, the cascade is
+ * required to draw exactly the lanes `layoutLanes` does.
+ *
+ * @param start - Inline start of the region
+ * @param end - Inline end of the region
+ * @param needed - Lanes the group needs, at least one
+ * @param cap - Resolved lane cap
+ * @param stripPct - The strip's preferred width; see {@link overflowStripWidth}
+ * @returns The region, the width of each lane and where the strip begins
+ */
+function shareRegion(
+  start: number,
+  end: number,
+  needed: number,
+  cap: number,
+  stripPct: number,
+): RegionShares {
+  const overflowStart = needed > cap ? end - overflowStripWidth(end - start, cap, stripPct) : end;
+
+  return { start, end, share: (overflowStart - start) / Math.min(needed, cap), overflowStart };
+}
+
 /**
  * Assign overlapping events to side-by-side lanes, capped.
  *
@@ -535,13 +622,21 @@ function overlappingRuns<I>(items: I[], eventOf: (item: I) => LaneInput): I[][] 
  * uncapped grid answers a busy day with seven unreadable slivers; the block at least says
  * how many were hidden. The cap is never allowed to drop an event silently — at
  * `maxLanes: 1` the first lane remains visible and every hidden event is counted by the
- * block standing in for its run.
+ * block standing in for its run. The blocks share a narrow strip at the column's inline
+ * end rather than a lane of their own, so the visible lanes keep the rest of the width;
+ * see {@link overflowStripWidth}.
  *
  * @param events - Events to lay out; not mutated, and need not be sorted
  * @param maxLanes - Most lanes a cluster may use; values below 1 are treated as 1
+ * @param stripPct - The `+N` strip's preferred width, as a percentage of the day column;
+ *   the default leaves it as wide as its bounds allow
  * @returns Placed events and any overflow blocks
  */
-export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number): LaneLayout<T> {
+export function layoutLanes<T extends LaneInput>(
+  events: T[],
+  maxLanes: number,
+  stripPct = Infinity,
+): LaneLayout<T> {
   const cap = Number.isFinite(maxLanes) ? Math.max(1, Math.floor(maxLanes)) : 1;
 
   // Longest-first on ties keeps the enclosing event in the leftmost lane, which reads
@@ -573,10 +668,16 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
   for (const members of clusters) {
     const assigned = assignLanes(members, cap);
     const needed = assigned.reduce((max, entry) => Math.max(max, entry.laneIndex + 1), 0);
+    const { share, overflowStart } = shareRegion(0, 100, needed, cap, stripPct);
+    const lane = (laneIndex: number) => ({
+      laneIndex,
+      x0Pct: laneIndex * share,
+      x1Pct: (laneIndex + 1) * share,
+    });
 
     if (needed <= cap) {
       for (const entry of assigned) {
-        placed.push({ ...entry.event, laneIndex: entry.laneIndex, laneCount: needed });
+        placed.push({ ...entry.event, ...lane(entry.laneIndex), laneCount: needed });
       }
 
       continue;
@@ -590,7 +691,7 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
     const laneCount = cap + 1;
 
     for (const entry of visible) {
-      placed.push({ ...entry.event, laneIndex: entry.laneIndex, laneCount });
+      placed.push({ ...entry.event, ...lane(entry.laneIndex), laneCount });
     }
 
     for (const run of overlappingRuns(hidden, (event) => event)) {
@@ -599,6 +700,8 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
         endMin: Math.max(...run.map((event) => event.endMin)),
         laneIndex: cap,
         laneCount,
+        x0Pct: overflowStart,
+        x1Pct: 100,
         hidden: run,
       });
     }
@@ -679,6 +782,12 @@ export interface CascadeOptions {
 
   /** Side-by-side lanes one group of siblings may use before the rest collapse. */
   maxLanes: number;
+
+  /**
+   * The `+N` strip's preferred width, as a percentage of the day column; see
+   * {@link overflowStripWidth}. Omitted, it is as wide as its bounds allow.
+   */
+  stripPct?: number;
 }
 
 /** An event with cascaded geometry: percentages of the day column, minutes of the day. */
@@ -729,7 +838,7 @@ interface CascadeCluster<T> {
   laneReleases: LaneRelease[];
   needed: number;
   members: CascadeNode<T>[];
-  region: { start: number; end: number; share: number; overflowStart: number } | null;
+  region: RegionShares | null;
 }
 
 interface CascadeNode<T> {
@@ -823,16 +932,18 @@ function isRunningAt<T extends LaneInput>(earlier: CascadeNode<T>, later: Cascad
  *    ties. Siblings that overlap in time get side-by-side lanes exactly as `layoutLanes`
  *    assigns them, overflow cap included.
  * 2. **Geometry.** A host's children share the region from one indent inside it to its
- *    inline end. A lane starts where its share starts and extends under the lanes after
- *    it, but never over an earlier, still-running block that is not one of its hosts, and
- *    never under the overflow lane.
+ *    inline end, less a `+N` strip at that end when they need more lanes than the cap
+ *    allows. A lane starts where its share starts and extends under the lanes after it, but
+ *    never over an earlier, still-running block that is not one of its hosts, and never
+ *    under the strip.
  * 3. **Text.** A block's text may use only what no later block covers: the rows above its
  *    first nested child, and the columns before the first later block to its right. This
  *    is the rule that keeps one block's text from ever sitting under another block. The
  *    renderer hands that region to the disclosure ladder, which decides what fits in it.
  *
  * A dense day can nest so deep, or split a nested region so many ways, that a block would
- * end up narrower than the narrowest lane side-by-side columns give at the same cap. Each
+ * end up narrower than the column split evenly among one lane more than the cap: the floor
+ * the `+N` strip's bounds keep every side-by-side lane at or above. Each
  * such block's host is then barred from hosting, so its would-be children go beside it
  * instead, and the layout runs again. Every round bars at least one more event, so this
  * ends, and in the limit it is exactly `layoutLanes`: with nesting impossible, the lanes
@@ -840,7 +951,7 @@ function isRunningAt<T extends LaneInput>(earlier: CascadeNode<T>, later: Cascad
  *
  * @param events - Visible events of one day; not mutated, need not be sorted
  * @param band - The visible band, which decides where a clipped block's header sits
- * @param options - Threshold, indent, depth and lane caps
+ * @param options - Threshold, indent, depth, lane cap and `+N` strip
  * @returns Visible blocks in paint order, and overflow blocks
  */
 export function layoutCascade<T extends LaneInput>(
@@ -879,7 +990,7 @@ export function layoutCascade<T extends LaneInput>(
  *
  * @param sorted - Events in start order, longest first on ties
  * @param band - The visible band
- * @param options - Threshold, indent and depth
+ * @param options - Threshold, indent, depth and `+N` strip
  * @param cap - Resolved lane cap
  * @param barred - Positions in `sorted` of events that may not host others
  * @returns Every node, hidden ones included, in paint order
@@ -985,16 +1096,14 @@ function runCascade<T extends LaneInput>(
         }
       }
 
-      const laneCount = cluster.needed > cap ? cap + 1 : cluster.needed;
-      const share = (end - start) / laneCount;
-      cluster.region = { start, end, share, overflowStart: start + cap * share };
+      cluster.region = shareRegion(start, end, cluster.needed, cap, options.stripPct ?? Infinity);
     }
 
     const { start, end, share, overflowStart } = cluster.region;
 
-    node.x0 = start + node.laneIndex * share;
-    // A lane extends under the lanes after it, never under the overflow lane: the `+N`
-    // block is painted last, over everything, and must not sit on anyone's text.
+    node.x0 = node.hidden ? overflowStart : start + node.laneIndex * share;
+    // A lane extends under the lanes after it, never under the `+N` strip: the strip is
+    // painted last, over everything, and must not sit on anyone's text.
     node.x1 = node.hidden || cluster.needed <= cap ? end : overflowStart;
 
     for (const earlier of nodes) {

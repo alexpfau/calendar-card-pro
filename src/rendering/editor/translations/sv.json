@@ -236,7 +236,7 @@
   "time_grid.overlap_layout.option.cascade.label": "Staplade",
   "time_grid.overlap_layout.option.columns.label": "Sida vid sida",
   "time_grid.max_simultaneous_events": "Flest händelser sida vid sida",
-  "time_grid.max_simultaneous_events.helper": "Över detta fälls resten ihop till ett block som säger hur många det står för. Inget döljs utan att räknas.",
+  "time_grid.max_simultaneous_events.helper": "Flest händelser som ritas sida vid sida. Resten fälls ihop till ett smalt +N-block vid kanten, så inget döljs utan att räknas. En händelse som är staplad ovanpå en längre räknas inte, eftersom den ligger ovanpå den händelsen i stället för bredvid.",
   "time_grid.height": "Höjd",
   "time_grid.max_height": "Maximal höjd",
   "time_grid.show_week_numbers": "Veckonummer",
