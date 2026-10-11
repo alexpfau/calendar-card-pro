@@ -942,6 +942,30 @@ describe('with overlap_layout: columns, overlapping events share the column', ()
     expect(overflow!.textContent?.trim()).toBe('+2');
   });
 
+  // The day from the side-by-side test card: a conference all day, and three errands that
+  // each overlap only it. Each errand is counted where it happens, not in one `+3` block
+  // stretched across the hours between them.
+  it('counts each hidden event beside a long one in its own block at its own time', () => {
+    const container = renderGrid(
+      [
+        timed(17, '07:00', '22:00', 'Summit'),
+        timed(17, '09:00', '10:30', 'Car service'),
+        timed(17, '11:30', '12:15', 'Dentist'),
+        timed(17, '15:00', '16:00', 'Coffee'),
+      ],
+      columnsConfig({ max_simultaneous_events: 1 }),
+    );
+
+    const overflows = Array.from(container.querySelectorAll('.grid-event-overflow'));
+
+    expect(overflows.map((block) => block.textContent?.trim())).toEqual(['+1', '+1', '+1']);
+    const titles = overflows.map((block) => block.getAttribute('title') ?? '');
+    for (const [index, name] of ['Car service', 'Dentist', 'Coffee'].entries()) {
+      expect(titles[index]).toContain(name);
+      expect(titles.filter((title) => title.includes(name))).toHaveLength(1);
+    }
+  });
+
   // A cap that drops events silently is worse than no cap, because the card then lies
   // about the day rather than merely crowding it.
   it('names the events it hides on the overflow block', () => {

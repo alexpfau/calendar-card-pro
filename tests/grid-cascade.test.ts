@@ -78,6 +78,73 @@ function overlaps(a: [number, number], b: [number, number]): boolean {
   return a[0] < b[1] && b[0] < a[1];
 }
 
+/** An event's own time, unclamped; an instant gets a sliver so it overlaps its own minute. */
+function span(e: { startMin: number; endMin: number }): [number, number] {
+  return [e.startMin, e.endMin > e.startMin ? e.endMin : e.startMin + 1e-3];
+}
+
+/**
+ * What is wrong with one overflow block's grouping, if anything.
+ *
+ * A block stands for one run of hidden events that overlap one another, and spans exactly
+ * that run. Written against `span` rather than the layout's release logic, so the two are
+ * independent statements of when events overlap.
+ */
+function runProblem(block: {
+  startMin: number;
+  endMin: number;
+  hidden: Array<{ id: string; startMin: number; endMin: number }>;
+}): string | null {
+  let reach = -Infinity;
+
+  for (const [index, event] of block.hidden.entries()) {
+    if (index > 0 && !(event.startMin < reach)) {
+      return `joins ${event.id}, which overlaps nothing before it in the block`;
+    }
+    reach = Math.max(reach, span(event)[1]);
+  }
+
+  const start = Math.min(...block.hidden.map((e) => e.startMin));
+  const end = Math.max(...block.hidden.map((e) => e.endMin));
+  return block.startMin === start && block.endMin === end
+    ? null
+    : `spans ${block.startMin}-${block.endMin}, its events ${start}-${end}`;
+}
+
+/** Overflow blocks as a comparable string: span and hidden ids, in any order. */
+function blocksKey(
+  blocks: Array<{ startMin: number; endMin: number; hidden: Array<{ id: string }> }>,
+): string {
+  return blocks
+    .map((b) => `${b.startMin}-${b.endMin}:${b.hidden.map((e) => e.id).join(',')}`)
+    .sort()
+    .join(' | ');
+}
+
+/**
+ * Whether any cluster of the day was split into more than one overflow block. Clusters are
+ * found here by a sweep over `span`, independently of the layout.
+ */
+function splitsACluster(day: Ev[], blocks: Array<{ hidden: Array<{ id: string }> }>): boolean {
+  const clusterOf = new Map<string, number>();
+  let reach = -Infinity;
+  let cluster = -1;
+
+  for (const e of [...day].sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin)) {
+    if (!(e.startMin < reach)) cluster++;
+    clusterOf.set(e.id, cluster);
+    reach = Math.max(reach, span(e)[1]);
+  }
+
+  const seen = new Set<number>();
+  for (const block of blocks) {
+    const owner = clusterOf.get(block.hidden[0].id) as number;
+    if (seen.has(owner)) return true;
+    seen.add(owner);
+  }
+  return false;
+}
+
 const at = (h: number, m = 0) => h * 60 + m;
 
 const OPTIONS = {
@@ -242,6 +309,36 @@ describe('layoutCascade, rule by rule', () => {
     // test5's text stops where the first nested block starts.
     expect(byId.test5.contentEndMin).toBe(at(9, 30));
   });
+
+  it('counts siblings it has no lane for where each happens, one block per overlapping run', () => {
+    // Nothing nests at an infinite threshold, so with one lane the three errands beside the
+    // conference are hidden siblings. They never overlap one another, so each gets a block.
+    const { placed, overflows } = layoutCascade(
+      [
+        { id: 'summit', startMin: at(7), endMin: at(22) },
+        { id: 'car', startMin: at(9), endMin: at(10, 30) },
+        { id: 'dentist', startMin: at(11, 30), endMin: at(12, 15) },
+        { id: 'coffee', startMin: at(15), endMin: at(16) },
+      ],
+      BAND,
+      { ...OPTIONS, thresholdMin: Infinity, maxLanes: 1 },
+    );
+
+    expect(placed.map((p) => p.id)).toEqual(['summit']);
+    expect(
+      overflows.map(({ startMin, endMin, x0Pct, x1Pct, hidden }) => [
+        startMin,
+        endMin,
+        x0Pct,
+        x1Pct,
+        hidden.map((e) => e.id),
+      ]),
+    ).toEqual([
+      [at(9), at(10, 30), 50, 100, ['car']],
+      [at(11, 30), at(12, 15), 50, 100, ['dentist']],
+      [at(15), at(16), 50, 100, ['coffee']],
+    ]);
+  });
 });
 
 describe('layoutCascade over generated days', () => {
@@ -261,6 +358,7 @@ describe('layoutCascade over generated days', () => {
       let nestedDays = 0;
       let minContentWidth = Infinity;
       let minHeader = Infinity;
+      let overflowBlocks = 0;
 
       for (let seed = 1; seed <= SEEDS && failures.length < 10; seed++) {
         const day = randomDay(seed);
@@ -297,6 +395,24 @@ describe('layoutCascade over generated days', () => {
               minHeader,
               Math.min(header, threshold) / Math.min(threshold, bottom - top),
             );
+          }
+        }
+
+        // Each block is one run of hidden events that overlap one another, and two blocks
+        // in the same place never overlap in time.
+        for (const [index, block] of overflows.entries()) {
+          overflowBlocks++;
+          const problem = runProblem(block);
+          if (problem) failures.push(`seed ${seed}: block at ${block.startMin} ${problem}`);
+          for (const other of overflows.slice(index + 1)) {
+            const samePlace =
+              Math.abs(other.x0Pct - block.x0Pct) < EPS &&
+              Math.abs(other.x1Pct - block.x1Pct) < EPS;
+            if (samePlace && overlaps(span(block), span(other))) {
+              failures.push(
+                `seed ${seed}: blocks at ${block.startMin} and ${other.startMin} collide`,
+              );
+            }
           }
         }
 
@@ -338,6 +454,8 @@ describe('layoutCascade over generated days', () => {
       expect(minContentWidth).toBeGreaterThanOrEqual(25 - 1e-9);
       // ...and every block keeps its full header, up to the threshold.
       expect(minHeader).toBeGreaterThanOrEqual(1 - 1e-9);
+      // ...and the overflow checks above saw blocks to check.
+      expect(overflowBlocks).toBeGreaterThan(1000);
     });
   }
 
@@ -353,6 +471,7 @@ describe('layoutCascade over generated days', () => {
     let compared = 0;
     let besideAnother = 0;
     let withHidden = 0;
+    let splitClusters = 0;
 
     for (let seed = 1; seed <= SEEDS && mismatches.length < 10; seed++) {
       const day = randomDay(seed);
@@ -383,6 +502,17 @@ describe('layoutCascade over generated days', () => {
         if (hiddenCascade.join() !== hiddenLanes.join()) {
           mismatches.push(`${where}: hides [${hiddenCascade}], lanes hide [${hiddenLanes}]`);
         }
+        // The blocks themselves match too, run for run, and each is one overlapping run.
+        if (blocksKey(cascade.overflows) !== blocksKey(lanes.overflows)) {
+          mismatches.push(
+            `${where}: blocks ${blocksKey(cascade.overflows)}, lanes ${blocksKey(lanes.overflows)}`,
+          );
+        }
+        for (const block of lanes.overflows) {
+          const problem = runProblem(block);
+          if (problem) mismatches.push(`${where}: lanes block at ${block.startMin} ${problem}`);
+        }
+        if (splitsACluster(day, lanes.overflows)) splitClusters++;
       }
     }
 
@@ -392,5 +522,8 @@ describe('layoutCascade over generated days', () => {
     expect(compared).toBeGreaterThan(SEEDS * 4);
     expect(besideAnother).toBeGreaterThan(SEEDS);
     expect(withHidden).toBeGreaterThan(SEEDS / 4);
+    // ...and days where one cluster's hidden events form more than one run, which is the
+    // case where one block per cluster and one per run disagree.
+    expect(splitClusters).toBeGreaterThan(SEEDS / 4);
   });
 });

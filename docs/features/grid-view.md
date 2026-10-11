@@ -445,7 +445,7 @@ two lanes wide. Each lane narrows rather than hiding anything.
 ### How Many Fit Side by Side
 
 `max_simultaneous_events` caps how many events share the width side by side before the rest
-collapse into a single block:
+collapse into a `+N` block:
 
 ```yaml
 time_grid:
@@ -455,6 +455,10 @@ time_grid:
 The collapsed block says how many it stands for — `+3` — and lists their titles on hover.
 Nothing is hidden without being counted. A cap of `1` still keeps the first event lane
 visible, then adds the overflow block beside it.
+
+A block only gathers hidden events that overlap one another. Three separate errands hidden
+beside a long conference get a `+1` each, at their own times, rather than one `+3` stretched
+across the hours between them.
 
 Positive fractional caps round down to whole lanes, with a minimum of one, just like the
 all-day row cap.

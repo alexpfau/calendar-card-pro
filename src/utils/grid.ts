@@ -405,7 +405,7 @@ export type LanePlacement<T> = T & {
 };
 
 /**
- * A stand-in for the events a cluster had no room to draw.
+ * A stand-in for a run of overlapping events a cluster had no room to draw.
  */
 export interface LaneOverflow<T> {
   startMin: number;
@@ -483,6 +483,41 @@ function laterRelease(a: LaneRelease, b: LaneRelease): LaneRelease {
 }
 
 /**
+ * Split hidden events into runs that overlap one another, one overflow block per run.
+ *
+ * Not one block per cluster: a cluster is held together by whatever overlaps all of it,
+ * often an event that stays visible, and the events hidden beside it can be hours apart.
+ * One block across all of them would claim the gaps between them, where nothing is
+ * hidden, and count three separate events as `+3` as though they happened at once.
+ * FullCalendar groups the `+more` links of its time grid the same way.
+ *
+ * Every event hidden at a given moment overlaps every other one hidden at that moment,
+ * so they always share a block. A run is joined transitively, like a cluster.
+ *
+ * @param items - Hidden items, in start order
+ * @param eventOf - The event an item stands for
+ * @returns The runs, in start order
+ */
+function overlappingRuns<I>(items: I[], eventOf: (item: I) => LaneInput): I[][] {
+  const runs: I[][] = [];
+  let release = RELEASED;
+
+  for (const item of items) {
+    const event = eventOf(item);
+
+    if (isFreeAt(release, event.startMin)) {
+      runs.push([]);
+      release = RELEASED;
+    }
+
+    runs[runs.length - 1].push(item);
+    release = laterRelease(release, releaseOf(event));
+  }
+
+  return runs;
+}
+
+/**
  * Assign overlapping events to side-by-side lanes, capped.
  *
  * Events are grouped into clusters of transitively-overlapping events, and each
@@ -495,11 +530,12 @@ function laterRelease(a: LaneRelease, b: LaneRelease): LaneRelease {
  * lanes the cluster actually needed, not its size: three events where only two are
  * ever simultaneous take two lanes, not three.
  *
- * Above `maxLanes`, events assigned to lanes beyond the cap collapse into one overflow
- * block spanning their combined range. An uncapped grid answers a busy day with seven
- * unreadable slivers; the block at least says how many were hidden. The cap is never
- * allowed to drop an event silently — at `maxLanes: 1` the first lane remains visible and
- * every hidden lane is represented by the overflow block.
+ * Above `maxLanes`, events assigned to lanes beyond the cap collapse into overflow blocks,
+ * one for each run of hidden events that overlap one another (see `overlappingRuns`). An
+ * uncapped grid answers a busy day with seven unreadable slivers; the block at least says
+ * how many were hidden. The cap is never allowed to drop an event silently — at
+ * `maxLanes: 1` the first lane remains visible and every hidden event is counted by the
+ * block standing in for its run.
  *
  * @param events - Events to lay out; not mutated, and need not be sorted
  * @param maxLanes - Most lanes a cluster may use; values below 1 are treated as 1
@@ -557,13 +593,15 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
       placed.push({ ...entry.event, laneIndex: entry.laneIndex, laneCount });
     }
 
-    overflows.push({
-      startMin: Math.min(...hidden.map((event) => event.startMin)),
-      endMin: Math.max(...hidden.map((event) => event.endMin)),
-      laneIndex: cap,
-      laneCount,
-      hidden,
-    });
+    for (const run of overlappingRuns(hidden, (event) => event)) {
+      overflows.push({
+        startMin: Math.min(...run.map((event) => event.startMin)),
+        endMin: Math.max(...run.map((event) => event.endMin)),
+        laneIndex: cap,
+        laneCount,
+        hidden: run,
+      });
+    }
   }
 
   return { placed, overflows };
@@ -664,7 +702,7 @@ export type CascadePlacement<T> = T & {
   raised: boolean;
 };
 
-/** The block standing in for siblings a group had no lane for. */
+/** The block standing in for a run of overlapping siblings a group had no lane for. */
 export interface CascadeOverflow<T> {
   startMin: number;
 
@@ -1021,7 +1059,7 @@ function runCascade<T extends LaneInput>(
  * The overflow blocks, as the rectangles they paint over everything else.
  *
  * @param nodes - Every node of a run
- * @returns One block per sibling group that ran out of lanes
+ * @returns One block per run of overlapping siblings a group had no lane for
  */
 function overflowRects<T extends LaneInput>(nodes: CascadeNode<T>[]): CascadeOverflow<T>[] {
   const groups = new Map<CascadeCluster<T>, CascadeNode<T>[]>();
@@ -1032,13 +1070,15 @@ function overflowRects<T extends LaneInput>(nodes: CascadeNode<T>[]): CascadeOve
     }
   }
 
-  return Array.from(groups.values()).map((group) => ({
-    startMin: Math.min(...group.map((node) => node.event.startMin)),
-    endMin: Math.max(...group.map((node) => node.event.endMin)),
-    x0Pct: group[0].x0,
-    x1Pct: group[0].x1,
-    hidden: group.map((node) => node.event),
-  }));
+  return Array.from(groups.values()).flatMap((group) =>
+    overlappingRuns(group, (node) => node.event).map((run) => ({
+      startMin: Math.min(...run.map((node) => node.event.startMin)),
+      endMin: Math.max(...run.map((node) => node.event.endMin)),
+      x0Pct: run[0].x0,
+      x1Pct: Math.min(...run.map((node) => node.x1)),
+      hidden: run.map((node) => node.event),
+    })),
+  );
 }
 
 /**

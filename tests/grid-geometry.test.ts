@@ -589,6 +589,71 @@ describe('layoutLanes', () => {
     });
   });
 
+  // A block counts events that happen at once. Hidden events that never overlap each
+  // other are separate blocks at their own times, even when one visible event overlaps
+  // all of them and holds the cluster together.
+  describe('the overflow blocks', () => {
+    const blocks = (events: ReturnType<typeof at>[], cap: number) =>
+      layoutLanes(events, cap).overflows.map(({ startMin, endMin, hidden }) => [
+        startMin,
+        endMin,
+        hidden.map((event) => event.id),
+      ]);
+
+    it('gives each hidden event beside a long one its own block, not one across the gaps', () => {
+      const day = [
+        at(420, 1440, 'summit'),
+        at(540, 630, 'car'),
+        at(690, 735, 'dentist'),
+        at(900, 960, 'coffee'),
+      ];
+      const { placed, overflows } = layoutLanes(day, 1);
+
+      expect(placed.map((event) => event.id)).toEqual(['summit']);
+      expect(blocks(day, 1)).toEqual([
+        [540, 630, ['car']],
+        [690, 735, ['dentist']],
+        [900, 960, ['coffee']],
+      ]);
+      expect(overflows.every((block) => block.laneIndex === 1 && block.laneCount === 2)).toBe(true);
+    });
+
+    it('keeps hidden events that overlap one another in one block, joined transitively', () => {
+      // b overlaps d and d overlaps e, but b and e never meet: one run, as a cluster is.
+      expect(
+        blocks(
+          [
+            at(0, 600, 'a'),
+            at(60, 150, 'b'),
+            at(120, 210, 'd'),
+            at(180, 240, 'e'),
+            at(400, 450, 'f'),
+          ],
+          1,
+        ),
+      ).toEqual([
+        [60, 240, ['b', 'd', 'e']],
+        [400, 450, ['f']],
+      ]);
+    });
+
+    it('starts a new block when a hidden event starts as the last one ends', () => {
+      expect(blocks([at(0, 600, 'a'), at(60, 120, 'b'), at(120, 180, 'c')], 1)).toEqual([
+        [60, 120, ['b']],
+        [120, 180, ['c']],
+      ]);
+    });
+
+    it('keeps two hidden reminders at one minute in one block', () => {
+      expect(
+        blocks([at(480, 600, 'a'), at(540, 540, 'r1'), at(540, 540, 'r2'), at(560, 560, 'r3')], 1),
+      ).toEqual([
+        [540, 540, ['r1', 'r2']],
+        [560, 560, ['r3']],
+      ]);
+    });
+  });
+
   it('does not mutate its input', () => {
     const input = [at(120, 180, 'c'), at(0, 60, 'a')];
     const snapshot = JSON.parse(JSON.stringify(input));
