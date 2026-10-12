@@ -117,10 +117,9 @@ describe('timed Grid labels share the title line', () => {
     // of them makes a labeled title wrap where an identical unlabeled title does not.
     //
     // The qualifier is captured rather than normalized away, because one rung is gated on
-    // a class now. The 40px rung reveals the time row, and the title yields its second
-    // line exactly when that row appears -- so the clamp has to arrive with the reveal and
-    // not before it, which means the pair carries `:where(.grid-time-fits)` there and
-    // nowhere else. Pinning it as part of the value keeps that asymmetry deliberate: a
+    // a class now. The title yields its second line to the time row only where that row
+    // can appear -- so the clamp is gated on the class that reveals it, which means the
+    // pair carries `:where(.grid-time-fits)` there and nowhere else. Pinning it as part of the value keeps that asymmetry deliberate: a
     // qualifier appearing on another rung, or disappearing from this one, fails here.
     const pair = (qualifier = '') =>
       `.grid-event-disclosure${qualifier} .summary, .grid-event-disclosure${qualifier} .event-title`;

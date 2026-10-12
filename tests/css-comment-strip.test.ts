@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(106_500);
-    // The stacked block's rebuilt backdrop moved the ceiling last, from 102,700: the notes
+    expect(saved).toBeLessThan(108_200);
+    // The grid time row's rung moved the ceiling last, from 106,500: the notes on why the
+    // reveal no longer asks a height of its own beyond the title's -- the 40px it used to ask
+    // was a CSS-only margin that hid a time row which fit -- why measuring is safe there,
+    // and why the title clamp it used to share stays at 40px rather than following it down.
+    // The reading went 105,662 to 107,311, taken with stripComments after the last comment
+    // in the change was written.
+    //
+    // The stacked block's rebuilt backdrop moved it before that, from 102,700: the notes
     // on why a stacked block draws a backdrop of the card, the weekend tint and the hour
     // rules rather than going translucent, why that backdrop is a sibling placed in container
     // units against a wrapper rather than a layer of the block, why its copies are masked by
