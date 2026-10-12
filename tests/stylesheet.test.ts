@@ -1723,6 +1723,7 @@ describe('card stylesheet', () => {
       expect({
         above: spacing(declared('.grid-event', '--calendar-card-grid-block-gap-above')),
         below: declared('.grid-event', '--calendar-card-grid-block-gap-below'),
+        floor: declared('.grid-event', '--calendar-card-grid-block-floor'),
         minimum: declared('.grid-event', '--calendar-card-grid-block-min-height'),
         minHeight: declared('.grid-event', 'min-height'),
         maxHeight: declared('.grid-event', 'max-height'),
@@ -1740,7 +1741,10 @@ describe('card stylesheet', () => {
         // The default IS the clearance, so an edge the event owns says nothing and a
         // clipped one writes `0px` over this.
         below: gap,
-        minimum: 'min(14px, 100%)',
+        // Named, because a stacked block restates this clamp in container units to line its
+        // copy of the hour rules up with the real ones; see `.grid-event-raised`.
+        floor: '14px',
+        minimum: 'min(var(--calendar-card-grid-block-floor), 100%)',
         minHeight: 'var(--calendar-card-grid-block-min-height)',
         maxHeight: '100%',
         top: 'clamp(0px, calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above)), calc(100% - var(--calendar-card-grid-block-min-height)))',
@@ -1949,14 +1953,21 @@ describe('card stylesheet', () => {
         rule.body.includes('var(--calendar-card-grid-weekend'),
       );
 
-      expect(shading).toHaveLength(1);
-      // The stripe, not the day body: the tint spans the all-day band as well, which a
-      // background on the body cannot reach.
-      expect(new Set(shading[0].selectors)).toEqual(new Set(['.grid-weekend']));
+      // Two readers, and only the first paints a day. The stripe, not the day body: the
+      // tint spans the all-day band as well, which a background on the body cannot reach.
+      // The second is a stacked block inside a weekend body, which hides the stripe beneath
+      // it and so repaints the tint in its own backdrop — a block, not a day container.
+      expect(shading.map((rule) => [...rule.selectors].sort())).toEqual([
+        ['.grid-weekend'],
+        ['.grid-day-body.weekend .grid-event-raised'],
+      ]);
       // Transparent, not a color: nothing is painted unless the option resolves to
       // something, and the renderer writes the property only then.
       expect(shading[0].body).toContain(
         'background-color: var(--calendar-card-grid-weekend, transparent)',
+      );
+      expect(shading[1].body).toContain(
+        '--calendar-card-grid-raised-ground: var(--calendar-card-grid-weekend, transparent)',
       );
       // No view's day container may carry a weekend rule — not the other two, which have
       // no fixed height for a stripe to run down, and not grid's own body, which would

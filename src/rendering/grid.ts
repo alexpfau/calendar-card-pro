@@ -558,18 +558,43 @@ function formatAxisLabel(minutes: number, use24h: boolean, withMinutes: boolean)
  * is both a slot boundary and an hour boundary paints darker than one that is only a slot
  * boundary, which is the hierarchy macOS Calendar draws by hand.
  *
- * @param band - The visible band
- * @param slotMinutes - Configured rule spacing
+ * The pattern itself is described by {@link ruleProperties}, written on the container
+ * rather than here, because a stacked block repaints the same pattern inside itself.
+ *
  * @param columnCount - Day columns to span
- * @param ruleColor - Resolved `hour_line_color`
  * @returns The ruled backdrop
  */
-function renderRules(
+function renderRules(columnCount: number): TemplateResult {
+  return html`
+    <div
+      class="grid-rules"
+      aria-hidden="true"
+      style=${styleMap({ gridColumn: `2 / span ${columnCount}`, gridRow: '4' })}
+    ></div>
+  `;
+}
+
+/**
+ * Describe the hour and slot rule pattern as custom properties.
+ *
+ * Written on `.grid-container` so two painters inherit one description: `.grid-rules`,
+ * which draws the pattern behind every block, and `.grid-event-raised`, which repaints it
+ * under its own tint because it hides whatever is beneath it. Two copies of these values
+ * would be two chances for a stacked block's lines to drift off the grid's.
+ *
+ * Every offset and period is a percentage of the band, so either painter only has to
+ * size its gradient to the band's height for the rules to land on the same rows.
+ *
+ * @param band - The visible band
+ * @param slotMinutes - Configured rule spacing
+ * @param ruleColor - Resolved `hour_line_color`
+ * @returns Custom properties for the container's inline style
+ */
+function ruleProperties(
   band: Grid.GridBand,
   slotMinutes: number,
-  columnCount: number,
   ruleColor: string,
-): TemplateResult {
+): Record<string, string> {
   const bandLength = band.endMin - band.startMin;
   const slotPct = (slotMinutes / bandLength) * 100;
   const hourPct = (60 / bandLength) * 100;
@@ -577,22 +602,14 @@ function renderRules(
     (((slotMinutes - (band.startMin % slotMinutes)) % slotMinutes) / bandLength) * 100;
   const hourOffsetPct = (((60 - (band.startMin % 60)) % 60) / bandLength) * 100;
 
-  return html`
-    <div
-      class="grid-rules"
-      aria-hidden="true"
-      style=${styleMap({
-        gridColumn: `2 / span ${columnCount}`,
-        gridRow: '4',
-        '--calendar-card-grid-rule-color': ruleColor,
-        '--calendar-card-grid-slot-color': slotMinutes < 60 ? ruleColor : 'transparent',
-        '--calendar-card-grid-slot-pct': `${slotPct}%`,
-        '--calendar-card-grid-hour-pct': `${hourPct}%`,
-        '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
-        '--calendar-card-grid-hour-offset': `${hourOffsetPct}%`,
-      })}
-    ></div>
-  `;
+  return {
+    '--calendar-card-grid-rule-color': ruleColor,
+    '--calendar-card-grid-slot-color': slotMinutes < 60 ? ruleColor : 'transparent',
+    '--calendar-card-grid-slot-pct': `${slotPct}%`,
+    '--calendar-card-grid-hour-pct': `${hourPct}%`,
+    '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
+    '--calendar-card-grid-hour-offset': `${hourOffsetPct}%`,
+  };
 }
 
 //-----------------------------------------------------------------------------
@@ -745,17 +762,17 @@ function renderTimedEvent(
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
 
-  // A raised block covers what is beneath it as the card itself does: the tint is laid
-  // over the card's own background rather than over the block beneath it, so it reads
-  // exactly like a block standing alone. Only a translucent card background lets anything
-  // below show, and then faintly; never text, which the layout keeps out from under it.
-  // Its accent goes along for the outline the stylesheet draws: two events from one
-  // calendar have identical fills, so without it the edge of one stacked on the other is
-  // lost. See `.grid-event-raised`.
+  // A raised block hides what is beneath it, so it cannot let the backdrop through as a
+  // translucent block does. It rebuilds that backdrop instead — card, weekend tint, the
+  // hour and slot rules — and lays its tint over the copy, so it reads exactly like a block
+  // standing alone: same color, same lines, and nothing of the block beneath. The
+  // stylesheet paints all of it; this only hands over the tint, the top in container units
+  // so the copied rules can be lined up with the real ones, and the accent for the outline.
+  // See `.grid-event-raised`.
   const fill = horizontal.raised
     ? {
-        backgroundColor: 'var(--calendar-card-background-color, var(--card-background-color))',
-        backgroundImage: tint ? `linear-gradient(${tint}, ${tint})` : 'none',
+        ...(tint ? { '--calendar-card-grid-raised-tint': tint } : {}),
+        '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
         '--calendar-card-grid-raised-accent': presentation.entityAccentColor,
       }
     : { backgroundColor: tint };
@@ -1270,6 +1287,7 @@ export function renderGridGroupedEvents(
         // declared in the stylesheet so those three cannot disagree and so the option is
         // reachable at all.
         '--calendar-card-grid-rule-width': hourLineWidth,
+        ...ruleProperties(band, slotMinutes, hourLineColor),
         // Written only when it paints something, so the stylesheet's transparent fallback
         // is the off state rather than a placeholder. `transparent` and `none` are how a
         // user turns the shading off, and both are cheaper to drop here than to paint.
@@ -1307,8 +1325,7 @@ export function renderGridGroupedEvents(
             `
           : nothing
       }
-      ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
-      ${renderRules(band, slotMinutes, gridDays.length, hourLineColor)}
+      ${showAxisLabels ? renderAxis(band, config, hass) : nothing} ${renderRules(gridDays.length)}
       ${Grid.bandEndHasRule(band, slotMinutes) ? renderGridEndRule(hourLineColor) : nothing}
       ${gridDays.map((day, index) =>
         renderDayBody(
@@ -1514,30 +1531,32 @@ function renderDayBody(
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
     >
-      ${repeat(
-        blocks,
-        ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
-        ({ event, horizontal }) => {
-          const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
+      <div class="grid-day-plane">
+        ${repeat(
+          blocks,
+          ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
+          ({ event, horizontal }) => {
+            const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
 
-          return placement
-            ? renderTimedEvent(
-                event,
-                placement,
-                horizontal,
-                config,
-                language,
-                weatherForecasts,
-                hass,
-              )
-            : nothing;
-        },
-      )}
-      ${overflowBlocks.map(({ overflow, horizontal }) => {
-        const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
+            return placement
+              ? renderTimedEvent(
+                  event,
+                  placement,
+                  horizontal,
+                  config,
+                  language,
+                  weatherForecasts,
+                  hass,
+                )
+              : nothing;
+          },
+        )}
+        ${overflowBlocks.map(({ overflow, horizontal }) => {
+          const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
 
-        return placement ? renderOverflow(overflow, placement, horizontal) : nothing;
-      })}
+          return placement ? renderOverflow(overflow, placement, horizontal) : nothing;
+        })}
+      </div>
       ${
         nowPct === null
           ? nothing

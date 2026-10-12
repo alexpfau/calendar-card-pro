@@ -1055,23 +1055,73 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     ).toBe('0.5');
   });
 
-  it('fills a stacked block from the card background up', () => {
+  // The stylesheet's rule for a selector, whitespace collapsed, so a declaration can be
+  // matched whole whatever line breaks and bracket padding Prettier gave it. A rule follows either another
+  // rule's brace or the close of the comment above it.
+  const ruleBody = (selector: string) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const body = new RegExp(`(?:^|[}/])\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(
+      cardStyles.cssText,
+    )?.[1];
+    return (body ?? '').replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  };
+
+  it('hands a stacked block its tint and its top, and paints nothing inline', () => {
     const blocks = renderGrid([
       timed(17, '09:00', '12:00', 'Review'),
       timed(17, '10:00', '11:00', 'Interview'),
     ]).querySelectorAll('.grid-event');
 
-    // The tint is laid over the card's own background rather than over the block beneath,
-    // so a stacked block reads like one standing alone.
-    expect(
-      declares(
-        blocks[1],
-        'background-color',
-        'var(--calendar-card-background-color, var(--card-background-color))',
-      ),
-    ).toBe(true);
-    expect(declares(blocks[1], 'background-image', 'linear-gradient(')).toBe(true);
-    expect(styleOf(blocks[0])).not.toContain('background-image');
+    // The block beneath is translucent, as every block standing alone is.
+    expect(declares(blocks[0], 'background-color', '')).toBe(true);
+    expect(styleOf(blocks[0])).not.toContain('--calendar-card-grid-raised-tint');
+
+    // The stacked one paints in the stylesheet, which rebuilds the backdrop under its tint.
+    // It is handed the tint, and its top in container units so the rules it repaints land on
+    // the real ones; the same placement the block's own top percentage comes from.
+    expect(styleOf(blocks[1])).not.toMatch(/(?:^|;)\s*background-(?:color|image):/);
+    expect(declares(blocks[1], '--calendar-card-grid-raised-tint', '')).toBe(true);
+    const top = /--calendar-card-grid-block-top:\s*([\d.]+)%/.exec(styleOf(blocks[1]))?.[1];
+    expect(top, 'no percentage top on the stacked block').toBeDefined();
+    expect(declares(blocks[1], '--calendar-card-grid-raised-top', `${top}cqh`)).toBe(true);
+  });
+
+  it('rebuilds the backdrop a block standing alone would have, then lays its tint on it', () => {
+    const raised = ruleBody('.grid-event-raised');
+    const rules = ruleBody('.grid-rules');
+    const pattern = /background-image: ([^;]*)/.exec(rules)?.[1] ?? '';
+
+    expect(pattern, 'no rule pattern on .grid-rules').toContain('repeating-linear-gradient(');
+    // The very pattern the grid paints, not a second copy of it, so the two cannot drift.
+    expect(raised).toContain(pattern);
+    // Tint first, so it is laid OVER the copied rules as a standalone block's is laid over
+    // the real ones, and the ground last, under everything but the card.
+    const layers = /background-image: ([^;]*)/.exec(raised)?.[1] ?? '';
+    expect(layers.startsWith('linear-gradient(var(--calendar-card-grid-raised-fill)')).toBe(true);
+    expect(layers.indexOf(pattern)).toBeGreaterThan(0);
+    expect(layers.trimEnd().endsWith('var(--calendar-card-grid-raised-ground))')).toBe(true);
+    expect(raised).toContain('background-color: var(--calendar-card-grid-raised-base)');
+    // Sized to the band and shifted up by the block's own top, both in container units, so
+    // its stops resolve against the same height as .grid-rules' do.
+    expect(raised).toContain('100% 100cqh');
+    expect(raised).toContain('var(--calendar-card-grid-raised-top)');
+    expect(ruleBody('.grid-day-plane')).toContain('container-type: size');
+    // The weekend tint is part of what a stacked block hides, so it is part of its ground.
+    expect(ruleBody('.grid-day-body.weekend .grid-event-raised')).toContain(
+      '--calendar-card-grid-raised-ground: var(--calendar-card-grid-weekend, transparent)',
+    );
+  });
+
+  it('draws its blocks in a size container the now-line stays out of', () => {
+    const body = renderGrid(
+      [timed(17, '09:00', '12:00', 'Review'), timed(17, '10:00', '11:00', 'Interview')],
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+    ).querySelector('.grid-day-body');
+    const plane = body?.querySelector(':scope > .grid-day-plane');
+
+    expect(plane, 'no plane in the day body').not.toBeNull();
+    expect(plane?.querySelectorAll(':scope > .grid-event')).toHaveLength(2);
+    expect(body?.querySelectorAll(':scope > .grid-event')).toHaveLength(0);
   });
 
   // Two events from one calendar have identical fills, so without an outline the edge of
@@ -1101,10 +1151,39 @@ describe('by default, a later event is drawn over a longer one it starts inside'
 
     // A hairline at 20% strength, drawn inside the block so it takes no room from the text.
     // Quiet on purpose: enough to show where the block ends, too little to frame it.
-    const rule = /\.grid-event-raised\s*\{([^}]*)\}/.exec(cardStyles.cssText)?.[1] ?? '';
-    expect(rule.replace(/\s+/g, ' ')).toContain(
-      'box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent)',
+    const outline = ruleBody('.grid-event-raised > .grid-event-accessible::before');
+    expect(outline).toContain(
+      'border: 1px solid color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent)',
     );
+    // Under the text and over the fill, as the inset shadow it replaced was, which needs the
+    // block to be a stacking context of its own.
+    expect(outline).toContain('z-index: -1');
+    expect(ruleBody('.grid-event-raised')).toContain('isolation: isolate');
+    expect(ruleBody('.grid-event-raised')).not.toContain('box-shadow');
+  });
+
+  it('leaves the leading edge to the accent bar, and closes it only when there is none', () => {
+    const outline = ruleBody('.grid-event-raised > .grid-event-accessible::before');
+
+    // One pixel at a bar width of zero, none at any width above it: an outline beside the
+    // bar read as a bar thicker than every unstacked block's.
+    expect(outline).toContain(
+      'border-inline-start-width: clamp(0px, calc((1px - var(--calendar-card-line-width-vertical)) * 10000), 1px)',
+    );
+    // The leading corners follow the bar's inner curve, so the outline runs into the bar.
+    expect(outline).toContain(
+      'border-start-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px',
+    );
+    expect(outline).toContain(
+      'border-end-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px',
+    );
+    // ...and square off where the block itself does.
+    expect(ruleBody('.grid-event-raised.clipped-top > .grid-event-accessible::before')).toContain(
+      'border-start-start-radius: 0',
+    );
+    expect(
+      ruleBody('.grid-event-raised.clipped-bottom > .grid-event-accessible::before'),
+    ).toContain('border-end-end-radius: 0');
   });
 
   it('is the default, and overlap_layout: columns draws the lanes instead', () => {
@@ -1472,7 +1551,8 @@ describe('separators between grid days', () => {
     // tables rather than from a literal, so a change to either is visible here.
     const container = renderGrid(EVENTS, spanConfig());
     const plain = requireElement<HTMLElement>(container, '.grid-separator-day');
-    const hourly = requireElement<HTMLElement>(container, '.grid-rules');
+    // The rule pattern is described on the container, which both of its painters inherit.
+    const hourly = requireElement<HTMLElement>(container, '.grid-container');
     const vertical = ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color;
     const horizontal = ViewConfig.TIME_GRID_DEFAULTS.hour_line_color;
 
@@ -1496,7 +1576,7 @@ describe('separators between grid days', () => {
           return config;
         })(),
       ),
-      '.grid-rules',
+      '.grid-container',
     );
 
     expect(denser.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe(horizontal);
@@ -1518,7 +1598,7 @@ describe('separators between grid days', () => {
     const config = spanConfig();
     config.time_grid = { hour_line_color: 'rgb(9, 8, 7)', slot_minutes: 15 };
     const container = renderGrid(EVENTS, config);
-    const rules = requireElement<HTMLElement>(container, '.grid-rules');
+    const rules = requireElement<HTMLElement>(container, '.grid-container');
 
     expect(rules.style.getPropertyValue('--calendar-card-grid-rule-color')).toBe('rgb(9, 8, 7)');
     expect(rules.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe('rgb(9, 8, 7)');
@@ -1549,7 +1629,7 @@ describe('separators between grid days', () => {
       'rgb(9, 8, 7)',
     );
     expect(
-      requireElement<HTMLElement>(container, '.grid-rules').style.getPropertyValue(
+      requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
         '--calendar-card-grid-rule-color',
       ),
     ).toBe(ViewConfig.TIME_GRID_DEFAULTS.hour_line_color);
@@ -2312,7 +2392,9 @@ describe('the axis', () => {
     // Same ink as the rules it closes, read from the same resolved value rather than from
     // a second option — a closing rule in a different gray is worse than none.
     expect(end.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
-      hourly.style.getPropertyValue('--calendar-card-grid-rule-color'),
+      requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
+        '--calendar-card-grid-rule-color',
+      ),
     );
   });
 
@@ -2404,7 +2486,7 @@ describe('the axis', () => {
       [timed(17, '09:00', '10:00', 'Standup')],
       buildConfig({ view: 'grid', days_to_show: 3 }),
     );
-    const rules = hourly.querySelector<HTMLElement>('.grid-rules')!;
+    const rules = hourly.querySelector<HTMLElement>('.grid-container')!;
     const slotPct = rules.style.getPropertyValue('--calendar-card-grid-slot-pct');
     const hourPct = rules.style.getPropertyValue('--calendar-card-grid-hour-pct');
 
@@ -2422,7 +2504,7 @@ describe('the axis', () => {
       [timed(17, '09:00', '10:00', 'Standup')],
       buildConfig({ view: 'grid', days_to_show: 3, time_grid: { slot_minutes: 30 } }),
     );
-    const denser = halfHourly.querySelector<HTMLElement>('.grid-rules')!;
+    const denser = halfHourly.querySelector<HTMLElement>('.grid-container')!;
 
     expect(denser.style.getPropertyValue('--calendar-card-grid-slot-pct')).not.toBe(
       denser.style.getPropertyValue('--calendar-card-grid-hour-pct'),
@@ -2441,7 +2523,7 @@ describe('the axis', () => {
         time_grid: { start_time: '06:30', end_time: '09:00', slot_minutes: 20 },
       }),
     );
-    const rules = container.querySelector<HTMLElement>('.grid-rules')!;
+    const rules = container.querySelector<HTMLElement>('.grid-container')!;
 
     // 06:40 is 10 minutes into the 150-minute band; 07:00 is 30 minutes in.
     expect(
@@ -2653,7 +2735,7 @@ describe('how often the axis is labeled', () => {
         },
       }),
     );
-    const rules = requireElement<HTMLElement>(container, '.grid-rules');
+    const rules = requireElement<HTMLElement>(container, '.grid-container');
 
     expect(
       Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>

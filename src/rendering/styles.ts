@@ -179,6 +179,34 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   return props;
 }
 
+/**
+ * The hour and slot rule pattern, as two background layers.
+ *
+ * Painted in two places that have to agree to the pixel: `.grid-rules`, behind every
+ * block, and `.grid-event-raised`, which hides what is beneath it and so repaints the rules
+ * inside itself. One fragment rather than two copies, so the copy cannot drift off the
+ * grid. Every stop is a percentage of the gradient box, which both painters size to the
+ * band's height; the properties it reads are written once, on `.grid-container`.
+ */
+const GRID_RULE_GRADIENTS = css`
+  repeating-linear-gradient(
+    to bottom,
+    var(--calendar-card-grid-slot-color) var(--calendar-card-grid-slot-offset)
+      calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width)),
+    transparent
+      calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width))
+      calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-slot-pct))
+  ),
+  repeating-linear-gradient(
+    to bottom,
+    var(--calendar-card-grid-rule-color) var(--calendar-card-grid-hour-offset)
+      calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width)),
+    transparent
+      calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
+      calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
+  )
+`;
+
 /** Base styles for the card component. */
 export const cardStyles = css`
   /* ===== CORE CONTAINER STYLES ===== */
@@ -2261,23 +2289,7 @@ export const cardStyles = css`
      the overlap is kept, so a rule that is both a slot boundary and an hour boundary reads
      heavier than one that is only a slot boundary. */
   .grid-rules {
-    background-image:
-      repeating-linear-gradient(
-        to bottom,
-        var(--calendar-card-grid-slot-color) var(--calendar-card-grid-slot-offset)
-          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width)),
-        transparent
-          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width))
-          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-slot-pct))
-      ),
-      repeating-linear-gradient(
-        to bottom,
-        var(--calendar-card-grid-rule-color) var(--calendar-card-grid-hour-offset)
-          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width)),
-        transparent
-          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
-          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
-      );
+    background-image: ${GRID_RULE_GRADIENTS};
     /* The topmost line of the body belongs to the band's lower frame rule, and this is
        what stops the gradient drawing it a second time. A band opening on the hour puts a
        gradient rule at 0%, exactly where that frame rule is, and translucent ink does not
@@ -2323,7 +2335,7 @@ export const cardStyles = css`
 
        .grid-weekend    plain grid item   the tint, behind everything
        .grid-rules      plain grid item   the hour lines
-       .grid-day-body   position relative the blocks, above both
+       .grid-day-body   position relative the blocks, above both (in .grid-day-plane)
        .grid-separator  z-index 1         the vertical day rules, above the blocks
        .grid-allday-band z-index 2        banners paint over the rules crossing the band
        .grid-boundary   z-index 3         the band's own rules, never covered by a banner
@@ -2476,6 +2488,23 @@ export const cardStyles = css`
     min-width: 0;
   }
 
+  /* The blocks' own layer, exactly the size of the day body. It exists to be a size
+     container: a raised block repaints the hour rules inside itself, and has to size that
+     copy to the band's height to land it on the real ones. 100cqh is that height, and a
+     percentage cannot say it -- inside a block, a percentage means the block.
+
+     A wrapper rather than the body itself, so the now-line stays out of whatever the
+     container does to painting. Chrome 155 makes no stacking context of a size container,
+     but the specification once applied layout containment with it, which does; on the body
+     that would trap the now-line's z-index 2 under the vertical day rules at z-index 1,
+     which it is meant to cross. Here it could trap only the blocks, which carry no z-index
+     of their own and already paint below those rules. */
+  .grid-day-plane {
+    position: absolute;
+    inset: 0;
+    container-type: size;
+  }
+
   /* ----- Weekend shading -----
 
      Grid only, and the option is grid-only too, so there is no shared property here and
@@ -2509,7 +2538,8 @@ export const cardStyles = css`
        must live inside that percentage or events visually run past their end rule. */
     box-sizing: border-box;
     overflow: hidden;
-    --calendar-card-grid-block-min-height: min(14px, 100%);
+    --calendar-card-grid-block-floor: 14px;
+    --calendar-card-grid-block-min-height: min(var(--calendar-card-grid-block-floor), 100%);
     min-height: var(--calendar-card-grid-block-min-height);
     max-height: 100%;
     padding: 2px 4px;
@@ -3133,20 +3163,41 @@ export const cardStyles = css`
      overlap_layout: cascade draws a later event over part of a longer one. Two things
      make that safe, and both live here.
 
-     A RAISED block is painted over an earlier one, and its fill starts from the card
-     background: the renderer lays the event tint over that instead of over the block
-     beneath, so a stacked block reads exactly like a block standing alone. On a solid card
-     nothing under it shows through, which is the cue macOS Calendar gives too; a
-     translucent card lets the hour rules and the block beneath show faintly, as it does
-     everywhere. Never text, which the layout keeps out from under it.
+     A RAISED block is painted over an earlier one and hides it. It cannot simply be
+     translucent like every other block: its tint would composite over the tint beneath, so a
+     block stacked on its own calendar would darken and one stacked on another calendar
+     would blend into a third color. It rebuilds the backdrop a block standing alone would
+     have instead -- the card, the weekend tint, the hour and slot rules -- and lays its own
+     tint over that copy. The result matches a standalone block in color and in ruling, and
+     nothing of the block beneath shows. On a translucent card that block shows faintly, as
+     everything behind the card does. Never text, which the layout keeps out from under it.
+
+     The copied rules are the real pattern (GRID_RULE_GRADIENTS) sized to the band's height,
+     which is 100cqh against .grid-day-plane, and shifted up by the block's own top. That
+     top is the same clamp .grid-event computes, restated in container units because a
+     percentage in background-position does not mean the band. The renderer writes the top
+     in cqh for that reason; it is the same number it writes as a percentage for the block.
+
+     The two one-rule strips above the rules are .grid-rules' mask, restated as paint: the
+     body's first row belongs to the band's frame rule, so the pattern must not draw there.
+     A layer cannot be masked on its own, so the strips repaint card and weekend over that
+     row. Only a block touching the body's top -- a clipped one -- ever shows them.
 
      It also carries a hairline outline in its own accent, at 20% strength. Two events
      from one calendar have identical fills, so a block stacked on another of its calendar
      otherwise has no edge but its leading stripe. The accent rather than white or black,
-     so the line reads as part of the event rather than as a frame around it, and an inset
-     shadow rather than a border, so it takes no room from the text and none of the sizes
-     below have to know about it. Only raised blocks carry it: a block beneath has nothing
-     on top of it to be told apart from.
+     so the line reads as part of the event rather than as a frame around it. Drawn on the
+     accessible layer's pseudo-element, which spans the block's padding box exactly, at
+     z-index -1, which paints it over the fill and under the text like an inset shadow, so
+     it takes no room from the text and none of the sizes below have to know about it.
+
+     🚨 No outline on the leading edge while the accent bar is drawn. An outline there sat
+     beside the bar and read as a bar thicker than every unstacked block's, so the leading
+     side is left to the bar alone and the corner radii follow the bar's inner curve, which
+     lets the outline run into the bar instead of stopping short of it. With
+     vertical_line_width: 0px there is no bar, and the outline closes on that side too; the
+     clamp switches it on only at zero. Only raised blocks carry any of this: a block
+     beneath has nothing on top of it to be told apart from.
 
      A CONTENT-LIMITED block has part of it covered by a later one. Its text keeps to the
      uncovered part: above its first nested block, and before the first later block to its
@@ -3164,8 +3215,88 @@ export const cardStyles = css`
      already includes the padding; the 1px inset it keeps above and below is what the
      2px in its formula pays for. */
   .grid-event-raised {
-    box-shadow: inset 0 0 0 1px
+    --calendar-card-grid-raised-base: var(
+      --calendar-card-background-color,
+      var(--card-background-color)
+    );
+    --calendar-card-grid-raised-fill: var(--calendar-card-grid-raised-tint, transparent);
+    --calendar-card-grid-raised-ground: transparent;
+    --calendar-card-grid-raised-rules-y: calc(
+      -1 *
+        clamp(
+          0px,
+          calc(var(--calendar-card-grid-raised-top) + var(--calendar-card-grid-block-gap-above)),
+          calc(100cqh - min(var(--calendar-card-grid-block-floor), 100cqh))
+        )
+    );
+    background-color: var(--calendar-card-grid-raised-base);
+    background-image:
+      linear-gradient(var(--calendar-card-grid-raised-fill), var(--calendar-card-grid-raised-fill)),
+      linear-gradient(
+        var(--calendar-card-grid-raised-ground) 0 var(--calendar-card-grid-rule-width),
+        transparent var(--calendar-card-grid-rule-width)
+      ),
+      linear-gradient(
+        var(--calendar-card-grid-raised-base) 0 var(--calendar-card-grid-rule-width),
+        transparent var(--calendar-card-grid-rule-width)
+      ),
+      ${GRID_RULE_GRADIENTS},
+      linear-gradient(
+        var(--calendar-card-grid-raised-ground),
+        var(--calendar-card-grid-raised-ground)
+      );
+    background-size:
+      auto,
+      100% 100cqh,
+      100% 100cqh,
+      100% 100cqh,
+      100% 100cqh,
+      auto;
+    background-position:
+      0 0,
+      0 var(--calendar-card-grid-raised-rules-y),
+      0 var(--calendar-card-grid-raised-rules-y),
+      0 var(--calendar-card-grid-raised-rules-y),
+      0 var(--calendar-card-grid-raised-rules-y),
+      0 0;
+    background-repeat: no-repeat;
+    /* The outline below sits at z-index -1, which only lands above this fill when the block
+       is its own stacking context. Size containment alone does not make it one. */
+    isolation: isolate;
+  }
+
+  .grid-day-body.weekend .grid-event-raised {
+    --calendar-card-grid-raised-ground: var(--calendar-card-grid-weekend, transparent);
+  }
+
+  .grid-event-raised > .grid-event-accessible::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    box-sizing: border-box;
+    border: 1px solid
       color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent);
+    border-inline-start-width: clamp(
+      0px,
+      calc((1px - var(--calendar-card-line-width-vertical)) * 10000),
+      1px
+    );
+    border-start-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px;
+    border-end-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px;
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+    pointer-events: none;
+  }
+
+  .grid-event-raised.clipped-top > .grid-event-accessible::before {
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+  }
+
+  .grid-event-raised.clipped-bottom > .grid-event-accessible::before {
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
   }
 
   .grid-event.grid-event-content-limited {

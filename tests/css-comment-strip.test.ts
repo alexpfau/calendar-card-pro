@@ -279,7 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(102_700);
+    expect(saved).toBeLessThan(105_400);
+    // The stacked block's rebuilt backdrop moved the ceiling last, from 102,700: the notes
+    // on why it repaints the card, the weekend tint and the hour rules under its own tint
+    // rather than going translucent, why the copied rules are placed in container units
+    // against a wrapper rather than the day body, why two one-rule strips stand in for the
+    // mask a single layer cannot have, and why its outline leaves the leading edge to the
+    // accent bar. The reading went 101,822 to 104,555, taken with stripComments after the
+    // last comment in the change was written.
+    //
     // The +N strip and the stacked-block outline moved the ceiling last, from 101,700: the
     // notes on why the strip lets a count spill past its dashes rather than clip it, why a
     // stacked block shows anything beneath it only on a translucent card, and why it carries
