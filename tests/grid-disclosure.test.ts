@@ -158,6 +158,50 @@ describe('grid disclosure safety', () => {
     expect(content.querySelector('.description')?.classList).toContain('grid-event-detail-clipped');
   });
 
+  it('measures whether a short block holds its time row, rather than assuming', () => {
+    // The time row's rung opens wherever the title row does, so for a short block this
+    // pass is the whole of the decision. The figures are the reported ones: a one-hour
+    // event at `hour_height: 40px` gets a 33px box, and at `event_font_size: 13px` the
+    // title row is 16.4px and the time row 14.4px. The old 40px rung hid that time row,
+    // although the two rows fit.
+    //
+    // Both directions, because each one alone passes against a wrong implementation: the
+    // fitting case fails a pass that withdraws the time on anything short of a measured
+    // overflow, and the enlarged case fails a pass that never withdraws it at all.
+    const block = (titlePx: number, timePx: number) => {
+      const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+        _applyGridDisclosureSafety(): void;
+      };
+      const root = card.attachShadow({ mode: 'open' });
+      Object.defineProperty(card, 'renderRoot', { value: root });
+      root.innerHTML = `
+        <div class="grid-event">
+          <div class="grid-event-disclosure">
+            <div class="event-content">
+              <div class="time">10:00 - 12:30</div>
+            </div>
+          </div>
+        </div>
+      `;
+      const content = root.querySelector<HTMLElement>('.event-content')!;
+      const time = root.querySelector<HTMLElement>('.time')!;
+      const withdrawn = () => time.classList.contains('grid-event-detail-clipped');
+      time.getClientRects = () =>
+        withdrawn()
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+      Object.defineProperties(content, {
+        clientHeight: { value: 33 },
+        scrollHeight: { get: () => Math.ceil(titlePx + (withdrawn() ? 0 : timePx)) },
+      });
+      card._applyGridDisclosureSafety();
+      return withdrawn();
+    };
+
+    expect(block(16.4, 14.4), 'title and time end at 32.8px in a 33px box').toBe(false);
+    expect(block(18.8, 16.8), 'enlarged type needs 35.6px, so the time row goes').toBe(true);
+  });
+
   it('restores a previously hidden detail row once it fits', () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       _applyGridDisclosureSafety(): void;

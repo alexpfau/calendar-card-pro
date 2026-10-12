@@ -2814,7 +2814,9 @@ export const cardStyles = css`
 
   /* Container-query rungs are calibrated for the default typography. A theme or an explicit
      event_font_size can make a disclosed row taller than the rung that revealed it; the host
-     measures that actual overflow and adds this class so no detail row is shown half-clipped. */
+     measures that actual overflow and adds this class so no detail row is shown half-clipped.
+     The time row's rung asks no height beyond the title's, so for the time this is the
+     whole decision. */
   .grid-event-disclosure .grid-event-detail-clipped {
     display: none !important;
   }
@@ -2851,8 +2853,8 @@ export const cardStyles = css`
      are independent: block height is duration times hour_height, block width is day width
      divided by the number of concurrent columns, so a two-hour event is the same 96px tall
      whether it is 400px or 37px wide. Height alone therefore reveals a time row into blocks
-     that cannot hold one — a measured 29.2 by 89 block clears this rung's height twice over
-     and has 0.66px less than a bare "10:00" needs.
+     that cannot hold one — a measured 29.2 by 89 block clears any height test and has 0.66px
+     less than a bare "10:00" needs.
 
      But the width cannot be a number here. This rung used to carry and (min-width: 60px),
      measured at the shipped 12px type as the clock icon's 18px plus "10:00" plus an
@@ -2874,9 +2876,20 @@ export const cardStyles = css`
      read a custom property, so there is no way to put a measured width back into this
      selector.
 
-     Keeping the HEIGHT here is deliberate rather than leftover. It is the axis a container
-     query answers well, and it is independently load-bearing: a 79 by 33 block passes any
-     width test and must still stay closed, because 33px holds a title and nothing else.
+     The height went the same way. This rung opened at 40px, a margin from when the reveal
+     was CSS-only, and once the host measured, the margin hid rows that fit: a one-hour event
+     at hour_height: 40px, like a stacked block above an event covering it an hour in, has a
+     33px box, and at event_font_size: 13px its title and time rows end 32.8px down it. The
+     time was hidden and the title centered alone. Like the width, the answer moves with the
+     type scale, so no constant is right in both directions.
+
+     So the rung opens with the title's, at 19px, and _applyGridDisclosureSafety measures the
+     height: it withdraws the row wherever the block's content overflows with it, as it
+     already did for enlarged text in taller blocks. A withdrawn row is display: none, a row
+     its rollback restores sits wholly below a title that already overflows, and a stacked
+     block's box ends where the covering event begins, so no time row is drawn half-clipped
+     or under another event. Below 19px there is no title row, and the title fitter's compact
+     modes hide .time-location.
 
      The class sits on the whole rung rather than on the time row alone, which is what
      keeps the sentence above true — the title yields its second line exactly when the time
@@ -2885,8 +2898,9 @@ export const cardStyles = css`
      inside :where() is what lets that keep working: a plain .grid-time-fits would raise
      these selectors to 0,3,0 and beat the later 72px and 96px rungs, stranding a tall
      narrow block on the compact clamp. :where() contributes nothing, so source order still
-     decides. */
-  @container calendar-card-grid-event (min-height: 40px) {
+     decides -- and is why this rung sits after the 36px one despite opening lower: above
+     it, the 36px rung would win and keep the second title line the time row takes back. */
+  @container calendar-card-grid-event (min-height: 19px) {
     .grid-event-disclosure:where(.grid-time-fits) .summary,
     .grid-event-disclosure:where(.grid-time-fits) .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
@@ -2994,8 +3008,8 @@ export const cardStyles = css`
   /* The progress bar earns its own rung. It is the one row here whose value is highest
      exactly while an event is short — a meeting happening right now — so pairing it with
      location and description at 72px would withhold it from the blocks most likely to want
-     it. It cannot join the 40px rung either, which has only about 4px of slack once the
-     title and the time have been drawn.
+     it. It cannot share the time row's rung either: a block just tall enough for a title and
+     a time has no room left for a bar beneath them.
 
      48px is measured rather than reasoned. In a browser, at the shipped fonts, the title row
      is 18.8px and the row carrying the time plus the bar is 27.4px, so the content needs
