@@ -2887,27 +2887,35 @@ export const cardStyles = css`
      height: it withdraws the row wherever the block's content overflows with it, as it
      already did for enlarged text in taller blocks. A withdrawn row is display: none, a row
      its rollback restores sits wholly below a title that already overflows, and a stacked
-     block's box ends where the covering event begins, so no time row is drawn half-clipped
-     or under another event. Below 19px there is no title row, and the title fitter's compact
-     modes hide .time-location.
-
-     The class sits on the whole rung rather than on the time row alone, which is what
-     keeps the sentence above true — the title yields its second line exactly when the time
-     row appears, so in a block too narrow for a time the title keeps the two lines the
-     36px rung gave it instead of shortening for a row that never arrives. Writing the class
-     inside :where() is what lets that keep working: a plain .grid-time-fits would raise
-     these selectors to 0,3,0 and beat the later 72px and 96px rungs, stranding a tall
-     narrow block on the compact clamp. :where() contributes nothing, so source order still
-     decides -- and is why this rung sits after the 36px one despite opening lower: above
-     it, the 36px rung would win and keep the second title line the time row takes back. */
+     block's text box ends where the covering event begins and hides its overflow. So no
+     time row is drawn under another event, and none is left half-clipped once the block is
+     measured. Between a resize and the pass that follows it a stale class can show one for
+     a frame, the same frame the width backstop above is written for. Below 19px there is
+     no title row, and the title fitter's compact modes hide .time-location. */
   @container calendar-card-grid-event (min-height: 19px) {
+    .grid-event-disclosure:where(.grid-time-fits) .time {
+      display: block;
+    }
+  }
+
+  /* The title yields its second line to the time row, but only from 40px, the threshold
+     the reveal used to share. Below it the title keeps the two lines the 36px rung gave it,
+     and the time appears only beside a title that took one, because the measuring pass
+     withdraws it otherwise. That is a priority, not a fit, and measurement cannot settle
+     it: the pass withdraws a time row that does not fit but never hands the title back the
+     line the clamp took for it. Opening this with the reveal at 19px would cost a 36-39px
+     block a title line whenever its time row is then withdrawn.
+
+     The class sits on the clamp as well as on the reveal, so in a block too narrow for a
+     time the title keeps its two lines instead of shortening for a row that never arrives.
+     Writing it inside :where() is what lets that keep working: a plain .grid-time-fits
+     would raise these selectors to 0,3,0 and beat the later 72px and 96px rungs, stranding
+     a tall narrow block on the compact clamp. :where() contributes nothing, so source order
+     decides, and this rung must follow the 36px one. */
+  @container calendar-card-grid-event (min-height: 40px) {
     .grid-event-disclosure:where(.grid-time-fits) .summary,
     .grid-event-disclosure:where(.grid-time-fits) .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
-    }
-
-    .grid-event-disclosure:where(.grid-time-fits) .time {
-      display: block;
     }
   }
 

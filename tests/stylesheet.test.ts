@@ -2080,10 +2080,10 @@ describe('card stylesheet', () => {
       expect(ladder).toHaveLength(openings);
       expect(ladder).toEqual([
         { minHeight: 19, minWidth: null, selectors: ['.grid-event-disclosure .summary-row'] },
-        // The rung that reveals the time row, and the only one whose selectors are
-        // qualified. Height and width are independent here -- height is duration x
-        // hour_height, width is day width / concurrent columns -- so a 2-hour block is
-        // 96px tall whether it is 400px or 29px wide, and asking only about height
+        // The rung that reveals the time row, and with the clamp below the only ones whose
+        // selectors are qualified. Height and width are independent here -- height is
+        // duration x hour_height, width is day width / concurrent columns -- so a 2-hour
+        // block is 96px tall whether it is 400px or 29px wide, and asking only about height
         // revealed a time row into blocks far too narrow to hold one. The width half of
         // that question is now asked in JS, against the string the row will really draw,
         // and its answer arrives as `.grid-time-fits`.
@@ -2095,27 +2095,32 @@ describe('card stylesheet', () => {
         // `_applyGridDisclosureSafety` withdraws the row wherever the block's content
         // overflows with it -- see `grid-disclosure.test.ts`, which pins the time as the
         // last row that pass gives up.
-        //
-        // The class gates the clamp as well as the reveal, because the two are one
-        // decision: the title yields its second line exactly when the time row appears.
-        // `:where()` is what keeps that from breaking the rungs below -- a plain
-        // `.grid-event-disclosure.grid-time-fits .event-title` is 0,3,0 and would beat the
-        // 72px and 96px rungs at 0,2,0, stranding tall narrow blocks on the compact clamp.
-        // The sort below puts it beside the summary row's rung; its place in the source is
-        // pinned separately, after the map, because that is what the clamp depends on.
         {
           minHeight: 19,
           minWidth: null,
-          selectors: [
-            '.grid-event-disclosure:where(.grid-time-fits) .event-title',
-            '.grid-event-disclosure:where(.grid-time-fits) .summary',
-            '.grid-event-disclosure:where(.grid-time-fits) .time',
-          ],
+          selectors: ['.grid-event-disclosure:where(.grid-time-fits) .time'],
         },
         {
           minHeight: 36,
           minWidth: null,
           selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        },
+        // The title yields its second line to the time row, and the class gates that too,
+        // so a block too narrow for a time keeps both lines. It deliberately stays at 40px
+        // rather than following the reveal down: that pass withdraws a time row that does
+        // not fit but never gives the title back a line the clamp took for it, so a 36-39px
+        // block would lose a title line whenever its time was then withdrawn.
+        //
+        // `:where()` is what keeps this from breaking the rungs below -- a plain
+        // `.grid-event-disclosure.grid-time-fits .event-title` is 0,3,0 and would beat the
+        // 72px and 96px rungs at 0,2,0, stranding tall narrow blocks on the compact clamp.
+        {
+          minHeight: 40,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure:where(.grid-time-fits) .event-title',
+            '.grid-event-disclosure:where(.grid-time-fits) .summary',
+          ],
         },
         { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
         {
@@ -2136,25 +2141,28 @@ describe('card stylesheet', () => {
         },
       ]);
 
-      // The time row's rung opens below the 36px rung but must come after it in the
-      // source. Both clamp the title at 0,2,0 -- `:where()` adds nothing -- so source order
-      // alone decides between them, and only this order lets the title yield its second
-      // line to a time row in a block that reaches both. The floor is pinned too: the time
-      // rung opens exactly where the title row does, never below it, because a block
-      // under that rung shows no summary row and must not draw a time on its own.
-      const timeRung = CSS.indexOf('.grid-event-disclosure:where(.grid-time-fits) .time');
+      // The reveal opens exactly where the title row does, never below it, because a block
+      // under that rung shows no summary row and must not draw a time on its own. And the
+      // clamp must come after the 36px rung in the source: both clamp the title at 0,2,0 --
+      // `:where()` adds nothing -- so source order alone decides between them.
       const rungOpenings = [
         ...CSS.matchAll(/@container calendar-card-grid-event \(min-height: (\d+)px\)/g),
       ].map((rung) => ({ at: rung.index ?? -1, minHeight: rung[1] }));
-      const enclosing = rungOpenings.filter(({ at }) => at < timeRung).pop();
+      const enclosing = (selector: string) => {
+        const at = CSS.indexOf(selector);
+        expect(at, selector).toBeGreaterThan(-1);
+        return rungOpenings.filter((rung) => rung.at < at).pop();
+      };
       const titleRung = rungOpenings.find(({ at }) =>
         /^[^}]*\{\s*\.grid-event-disclosure \.summary-row\s*\{/.test(CSS.slice(at)),
       );
-      expect(timeRung).toBeGreaterThan(-1);
       expect(titleRung).toBeDefined();
-      expect(enclosing?.minHeight).toBe(titleRung?.minHeight);
-      expect(enclosing?.minHeight).toBe('19');
-      expect(timeRung).toBeGreaterThan(
+      const reveal = enclosing('.grid-event-disclosure:where(.grid-time-fits) .time');
+      expect(reveal?.minHeight).toBe(titleRung?.minHeight);
+      expect(reveal?.minHeight).toBe('19');
+      const clamp = enclosing('.grid-event-disclosure:where(.grid-time-fits) .summary');
+      expect(clamp?.minHeight).toBe('40');
+      expect(clamp?.at).toBeGreaterThan(
         CSS.indexOf('@container calendar-card-grid-event (min-height: 36px)'),
       );
 
