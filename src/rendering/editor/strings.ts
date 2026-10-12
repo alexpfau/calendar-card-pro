@@ -409,10 +409,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.allday_band_max_rows.helper':
     'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
     'of long events would push the axis off the card.',
+  'time_grid.overlap_layout': 'Overlapping Events',
+  'time_grid.overlap_layout.helper':
+    'Stacked draws an event over a longer one it starts inside, slightly indented, the ' +
+    'way most calendar apps do, so a long event does not halve the width of everything ' +
+    'in it. Side by side splits the column instead, which makes it easy to count what ' +
+    'happens at once.',
+  'time_grid.overlap_layout.option.cascade.label': 'Stacked',
+  'time_grid.overlap_layout.option.columns.label': 'Side by side',
   'time_grid.max_simultaneous_events': 'Most Events Side By Side',
   'time_grid.max_simultaneous_events.helper':
-    'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
-    'is hidden without being counted.',
+    'The most events drawn side by side. The rest collapse into a narrow +N block at the ' +
+    'edge, so nothing is hidden without being counted. An event stacked over a longer one ' +
+    'does not count, because it sits on top of that event rather than beside it.',
   'time_grid.height': 'Height',
   'time_grid.max_height': 'Maximum Height',
   'time_grid.show_week_numbers': 'Week Numbers',

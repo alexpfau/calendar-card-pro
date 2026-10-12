@@ -155,6 +155,7 @@ export const TIME_GRID_ONLY_KEYS = [
   'show_now_line',
   'now_line_color',
   'max_simultaneous_events',
+  'overlap_layout',
   'allday_band_max_rows',
   'axis_width',
   'show_axis_labels',
@@ -525,6 +526,11 @@ export const COLUMN_DEFAULTS = {
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
  * whichever visible label is widest while keeping fixed inline padding around it.
  *
+ * `overlap_layout: 'cascade'` is what a reader already knows from macOS and Google
+ * Calendar, and it is what keeps a narrow dashboard column readable: a day-long trip or a
+ * school morning no longer halves the width of everything inside it for its whole length.
+ * `columns` stays one option away for anyone who reads a day by counting parallel lanes.
+ *
  * 🚨 Four rules ship the same gray and the repetition is the design, not a missed
  * constant. `day_header_separator_*`, `hour_line_*`, `allday_band_line_*` and — over in
  * the grid's divergent-default table below — `day_separator_*` each carry
@@ -578,8 +584,13 @@ export const TIME_GRID_DEFAULTS = {
   weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   hour_height: '48px',
   show_now_line: true,
-  now_line_color: 'var(--error-color)',
+
+  // Emerald, to sit with the card's own colors rather than with the theme's error red. It
+  // is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
+  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
+  now_line_color: '#34d399',
   max_simultaneous_events: 3,
+  overlap_layout: 'cascade',
   allday_band_max_rows: 3,
   axis_width: 'max-content',
   show_axis_labels: true,
@@ -760,6 +771,10 @@ export function normalizeTimeGridValue(
 
   if (key === 'min_days_fallback') {
     return value === 'cramp' || value === 'list' ? value : fallback;
+  }
+
+  if (key === 'overlap_layout') {
+    return value === 'cascade' || value === 'columns' ? value : fallback;
   }
 
   if (typeof fallback === 'boolean') {

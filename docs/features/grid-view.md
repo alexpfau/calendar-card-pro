@@ -101,7 +101,7 @@ empty or inverted block. For example, 01:45 before the clock change to 01:15 aft
 30 minutes long and occupies 01:45–02:15 on this single-hour axis.
 
 The event's stored start and end, time text, and progress remain based on its real
-instants. Clipping and overlap lanes use the displayed block interval. Other events keep
+instants. Clipping and the overlap layout use the displayed block interval. Other events keep
 their wall-clock endpoints, and a full local day still fills one day column whether it
 contains 23, 24, or 25 hours.
 
@@ -283,7 +283,7 @@ keeps the relevant shared choices, even when they equal a root default.
 A custom window with half-hour slots and a label every two hours. Narrowing the band and
 thinning the labels keeps a long day readable without making the card taller.
 
-## 🔴 The Now Line
+## 🟢 The Now Line
 
 A line marks the current time on today's column, and only there. It is drawn from the same
 arithmetic as the events, so it cannot drift away from them.
@@ -291,8 +291,13 @@ arithmetic as the events, so it cannot drift away from them.
 ```yaml
 time_grid:
   show_now_line: true
-  now_line_color: var(--error-color)
+  now_line_color: '#34d399'
 ```
+
+It is emerald green by default, which reads as a quiet line on a white card. Any CSS color
+works, and `var(--error-color)` gives you your theme's red if you want it to stand out. Quote
+a hex value, as above: YAML reads an unquoted `#` as the start of a comment, and the color
+would be lost.
 
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.
@@ -384,8 +389,79 @@ bottom of the card. Positive fractional caps round down to whole rows, with a mi
 
 ## 🔀 Overlapping Events
 
-Events that overlap are drawn side by side, sharing the column's width. `max_simultaneous_events`
-caps how many before the rest collapse into a single block:
+When events overlap, one that starts well inside a longer one is drawn on top of it, slightly
+indented, the way macOS and Google Calendar draw a day. A school morning or a day-long trip no
+longer halves the width of everything that happens during it: the event inside keeps nearly
+the whole column, and the longer one stays visible along its leading edge.
+
+Events that start together are drawn side by side instead, because both need the same rows at
+the top for their titles. The longer one comes first, and once the shorter one is over, the
+longer one has the full width again for anything that starts inside it later.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps.png" alt="A grid card with overlapping events stacked: on Wednesday two events that start together share the width and a third is drawn on top of one of them; on Thursday three errands are drawn on top of a day-long conference"><br>
+
+On Wednesday, QA Window and Sprint Review start together and share the width, and Client Call,
+half an hour later, is drawn on top of Sprint Review. On Thursday the errands sit on top of the
+conference, a little indented, so its title stays readable above them and its edge beside them.
+
+### When an Event Is Drawn on Top
+
+On a card at the default size, "well inside" means at least half an hour below the longer
+event's top. Closer than that, the two go side by side. An event that starts before the
+visible hours counts from where it is drawn, the top of the axis, not from its real start.
+
+The half hour is a floor rather than a fixed number. What it protects is the strip left above
+the event drawn on top, which is all the room the longer event has for its title, so the card
+measures how tall an hour is drawn and how large the event text is and asks for more when
+either needs it: fifty minutes at a 30px hour, or with 20px event text. On a card squeezed so
+far that no title would fit above anything, every overlap goes side by side. None of this
+needs configuring.
+
+### Nothing Is Drawn Under Another Event
+
+A longer event's text keeps to the part of it nothing covers: the rows above the first event
+drawn over it, and the width beside any event that started with it. Within that part it shows
+what fits in the usual order — the title first, then the time, then location and the rest — so
+a long event with something starting half an hour in keeps its title, and its time once the
+gap is large enough for both. When two events overlap, neither one's text is ever printed
+underneath the other.
+
+One case is outside that promise, in either layout: a reminder or a very short event is drawn
+taller than it lasts, so on a compressed axis an event starting soon after it, without
+overlapping it, can still cover its lower edge. Give the axis more height per hour if that
+happens on your card.
+
+A block drawn on top is filled with the card's own background before its color goes on, so it
+looks the same as a block standing alone. A faint outline in its own calendar's color marks its
+edge, so two events from the same calendar stay apart where one is drawn over the other. On a
+solid card background nothing beneath it shows through. If your theme makes the card background
+translucent, the hour lines and the event underneath show through faintly, just as the dashboard
+shows through the rest of the card. Text never does, because none is ever placed there.
+
+Overlaps nest at most three deep. If nesting would ever squeeze a block narrower than the column
+split evenly among one event more than `max_simultaneous_events` allows, which is a quarter of
+it at the default, those events go side by side instead.
+
+### Side by Side Instead
+
+`overlap_layout: columns` splits the column between overlapping events for their whole length,
+the way Outlook draws a day. Every overlap then reads as parallel lanes, which makes it easiest
+to count how many things happen at once:
+
+```yaml
+time_grid:
+  overlap_layout: columns
+```
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps_columns.png" alt="The same grid card drawn with overlap_layout: columns, showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
+
+The same two days side by side. Three events at once share Wednesday's column, and Thursday's
+conference keeps half the width all day. Each lane narrows rather than hiding anything.
+
+### How Many Fit Side by Side
+
+`max_simultaneous_events` caps how many events share the width side by side before the rest
+collapse into a `+N` block:
 
 ```yaml
 time_grid:
@@ -393,25 +469,30 @@ time_grid:
 ```
 
 The collapsed block says how many it stands for — `+3` — and lists their titles on hover.
-Nothing is hidden without being counted. A cap of `1` still keeps the first event lane
-visible, then adds the overflow block beside it.
+Nothing is hidden without being counted. All it holds is that count, so it is a narrow strip at
+the edge of the column rather than a lane of its own, and the events that are drawn share the
+rest of the width. At a cap of `1`, the first event keeps all of the column but the strip. The
+strip widens with a larger `time_font_size`, and never takes more than a quarter of the space
+it sits in.
+
+A block only gathers hidden events that overlap one another. Three separate errands hidden
+beside a long conference get a `+1` each, at their own times, rather than one `+3` stretched
+across the hours between them.
 
 Positive fractional caps round down to whole lanes, with a minimum of one, just like the
 all-day row cap.
 
 Raise it if you routinely have four or five things at once and would rather see them all
-narrow; lower it to keep blocks readable.
+narrow; lower it to keep blocks readable. It counts only events drawn beside each other, so in
+the default layout an event drawn on top of another is never collapsed into the block.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_overlaps.png" alt="A grid card showing three simultaneous events side by side on one day, beside a two-lane conference day"><br>
-
-Three events at once share Wednesday's column uncollapsed, while Thursday's conference runs
-two lanes wide. Each lane narrows rather than hiding anything.
+### What a Block Shows
 
 Short blocks use progressive disclosure so clipped text does not look broken. A title shows
 once a full text row fits, time appears once the block can hold a full title row plus a full
 time row, and location waits until there is room for another detail line. The time row also
 asks about width, because a block's height and width are set independently — height by
-duration, width by how many events overlap it — so a long meeting in a busy lane can be tall
+duration, width by how the overlap layout shares the column — so a long meeting in a busy lane can be tall
 enough for a time and far too narrow for one. It measures what it would actually draw
 against the room it has, and gives things up in a fixed order: first the clock icon, which
 only repeats what the row's position in the block already says; then the range moves onto a

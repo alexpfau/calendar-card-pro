@@ -230,6 +230,10 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
     // restyling "the grid's lines" was being sent to two panels. The shading stays here
     // because it fills a column rather than ruling one, and nothing in Separators would
     // caption it.
+    //
+    // `overlap_layout` sits directly above `max_simultaneous_events` because it decides
+    // what that cap counts: how many events may share the width side by side. Read the
+    // other way round, the cap would describe a layout the reader has not been shown yet.
     heading('heading_on_the_grid'),
     blockScope(blockKey, [
       color('weekend_background_color'),
@@ -237,6 +241,20 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
       {
         name: 'allday_band_max_rows',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
+      },
+      {
+        name: 'overlap_layout',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: (['cascade', 'columns'] as const).map((value) => ({
+              value,
+              label:
+                lookup(language, `${blockKey}.overlap_layout.option.${value}.label`) ??
+                humanize(value),
+            })),
+          },
+        },
       },
       {
         name: 'max_simultaneous_events',

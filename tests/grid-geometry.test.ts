@@ -12,6 +12,7 @@ import {
   computeEventPlacement,
   computeNowLinePct,
   layoutLanes,
+  overflowStripWidth,
   parseTimeOfDay,
   resolveBand,
   segmentMinutes,
@@ -511,7 +512,15 @@ describe('layoutLanes', () => {
         ['r1', 0, 2],
       ]);
       expect(overflows).toEqual([
-        { startMin: 540, endMin: 540, laneIndex: 1, laneCount: 2, hidden: [at(540, 540, 'r2')] },
+        {
+          startMin: 540,
+          endMin: 540,
+          laneIndex: 1,
+          laneCount: 2,
+          x0Pct: 75,
+          x1Pct: 100,
+          hidden: [at(540, 540, 'r2')],
+        },
       ]);
     });
   });
@@ -586,6 +595,162 @@ describe('layoutLanes', () => {
 
       expect(placed.map((event) => event.id)).toEqual(['a']);
       expect(overflows[0].hidden).toHaveLength(4);
+    });
+  });
+
+  // A block counts events that happen at once. Hidden events that never overlap each
+  // other are separate blocks at their own times, even when one visible event overlaps
+  // all of them and holds the cluster together.
+  describe('the overflow blocks', () => {
+    const blocks = (events: ReturnType<typeof at>[], cap: number) =>
+      layoutLanes(events, cap).overflows.map(({ startMin, endMin, hidden }) => [
+        startMin,
+        endMin,
+        hidden.map((event) => event.id),
+      ]);
+
+    it('gives each hidden event beside a long one its own block, not one across the gaps', () => {
+      const day = [
+        at(420, 1440, 'summit'),
+        at(540, 630, 'car'),
+        at(690, 735, 'dentist'),
+        at(900, 960, 'coffee'),
+      ];
+      const { placed, overflows } = layoutLanes(day, 1);
+
+      expect(placed.map((event) => event.id)).toEqual(['summit']);
+      expect(blocks(day, 1)).toEqual([
+        [540, 630, ['car']],
+        [690, 735, ['dentist']],
+        [900, 960, ['coffee']],
+      ]);
+      expect(overflows.every((block) => block.laneIndex === 1 && block.laneCount === 2)).toBe(true);
+    });
+
+    it('keeps hidden events that overlap one another in one block, joined transitively', () => {
+      // b overlaps d and d overlaps e, but b and e never meet: one run, as a cluster is.
+      expect(
+        blocks(
+          [
+            at(0, 600, 'a'),
+            at(60, 150, 'b'),
+            at(120, 210, 'd'),
+            at(180, 240, 'e'),
+            at(400, 450, 'f'),
+          ],
+          1,
+        ),
+      ).toEqual([
+        [60, 240, ['b', 'd', 'e']],
+        [400, 450, ['f']],
+      ]);
+    });
+
+    it('starts a new block when a hidden event starts as the last one ends', () => {
+      expect(blocks([at(0, 600, 'a'), at(60, 120, 'b'), at(120, 180, 'c')], 1)).toEqual([
+        [60, 120, ['b']],
+        [120, 180, ['c']],
+      ]);
+    });
+
+    it('keeps two hidden reminders at one minute in one block', () => {
+      expect(
+        blocks([at(480, 600, 'a'), at(540, 540, 'r1'), at(540, 540, 'r2'), at(560, 560, 'r3')], 1),
+      ).toEqual([
+        [540, 540, ['r1', 'r2']],
+        [560, 560, ['r3']],
+      ]);
+    });
+  });
+
+  // The strip only holds a count, so it takes the width the count needs and the lanes the
+  // reader can see share everything else. As a lane of its own, at a cap of one, it took
+  // half the column from the one event that was on screen.
+  describe('the +N strip', () => {
+    const summit = [at(0, 600, 'summit'), at(60, 120, 'car'), at(200, 260, 'coffee')];
+    const crowd = [
+      at(0, 300, 'a'),
+      at(10, 300, 'b'),
+      at(20, 300, 'c'),
+      at(30, 300, 'd'),
+      at(40, 300, 'e'),
+    ];
+    const geometry = (events: ReturnType<typeof at>[], cap: number, stripPct?: number) => {
+      const { placed, overflows } = layoutLanes(events, cap, stripPct);
+      return {
+        lanes: placed.map((event) => [event.x0Pct, event.x1Pct]),
+        strips: overflows.map((block) => [block.x0Pct, block.x1Pct]),
+      };
+    };
+
+    it('gives the lanes everything but the width the count needs', () => {
+      expect(geometry(summit, 1, 7)).toEqual({
+        lanes: [[0, 93]],
+        strips: [
+          [93, 100],
+          [93, 100],
+        ],
+      });
+      expect(geometry(crowd, 3, 10)).toEqual({
+        lanes: [
+          [0, 30],
+          [30, 60],
+          [60, 90],
+        ],
+        strips: [[90, 100]],
+      });
+    });
+
+    it('is as wide as its bounds allow before the column has been measured', () => {
+      // A quarter at a cap of one or two...
+      expect(geometry(summit, 1).lanes).toEqual([[0, 75]]);
+      expect(geometry(crowd, 2)).toEqual({
+        lanes: [
+          [0, 37.5],
+          [37.5, 75],
+        ],
+        strips: [[75, 100]],
+      });
+      // ...and from three, the equal share it had as a lane, so the default cap is unmoved.
+      expect(geometry(crowd, 3)).toEqual({
+        lanes: [
+          [0, 25],
+          [25, 50],
+          [50, 75],
+        ],
+        strips: [[75, 100]],
+      });
+    });
+
+    it('never takes more than a quarter, nor more than an equal share, whatever it asks for', () => {
+      expect(geometry(summit, 1, 90).strips[0]).toEqual([75, 100]);
+      expect(geometry(crowd, 4, 90).strips[0]).toEqual([80, 100]);
+    });
+
+    it('takes nothing from a group that fits', () => {
+      expect(geometry(crowd, 5, 7)).toEqual({
+        lanes: [
+          [0, 20],
+          [20, 40],
+          [40, 60],
+          [60, 80],
+          [80, 100],
+        ],
+        strips: [],
+      });
+    });
+
+    it.each([
+      ['the width the count asks for', 100, 1, 7, 7],
+      ['a quarter of the region at most', 100, 1, 40, 25],
+      ['an equal share at most, once that is less', 100, 5, 40, 100 / 6],
+      ['the bounds alone before a measurement', 100, 1, Infinity, 25],
+      ['the bounds of a nested region, not of the column', 40, 3, 15, 10],
+      ['the bounds alone for no width', 100, 1, 0, 25],
+      ['the bounds alone for a negative width', 100, 1, -5, 25],
+      ['the bounds alone for an unreadable width', 100, 1, Number.NaN, 25],
+    ])('is %s', (_case, regionPct, cap, preferredPct, expected) => {
+      expect(overflowStripWidth(regionPct, cap, preferredPct)).toBeCloseTo(expected, 12);
     });
   });
 

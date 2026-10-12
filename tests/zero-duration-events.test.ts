@@ -209,27 +209,45 @@ describe('an event with no duration in each view', () => {
     expect(words).toEqual([['Reminder', '14:41']]);
   });
 
-  it('puts two reminders at one instant side by side rather than one on the other', () => {
-    const container = renderView('grid', [
-      reminder(AT, 'Water plants'),
-      reminder(AT, 'Take tablet'),
-    ]);
-    const blocks = [
-      ...container.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
-    ];
+  it.each([
+    ['cascade', undefined],
+    ['columns', 'columns'],
+  ] as const)(
+    'puts two reminders at one instant side by side rather than one on the other (%s)',
+    (_layout, overlapLayout) => {
+      const container = renderView(
+        'grid',
+        [reminder(AT, 'Water plants'), reminder(AT, 'Take tablet')],
+        overlapLayout ? { time_grid: { overlap_layout: overlapLayout } } : {},
+      );
+      const blocks = [
+        ...container.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
+      ];
 
-    expect(blocks.map((block) => block.querySelector('.event-title')?.textContent?.trim())).toEqual(
-      ['Water plants', 'Take tablet'],
-    );
-    // The emitted attribute, not `style.width`: happy-dom's CSSOM discards a `calc()` that
-    // holds a custom property, so the CSSOM reads empty for what the renderer wrote.
-    const styles = blocks.map((block) => block.getAttribute('style') ?? '');
-    expect(styles.map((style) => /inset-inline-start:\s*calc\((\d+)%/.exec(style)?.[1])).toEqual([
-      '0',
-      '50',
-    ]);
-    expect(styles.every((style) => /(?:^|;)\s*width:\s*calc\(50%/.test(style))).toBe(true);
-  });
+      expect(
+        blocks.map((block) => block.querySelector('.event-title')?.textContent?.trim()),
+      ).toEqual(['Water plants', 'Take tablet']);
+      // The emitted attribute, not `style.width`: happy-dom's CSSOM discards a `calc()` that
+      // holds a custom property, so the CSSOM reads empty for what the renderer wrote.
+      const styles = blocks.map((block) => block.getAttribute('style') ?? '');
+      expect(styles.map((style) => /inset-inline-start:\s*calc\((\d+)%/.exec(style)?.[1])).toEqual([
+        '0',
+        '50',
+      ]);
+      expect(/(?:^|;)\s*width:\s*calc\(50%/.test(styles[1])).toBe(true);
+
+      // Two instants at one minute start together, so even the cascade puts them side by
+      // side. There the first one's box runs on under the second, which is painted over it,
+      // and its text keeps to its own half; in columns the box itself stops there.
+      if (overlapLayout === 'columns') {
+        expect(/(?:^|;)\s*width:\s*calc\(50%/.test(styles[0])).toBe(true);
+      } else {
+        expect(blocks[0].style.getPropertyValue('--calendar-card-grid-text-inline-ratio')).toBe(
+          '0.5',
+        );
+      }
+    },
+  );
 
   // The band is half-open, and the lower edge is the one an instant needed spelled out.
   it.each([

@@ -360,10 +360,19 @@ function normalClip(target: GridTitleTarget): Bounds {
   const style = getComputedStyle(target.block);
   const rect = target.block.getBoundingClientRect();
   const scale = blockScale(target.block);
-  return {
+  const clip = {
     top: rect.top + (px(style.borderTopWidth) + px(style.paddingTop)) * scale,
     bottom: rect.bottom - (px(style.borderBottomWidth) + px(style.paddingBottom)) * scale,
   };
+
+  // A cascaded block whose lower or trailing part another block covers keeps its text in
+  // the rest, and a title is only "normal" if it fits there. See .grid-event-content-limited.
+  if (target.block.classList.contains('grid-event-content-limited')) {
+    const region = target.disclosure.getBoundingClientRect();
+    return { top: Math.max(clip.top, region.top), bottom: Math.min(clip.bottom, region.bottom) };
+  }
+
+  return clip;
 }
 
 /**

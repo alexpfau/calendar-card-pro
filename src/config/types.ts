@@ -166,6 +166,9 @@ export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
 /** How often the grid labels its time axis, in minutes. */
 export type TimeGridAxisLabelMinutes = 30 | 60 | 120 | 180;
 
+/** How the grid draws events that overlap in time. */
+export type TimeGridOverlapLayout = 'cascade' | 'columns';
+
 /**
  * Which class of event a calendar contributes.
  *
@@ -496,6 +499,16 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    * block still says how many events it stands for.
    */
   max_simultaneous_events?: number;
+
+  /**
+   * How events that overlap in time are drawn.
+   *
+   * `cascade` draws a later event over a longer one it starts well inside, indented so
+   * the longer one's edge stays visible — the way macOS and Google Calendar draw a day —
+   * and splits the width only between events that start close together. `columns` always
+   * splits the width, so every overlap reads as parallel lanes, the way Outlook draws it.
+   */
+  overlap_layout?: TimeGridOverlapLayout;
 
   /** Rows the band may grow to before the remaining banners are dropped. */
   allday_band_max_rows?: number;

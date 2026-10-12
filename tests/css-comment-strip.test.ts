@@ -279,8 +279,24 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(100_000);
-    // The nested font sizes moved the ceiling last, from 98,200: the notes on why the title,
+    expect(saved).toBeLessThan(102_700);
+    // The +N strip and the stacked-block outline moved the ceiling last, from 101,700: the
+    // notes on why the strip lets a count spill past its dashes rather than clip it, why a
+    // stacked block shows anything beneath it only on a translucent card, and why it carries
+    // a hairline in its own accent as an inset shadow rather than a border. The reading went
+    // 100,855 to 101,350 with the strip and to 101,822 with the outline, each taken with
+    // stripComments after the last comment in its change was written.
+    //
+    // The cascaded overlap layout moved it before that, from 100,000: the notes on why a
+    // stacked block's fill is opaque and outline-free, why a covered block's text region
+    // reaches the stylesheet as two unitless ratios rather than as sizes, and why the two
+    // formulas differ between the normal and compact states. All three are conversions the
+    // declarations perform without saying what they convert. The reading went 99,138 to
+    // 100,855, both taken with stripComments after the last comment in the change was
+    // written; 99,138 is also why the 99,191 below is not the figure this change started
+    // from, which had drifted without a ceiling move to record it.
+    //
+    // The nested font sizes moved the ceiling before that, from 98,200: the notes on why the title,
     // the countdown, the grid block and the banner no longer declare a font size their
     // ancestor already sets, and why the weather text's size is scoped to the summary row.
     // The reading went 97,381 to 99,191, taken with stripComments after the last comment in
