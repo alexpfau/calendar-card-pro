@@ -1066,49 +1066,82 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     return (body ?? '').replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   };
 
-  it('hands a stacked block its tint and its top, and paints nothing inline', () => {
-    const blocks = renderGrid([
+  it('fills a stacked block like any other, over a backdrop drawn just before it', () => {
+    const plane = renderGrid([
       timed(17, '09:00', '12:00', 'Review'),
       timed(17, '10:00', '11:00', 'Interview'),
-    ]).querySelectorAll('.grid-event');
+    ]).querySelector('.grid-day-plane');
+    const blocks = plane?.querySelectorAll('.grid-event') ?? [];
+    const value = (element: Element | null | undefined, property: string) =>
+      new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(styleOf(element!))?.[1].trim();
 
-    // The block beneath is translucent, as every block standing alone is.
-    expect(declares(blocks[0], 'background-color', '')).toBe(true);
-    expect(styleOf(blocks[0])).not.toContain('--calendar-card-grid-raised-tint');
+    expect(blocks).toHaveLength(2);
+    // The same translucent tint as the block beneath: the backdrop is what hides that block.
+    const tint = value(blocks[0], 'background-color');
+    expect(tint, 'no fill on the block beneath').toBeDefined();
+    expect(value(blocks[1], 'background-color')).toBe(tint);
 
-    // The stacked one paints in the stylesheet, which rebuilds the backdrop under its tint.
-    // It is handed the tint, and its top in container units so the rules it repaints land on
-    // the real ones; the same placement the block's own top percentage comes from.
-    expect(styleOf(blocks[1])).not.toMatch(/(?:^|;)\s*background-(?:color|image):/);
-    expect(declares(blocks[1], '--calendar-card-grid-raised-tint', '')).toBe(true);
-    const top = /--calendar-card-grid-block-top:\s*([\d.]+)%/.exec(styleOf(blocks[1]))?.[1];
+    // One backdrop, immediately before the stacked block, in exactly its box.
+    expect(plane?.querySelectorAll('.grid-event-backdrop')).toHaveLength(1);
+    const backdrop = blocks[1].previousElementSibling;
+    expect(backdrop?.classList.contains('grid-event-backdrop')).toBe(true);
+    expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
+    expect(blocks[0].previousElementSibling?.classList.contains('grid-event-backdrop')).not.toBe(
+      true,
+    );
+    for (const property of [
+      '--calendar-card-grid-block-top',
+      '--calendar-card-grid-block-height',
+      'inset-inline-start',
+      'width',
+    ]) {
+      expect(value(backdrop, property), property).toBe(value(blocks[1], property));
+    }
+    // Its top again in container units, so the copied rules can be lined up with the band.
+    const top = /^([\d.]+)%$/.exec(value(blocks[1], '--calendar-card-grid-block-top') ?? '')?.[1];
     expect(top, 'no percentage top on the stacked block').toBeDefined();
-    expect(declares(blocks[1], '--calendar-card-grid-raised-top', `${top}cqh`)).toBe(true);
+    expect(value(backdrop, '--calendar-card-grid-raised-top')).toBe(`${top}cqh`);
+    expect(
+      backdrop?.querySelector(':scope > .grid-event-backdrop-ground > .grid-event-backdrop-rules'),
+    ).not.toBeNull();
   });
 
-  it('rebuilds the backdrop a block standing alone would have, then lays its tint on it', () => {
-    const raised = ruleBody('.grid-event-raised');
-    const rules = ruleBody('.grid-rules');
-    const pattern = /background-image: ([^;]*)/.exec(rules)?.[1] ?? '';
+  it('rebuilds the backdrop a block standing alone would have, scaled by the card alpha', () => {
+    const backdrop = ruleBody('.grid-event-backdrop');
+    const ground = ruleBody('.grid-event-backdrop-ground');
+    const copied = ruleBody('.grid-event-backdrop-rules');
+    const pattern = /background-image: ([^;]*)/.exec(ruleBody('.grid-rules'))?.[1] ?? '';
 
     expect(pattern, 'no rule pattern on .grid-rules').toContain('repeating-linear-gradient(');
     // The very pattern the grid paints, not a second copy of it, so the two cannot drift.
-    expect(raised).toContain(pattern);
-    // Tint first, so it is laid OVER the copied rules as a standalone block's is laid over
-    // the real ones, and the ground last, under everything but the card.
-    const layers = /background-image: ([^;]*)/.exec(raised)?.[1] ?? '';
-    expect(layers.startsWith('linear-gradient(var(--calendar-card-grid-raised-fill)')).toBe(true);
-    expect(layers.indexOf(pattern)).toBeGreaterThan(0);
-    expect(layers.trimEnd().endsWith('var(--calendar-card-grid-raised-ground))')).toBe(true);
-    expect(raised).toContain('background-color: var(--calendar-card-grid-raised-base)');
-    // Sized to the band and shifted up by the block's own top, both in container units, so
-    // its stops resolve against the same height as .grid-rules' do.
-    expect(raised).toContain('100% 100cqh');
-    expect(raised).toContain('var(--calendar-card-grid-raised-top)');
+    expect(copied).toContain(`background-image: ${pattern}`);
+    // Sized to the band and shifted up by the backdrop's own top, both in container units,
+    // so its stops resolve against the same height as .grid-rules' do...
+    expect(copied).toContain('background-size: 100% 100cqh');
+    expect(copied).toContain('background-position: 0 var(--calendar-card-grid-backdrop-rules-y)');
+    expect(backdrop).toContain('var(--calendar-card-grid-raised-top)');
     expect(ruleBody('.grid-day-plane')).toContain('container-type: size');
-    // The weekend tint is part of what a stacked block hides, so it is part of its ground.
-    expect(ruleBody('.grid-day-body.weekend .grid-event-raised')).toContain(
-      '--calendar-card-grid-raised-ground: var(--calendar-card-grid-weekend, transparent)',
+    // ...which only holds if the backdrop is not a size container itself.
+    expect(backdrop).toContain('container: none');
+    // .grid-rules' own mask, so the copy cannot draw the row the band's frame rule owns.
+    expect(copied).toContain(
+      'mask-image: linear-gradient(to bottom, transparent 0 var(--calendar-card-grid-rule-width), #000 var(--calendar-card-grid-rule-width))',
+    );
+    expect(copied).toContain('mask-position: 0 var(--calendar-card-grid-backdrop-rules-y)');
+
+    // The card's own color underneath, and the copies masked by its alpha: on a translucent
+    // card the originals still show through by what the base leaves, so full-strength copies
+    // would draw every line inside a stacked block twice.
+    expect(backdrop).toContain('background-color: var(--calendar-card-grid-backdrop-base)');
+    expect(backdrop).toContain(
+      '--calendar-card-grid-backdrop-base: var(--calendar-card-background-color, var(--card-background-color))',
+    );
+    expect(ground).toContain(
+      'mask-image: linear-gradient(var(--calendar-card-grid-backdrop-base), var(--calendar-card-grid-backdrop-base))',
+    );
+    // The weekend tint is part of what a stacked block hides, so it is part of the copy.
+    expect(ruleBody('.grid-day-body.weekend .grid-event-backdrop-ground')).toContain(
+      'background-color: var(--calendar-card-grid-weekend, transparent)',
     );
   });
 
@@ -1121,7 +1154,10 @@ describe('by default, a later event is drawn over a longer one it starts inside'
 
     expect(plane, 'no plane in the day body').not.toBeNull();
     expect(plane?.querySelectorAll(':scope > .grid-event')).toHaveLength(2);
-    expect(body?.querySelectorAll(':scope > .grid-event')).toHaveLength(0);
+    expect(plane?.querySelectorAll(':scope > .grid-event-backdrop')).toHaveLength(1);
+    expect(
+      body?.querySelectorAll(':scope > .grid-event, :scope > .grid-event-backdrop'),
+    ).toHaveLength(0);
   });
 
   // Two events from one calendar have identical fills, so without an outline the edge of

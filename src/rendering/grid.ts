@@ -578,8 +578,8 @@ function renderRules(columnCount: number): TemplateResult {
  * Describe the hour and slot rule pattern as custom properties.
  *
  * Written on `.grid-container` so two painters inherit one description: `.grid-rules`,
- * which draws the pattern behind every block, and `.grid-event-raised`, which repaints it
- * under its own tint because it hides whatever is beneath it. Two copies of these values
+ * which draws the pattern behind every block, and a stacked block's backdrop, which repaints
+ * it because the block hides whatever is beneath it. Two copies of these values
  * would be two chances for a stacked block's lines to drift off the grid's.
  *
  * Every offset and period is a percentage of the band, so either painter only has to
@@ -762,24 +762,36 @@ function renderTimedEvent(
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
 
-  // A raised block hides what is beneath it, so it cannot let the backdrop through as a
-  // translucent block does. It rebuilds that backdrop instead — card, weekend tint, the
-  // hour and slot rules — and lays its tint over the copy, so it reads exactly like a block
-  // standing alone: same color, same lines, and nothing of the block beneath. The
-  // stylesheet paints all of it; this only hands over the tint, the top in container units
-  // so the copied rules can be lined up with the real ones, and the accent for the outline.
-  // See `.grid-event-raised`.
-  const fill = horizontal.raised
-    ? {
-        ...(tint ? { '--calendar-card-grid-raised-tint': tint } : {}),
-        '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
-        '--calendar-card-grid-raised-accent': presentation.entityAccentColor,
-      }
-    : { backgroundColor: tint };
+  // A raised block hides what is beneath it, and it does so with a backdrop of its own,
+  // drawn just before it in the same box: the card, the weekend tint and the hour rules,
+  // rebuilt so the block's ordinary translucent tint lands on what a block standing alone
+  // would have under it. Same color, same lines, and nothing of the block beneath. The
+  // block itself is then filled like any other, and only carries its accent for the
+  // outline. See `.grid-event-backdrop`.
+  const backdrop = horizontal.raised
+    ? html`<div
+        class=${classMap({
+          'grid-event-backdrop': true,
+          'clipped-top': placement.clippedTop,
+          'clipped-bottom': placement.clippedBottom,
+        })}
+        aria-hidden="true"
+        style=${styleMap({
+          ...verticalGeometry(placement),
+          ...horizontal.style,
+          '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
+        })}
+      >
+        <div class="grid-event-backdrop-ground">
+          <div class="grid-event-backdrop-rules"></div>
+        </div>
+      </div>`
+    : nothing;
 
   // Scope the accessible language to its own node. On a visual ancestor it selects a
   // hyphens:auto dictionary and can change prose labels' min-content width and wrapping.
   return html`
+    ${backdrop}
     <div
       class=${classMap({
         event: true,
@@ -794,7 +806,10 @@ function renderTimedEvent(
         ...verticalGeometry(placement),
         ...horizontal.style,
         borderInlineStartColor: presentation.entityAccentColor,
-        ...fill,
+        backgroundColor: tint,
+        ...(horizontal.raised
+          ? { '--calendar-card-grid-raised-accent': presentation.entityAccentColor }
+          : {}),
         ...presentation.accentTextProperties,
       })}
     >

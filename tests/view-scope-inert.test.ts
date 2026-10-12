@@ -1,6 +1,7 @@
 import { render as litRender } from 'lit';
 import { describe, expect, it } from 'vitest';
 
+import { stripComments } from '../rollup.config.mjs';
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
@@ -216,13 +217,21 @@ describe('event_spacing in grid', () => {
    */
   const sheet = Styles.cardStyles.cssText;
 
-  /** Where a rule's own `padding` declaration is, measured from the selector. */
-  function paddingIndex(selector: string): number {
-    const start = sheet.indexOf(`${selector} {`);
-    expect(start, `no rule for ${selector}`).toBeGreaterThan(-1);
+  /** The same text with its comments removed, so prose cannot pass for a selector. */
+  const rules = stripComments(sheet);
 
-    const end = sheet.indexOf('}', start);
-    const declaration = sheet.slice(start, end).indexOf('padding:');
+  /**
+   * Where a rule's own `padding` declaration is, measured from the selector. The selector
+   * may be one member of a list: `.grid-event` shares its box with `.grid-event-backdrop`.
+   */
+  function paddingIndex(selector: string): number {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const header = new RegExp(`(?:^|[},])\\s*${escaped}\\s*(?:,[^{}]*)?\\{`).exec(rules);
+    expect(header, `no rule for ${selector}`).not.toBeNull();
+
+    const start = header!.index;
+    const end = rules.indexOf('}', start + header![0].length);
+    const declaration = rules.slice(start, end).indexOf('padding:');
     expect(declaration, `${selector} sets no padding`).toBeGreaterThan(-1);
 
     return start + declaration;
