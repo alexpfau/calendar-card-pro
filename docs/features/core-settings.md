@@ -532,8 +532,8 @@ two-week one is. For how the card handles events spanning several days, see
 An all-day event has no end time, only an end date, so the card treats one as past at
 **midnight after the last day it covers**. That is usually right — a birthday is a birthday
 all day — but it is wrong for a feed describing something that happens at a particular
-hour. A waste-collection calendar is the common case: the bin is emptied in the morning and
-its entry sits on the card until midnight.
+hour. A waste-collection calendar is the common case: the truck comes in the morning, and
+the collection's entry sits on the card until midnight.
 
 `allday_expires_at` moves that moment earlier within the final day. It takes a time of day,
 and from that time onward the card treats the event as past:
@@ -545,8 +545,8 @@ entities:
   - calendar.family # unaffected — birthdays stay up all day
 ```
 
-It is per calendar and has no card-wide counterpart, which is the point: your bin feed and
-your birthdays want opposite answers, and only the calendar itself knows which.
+It is per calendar and has no card-wide counterpart, which is the point: your collection feed
+and your birthdays want opposite answers, and only the calendar itself knows which.
 
 The time is read against the **last** day the event covers, so a holiday running Monday to
 Wednesday retires on Wednesday morning rather than Monday's. Split the calendar with
@@ -701,21 +701,24 @@ read together:
 
 ```yaml
 filter_duplicates: true
-duplicate_accent_color: '#43a047'
+duplicate_accent_color: '#ffb74d'
 entities:
   - entity: calendar.anna
     label: person.anna
-    accent_color: '#e91e63'
+    accent_color: '#ff6c92'
   - entity: calendar.ben
     label: person.ben
-    accent_color: '#1e88e5'
+    accent_color: '#03a9f4'
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in green and showing both calendars' pictures" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in gold and showing both calendars' pictures" width="600"><br>
 
 Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
-in front of the title and turns green — the faces say whose it is, the green says at a glance
-that it is shared.
+in front of the title and turns gold — the faces say whose it is, the gold says at a glance
+that it is shared. This is Friday and Saturday of the family's week from the
+[walkthroughs](/guide/family-calendar), in their colors, where gold is also the Family
+calendar's. Only Anna's and Ben's calendars are on this card, so the birthday lunch that
+shows three faces there shows two here.
 
 **The labels need nothing switched on.** A merged row draws the label of every calendar it
 came from, in the order the calendars are listed, so if you already label your calendars this
