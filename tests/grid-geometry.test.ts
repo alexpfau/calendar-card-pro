@@ -333,6 +333,13 @@ describe('resolveBlockEdges', () => {
     );
   });
 
+  it('gives a start within a ruled minute the allowance a start on the line gets', () => {
+    // 10:00:30 is a fraction of a pixel below the 10:00 rule, still inside it. 10:01 is a
+    // whole minute past and keeps the bare gap.
+    expect(resolveBlockEdges([span(600.5, 660)], day, 60)[0].ruledStart).toBe(true);
+    expect(resolveBlockEdges([span(601, 660)], day, 60)[0].ruledStart).toBe(false);
+  });
+
   it("treats the band's own top as ruled, wherever it opens", () => {
     // The band's frame rule sits there whatever the clock says, and a block cut off at the
     // top starts before it.

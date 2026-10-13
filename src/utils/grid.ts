@@ -224,8 +224,8 @@ export function bandEndHasRule(band: GridBand, slotMinutes: number): boolean {
  *
  * The question {@link bandEndHasRule} asks of the band's end, asked of any minute: the hour
  * gradient always paints, the slot gradient only below the hour, and both tile from
- * midnight. A minute carrying seconds is off every rule, which is the honest answer — its
- * block does not start on the line.
+ * midnight. A minute carrying seconds is not itself on a rule; see
+ * {@link resolveBlockEdges} for why a block's start is floored before it asks.
  *
  * @param minute - Minutes from midnight
  * @param slotMinutes - Configured rule spacing
@@ -422,6 +422,13 @@ export interface BlockEdges {
  * A block with no duration has no lower edge of its own — `min-height` draws it as a
  * marker — so it touches nothing below. It can still be touched from above.
  *
+ * 🚨 A start is floored to its minute before the ruling is asked about it. A rule is painted
+ * downward from its boundary, so an event at 10:00:30 starts a fraction of a pixel below the
+ * 10:00 line and still inside it: given the bare gap, it would draw its top edge on a thick
+ * `hour_line_width` rather than under it. Flooring gives it the rule allowance a 10:00 start
+ * gets. A start a whole minute or more past a rule keeps the bare gap, so with a rule thicker
+ * than the gap a block starting within that thickness of the line still meets it.
+ *
  * @param blocks - Every block drawn in the column, overflow blocks included
  * @param band - The visible band
  * @param slotMinutes - Configured rule spacing
@@ -440,7 +447,8 @@ export function resolveBlockEdges(
     lower.x0Pct < upper.x1Pct;
 
   return blocks.map((block) => ({
-    ruledStart: block.startMin <= band.startMin || isRuledMinute(block.startMin, slotMinutes),
+    ruledStart:
+      block.startMin <= band.startMin || isRuledMinute(Math.floor(block.startMin), slotMinutes),
     touchedAbove: blocks.some((other) => touches(other, block)),
     touchedBelow: blocks.some((other) => touches(block, other)),
   }));
