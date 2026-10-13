@@ -663,11 +663,28 @@ describe('events sit at their clock time (#300)', () => {
       ]),
     );
 
+    // 17:30 is off every rule too, so the afternoon runs to its end with nothing beneath it.
     expect(clearance).toEqual({
       'Morning work': { above: 'inherit', below: '0px' },
       'Family lunch': { above: GAP, below: '0px' },
-      'Afternoon work': { above: GAP, below: 'inherit' },
+      'Afternoon work': { above: GAP, below: '0px' },
     });
+  });
+
+  it('draws two events of one length off the hour at one height, whatever starts beneath', () => {
+    // The maintainer's second report: a lunch with work resuming right after it ran to 13:30,
+    // while a lunch on the next day with nothing after it stopped a pixel short, so the same
+    // hour drew at two heights side by side.
+    const clearance = clearanceBySummary(
+      renderGrid([
+        timed(18, '12:30', '13:30', 'Family lunch'),
+        timed(18, '13:30', '17:30', 'Work'),
+        timed(19, '12:30', '13:30', 'Lunch with Lisa'),
+      ]),
+    );
+
+    expect(clearance['Lunch with Lisa']).toEqual(clearance['Family lunch']);
+    expect(clearance['Lunch with Lisa']).toEqual({ above: GAP, below: '0px' });
   });
 
   it('lets the rule be the seam between blocks that touch on the hour', () => {
@@ -701,19 +718,19 @@ describe('events sit at their clock time (#300)', () => {
 
     expect(clearance).toEqual({
       Workshop: { above: 'inherit', below: '0px' },
-      Lunch: { above: RULE_SEAM, below: 'inherit' },
+      Lunch: { above: RULE_SEAM, below: '0px' },
     });
   });
 
-  it('keeps a lone block off the hour one gap below its start, and the default elsewhere', () => {
-    // No rule at 12:30 to clear, so no allowance for one. A gap of a minute is not a touch,
-    // so 14:00 keeps both of its full clearances.
+  it('clears only the rules a lone block actually meets', () => {
+    // No rule at 12:30 or 13:29 to clear, so no allowance for one at either end. A gap of a
+    // minute is not a touch, and 14:00 is ruled, so the call stops short of that line.
     const clearance = clearanceBySummary(
       renderGrid([timed(18, '12:30', '13:29', 'Lunch'), timed(18, '13:30', '14:00', 'Call')]),
     );
 
     expect(clearance).toEqual({
-      Lunch: { above: GAP, below: 'inherit' },
+      Lunch: { above: GAP, below: '0px' },
       Call: { above: GAP, below: 'inherit' },
     });
   });

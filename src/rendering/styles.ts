@@ -2580,14 +2580,16 @@ export const cardStyles = css`
        nothing and inherits it. The overrides:
 
        - A clipped edge writes 0px: the block is cut off there rather than ending there.
-       - A start off every rule writes the gap alone. There is no line to clear there, and
-         the allowance only stood the block a pixel below its own start time.
+       - An edge off every rule keeps no rule allowance. A start there writes the gap alone,
+         and an end there writes 0px. There is no line to clear, the allowance only stood
+         the block a pixel below its own start time, and with no clearance below a block's
+         height no longer depends on whether anything starts beneath it.
        - Two blocks that touch in time, one ending at the instant the next starts directly
          beneath it, are separated by one line instead of by both clearances, which added up
-         to three pixels of empty grid that read as time passing. The upper block writes 0px
-         below. The lower one keeps the gap off a rule and, on one, writes the larger of the
-         rule width and the gap, so the rule itself is the seam and hour_line_width: 0 still
-         leaves two blocks of one color apart.
+         to three pixels of empty grid that read as time passing. Off a rule the two cases
+         above already make that line the gap. On one, the upper block writes 0px below and
+         the lower one writes the larger of the rule width and the gap, so the rule itself
+         is the seam and hour_line_width: 0 still leaves two blocks of one color apart.
 
        The composition lives in the stylesheet rather than in the
        renderer because the geometry module knows minutes and percentages and deliberately

@@ -225,7 +225,7 @@ export function bandEndHasRule(band: GridBand, slotMinutes: number): boolean {
  * The question {@link bandEndHasRule} asks of the band's end, asked of any minute: the hour
  * gradient always paints, the slot gradient only below the hour, and both tile from
  * midnight. A minute carrying seconds is not itself on a rule; see
- * {@link resolveBlockEdges} for why a block's start is floored before it asks.
+ * {@link resolveBlockEdges} for why a block's edges ask about the minute either side.
  *
  * @param minute - Minutes from midnight
  * @param slotMinutes - Configured rule spacing
@@ -396,6 +396,9 @@ export interface BlockEdges {
    */
   ruledStart: boolean;
 
+  /** A rule is painted where the block ends, on the hour or on a slot below it. */
+  ruledEnd: boolean;
+
   /** A block drawn directly above this one ends at the instant this one starts. */
   touchedAbove: boolean;
 
@@ -412,8 +415,12 @@ export interface BlockEdges {
  * time passing, and the rule allowance in it stood guard over a rule that, off the hour,
  * is not drawn at all.
  *
- * So two touching blocks are told so, and the stylesheet's defaults give way to a single
- * line between them: one gap where no rule is drawn, and the rule itself where one is.
+ * So the clearance follows the ruling. Off every rule a block keeps one gap above its start
+ * and none below its end, so two touching blocks are one gap apart and a block's height
+ * does not depend on whether anything starts beneath it: two lunches from 12:30 to 13:30
+ * are the same height whether or not work resumes at 13:30. On a rule, two touching blocks
+ * are told so and both meet the rule, which is then the line between them.
+ *
  * "Touching" is the same instant in time AND an overlap across the column, because a block
  * in the next lane that happens to start at that minute is beside the earlier one, not
  * under it. Exact equality is right for the minutes: both ends are read from the same kind
@@ -422,12 +429,13 @@ export interface BlockEdges {
  * A block with no duration has no lower edge of its own — `min-height` draws it as a
  * marker — so it touches nothing below. It can still be touched from above.
  *
- * 🚨 A start is floored to its minute before the ruling is asked about it. A rule is painted
- * downward from its boundary, so an event at 10:00:30 starts a fraction of a pixel below the
- * 10:00 line and still inside it: given the bare gap, it would draw its top edge on a thick
- * `hour_line_width` rather than under it. Flooring gives it the rule allowance a 10:00 start
- * gets. A start a whole minute or more past a rule keeps the bare gap, so with a rule thicker
- * than the gap a block starting within that thickness of the line still meets it.
+ * 🚨 An edge counts as ruled when it falls within the minute either side of a rule, not only
+ * exactly on one. A rule is painted downward from its boundary, so an event at 10:00:30
+ * starts a fraction of a pixel below the 10:00 line and still inside it, and one ending at
+ * 13:59:30 stops a fraction above the 14:00 line. Given the bare gap, or no clearance at
+ * all, either would draw its edge on the line rather than clear of it. A start a whole minute
+ * or more past a rule keeps the bare gap, so with a rule thicker than the gap a block
+ * starting within that thickness of the line still meets it.
  *
  * @param blocks - Every block drawn in the column, overflow blocks included
  * @param band - The visible band
@@ -439,6 +447,8 @@ export function resolveBlockEdges(
   band: GridBand,
   slotMinutes: number,
 ): BlockEdges[] {
+  const nearRule = (minute: number) =>
+    isRuledMinute(Math.floor(minute), slotMinutes) || isRuledMinute(Math.ceil(minute), slotMinutes);
   const touches = (upper: BlockSpan, lower: BlockSpan) =>
     upper !== lower &&
     upper.endMin > upper.startMin &&
@@ -447,8 +457,8 @@ export function resolveBlockEdges(
     lower.x0Pct < upper.x1Pct;
 
   return blocks.map((block) => ({
-    ruledStart:
-      block.startMin <= band.startMin || isRuledMinute(Math.floor(block.startMin), slotMinutes),
+    ruledStart: block.startMin <= band.startMin || nearRule(block.startMin),
+    ruledEnd: nearRule(block.endMin),
     touchedAbove: blocks.some((other) => touches(other, block)),
     touchedBelow: blocks.some((other) => touches(block, other)),
   }));

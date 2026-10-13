@@ -636,18 +636,22 @@ function ruleProperties(
  * 🚨 The upper edge additionally clears `--calendar-card-grid-rule-width`, and the lower
  * one must not. An hour rule paints downward from its boundary, so the gap alone puts a
  * block's top edge on the rule's underside with nothing between them — see the composition
- * comment on `.grid-event`, which carries the measurement. That allowance is only owed where
- * a rule is painted: a block starting off the hour clears the gap and nothing more, or it
- * stands a pixel lower than its own start time for a line that is not there.
+ * comment on `.grid-event`, which carries the measurement.
  *
- * 🚨 Two blocks that touch in time — one ends at the instant the next starts, directly
- * above it — are separated by exactly one line rather than by both clearances. Kept apart
- * by their clearances, a 12:30 handover drew three pixels of empty grid between the two,
- * which reads as time passing between them. So the upper block runs to its end and the
- * lower one keeps the gap where no rule is drawn, or sits flush under the rule where one
- * is, so the rule itself is the seam. That seam is never narrower than the gap, which is
- * what still tells two touching blocks from one calendar apart when `hour_line_width` is
- * `0` and there is no rule to stand between them.
+ * 🚨 Both clearances are owed to a rule, so both follow the ruling. A block starting off
+ * every rule keeps the gap above and no rule allowance, or it would stand a pixel below its
+ * own start time for a line that is not there. A block ending off every rule keeps nothing
+ * below and runs to its end. Two blocks handing over at 12:30 are therefore one gap apart —
+ * kept apart by both clearances they drew three pixels of empty grid, which reads as time
+ * passing between them — and a block's height never depends on what starts beneath it, so
+ * two lunches from 12:30 to 13:30 are the same height whether or not work resumes at 13:30.
+ *
+ * 🚨 On a rule, two blocks that touch in time — one ends at the instant the next starts,
+ * directly above it — both meet the rule, which is then the line between them: the upper
+ * runs to its end and the lower sits flush under the rule. That seam is never narrower than
+ * the gap, which is what still tells two touching blocks from one calendar apart when
+ * `hour_line_width` is `0`. The cost is that a block with a neighbor touching it on a rule
+ * is a pixel taller at that edge than one standing alone, which keeps clear of the line.
  *
  * 🚨 Per edge, not per block, and the clipped ends are why. A block running past the band
  * edge is cut off there rather than ending there, so a gap at that edge would draw the one
@@ -673,7 +677,7 @@ function verticalGeometry(
     '--calendar-card-grid-block-top': `${placement.topPct}%`,
     '--calendar-card-grid-block-height': `${placement.heightPct}%`,
     ...gapAbove(placement, edges),
-    ...(placement.clippedBottom || edges.touchedBelow
+    ...(placement.clippedBottom || edges.touchedBelow || !edges.ruledEnd
       ? { '--calendar-card-grid-block-gap-below': '0px' }
       : {}),
   };
