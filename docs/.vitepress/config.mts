@@ -104,9 +104,17 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Usage', link: '/guide/usage' },
+          { text: "What's New", link: '/guide/whats-new' },
+        ],
+      },
+      {
+        // Whole cards built step by step, one problem each. The pages stay under /guide/
+        // because their URLs are already published in the release notes and the README.
+        text: 'Walkthroughs',
+        collapsed: false,
+        items: [
           { text: 'A Family Calendar on the Wall', link: '/guide/family-calendar' },
           { text: 'One Calendar, Many Purposes', link: '/guide/one-calendar-many-purposes' },
-          { text: "What's New", link: '/guide/whats-new' },
         ],
       },
       {
