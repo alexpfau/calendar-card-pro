@@ -2575,9 +2575,21 @@ export const cardStyles = css`
        and the lower one must not: adding it there would push the block a pixel clear of a
        rule it is already a pixel clear of.
 
-       The renderer writes the two percentages and, for a clipped edge only, a 0px override
-       of the gap on that side; an edge the event genuinely owns says nothing and inherits
-       the default here. The composition lives in the stylesheet rather than in the
+       The renderer writes the two percentages and, per edge, an override where this default
+       is wrong for that block. An edge the default fits -- a lone block on a rule -- says
+       nothing and inherits it. The overrides:
+
+       - A clipped edge writes 0px: the block is cut off there rather than ending there.
+       - A start off every rule writes the gap alone. There is no line to clear there, and
+         the allowance only stood the block a pixel below its own start time.
+       - Two blocks that touch in time, one ending at the instant the next starts directly
+         beneath it, are separated by one line instead of by both clearances, which added up
+         to three pixels of empty grid that read as time passing. The upper block writes 0px
+         below. The lower one keeps the gap off a rule and, on one, writes the larger of the
+         rule width and the gap, so the rule itself is the seam and hour_line_width: 0 still
+         leaves two blocks of one color apart.
+
+       The composition lives in the stylesheet rather than in the
        renderer because the geometry module knows minutes and percentages and deliberately
        not pixels -- a percentage of a band whose height is still a custom property cannot
        express one pixel, so the two have to meet at the browser.

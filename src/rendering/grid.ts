@@ -636,13 +636,25 @@ function ruleProperties(
  * 🚨 The upper edge additionally clears `--calendar-card-grid-rule-width`, and the lower
  * one must not. An hour rule paints downward from its boundary, so the gap alone puts a
  * block's top edge on the rule's underside with nothing between them — see the composition
- * comment on `.grid-event`, which carries the measurement.
+ * comment on `.grid-event`, which carries the measurement. That allowance is only owed where
+ * a rule is painted: a block starting off the hour clears the gap and nothing more, or it
+ * stands a pixel lower than its own start time for a line that is not there.
+ *
+ * 🚨 Two blocks that touch in time — one ends at the instant the next starts, directly
+ * above it — are separated by exactly one line rather than by both clearances. Kept apart
+ * by their clearances, a 12:30 handover drew three pixels of empty grid between the two,
+ * which reads as time passing between them. So the upper block runs to its end and the
+ * lower one keeps the gap where no rule is drawn, or sits flush under the rule where one
+ * is, so the rule itself is the seam. That seam is never narrower than the gap, which is
+ * what still tells two touching blocks from one calendar apart when `hour_line_width` is
+ * `0` and there is no rule to stand between them.
  *
  * 🚨 Per edge, not per block, and the clipped ends are why. A block running past the band
  * edge is cut off there rather than ending there, so a gap at that edge would draw the one
  * thing the clipping marks exist to deny — it would say the event stops at the top of the
  * window. Only an edge the event genuinely owns gets the clearance, so an owned edge says
  * nothing and inherits the stylesheet's default while a clipped one writes `0px` over it.
+ * The default is the lone block on a rule; every other case is written here.
  *
  * A block shorter than the two gaps computes a negative height, which CSS resolves to
  * zero, and `min-height` on `.grid-event` then floors it exactly as it already floors a
@@ -650,15 +662,47 @@ function ruleProperties(
  * band's end; nothing here needs a pixel scale.
  *
  * @param placement - Where the block sits in the band
+ * @param edges - What lies against its two edges
  * @returns Custom properties for the block's inline style
  */
-function verticalGeometry(placement: Grid.EventPlacement): Record<string, string> {
+function verticalGeometry(
+  placement: Grid.EventPlacement,
+  edges: Grid.BlockEdges,
+): Record<string, string> {
   return {
     '--calendar-card-grid-block-top': `${placement.topPct}%`,
     '--calendar-card-grid-block-height': `${placement.heightPct}%`,
-    ...(placement.clippedTop ? { '--calendar-card-grid-block-gap-above': '0px' } : {}),
-    ...(placement.clippedBottom ? { '--calendar-card-grid-block-gap-below': '0px' } : {}),
+    ...gapAbove(placement, edges),
+    ...(placement.clippedBottom || edges.touchedBelow
+      ? { '--calendar-card-grid-block-gap-below': '0px' }
+      : {}),
   };
+}
+
+/**
+ * The upper edge's clearance, or nothing where the stylesheet's default already is it.
+ *
+ * @param placement - Where the block sits in the band
+ * @param edges - What lies against its two edges
+ * @returns At most one custom property
+ */
+function gapAbove(placement: Grid.EventPlacement, edges: Grid.BlockEdges): Record<string, string> {
+  const property = '--calendar-card-grid-block-gap-above';
+
+  if (placement.clippedTop) {
+    return { [property]: '0px' };
+  }
+
+  if (!edges.ruledStart) {
+    return { [property]: 'var(--calendar-card-grid-event-gap)' };
+  }
+
+  return edges.touchedAbove
+    ? {
+        [property]:
+          'max(var(--calendar-card-grid-rule-width), var(--calendar-card-grid-event-gap))',
+      }
+    : {};
 }
 
 /**
@@ -742,6 +786,7 @@ function cascadeHorizontal(
  *
  * @param event - Event to render
  * @param placement - Where it sits in the band
+ * @param edges - What lies against its upper and lower edges
  * @param horizontal - Where it sits across the column
  * @param config - Card configuration
  * @param language - Language code for translations
@@ -752,6 +797,7 @@ function cascadeHorizontal(
 function renderTimedEvent(
   event: Types.CalendarEventData & Grid.LaneInput,
   placement: Grid.EventPlacement,
+  edges: Grid.BlockEdges,
   horizontal: BlockHorizontal,
   config: Types.Config,
   language: string,
@@ -777,7 +823,7 @@ function renderTimedEvent(
         })}
         aria-hidden="true"
         style=${styleMap({
-          ...verticalGeometry(placement),
+          ...verticalGeometry(placement, edges),
           ...horizontal.style,
           '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
         })}
@@ -803,7 +849,7 @@ function renderTimedEvent(
         'grid-event-content-limited': horizontal.contentLimited,
       })}
       style=${styleMap({
-        ...verticalGeometry(placement),
+        ...verticalGeometry(placement, edges),
         ...horizontal.style,
         borderInlineStartColor: presentation.entityAccentColor,
         backgroundColor: tint,
@@ -903,11 +949,14 @@ function gridTimedEventContentParts(
  *
  * @param overflow - The overflow block to draw
  * @param placement - Where it sits in the band
+ * @param edges - What lies against its upper and lower edges
+ * @param horizontal - Where it sits across the column
  * @returns Rendered overflow block
  */
 function renderOverflow(
   overflow: { startMin: number; endMin: number; hidden: Types.CalendarEventData[] },
   placement: Grid.EventPlacement,
+  edges: Grid.BlockEdges,
   horizontal: BlockHorizontal,
 ): TemplateResult {
   // A bare numeral, deliberately. No card translation carries a "+N more" phrase, and
@@ -920,7 +969,7 @@ function renderOverflow(
       class="event grid-event grid-event-overflow"
       title=${overflow.hidden.map((event) => event.summary ?? '').join('\n')}
       style=${styleMap({
-        ...verticalGeometry(placement),
+        ...verticalGeometry(placement, edges),
         ...horizontal.style,
       })}
     >
@@ -1498,10 +1547,12 @@ function renderDayBody(
   const blocks: Array<{
     event: Types.CalendarEventData & Grid.LaneInput;
     horizontal: BlockHorizontal;
+    span: Grid.BlockSpan;
   }> = [];
   const overflowBlocks: Array<{
     overflow: { startMin: number; endMin: number; hidden: Types.CalendarEventData[] };
     horizontal: BlockHorizontal;
+    span: Grid.BlockSpan;
   }> = [];
 
   if (cascade) {
@@ -1514,23 +1565,39 @@ function renderDayBody(
     });
 
     for (const event of layout.placed) {
-      blocks.push({ event, horizontal: cascadeHorizontal(event, band) });
+      blocks.push({ event, horizontal: cascadeHorizontal(event, band), span: event });
     }
 
     for (const overflow of layout.overflows) {
-      overflowBlocks.push({ overflow, horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct) });
+      overflowBlocks.push({
+        overflow,
+        horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
+        span: overflow,
+      });
     }
   } else {
     const { placed, overflows } = Grid.layoutLanes(visible, maxLanes, overflowStripPct);
 
     for (const event of placed) {
-      blocks.push({ event, horizontal: spanHorizontal(event.x0Pct, event.x1Pct) });
+      blocks.push({ event, horizontal: spanHorizontal(event.x0Pct, event.x1Pct), span: event });
     }
 
     for (const overflow of overflows) {
-      overflowBlocks.push({ overflow, horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct) });
+      overflowBlocks.push({
+        overflow,
+        horizontal: spanHorizontal(overflow.x0Pct, overflow.x1Pct),
+        span: overflow,
+      });
     }
   }
+
+  // Over every block the column draws, `+N` strips included, because a strip touching a
+  // block in time sits against it exactly as another event would.
+  const edges = Grid.resolveBlockEdges(
+    [...blocks, ...overflowBlocks].map(({ span }) => span),
+    band,
+    ViewConfig.resolveTimeGridOption(config, 'slot_minutes'),
+  );
 
   // Only today's column carries the line, and only when the current time is inside the
   // band. A line drawn across every column would say nothing; one clamped to an edge
@@ -1550,13 +1617,14 @@ function renderDayBody(
         ${repeat(
           blocks,
           ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
-          ({ event, horizontal }) => {
+          ({ event, horizontal }, index) => {
             const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
 
             return placement
               ? renderTimedEvent(
                   event,
                   placement,
+                  edges[index],
                   horizontal,
                   config,
                   language,
@@ -1566,10 +1634,12 @@ function renderDayBody(
               : nothing;
           },
         )}
-        ${overflowBlocks.map(({ overflow, horizontal }) => {
+        ${overflowBlocks.map(({ overflow, horizontal }, index) => {
           const placement = Grid.computeEventPlacement(overflow.startMin, overflow.endMin, band);
 
-          return placement ? renderOverflow(overflow, placement, horizontal) : nothing;
+          return placement
+            ? renderOverflow(overflow, placement, edges[blocks.length + index], horizontal)
+            : nothing;
         })}
       </div>
       ${

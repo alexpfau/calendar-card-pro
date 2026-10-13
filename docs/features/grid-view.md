@@ -60,7 +60,16 @@ minimum height covers more of the axis than separates them.
 
 A block sits just under the rule it starts on rather than exactly on it, and stops just
 short of the rule it ends at — the same pixel of clear space it already keeps from its
-column edges, so a block clears its neighbors by one value on all four sides.
+column edges, so a block clears its neighbors by one value on all four sides. A block
+starting where no rule is drawn, such as 12:30 on hourly rules, keeps that pixel and
+nothing more.
+
+Two events that touch in time, where one ends at 12:30 and the one directly below it starts
+at 12:30, are separated by a single line rather than by both blocks' clear space, so the
+handover does not read as time passing between them. Where no rule is drawn, that line is
+the pixel of clear space. On a rule, the rule itself is the line and both blocks meet it.
+The line is never thinner than that pixel, so with `hour_line_width: 0` two touching events
+from one calendar still read as two.
 
 An event partly outside the band is drawn clipped, with a subtle dashed mark on the side it
 runs past. The mark sits on the block's own edge, so where a rule is drawn there it lands on

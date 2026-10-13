@@ -216,8 +216,24 @@ export function axisLabelMinutes(band: GridBand, cadenceMinutes: number): number
  * @returns `true` when the band's end falls on a ruled boundary
  */
 export function bandEndHasRule(band: GridBand, slotMinutes: number): boolean {
-  const onHour = band.endMin % 60 === 0;
-  const onSlot = slotMinutes < 60 && slotMinutes > 0 && band.endMin % slotMinutes === 0;
+  return isRuledMinute(band.endMin, slotMinutes);
+}
+
+/**
+ * Whether the body's ruling paints a line at a clock minute.
+ *
+ * The question {@link bandEndHasRule} asks of the band's end, asked of any minute: the hour
+ * gradient always paints, the slot gradient only below the hour, and both tile from
+ * midnight. A minute carrying seconds is off every rule, which is the honest answer — its
+ * block does not start on the line.
+ *
+ * @param minute - Minutes from midnight
+ * @param slotMinutes - Configured rule spacing
+ * @returns `true` when a rule is painted at that minute
+ */
+export function isRuledMinute(minute: number, slotMinutes: number): boolean {
+  const onHour = minute % 60 === 0;
+  const onSlot = slotMinutes < 60 && slotMinutes > 0 && minute % slotMinutes === 0;
 
   return onHour || onSlot;
 }
@@ -357,6 +373,77 @@ export function computeEventPlacement(
     clippedTop: startMin < band.startMin,
     clippedBottom: endMin > band.endMin,
   };
+}
+
+/**
+ * What a drawn block needs to know to place its upper and lower edges, in minutes only.
+ */
+export interface BlockSpan extends LaneInput {
+  /** Inline start of the block, as a percentage of the day column. */
+  x0Pct: number;
+
+  /** Inline end of the block, as a percentage of the day column. */
+  x1Pct: number;
+}
+
+/**
+ * What lies against each edge of a block, which decides how much clear space that edge keeps.
+ */
+export interface BlockEdges {
+  /**
+   * A rule is painted where the block starts: on the hour, on a slot below the hour, or at
+   * the top of the band, where the band's own frame rule sits.
+   */
+  ruledStart: boolean;
+
+  /** A block drawn directly above this one ends at the instant this one starts. */
+  touchedAbove: boolean;
+
+  /** A block drawn directly below this one starts at the instant this one ends. */
+  touchedBelow: boolean;
+}
+
+/**
+ * Decide, for every block drawn in one day column, what lies against its two edges.
+ *
+ * A block keeps one pixel clear on every side, and above that it also clears the rule it
+ * starts on. Kept between two blocks that touch in time — one ends at 12:30, the next
+ * starts at 12:30 — those clearances added up to a three-pixel gap the reader takes for
+ * time passing, and the rule allowance in it stood guard over a rule that, off the hour,
+ * is not drawn at all.
+ *
+ * So two touching blocks are told so, and the stylesheet's defaults give way to a single
+ * line between them: one gap where no rule is drawn, and the rule itself where one is.
+ * "Touching" is the same instant in time AND an overlap across the column, because a block
+ * in the next lane that happens to start at that minute is beside the earlier one, not
+ * under it. Exact equality is right for the minutes: both ends are read from the same kind
+ * of wall-clock instant, so 12:30 is 750 on both sides or the two do not touch.
+ *
+ * A block with no duration has no lower edge of its own — `min-height` draws it as a
+ * marker — so it touches nothing below. It can still be touched from above.
+ *
+ * @param blocks - Every block drawn in the column, overflow blocks included
+ * @param band - The visible band
+ * @param slotMinutes - Configured rule spacing
+ * @returns One entry per block, in the same order
+ */
+export function resolveBlockEdges(
+  blocks: readonly BlockSpan[],
+  band: GridBand,
+  slotMinutes: number,
+): BlockEdges[] {
+  const touches = (upper: BlockSpan, lower: BlockSpan) =>
+    upper !== lower &&
+    upper.endMin > upper.startMin &&
+    upper.endMin === lower.startMin &&
+    upper.x0Pct < lower.x1Pct &&
+    lower.x0Pct < upper.x1Pct;
+
+  return blocks.map((block) => ({
+    ruledStart: block.startMin <= band.startMin || isRuledMinute(block.startMin, slotMinutes),
+    touchedAbove: blocks.some((other) => touches(other, block)),
+    touchedBelow: blocks.some((other) => touches(block, other)),
+  }));
 }
 
 /**
