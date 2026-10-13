@@ -4,6 +4,10 @@ Anna, Ben and their baby son Leo, the same invented family as in [The Weekly Gri
 
 This walkthrough builds that filtered agenda. The same blocks work in the weekly grid too; the last section shows what carries over and what does not.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_agenda.png" alt="A three-day list agenda for one family, Thursday to Saturday: all-day events as filled pills in their own colors, each person's events with their face in front of the title, plans shared by several people drawn once with every face, and work hours that say Busy" width="600"><br>
+
+Thursday morning in the same week as [The Weekly Grid](/guide/family-calendar). Each kind of all-day event is a pill in its own color: Leo's daycare closure, the trash collection that retires at 11:00, the grandparents' visit, and Grandma's birthday with her age. Ben's working hours say _Busy_, except the offsite he marked for the family. A plan on several calendars is drawn once, with every face in front of it. The screenshot uses the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
+
 ::: tip Choose Your Walkthrough
 
 - **A whole week by the hour** is [The Weekly Grid](/guide/family-calendar).
@@ -37,19 +41,22 @@ Two calendars are listed more than once, and for the same reason: a calendar is 
 
 ## 🧾 The Whole Card
 
-The complete card, with the six card-level lines that [One Voice for the Whole Card](#one-voice-for-the-whole-card) explains above the blocks:
+The complete card. The lines above `entities:` speak for the whole card, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) explains, and the blocks below them are per calendar:
 
 ```yaml
 type: custom:calendar-card-pro
 title: Family
 view: list
 days_to_show: 3
+filter_duplicates: true # a plan on several calendars is drawn once, with every face
 allday_badge: title
 allday_badge_style: filled
 show_single_allday_time: false
 show_location_allday: false
 today_indicator: Today
 today_indicator_size: 13px
+list:
+  today_indicator_position: '50% 8%'
 
 entities:
   # 🎂 Birthdays — the name and the age, nothing else
@@ -112,15 +119,15 @@ entities:
 
 ### A Birthday Should Read Like a Name
 
-Calendars write birthdays badly. Google exports them as _Birthday of Lena_, and the card shows that under an _All day_ label, in a row that also has room for a location it does not have.
+Calendars write birthdays badly. Google exports them as _Birthday of Grandma_, and the card shows that under an _All day_ label, in a row that also has room for a location it does not have.
 
 Three options fix it, and they cooperate:
 
 - [`allowlist`](/features/core-settings#filtering-by-event-name) claims the birthdays for this block.
 - [`replace_pattern`](/features/core-settings#dropping-a-prefix-from-every-title) deletes the prefix. With no `replace_with` beside it, the match is removed rather than substituted.
-- The age arrives on its own. Put `YEAR=1994` in the event's description and the card works out the rest — see [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts).
+- The age arrives on its own. Put `YEAR=1956` in the event's description and the card works out the rest — see [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts).
 
-What was _Birthday of Lena — All day_ becomes **🎂 Lena (32)**. Next year it says 33, and nobody edits anything.
+What was _Birthday of Grandma — All day_ becomes **🎂 Grandma (70)**. Next year it says 71, and nobody edits anything.
 
 The empty time and location rows are gone too, but not from anything in this block — the card handles them once, for every all-day event on the screen. That is [One Voice for the Whole Card](#one-voice-for-the-whole-card), further down.
 
@@ -177,7 +184,7 @@ The pattern underneath is worth more than the example, and it has two layers.
 
 Two rules keep the first layer predictable:
 
-**Make the blocks complementary.** Within one calendar, each event should match exactly one block. Blocks that overlap render their events more than once, which at least makes the overlap easy to spot. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) they render once instead, styled by whichever block is listed first, so the overlap stops showing and the later block's label and color quietly never apply.
+**Make the blocks complementary.** Within one calendar, each event should match exactly one block. Without `filter_duplicates`, blocks that overlap render their events more than once, which at least makes the overlap easy to spot. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), as this card sets, they render once instead, styled by whichever block is listed first, so the overlap stops showing and the later block's label and color quietly never apply.
 
 **Finish with a catch-all.** A block with only a `blocklist` is the safety net, and it goes last for the same reason it exists: it is what is left over. Without it, an event nobody wrote a rule for simply never appears, and it is very hard to notice something missing.
 
@@ -189,7 +196,7 @@ Those are one rule read from either end, which gives you something to check agai
 
 Everything above is set **per calendar**. Eight blocks, eight answers, each one filtering and styling itself.
 
-The six card-level lines at the top of [the card](#the-whole-card) are the opposite: they apply to every block at once, and that is not a limitation to work around. A badge that meant something different on each calendar would stop being a legend. The whole value of the shape is that it means the same thing everywhere on the screen. Nothing inside the blocks refers to them.
+The badge and all-day lines at the top of [the card](#the-whole-card) are the opposite: they apply to every block at once, and that is not a limitation to work around. A badge that meant something different on each calendar would stop being a legend. The whole value of the shape is that it means the same thing everywhere on the screen. Nothing inside the blocks refers to them.
 
 [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps the title of every all-day event in a rounded pill, and `allday_badge_style: filled` makes that pill a solid capsule rather than an outline or a wash. The color it is filled with comes from [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), which defaults to `accent` — so each pill takes its own calendar's `accent_color`. Nothing in the blocks changes. The colors were already there.
 
@@ -218,13 +225,13 @@ Reach for the card-level option to tidy, and the per-calendar one to protect. Do
 The shape is the free choice here. The **color** is not: `allday_badge_color` has to stay `accent` for any of this to work, because the legend is the color. Setting it to `text` or to a single custom color draws every pill alike, which is a tidy look on a card showing one calendar and the one thing that undoes this entire page.
 :::
 
-Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`, which is right for an emoji and far too small for a word. And `show_multiday_allday_time` is deliberately left **on**: a week-long holiday's row reads _All day, until Friday, Jun 26_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when the holiday ends.
+Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`, which is right for an emoji and far too small for a word. Move it too: its default spot, `'15% 50%'`, sits just left of the date, where a dot fits and a word runs into the day number and off the card. `today_indicator_position: '50% 8%'` under `list:` puts it above the weekday instead. The position is a share of the day's height, so on a day with only one event it can still touch the date. And `show_multiday_allday_time` is deliberately left **on**: a week-long holiday's row reads _All day, until Friday, Jun 26_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when the holiday ends.
 
 ## 🔀 Combining the Techniques
 
 ### Shared Plans in the Filtered Agenda
 
-Anna and Ben will sometimes have the same event on both calendars: a dinner they are going to together, say. As it stands, the card draws it twice, once under each face. Add [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) beside `days_to_show` and it is drawn once, with both faces in front of the title, in the color of whichever calendar is listed first, which here is Anna's. The two copies have to match exactly, in title, start, end and location.
+The family shares plans across their own calendars: the zoo trip on Thursday is on Ben's and Leo's, and the birthday lunch on Saturday on all three. Without help the card would draw each once per calendar. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once, with every face in front of the title, in the color of whichever calendar is listed first: Ben's blue for the zoo, Anna's purple for the lunch. The copies have to match exactly, in title, start, end and location.
 
 The weekly grid goes one step further and gives every shared plan a color of its own with [`duplicate_accent_color`](/guide/family-calendar#gold-means-the-whole-family). This card leaves that out: its colors already form a legend, and the faces already say the plan is shared.
 

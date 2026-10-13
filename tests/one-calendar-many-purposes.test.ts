@@ -4,7 +4,7 @@
  * `docs/guide/one-calendar-many-purposes.md` is the page the README and both "What's New"
  * surfaces point at to explain what v4.1 is for. It is also the only place in the docs that
  * combines eight per-calendar blocks with the card-level all-day options, and it makes
- * specific, checkable promises about what the card draws: that a birthday reads `Lena (32)`,
+ * specific, checkable promises about what the card draws: that a birthday reads `Grandma (70)`,
  * that bin day retires at 11:00, that a work event without the marker reads `Busy`, and that
  * nothing is drawn twice.
  *
@@ -25,9 +25,10 @@
  * teaches — so a shape change the reader cannot handle fails as a parse error rather than as
  * an empty card that happens to satisfy nothing.
  *
- * The parser understands only the subset the page uses: a flat mapping, plus an `entities:`
- * block sequence of flat mappings. It is deliberately not a YAML implementation, and it
- * rejects rather than guesses.
+ * The parser understands only the subset the page uses: a flat mapping with one level of
+ * nesting for a block such as `list:`, plus an `entities:` block sequence of flat mappings. It
+ * is deliberately not a YAML implementation, and it rejects rather than guesses: a line before
+ * `entities:` that fits none of those shapes is an error, not something to skip.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -92,6 +93,7 @@ function readGuideConfig(): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const entities: Array<Record<string, unknown>> = [];
   let inEntities = false;
+  let nested: Record<string, unknown> | null = null;
 
   for (const line of (card as string).split('\n')) {
     if (!line.trim() || /^\s*#/.test(line)) continue;
@@ -100,9 +102,24 @@ function readGuideConfig(): Record<string, unknown> {
       continue;
     }
     if (!inEntities) {
+      const open = line.match(/^([a-z_]+):\s*$/);
+      if (open) {
+        nested = {};
+        out[open[1]] = nested;
+        continue;
+      }
+      const inner = line.match(/^\s+([a-z_]+):\s*(.+)$/);
+      if (inner && nested) {
+        nested[inner[1]] = scalar(inner[2]);
+        continue;
+      }
       const top = line.match(/^([a-z_]+):\s*(.+)$/);
-      if (top) out[top[1]] = scalar(top[2]);
-      continue;
+      if (top) {
+        out[top[1]] = scalar(top[2]);
+        nested = null;
+        continue;
+      }
+      throw new Error(`the guide's yaml uses a shape this reader does not handle: ${line}`);
     }
     const item = line.match(/^\s*-\s+([a-z_]+):\s*(.+)$/);
     if (item) {
@@ -136,8 +153,8 @@ const GUIDE_ENTITIES = GUIDE_CONFIG.entities as Array<Record<string, unknown>>;
 const PAYLOAD: Record<string, unknown[]> = {
   'calendar.family': [
     {
-      summary: 'Birthday of Lena',
-      description: 'YEAR=1994',
+      summary: 'Birthday of Grandma',
+      description: 'YEAR=1956',
       start: { date: '2026-06-17' },
       end: { date: '2026-06-18' },
     },
@@ -268,6 +285,8 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     expect(GUIDE_ENTITIES[7]).toMatchObject({ filter_field: 'description', replace_with: 'Busy' });
     expect(GUIDE_CONFIG).toMatchObject({
       view: 'list',
+      filter_duplicates: true,
+      list: { today_indicator_position: '50% 8%' },
       allday_badge: 'title',
       allday_badge_style: 'filled',
       show_single_allday_time: false,
@@ -303,7 +322,7 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     const rows = await drawn();
     expect(rows.map((r) => `${r.title} <- ${r.entity}`).sort()).toEqual(
       [
-        'Lena (32) <- calendar.family',
+        'Grandma (70) <- calendar.family',
         'Recycling collection <- calendar.family',
         'Swimming lesson <- calendar.family',
         'Five-a-side <- calendar.ben',
@@ -321,16 +340,16 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     expect(rows).toHaveLength(supplied);
   });
 
-  it('turns "Birthday of Lena" into the name and the age, as the page promises', async () => {
-    // "What was Birthday of Lena — All day becomes 🎂 Lena (32)."
+  it('turns "Birthday of Grandma" into the name and the age, as the page promises', async () => {
+    // "What was Birthday of Grandma — All day becomes 🎂 Grandma (70)."
     const rows = await drawn();
-    const birthday = rows.filter((r) => r.title.startsWith('Lena'));
+    const birthday = rows.filter((r) => r.title.startsWith('Grandma'));
     expect(birthday).toHaveLength(1);
-    expect(birthday[0].title).toBe('Lena (32)');
+    expect(birthday[0].title).toBe('Grandma (70)');
     expect(birthday[0].label).toBe('🎂');
 
     // Both halves are load-bearing and fail differently: without `replace_pattern` the row
-    // still reads "Birthday of Lena", and without the YEAR marker it loses the "(32)".
+    // still reads "Birthday of Grandma", and without the YEAR marker it loses the "(70)".
     expect(rows.some((r) => r.title.includes('Birthday of'))).toBe(false);
   });
 
@@ -363,7 +382,34 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     // The birthday is the second control: it is all-day on the same calendar and the same
     // day, and it has no `allday_expires_at`, so it must survive the clock moving. Without
     // it, an arm that hid every all-day event would pass.
-    expect(afterCollection.some((r) => r.title === 'Lena (32)')).toBe(true);
+    expect(afterCollection.some((r) => r.title === 'Grandma (70)')).toBe(true);
+  });
+
+  it("draws a plan on two people's calendars once, as filter_duplicates promises", async () => {
+    // "The zoo trip on Thursday is on Ben's and Leo's [...] filter_duplicates: true draws it
+    // once [...] in the color of whichever calendar is listed first." The same event goes on
+    // both calendars; the control proves the merge is filter_duplicates and not the fixture.
+    const zoo = {
+      summary: 'Zoo',
+      location: 'City Zoo',
+      start: { dateTime: '2026-06-17T16:30:00Z' },
+      end: { dateTime: '2026-06-17T18:00:00Z' },
+    };
+    PAYLOAD['calendar.ben'].push(zoo);
+    PAYLOAD['calendar.leo'].push({ ...zoo });
+    try {
+      const merged = (await drawn()).filter((r) => r.title === 'Zoo');
+      expect(merged).toHaveLength(1);
+      expect(merged[0].entity).toBe('calendar.ben');
+
+      const unmerged = (await drawn({ filter_duplicates: false } as Partial<Types.Config>)).filter(
+        (r) => r.title === 'Zoo',
+      );
+      expect(unmerged).toHaveLength(2);
+    } finally {
+      PAYLOAD['calendar.ben'].pop();
+      PAYLOAD['calendar.leo'].pop();
+    }
   });
 
   it('keeps the work calendar off the weekend', async () => {
