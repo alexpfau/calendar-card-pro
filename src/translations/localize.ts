@@ -22,6 +22,7 @@ import hrTranslations from './languages/hr.json';
 import huTranslations from './languages/hu.json';
 import isTranslations from './languages/is.json';
 import itTranslations from './languages/it.json';
+import koTranslations from './languages/ko.json';
 import ltTranslations from './languages/lt.json';
 import lvTranslations from './languages/lv.json';
 import nbTranslations from './languages/nb.json';
@@ -63,6 +64,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   is: isTranslations,
   it: itTranslations,
   lt: ltTranslations,
+  ko: koTranslations,
   lv: lvTranslations,
   nb: nbTranslations,
   nl: nlTranslations,
