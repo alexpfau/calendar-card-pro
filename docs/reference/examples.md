@@ -240,7 +240,7 @@ to a title, a time and a location, which is as much as a seven-day lane can hold
 Three people's calendars, a work calendar, a Family calendar and the trash pickup on one grid
 card, sized for a 1280 × 800 tablet in kiosk mode. Faces say whose plan it is, and anything on
 more than one person's calendar turns gold. The configuration and the reasoning behind each line
-are on their own page, [A Family Calendar on the Wall](/guide/family-calendar). Screenshot using
+are on their own page, [A Family Calendar: The Weekly Grid](/guide/family-calendar). Screenshot using
 the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
 (ios-dark-mode-blue-red-alternative).
 

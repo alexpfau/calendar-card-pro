@@ -1,9 +1,9 @@
 /**
- * The flagship guide's worked example, run through the real pipeline.
+ * The Filtered Agenda walkthrough's worked example, run through the real pipeline.
  *
  * `docs/guide/one-calendar-many-purposes.md` is the page the README and both "What's New"
  * surfaces point at to explain what v4.1 is for. It is also the only place in the docs that
- * combines seven per-calendar blocks with the card-level all-day options, and it makes
+ * combines eight per-calendar blocks with the card-level all-day options, and it makes
  * specific, checkable promises about what the card draws: that a birthday reads `Lena (32)`,
  * that bin day retires at 11:00, that a work event without the marker reads `Busy`, and that
  * nothing is drawn twice.
@@ -21,7 +21,7 @@
  *
  * That makes the reader below a probe, and a probe that silently parses nothing would turn
  * every assertion into a vacuous pass. `readGuideConfig` therefore asserts its own
- * denominator first — seven blocks over four calendars, carrying the specific keys the page
+ * denominator first — eight blocks over five calendars, carrying the specific keys the page
  * teaches — so a shape change the reader cannot handle fails as a parse error rather than as
  * an empty card that happens to satisfy nothing.
  *
@@ -77,9 +77,12 @@ function yamlBlocks(): string[] {
 }
 
 /**
- * The page's card, assembled the way the page tells the reader to assemble it: the full
- * example, plus the six card-level lines the second block says go "beside `days_to_show`,
- * above the `entities:` list".
+ * The page's card: the one complete example, card-level lines and blocks together.
+ *
+ * Until the walkthroughs were restructured for v5, the six card-level lines sat in a second
+ * block the reader was told to merge in, and this reader merged it. They now live in the card
+ * itself, so a separate card-level block is no longer looked for — and the card-level keys are
+ * pinned by value below, so losing them from the card fails instead of passing quietly.
  */
 function readGuideConfig(): Record<string, unknown> {
   const blocks = yamlBlocks();
@@ -115,14 +118,6 @@ function readGuideConfig(): Record<string, unknown> {
     throw new Error(`the guide's yaml uses a shape this reader does not handle: ${line}`);
   }
   out.entities = entities;
-
-  // The card-level block: the page presents it separately and tells the reader to merge it.
-  const cardLevel = blocks.find((b) => /^allday_badge:/m.test(b) && !/^type:/m.test(b));
-  expect(cardLevel, 'the guide no longer shows the card-level block').toBeDefined();
-  for (const line of (cardLevel as string).split('\n')) {
-    const top = line.match(/^([a-z_]+):\s*(.+)$/);
-    if (top) out[top[1]] = scalar(top[2]);
-  }
   return out;
 }
 
@@ -160,6 +155,13 @@ const PAYLOAD: Record<string, unknown[]> = {
       end: { dateTime: '2026-06-17T20:00:00Z' },
     },
   ],
+  'calendar.leo': [
+    {
+      summary: 'Music class',
+      start: { dateTime: '2026-06-17T14:00:00Z' },
+      end: { dateTime: '2026-06-17T14:45:00Z' },
+    },
+  ],
   'calendar.anna': [
     {
       summary: 'Book club',
@@ -169,7 +171,7 @@ const PAYLOAD: Record<string, unknown[]> = {
   ],
   'calendar.work': [
     {
-      summary: 'School run — leaving early',
+      summary: 'Daycare pickup — leaving early',
       description: 'fine to share #family',
       start: { dateTime: '2026-06-17T15:00:00Z' },
       end: { dateTime: '2026-06-17T15:30:00Z' },
@@ -223,7 +225,7 @@ async function drawn(
     }));
 }
 
-describe('the One Calendar, Many Purposes example behaves as the page describes', () => {
+describe('the Filtered Agenda example behaves as the page describes', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', memoryStorage());
     vi.useFakeTimers();
@@ -236,19 +238,20 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
   });
 
   it('reads a config off the page matching the shape the prose claims', () => {
-    // The page says "Four calendars go into it, as seven blocks. The shared family calendar
-    // is listed three times, and the work calendar twice." Pinned by value rather than by
-    // walking what was parsed, so losing a block fails here instead of quietly shrinking
-    // every assertion below it.
-    expect(GUIDE_ENTITIES).toHaveLength(7);
+    // The page says "Five calendars go into it, as eight blocks": the family calendar three
+    // times, the work calendar twice, and each person's calendar once. Pinned by value rather
+    // than by walking what was parsed, so losing a block fails here instead of quietly
+    // shrinking every assertion below it.
+    expect(GUIDE_ENTITIES).toHaveLength(8);
     const byCalendar = GUIDE_ENTITIES.reduce<Record<string, number>>((acc, block) => {
       acc[String(block.entity)] = (acc[String(block.entity)] ?? 0) + 1;
       return acc;
     }, {});
     expect(byCalendar).toEqual({
       'calendar.family': 3,
-      'calendar.ben': 1,
       'calendar.anna': 1,
+      'calendar.ben': 1,
+      'calendar.leo': 1,
       'calendar.work': 2,
     });
 
@@ -260,10 +263,18 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
     });
     expect(GUIDE_ENTITIES[1]).toMatchObject({ event_type: 'all_day', allday_expires_at: '11:00' });
     expect(GUIDE_ENTITIES[2]).toMatchObject({ blocklist: 'Birthday of|collection' });
-    expect(GUIDE_ENTITIES[3]).toMatchObject({ label: 'person.ben' });
-    expect(GUIDE_ENTITIES[5]).toMatchObject({ filter_field: 'description', allowlist: '#family' });
-    expect(GUIDE_ENTITIES[6]).toMatchObject({ filter_field: 'description', replace_with: 'Busy' });
-    expect(GUIDE_CONFIG).toMatchObject({ allday_badge: 'title', allday_badge_style: 'filled' });
+    expect(GUIDE_ENTITIES[3]).toMatchObject({ label: '/local/demo/anna.png' });
+    expect(GUIDE_ENTITIES[6]).toMatchObject({ filter_field: 'description', allowlist: '#family' });
+    expect(GUIDE_ENTITIES[7]).toMatchObject({ filter_field: 'description', replace_with: 'Busy' });
+    expect(GUIDE_CONFIG).toMatchObject({
+      view: 'list',
+      allday_badge: 'title',
+      allday_badge_style: 'filled',
+      show_single_allday_time: false,
+      show_location_allday: false,
+      today_indicator: 'Today',
+      today_indicator_size: '13px',
+    });
 
     // 🚨 The page's legend is the COLOR, not the shape: a pink capsule is a birthday only
     // because each pill takes its own calendar's accent. `allday_badge_color` decides that,
@@ -297,13 +308,14 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
         'Swimming lesson <- calendar.family',
         'Five-a-side <- calendar.ben',
         'Book club <- calendar.anna',
-        'School run — leaving early <- calendar.work',
+        'Music class <- calendar.leo',
+        'Daycare pickup — leaving early <- calendar.work',
         'Busy <- calendar.work',
         'Busy <- calendar.work',
       ].sort(),
     );
 
-    // Every event supplied is accounted for: 8 payload events, 8 rows. A partition that
+    // Every event supplied is accounted for: 9 payload events, 9 rows. A partition that
     // started dropping one would still satisfy a "no duplicates" check on its own.
     const supplied = Object.values(PAYLOAD).flat().length;
     expect(rows).toHaveLength(supplied);
@@ -326,7 +338,7 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
     const rows = (await drawn()).filter((r) => r.entity === 'calendar.work');
 
     // The allowlist half keeps the real title; the blocklist half overrides every title.
-    expect(rows.filter((r) => r.title === 'School run — leaving early')).toHaveLength(1);
+    expect(rows.filter((r) => r.title === 'Daycare pickup — leaving early')).toHaveLength(1);
     expect(rows.some((r) => r.title.includes('performance review'))).toBe(false);
     expect(rows.some((r) => r.title.includes('Quarterly planning'))).toBe(false);
 

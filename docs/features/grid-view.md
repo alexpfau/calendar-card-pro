@@ -28,7 +28,7 @@ Three days on a dashboard column, from one calendar. Every event keeps a single 
 color, and the lanes stay wide enough for each block to show its title and its time.
 
 For the other end of the scale, a whole week on a wall tablet,
-[A Family Calendar on the Wall](/guide/family-calendar) builds one card step by step.
+[A Family Calendar: The Weekly Grid](/guide/family-calendar) builds one card step by step.
 
 ## 🕒 Choosing the Hours the Card Shows
 

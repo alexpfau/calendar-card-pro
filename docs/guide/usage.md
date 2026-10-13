@@ -83,7 +83,7 @@ Calendar Card Pro offers two ways to customize your card:
 ## 🚀 Next Steps
 
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
-- **Follow a Worked Example** - two of them, for opposite problems. [A Family Calendar on the Wall](/guide/family-calendar) combines a family's calendars into one week on an hour axis for a wall tablet, with faces and every shared plan drawn once. [One Calendar, Many Purposes](/guide/one-calendar-many-purposes) lists calendars more than once so each copy answers a different question, four calendars as seven blocks on a hallway list card
+- **Follow a Walkthrough** - one invented family, two displays, each built from start to finish. [The Weekly Grid](/guide/family-calendar) combines their calendars into one week on an hour axis for a wall tablet, with faces and every shared plan drawn once. [The Filtered Agenda](/guide/one-calendar-many-purposes) puts them on a short hallway list, splitting the calendars that mix several kinds of event into blocks with their own rules
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
 - **See Examples** - Browse [Examples](/reference/examples) for complete, ready-made setups
 - **Reference Configuration** - Use [Configuration Options](/reference/configuration) as the complete option reference

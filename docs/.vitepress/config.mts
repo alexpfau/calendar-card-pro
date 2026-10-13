@@ -113,8 +113,8 @@ export default defineConfig({
         text: 'Walkthroughs',
         collapsed: false,
         items: [
-          { text: 'A Family Calendar on the Wall', link: '/guide/family-calendar' },
-          { text: 'One Calendar, Many Purposes', link: '/guide/one-calendar-many-purposes' },
+          { text: 'Family Calendar: Weekly Grid', link: '/guide/family-calendar' },
+          { text: 'Family Calendar: Filtered Agenda', link: '/guide/one-calendar-many-purposes' },
         ],
       },
       {

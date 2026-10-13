@@ -402,7 +402,7 @@ year gets the new count.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 
-[A Family Calendar on the Wall](/guide/family-calendar#a-birthday-that-counts-itself) shows it on a grid card, where the age rides along in an all-day banner that has room for nothing but the title.
+[A Family Calendar: The Weekly Grid](/guide/family-calendar#a-birthday-that-counts-itself) shows it on a grid card, where the age rides along in an all-day banner that has room for nothing but the title.
 
 ### Writing the Marker
 
