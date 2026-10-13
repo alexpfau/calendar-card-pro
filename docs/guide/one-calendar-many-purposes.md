@@ -197,6 +197,7 @@ The same shape solves problems that look unrelated:
 
 ## 📚 Next Steps
 
+- [A Family Calendar on the Wall](/guide/family-calendar) — the same household idea as a week-long grid card on a wall tablet, with every shared plan in one color
 - [Core Settings](/features/core-settings) — every per-calendar option, with the filtering and rewriting patterns in full
 - [Event Content & Display](/features/event-content) — what each row carries, including the all-day badge and birthday ages
 - [Configuration Reference](/reference/configuration) — the complete option table

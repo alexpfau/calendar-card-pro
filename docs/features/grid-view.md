@@ -27,6 +27,9 @@ column, and a single day makes a compact "what's left of today" card.
 Three days on a dashboard column, from one calendar. Every event keeps a single accent
 color, and the lanes stay wide enough for each block to show its title and its time.
 
+For the other end of the scale, a whole week on a wall tablet,
+[A Family Calendar on the Wall](/guide/family-calendar) builds one card step by step.
+
 ## 🕒 Choosing the Hours the Card Shows
 
 `start_time` and `end_time` bound the axis. Both are `HH:mm`, so a band can start at
