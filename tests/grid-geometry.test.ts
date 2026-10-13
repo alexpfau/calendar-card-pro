@@ -11,10 +11,12 @@ import {
   computeBannerPlacement,
   computeEventPlacement,
   computeNowLinePct,
+  isRuledMinute,
   layoutLanes,
   overflowStripWidth,
   parseTimeOfDay,
   resolveBand,
+  resolveBlockEdges,
   segmentMinutes,
   splitTimedEventByDay,
 } from '../src/utils/grid';
@@ -231,6 +233,132 @@ describe('bandEndHasRule', () => {
   it('reads the cadence from midnight rather than from the band start', () => {
     expect(bandEndHasRule(band('06:30', '21:00'), 60)).toBe(true);
     expect(bandEndHasRule(band('06:30', '21:30'), 60)).toBe(false);
+  });
+});
+
+describe('isRuledMinute', () => {
+  it.each([
+    [600, 60, true],
+    [750, 60, false],
+    [750, 30, true],
+    [735, 15, true],
+    [740, 20, true],
+    [740, 30, false],
+    // 10:00:30. A block starting half a minute after a rule does not start on it.
+    [600.5, 60, false],
+  ] as const)('minute %d at %i-minute slots is ruled: %s', (minute, slotMinutes, expected) => {
+    expect(isRuledMinute(minute, slotMinutes)).toBe(expected);
+  });
+});
+
+describe('resolveBlockEdges', () => {
+  const day = band('07:00', '22:00');
+  const span = (startMin: number, endMin: number, x0Pct = 0, x1Pct = 100) => ({
+    startMin,
+    endMin,
+    x0Pct,
+    x1Pct,
+  });
+  const edges = (
+    ruledStart: boolean,
+    ruledEnd: boolean,
+    touchedAbove: boolean,
+    touchedBelow: boolean,
+  ) => ({ ruledStart, ruledEnd, touchedAbove, touchedBelow });
+
+  it('reads a handover off the hour as touching, with no rule at either end', () => {
+    expect(resolveBlockEdges([span(540, 750), span(750, 810), span(810, 1050)], day, 60)).toEqual([
+      edges(true, false, false, true),
+      edges(false, false, true, true),
+      edges(false, false, true, false),
+    ]);
+  });
+
+  it('reads a handover on the hour as touching on a rule', () => {
+    expect(resolveBlockEdges([span(540, 600), span(600, 660)], day, 60)).toEqual([
+      edges(true, true, false, true),
+      edges(true, true, true, false),
+    ]);
+  });
+
+  it('answers in the order it was given, not in time order', () => {
+    // The renderer indexes the result by its own block order, which is paint order under the
+    // cascade — sorting here would hand one block's edges to another.
+    expect(resolveBlockEdges([span(600, 660), span(540, 600)], day, 60)).toEqual([
+      edges(true, true, true, false),
+      edges(true, true, false, true),
+    ]);
+  });
+
+  it('does not count a block beside it, only one beneath it', () => {
+    // Same instant, different lanes: the later block is next to the earlier one, and dropping
+    // the earlier one's gap would run it into nothing.
+    expect(resolveBlockEdges([span(540, 600, 0, 50), span(600, 660, 50, 100)], day, 60)).toEqual([
+      edges(true, true, false, false),
+      edges(true, true, false, false),
+    ]);
+  });
+
+  it('counts a partial overlap across the column, as a cascade indent leaves', () => {
+    expect(resolveBlockEdges([span(540, 600, 0, 100), span(600, 660, 6, 100)], day, 60)).toEqual([
+      edges(true, true, false, true),
+      edges(true, true, true, false),
+    ]);
+  });
+
+  it('does not count a minute between them', () => {
+    expect(resolveBlockEdges([span(540, 600), span(601, 660)], day, 60)).toEqual([
+      edges(true, true, false, false),
+      edges(false, true, false, false),
+    ]);
+  });
+
+  it('gives a block with no duration no lower edge, while letting it be touched from above', () => {
+    // A reminder is drawn as a marker at its instant, so its end is not where its block ends.
+    expect(resolveBlockEdges([span(540, 600), span(600, 600)], day, 60)).toEqual([
+      edges(true, true, false, true),
+      edges(true, true, true, false),
+    ]);
+    expect(resolveBlockEdges([span(600, 600), span(600, 660)], day, 60)).toEqual([
+      edges(true, true, false, false),
+      edges(true, true, false, false),
+    ]);
+  });
+
+  it('reads slot rules below the hour, and only below it', () => {
+    expect(resolveBlockEdges([span(540, 570), span(570, 600)], day, 30)).toEqual([
+      edges(true, true, false, true),
+      edges(true, true, true, false),
+    ]);
+    expect(resolveBlockEdges([span(540, 570), span(570, 600)], day, 60)).toEqual([
+      edges(true, false, false, true),
+      edges(false, true, true, false),
+    ]);
+  });
+
+  it('reads an edge within the minute either side of a rule as on it', () => {
+    // A rule paints downward from its boundary: 10:00:30 starts inside the 10:00 line, and
+    // 13:59:30 ends a fraction above the 14:00 one. A whole minute away is off the rule.
+    const ruled = (startMin: number, endMin: number) => {
+      const [{ ruledStart, ruledEnd }] = resolveBlockEdges([span(startMin, endMin)], day, 60);
+      return [ruledStart, ruledEnd];
+    };
+
+    expect(ruled(600.5, 839.5)).toEqual([true, true]);
+    expect(ruled(599.5, 840.5)).toEqual([true, true]);
+    expect(ruled(601, 841)).toEqual([false, false]);
+    expect(ruled(599, 839)).toEqual([false, false]);
+  });
+
+  it("treats the band's own top as ruled, wherever it opens", () => {
+    // The band's frame rule sits there whatever the clock says, and a block cut off at the
+    // top starts before it.
+    expect(resolveBlockEdges([span(390, 450)], band('06:30', '22:00'), 60)).toEqual([
+      edges(true, false, false, false),
+    ]);
+    expect(resolveBlockEdges([span(360, 450)], band('06:30', '22:00'), 60)).toEqual([
+      edges(true, false, false, false),
+    ]);
   });
 });
 

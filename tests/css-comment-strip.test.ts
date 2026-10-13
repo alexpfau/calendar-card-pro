@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(108_200);
-    // The grid time row's rung moved the ceiling last, from 106,500: the notes on why the
+    expect(saved).toBeLessThan(109_200);
+    // The back-to-back seam moved the ceiling last, from 108,200: the notes on why a block's
+    // clearance above and below follows the ruling rather than applying everywhere -- an
+    // allowance for a rule that is not drawn stood a block a pixel off its own time and put
+    // three pixels between events with none between them -- and why on a rule two touching
+    // blocks meet it so that it is the seam. The reading went 107,311 to 108,325, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The grid time row's rung moved it before that, from 106,500: the notes on why the
     // reveal no longer asks a height of its own beyond the title's -- the 40px it used to ask
     // was a CSS-only margin that hid a time row which fit -- why measuring is safe there,
     // and why the title clamp it used to share stays at 40px rather than following it down.

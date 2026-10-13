@@ -639,6 +639,121 @@ describe('events sit at their clock time (#300)', () => {
     }
   });
 
+  // The two upper-edge overrides besides a clipped edge's 0px, spelled once.
+  const GAP = 'var(--calendar-card-grid-event-gap)';
+  const RULE_SEAM =
+    'max(var(--calendar-card-grid-rule-width), var(--calendar-card-grid-event-gap))';
+  const clearanceBySummary = (container: HTMLElement) =>
+    Object.fromEntries(
+      Array.from(container.querySelectorAll('.grid-event')).map((block) => [
+        block.querySelector('.event-title')?.textContent?.trim(),
+        blockClearance(block),
+      ]),
+    );
+
+  it('separates blocks that touch off the hour by one gap, not by both clearances', () => {
+    // The demo Monday, from the maintainer's report: 12:30 and 13:30 carry no rule, and the
+    // two clearances plus a rule allowance for a line that is not drawn left three pixels of
+    // empty grid between blocks with not a second between them.
+    const clearance = clearanceBySummary(
+      renderGrid([
+        timed(18, '09:00', '12:30', 'Morning work'),
+        timed(18, '12:30', '13:30', 'Family lunch'),
+        timed(18, '13:30', '17:30', 'Afternoon work'),
+      ]),
+    );
+
+    // 17:30 is off every rule too, so the afternoon runs to its end with nothing beneath it.
+    expect(clearance).toEqual({
+      'Morning work': { above: 'inherit', below: '0px' },
+      'Family lunch': { above: GAP, below: '0px' },
+      'Afternoon work': { above: GAP, below: '0px' },
+    });
+  });
+
+  it('draws two events of one length off the hour at one height, whatever starts beneath', () => {
+    // The maintainer's second report: a lunch with work resuming right after it ran to 13:30,
+    // while a lunch on the next day with nothing after it stopped a pixel short, so the same
+    // hour drew at two heights side by side.
+    const clearance = clearanceBySummary(
+      renderGrid([
+        timed(18, '12:30', '13:30', 'Family lunch'),
+        timed(18, '13:30', '17:30', 'Work'),
+        timed(19, '12:30', '13:30', 'Lunch with Lisa'),
+      ]),
+    );
+
+    expect(clearance['Lunch with Lisa']).toEqual(clearance['Family lunch']);
+    expect(clearance['Lunch with Lisa']).toEqual({ above: GAP, below: '0px' });
+  });
+
+  it('lets the rule be the seam between blocks that touch on the hour', () => {
+    // One calendar on purpose: with no gap left beside the rule, the seam is all that tells
+    // the three apart, so it must never be narrower than the gap — the max() is what keeps
+    // `hour_line_width: 0` from merging them into one block.
+    const clearance = clearanceBySummary(
+      renderGrid([
+        timed(18, '09:00', '10:00', 'Standup'),
+        timed(18, '10:00', '11:00', 'Planning'),
+        timed(18, '11:00', '12:00', 'Review'),
+      ]),
+    );
+
+    expect(clearance).toEqual({
+      Standup: { above: 'inherit', below: '0px' },
+      Planning: { above: RULE_SEAM, below: '0px' },
+      Review: { above: RULE_SEAM, below: 'inherit' },
+    });
+  });
+
+  it('reads the ruling from slot_minutes, not from the hour alone', () => {
+    // At half-hour slots 12:30 IS ruled, so the same handover that keeps one gap above sits
+    // flush under its rule instead. Fails if the body asks about the hour and nothing else.
+    const clearance = clearanceBySummary(
+      renderGrid(
+        [timed(18, '11:00', '12:30', 'Workshop'), timed(18, '12:30', '13:15', 'Lunch')],
+        buildConfig({ view: 'grid', days_to_show: 3, time_grid: { slot_minutes: 30 } }),
+      ),
+    );
+
+    expect(clearance).toEqual({
+      Workshop: { above: 'inherit', below: '0px' },
+      Lunch: { above: RULE_SEAM, below: '0px' },
+    });
+  });
+
+  it('clears only the rules a lone block actually meets', () => {
+    // No rule at 12:30 or 13:29 to clear, so no allowance for one at either end. A gap of a
+    // minute is not a touch, and 14:00 is ruled, so the call stops short of that line.
+    const clearance = clearanceBySummary(
+      renderGrid([timed(18, '12:30', '13:29', 'Lunch'), timed(18, '13:30', '14:00', 'Call')]),
+    );
+
+    expect(clearance).toEqual({
+      Lunch: { above: GAP, below: '0px' },
+      Call: { above: GAP, below: 'inherit' },
+    });
+  });
+
+  it('gives a stacked block and its backdrop the same edges, so the two cannot part', () => {
+    // Both nested in the review, one after the other: the backdrop is drawn in the stacked
+    // block's box from the same geometry, and a backdrop keeping the old gap would show a
+    // pixel of the block beneath through the seam.
+    const container = renderGrid([
+      timed(18, '09:00', '13:00', 'Review'),
+      timed(18, '10:00', '11:00', 'Interview'),
+      timed(18, '11:00', '12:00', 'Debrief'),
+    ]);
+    const [, interview, debrief] = Array.from(container.querySelectorAll('.grid-event'));
+
+    expect(interview.classList.contains('grid-event-raised')).toBe(true);
+    expect(debrief.classList.contains('grid-event-raised')).toBe(true);
+    expect(blockClearance(interview)).toEqual({ above: 'inherit', below: '0px' });
+    expect(blockClearance(debrief)).toEqual({ above: RULE_SEAM, below: 'inherit' });
+    expect(blockClearance(interview.previousElementSibling!)).toEqual(blockClearance(interview));
+    expect(blockClearance(debrief.previousElementSibling!)).toEqual(blockClearance(debrief));
+  });
+
   it('marks a block that starts before the band', () => {
     // Tomorrow, not today: this event ends at 08:00 and the frozen clock is 10:00, so on
     // today it would be filtered as past before the renderer ever saw it.
@@ -992,6 +1107,24 @@ describe('with overlap_layout: columns, overlapping events share the column', ()
 
     expect(title).toContain('Hidden one');
     expect(title).toContain('Hidden two');
+  });
+
+  it('gives an overflow block the edges of its own span, touching what starts beneath it', () => {
+    // The strip's edges are read at an offset past every event block, so a slip there hands
+    // it the first event's — which here would claim a rule at 09:30 where there is none.
+    const container = renderGrid(
+      [
+        timed(17, '09:00', '12:30', 'A'),
+        timed(17, '09:30', '12:30', 'Hidden'),
+        timed(17, '12:30', '13:30', 'Lunch'),
+      ],
+      columnsConfig({ max_simultaneous_events: 1 }),
+    );
+
+    expect(blockClearance(requireElement(container, '.grid-event-overflow'))).toEqual({
+      above: 'var(--calendar-card-grid-event-gap)',
+      below: '0px',
+    });
   });
 });
 
