@@ -1,6 +1,6 @@
 # A Family Calendar on the Wall
 
-A tablet on the kitchen wall, on all day, showing the family's week. Anyone walking past should see who is busy and when, what the family is doing together, and what is coming up at the weekend, before they are close enough to read a word. This page builds the card in the picture for an invented family of three: Anna, Ben and their baby son Leo. It is one worked example rather than a list of options, and each part of it links to the page that covers it in full.
+A tablet on the kitchen wall, on all day, showing the family's week. Anyone walking past should see who is busy and when, what the family is doing together, and what is coming up at the weekend, before they are close enough to read a word. This page builds the card in the picture for an invented family of three: Anna, Ben and their baby son Leo. Each of them keeps a calendar of their own, and the card combines those, with a few more, into one week on an hour axis. If your problem is the opposite, one calendar holding several kinds of event, [One Calendar, Many Purposes](/guide/one-calendar-many-purposes) takes it apart instead. It is one worked example rather than a list of options, and each part of it links to the page that covers it in full.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_week.png" alt="A wall tablet showing one family's week in grid view, Monday to Sunday on an hour axis: each person's timed events in their own color with their face beside the title, shared plans in gold, work hours in gray, all-day banners above the hours, and a green line marking the current time on Wednesday afternoon"><br>
 
@@ -36,6 +36,8 @@ entities:
     label: /local/demo/ben.png
     accent_color: '#90a4ae'
     replace_with: Work # shows that Ben is at work, not what the meeting is
+    show_location: false # and not where it is
+    show_description: false
   - entity: calendar.family
     accent_color: '#ffb74d'
   - entity: calendar.trash_pickup
@@ -87,7 +89,7 @@ Ben's work calendar is on the card for one reason: so the family can see when he
 
 The gray is quieter than his own blue on purpose. His own events, such as soccer on Tuesday evening or the morning run, are the ones the family plans around, and the working day is background.
 
-Descriptions are hidden by default, and `show_location: false` takes the location off every block, so each one is a title and a time. If a work calendar needs to share some of its events and hide the rest, split it in two the way [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does.
+The two `show_*` lines on the work calendar keep its locations and descriptions off the screen whatever the rest of the card says. Today they change nothing you can see: descriptions are hidden by default, and `show_location: false` under `time_grid` already takes the location off every block. They are there for the day someone turns either one on for the whole card, because a meeting room or an agenda gives away what the title no longer does, and a setting on the calendar outranks the card's. If a work calendar needs to share some of its events and hide the rest, split it in two the way [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does.
 
 ## 📅 The All-Day Band
 
@@ -131,6 +133,6 @@ The screenshot uses the **[iOS Theme](https://github.com/basnijholt/lovelace-ios
 
 - [Grid View](/features/grid-view) — every grid option, from the hours on the axis to how overlapping events are drawn
 - [Core Settings](/features/core-settings) — labels, shared events, and rewriting what a calendar says
-- [One Calendar, Many Purposes](/guide/one-calendar-many-purposes) — a hallway list card that splits one calendar several ways
+- [One Calendar, Many Purposes](/guide/one-calendar-many-purposes) — the opposite problem: calendars that each hold several kinds of event, split into filtered blocks on a hallway list card
 - [Configuration Reference](/reference/configuration) — the complete option table
 - [Examples](/reference/examples) — shorter, single-purpose configurations

@@ -1,6 +1,6 @@
 # One Calendar, Many Purposes
 
-Most calendar cards treat a calendar as one thing: you add it, and it contributes all of its events, styled one way. This page is about the other approach — listing the same calendar several times and letting each copy answer a different question, alongside the other calendars a household actually has. It is one worked example rather than a list of options, and every option in it links back to its own reference.
+Most calendar cards treat a calendar as one thing: you add it, and it contributes all of its events, styled one way. This page is about the other approach — listing the same calendar several times and letting each copy answer a different question, alongside the other calendars a household actually has. It is one worked example rather than a list of options, and every option in it links back to its own reference. For a whole family's week on an hour axis instead, with each person's calendar combined and every plan they share drawn once, see [A Family Calendar on the Wall](/guide/family-calendar).
 
 ## 🏡 The Hallway Tablet
 
@@ -180,11 +180,11 @@ The pattern underneath is worth more than the example, and it has two layers.
 
 Two rules keep the first layer predictable:
 
-**Make the blocks complementary.** Within one calendar, each event should match exactly one block. Blocks that overlap render their events more than once — there is no automatic de-duplication between two copies of one calendar.
+**Make the blocks complementary.** Within one calendar, each event should match exactly one block. Blocks that overlap render their events more than once, which at least makes the overlap easy to spot. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) they render once instead, styled by whichever block is listed first, so the overlap stops showing and the later block's label and color quietly never apply.
 
 **Finish with a catch-all.** A block with only a `blocklist` is the safety net, and it goes last for the same reason it exists: it is what is left over. Without it, an event nobody wrote a rule for simply never appears, and it is very hard to notice something missing.
 
-Those are one rule read from either end, which gives you something to check against. **The catch-all's `blocklist` should be exactly the union of the allowlists above it.** The family calendar allowlists `Birthday of` and `collection` and blocklists both; the work calendar allows a marker and blocks the same one. The day either stops matching, an event is drawn twice or one has quietly gone missing.
+Those are one rule read from either end, which gives you something to check against. **The catch-all's `blocklist` should be exactly the union of the allowlists above it.** The family calendar allowlists `Birthday of` and `collection` and blocklists both; the work calendar allows a marker and blocks the same one. The day either stops matching, an event is drawn twice, or drawn in the wrong block's colors with `filter_duplicates` on, or one has quietly gone missing.
 
 ## 🔭 Where Else to Take It
 
@@ -197,7 +197,7 @@ The same shape solves problems that look unrelated:
 
 ## 📚 Next Steps
 
-- [A Family Calendar on the Wall](/guide/family-calendar) — the same household idea as a week-long grid card on a wall tablet, with every shared plan in one color
+- [A Family Calendar on the Wall](/guide/family-calendar) — the opposite problem: several people's calendars combined into one week on an hour axis, with every plan they share drawn once
 - [Core Settings](/features/core-settings) — every per-calendar option, with the filtering and rewriting patterns in full
 - [Event Content & Display](/features/event-content) — what each row carries, including the all-day badge and birthday ages
 - [Configuration Reference](/reference/configuration) — the complete option table
