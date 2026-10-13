@@ -51,7 +51,7 @@ view: list
 days_to_show: 3
 filter_duplicates: true # a plan on several calendars is drawn once, with every face
 duplicate_accent_color: '#ffb74d' # and in the Family calendar's gold, as on the grid
-event_background_opacity: 20
+event_background_opacity: 10
 allday_badge: title
 allday_badge_style: filled
 show_single_allday_time: false
@@ -217,7 +217,7 @@ The badge and all-day lines at the top of [the card](#the-whole-card) are the op
 
 That is the combination worth understanding, because neither half is much on its own. The per-calendar layer gave each calendar its color, the same one it has on the grid, which on a dashboard you sit in front of is a pleasant detail. The card-level layer turns those colors into a **shape** you can read from the far end of the hall: a gold capsule belongs to the whole family, a visit or a birthday; a purple one is collection day; and a pink, blue or green one is Anna's, Ben's or Leo's own day. The label in front of it says which. Timed events stay as plain text. The screen answers _is today a whole-day thing, and whose_ before anyone is close enough to read a word of it.
 
-[`event_background_opacity: 20`](/features/layout-appearance#visual-styling-colors) carries the same colors into the timed rows, tinting each one with its calendar's `accent_color` at 20% opacity. The pill marks a whole-day event; the tint makes every row a band of its own color, so Anna's haircut, Leo's music class and the _Busy_ afternoon stay apart even at a glance down the hall.
+[`event_background_opacity: 10`](/features/layout-appearance#visual-styling-colors) carries the same colors into the timed rows, tinting each one with its calendar's `accent_color` at 10% opacity. The pill marks a whole-day event; the tint gives every row a faint band of its own color, enough to keep Anna's haircut, Leo's music class and the _Busy_ afternoon apart at a glance down the hall without the whole screen turning loud.
 
 The two `show_*` options then remove what the pill has made redundant:
 

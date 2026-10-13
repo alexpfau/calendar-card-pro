@@ -235,7 +235,7 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
       view: 'list',
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
-      event_background_opacity: 20,
+      event_background_opacity: 10,
       list: { today_indicator_position: '50% 8%' },
       allday_badge: 'title',
       allday_badge_style: 'filled',
