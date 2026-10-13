@@ -17,7 +17,16 @@
  * What may legitimately differ between the displays is the number of blocks per calendar and
  * the labels on the calendars whose events the grid draws only as banners. Both are checked
  * against each page's own calendar table rather than against the other page.
+ *
+ * What this suite cannot see is the events themselves. The week both screenshots show is
+ * generated outside the repository, from the demo pack that also feeds the capture
+ * dashboards, so the titles and times in the pictures are held together by that one
+ * generator rather than by a test. `tests/one-calendar-many-purposes.test.ts` runs the agenda
+ * card over events written with the family's titles, which is as close as the repository
+ * gets.
  */
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -98,6 +107,29 @@ describe('the two family walkthroughs describe one family', () => {
       expect(card.config.filter_duplicates).toBe(true);
       expect(card.config.duplicate_accent_color).toBe(PALETTE['calendar.family']);
     }
+  });
+
+  it('show the window and the hours each page describes', () => {
+    // The grid is the week Monday to Sunday on a 07:00-22:00 axis, and the agenda three days
+    // from today. These are the numbers the prose and both screenshots quote, so each is
+    // pinned beside the sentence that quotes it: a card that changed one would leave its page
+    // describing a picture the card no longer draws.
+    const grid = readFileSync(PAGES.grid, 'utf8');
+    const agenda = readFileSync(PAGES.agenda, 'utf8');
+
+    expect(CARDS.grid.config).toMatchObject({
+      view: 'grid',
+      start_date: 'start_of_week',
+      first_day_of_week: 'monday',
+      days_to_show: 7,
+      time_grid: { start_time: '07:00', end_time: '22:00', min_days_to_show: 7 },
+    });
+    expect(grid).toContain('The axis runs from 07:00 to 22:00');
+    expect(grid).toContain('`first_day_of_week: monday` starts that week on Monday');
+
+    expect(CARDS.agenda.config).toMatchObject({ view: 'list', days_to_show: 3 });
+    expect(CARDS.agenda.config.start_date).toBeUndefined();
+    expect(agenda).toContain('three days, today first');
   });
 
   it('put the same face on the same calendars on both displays', () => {

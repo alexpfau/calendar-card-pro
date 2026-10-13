@@ -715,8 +715,10 @@ entities:
 
 Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
 in front of the title and turns gold — the faces say whose it is, the gold says at a glance
-that it is shared. The colors are the ones the family has in the
-[walkthroughs](/guide/family-calendar), where gold is also their Family calendar's color.
+that it is shared. This is Friday and Saturday of the family's week from the
+[walkthroughs](/guide/family-calendar), in their colors, where gold is also the Family
+calendar's. Only Anna's and Ben's calendars are on this card, so the birthday lunch that
+shows three faces there shows two here.
 
 **The labels need nothing switched on.** A merged row draws the label of every calendar it
 came from, in the order the calendars are listed, so if you already label your calendars this

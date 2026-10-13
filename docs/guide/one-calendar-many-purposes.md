@@ -173,7 +173,7 @@ But a blanket _Busy_ is too blunt, because a work calendar also carries the thin
 
 Both blocks keep the work calendar's gray and Ben's face, so on the screen only the title tells them apart.
 
-Splitting on the description rather than the title is what makes this bearable to live with. Nobody wants to rename a work meeting to control how it appears on a screen at home, and a title prefix would follow the event into every colleague's calendar. A description marker is private to the event and invisible to everyone else.
+Splitting on the description rather than the title is what makes this bearable to live with. Nobody wants to rename a work meeting to control how it appears on a screen at home, and a title prefix would follow the event into every colleague's calendar. A description marker leaves the title alone, and this card never shows it, because descriptions are hidden by default. Anyone invited to the meeting can still read the description in their own calendar, though, so mark only the events where that is fine.
 
 [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) is on both halves. A work calendar that keeps talking on Sunday is noise on a family screen.
 
