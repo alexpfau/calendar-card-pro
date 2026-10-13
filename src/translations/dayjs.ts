@@ -23,6 +23,7 @@ import 'dayjs/locale/hr';
 import 'dayjs/locale/hu';
 import 'dayjs/locale/is';
 import 'dayjs/locale/it';
+import 'dayjs/locale/ko';
 import 'dayjs/locale/lt';
 import 'dayjs/locale/lv';
 import 'dayjs/locale/nb';
@@ -107,6 +108,7 @@ function mapLocale(locale: string): string {
     'hu',
     'is',
     'it',
+    'ko',
     'lt',
     'lv',
     'nb',
