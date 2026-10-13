@@ -730,6 +730,10 @@ accent. Any CSS color works, including a theme variable such as `var(--success-c
 unset and a shared row keeps the first-listed calendar's color, exactly as every release before
 v4.2 did.
 
+[A Family Calendar: The Weekly Grid](/guide/family-calendar#gold-means-the-whole-family) sets
+`duplicate_accent_color` to the Family calendar's own color, so an event on more than one
+person's calendar reads as a family event, the same as one on the Family calendar itself.
+
 Both behaviors need two or more **distinct** calendars. Listing one calendar twice to
 [map icons by keyword](#mapping-icons-onto-events-by-keyword) is deliberately untouched: that
 row keeps the first block's single icon and its own calendar's color, which is what the pattern
@@ -837,7 +841,7 @@ Three per-calendar options do it. `replace_field` names which field to rewrite a
 to the title; `replace_pattern` is what to find, as a regular expression; `replace_with` is
 what to put there.
 
-[One Calendar, Many Purposes](/guide/one-calendar-many-purposes) puts `replace_pattern` and
+[A Family Calendar: The Filtered Agenda](/guide/one-calendar-many-purposes) puts `replace_pattern` and
 `replace_with` to work in a single card, alongside the filters above.
 
 ### What Each Combination Does

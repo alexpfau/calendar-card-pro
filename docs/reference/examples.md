@@ -235,6 +235,17 @@ from theme variables rather than from fixed values — the card then follows a t
 instead of fighting it. `show_countdown: false` and `show_progress_bar: false` keep the blocks
 to a title, a time and a location, which is as much as a seven-day lane can hold.
 
+## 👨‍👩‍👦 A Family's Week on a Wall Tablet
+
+Three people's calendars, a work calendar, a Family calendar and the trash pickup on one grid
+card, sized for a 1280 × 800 tablet in kiosk mode. Faces say whose plan it is, and anything on
+more than one person's calendar turns gold. The configuration and the reasoning behind each line
+are on their own page, [A Family Calendar: The Weekly Grid](/guide/family-calendar). Screenshot using
+the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
+(ios-dark-mode-blue-red-alternative).
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_week.png" alt="A wall tablet showing one family's week in grid view, with faces on the timed events, shared plans in gold and a now line on Wednesday"><br>
+
 ## 🎨 Full Configuration
 
 A heavily **customized** configuration covering **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
