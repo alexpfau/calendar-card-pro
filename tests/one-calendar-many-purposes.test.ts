@@ -286,6 +286,7 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     expect(GUIDE_CONFIG).toMatchObject({
       view: 'list',
       filter_duplicates: true,
+      event_background_opacity: 20,
       list: { today_indicator_position: '50% 8%' },
       allday_badge: 'title',
       allday_badge_style: 'filled',

@@ -6,7 +6,7 @@ This walkthrough builds that filtered agenda. The same blocks work in the weekly
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_agenda.png" alt="A three-day list agenda for one family, Thursday to Saturday: all-day events as filled pills in their own colors, each person's events with their face in front of the title, plans shared by several people drawn once with every face, and work hours that say Busy" width="600"><br>
 
-Thursday morning in the same week as [The Weekly Grid](/guide/family-calendar). Each kind of all-day event is a pill in its own color: Leo's daycare closure, the trash collection that retires at 11:00, the grandparents' visit, and Grandma's birthday with her age. Ben's working hours say _Busy_, except the offsite he marked for the family. A plan on several calendars is drawn once, with every face in front of it. The screenshot uses the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
+Thursday morning in the same week as [The Weekly Grid](/guide/family-calendar). Every row is tinted in its calendar's color, and each kind of all-day event is a pill in that color: Leo's daycare closure, the trash collection that retires at 11:00, the grandparents' visit, and Grandma's birthday with her age. Ben's working hours say _Busy_, except the offsite he marked for the family. A plan on several calendars is drawn once, with every face in front of it. The screenshot uses the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
 
 ::: tip Choose Your Walkthrough
 
@@ -49,6 +49,7 @@ title: Family
 view: list
 days_to_show: 3
 filter_duplicates: true # a plan on several calendars is drawn once, with every face
+event_background_opacity: 20
 allday_badge: title
 allday_badge_style: filled
 show_single_allday_time: false
@@ -201,6 +202,8 @@ The badge and all-day lines at the top of [the card](#the-whole-card) are the op
 [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps the title of every all-day event in a rounded pill, and `allday_badge_style: filled` makes that pill a solid capsule rather than an outline or a wash. The color it is filled with comes from [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), which defaults to `accent` — so each pill takes its own calendar's `accent_color`. Nothing in the blocks changes. The colors were already there.
 
 That is the combination worth understanding, because neither half is much on its own. The per-calendar layer gave eight blocks their own colors, which on a dashboard you sit in front of is a pleasant detail. The card-level layer turns those colors into a **shape** you can read from the far end of the hall: a pink capsule is a birthday, a green one is bin day, an orange one is something the family is doing all day, and a purple, blue or yellow one is Anna's, Ben's or Leo's own day. Timed events stay as plain text. The screen answers _is today a whole-day thing, and whose_ before anyone is close enough to read a word of it.
+
+[`event_background_opacity: 20`](/features/layout-appearance#visual-styling-colors) carries the same colors into the timed rows, tinting each one with its calendar's `accent_color` at 20% opacity. The pill marks a whole-day event; the tint makes every row a band of its own color, so Anna's haircut, Leo's music class and the _Busy_ afternoon stay apart even at a glance down the hall.
 
 The two `show_*` options then remove what the pill has made redundant:
 
