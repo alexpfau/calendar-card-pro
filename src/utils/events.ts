@@ -852,6 +852,7 @@ export function groupEventsByDay(
         // segments escape that because `splitMultiDayEvent` copies with a spread;
         // the display copies do not.
         _mergedFrom: event._mergedFrom,
+        _source: event._source,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
@@ -1151,6 +1152,28 @@ function getEntityIndex(entityId: string | undefined, config: Types.Config): num
 // EVENT PROCESSING & FILTERING
 //-----------------------------------------------------------------------------
 
+/**
+ * The fields of a fetched event that Home Assistant's event dialogs read, as fetched.
+ *
+ * Taken here because this is the last point before the event is reshaped: splitting
+ * rewrites its interval and grouping rewrites its text.
+ *
+ * @param event - Event as returned by Home Assistant
+ * @returns Its untouched dialog fields
+ */
+function sourceEvent(event: Types.CalendarEventData): Types.SourceEvent {
+  return {
+    start: event.start,
+    end: event.end,
+    summary: event.summary,
+    location: event.location,
+    description: event.description,
+    uid: event.uid,
+    recurrence_id: event.recurrence_id,
+    rrule: event.rrule,
+  };
+}
+
 function processEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
@@ -1169,6 +1192,7 @@ function processEvents(
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
         ...event,
+        _source: sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);
