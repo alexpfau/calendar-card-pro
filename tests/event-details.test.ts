@@ -362,8 +362,8 @@ describe('buildDetailEntry', () => {
   });
 
   it("drops Home Assistant's nulls, as its own calendar panel does", () => {
-    const entry = buildDetailEntry({ ...row, location: null, uid: null, rrule: null });
-    expect(entry).toMatchObject({ location: undefined, uid: undefined, rrule: undefined });
+    const entry = buildDetailEntry({ ...row, uid: null, recurrence_id: null, rrule: null });
+    expect(entry).toMatchObject({ uid: undefined, recurrence_id: undefined, rrule: undefined });
   });
 
   it('opens nothing for an empty-day placeholder', () => {
