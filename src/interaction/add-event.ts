@@ -34,9 +34,10 @@ const LOAD_TIMEOUT_MS = 10000;
 /**
  * The configured calendars that accept new events, in configuration order.
  *
- * A calendar listed more than once appears once. Read-only calendars — holidays,
- * birthdays, most subscribed feeds — do not advertise the create feature and are left
- * out, which is what hides the button on a card that has nowhere to write to.
+ * A calendar listed more than once appears once. Calendars that do not advertise the
+ * create feature — typically holiday and other subscribed feeds — are left out, which is
+ * what hides the button on a card that has nowhere to write to. Whether a calendar is
+ * writable is the integration's call, not its name's.
  *
  * @param hass - Home Assistant instance, or null before it arrives
  * @param entities - The card's configured calendars
