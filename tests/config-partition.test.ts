@@ -83,6 +83,9 @@ const CARD_LEVEL_REASONS = {
     'background_color',
     'accent_color',
     'hide_when_empty',
+    'show_add_event',
+    'add_event_style',
+    'add_event_size',
   ],
 
   /**

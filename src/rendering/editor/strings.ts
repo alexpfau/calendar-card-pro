@@ -813,6 +813,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
   // below, for toggling an entity rather than the card.
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
+  show_add_event: 'Show Add Event Button',
+  'show_add_event.helper':
+    "Opens Home Assistant's own new-event dialog. Shown only when at least one of the " +
+    "card's calendars accepts new events.",
+  add_event_style: 'Add Event Button Position',
+  'add_event_style.option.below.label': 'Below The Events',
+  'add_event_style.option.header.label': 'In The Header',
+  'add_event_style.option.on_top.label': 'Floating Over The Events',
+  add_event_size: 'Add Event Button Size',
+  'add_event_size.option.small.label': 'Small',
+  'add_event_size.option.medium.label': 'Medium',
+  'add_event_size.option.large.label': 'Large',
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

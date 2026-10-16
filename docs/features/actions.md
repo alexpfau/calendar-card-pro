@@ -1,6 +1,6 @@
 # Actions & Interactions
 
-Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL.
+Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — and show a button for adding new events.
 
 ## 🔄 Expandable Calendar Card
 
@@ -107,4 +107,38 @@ Because these are forwarded, the parameters are Home Assistant's own — see the
 
 All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.
 
-Actions are set via the card's `tap_action` and `hold_action` options — see [Actions in the configuration reference](/reference/configuration#actions).
+## ➕ Add Event Button
+
+The card can show a button that opens Home Assistant's own new-event dialog — the same one the calendar panel and Home Assistant's calendar card use — so events can be created straight from the dashboard:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.holidays
+show_add_event: true
+add_event_style: below
+add_event_size: medium
+```
+
+The button only appears when at least one of the card's calendars accepts new events, which is the calendar integration's decision rather than the card's. Read-only calendars, such as a subscribed holiday feed, do not, so a card showing only those keeps its usual look even with `show_add_event: true`. The dialog opens with the first writable calendar in your `entities` list preselected — `calendar.anna` above — and you can pick another in the dialog itself. Once the event is saved the card fetches its events again, so the new one appears straight away.
+
+The position and size mirror Home Assistant's calendar card:
+
+| `add_event_style` | Where the button sits                                     |
+| ----------------- | --------------------------------------------------------- |
+| `below`           | Under the events, aligned to the end of the card          |
+| `header`          | Beside the title, as a small icon button                  |
+| `on_top`          | Floating over the bottom corner of the events, like a FAB |
+
+`add_event_size` takes `small`, `medium` or `large`, and is ignored for `header`. The button's label comes from Home Assistant, so it follows the language of your Home Assistant profile.
+
+::: tip Pressing The Button Is Not A Tap On The Card
+The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped.
+:::
+
+::: warning Hidden With The Card
+`hide_when_empty` still hides the whole card when there is nothing to show, button included. Leave it off on a card you rely on for adding events.
+:::
+
+Actions are set via the card's `tap_action` and `hold_action` options, and the button via `show_add_event`, `add_event_style` and `add_event_size` — see [Actions in the configuration reference](/reference/configuration#actions).

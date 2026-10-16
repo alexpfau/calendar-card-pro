@@ -153,6 +153,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
 
+  show_add_event: false,
+  add_event_style: 'below',
+  add_event_size: 'small',
+
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
 
@@ -1156,6 +1160,36 @@ function serializeEntities(entities: Array<string | Types.EntityConfig> | undefi
         .map((key) => [key, record[key]]);
     }),
   );
+}
+
+/** Every `add_event_style`, in the order the editor offers them. */
+export const ADD_EVENT_STYLES: ReadonlyArray<Types.AddEventStyle> = ['below', 'header', 'on_top'];
+
+/** Every `add_event_size`, in the order the editor offers them. */
+export const ADD_EVENT_SIZES: ReadonlyArray<Types.AddEventSize> = ['small', 'medium', 'large'];
+
+/**
+ * The configured add-event style, or the default when the value is not one the card draws.
+ *
+ * @param value - `add_event_style` as configured
+ * @returns A drawable style
+ */
+export function resolveAddEventStyle(value: unknown): Types.AddEventStyle {
+  return ADD_EVENT_STYLES.includes(value as Types.AddEventStyle)
+    ? (value as Types.AddEventStyle)
+    : (DEFAULT_CONFIG.add_event_style as Types.AddEventStyle);
+}
+
+/**
+ * The configured add-event size, or the default when the value is not one the card draws.
+ *
+ * @param value - `add_event_size` as configured
+ * @returns A drawable size
+ */
+export function resolveAddEventSize(value: unknown): Types.AddEventSize {
+  return ADD_EVENT_SIZES.includes(value as Types.AddEventSize)
+    ? (value as Types.AddEventSize)
+    : (DEFAULT_CONFIG.add_event_size as Types.AddEventSize);
 }
 
 /**

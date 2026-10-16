@@ -29,6 +29,7 @@ import * as Constants from './config/constants';
 import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
+import * as AddEvent from './interaction/add-event';
 import * as Feedback from './interaction/feedback';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
@@ -2668,7 +2669,29 @@ class CalendarCardPro extends LitElement {
       this.effectiveView,
       this._hasTapAction,
       this._hasHoldAction,
+      this._addEventButton(),
     );
+  }
+
+  /**
+   * The add-event button, when the card asks for one and has somewhere to write.
+   *
+   * @returns Button description for the wrapper, or undefined for no button
+   */
+  private _addEventButton(): Render.AddEventButton | undefined {
+    if (this.config.show_add_event !== true) return undefined;
+
+    const writable = AddEvent.writableCalendarIds(this.safeHass, this.config.entities);
+    if (writable.length === 0) return undefined;
+
+    return {
+      style: Config.resolveAddEventStyle(this.config.add_event_style),
+      size: Config.resolveAddEventSize(this.config.add_event_size),
+      label: AddEvent.addEventLabel(this.safeHass),
+      onActivate: () => {
+        void AddEvent.openCreateEventDialog(this, writable[0], () => this.updateEvents(true));
+      },
+    };
   }
 }
 

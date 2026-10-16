@@ -26,6 +26,61 @@ export { renderGridGroupedEvents } from './grid';
 // MAIN CARD STRUCTURE RENDERING
 //-----------------------------------------------------------------------------
 
+/** What the card hands the wrapper when it should draw an add-event button. */
+export interface AddEventButton {
+  style: Types.AddEventStyle;
+  size: Types.AddEventSize;
+  label: string;
+  onActivate: () => void;
+}
+
+/**
+ * Keep a press on the button from also becoming a press on the card.
+ *
+ * The card's pointer handlers capture the pointer on `pointerdown` when a tap or hold
+ * action is configured, which would retarget the button's own click onto the card.
+ */
+function stopCardGesture(ev: Event): void {
+  ev.stopPropagation();
+}
+
+/**
+ * Render the add-event button.
+ *
+ * @param button - Button description from the card
+ * @returns The button
+ */
+function renderAddEventButton(button: AddEventButton): TemplateResult {
+  const onClick = (ev: Event) => {
+    ev.stopPropagation();
+    button.onActivate();
+  };
+
+  if (button.style === 'header') {
+    return html`<ha-button
+      class="add-event-button add-event-header"
+      size="s"
+      aria-label=${button.label}
+      title=${button.label}
+      @pointerdown=${stopCardGesture}
+      @pointerup=${stopCardGesture}
+      @keydown=${stopCardGesture}
+      @click=${onClick}
+      ><ha-icon icon="mdi:plus"></ha-icon
+    ></ha-button>`;
+  }
+
+  return html`<ha-button
+    class="add-event-button add-event-${button.style === 'on_top' ? 'on-top' : 'below'}"
+    size=${button.size.charAt(0)}
+    @pointerdown=${stopCardGesture}
+    @pointerup=${stopCardGesture}
+    @keydown=${stopCardGesture}
+    @click=${onClick}
+    ><ha-icon slot="start" icon="mdi:plus"></ha-icon>${button.label}</ha-button
+  >`;
+}
+
 /**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
@@ -38,6 +93,7 @@ export { renderGridGroupedEvents } from './grid';
  * @param effectiveView The view actually being rendered, after any width fallback
  * @param hasTapAction Whether the card has a keyboard-accessible tap action
  * @param hasHoldAction Whether the card has a pointer hold action
+ * @param addEvent The add-event button to draw, or undefined for none
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -58,8 +114,12 @@ export function renderMainCardStructure(
   effectiveView: Types.EffectiveView = 'list',
   hasTapAction: boolean = false,
   hasHoldAction: boolean = false,
+  addEvent?: AddEventButton,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
+  const headerButton = addEvent?.style === 'header' ? renderAddEventButton(addEvent) : nothing;
+  const bodyButton =
+    addEvent && addEvent.style !== 'header' ? renderAddEventButton(addEvent) : nothing;
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
   const cardClasses = [
@@ -104,16 +164,20 @@ export function renderMainCardStructure(
            text, so a template resolving to an empty string collapses back to
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
-      <div class="header-container">
+      <div
+        class=${addEvent?.style === 'header' ? 'header-container has-add-event' : 'header-container'}
+      >
         ${
           title || titlePending
             ? html`<h1 class="card-header">${title}</h1>`
             : html`<div class="card-header-placeholder"></div>`
         }
+        ${headerButton}
       </div>
 
       <!-- Content container is always present -->
       <div class="content-container">${content}</div>
+      ${bodyButton}
     </ha-card>
   `;
 }
