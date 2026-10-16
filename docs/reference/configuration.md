@@ -330,10 +330,11 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option        | Type   | Default | Description                  |
-| ------------- | ------ | ------- | ---------------------------- |
-| `tap_action`  | object | `none`  | Action when tapping the card |
-| `hold_action` | object | `none`  | Action when holding the card |
+| Option               | Type    | Default | Description                                                         |
+| -------------------- | ------- | ------- | ------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card                                        |
+| `hold_action`        | object  | `none`  | Action when holding the card                                        |
+| `show_event_details` | boolean | `false` | Tapping an event opens Home Assistant's event dialog for that event |
 
 ### Action Parameters
 
@@ -342,7 +343,7 @@ behavior. The remaining keys depend on which action you chose:
 
 `action` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 
-**→ [Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
+**→ [Actions](/features/actions#available-actions)** — every supported action and the parameters it takes. **→ [Event Details](/features/actions#event-details)** — what a tap on an event opens.
 
 ## ⚡ Cache & Refresh
 

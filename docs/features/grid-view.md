@@ -595,7 +595,8 @@ Timed events retain their full, unellipsized configured information in the brows
 accessibility tree even when their visual text is clipped or absent. Calendar and person
 names identify picture/icon labels, original event times describe continuations, and
 intentionally disabled details stay omitted. This does not add an event action or another
-keyboard tab stop. All-day banners and overflow-count blocks are outside this fallback.
+keyboard tab stop; [`show_event_details`](/features/actions#event-details) is what adds
+both. All-day banners and overflow-count blocks are outside this fallback.
 The accessible name follows the card language without changing the visual content's
 inherited language or normal wrapping.
 
