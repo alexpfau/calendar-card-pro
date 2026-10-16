@@ -121,7 +121,7 @@ add_event_style: below
 add_event_size: medium
 ```
 
-The button only appears when at least one of the card's calendars accepts new events. Read-only calendars, such as holiday or birthday feeds, never do, so a card showing only those keeps its usual look even with `show_add_event: true`. The dialog opens with the first writable calendar in your `entities` list preselected — `calendar.anna` above — and you can pick another in the dialog itself. Once the event is saved the card fetches its events again, so the new one appears straight away.
+The button only appears when at least one of the card's calendars accepts new events, which is the calendar integration's decision rather than the card's. Read-only calendars, such as a subscribed holiday feed, do not, so a card showing only those keeps its usual look even with `show_add_event: true`. The dialog opens with the first writable calendar in your `entities` list preselected — `calendar.anna` above — and you can pick another in the dialog itself. Once the event is saved the card fetches its events again, so the new one appears straight away.
 
 The position and size mirror Home Assistant's calendar card:
 
