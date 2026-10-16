@@ -1902,6 +1902,31 @@ export const cardStyles = css`
     color: var(--error-color);
   }
 
+  /* ===== TAPPABLE EVENTS =====
+   * With show_event_details on, each event is a button that opens Home Assistant's
+   * event-detail dialog. The event's own background is an inline style, so the hover
+   * wash is an inset shadow drawn over it rather than a second background, and it
+   * mixes the event's text color so it reads on light and dark themes alike. Hover
+   * only where there is a real pointer: on touch, a hover state sticks after the tap. */
+  .event-interactive {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .event-interactive:hover {
+      box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 6%, transparent);
+    }
+  }
+
+  .event-interactive:focus {
+    outline: none;
+  }
+
+  .event-interactive:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
   /* ===== CORNER LOADING INDICATOR ===== */
   .loading-indicator {
     position: absolute;

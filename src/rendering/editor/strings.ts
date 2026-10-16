@@ -813,6 +813,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
   // below, for toggling an entity rather than the card.
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
+  show_event_details: 'Show Event Details On Tap',
+  'show_event_details.helper':
+    "Tapping an event opens Home Assistant's event details, with Edit and Delete where the calendar allows them. Taps elsewhere on the card still run the tap action.",
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

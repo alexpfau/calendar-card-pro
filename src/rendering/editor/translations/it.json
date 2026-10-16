@@ -487,6 +487,8 @@
   "tap_action": "Azione tocco",
   "hold_action": "Azione tocco prolungato",
   "card_action.option.expand.label": "Espandi/Comprimi vista",
+  "show_event_details": "Mostra i dettagli dell'evento al tocco",
+  "show_event_details.helper": "Toccando un evento si aprono i dettagli di Home Assistant, con Modifica ed Elimina dove il calendario lo consente. Un tocco altrove sulla scheda esegue ancora l'azione tocco.",
   "refresh_interval": "Intervallo di aggiornamento",
   "refresh_interval.helper": "Per quanto tempo la scheda conserva gli eventi in cache prima di richiederli di nuovo.",
   "refresh_on_navigate": "Aggiorna alla navigazione",

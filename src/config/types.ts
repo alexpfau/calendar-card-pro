@@ -142,6 +142,7 @@ export interface Config {
   // Actions
   tap_action: ActionConfig;
   hold_action: ActionConfig;
+  show_event_details: boolean;
 
   // Cache and refresh settings
   refresh_interval: number;

@@ -66,6 +66,7 @@ export function buildActionsSchema(_ctx: SchemaCtx): HaFormSchema[] {
   return [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+    bool('show_event_details'),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
   ];
