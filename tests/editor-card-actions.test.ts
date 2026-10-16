@@ -89,7 +89,11 @@ describe('card action options', () => {
   });
 
   it('gives both dropdowns the same list, through a ui_action selector', () => {
-    const schema = buildActionsSchema({} as never);
+    const schema = buildActionsSchema({
+      view: 'list',
+      config: { ...Config.DEFAULT_CONFIG },
+      language: 'en',
+    });
     const rows = schema.filter(
       (node): node is Extract<typeof node, { selector: unknown }> =>
         'selector' in node && node.name !== undefined,

@@ -287,6 +287,42 @@ export const cardStyles = css`
     line-height: 1.33;
   }
 
+  /* ===== ADD EVENT BUTTON ===== */
+
+  /* Placement mirrors Home Assistant's own calendar card: below sits in the flow at the
+     end of the card, on_top floats over the content's bottom corner, and header shares
+     a row with the title. The header row is a flex row only when it holds the button, so
+     a card without one keeps the floated title exactly as before. */
+  .header-container.has-add-event {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .add-event-header {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    margin-bottom: 8px;
+  }
+
+  .add-event-below {
+    align-self: flex-end;
+    margin-top: 8px;
+  }
+
+  .add-event-on-top {
+    position: absolute;
+    bottom: 16px;
+    inset-inline-end: 16px;
+    z-index: 1;
+    --ha-button-box-shadow: var(--ha-box-shadow-l);
+  }
+
+  .add-event-button ha-icon {
+    --mdc-icon-size: 1.25em;
+  }
+
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
 
   /* No height of its own. It used to declare 1.5x the week-number font size, which is what the
