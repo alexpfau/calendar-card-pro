@@ -1106,7 +1106,8 @@ download would have to live outside the release assets entirely.
 - `release.yml` — tag-triggered draft release.
 - `docs-preview.yml` — manual only (`workflow_dispatch`); publishes the docs preview
   described under _Docs site deployment_. Its Cloudflare credentials are secrets on the
-  `docs-preview` environment, not the repository, and reach only its deploy step.
+  `docs-preview` environment, not the repository; only `main` may deploy to that environment,
+  and only the deploy step of the `deploy` job receives them.
 - **Every workflow states its token permissions.** The repository's default `GITHUB_TOKEN`
   is read-write, so a workflow with no `permissions:` block silently gets write access to
   everything. `ci.yml`, `hacs-validate.yml` and `docs-preview.yml` are `contents: read`;
@@ -1201,11 +1202,15 @@ and serves `docs/.vitepress/dist` as static assets.
   differences, all confined to that run: `DOCS_PREVIEW=1` makes `config.mts` label the title
   "(Preview)" and add a robots meta tag, a generated `_headers` file sends
   `X-Robots-Tag: noindex, nofollow`, and the release notes' absolute links are rewritten to
-  the preview host. Its Wrangler config is generated at run time from `wrangler.jsonc` with
-  only the name and hostname replaced, and the step refuses one that would land on the
-  production Worker or hostname. **Never publish a preview with `--name` or an `env` block
-  instead:** `routes` is an inheritable key, so both carry the production custom domain with
-  them. Wrangler is pinned in the workflow, where Dependabot cannot see it; bump it by hand.
+  the preview host. It runs as two jobs split on trust: `build` runs the ref's code and holds
+  no secret, and `deploy` holds the Cloudflare token, never checks out or installs the ref,
+  and publishes only `build`'s artifact. The Wrangler config in that artifact is generated
+  from `wrangler.jsonc` with only the name, hostname and asset path replaced; `build` refuses
+  to write one that would land on the production Worker or hostname, and `deploy` checks it
+  again against an allowlist before deploying. **Never publish a preview with `--name` or an
+  `env` block instead:** `routes` is an inheritable key, so both carry the production custom
+  domain with them. Wrangler is pinned in the workflow, where Dependabot cannot see it; bump
+  it by hand.
 - **`ci.yml` runs `docs:build` so a pull request exercises the deploy's own command.** It
   did not always, and the gap was invisible: a broken `docs/.vitepress/config.mts` passes
   `check:docs`, `lint` and `tsc --noEmit` — `docs/` sits outside the tsconfig include — so
