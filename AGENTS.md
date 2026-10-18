@@ -502,6 +502,14 @@ oversight — do not "fix" it by wiring them into the gates.
 periodic release PR from `dev`. `main` is protected by a ruleset requiring a PR and
 passing status checks; `dev` only blocks deletion.
 
+**The one exception is a new manual workflow.** GitHub offers _Run workflow_ only for a
+`workflow_dispatch` workflow whose file is on the default branch, so a workflow that has to
+be runnable before the next release reaches `main` in a PR carrying that file alone. Branch
+it from `origin/main`, never from `dev`, or the PR carries every unreleased commit with it.
+Then bring `main` back into `dev` straight away (see _`dev` must never fall behind `main`_);
+`dev` has commits of its own by then, so that is a normal `main` → `dev` merge rather than
+the fast-forward. `docs-preview.yml` arrived this way.
+
 External contributors frequently open PRs against `main` by mistake. Retarget them to
 `dev` (`gh pr edit <n> --base dev`) rather than merging into `main`.
 
@@ -1096,12 +1104,16 @@ download would have to live outside the release assets entirely.
   Everything it validates is decided before a merge, so running it only on `main` meant a
   packaging mistake could only be found once `main` already carried it.
 - `release.yml` — tag-triggered draft release.
+- `docs-preview.yml` — manual only (`workflow_dispatch`); publishes the docs preview
+  described under _Docs site deployment_. Its Cloudflare credentials are secrets on the
+  `docs-preview` environment, not the repository; only `main` may deploy to that environment,
+  and only the deploy step of the `deploy` job receives them.
 - **Every workflow states its token permissions.** The repository's default `GITHUB_TOKEN`
   is read-write, so a workflow with no `permissions:` block silently gets write access to
-  everything. `ci.yml` and `hacs-validate.yml` are `contents: read`; `release.yml` alone
-  has `contents: write`, which `softprops/action-gh-release` needs to create the draft.
-  Give a new workflow its block from the start — CodeQL reports a missing one as
-  `actions/missing-workflow-permissions`, but only once it reaches `main`.
+  everything. `ci.yml`, `hacs-validate.yml` and `docs-preview.yml` are `contents: read`;
+  `release.yml` alone has `contents: write`, which `softprops/action-gh-release` needs to
+  create the draft. Give a new workflow its block from the start — CodeQL reports a missing
+  one as `actions/missing-workflow-permissions`, but only once it reaches `main`.
 
 ## Dependabot and CodeQL
 
@@ -1182,6 +1194,23 @@ and serves `docs/.vitepress/dist` as static assets.
 - **It builds only on push to `main`.** Pushing to `dev` produces no Workers check run at
   all, so nothing on `dev` is ever live. **Merging the `dev` → `main` PR _is_ the deploy** —
   there is no separate publish step and no tag involved.
+- **Previews are a second Worker, published by hand.** `docs-preview.yml` builds a chosen
+  ref, `dev` by default, and deploys it to the Worker `calendar-card-pro-preview`, which
+  serves <https://dev.calendar-card-pro.alexpfau.com>. It never runs on push, so it spends
+  no Workers Builds minutes. Run it from the Actions tab or with
+  `gh workflow run docs-preview.yml -f ref=dev`. The build is the production one with three
+  differences, all confined to that run: `DOCS_PREVIEW=1` makes `config.mts` label the title
+  "(Preview)" and add a robots meta tag, a generated `_headers` file sends
+  `X-Robots-Tag: noindex, nofollow`, and the release notes' absolute links are rewritten to
+  the preview host. It runs as two jobs split on trust: `build` runs the ref's code and holds
+  no secret, and `deploy` holds the Cloudflare token, never checks out or installs the ref,
+  and publishes only `build`'s artifact. The Wrangler config in that artifact is generated
+  from `wrangler.jsonc` with only the name, hostname and asset path replaced; `build` refuses
+  to write one that would land on the production Worker or hostname, and `deploy` checks it
+  again against an allowlist before deploying. **Never publish a preview with `--name` or an
+  `env` block instead:** `routes` is an inheritable key, so both carry the production custom
+  domain with them. Wrangler is pinned in the workflow, where Dependabot cannot see it; bump
+  it by hand.
 - **`ci.yml` runs `docs:build` so a pull request exercises the deploy's own command.** It
   did not always, and the gap was invisible: a broken `docs/.vitepress/config.mts` passes
   `check:docs`, `lint` and `tsc --noEmit` — `docs/` sits outside the tsconfig include — so

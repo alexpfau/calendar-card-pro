@@ -1,6 +1,18 @@
-import { defineConfig } from 'vitepress';
+import { defineConfig, type HeadConfig } from 'vitepress';
 
 const REPO = 'https://github.com/alexpfau/calendar-card-pro';
+
+/**
+ * Set only by `.github/workflows/docs-preview.yml`. The production build on Workers Builds
+ * never sets it, so everything keyed on it is inert for the site published from `main`. The
+ * preview host already sends `X-Robots-Tag: noindex`; the meta tag keeps a page marked if it
+ * is ever served without that header, and the title label keeps anyone from mistaking the
+ * preview for the released docs.
+ */
+const PREVIEW = process.env.DOCS_PREVIEW === '1';
+const PREVIEW_HEAD: HeadConfig[] = PREVIEW
+  ? [['meta', { name: 'robots', content: 'noindex, nofollow' }]]
+  : [];
 
 /**
  * Strip emoji and keycap section numbers so they never reach a URL.
@@ -31,7 +43,7 @@ function slugify(str: string): string {
 }
 
 export default defineConfig({
-  title: 'Calendar Card Pro',
+  title: PREVIEW ? 'Calendar Card Pro (Preview)' : 'Calendar Card Pro',
   description:
     'A sleek, fast and highly customizable calendar card for Home Assistant. Display upcoming events beautifully.',
   lang: 'en-US',
@@ -66,6 +78,7 @@ export default defineConfig({
   },
 
   head: [
+    ...PREVIEW_HEAD,
     // Favicon order matters. Browsers pick the best-matching <link rel="icon">
     // and, on a tie, the last one — so SVG-capable browsers take the SVG below.
     // The ICO must use a plain rel="icon": rel="alternate icon" is not in the
