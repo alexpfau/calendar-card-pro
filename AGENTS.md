@@ -1199,18 +1199,19 @@ and serves `docs/.vitepress/dist` as static assets.
   serves <https://dev.calendar-card-pro.alexpfau.com>. It never runs on push, so it spends
   no Workers Builds minutes. Run it from the Actions tab or with
   `gh workflow run docs-preview.yml -f ref=dev`. The build is the production one with three
-  differences, all confined to that run: `DOCS_PREVIEW=1` makes `config.mts` label the title
-  "(Preview)" and add a robots meta tag, a generated `_headers` file sends
-  `X-Robots-Tag: noindex, nofollow`, and the release notes' absolute links are rewritten to
-  the preview host. It runs as two jobs split on trust: `build` runs the ref's code and holds
-  no secret, and `deploy` holds the Cloudflare token, never checks out or installs the ref,
-  and publishes only `build`'s artifact. The Wrangler config in that artifact is generated
-  from `wrangler.jsonc` with only the name, hostname and asset path replaced; `build` refuses
-  to write one that would land on the production Worker or hostname, and `deploy` checks it
-  again against an allowlist before deploying. **Never publish a preview with `--name` or an
-  `env` block instead:** `routes` is an inheritable key, so both carry the production custom
-  domain with them. Wrangler is pinned in the workflow, where Dependabot cannot see it; bump
-  it by hand.
+  differences, all confined to that run. `DOCS_PREVIEW=1` makes `config.mts` label the title
+  "(Preview)", add a robots meta tag, and point the docs' raw.githubusercontent.com image
+  URLs from `main` at the commit being built, so images that exist only on that ref render.
+  A generated `_headers` file sends `X-Robots-Tag: noindex, nofollow`. The release notes'
+  absolute links are rewritten to the preview host. It runs as two jobs split on trust:
+  `build` runs the ref's code and holds no secret, and `deploy` holds the Cloudflare token,
+  never checks out or installs the ref, and publishes only `build`'s artifact. The Wrangler
+  config in that artifact is generated from `wrangler.jsonc` with only the name, hostname and
+  asset path replaced; `build` refuses to write one that would land on the production Worker
+  or hostname, and `deploy` checks it again against an allowlist before deploying. **Never
+  publish a preview with `--name` or an `env` block instead:** `routes` is an inheritable key,
+  so both carry the production custom domain with them. Wrangler is pinned in the workflow,
+  where Dependabot cannot see it; bump it by hand.
 - **`ci.yml` runs `docs:build` so a pull request exercises the deploy's own command.** It
   did not always, and the gap was invisible: a broken `docs/.vitepress/config.mts` passes
   `check:docs`, `lint` and `tsc --noEmit` — `docs/` sits outside the tsconfig include — so
