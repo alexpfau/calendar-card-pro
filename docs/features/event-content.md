@@ -22,6 +22,19 @@ hide_when_empty: true
 
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
+### Showing Today When It Is Empty
+
+Hiding empty days is what most list layouts want: a free Thursday should not take a row between Wednesday's meeting and Friday's. Today is the exception. You still want to see that nothing is scheduled, even when every other blank day stays off the card.
+
+```yaml
+show_empty_days: false
+show_empty_today: true
+```
+
+Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full. The row uses the same "No upcoming events" message as any other empty day, including a custom `empty_day_text`.
+
+Today has to fall inside the card's date window: a card that starts next week does not gain a row for a day it was not asked to cover. While `show_empty_days` is on, this option changes nothing, because today is already one of the days being shown. Column view shows every day by default, so the option changes that layout only when empty days have been turned off for columns as well.
+
 ### Custom Empty-Day Text
 
 The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
@@ -37,14 +50,14 @@ empty_day_text: 'Leftovers'
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
 ::: info Wording Only, Never Layout
-`empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
+`empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days` and `show_empty_today`, and its color by `empty_day_color`.
 :::
 
 The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
 If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
-Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
+Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. An empty today from `show_empty_today` is the same kind of placeholder, so a card whose only row is that one still hides too. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
 ::: info What Never Triggers Hiding
 Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
