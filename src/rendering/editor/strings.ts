@@ -351,6 +351,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   content: 'What The Card Shows',
   show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
+  show_empty_today: 'Show Today When Empty',
+  'show_empty_today.helper':
+    'Shows today even when it has no events.',
   empty_day_text: 'Empty Day Text',
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',
   empty_day_color: 'Empty Day Color',

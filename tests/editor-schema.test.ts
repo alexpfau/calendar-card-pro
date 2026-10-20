@@ -2002,6 +2002,7 @@ describe('editor: the Time Range & Content panel', () => {
   it('offers the empty-day fields whenever empty days can actually appear', () => {
     expect(namesIn(buildConfig())).not.toContain('empty_day_text');
     expect(namesIn(buildConfig({ show_empty_days: true }))).toContain('empty_day_text');
+    expect(namesIn(buildConfig({ show_empty_today: true }))).toContain('empty_day_text');
     expect(namesIn(columnConfig())).toContain('empty_day_text');
   });
 

@@ -20,6 +20,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   compact_events_to_show: undefined,
   compact_events_complete_days: false,
   show_empty_days: false,
+  show_empty_today: false,
   hide_when_empty: false,
   empty_day_text: undefined,
   filter_duplicates: false,
