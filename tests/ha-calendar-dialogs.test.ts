@@ -136,7 +136,7 @@ function host() {
 }
 
 /** One callback for every request, so parameters compare equal across requests. */
-const updated = () => {};
+const updated = () => undefined;
 
 const createParams = (calendarId = 'calendar.anna'): CreateDialogParams => ({
   calendarId,

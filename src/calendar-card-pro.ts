@@ -486,6 +486,18 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Refetch once one of Home Assistant's dialogs reports that it saved a change.
+   *
+   * `refreshEvents()` rather than `updateEvents('network')`, because `network` joins a
+   * matching request already under way, and one that started before Home Assistant
+   * committed the save carries the old answer. Returns nothing, deliberately: Home
+   * Assistant awaits this callback before it closes the dialog; see `DialogUpdated`.
+   */
+  private _refreshAfterWrite(): undefined {
+    void this.refreshEvents();
+  }
+
+  /**
    * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
    * dialog reports an edit or a delete.
    */
@@ -499,7 +511,7 @@ class CalendarCardPro extends LitElement {
       entry,
       color,
       ...EventDetails.detailPermissions(this.safeHass, calendarId, entry),
-      updated: () => this.updateEvents(true),
+      updated: () => this._refreshAfterWrite(),
     });
   };
 
@@ -3157,7 +3169,7 @@ class CalendarCardPro extends LitElement {
       onActivate: () => {
         void Dialogs.openCreateEventDialog(this, {
           calendarId: writable[0],
-          updated: () => this.updateEvents(true),
+          updated: () => this._refreshAfterWrite(),
         });
       },
     };

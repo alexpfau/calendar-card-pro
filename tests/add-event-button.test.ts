@@ -52,6 +52,7 @@ interface CardUnderTest extends HTMLElement {
   hass?: unknown;
   isInitialLoad: boolean;
   updateEvents(force?: boolean): Promise<void>;
+  refreshEvents(): Promise<void>;
   _activePointerId: number | null;
   readonly updateComplete: Promise<boolean>;
 }
@@ -198,7 +199,7 @@ describe('pressing the add-event button', () => {
   it('opens the dialog for the first writable calendar and refreshes once saved', async () => {
     dialogAlreadyLoaded();
     const card = await mount({ entities: [READ_ONLY, WRITABLE_2, WRITABLE], show_add_event: true });
-    const updateEvents = vi.spyOn(card, 'updateEvents').mockResolvedValue();
+    const refreshEvents = vi.spyOn(card, 'refreshEvents').mockResolvedValue();
 
     const shown = new Promise<CustomEvent>((resolve) =>
       document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
@@ -208,15 +209,17 @@ describe('pressing the add-event button', () => {
     button(card)!.click();
     const detail = (await shown).detail as {
       dialogTag: string;
-      dialogParams: { calendarId: string; updated: () => void };
+      dialogParams: { calendarId: string; updated: () => unknown };
     };
 
     expect(detail.dialogTag).toBe('dialog-calendar-event-editor');
     expect(detail.dialogParams.calendarId).toBe(WRITABLE_2);
-    expect(updateEvents).not.toHaveBeenCalled();
+    expect(refreshEvents).not.toHaveBeenCalled();
 
+    // What the refresh does with a request already in flight is in
+    // `dialog-writes.test.ts`; this pins only that saving asks for one.
     detail.dialogParams.updated();
-    expect(updateEvents).toHaveBeenCalledWith(true);
+    expect(refreshEvents).toHaveBeenCalledOnce();
   });
 
   it('does not run the card tap action', async () => {

@@ -44,8 +44,17 @@ export const LOAD_TIMEOUT_MS = 10000;
 // TYPES
 //-----------------------------------------------------------------------------
 
-/** Called by Home Assistant's dialog once it has saved a change. */
-export type DialogUpdated = () => void;
+/**
+ * Called by Home Assistant's dialog once it has saved a change.
+ *
+ * 🚨 Typed to return `undefined` rather than `void` on purpose. Home Assistant ends every
+ * save with `await this._params.updated(); this.closeDialog();`, so a callback that hands
+ * back the card's refetch promise keeps the dialog open until every calendar has answered
+ * — up to the fetch timeout — with the create dialog's Save button already enabled again,
+ * which invites a duplicate event. `void` accepts an expression-bodied arrow that returns
+ * that promise; `undefined` refuses to compile one.
+ */
+export type DialogUpdated = () => undefined;
 
 /** Home Assistant's `CalendarEventEditDialogParams`, as the card fills it for a new event. */
 export interface CreateDialogParams {
