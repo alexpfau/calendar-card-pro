@@ -122,6 +122,16 @@ export function cascadeThresholdMin(
 }
 
 /**
+ * Class carried by the measurement probe {@link measureCascadeThreshold} inserts.
+ *
+ * The probe is a real child of a day body for the length of one measurement, so the host's
+ * structure observer sees it arrive and leave. That observer reacts to structural change by
+ * re-running this very measurement, so it has to recognize the probe and ignore it, or one
+ * measurement would schedule the next forever.
+ */
+export const SCALE_PROBE_CLASS = 'grid-scale-probe';
+
+/**
  * Measure the scale a grid is drawn at.
  *
  * One hidden probe, appended to a day body and removed again before returning, resolves
@@ -142,6 +152,7 @@ export function measureCascadeThreshold(root: ParentNode): CascadeScale | null {
   }
 
   const probe = document.createElement('div');
+  probe.className = SCALE_PROBE_CLASS;
   probe.setAttribute('aria-hidden', 'true');
   probe.style.cssText =
     'position:absolute;visibility:hidden;pointer-events:none;inset-inline-start:0;top:0;' +
