@@ -825,6 +825,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'add_event_size.option.small.label': 'Small',
   'add_event_size.option.medium.label': 'Medium',
   'add_event_size.option.large.label': 'Large',
+  allow_event_edit: 'Allow Editing Events',
+  'allow_event_edit.helper':
+    "Offer Edit in Home Assistant's event details. Only ever narrows what a calendar " +
+    'allows: a calendar that cannot be edited never offers it.',
+  allow_event_delete: 'Allow Deleting Events',
+  'allow_event_delete.helper':
+    "Offer Delete in Home Assistant's event details. Only ever narrows what a calendar " +
+    'allows: a calendar that cannot delete events never offers it.',
   show_event_details: 'Show Event Details On Tap',
   'show_event_details.helper':
     "Tapping an event opens Home Assistant's event details, with Edit and Delete where the calendar allows them. Taps elsewhere on the card still run the tap action.",

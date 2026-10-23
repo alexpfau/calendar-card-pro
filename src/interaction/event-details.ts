@@ -78,30 +78,57 @@ export function buildDetailEntry(event: Types.CalendarEventData): DetailEntry | 
   };
 }
 
+/** What the card itself says about Edit and Delete, beside what each calendar supports. */
+export interface DetailContext {
+  /** `allow_event_edit`. */
+  allowEdit: boolean;
+  /** `allow_event_delete`. */
+  allowDelete: boolean;
+  /** Calendars that failed on the card's most recent load. */
+  failedEntities: ReadonlyArray<string>;
+}
+
 /**
  * Whether the dialog may offer Edit and Delete for this event.
  *
- * Follows the calendar's advertised features, as Home Assistant's calendar panel does, and
- * additionally requires a `uid`: Home Assistant's update and delete services address an
- * event by it, so offering either for an event without one would fail at the point of use.
- * Edit also requires an end the calendar stores; see `buildDetailEntry`.
+ * Follows the calendar's advertised features, as Home Assistant's calendar panel does,
+ * and narrows them; nothing here can offer what a calendar does not support. Both need:
+ *
+ * - a `uid`: Home Assistant's update and delete services address an event by it, so
+ *   offering either for an event without one would fail at the point of use;
+ * - a row that is not a `filter_duplicates` merge of copies from several calendars.
+ *   Editing one copy of a shared event is ambiguous, and deleting one brings the row
+ *   straight back from the other calendar, which reads as a failed delete;
+ * - a calendar that loaded on the card's last attempt. A failing calendar's events are
+ *   drawn from the cache, up to a day old, and Edit would save those values over whatever
+ *   the calendar holds now.
+ *
+ * Edit also needs `allow_event_edit` and an end the calendar stores (see
+ * `buildDetailEntry`); Delete needs `allow_event_delete`.
  *
  * @param hass - Home Assistant instance
  * @param event - The rendered event
  * @param entry - Its dialog entry
+ * @param context - The card's own say
  * @returns The two permissions
  */
 export function detailPermissions(
   hass: Types.Hass | null | undefined,
   event: Types.CalendarEventData,
   entry: DetailEntry,
+  context: DetailContext,
 ): { canEdit: boolean; canDelete: boolean } {
   const entityId = event._entityId;
-  if (!entityId || !entry.uid) return { canEdit: false, canDelete: false };
+  const merged = (event._mergedFrom?.length ?? 0) > 1;
+  if (!entityId || !entry.uid || merged || context.failedEntities.includes(entityId)) {
+    return { canEdit: false, canDelete: false };
+  }
 
   return {
     canEdit:
-      calendarSupports(hass, entityId, UPDATE_EVENT_FEATURE) && storedEnd(event) !== undefined,
-    canDelete: calendarSupports(hass, entityId, DELETE_EVENT_FEATURE),
+      context.allowEdit &&
+      calendarSupports(hass, entityId, UPDATE_EVENT_FEATURE) &&
+      storedEnd(event) !== undefined,
+    canDelete: context.allowDelete && calendarSupports(hass, entityId, DELETE_EVENT_FEATURE),
   };
 }

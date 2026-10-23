@@ -143,6 +143,13 @@ export interface Config {
   tap_action: ActionConfig;
   hold_action: ActionConfig;
   show_event_details: boolean;
+  /**
+   * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
+   * support updates never gets Edit, whatever this says.
+   */
+  allow_event_edit: boolean;
+  /** Whether the event-detail dialog may offer Delete. Narrows only, like `allow_event_edit`. */
+  allow_event_delete: boolean;
 
   // Add event button
   show_add_event: boolean;

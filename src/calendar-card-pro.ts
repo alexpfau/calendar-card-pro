@@ -533,7 +533,11 @@ class CalendarCardPro extends LitElement {
       calendarId,
       entry,
       color,
-      ...EventDetails.detailPermissions(this.safeHass, event, entry),
+      ...EventDetails.detailPermissions(this.safeHass, event, entry, {
+        allowEdit: this.config.allow_event_edit !== false,
+        allowDelete: this.config.allow_event_delete !== false,
+        failedEntities: this._failedEntities,
+      }),
       updated: () => this._refreshAfterWrite([calendarId]),
     });
   };

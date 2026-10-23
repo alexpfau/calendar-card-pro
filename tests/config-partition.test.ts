@@ -107,6 +107,13 @@ const CARD_LEVEL_REASONS = {
   interaction: ['show_event_details'],
 
   /**
+   * What Home Assistant's event dialog may offer once an event is open. The dialog is the
+   * same whichever view opened it, and a calendar that can be edited from one view but not
+   * another would be a permission depending on the layout, which nobody could predict.
+   */
+  'dialog-permission': ['allow_event_edit', 'allow_event_delete'],
+
+  /**
    * The date column's ink. Every view draws a date, and none of them has ever offered to
    * draw it differently, so these are shared by agreement rather than by oversight.
    */

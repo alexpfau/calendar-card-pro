@@ -3,7 +3,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import type * as Types from '../src/config/types';
-import { buildDetailEntry, detailPermissions } from '../src/interaction/event-details';
+import {
+  type DetailContext,
+  buildDetailEntry,
+  detailPermissions,
+} from '../src/interaction/event-details';
 import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
 
 /**
@@ -20,6 +24,7 @@ import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs'
 interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
   hass: Types.Hass;
+  refreshEvents(): Promise<void>;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -433,6 +438,92 @@ describe('what the dialog is handed for events the card had to change', () => {
   });
 });
 
+describe('what the card lets the dialog offer', () => {
+  const twoCalendars = {
+    ...calendarState(7),
+    'calendar.ben': {
+      entity_id: 'calendar.ben',
+      state: 'off',
+      attributes: { supported_features: 7 },
+    },
+  };
+
+  async function permissionsFor(card: Card, dialogs: DialogDetail[], summary: string) {
+    eventsShowing(card, summary)[0].click();
+    await settle();
+    const { canEdit, canDelete } = dialogs[dialogs.length - 1].dialogParams;
+    return { canEdit, canDelete };
+  }
+
+  it.each([
+    [{}, { canEdit: true, canDelete: true }],
+    [{ allow_event_edit: false }, { canEdit: false, canDelete: true }],
+    [{ allow_event_delete: false }, { canEdit: true, canDelete: false }],
+    [
+      { allow_event_edit: false, allow_event_delete: false },
+      { canEdit: false, canDelete: false },
+    ],
+  ])('honors %o', async (options, expected) => {
+    const { card, dialogs } = await mount(
+      { show_event_details: true, ...options },
+      { states: calendarState(7) },
+    );
+
+    expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual(expected);
+  });
+
+  it('opens a duplicate merged from two calendars with neither Edit nor Delete', async () => {
+    const entities = ['calendar.anna', 'calendar.ben'];
+
+    // The control: the same two copies left apart are each fully editable.
+    const apart = await mount(
+      { show_event_details: true, entities, filter_duplicates: false },
+      { states: twoCalendars },
+    );
+    expect(eventsShowing(apart.card, 'Dentist')).toHaveLength(2);
+    expect(await permissionsFor(apart.card, apart.dialogs, 'Dentist')).toEqual({
+      canEdit: true,
+      canDelete: true,
+    });
+    document.body.replaceChildren();
+    localStorage.clear();
+
+    const merged = await mount(
+      { show_event_details: true, entities, filter_duplicates: true },
+      { states: twoCalendars },
+    );
+    expect(eventsShowing(merged.card, 'Dentist')).toHaveLength(1);
+    expect(await permissionsFor(merged.card, merged.dialogs, 'Dentist')).toEqual({
+      canEdit: false,
+      canDelete: false,
+    });
+    // Its details still open.
+    expect(merged.dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
+  });
+
+  it('withholds both while the calendar is failing and its events come from the cache', async () => {
+    const { card, callApi, dialogs } = await mount(
+      { show_event_details: true },
+      { states: calendarState(7) },
+    );
+    // The control: the same event, freshly loaded.
+    expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual({
+      canEdit: true,
+      canDelete: true,
+    });
+
+    callApi.mockRejectedValue(new Error('unavailable'));
+    await card.refreshEvents();
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull();
+
+    expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual({
+      canEdit: false,
+      canDelete: false,
+    });
+  });
+});
+
 describe('buildDetailEntry', () => {
   const row: Types.CalendarEventData = {
     summary: 'Shown',
@@ -467,11 +558,17 @@ describe('detailPermissions', () => {
     uid: 'uid-dentist',
     _entityId: 'calendar.anna',
   };
+  const context: DetailContext = { allowEdit: true, allowDelete: true, failedEntities: [] };
 
   it('follows the update and delete bits, for every feature combination', () => {
     const table = Array.from({ length: 8 }, (_, features) => [
       features,
-      detailPermissions({ states: calendarState(features) } as unknown as Types.Hass, event, entry),
+      detailPermissions(
+        { states: calendarState(features) } as unknown as Types.Hass,
+        event,
+        entry,
+        context,
+      ),
     ]);
     expect(table).toEqual([
       [0, { canEdit: false, canDelete: false }],
@@ -487,14 +584,52 @@ describe('detailPermissions', () => {
 
   it('offers neither for an event without a uid, which the services cannot address', () => {
     const hass = { states: calendarState(7) } as unknown as Types.Hass;
-    expect(detailPermissions(hass, event, { ...entry, uid: undefined })).toEqual({
+    expect(detailPermissions(hass, event, { ...entry, uid: undefined }, context)).toEqual({
       canEdit: false,
       canDelete: false,
     });
   });
 
+  it('narrows by every rule, each on its own', () => {
+    const hass = { states: calendarState(7) } as unknown as Types.Hass;
+    const merged = [{ entityId: 'calendar.anna' }, { entityId: 'calendar.ben' }];
+
+    // One row per rule, each breaking that rule alone against a case that allows both, so
+    // dropping any one condition changes exactly its own row.
+    const cases: Array<[string, Types.CalendarEventData, Partial<DetailContext>]> = [
+      ['everything allows both', event, {}],
+      ['allow_event_edit off', event, { allowEdit: false }],
+      ['allow_event_delete off', event, { allowDelete: false }],
+      ['a merge of two calendars', { ...event, _mergedFrom: merged }, {}],
+      ['a merge stamp naming one calendar', { ...event, _mergedFrom: merged.slice(0, 1) }, {}],
+      ['its calendar failing', event, { failedEntities: ['calendar.anna'] }],
+      ['another calendar failing', event, { failedEntities: ['calendar.ben'] }],
+      ['no stored end', { ...event, _source: { start: event.start } }, {}],
+    ];
+
+    expect(
+      Object.fromEntries(
+        cases.map(([name, rendered, overrides]) => [
+          name,
+          detailPermissions(hass, rendered, entry, { ...context, ...overrides }),
+        ]),
+      ),
+    ).toEqual({
+      'everything allows both': { canEdit: true, canDelete: true },
+      'allow_event_edit off': { canEdit: false, canDelete: true },
+      'allow_event_delete off': { canEdit: true, canDelete: false },
+      'a merge of two calendars': { canEdit: false, canDelete: false },
+      'a merge stamp naming one calendar': { canEdit: true, canDelete: true },
+      'its calendar failing': { canEdit: false, canDelete: false },
+      'another calendar failing': { canEdit: true, canDelete: true },
+      'no stored end': { canEdit: false, canDelete: true },
+    });
+  });
+
   it('offers neither while the calendar is not in the states', () => {
-    expect(detailPermissions({ states: {} } as unknown as Types.Hass, event, entry)).toEqual({
+    expect(
+      detailPermissions({ states: {} } as unknown as Types.Hass, event, entry, context),
+    ).toEqual({
       canEdit: false,
       canDelete: false,
     });

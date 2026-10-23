@@ -93,6 +93,10 @@ export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+    // Placed here provisionally so `check:i18n` sees the strings referenced; the step that
+    // reworks this panel decides where they belong.
+    bool('allow_event_edit'),
+    bool('allow_event_delete'),
     ...addEventFields(ctx.config, ctx.language),
     bool('show_event_details'),
     number('refresh_interval', 1, undefined, 'min'),
