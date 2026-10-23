@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(109_200);
-    // The back-to-back seam moved the ceiling last, from 108,200: the notes on why a block's
+    expect(saved).toBeLessThan(110_200);
+    // The now line moving beneath the blocks moved the ceiling last, from 109,200: the notes
+    // on why the line carries no z-index at all -- a line over a block at text height read as
+    // a strikethrough -- how document order alone then puts it under the blocks and above the
+    // tint and hour rules, and why the dot became an element of its own to stay on top. The
+    // reading went 108,902 to 109,813, taken with stripComments after the last comment in
+    // the change was written.
+    //
+    // The back-to-back seam moved the ceiling before that, from 108,200: the notes on why a block's
     // clearance above and below follows the ruling rather than applying everywhere -- an
     // allowance for a rule that is not drawn stood a block a pixel off its own time and put
     // three pixels between events with none between them -- and why on a rule two touching

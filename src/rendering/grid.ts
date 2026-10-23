@@ -1607,7 +1607,12 @@ function renderDayBody(
   // band. A line drawn across every column would say nothing; one clamped to an edge
   // would say something false.
   const nowPct = showNowLine && isToday ? Grid.computeNowLinePct(now, band) : null;
+  const nowTop = styleMap({ top: `${nowPct}%` });
 
+  // The line goes before the plane and the dot after it: positioned elements with no
+  // z-index paint in document order, so the blocks cover the line the way they let the
+  // hour rules show through, while the dot keeps its own z-index above them. See
+  // `.grid-now-line` in the stylesheet.
   return html`
     <div
       class=${classMap({
@@ -1617,6 +1622,11 @@ function renderDayBody(
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
     >
+      ${
+        nowPct === null
+          ? nothing
+          : html`<div class="grid-now-line" aria-hidden="true" style=${nowTop}></div>`
+      }
       <div class="grid-day-plane">
         ${repeat(
           blocks,
@@ -1649,11 +1659,7 @@ function renderDayBody(
       ${
         nowPct === null
           ? nothing
-          : html`<div
-              class="grid-now-line"
-              aria-hidden="true"
-              style=${styleMap({ top: `${nowPct}%` })}
-            ></div>`
+          : html`<div class="grid-now-dot" aria-hidden="true" style=${nowTop}></div>`
       }
     </div>
   `;

@@ -2526,12 +2526,12 @@ export const cardStyles = css`
      to the band's height to land it on the real ones. 100cqh is that height, and a
      percentage cannot say it -- inside the backdrop, a percentage means the backdrop.
 
-     A wrapper rather than the body itself, so the now-line stays out of whatever the
-     container does to painting. Chrome 155 makes no stacking context of a size container,
-     but the specification once applied layout containment with it, which does; on the body
-     that would trap the now-line's z-index 2 under the vertical day rules at z-index 1,
-     which it is meant to cross. Here it could trap only the blocks, which carry no z-index
-     of their own and already paint below those rules. */
+     A wrapper rather than the body itself, so the now line and its dot stay out of whatever
+     the container does to painting. Chrome 155 makes no stacking context of a size
+     container, but the specification once applied layout containment with it, which does;
+     on the body that would trap the dot's z-index 2 under the vertical day rules at
+     z-index 1, which it is meant to cross. Here it could trap only the blocks, which carry
+     no z-index of their own and already paint below those rules. */
   .grid-day-plane {
     position: absolute;
     inset: 0;
@@ -3469,25 +3469,36 @@ export const cardStyles = css`
   }
 
   /* Inside today's column only, so it says where today has got to rather than drawing
-     a line across days it makes no claim about. */
+     a line across days it makes no claim about.
+
+     Beneath the blocks, like the hour rules, and for the same reason: a line drawn over a
+     block at text height read as a strikethrough, so a meeting in progress looked canceled.
+     No z-index is what puts it there, not an oversight. It sits before .grid-day-plane in
+     the day body, and positioned boxes without one paint in document order, so every block
+     paints after it. That leaves it above the weekend tint and the hour rules, which are
+     not positioned, and below the vertical day rules at z-index 1, which only meet it at
+     the column's edges. A block drawn on top of another repaints its own ground and hides
+     the line along its width, just as it hides the block beneath. */
   .grid-now-line {
     position: absolute;
     inset-inline: 0;
     height: 2px;
     background: var(--calendar-card-grid-now-color, #34d399);
     pointer-events: none;
-    z-index: 2;
   }
 
-  /* The dot that marks which column the line belongs to. */
-  .grid-now-line::before {
-    content: '';
+  /* The dot that marks which column the line belongs to. Its own element, after the plane
+     and at z-index 2, so it stays above the blocks and the day rules while the line itself
+     goes under them. The negative top margin centers it on the 2px line. */
+  .grid-now-dot {
     position: absolute;
     inset-inline-start: -3px;
-    top: -3px;
     width: 8px;
     height: 8px;
+    margin-top: -3px;
     border-radius: 50%;
-    background: inherit;
+    background: var(--calendar-card-grid-now-color, #34d399);
+    pointer-events: none;
+    z-index: 2;
   }
 `;

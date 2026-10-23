@@ -302,6 +302,10 @@ thinning the labels keeps a long day readable without making the card taller.
 A line marks the current time on today's column, and only there. It is drawn from the same
 arithmetic as the events, so it cannot drift away from them.
 
+The line runs beneath events, the way the hour lines do, so it never crosses an event's text
+like a strikethrough. A dot at the column's edge stays on top and marks where it is even when
+an event covers most of the line.
+
 ```yaml
 time_grid:
   show_now_line: true

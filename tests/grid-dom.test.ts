@@ -2376,6 +2376,23 @@ describe('the now line (#325)', () => {
     );
 
     expect(container.querySelectorAll('.grid-now-line')).toHaveLength(0);
+    expect(container.querySelectorAll('.grid-now-dot')).toHaveLength(0);
+  });
+
+  it('puts the line before the blocks and the dot after them', () => {
+    // Paint order is document order for positioned boxes without a z-index, so this order is
+    // what puts the line beneath the blocks — a line over a block at text height read as a
+    // strikethrough — while the dot, which carries a z-index of its own, stays above.
+    const body = renderGrid([timed(17, '09:30', '11:00', 'Quarterly review')]).querySelector(
+      '.grid-day-body.today',
+    )!;
+    const children = [...body.children].map((child) => child.className);
+
+    expect(children).toEqual(['grid-now-line', 'grid-day-plane', 'grid-now-dot']);
+    const line = body.querySelector<HTMLElement>('.grid-now-line')!;
+    const dot = body.querySelector<HTMLElement>('.grid-now-dot')!;
+    expect(dot.style.top).toBe(line.style.top);
+    expect(dot.getAttribute('aria-hidden')).toBe('true');
   });
 });
 
