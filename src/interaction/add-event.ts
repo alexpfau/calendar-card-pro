@@ -16,8 +16,6 @@ import * as Types from '../config/types';
 /** Home Assistant's string for the button, so it reads as it does on the core card. */
 const HA_ADD_EVENT_LABEL_KEY = 'ui.components.calendar.event.add';
 
-const FALLBACK_LABEL = 'Add event';
-
 //-----------------------------------------------------------------------------
 // CONFIGURATION
 //-----------------------------------------------------------------------------
@@ -64,14 +62,15 @@ export function writableCalendarIds(
  *
  * Taken from Home Assistant's own string table rather than the card's, because the card's
  * language files must each carry every key and Home Assistant already ships this one in
- * every language it supports.
+ * every language it supports. Undefined when Home Assistant has no string to give, which
+ * the button answers by drawing only its icon: an English word is never drawn in its place.
  *
  * @param hass - Home Assistant instance
- * @returns Localized label
+ * @returns Localized label, or undefined
  */
-export function addEventLabel(hass: Types.Hass | null | undefined): string {
+export function addEventLabel(hass: Types.Hass | null | undefined): string | undefined {
   const localized = hass?.localize?.(HA_ADD_EVENT_LABEL_KEY);
-  return localized && localized !== HA_ADD_EVENT_LABEL_KEY ? localized : FALLBACK_LABEL;
+  return localized && localized !== HA_ADD_EVENT_LABEL_KEY ? localized : undefined;
 }
 
 /**

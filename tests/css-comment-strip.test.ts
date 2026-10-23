@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(112_600);
-    // Grid titles wrapping only at spaces moved the ceiling last, from 110,200: the notes on
+    expect(saved).toBeLessThan(114_600);
+    // The header toolbar moved the ceiling last, from 112,600: the notes on why the header
+    // becomes a row only while it holds a control -- a float placed after the title would
+    // drop below any title long enough to wrap -- why the toolbar is one line of the title
+    // tall and in em, so its button centers on the title's first line at any title size, and
+    // why nothing in it carries an inline-end margin, which is what keeps its edge on the
+    // content's in all three views. It also retired the add-event placements' note. The
+    // reading went 112,232 to 113,578, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // Grid titles wrapping only at spaces moved the ceiling before that, from 110,200: the notes on
     // why each word is an inline-block with its own clip -- break-word broke "Sprint" inside
     // itself in a 30px lane -- why it aligns to the top rather than the baseline, and why the
     // compact single line puts the words back inline. The reading went 109,813 to 111,599,

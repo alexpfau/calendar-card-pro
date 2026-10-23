@@ -38,6 +38,7 @@ import type * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
+import type * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
@@ -3157,7 +3158,7 @@ class CalendarCardPro extends LitElement {
       this._hasTapAction,
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
-      this._addEventButton(),
+      { addEvent: this._addEventButton() },
     );
   }
 
@@ -3211,7 +3212,7 @@ class CalendarCardPro extends LitElement {
    *
    * @returns Button description for the wrapper, or undefined for no button
    */
-  private _addEventButton(): Render.AddEventButton | undefined {
+  private _addEventButton(): Toolbar.AddEventButton | undefined {
     if (this.config.show_add_event !== true) return undefined;
 
     const writable = AddEvent.writableCalendarIds(

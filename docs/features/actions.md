@@ -132,7 +132,7 @@ show_add_event: true
 
 The button only appears when at least one of the card's calendars accepts new events, which is the calendar integration's decision rather than the card's. Read-only calendars, such as a subscribed holiday feed, do not, so a card showing only those keeps its usual look even with `show_add_event: true`. The dialog opens with the first writable calendar in your `entities` list preselected — `calendar.anna` above — and you can pick another in the dialog itself. Once the event is saved the card fetches its events again, so the new one appears straight away.
 
-The button sits under the events, aligned to the end of the card, as it does on Home Assistant's calendar card. Its label comes from Home Assistant, so it follows the language of your Home Assistant profile.
+The button sits at the end of the title's row, or, on a card without a title, in a slim row of its own above the events. Its label comes from Home Assistant, so it follows the language of your Home Assistant profile.
 
 ::: tip Pressing The Button Is Not A Tap On The Card
 The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped.

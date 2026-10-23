@@ -10,6 +10,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Activation from './activation';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as Toolbar from './toolbar';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -27,45 +28,6 @@ export { renderGridGroupedEvents } from './grid';
 // MAIN CARD STRUCTURE RENDERING
 //-----------------------------------------------------------------------------
 
-/** What the card hands the wrapper when it should draw an add-event button. */
-export interface AddEventButton {
-  label: string;
-  onActivate: () => void;
-}
-
-/**
- * Keep a press on the button from also becoming a press on the card.
- *
- * The card's pointer handlers capture the pointer on `pointerdown` when a tap or hold
- * action is configured, which would retarget the button's own click onto the card.
- */
-function stopCardGesture(ev: Event): void {
-  ev.stopPropagation();
-}
-
-/**
- * Render the add-event button.
- *
- * @param button - Button description from the card
- * @returns The button
- */
-function renderAddEventButton(button: AddEventButton): TemplateResult {
-  const onClick = (ev: Event) => {
-    ev.stopPropagation();
-    button.onActivate();
-  };
-
-  return html`<ha-button
-    class="add-event-button add-event-below"
-    size="s"
-    @pointerdown=${stopCardGesture}
-    @pointerup=${stopCardGesture}
-    @keydown=${stopCardGesture}
-    @click=${onClick}
-    ><ha-icon slot="start" icon="mdi:plus"></ha-icon>${button.label}</ha-button
-  >`;
-}
-
 /**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
@@ -78,7 +40,8 @@ function renderAddEventButton(button: AddEventButton): TemplateResult {
  * @param effectiveView The view actually being rendered, after any width fallback
  * @param hasTapAction Whether the card has a keyboard-accessible tap action
  * @param hasHoldAction Whether the card has a pointer hold action
- * @param addEvent The add-event button to draw, or undefined for none
+ * @param notice The fetch-failure notice, drawn after the content
+ * @param toolbar The controls for the header toolbar; none draws no toolbar
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -100,10 +63,24 @@ export function renderMainCardStructure(
   hasTapAction: boolean = false,
   hasHoldAction: boolean = false,
   notice: TemplateResult | typeof nothing = nothing,
-  addEvent?: AddEventButton,
+  toolbar: Toolbar.HeaderToolbar = {},
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
-  const bodyButton = addEvent ? renderAddEventButton(addEvent) : nothing;
+  const hasTitle = Boolean(title || titlePending);
+  const titleBlock = hasTitle
+    ? html`<h1 class="card-header">${title}</h1>`
+    : html`<div class="card-header-placeholder"></div>`;
+  // The header toolbar rule:
+  // - no control: no toolbar, and the header exactly as it was before there was one. Hence
+  //   a single binding below; a second, even one rendering nothing, adds a marker and a
+  //   text node to the header.
+  // - trailing actions only (refresh and the view switch later, add always last): in the
+  //   title's row at its inline end, or in a slim row of their own when there is no title.
+  // - a leading group (previous / Today / next and the visible range, later): a row of its
+  //   own between the title and the events, with the legend lane below it.
+  // The toolbar stays inside `.header-container`, after the h1 or the
+  // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
+  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
   const cardClasses = [
@@ -148,17 +125,13 @@ export function renderMainCardStructure(
            text, so a template resolving to an empty string collapses back to
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
-      <div class="header-container">
-        ${
-          title || titlePending
-            ? html`<h1 class="card-header">${title}</h1>`
-            : html`<div class="card-header-placeholder"></div>`
-        }
+      <div class=${toolbarBlock ? 'header-container has-toolbar' : 'header-container'}>
+        ${toolbarBlock ? html`${titleBlock}${toolbarBlock}` : titleBlock}
       </div>
 
       <!-- Content container is always present -->
       <div class="content-container">${content}</div>
-      ${notice} ${bodyButton}
+      ${notice}
     </ha-card>
   `;
 }

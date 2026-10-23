@@ -287,17 +287,106 @@ export const cardStyles = css`
     line-height: 1.33;
   }
 
-  /* ===== ADD EVENT BUTTON ===== */
+  /* ===== HEADER TOOLBAR ===== */
 
-  /* In the flow at the end of the card, aligned to its end, as Home Assistant's own
-     calendar card places it by default. */
-  .add-event-below {
-    align-self: flex-end;
-    margin-top: 8px;
+  /* Drawn only while it holds a control; without one none of these rules match and the
+     header is exactly the floated title above. With one, the header becomes a row, so a
+     title too long for one line wraps beside the controls instead of pushing them below
+     itself, which is what a float placed after the title would do. The title's own rule
+     is untouched: a flex item simply ignores its float. */
+  .header-container.has-toolbar {
+    display: flex;
+    align-items: flex-start;
+    column-gap: 8px;
   }
 
-  .add-event-button ha-icon {
-    --mdc-icon-size: 1.25em;
+  /* No inline-end margin anywhere in the toolbar, so its end edge is the content box's in
+     every view: list pads the card 16px on that side, column and grid 16px on both. */
+  .card-toolbar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    margin-inline-start: auto;
+  }
+
+  /* Exactly one line of the title tall, so the controls center on its first line however
+     many it wraps to. The font size and the 1.33 line height are the title's own, from
+     .card-header above: in em, a keyword or percentage title size works as well as a
+     length. The controls reset the font size for themselves. */
+  .card-toolbar.toolbar-in-title-row {
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    height: 1.33em;
+  }
+
+  /* About 40px with its gap, so an untitled card does not gain a title's worth of height
+     for one button. */
+  .card-toolbar.toolbar-own-row {
+    margin-bottom: 4px;
+  }
+
+  .toolbar-trailing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* A native button dressed from Home Assistant's theme: primary-colored text and icon in
+     a pill outlined with the same color, the shape of Home Assistant's own outlined
+     buttons. 36px tall, which is the hit target and leaves the slim row at 40px. */
+  .toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-sizing: border-box;
+    height: 36px;
+    min-width: 36px;
+    margin: 0;
+    padding: 0 14px 0 10px;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+    border-radius: 18px;
+    background: transparent;
+    color: var(--primary-color);
+    font-family: inherit;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .toolbar-button.icon-only {
+    width: 36px;
+    padding: 0;
+  }
+
+  .toolbar-button-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  /* Hover only where there is a real pointer: on touch a hover state sticks after the
+     tap. Pressed applies everywhere, and only for as long as the press lasts. */
+  @media (hover: hover) {
+    .toolbar-button:hover {
+      background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    }
+  }
+
+  .toolbar-button:active {
+    background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  }
+
+  .toolbar-button:focus {
+    outline: none;
+  }
+
+  .toolbar-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
   }
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */

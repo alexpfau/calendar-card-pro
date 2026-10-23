@@ -7,14 +7,20 @@
  * read-only calendars — so the pair distinguishes "the option works" from "the fixture
  * happens to produce this".
  *
+ * Where it goes is the header toolbar rule: in the title's row when there is a title, in a
+ * slim row of its own when there is not, and — the half no other gate can see — with no
+ * toolbar at all, a header byte for byte what it was before the toolbar existed.
+ *
  * Two behaviors are pinned beyond the rendering: a press on the button must never become
  * a press on the card (the card captures the pointer for its own tap and hold actions),
  * and the dialog must preselect the first calendar that can actually take the event.
  */
 
+import { mdiPlus } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
 import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
@@ -53,6 +59,7 @@ interface CardUnderTest extends HTMLElement {
   updateEvents(force?: boolean): Promise<void>;
   refreshEvents(): Promise<void>;
   _activePointerId: number | null;
+  _holdIndicator: HTMLElement | null;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -68,6 +75,8 @@ async function mount(
     states: states(),
     locale: { language: 'en' },
     callApi: vi.fn().mockResolvedValue([]),
+    // What Home Assistant 2026.10 answers for the one key the button asks for.
+    localize: (key: string) => (key === 'ui.components.calendar.event.add' ? 'Add event' : ''),
     ...hassExtras,
   };
   card.isInitialLoad = false;
@@ -78,6 +87,41 @@ async function mount(
 
 function button(card: CardUnderTest): HTMLElement | null {
   return card.shadowRoot!.querySelector<HTMLElement>('.add-event-button');
+}
+
+function header(card: CardUnderTest): HTMLElement {
+  return card.shadowRoot!.querySelector<HTMLElement>('.header-container')!;
+}
+
+/** Markup with Lit's per-render marker ids blanked, and nothing else touched. */
+function markup(el: Element): string {
+  return el.outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '<!--?lit$-->');
+}
+
+/**
+ * The header exactly as `dev` renders it, before the toolbar existed: one marker, then
+ * the title or the zero-height placeholder, with the template's own whitespace around it.
+ * A second binding in the header — even one rendering nothing — adds a marker and a text
+ * node here, which a whitespace-collapsing snapshot would not see.
+ */
+const HEADER_BEFORE_TOOLBAR = {
+  untitled:
+    '<div class="header-container">\n        <!--?lit$--><div class="card-header-placeholder"></div>\n      </div>',
+  titled:
+    '<div class="header-container">\n        <!--?lit$--><h1 class="card-header"><!--?lit$-->Family</h1>\n      </div>',
+};
+
+/** A bubbling, composed pointer event carrying the fields the card's gesture reads. */
+function dispatchPointer(target: EventTarget, type: string, pointerId = 1): void {
+  const event = new Event(type, { bubbles: true, composed: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    button: { value: 0 },
+    isPrimary: { value: true },
+    clientX: { value: 0 },
+    clientY: { value: 0 },
+  });
+  target.dispatchEvent(event);
 }
 
 /** Stand in for Home Assistant having already loaded its event dialog. */
@@ -151,25 +195,76 @@ describe('newEventDate', () => {
 });
 
 describe('add-event button rendering', () => {
-  it('draws nothing by default', async () => {
-    const card = await mount({ entities: [WRITABLE] });
-    expect(button(card)).toBeNull();
+  it.each([
+    ['switched off', { entities: [WRITABLE] }],
+    ['switched on with only read-only calendars', { entities: [READ_ONLY], show_add_event: true }],
+  ])('leaves the header exactly as it was when %s', async (_name, overrides) => {
+    const untitled = await mount(overrides);
+    const titled = await mount({ ...overrides, title: 'Family' });
+
+    expect(button(untitled)).toBeNull();
+    expect(markup(header(untitled))).toBe(HEADER_BEFORE_TOOLBAR.untitled);
+    expect(markup(header(titled))).toBe(HEADER_BEFORE_TOOLBAR.titled);
+    expect(untitled.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('draws nothing when no configured calendar accepts events', async () => {
-    const card = await mount({ entities: [READ_ONLY], show_add_event: true });
-    expect(button(card)).toBeNull();
+  it('puts the button in the title row, after the title', async () => {
+    const card = await mount({
+      entities: [READ_ONLY, WRITABLE],
+      show_add_event: true,
+      title: 'Family',
+    });
+    const row = header(card);
+    const [title, toolbar] = Array.from(row.children);
+
+    expect(row.className).toBe('header-container has-toolbar');
+    expect(title.outerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
+      '<h1 class="card-header">Family</h1>',
+    );
+    expect(toolbar.className).toBe('card-toolbar toolbar-in-title-row');
+    expect(row.children).toHaveLength(2);
+    expect(toolbar.querySelector('.toolbar-trailing > .add-event-button')).toBe(button(card));
+    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
   });
 
-  it('draws the button below the events once switched on', async () => {
-    const card = await mount({ entities: [READ_ONLY, WRITABLE], show_add_event: true });
+  it('keeps the button in the title row while a templated title is still resolving', async () => {
+    // No `hass.connection`, so the template never resolves and the heading stays pending.
+    const card = await mount({
+      entities: [WRITABLE],
+      show_add_event: true,
+      title: '{{ states("sensor.family") }}',
+    });
+    const [title, toolbar] = Array.from(header(card).children);
+
+    expect(title.tagName).toBe('H1');
+    expect(toolbar.classList.contains('toolbar-in-title-row')).toBe(true);
+  });
+
+  it('gives an untitled card a slim row of its own', async () => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const row = header(card);
+    const [placeholder, toolbar] = Array.from(row.children);
+
+    expect(row.className).toBe('header-container has-toolbar');
+    expect(placeholder.className).toBe('card-header-placeholder');
+    expect(toolbar.className).toBe('card-toolbar toolbar-own-row');
+    expect(toolbar.contains(button(card))).toBe(true);
+    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
+    // The content still follows the header directly, as card-mod styles expect.
+    expect(row.nextElementSibling?.classList.contains('content-container')).toBe(true);
+  });
+
+  it("draws a native button with Home Assistant's label beside a plus", async () => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true });
     const el = button(card)!;
 
-    expect(el).not.toBeNull();
-    expect(el.classList.contains('add-event-below')).toBe(true);
-    expect(el.getAttribute('size')).toBe('s');
-    expect(el.previousElementSibling?.classList.contains('content-container')).toBe(true);
-    expect(el.textContent?.trim()).toBe('Add event');
+    expect(el.tagName).toBe('BUTTON');
+    expect(el.getAttribute('type')).toBe('button');
+    expect(el.querySelector('svg path')?.getAttribute('d')).toBe(mdiPlus);
+    expect(el.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(el.querySelector('.toolbar-button-label')?.textContent).toBe('Add event');
+    // The visible label is the name; a second one in aria-label would only shadow it.
+    expect(el.hasAttribute('aria-label')).toBe(false);
   });
 
   it("uses Home Assistant's own translation of the label", async () => {
@@ -177,7 +272,24 @@ describe('add-event button rendering', () => {
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
     const card = await mount({ entities: [WRITABLE], show_add_event: true }, { localize });
 
-    expect(button(card)!.textContent?.trim()).toBe('Aggiungi evento');
+    expect(button(card)!.querySelector('.toolbar-button-label')?.textContent).toBe(
+      'Aggiungi evento',
+    );
+  });
+
+  it('draws only the icon, still named, when Home Assistant has no label to give', async () => {
+    const card = await mount(
+      { entities: [WRITABLE], show_add_event: true },
+      { localize: () => '' },
+    );
+    const el = button(card)!;
+
+    expect(el.classList.contains('icon-only')).toBe(true);
+    expect(el.querySelector('.toolbar-button-label')).toBeNull();
+    expect(el.textContent?.trim()).toBe('');
+    expect(el.getAttribute('aria-label')).toBe('Add event');
+    // English is the last resort for assistive technology, never a tooltip on screen.
+    expect(el.hasAttribute('title')).toBe(false);
   });
 });
 
@@ -240,6 +352,7 @@ describe('pressing the add-event button', () => {
 
     await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
     expect(button(card)).toBeNull();
+    expect(markup(header(card))).toBe(HEADER_BEFORE_TOOLBAR.untitled);
   });
 
   it.each([
@@ -271,7 +384,7 @@ describe('pressing the add-event button', () => {
     expect((await shown).detail.dialogParams.selectedDate).toEqual(expected);
   });
 
-  it('does not run the card tap action', async () => {
+  it("does not run the card's tap action, while a tap elsewhere on the card still does", async () => {
     dialogAlreadyLoaded();
     const card = await mount({
       entities: [WRITABLE],
@@ -279,13 +392,68 @@ describe('pressing the add-event button', () => {
       tap_action: { action: 'expand' },
     });
     const el = button(card)!;
+    // Nothing above the card may take the press for a tap on the card either.
+    const clicksOnHost = vi.fn();
+    card.addEventListener('click', clicksOnHost);
 
-    el.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
-    el.dispatchEvent(new Event('pointerup', { bubbles: true, composed: true }));
-    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+    dispatchPointer(el, 'pointerdown');
+    dispatchPointer(el, 'pointerup');
     el.click();
 
     expect(card._activePointerId).toBeNull();
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(clicksOnHost).not.toHaveBeenCalled();
+
+    // The control: the same tap on the events reaches the card's gesture.
+    const content = card.shadowRoot!.querySelector('.content-container')!;
+    dispatchPointer(content, 'pointerdown');
+    dispatchPointer(content, 'pointerup');
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it("does not run the card's hold action on a long press, while a hold elsewhere does", async () => {
+    vi.useFakeTimers();
+    const card = await mount({
+      entities: [WRITABLE],
+      show_add_event: true,
+      hold_action: { action: 'expand' },
+    });
+    const el = button(card)!;
+
+    dispatchPointer(el, 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdIndicator).toBeNull();
+    dispatchPointer(el, 'pointerup');
+    expect(handleAction).not.toHaveBeenCalled();
+
+    const content = card.shadowRoot!.querySelector('.content-container')!;
+    dispatchPointer(content, 'pointerdown', 2);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    dispatchPointer(content, 'pointerup', 2);
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it("lets keys through to Home Assistant without running the card's tap action", async () => {
+    const card = await mount({
+      entities: [WRITABLE],
+      show_add_event: true,
+      tap_action: { action: 'expand' },
+    });
+    const seen: string[] = [];
+    const listener = (ev: Event) => seen.push((ev as KeyboardEvent).key);
+    document.addEventListener('keydown', listener);
+
+    try {
+      button(card)!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+      );
+    } finally {
+      document.removeEventListener('keydown', listener);
+    }
+
+    expect(seen).toEqual(['Enter']);
     expect(handleAction).not.toHaveBeenCalled();
   });
 });

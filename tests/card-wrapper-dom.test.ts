@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import type * as Types from '../src/config/types';
 import * as Render from '../src/rendering/render';
+import type * as Toolbar from '../src/rendering/toolbar';
 
 const noopHandlers = {
   keyDown: () => {},
@@ -44,6 +45,7 @@ function wrapper(
     titlePending?: boolean;
     hasTapAction?: boolean;
     hasHoldAction?: boolean;
+    toolbar?: Toolbar.HeaderToolbar;
   } = {},
 ): Element {
   const host = document.createElement('div');
@@ -58,6 +60,8 @@ function wrapper(
       opts.view ?? 'list',
       opts.hasTapAction ?? false,
       opts.hasHoldAction ?? false,
+      undefined,
+      opts.toolbar,
     ),
     host,
   );
@@ -135,5 +139,29 @@ describe('the card wrapper', () => {
     expect(inert.hasAttribute('role')).toBe(false);
     expect(classes(inert)).not.toContain('card-interactive');
     expect(inert.querySelector('ha-ripple')).toBeNull();
+  });
+
+  it('draws no toolbar, and the header it always drew, when the toolbar holds nothing', () => {
+    // The toolbar rule's first clause. Lit's per-render marker ids are the only thing
+    // blanked: a second binding in the header would add a marker and a text node here
+    // even while rendering nothing.
+    const header = (card: Element) =>
+      card
+        .querySelector('.header-container')!
+        .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '<!--?lit$-->');
+
+    for (const toolbar of [undefined, {}, { addEvent: undefined }]) {
+      expect(header(wrapper({ toolbar }))).toBe(
+        '<div class="header-container">\n        <!--?lit$--><div class="card-header-placeholder"></div>\n      </div>',
+      );
+      expect(header(wrapper({ title: 'Agenda', toolbar }))).toBe(
+        '<div class="header-container">\n        <!--?lit$--><h1 class="card-header"><!--?lit$-->Agenda</h1>\n      </div>',
+      );
+      expect(wrapper({ toolbar }).querySelector('.card-toolbar')).toBeNull();
+    }
+
+    // The control: the same harness does see a toolbar when there is one to draw.
+    const withButton = wrapper({ toolbar: { addEvent: { label: 'Add', onActivate: () => {} } } });
+    expect(withButton.querySelector('.header-container > .card-toolbar')).not.toBeNull();
   });
 });
