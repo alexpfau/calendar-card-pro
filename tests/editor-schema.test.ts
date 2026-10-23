@@ -1833,6 +1833,8 @@ describe('editor: the panel set', () => {
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
       buildConfig({ filter_duplicates: true }),
+      // The add-event position and size are held back until the button is switched on.
+      buildConfig({ show_add_event: true }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -4631,6 +4633,7 @@ function editorOptions(): Map<string, string[]> {
     buildConfig({ view: 'column' }),
     buildConfig({ weather: { entity: 'weather.home' } }),
     buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
+    buildConfig({ show_add_event: true }),
   ] as Types.Config[];
 
   const found = new Map<string, string[]>();
@@ -4699,6 +4702,8 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // title, a named field rather than an unfiltered one — so it too has no editor-only
     // value and its dropdown is exactly the union.
     replace_field: { field: 'entity.replace_field' },
+    add_event_style: { field: 'add_event_style' },
+    add_event_size: { field: 'add_event_size' },
   };
 
   /**

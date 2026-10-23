@@ -330,10 +330,13 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option        | Type   | Default | Description                  |
-| ------------- | ------ | ------- | ---------------------------- |
-| `tap_action`  | object | `none`  | Action when tapping the card |
-| `hold_action` | object | `none`  | Action when holding the card |
+| Option            | Type    | Default | Description                                                                                                                              |
+| ----------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`      | object  | `none`  | Action when tapping the card                                                                                                             |
+| `hold_action`     | object  | `none`  | Action when holding the card                                                                                                             |
+| `show_add_event`  | boolean | `false` | Show a button that opens Home Assistant's new-event dialog. Drawn only when at least one of the card's calendars accepts new events      |
+| `add_event_style` | string  | `below` | Where the button sits — `below` the events, in the `header` beside the title, or `on_top`, floating over the bottom corner of the events |
+| `add_event_size`  | string  | `small` | Size of the button — `small`, `medium` or `large`. Ignored when `add_event_style` is `header`, where the button is always a small icon   |
 
 ### Action Parameters
 
@@ -342,7 +345,7 @@ behavior. The remaining keys depend on which action you chose:
 
 `action` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 
-**→ [Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
+**→ [Actions](/features/actions#available-actions)** — every supported action and the parameters it takes, and the [add-event button](/features/actions#add-event-button).
 
 ## ⚡ Cache & Refresh
 
