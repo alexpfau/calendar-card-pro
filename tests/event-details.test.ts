@@ -343,6 +343,96 @@ describe('show_event_details on', () => {
   });
 });
 
+describe('what the dialog is handed for events the card had to change', () => {
+  /** No end at all: kept as the instant at its start. */
+  const REMINDER = {
+    summary: 'Reminder',
+    start: { dateTime: '2026-06-17T16:00:00Z' },
+    uid: 'uid-reminder',
+  };
+  /** An end before the start: likewise kept as an instant, at 18:00. */
+  const BACKWARDS = {
+    summary: 'Backwards',
+    start: { dateTime: '2026-06-17T18:00:00Z' },
+    end: { dateTime: '2026-06-17T17:00:00Z' },
+    uid: 'uid-backwards',
+  };
+
+  it.each(['list', 'column'])(
+    'hands a %s event with a backwards end the end the calendar stores',
+    async (view) => {
+      const { card, dialogs } = await mount(
+        { view, show_event_details: true },
+        { states: calendarState(7), events: [RAW_EVENTS[0], BACKWARDS] },
+      );
+
+      // The control: the row really was repaired, so it no longer draws the stored end.
+      const row = eventsShowing(card, 'Backwards')[0];
+      expect(row.textContent).toContain('18:00');
+      expect(row.textContent).not.toContain('17:00');
+
+      row.click();
+      await settle();
+      expect(dialogs[0].dialogParams.entry).toMatchObject({
+        dtstart: '2026-06-17T18:00:00Z',
+        dtend: '2026-06-17T17:00:00Z',
+      });
+      // Editing writes back what the calendar stores, so it stays offered.
+      expect(dialogs[0].dialogParams).toMatchObject({ canEdit: true, canDelete: true });
+    },
+  );
+
+  it.each(['list', 'column'])(
+    'keeps a %s event with no end free of one, and withholds Edit',
+    async (view) => {
+      const { card, dialogs } = await mount(
+        { view, show_event_details: true },
+        { states: calendarState(7), events: [RAW_EVENTS[0], REMINDER] },
+      );
+
+      const held = (card as unknown as { events: Types.CalendarEventData[] }).events.find(
+        (event) => event.summary === 'Reminder',
+      )!;
+      expect(held.end).toEqual({ dateTime: '2026-06-17T16:00:00Z' });
+      expect(held._source).toBeDefined();
+      expect(held._source!.end).toBeUndefined();
+
+      eventsShowing(card, 'Reminder')[0].click();
+      await settle();
+      // Home Assistant's dialog formats `dtend` unconditionally, so it is shown the instant
+      // the card draws. Edit would save that instant as the event's end, so it is withheld;
+      // Delete addresses the event by its uid and stays.
+      expect(dialogs[0].dialogParams.entry).toMatchObject({
+        dtstart: '2026-06-17T16:00:00Z',
+        dtend: '2026-06-17T16:00:00Z',
+      });
+      expect(dialogs[0].dialogParams).toMatchObject({ canEdit: false, canDelete: true });
+    },
+  );
+
+  it.each([
+    ['list', { split_multiday_events: true }],
+    ['grid', {}],
+  ])("hands a split %s segment the event's status", async (view, extra) => {
+    const { card, dialogs } = await mount(
+      { view, show_event_details: true, ...extra },
+      { events: [RAW_EVENTS[0], { ...RAW_EVENTS[1], status: 'tentative' }] },
+    );
+
+    const segments = eventsShowing(card, 'Trip');
+    expect(segments.length).toBeGreaterThan(1);
+    segments[segments.length - 1].click();
+    await settle();
+    eventsShowing(card, 'Dentist')[0].click();
+    await settle();
+
+    expect(dialogs.map((dialog) => dialog.dialogParams.entry.status)).toEqual([
+      'tentative',
+      undefined,
+    ]);
+  });
+});
+
 describe('buildDetailEntry', () => {
   const row: Types.CalendarEventData = {
     summary: 'Shown',
@@ -370,15 +460,18 @@ describe('buildDetailEntry', () => {
 
 describe('detailPermissions', () => {
   const entry = { summary: 'Dentist', dtstart: 'a', dtend: 'b', uid: 'uid-dentist' };
+  const event: Types.CalendarEventData = {
+    summary: 'Dentist',
+    start: { dateTime: '2026-06-17T14:00:00Z' },
+    end: { dateTime: '2026-06-17T15:00:00Z' },
+    uid: 'uid-dentist',
+    _entityId: 'calendar.anna',
+  };
 
   it('follows the update and delete bits, for every feature combination', () => {
     const table = Array.from({ length: 8 }, (_, features) => [
       features,
-      detailPermissions(
-        { states: calendarState(features) } as unknown as Types.Hass,
-        'calendar.anna',
-        entry,
-      ),
+      detailPermissions({ states: calendarState(features) } as unknown as Types.Hass, event, entry),
     ]);
     expect(table).toEqual([
       [0, { canEdit: false, canDelete: false }],
@@ -394,16 +487,14 @@ describe('detailPermissions', () => {
 
   it('offers neither for an event without a uid, which the services cannot address', () => {
     const hass = { states: calendarState(7) } as unknown as Types.Hass;
-    expect(detailPermissions(hass, 'calendar.anna', { ...entry, uid: undefined })).toEqual({
+    expect(detailPermissions(hass, event, { ...entry, uid: undefined })).toEqual({
       canEdit: false,
       canDelete: false,
     });
   });
 
   it('offers neither while the calendar is not in the states', () => {
-    expect(
-      detailPermissions({ states: {} } as unknown as Types.Hass, 'calendar.anna', entry),
-    ).toEqual({
+    expect(detailPermissions({ states: {} } as unknown as Types.Hass, event, entry)).toEqual({
       canEdit: false,
       canDelete: false,
     });

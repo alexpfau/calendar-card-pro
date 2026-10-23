@@ -763,10 +763,12 @@ export interface CalendarEventData {
   uid?: string | null;
   recurrence_id?: string | null;
   rrule?: string | null;
+  /** `confirmed` or `tentative` where the calendar says; Home Assistant's dialog marks the latter. */
+  status?: string | null;
   _entityId?: string;
   _entityLabel?: string;
   /**
-   * The event as Home Assistant returned it, stamped before any splitting or text
+   * The event as Home Assistant returned it, stamped before any repair, splitting or text
    * replacement and carried through to the rendered row.
    *
    * The event-detail dialog is built from this rather than from the row, because the row's
@@ -843,11 +845,17 @@ export interface CalendarEventData {
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
 }
 
-/** The untouched fields of a fetched event that Home Assistant's event dialogs read. */
+/**
+ * The untouched fields of a fetched event that Home Assistant's event dialogs read.
+ *
+ * `end` is optional here although it is required on a row: an event Home Assistant
+ * returned without one keeps it absent, so nothing downstream can mistake the instant
+ * `keepWellFormedEvents` repairs it into for an end the calendar stores.
+ */
 export type SourceEvent = Pick<
   CalendarEventData,
-  'start' | 'end' | 'summary' | 'location' | 'description' | 'uid' | 'recurrence_id' | 'rrule'
->;
+  'start' | 'summary' | 'location' | 'description' | 'uid' | 'recurrence_id' | 'rrule' | 'status'
+> & { readonly end?: CalendarEventData['end'] };
 
 /**
  * One calendar that contributed a copy of a merged duplicate.

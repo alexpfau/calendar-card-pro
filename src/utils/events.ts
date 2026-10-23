@@ -514,6 +514,31 @@ function processRawEvents(
 }
 
 /**
+ * The fields of a fetched event that Home Assistant's event dialogs read, as fetched.
+ *
+ * Taken at the last point before the event is reshaped: `keepWellFormedEvents` stamps it on
+ * an event whose end it repairs, and `processEvents` on every other one, before splitting
+ * rewrites the interval and grouping rewrites the text. A missing or `null` end is kept
+ * absent.
+ *
+ * @param event - Event as returned by Home Assistant
+ * @returns Its untouched dialog fields
+ */
+function sourceEvent(event: Types.CalendarEventData): Types.SourceEvent {
+  return {
+    start: event.start,
+    end: Helpers.isConfigBlock(event.end) ? event.end : undefined,
+    summary: event.summary,
+    location: event.location,
+    description: event.description,
+    uid: event.uid,
+    recurrence_id: event.recurrence_id,
+    rrule: event.rrule,
+    status: event.status,
+  };
+}
+
+/**
  * Drop events with unusable dates or text before they reach the shared pipeline, and turn a
  * timed event with a missing or backwards end into an instant.
  *
@@ -531,7 +556,8 @@ function processRawEvents(
  * dropped by both with a warning only the development build logs. The comparison is of
  * parsed instants, so a DST fall-back event whose wall clock only looks backwards
  * (`01:30+02:00` to `01:15+01:00`) is untouched. Returned as a copy: the original is also
- * the cache's, and other cards read it.
+ * the cache's, and other cards read it. The copy carries `_source`, stamped from the event
+ * before its end was rewritten.
  *
  * An all-day event has no instant to fall back on, so one whose end is missing or not after
  * its start is dropped. That used to depend on the view and on `show_past_events`: Grid
@@ -576,7 +602,16 @@ function keepWellFormedEvents(
       }
 
       repaired++;
-      return [{ ...event, end: { dateTime: event.start.dateTime } }];
+      // Stamped here, before the end is rewritten, because this is the last point that
+      // still knows what Home Assistant sent. Stamped afterwards, the event-detail
+      // dialog's Edit would write the synthesized end back into the calendar.
+      return [
+        {
+          ...event,
+          end: { dateTime: event.start.dateTime },
+          _source: event._source ?? sourceEvent(event),
+        },
+      ];
     }
 
     if (!end || end.dateTime) return [];
@@ -1529,28 +1564,6 @@ function getEntityIndex(entityId: string | undefined, config: Types.Config): num
 // EVENT PROCESSING & FILTERING
 //-----------------------------------------------------------------------------
 
-/**
- * The fields of a fetched event that Home Assistant's event dialogs read, as fetched.
- *
- * Taken here because this is the last point before the event is reshaped: splitting
- * rewrites its interval and grouping rewrites its text.
- *
- * @param event - Event as returned by Home Assistant
- * @returns Its untouched dialog fields
- */
-function sourceEvent(event: Types.CalendarEventData): Types.SourceEvent {
-  return {
-    start: event.start,
-    end: event.end,
-    summary: event.summary,
-    location: event.location,
-    description: event.description,
-    uid: event.uid,
-    recurrence_id: event.recurrence_id,
-    rrule: event.rrule,
-  };
-}
-
 function processEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
@@ -1569,7 +1582,8 @@ function processEvents(
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
         ...event,
-        _source: sourceEvent(event),
+        // A repaired event already carries the stamp, taken before its end was rewritten.
+        _source: event._source ?? sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);
