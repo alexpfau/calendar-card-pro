@@ -555,6 +555,18 @@ class CalendarCardPro extends LitElement {
    */
   private _measuredWidthPx: number | null = null;
 
+  /**
+   * Whether the card is wide enough for its toolbar controls to carry text labels.
+   *
+   * Set from the observer's own callback rather than after the settle delay the view fit
+   * waits for: the browser delivers that callback after layout and before paint, and the
+   * update it requests runs in the microtask straight after, so the first frame painted
+   * already has the right button. The settle delay would paint the wrong one first.
+   * `false` until a width arrives, so a card that is never measured draws the icon, which
+   * fits at any width.
+   */
+  private _toolbarLabeled = false;
+
   private _effectiveView: Types.EffectiveView = 'list';
 
   /**
@@ -940,6 +952,7 @@ class CalendarCardPro extends LitElement {
       const width = entries[0]?.contentRect?.width;
 
       if (typeof width === 'number' && width > 0) {
+        this._syncToolbarLabels(width);
         this._scheduleWidthMeasurement(width);
       }
 
@@ -950,6 +963,25 @@ class CalendarCardPro extends LitElement {
     });
 
     this._resizeObserver.observe(this);
+  }
+
+  /**
+   * Labels the toolbar's controls when the card is wide enough, at once.
+   *
+   * No hysteresis: a dashboard sizes the card, not the card's content, so the label cannot
+   * feed back into the width it was chosen from, and there is no loop for a band to damp.
+   * Re-renders only when the answer changes and the card asks for a toolbar control.
+   *
+   * @param widthPx - Measured card width in CSS pixels
+   */
+  private _syncToolbarLabels(widthPx: number): void {
+    const labeled = widthPx >= Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+    if (labeled === this._toolbarLabeled) return;
+
+    this._toolbarLabeled = labeled;
+    if (this.config.show_add_event === true) {
+      this.requestUpdate();
+    }
   }
 
   /**
@@ -3158,7 +3190,7 @@ class CalendarCardPro extends LitElement {
       this._hasTapAction,
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
-      { addEvent: this._addEventButton() },
+      { labeled: this._toolbarLabeled, addEvent: this._addEventButton() },
     );
   }
 

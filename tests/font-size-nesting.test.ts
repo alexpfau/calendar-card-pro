@@ -653,7 +653,7 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       undefined,
       undefined,
       config.show_add_event
-        ? { addEvent: { label: 'Add event', onActivate: () => undefined } }
+        ? { labeled: true, addEvent: { label: 'Add event', onActivate: () => undefined } }
         : undefined,
     ),
     container,

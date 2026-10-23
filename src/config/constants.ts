@@ -108,6 +108,12 @@ export const UI = {
    */
   POINTER_MOVE_TOLERANCE: 8,
 
+  /**
+   * Card width, in CSS pixels, from which the header toolbar's controls carry a text label
+   * beside their icon. Narrower cards draw the icon alone, named for assistive technology.
+   */
+  TOOLBAR_LABEL_MIN_WIDTH: 480,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,

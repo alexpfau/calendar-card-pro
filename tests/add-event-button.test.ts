@@ -85,6 +85,10 @@ async function mount(
   return card;
 }
 
+interface LitLike {
+  requestUpdate(): void;
+}
+
 function button(card: CardUnderTest): HTMLElement | null {
   return card.shadowRoot!.querySelector<HTMLElement>('.add-event-button');
 }
@@ -111,6 +115,45 @@ const HEADER_BEFORE_TOOLBAR = {
     '<div class="header-container">\n        <!--?lit$--><h1 class="card-header"><!--?lit$-->Family</h1>\n      </div>',
 };
 
+/** Records what the card asks of `ResizeObserver`, and hands back its callback. */
+class RecordingResizeObserver {
+  static instances: RecordingResizeObserver[] = [];
+
+  readonly observed: Element[] = [];
+
+  constructor(readonly callback: (entries: Array<{ contentRect: { width: number } }>) => void) {
+    RecordingResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element): void {
+    this.observed.push(target);
+  }
+
+  unobserve(): void {}
+
+  disconnect(): void {}
+}
+
+/** Deliver a card width the way the browser does, then let the card re-render. */
+async function measure(card: CardUnderTest, width: number): Promise<void> {
+  const observer = RecordingResizeObserver.instances.find(({ observed }) =>
+    observed.includes(card),
+  );
+  if (!observer) throw new Error('the card never asked to be observed');
+  observer.callback([{ contentRect: { width } }]);
+  await card.updateComplete;
+}
+
+/** A card measured wide enough for the button's label. */
+async function mountWide(
+  overrides: Partial<Types.Config> = {},
+  hassExtras: Record<string, unknown> = {},
+): Promise<CardUnderTest> {
+  const card = await mount(overrides, hassExtras);
+  await measure(card, 600);
+  return card;
+}
+
 /** A bubbling, composed pointer event carrying the fields the card's gesture reads. */
 function dispatchPointer(target: EventTarget, type: string, pointerId = 1): void {
   const event = new Event(type, { bubbles: true, composed: true });
@@ -134,12 +177,17 @@ function dialogAlreadyLoaded(): void {
   );
 }
 
+const originalResizeObserver = globalThis.ResizeObserver;
+
 beforeEach(() => {
   handleAction.mockClear();
   document.body.innerHTML = '';
+  RecordingResizeObserver.instances = [];
+  globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
 });
 
 afterEach(() => {
+  globalThis.ResizeObserver = originalResizeObserver;
   vi.restoreAllMocks();
   vi.useRealTimers();
   localStorage.clear();
@@ -255,7 +303,7 @@ describe('add-event button rendering', () => {
   });
 
   it("draws a native button with Home Assistant's label beside a plus", async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const card = await mountWide({ entities: [WRITABLE], show_add_event: true });
     const el = button(card)!;
 
     expect(el.tagName).toBe('BUTTON');
@@ -270,7 +318,7 @@ describe('add-event button rendering', () => {
   it("uses Home Assistant's own translation of the label", async () => {
     const localize = (key: string) =>
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
-    const card = await mount({ entities: [WRITABLE], show_add_event: true }, { localize });
+    const card = await mountWide({ entities: [WRITABLE], show_add_event: true }, { localize });
 
     expect(button(card)!.querySelector('.toolbar-button-label')?.textContent).toBe(
       'Aggiungi evento',
@@ -278,7 +326,8 @@ describe('add-event button rendering', () => {
   });
 
   it('draws only the icon, still named, when Home Assistant has no label to give', async () => {
-    const card = await mount(
+    // Measured wide, so it is the missing string and not the width that drops the label.
+    const card = await mountWide(
       { entities: [WRITABLE], show_add_event: true },
       { localize: () => '' },
     );
@@ -290,6 +339,70 @@ describe('add-event button rendering', () => {
     expect(el.getAttribute('aria-label')).toBe('Add event');
     // English is the last resort for assistive technology, never a tooltip on screen.
     expect(el.hasAttribute('title')).toBe(false);
+  });
+});
+
+describe('the add-event label follows the width of the card', () => {
+  /** What the button shows and what it is called, read off the DOM. */
+  function shape(card: CardUnderTest) {
+    const el = button(card)!;
+    return {
+      label: el.querySelector('.toolbar-button-label')?.textContent ?? null,
+      iconOnly: el.classList.contains('icon-only'),
+      ariaLabel: el.getAttribute('aria-label'),
+      title: el.getAttribute('title'),
+    };
+  }
+
+  const LABELED = { label: 'Add event', iconOnly: false, ariaLabel: null, title: null };
+  const ICON_ONLY = { label: null, iconOnly: true, ariaLabel: 'Add event', title: 'Add event' };
+
+  it('draws the icon alone, named, until the card has been measured', async () => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    expect(shape(card)).toEqual(ICON_ONLY);
+  });
+
+  it.each([
+    [479, ICON_ONLY],
+    [480, LABELED],
+    [900, LABELED],
+  ])('at %ipx draws %o', async (width, expected) => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    await measure(card, width);
+    expect(shape(card)).toEqual(expected);
+  });
+
+  it('drops the label again when the card narrows', async () => {
+    const card = await mountWide({ entities: [WRITABLE], show_add_event: true });
+    expect(shape(card)).toEqual(LABELED);
+
+    await measure(card, 479);
+    expect(shape(card)).toEqual(ICON_ONLY);
+  });
+
+  it('decides on the measurement itself, before the view fit settles', async () => {
+    // `measure` awaits only the render, never the settle delay, so a label decided where
+    // the column fit is decided would still be missing here.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    await measure(card, 600);
+
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    expect(shape(card)).toEqual(LABELED);
+  });
+
+  it('does not re-render a card that has no toolbar for it', async () => {
+    const card = await mount({ entities: [WRITABLE] });
+    const requestUpdate = vi.spyOn(card as unknown as LitLike, 'requestUpdate');
+
+    await measure(card, 600);
+    expect(requestUpdate).not.toHaveBeenCalled();
+
+    // The control: the same measurement on a card with the button does ask.
+    const withButton = await mount({ entities: [WRITABLE], show_add_event: true });
+    const asks = vi.spyOn(withButton as unknown as LitLike, 'requestUpdate');
+    await measure(withButton, 600);
+    expect(asks).toHaveBeenCalled();
   });
 });
 

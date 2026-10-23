@@ -22,8 +22,13 @@ export interface AddEventButton {
   onActivate: () => void;
 }
 
-/** The controls the card wants in its header toolbar. An empty object draws no toolbar. */
+/** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
+  /**
+   * Whether the card is wide enough for its controls to carry a text label beside their
+   * icon. Icon-only otherwise, with the label as the control's accessible name.
+   */
+  labeled?: boolean;
   /** The add-event button, always the last control in the trailing group. */
   addEvent?: AddEventButton;
 }
@@ -67,11 +72,15 @@ function stopCardGesture(ev: Event): void {
  * the card names as few of Home Assistant's elements as it can, because their names and
  * attributes change without notice.
  *
+ * Labeled, it is named by its text. Icon-only, Home Assistant's label names it and shows
+ * as its tooltip; the English fallback names it and nothing else.
+ *
  * @param button - Button description from the card
+ * @param roomForLabel - Whether the card is wide enough to draw the label
  * @returns The button
  */
-function renderAddEventButton(button: AddEventButton): TemplateResult {
-  const labeled = button.label !== undefined;
+function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): TemplateResult {
+  const labeled = roomForLabel && button.label !== undefined;
   const className = labeled
     ? 'toolbar-button add-event-button'
     : 'toolbar-button add-event-button icon-only';
@@ -85,7 +94,8 @@ function renderAddEventButton(button: AddEventButton): TemplateResult {
   return html`<button
     type="button"
     class=${className}
-    aria-label=${labeled ? nothing : UNLOCALIZED_ADD_EVENT_NAME}
+    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_ADD_EVENT_NAME)}
+    title=${labeled || button.label === undefined ? nothing : button.label}
     @pointerdown=${stopCardGesture}
     @click=${onClick}
   >
@@ -118,6 +128,8 @@ export function renderHeaderToolbar(
   return html`<div
     class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
   >
-    <div class="toolbar-trailing">${renderAddEventButton(toolbar.addEvent)}</div>
+    <div class="toolbar-trailing">
+      ${renderAddEventButton(toolbar.addEvent, toolbar.labeled === true)}
+    </div>
   </div>`;
 }
