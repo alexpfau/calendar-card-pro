@@ -851,6 +851,11 @@ export interface EventFetchResult {
   /** When this payload was retrieved from Home Assistant, in epoch milliseconds. */
   fetchedAt: number;
   /**
+   * When the longest-unrefreshed calendar among `events` last loaded successfully. Equal to
+   * `fetchedAt` unless the events include a failing calendar's kept ones.
+   */
+  loadedAt: number;
+  /**
    * When the card should next ask Home Assistant for this payload, in epoch
    * milliseconds: one refresh interval after `fetchedAt`, or the retry deadline while a
    * calendar is failing.

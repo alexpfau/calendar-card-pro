@@ -35,9 +35,15 @@ import * as Localize from '../translations/localize';
  */
 export type EventLoad = 'cache' | 'network' | 'reload';
 
-/** One raw request that has started but not yet settled. */
+/**
+ * One raw request that has started but not yet settled.
+ *
+ * It resolves to the cache entry it built rather than to a finished result, because what
+ * a result says about the next attempt depends on the config of each card that joined
+ * the request, not only on the one that started it.
+ */
 interface InFlightRequest {
-  promise: Promise<Types.EventFetchResult>;
+  promise: Promise<Types.CacheEntry>;
 }
 
 /**
@@ -137,13 +143,9 @@ export function readEventSnapshot(
   if (!entry) return null;
 
   const now = Date.now();
-  const paintable = paintableEvents(entry, now);
 
   return {
-    events: processRawEvents(paintable, config, request.firstDayOfWeek),
-    failedEntities: [...(entry.failedEntities ?? [])],
-    fetchedAt: entry.timestamp,
-    nextAttemptAt: nextAttemptAt(entry, config),
+    ...resultFromEntry(entry, paintableEvents(entry, now), config, request.firstDayOfWeek),
     due: isEntryDue(entry, config, request.window, now),
     inFlight: inFlightRawFetches.has(request.signature),
   };
@@ -174,12 +176,7 @@ export async function fetchEventData(
     const now = Date.now();
     if (entry && !isEntryDue(entry, config, request.window, now)) {
       Logger.info(`Using ${entry.events.length} events from cache`);
-      return {
-        events: processRawEvents(paintableEvents(entry, now), config, request.firstDayOfWeek),
-        failedEntities: [...(entry.failedEntities ?? [])],
-        fetchedAt: entry.timestamp,
-        nextAttemptAt: nextAttemptAt(entry, config),
-      };
+      return resultFromEntry(entry, paintableEvents(entry, now), config, request.firstDayOfWeek);
     }
   }
 
@@ -190,12 +187,56 @@ export async function fetchEventData(
     rawFetch = startRawFetch(hass, config, request, failureCountHint);
   }
 
-  const result = await rawFetch.promise;
+  const entry = await rawFetch.promise;
 
+  return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+}
+
+/**
+ * Turn a cache entry into a result for one caller.
+ *
+ * Everything that depends on the caller's config is worked out here, per caller: two cards
+ * sharing a request can still have different refresh intervals, and each must keep its own.
+ *
+ * @param entry Cache entry, freshly written or read back
+ * @param rawEvents The entry's events that may be drawn
+ * @param config The caller's configuration
+ * @param firstDayOfWeek Resolved first day of the week
+ * @returns The caller's result
+ */
+function resultFromEntry(
+  entry: Types.CacheEntry,
+  rawEvents: Types.CalendarEventData[],
+  config: Types.Config,
+  firstDayOfWeek: number,
+): Types.EventFetchResult {
   return {
-    ...result,
-    events: processRawEvents(result.events, config, request.firstDayOfWeek),
+    events: processRawEvents(rawEvents, config, firstDayOfWeek),
+    failedEntities: [...(entry.failedEntities ?? [])],
+    fetchedAt: entry.timestamp,
+    loadedAt: oldestLoad(entry, rawEvents),
+    nextAttemptAt: nextAttemptAt(entry, config),
   };
+}
+
+/**
+ * When the longest-unrefreshed calendar among some events last loaded successfully.
+ *
+ * Kept events of a failing calendar are as old as that calendar's last success, not as
+ * the attempt that carried them forward, and the 24-hour bound is measured from there.
+ *
+ * @param entry Cache entry the events come from
+ * @param rawEvents Events to date
+ * @returns Epoch milliseconds
+ */
+function oldestLoad(entry: Types.CacheEntry, rawEvents: Types.CalendarEventData[]): number {
+  let oldest = entry.timestamp;
+  for (const entityId of new Set(rawEvents.map((event) => event._entityId))) {
+    if (!entityId) continue;
+    const loadedAt = lastSuccessOf(entry, entityId);
+    if (loadedAt !== undefined && loadedAt < oldest) oldest = loadedAt;
+  }
+  return oldest;
 }
 
 /**
@@ -248,8 +289,9 @@ function startRawFetch(
  * @param config Calendar card configuration
  * @param request Resolved request identity
  * @param seq This request's sequence number
- * @param failureCountHint Consecutive failures the caller has seen for this query
- * @returns Promise resolving to the raw events and any entities that failed
+ * @param failureCountHint Consecutive failures the caller has seen for this query, used only
+ *   when no cache entry records them
+ * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
   hass: Types.Hass,
@@ -257,7 +299,7 @@ async function fetchRawEvents(
   request: ResolvedRequest,
   seq: number,
   failureCountHint: number,
-): Promise<Types.EventFetchResult> {
+): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
   const entities = config.entities.map((e) =>
     typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
@@ -299,8 +341,16 @@ async function fetchRawEvents(
   };
 
   if (failed.size > 0) {
-    const previousCount = previous?.failedEntities?.length ? (previous.failureCount ?? 1) : 0;
-    const failureCount = Math.max(previousCount, failureCountHint) + 1;
+    // The entry is the shared record. The caller's own count is only a stand-in for when
+    // there is no entry at all — storage unavailable — and must never outvote one: a card
+    // that saw an outage, then only ever drew another card's healthy entry, still carries
+    // the old count, and letting it win would start the next outage at a 30-minute wait.
+    const previousCount = previous
+      ? previous.failedEntities?.length
+        ? (previous.failureCount ?? 1)
+        : 0
+      : failureCountHint;
+    const failureCount = previousCount + 1;
     entry.failedEntities = entityIds.filter((id) => failed.has(id));
     entry.failureCount = failureCount;
     entry.retryAt = now + retryDelayMs(failureCount, config);
@@ -323,12 +373,7 @@ async function fetchRawEvents(
     Logger.info('A newer request for the same calendars has started; not caching this response');
   }
 
-  return {
-    events,
-    failedEntities: entry.failedEntities ?? [],
-    fetchedAt: now,
-    nextAttemptAt: nextAttemptAt(entry, config),
-  };
+  return entry;
 }
 
 /**
@@ -381,11 +426,14 @@ function retryDelayMs(failureCount: number, config: Types.Config): number {
  * @param config Card configuration
  * @returns Epoch milliseconds
  */
-function nextAttemptAt(entry: Types.CacheEntry, config: Types.Config): number {
-  if (entry.failedEntities?.length && typeof entry.retryAt === 'number') {
-    return entry.retryAt;
+function nextAttemptAt(entry: Types.CacheEntry, config: Types.Config | undefined): number {
+  const interval = entry.timestamp + getCacheDuration(config);
+  if (entry.failedEntities?.length) {
+    // The shared retry deadline, but never later than this caller's own interval: the
+    // backoff was capped by whichever card's interval started the failing request.
+    return typeof entry.retryAt === 'number' ? Math.min(entry.retryAt, interval) : entry.timestamp;
   }
-  return entry.timestamp + getCacheDuration(config);
+  return interval;
 }
 
 /**
@@ -413,7 +461,7 @@ function isEntryDue(
   }
 
   if (entry.failedEntities?.length) {
-    return typeof entry.retryAt !== 'number' || now >= entry.retryAt;
+    return now >= nextAttemptAt(entry, config);
   }
 
   const ttl =

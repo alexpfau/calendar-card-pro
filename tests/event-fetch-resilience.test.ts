@@ -242,6 +242,19 @@ describe('failures are recorded in the cache', () => {
     expect(EventUtils.readCacheEntry(Object.keys(dumpStorage())[0])?.failureCount).toBeUndefined();
   });
 
+  it("does not let a caller's stale failure count outvote a healthy entry", async () => {
+    // A card that counted an outage, then only drew another card's recovered entry, still
+    // carries its old count. The entry is the shared record and must win, or the next
+    // outage starts at the longest wait for every card on the key.
+    const ok = tableHass({ 'calendar.anna': [event('Anna')], 'calendar.ben': [event('Ben')] });
+    await EventUtils.fetchEventData(ok.hass, TWO, 'hint', 'network');
+
+    const failing = tableHass({ 'calendar.anna': [], 'calendar.ben': new Error('500') });
+    const result = await EventUtils.fetchEventData(failing.hass, TWO, 'hint', 'network', 6);
+
+    expect((result.nextAttemptAt - Date.now()) / 1000).toBe(60);
+  });
+
   it('writes a total failure, so a card sharing the key does not read the old entry as healthy', async () => {
     const ok = tableHass({ 'calendar.anna': [event('Anna')], 'calendar.ben': [event('Ben')] });
     await EventUtils.fetchEventData(ok.hass, TWO, 'shared', 'network');

@@ -138,6 +138,21 @@ describe('the refresh interval', () => {
   );
 });
 
+describe('cards sharing calendars', () => {
+  it('keeps its own refresh interval when a card with a longer one starts the shared request', async () => {
+    // Both cards ask for the same calendars, so they share requests, but the interval is
+    // not part of what they share. The card that joined used to inherit the deadline of
+    // the card that started the request, and refreshed hourly instead of every 5 minutes.
+    const { hass, requests } = scriptedHass({ 'calendar.anna': [event('Anna')] });
+    mount({ entities: [{ entity: 'calendar.anna' }], refresh_interval: 60 }, hass);
+    mount({ entities: [{ entity: 'calendar.anna' }], refresh_interval: 5 }, hass);
+
+    await elapse(31 * 60 * 1000);
+
+    expect(requests).toHaveLength(1 + 6);
+  });
+});
+
 describe('appearing with data on disk', () => {
   async function seed(config: Record<string, unknown>, table: Record<string, Answer>) {
     const { hass } = scriptedHass(table);
@@ -301,6 +316,34 @@ describe('a calendar that fails', () => {
 
     await elapse(30 * 60 * 1000);
     expect(rounds()).toEqual([0, 1, 3, 7, 15, 45]);
+  });
+
+  it('stops drawing its last events 24 hours after they loaded, on a card left running', async () => {
+    // The attempts that carried the events forward are not when they loaded. Dating them
+    // by the attempt kept them on screen for about two days.
+    const table: Record<string, Answer> = {
+      'calendar.anna': [
+        {
+          ...event('Anna'),
+          start: { dateTime: '2026-06-19T15:00:00Z' },
+          end: { dateTime: '2026-06-19T16:00:00Z' },
+        },
+      ],
+    };
+    const { hass } = scriptedHass(table, 0);
+    const card = mount({ entities: [{ entity: 'calendar.anna' }], days_to_show: 7 }, hass);
+    await elapse(1000);
+    table['calendar.anna'] = new Error('token expired');
+
+    await elapse(23 * 60 * 60 * 1000);
+    // Control: within the bound they are still drawn, under the notice.
+    expect({ events: summaries(card), failing: noticeText(card) !== null }).toEqual({
+      events: ['Anna'],
+      failing: true,
+    });
+
+    await elapse(2 * 60 * 60 * 1000);
+    expect(summaries(card)).toEqual([]);
   });
 
   it('is not retried early by a view switch or a returning tab', async () => {

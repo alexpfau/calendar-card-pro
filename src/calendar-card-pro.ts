@@ -359,8 +359,10 @@ class CalendarCardPro extends LitElement {
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
   /**
-   * When the events held in `events` were fetched, in epoch milliseconds. Bounds how long
-   * the card keeps drawing them when nothing newer can be loaded.
+   * When the oldest of the events held in `events` last loaded successfully, in epoch
+   * milliseconds. Bounds how long the card keeps drawing them when nothing newer can be
+   * loaded. Not the time of the attempt that delivered them: an attempt that only carried
+   * a failing calendar's events forward does not make them any younger.
    */
   private _eventsFetchedAt = 0;
   /**
@@ -2730,12 +2732,15 @@ class CalendarCardPro extends LitElement {
 
     this.events = [...(result.events ?? [])];
     this._eventsInstanceId = instanceId;
-    this._eventsFetchedAt = result.fetchedAt ?? Date.now();
+    this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._setFailures(failedEntities);
     this.isInitialLoad = false;
 
     if (failedEntities.length === 0) {
       this._lastUpdateTime = Date.now();
+      // Healthy data, from the network or from another card's cache entry, ends whatever
+      // run of failures this card had counted.
+      this._failureCountHint = 0;
     }
   }
 

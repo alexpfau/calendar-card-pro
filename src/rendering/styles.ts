@@ -1908,7 +1908,7 @@ export const cardStyles = css`
      only 8px; column and grid views pad 16px themselves. */
   .fetch-error {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     margin: 8px 0 0;
     margin-inline-start: 8px;
@@ -1925,6 +1925,14 @@ export const cardStyles = css`
   .fetch-error-icon {
     flex: none;
     --mdc-icon-size: 1.25em;
+  }
+
+  /* An entity id has no break opportunity of its own, and the one shown for a calendar
+     Home Assistant does not know is usually long. Without these the line runs past the
+     card edge on a phone or in a narrow section and is clipped mid-name. */
+  .fetch-error-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   /* ===== CORNER LOADING INDICATOR ===== */
