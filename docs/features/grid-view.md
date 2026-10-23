@@ -537,8 +537,9 @@ Titles wrap only between words. Where overlapping events share a narrow column, 
 be wider than its block; it is then cut short and ends in "…", so "Quarterly review" reads
 "Quarte… review" rather than "Quarte rly review" broken over three lines. A hyphenated word
 can still wrap after its hyphen. Titles in Chinese, Japanese, Thai and other scripts written
-without spaces wrap between characters, as they always have. A scrolling title
-(`scroll_long_titles`) stays on one line and moves instead.
+without spaces wrap between characters, as they always have, and so do titles containing a
+right-to-left script such as Hebrew or Arabic. A scrolling title (`scroll_long_titles`) stays
+on one line and moves instead.
 
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words

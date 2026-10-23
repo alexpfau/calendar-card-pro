@@ -233,6 +233,9 @@ describe('keeping today in the shed window', () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await card.updateComplete;
     expect(days()).toEqual([18, 19]);
+    // A relative start date can move the requested window at midnight, so the timer also asks
+    // for a cache load, which fetches only when that window changed.
+    expect(fetch).toHaveBeenLastCalledWith('cache');
     fetch.mockRestore();
   });
 

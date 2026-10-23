@@ -381,9 +381,13 @@ function renderEventTitle(
   // rendered as "Homeoffice" on every unlabeled title. Inside one inline child they are
   // ordinary inline content again. A labeled title hid this, because the label makes the
   // title itself inline.
+  //
+  // `dir="auto"` gives the words the title's own direction. Inline-blocks are ordered by
+  // the direction of the line around them, so on a right-to-left dashboard an English
+  // title read "landlord with Call" until the wrapper said which way its words run.
   const titleText =
     titleWords && !scrollTitles
-      ? html`<span class="title-words"
+      ? html`<span class="title-words" dir="auto"
           >${splitTitleWords(titleString ?? '').map((segment) =>
             segment.kind === 'word'
               ? html`<span class="title-word">${segment.text}</span>`

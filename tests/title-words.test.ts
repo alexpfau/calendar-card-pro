@@ -92,6 +92,15 @@ describe('splitTitleWords', () => {
     ]);
   });
 
+  it('leaves a title containing right-to-left script as one run', () => {
+    // Separate boxes are ordered by the line's direction, not their own, so a Hebrew title
+    // split into words read backwards on a left-to-right dashboard. One run is ordered by
+    // the browser's bidirectional algorithm, as before.
+    expect(words('פגישת צוות')).toEqual(['text:פגישת צוות']);
+    expect(words('اجتماع الفريق')).toEqual(['text:اجتماع الفريق']);
+    expect(words('Microsoft Teams עם דנה')).toEqual(['text:Microsoft Teams עם דנה']);
+  });
+
   it('returns nothing for an empty title', () => {
     expect(splitTitleWords('')).toEqual([]);
   });

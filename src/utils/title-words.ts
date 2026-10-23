@@ -39,6 +39,18 @@ const NO_SPACE_SCRIPT =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Bopomofo}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
 
 /**
+ * Scripts written right to left. A title containing any of them is not split at all.
+ *
+ * Each word is an atomic inline box, and the bidirectional algorithm orders those by the
+ * direction of the line they sit in rather than by the script inside them. Split, a Hebrew
+ * title on a left-to-right dashboard read its words backwards, and one mixing directions
+ * can never be ordered right as separate boxes. Left as one text run, the browser orders it
+ * as it always did, and break-word wraps it as before.
+ */
+const RIGHT_TO_LEFT_SCRIPT =
+  /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}\p{Script=Adlam}]/u;
+
+/**
  * Between a letter or digit and a hyphen or dash, and the letter or digit after it. A
  * compound such as `Parent-teacher` can then still wrap after its hyphen, where the browser
  * would have wrapped it, instead of being cut as one word. A leading dash (`-5°C`) and a
@@ -53,6 +65,8 @@ const AFTER_HYPHEN = /(?<=[\p{L}\p{N}][-\u2010\u2013\u2014])(?=[\p{L}\p{N}])/u;
  * @returns The pieces, in order; empty for an empty title
  */
 export function splitTitleWords(title: string): TitleSegment[] {
+  if (RIGHT_TO_LEFT_SCRIPT.test(title)) return title ? [{ kind: 'text', text: title }] : [];
+
   return title.split(BREAKING_SPACE).flatMap((piece, index): TitleSegment[] => {
     if (piece === '') return [];
     if (index % 2 === 1) return [{ kind: 'space', text: piece }];

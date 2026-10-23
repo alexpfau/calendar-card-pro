@@ -256,7 +256,7 @@ describe('Grid structure changes outside a full refit', () => {
     return element;
   }
 
-  it('fits a block that arrived without a full refit, and remeasures the scale', async () => {
+  it('refits every block when one arrives, and remeasures the scale', async () => {
     const element = await observed();
     const schedule = vi
       .spyOn(element, '_scheduleGridDisclosureSafety')
@@ -264,20 +264,29 @@ describe('Grid structure changes outside a full refit', () => {
     const scale = vi.spyOn(element, '_scheduleGridScaleSync').mockImplementation(() => {});
     const plane = element.shadowRoot!.querySelector('.grid-day-plane')!;
     plane.insertAdjacentHTML('beforeend', block('Swimming lesson'));
-    const added = plane.lastElementChild as HTMLElement;
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(scale).toHaveBeenCalled();
-    expect(schedule).toHaveBeenCalledWith(false);
-    expect(schedule).not.toHaveBeenCalledWith(true);
-    expect([...element._gridDisclosureDirty]).toEqual([added]);
+    expect(schedule).toHaveBeenCalledWith(true);
   });
 
-  it('remeasures the scale when a block leaves', async () => {
+  it('refits the blocks that stay when one leaves', async () => {
+    // A longer event's text area ends where an event drawn inside it starts. When that event
+    // ends and leaves, the longer one grows its text area without changing size, so nothing
+    // but this reaction would refit it.
     const element = await observed();
-    const scale = vi.spyOn(element, '_scheduleGridScaleSync').mockImplementation(() => {});
-    element.shadowRoot!.querySelector('.grid-event')!.remove();
+    element
+      .shadowRoot!.querySelector('.grid-day-plane')!
+      .insertAdjacentHTML('beforeend', block('Standup'));
     await new Promise((resolve) => setTimeout(resolve, 0));
+    const schedule = vi
+      .spyOn(element, '_scheduleGridDisclosureSafety')
+      .mockImplementation(() => {});
+    const scale = vi.spyOn(element, '_scheduleGridScaleSync').mockImplementation(() => {});
+    element.shadowRoot!.querySelectorAll('.grid-event')[1].remove();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(schedule).toHaveBeenCalledWith(true);
     expect(scale).toHaveBeenCalled();
   });
 

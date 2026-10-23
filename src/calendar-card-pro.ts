@@ -577,8 +577,8 @@ class CalendarCardPro extends LitElement {
    *
    * Which columns survive depends on what today is (`visibleDayWindowStart`), so the window has
    * to move at midnight. Grid with a now line already refetches then; column view and a grid
-   * without the line had nothing that re-renders at midnight. This only re-renders — fetching
-   * the next day's events at midnight is a separate concern.
+   * without the line had nothing that re-renders at midnight. It re-renders and asks for a
+   * cache load, which fetches only if a relative start date moved the requested window.
    */
   private _midnightTimerId: number | null = null;
 
@@ -988,6 +988,10 @@ class CalendarCardPro extends LitElement {
     this._midnightTimerId = window.setTimeout(() => {
       this._midnightTimerId = null;
       this.requestUpdate();
+      // A relative start_date can move the whole window at midnight — start_of_week by a
+      // week — and drawing the new window from the old window's events shows false empty
+      // days. A cache load fetches exactly when the window it asks for has changed.
+      void this.updateEvents('cache');
     }, nextMidnight.getTime() - now.getTime());
   }
 
@@ -1483,9 +1487,8 @@ class CalendarCardPro extends LitElement {
    * arrived since the last call. Observing is all it does to a block that was already there.
    *
    * @param blocks - The timed blocks currently rendered
-   * @returns The blocks that were not observed before this call
    */
-  private _observeGridDisclosureTargets(blocks: Iterable<HTMLElement>): HTMLElement[] {
+  private _observeGridDisclosureTargets(blocks: Iterable<HTMLElement>): void {
     const current = new Set<HTMLElement>(blocks);
     for (const [target, block] of this._gridDisclosureTargets) {
       if (!current.has(block) || !block.contains(target)) {
@@ -1493,8 +1496,6 @@ class CalendarCardPro extends LitElement {
         this._gridDisclosureTargets.delete(target);
       }
     }
-    const observedBlocks = new Set(this._gridDisclosureTargets.values());
-    const added = [...current].filter((block) => !observedBlocks.has(block));
     // Title stays visible under the clip class; detail rows do not — see the method doc.
     const contentTargets = '.summary, .event-title';
     current.forEach((block) => {
@@ -1504,7 +1505,6 @@ class CalendarCardPro extends LitElement {
         this._gridDisclosureObserver?.observe(target);
       }
     });
-    return added;
   }
 
   /**
@@ -1512,20 +1512,24 @@ class CalendarCardPro extends LitElement {
    *
    * The update that caused it may have skipped the full pass — a now-line tick does, and so
    * does a Home Assistant update that changed nothing this card was told about but still
-   * re-rendered against a later clock. So the new blocks are fitted on their own, and the two
-   * scale measurements, which read a day body's height and width, are taken again.
+   * re-rendered against a later clock. So it observes the new blocks, refits every block, and
+   * takes the two scale measurements, which read a day body's height and width, again.
+   *
+   * Every block, not just the new ones, because a block that stays can change shape through
+   * attributes alone, which nothing else here watches. A longer event's text area ends where
+   * an event drawn inside it starts; when that event ends and leaves, the longer one drops
+   * its limit and grows its text area without changing size, so the resize observer stays
+   * quiet and its old fit would stand. Structure changes at event boundaries, a few times a
+   * day, so this costs the steady tick nothing.
    */
   private _reconcileGridStructure(): void {
     if (!this.isConnected || this.effectiveView !== 'grid' || !this._gridDisclosureObserver) {
       return;
     }
-    const added = this._observeGridDisclosureTargets(
+    this._observeGridDisclosureTargets(
       this.renderRoot.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
     );
-    if (added.length) {
-      added.forEach((block) => this._gridDisclosureDirty.add(block));
-      this._scheduleGridDisclosureSafety(false);
-    }
+    this._scheduleGridDisclosureSafety(true);
     this._scheduleGridScaleSync();
   }
 

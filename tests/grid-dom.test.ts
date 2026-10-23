@@ -2379,30 +2379,41 @@ describe('the now line (#325)', () => {
     expect(container.querySelectorAll('.grid-now-dot')).toHaveLength(0);
   });
 
-  it('moves only when the minute changes, so a render within the minute writes nothing', () => {
+  it('moves only when the minute changes, on the same nodes', () => {
     // Every Home Assistant state change re-renders the card, several times a second on a
     // busy instance. An unrounded position changed on each of those renders and rewrote the
-    // line's and the dot's style every time.
-    const topAt = (iso: string) => {
-      const config = buildConfig({ view: 'grid', days_to_show: 3 });
-      const days = EventUtils.groupEventsByDay([], config, false, 'en', 'grid');
-      const container = document.createElement('div');
+    // line's and the dot's style every time: about 150 times a minute each, measured live in
+    // Chromium, against 1 each once rounded. That count needs a real browser — happy-dom
+    // records a mutation for every style write, changed or not, and Lit's styleMap writes
+    // every property on each render — so this pins what decides it: the value written, and
+    // that the card keeps the same two nodes rather than replacing them.
+    const config = buildConfig({ view: 'grid', days_to_show: 3 });
+    const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+    const days = EventUtils.groupEventsByDay([], config, false, 'en', 'grid');
+    const container = document.createElement('div');
+    const renderAt = (iso: string) => {
       litRender(
-        Grid.renderGridGroupedEvents(
-          days,
-          ViewConfig.resolveEffectiveConfig(config, 'grid'),
-          'en',
-          undefined,
-          null,
-          new Date(iso),
-        ),
+        Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, new Date(iso)),
         container,
       );
-      return container.querySelector<HTMLElement>('.grid-now-line')?.style.top;
+      return [
+        container.querySelector<HTMLElement>('.grid-now-line')!,
+        container.querySelector<HTMLElement>('.grid-now-dot')!,
+      ] as const;
     };
 
-    expect(topAt('2026-06-17T10:00:05.000Z')).toBe(topAt('2026-06-17T10:00:59.999Z'));
-    expect(topAt('2026-06-17T10:01:00.000Z')).not.toBe(topAt('2026-06-17T10:00:59.999Z'));
+    const [line, dot] = renderAt('2026-06-17T10:00:05.000Z');
+    const top = line.style.top;
+    expect(dot.style.top).toBe(top);
+
+    const [sameLine, sameDot] = renderAt('2026-06-17T10:00:59.999Z');
+    expect(sameLine).toBe(line);
+    expect(sameDot).toBe(dot);
+    expect(line.style.top).toBe(top);
+
+    renderAt('2026-06-17T10:01:00.000Z');
+    expect(line.style.top).not.toBe(top);
+    expect(dot.style.top).toBe(line.style.top);
   });
 
   it('puts the line before the blocks and the dot after them', () => {
@@ -2449,6 +2460,9 @@ describe('grid titles that wrap at spaces', () => {
     const wrappers = title.querySelectorAll(':scope > .title-words');
 
     expect(wrappers).toHaveLength(1);
+    // The words are ordered by the line's direction unless the wrapper states their own, so
+    // an English title on a right-to-left dashboard would read "office Home" without it.
+    expect(wrappers[0].getAttribute('dir')).toBe('auto');
     expect(title.querySelectorAll(':scope > .title-word')).toHaveLength(0);
     expect(wrappers[0].querySelectorAll(':scope > .title-word')).toHaveLength(2);
     expect(wrappers[0].textContent).toBe('Home office');
