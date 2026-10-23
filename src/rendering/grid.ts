@@ -1607,7 +1607,15 @@ function renderDayBody(
   // Only today's column carries the line, and only when the current time is inside the
   // band. A line drawn across every column would say nothing; one clamped to an edge
   // would say something false.
-  const nowPct = showNowLine && isToday ? Grid.computeNowLinePct(now, band) : null;
+  //
+  // Placed to the minute, not the millisecond. The line moves under a pixel a minute, and on
+  // a busy Home Assistant every state change re-renders the card, several times a second, so
+  // an unrounded position rewrote the line's and the dot's style on every one of those
+  // renders: about 150 times a minute each, measured live. Rounded, the value only changes
+  // when the minute does, and Lit leaves an unchanged style alone.
+  const nowMinute = new Date(now);
+  nowMinute.setSeconds(0, 0);
+  const nowPct = showNowLine && isToday ? Grid.computeNowLinePct(nowMinute, band) : null;
   const nowTop = styleMap({ top: `${nowPct}%` });
 
   // The line goes before the plane and the dot after it: positioned elements with no

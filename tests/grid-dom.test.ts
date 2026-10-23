@@ -2379,6 +2379,32 @@ describe('the now line (#325)', () => {
     expect(container.querySelectorAll('.grid-now-dot')).toHaveLength(0);
   });
 
+  it('moves only when the minute changes, so a render within the minute writes nothing', () => {
+    // Every Home Assistant state change re-renders the card, several times a second on a
+    // busy instance. An unrounded position changed on each of those renders and rewrote the
+    // line's and the dot's style every time.
+    const topAt = (iso: string) => {
+      const config = buildConfig({ view: 'grid', days_to_show: 3 });
+      const days = EventUtils.groupEventsByDay([], config, false, 'en', 'grid');
+      const container = document.createElement('div');
+      litRender(
+        Grid.renderGridGroupedEvents(
+          days,
+          ViewConfig.resolveEffectiveConfig(config, 'grid'),
+          'en',
+          undefined,
+          null,
+          new Date(iso),
+        ),
+        container,
+      );
+      return container.querySelector<HTMLElement>('.grid-now-line')?.style.top;
+    };
+
+    expect(topAt('2026-06-17T10:00:05.000Z')).toBe(topAt('2026-06-17T10:00:59.999Z'));
+    expect(topAt('2026-06-17T10:01:00.000Z')).not.toBe(topAt('2026-06-17T10:00:59.999Z'));
+  });
+
   it('puts the line before the blocks and the dot after them', () => {
     // Paint order is document order for positioned boxes without a z-index, so this order is
     // what puts the line beneath the blocks — a line over a block at text height read as a
