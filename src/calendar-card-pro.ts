@@ -3186,6 +3186,27 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The date a new event starts on in Home Assistant's create dialog.
+   *
+   * Taken when the button is pressed rather than when it was drawn, so a card left open
+   * past midnight still offers the right day.
+   *
+   * @returns The dialog's `selectedDate`
+   */
+  private _newEventDate(): Date {
+    const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
+      this.config.first_day_of_week,
+      this.hass?.locale,
+    );
+    const { start } = EventUtils.getTimeWindow(
+      this.config.days_to_show,
+      this.config.start_date,
+      firstDayOfWeek,
+    );
+    return AddEvent.newEventDate(start, this.config.days_to_show);
+  }
+
+  /**
    * The add-event button, when the card asks for one and has somewhere to write.
    *
    * @returns Button description for the wrapper, or undefined for no button
@@ -3193,7 +3214,11 @@ class CalendarCardPro extends LitElement {
   private _addEventButton(): Render.AddEventButton | undefined {
     if (this.config.show_add_event !== true) return undefined;
 
-    const writable = AddEvent.writableCalendarIds(this.safeHass, this.config.entities);
+    const writable = AddEvent.writableCalendarIds(
+      this.safeHass,
+      this.config.entities,
+      this._failedEntities,
+    );
     if (writable.length === 0) return undefined;
 
     return {
@@ -3203,6 +3228,7 @@ class CalendarCardPro extends LitElement {
       onActivate: () => {
         void Dialogs.openCreateEventDialog(this, {
           calendarId: writable[0],
+          selectedDate: this._newEventDate(),
           // Home Assistant's create dialog lets the user pick any writable calendar.
           updated: () => this._refreshAfterWrite(null),
         });

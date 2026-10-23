@@ -14,7 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildConfig } from './fixtures';
+import { FROZEN_NOW, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
@@ -63,7 +63,14 @@ async function mount(
 ): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(buildConfig(overrides));
-  card.hass = { states: states(), locale: { language: 'en' }, ...hassExtras };
+  // A `callApi` that answers, so no calendar counts as failing: the button leaves failing
+  // calendars out, and without one every calendar on the card would fail to load.
+  card.hass = {
+    states: states(),
+    locale: { language: 'en' },
+    callApi: vi.fn().mockResolvedValue([]),
+    ...hassExtras,
+  };
   card.isInitialLoad = false;
   document.body.appendChild(card);
   await card.updateComplete;
@@ -91,6 +98,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
+  localStorage.clear();
 });
 
 describe('writableCalendarIds', () => {
@@ -110,6 +119,35 @@ describe('writableCalendarIds', () => {
 
   it('finds nothing before Home Assistant arrives', () => {
     expect(AddEvent.writableCalendarIds(null, [WRITABLE])).toEqual([]);
+  });
+
+  it('leaves out calendars that are failing to load', () => {
+    const hass = { states: states() } as unknown as Types.Hass;
+
+    expect(
+      AddEvent.writableCalendarIds(hass, [READ_ONLY, WRITABLE_2, WRITABLE], [WRITABLE_2]),
+    ).toEqual([WRITABLE]);
+  });
+});
+
+describe('newEventDate', () => {
+  const start = new Date(2026, 5, 15);
+  const at = (day: number, hour = 0, ms = 0) => new Date(2026, 5, day, hour, 0, 0, ms);
+
+  it('offers now while today is one of the days shown, and the first day otherwise', () => {
+    expect({
+      'first day': AddEvent.newEventDate(start, 2, at(15)),
+      'last moment shown': AddEvent.newEventDate(start, 2, new Date(at(17).getTime() - 1)),
+      'first moment not shown': AddEvent.newEventDate(start, 2, at(17)),
+      'day after the last': AddEvent.newEventDate(start, 2, at(17, 10)),
+      'day before the first': AddEvent.newEventDate(start, 2, at(14, 10)),
+    }).toEqual({
+      'first day': at(15),
+      'last moment shown': new Date(at(17).getTime() - 1),
+      'first moment not shown': start,
+      'day after the last': start,
+      'day before the first': start,
+    });
   });
 });
 
@@ -220,6 +258,69 @@ describe('pressing the add-event button', () => {
     // `dialog-writes.test.ts`; this pins only that saving asks for one.
     detail.dialogParams.updated();
     expect(refreshEvents).toHaveBeenCalledOnce();
+  });
+
+  it('preselects the first writable calendar that is not failing to load', async () => {
+    dialogAlreadyLoaded();
+    const callApi = vi.fn((_method: string, path: string) =>
+      path.startsWith(`calendars/${WRITABLE_2}`)
+        ? Promise.reject(new Error('unavailable'))
+        : Promise.resolve([]),
+    );
+    const card = await mount(
+      { entities: [READ_ONLY, WRITABLE_2, WRITABLE], show_add_event: true },
+      { callApi },
+    );
+    await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
+
+    const shown = new Promise<CustomEvent>((resolve) =>
+      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
+        once: true,
+      }),
+    );
+    button(card)!.click();
+
+    // The control is the case above: the same calendars, all loading, preselect WRITABLE_2.
+    expect((await shown).detail.dialogParams.calendarId).toBe(WRITABLE);
+  });
+
+  it('draws nothing while every writable calendar is failing to load', async () => {
+    const card = await mount(
+      { entities: [READ_ONLY, WRITABLE], show_add_event: true },
+      { callApi: vi.fn().mockRejectedValue(new Error('unavailable')) },
+    );
+
+    await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
+    expect(button(card)).toBeNull();
+  });
+
+  it.each([
+    ['today, when the card starts today', {}, FROZEN_NOW],
+    ['today, when the days shown include it', { start_date: '2026-06-15' }, FROZEN_NOW],
+    [
+      'the first day, when the days shown end before today',
+      { start_date: '2026-06-15', days_to_show: 2 },
+      new Date(2026, 5, 15),
+    ],
+    [
+      'the first day, when the days shown start after today',
+      { start_date: '2026-07-01' },
+      new Date(2026, 6, 1),
+    ],
+  ])('starts a new event on %s', async (_name, overrides, expected) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FROZEN_NOW);
+    dialogAlreadyLoaded();
+    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...overrides });
+
+    const shown = new Promise<CustomEvent>((resolve) =>
+      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
+        once: true,
+      }),
+    );
+    button(card)!.click();
+
+    expect((await shown).detail.dialogParams.selectedDate).toEqual(expected);
   });
 
   it('does not run the card tap action', async () => {
