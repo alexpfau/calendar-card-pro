@@ -111,7 +111,8 @@ the same way. Note also that equal raw sizes do not prove identity — hash them
 
 **And the build variant is a second axis, which is easier to get wrong than the first.**
 The dev bundle is what a session has to hand; the production bundle is what users load.
-Same source, all nine languages, four legitimate answers for one chunk:
+Same source, the nine full editor translations of the time, four legitimate answers for one
+chunk:
 
 |                 | `gzip -6` | `gzip -9` |
 | --------------- | --------: | --------: |
@@ -701,8 +702,8 @@ replacement is only live once it reaches `main`.
   counting the directory undercounts by one. `en-GB.json` is a _delta_ of ~36 strings
   rather than a full translation, so it is easy to skip as well, and the nine complete
   files are easy to mistake for the whole set. All three are languages the editor renders
-  in, and the total is **11**: US English in code, British English as a delta, and nine
-  translated in full. Do not write "nine editor languages" — that is the count of the
+  in, and the total is **12**: US English in code, British English as a delta, nine
+  translated in full, and Korean in part. Do not write "nine editor languages" — that is the count of the
   files that happen to be complete, not the count of languages a user can get.
   `docs/contributing.md` states the breakdown correctly; check against it.
 
@@ -1272,10 +1273,10 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
    here is now a `check:i18n` error, because these files are imported statically for all
-   35 languages and land on every dashboard load.
+   36 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Ten of the 35 languages translate the editor; the other 25 have no
+   may be partial**. Eleven of the 36 languages translate the editor; the other 25 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.
@@ -1296,7 +1297,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    It is complete by construction and already held to a **stricter** standard than
    coverage. Measured against the full editor string table it reads 13%, so any "warn below
    N%" rule flags it permanently — and a permanently-red gate is the one people learn to
-   ignore, which is the failure such a gate exists to prevent. The nine hand-maintained
+   ignore, which is the failure such a gate exists to prevent. The ten hand-maintained
    files are the only meaningful denominator.
 
    These files are reachable **only** from `src/rendering/editor/`, so they are built into
@@ -1315,7 +1316,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    (see _Documenting a change_). `check:docs` reconciles these against the
    files on disk, so a wrong count now fails the build instead of shipping. Count the editor
    languages as files **+ 1**, because US English lives in `strings.ts` and not in
-   `translations/`; the answer is 11, not 9 and not 10.
+   `translations/`; the answer is 12, not 10 and not 11.
 
 Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
@@ -1329,7 +1330,7 @@ verifies **wiring**, not translation quality, and it cannot tell you whether
 
 **It also reconciles every dropdown option against the string that names it**, in both
 directions and across all 27 option tables, so adding a `select` whose values no string
-covers fails the gate rather than shipping a `humanize`d label in eleven languages, and
+covers fails the gate rather than shipping a `humanize`d label in twelve languages, and
 dropping a value leaves its string orphaned and fails it too. See the table-walk trap under
 _Build commands_ for why that is a reconciliation and not a list. The practical consequence
 when adding a dropdown: write the `<key>.option.<value>.label` strings in `strings.ts` in
