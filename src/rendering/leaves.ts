@@ -374,13 +374,22 @@ function renderEventTitle(
   const scrollTitles = config.scroll_long_titles;
   // No whitespace inside the word spans, and the spaces between them stay text: joined, the
   // pieces are the title exactly, so its text content does not change.
+  //
+  // 🚨 The one inline wrapper is what keeps those spaces on screen. `.event-title` is a
+  // `-webkit-box`, and with no line clamp in force Chrome lays that out as the legacy
+  // flexbox, which drops whitespace between its children: words sitting directly inside it
+  // rendered as "Homeoffice" on every unlabeled title. Inside one inline child they are
+  // ordinary inline content again. A labeled title hid this, because the label makes the
+  // title itself inline.
   const titleText =
     titleWords && !scrollTitles
-      ? splitTitleWords(titleString ?? '').map((segment) =>
-          segment.kind === 'word'
-            ? html`<span class="title-word">${segment.text}</span>`
-            : segment.text,
-        )
+      ? html`<span class="title-words"
+          >${splitTitleWords(titleString ?? '').map((segment) =>
+            segment.kind === 'word'
+              ? html`<span class="title-word">${segment.text}</span>`
+              : segment.text,
+          )}</span
+        >`
       : titleString;
 
   // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is

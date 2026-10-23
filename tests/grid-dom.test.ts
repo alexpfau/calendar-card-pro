@@ -2414,6 +2414,20 @@ describe('grid titles that wrap at spaces', () => {
     expect(titleOf(container).textContent?.trim()).toBe('Parent-teacher meeting');
   });
 
+  it('keeps the words inside one inline wrapper, so the spaces between them render', () => {
+    // `.event-title` is a -webkit-box, which Chrome lays out as the legacy flexbox when no
+    // line clamp applies, and that drops whitespace between the box's own children. Words
+    // placed directly inside it rendered run together ("Homeoffice") on every unlabeled
+    // title; measured in Chromium, the gap was 0px without the wrapper and a space with it.
+    const title = titleOf(renderGrid([timed(17, '09:00', '10:00', 'Home office')]));
+    const wrappers = title.querySelectorAll(':scope > .title-words');
+
+    expect(wrappers).toHaveLength(1);
+    expect(title.querySelectorAll(':scope > .title-word')).toHaveLength(0);
+    expect(wrappers[0].querySelectorAll(':scope > .title-word')).toHaveLength(2);
+    expect(wrappers[0].textContent).toBe('Home office');
+  });
+
   it('leaves a run in a script written without spaces to the browser', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', '会議 Quarterly review')]);
 

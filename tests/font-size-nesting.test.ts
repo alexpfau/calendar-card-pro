@@ -910,7 +910,7 @@ describe('every piece of text is sized by its own option', () => {
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
       'time-end in time-text': ['time_font_size'],
-      'title-word in event-title': ['event_font_size'],
+      'title-word in title-words': ['event_font_size'],
       'today-indicator in today-indicator-container': ['today_indicator_size'],
       'weather-temp-high in weather': ['weather.date.font_size'],
       'week-number in column-week-number': ['week_number_font_size'],
