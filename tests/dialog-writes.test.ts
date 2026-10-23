@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import type * as Types from '../src/config/types';
+import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
 import {
   EVENT_DETAIL_DIALOG_TAG,
   EVENT_EDITOR_DIALOG_TAG,
@@ -22,6 +23,7 @@ interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
   hass: Types.Hass;
   updateEvents(mode?: unknown): Promise<void>;
+  refreshEvents(): Promise<void>;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -44,7 +46,10 @@ async function mount(config: Record<string, unknown>) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
 
-  const entityIds = (config.entities as string[] | undefined) ?? ['calendar.anna'];
+  const entities = (config.entities as Array<string | { entity: string }> | undefined) ?? [
+    'calendar.anna',
+  ];
+  const entityIds = entities.map((entity) => (typeof entity === 'string' ? entity : entity.entity));
   const states = Object.fromEntries(
     entityIds.map((id) => [id, { entity_id: id, state: 'off', attributes: WRITABLE }]),
   );
@@ -148,5 +153,63 @@ describe.each(['add', 'details'] as const)('after the %s dialog saves', (which) 
     // Joining the older request would leave this at `before + 1`, and the change would
     // stay invisible until the next scheduled refresh.
     expect(callApi.mock.calls.length).toBe(before + 2);
+  });
+});
+
+describe('telling the other cards on the page', () => {
+  /** Calls each card made to Home Assistant from now on. */
+  function counter(cards: Array<{ callApi: ReturnType<typeof vi.fn> }>) {
+    const before = cards.map(({ callApi }) => callApi.mock.calls.length);
+    return () => cards.map(({ callApi }, i) => callApi.mock.calls.length - before[i]);
+  }
+
+  it('refreshes another card showing the edited calendar, and no card that does not', async () => {
+    const editing = await mount({ show_event_details: true });
+    const sameCalendar = await mount({ entities: [{ entity: 'calendar.anna' }] });
+    const otherCalendar = await mount({ entities: ['calendar.ben'] });
+    await OPENERS.details(editing.card);
+    const calls = counter([editing, sameCalendar, otherCalendar]);
+    const ownRefresh = vi.spyOn(editing.card, 'refreshEvents');
+
+    editing.dialogs[0].dialogParams.updated();
+    await settle();
+
+    expect(calls()).toEqual([1, 1, 0]);
+    // The editing card refreshes once, itself, and does not answer its own announcement.
+    // Its request count cannot show that: a second `reload` supersedes the first before
+    // either reaches Home Assistant, so both arms of the mistake make one request.
+    expect(ownRefresh).toHaveBeenCalledOnce();
+  });
+
+  it('refreshes every card after a new event, whichever calendar it went to', async () => {
+    const adding = await mount({ show_add_event: true });
+    const otherCalendar = await mount({ entities: ['calendar.ben'] });
+    await OPENERS.add(adding.card);
+    const calls = counter([adding, otherCalendar]);
+
+    adding.dialogs[0].dialogParams.updated();
+    await settle();
+
+    expect(calls()).toEqual([1, 1]);
+  });
+
+  it('leaves a card alone once it has left the page', async () => {
+    const editing = await mount({ show_event_details: true });
+    const detached = await mount({});
+    detached.card.remove();
+    // A detached card's refresh returns before it fetches, so counting requests could not
+    // tell a listener that was removed from one that was not.
+    const refresh = vi.spyOn(detached.card, 'refreshEvents');
+    await OPENERS.details(editing.card);
+
+    editing.dialogs[0].dialogParams.updated();
+    await settle();
+
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('uses one event name in the development build and in a release', () => {
+    // The release build rewrites this string wherever it appears; see the constant.
+    expect(CALENDARS_CHANGED_EVENT).not.toContain('calendar-card-pro-dev');
   });
 });

@@ -30,6 +30,7 @@ import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
+import * as CalendarChanges from './interaction/calendar-changes';
 import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
 import * as Dialogs from './interaction/ha-calendar-dialogs';
@@ -486,16 +487,38 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Refetch once one of Home Assistant's dialogs reports that it saved a change.
+   * Refetch once one of Home Assistant's dialogs reports that it saved a change, and tell
+   * the other cards on the page.
    *
    * `refreshEvents()` rather than `updateEvents('network')`, because `network` joins a
    * matching request already under way, and one that started before Home Assistant
    * committed the save carries the old answer. Returns nothing, deliberately: Home
    * Assistant awaits this callback before it closes the dialog; see `DialogUpdated`.
+   *
+   * @param calendarIds - Calendars the change touched, or `null` when it could be any
    */
-  private _refreshAfterWrite(): undefined {
+  private _refreshAfterWrite(calendarIds: ReadonlyArray<string> | null): undefined {
     void this.refreshEvents();
+    CalendarChanges.announceCalendarsChanged(this, calendarIds);
   }
+
+  /**
+   * Refetch when another card announces a change to a calendar this card shows.
+   *
+   * The announcing card is skipped: it refreshed before it announced. Same `reload` mode
+   * as the announcer, for the same reason.
+   */
+  private readonly _handleCalendarsChanged = (ev: Event): void => {
+    const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
+    if (!detail || detail.source === this) return;
+
+    const shownIds = this.config.entities.map((entity) =>
+      typeof entity === 'string' ? entity : entity.entity,
+    );
+    if (CalendarChanges.concernsCalendars(detail, shownIds)) {
+      void this.refreshEvents();
+    }
+  };
 
   /**
    * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
@@ -511,7 +534,7 @@ class CalendarCardPro extends LitElement {
       entry,
       color,
       ...EventDetails.detailPermissions(this.safeHass, calendarId, entry),
-      updated: () => this._refreshAfterWrite(),
+      updated: () => this._refreshAfterWrite([calendarId]),
     });
   };
 
@@ -819,6 +842,8 @@ class CalendarCardPro extends LitElement {
 
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
 
+    window.addEventListener(CalendarChanges.CALENDARS_CHANGED_EVENT, this._handleCalendarsChanged);
+
     this._syncEntityColors();
 
     this._startWidthObserver();
@@ -883,6 +908,11 @@ class CalendarCardPro extends LitElement {
     this._stopMidnightTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+
+    window.removeEventListener(
+      CalendarChanges.CALENDARS_CHANGED_EVENT,
+      this._handleCalendarsChanged,
+    );
 
     EntityColors.releaseEntityColors(this._onEntityColorsChanged);
 
@@ -3169,7 +3199,8 @@ class CalendarCardPro extends LitElement {
       onActivate: () => {
         void Dialogs.openCreateEventDialog(this, {
           calendarId: writable[0],
-          updated: () => this._refreshAfterWrite(),
+          // Home Assistant's create dialog lets the user pick any writable calendar.
+          updated: () => this._refreshAfterWrite(null),
         });
       },
     };
