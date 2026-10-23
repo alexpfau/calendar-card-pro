@@ -90,6 +90,10 @@ Open a dashboard and the card draws the events it last loaded straight away, ins
 
 See [Performance & Caching](https://calendar-card-pro.alexpfau.com/features/performance).
 
+### 🌐 Korean
+
+The card now speaks Korean (`ko`), its 36th language: dates, relative times and every message in full, and the visual editor in part, with English filling in the rest string by string (Thanks @onesounds, #662).
+
 ### 🔭 What Comes After This
 
 A block is only as tall as its event lasts, so no amount of layout work makes a half-hour meeting hold a description — which is why grid view reveals detail as a block grows. The other half comes next: tapping an event to open, change or remove it where the calendar supports it, tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604).

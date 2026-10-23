@@ -112,6 +112,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Korean** (`ko`)
 - **Latvian** (`lv`)
 - **Lithuanian** (`lt`)
 - **Norwegian Bokmål** (`nb`)
@@ -164,10 +165,10 @@ To add a new language:
 ### Translating the Editor
 
 The visual editor's strings are optional and live separately, in
-`src/rendering/editor/translations/[lang-code].json`. The editor is available in 11 of the
-35 languages: English, which lives in code, and the ten with a file here — nine translated
-in full, plus British English, which carries only the strings where it differs from US
-English. The other 24 render the editor in English, which is fully supported.
+`src/rendering/editor/translations/[lang-code].json`. The editor is available in 12 of the
+36 languages: English, which lives in code, and the eleven with a file here — nine translated
+in full, Korean in part, plus British English, which carries only the strings where it
+differs from US English. The other 24 render the editor in English, which is fully supported.
 
 They are kept apart because they are the larger half of the translations by some margin,
 and the editor is loaded only when someone opens it — so a dashboard never downloads them

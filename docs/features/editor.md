@@ -224,11 +224,11 @@ editor transition to Grid; opening an editor or choosing a workspace is not a mi
 - **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
-The editor is available in **11 languages**, and the calendar itself in **35**. Nine of the eleven — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
+The editor is available in **12 languages**, and the calendar itself in **36**. Nine of the twelve — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full, and Korean in part. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
 
 Translation resolves **per string**: a label that has been translated appears in your language, and one that has not appears in English, in the same form. That is what makes a partial translation genuinely useful — every string you add appears immediately, without waiting for the rest.
 
-If your language is not among the 11 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 35 supported languages, and contributions of further editor translations are very welcome.
+If your language is not among the 12 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 36 supported languages, and contributions of further editor translations are very welcome.
 :::
 
 ## 🔎 Search & Customized Only
