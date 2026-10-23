@@ -312,12 +312,14 @@ function isGlyphLabel(label: string): boolean {
  * @param label - Label content from entity configuration
  * @param labelIconColor - Optional color for icon labels
  * @param labelType - Shape the entity configuration names, if it names one
+ * @param alt - Text alternative for a picture label; `''` marks it as decorative
  * @returns TemplateResult for the appropriate label type
  */
 export function renderLabel(
   label: string | undefined,
   labelIconColor?: string,
   labelType?: Helpers.LabelType,
+  alt = '',
 ): TemplateResult | typeof nothing {
   if (!label) return nothing;
 
@@ -331,7 +333,7 @@ export function renderLabel(
   }
 
   if (type === 'image') {
-    return html`<img src="${label}" class="label-image" />`;
+    return html`<img src="${label}" class="label-image" alt=${alt} />`;
   }
 
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
@@ -348,6 +350,7 @@ function renderEventTitle(
   titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
   mergedLabels?: Types.ResolvedLabel[],
   titleWords = false,
+  entityLabelAlt = '',
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -427,9 +430,9 @@ function renderEventTitle(
   // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
   // merge whose winner carries none renders as it always has.
   const labels = mergedLabels
-    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type))
+    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     : entityLabel
-      ? renderLabel(entityLabel, labelIconColor, labelType)
+      ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
       : nothing;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
@@ -649,6 +652,12 @@ export interface EventContentParts {
   entityLabel: string | undefined;
 
   /**
+   * Text alternative for `entityLabel` when it draws as a picture: the person's name for a
+   * `person.…` label, `''` for any other picture. See `resolveLabelAlt`.
+   */
+  entityLabelAlt?: string;
+
+  /**
    * One label per calendar that contributed a copy of a merged duplicate, present only on
    * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
    *
@@ -750,6 +759,7 @@ export function renderEventContent(
     countdownStr,
     progressPercentage,
     entityLabel,
+    entityLabelAlt,
     mergedLabels,
   } = parts;
 
@@ -842,7 +852,7 @@ export function renderEventContent(
   // prettier-ignore
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels, titleWords)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels, titleWords, entityLabelAlt)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime

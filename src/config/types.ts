@@ -836,6 +836,8 @@ export interface ResolvedLabel {
   value: string;
   iconColor?: string;
   type?: LabelType;
+  /** Text alternative when the label draws as a picture; see `resolveLabelAlt`. */
+  alt?: string;
 }
 
 /**

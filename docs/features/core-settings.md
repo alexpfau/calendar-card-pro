@@ -221,6 +221,10 @@ icon](#following-the-icon-from-home-assistant), one entity over. The difference 
 entity holds the value: an icon belongs to the calendar being labeled, so `home-assistant`
 needs no further detail, while a picture belongs to a **person**, who has to be named.
 
+The picture carries the person's name from Home Assistant as its text alternative, so a
+screen reader says whose event it is. A picture given by its address is treated as
+decoration and skipped, the way icon and emoji labels are.
+
 **Only `person.` entity IDs are read this way.** Plenty of other entities carry a picture —
 cameras, media players, integrations — and any of them still works if you paste its
 address, as above. They are deliberately not resolved from an entity ID, because an entity

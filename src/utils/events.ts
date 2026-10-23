@@ -2061,6 +2061,37 @@ export function resolveEntityLabel(
 }
 
 /**
+ * The text alternative for a calendar's label picture.
+ *
+ * A picture taken from `label: person.anna` shows whose event it is, which nothing else in
+ * the row says, so it is named after that person as Home Assistant holds them. Any other
+ * picture is a configured image whose meaning only its author knows, and an empty `alt`
+ * marks it as decorative, the way the icon and emoji labels already read: a screen reader
+ * then skips it rather than announcing a file name. A missing `alt` was axe's only critical
+ * finding on the card.
+ *
+ * Render time, like `resolveEntityLabel`, so renaming the person in Home Assistant renames
+ * the picture with it.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance, which holds the person's name
+ * @returns The person's name, or `''`
+ */
+export function resolveLabelAlt(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string {
+  const label = getEntityLabel(entityId, config, event);
+  if (!label || !PersonPictures.isPersonEntityId(label)) return '';
+  const name = hass?.states?.[label]?.attributes?.friendly_name;
+  return typeof name === 'string' ? name.trim() : '';
+}
+
+/**
  * Resolve one label per calendar that contributed a copy of a merged duplicate.
  *
  * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
@@ -2109,6 +2140,7 @@ export function resolveMergedLabels(
       value,
       iconColor: getEntitySetting(calendar.entityId, 'label_icon_color', config, asContributor),
       type: getEntitySetting(calendar.entityId, 'label_type', config, asContributor),
+      alt: resolveLabelAlt(calendar.entityId, config, asContributor, hass),
     });
   }
 
