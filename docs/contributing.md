@@ -183,7 +183,7 @@ leave out simply renders in English rather than looking broken. Register a new f
 `import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
 lowercase key as the language itself.
 
-## 🏆 Acknowledgements
+## 🏆 Acknowledgments
 
 - **Original design inspiration** from [Calendar Add-on & Calendar Designs](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) by **[@kdw2060](https://github.com/kdw2060)**.
 - **Interaction patterns** inspired by Home Assistant’s [Tile Card](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts), which is licensed under the [Apache License 2.0](https://github.com/home-assistant/frontend/blob/dev/LICENSE.md).

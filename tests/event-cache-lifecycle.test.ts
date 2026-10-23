@@ -128,9 +128,10 @@ describe('expiry cleanup and cache round-trip', () => {
     vi.unstubAllGlobals();
   });
 
-  it('removes an expired entry from storage instead of leaving it behind', () => {
+  it('keeps an expired entry to draw, but no longer serves it as fresh', () => {
+    // A card that appears draws cached events up to MAX_STALE_HOURS old while it
+    // refetches, so expiring an entry must not delete it.
     EventUtils.cacheEvents(KEY, [anEvent()]);
-    expect(localStorage.getItem(KEY)).not.toBeNull();
 
     vi.setSystemTime(
       new Date(
@@ -138,6 +139,19 @@ describe('expiry cleanup and cache round-trip', () => {
       ),
     );
     expect(EventUtils.getValidCacheEntry(KEY)).toBeNull();
+    expect(EventUtils.readCacheEntry(KEY)?.events).toHaveLength(1);
+  });
+
+  it('removes an entry too old to draw instead of leaving it behind', () => {
+    EventUtils.cacheEvents(KEY, [anEvent()]);
+    const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+
+    // Control: one minute short of the bound it is still there.
+    vi.setSystemTime(new Date(FROZEN_NOW.getTime() + maxStaleMs - 60_000));
+    expect(EventUtils.readCacheEntry(KEY)).not.toBeNull();
+
+    vi.setSystemTime(new Date(FROZEN_NOW.getTime() + maxStaleMs));
+    expect(EventUtils.readCacheEntry(KEY)).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 
@@ -178,24 +192,5 @@ describe('week number majority rule', () => {
     expect(EventUtils.calculateWeekNumberWithMajorityRule(sunday, config, 1)).toBe(
       FormatUtils.getISOWeekNumber(sunday),
     );
-  });
-});
-
-describe('manual page load detection', () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('reports a reload from the legacy navigation type', () => {
-    vi.stubGlobal('performance', { navigation: { type: 1 } });
-    expect(EventUtils.isManualPageLoad()).toBe(true);
-  });
-
-  it('reports a normal navigation as not a reload', () => {
-    vi.stubGlobal('performance', { navigation: { type: 0 } });
-    expect(EventUtils.isManualPageLoad()).toBe(false);
-  });
-
-  it('falls back to the navigation timing entry when the legacy field is gone', () => {
-    vi.stubGlobal('performance', { getEntriesByType: () => [{ type: 'reload' }] });
-    expect(EventUtils.isManualPageLoad()).toBe(true);
   });
 });

@@ -86,19 +86,25 @@ function processForecastData(
 
     let key: string;
     let hour: number | undefined;
+    let night = false;
     let date: Date;
 
     if (forecastType === 'hourly') {
       date = new Date(item.datetime);
       hour = date.getHours();
+      night = isNightForecast(item.is_daytime, hour);
 
       key = `${FormatUtils.getLocalDateKey(date)}_${hour}`;
     } else {
+      // A daily entry stands for the whole day — on the day header, on all-day events, and
+      // for a timed event beyond the hourly horizon — so it keeps the day icon and its
+      // `is_daytime` is deliberately not read. A whole day has no single answer to it, and
+      // an entry that gave `false` would put a moon on the day header.
       date = new Date(item.datetime);
       key = FormatUtils.getLocalDateKey(date);
     }
 
-    const icon = getWeatherIcon(item.condition, hour);
+    const icon = getWeatherIcon(item.condition, night);
 
     processedForecasts[key] = {
       icon,
@@ -235,10 +241,34 @@ const NIGHT_ICONS: Record<string, string> = {
   'lightning-rainy': 'mdi:weather-lightning',
 };
 
-function getWeatherIcon(condition: string, hour?: number): string {
-  const isNight = hour !== undefined && (hour >= 18 || hour < 6);
+/**
+ * Decide whether an hourly forecast entry falls at night, which picks its icon.
+ *
+ * The weather entity's own answer wins. A Home Assistant forecast entry can carry
+ * `is_daytime`, which the provider sets for the forecast's own location, so it stays right
+ * for an event in another time zone and wherever the sun is not up from 06:00 to 18:00.
+ * Without it, 18:00 to 06:00 counts as night by the entry's local hour — the browser's
+ * clock, the same one the card prints event times in.
+ *
+ * Only a boolean is an answer. Home Assistant types the field `bool | None`, so `null` is
+ * a legitimate "not known" and takes the hour rule. Home Assistant's own forecast card
+ * reads `null` as night instead; the hour rule is the better guess for an entry that does
+ * not say.
+ *
+ * @param isDaytime The entry's `is_daytime`, exactly as received
+ * @param hour Local hour of the entry
+ * @returns Whether to draw the entry with its night icon
+ */
+function isNightForecast(isDaytime: unknown, hour: number): boolean {
+  if (typeof isDaytime === 'boolean') {
+    return !isDaytime;
+  }
 
-  if (isNight && NIGHT_ICONS[condition]) {
+  return hour >= 18 || hour < 6;
+}
+
+function getWeatherIcon(condition: string, night: boolean): string {
+  if (night && NIGHT_ICONS[condition]) {
     return NIGHT_ICONS[condition];
   }
 

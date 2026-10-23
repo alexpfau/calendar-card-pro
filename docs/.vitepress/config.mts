@@ -1,6 +1,70 @@
-import { defineConfig } from 'vitepress';
+import { execSync } from 'node:child_process';
+import { defineConfig, type HeadConfig, type MarkdownOptions, type UserConfig } from 'vitepress';
 
 const REPO = 'https://github.com/alexpfau/calendar-card-pro';
+
+/**
+ * Set only by `.github/workflows/docs-preview.yml`. The production build on Workers Builds
+ * never sets it, so everything keyed on it is inert for the site published from `main`. The
+ * preview host already sends `X-Robots-Tag: noindex`; the meta tag keeps a page marked if it
+ * is ever served without that header, and the title label keeps anyone from mistaking the
+ * preview for the released docs.
+ */
+const PREVIEW = process.env.DOCS_PREVIEW === '1';
+const PREVIEW_HEAD: HeadConfig[] = PREVIEW
+  ? [['meta', { name: 'robots', content: 'noindex, nofollow' }]]
+  : [];
+
+/**
+ * The docs reference their images as raw.githubusercontent.com URLs on `main`, so a preview
+ * of unreleased docs would show only the images `main` already has: new ones 404 and changed
+ * ones show their released version. Preview builds point those URLs at the commit being
+ * built instead. The commit SHA rather than the branch name, so a preview keeps showing the
+ * images that match its text after the branch moves on.
+ *
+ * Two hooks, because VitePress splits a page in two before rendering it. `preConfig`
+ * rewrites the Markdown source before parsing, which reaches the prerendered HTML and the
+ * page's client chunk alike; `transformPageData` rewrites the frontmatter, which VitePress
+ * strips off first, so the home page's hero image would otherwise stay on `main`. Both are
+ * added only in a preview build, which leaves the resolved production config exactly as it
+ * was. The `og:image` in `head` is left alone: it never renders on the page.
+ */
+const RAW_MAIN = 'https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/';
+const RAW_BUILT = PREVIEW
+  ? RAW_MAIN.replace(/main\/$/, `${execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim()}/`)
+  : RAW_MAIN;
+
+/** Point every raw `main` URL in a string, or in the strings of a plain value, at RAW_BUILT. */
+function fromBuiltCommit<T>(value: T): T {
+  if (typeof value === 'string') return value.replaceAll(RAW_MAIN, RAW_BUILT) as T;
+  if (Array.isArray(value)) return value.map(fromBuiltCommit) as T;
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fromBuiltCommit(v)])) as T;
+  }
+  return value;
+}
+
+const PREVIEW_MARKDOWN: MarkdownOptions = PREVIEW
+  ? {
+      preConfig(md) {
+        md.core.ruler.before('normalize', 'preview_images_from_built_commit', (state) => {
+          state.src = fromBuiltCommit(state.src);
+        });
+      },
+    }
+  : {};
+
+const PREVIEW_PAGE_DATA: Pick<UserConfig, 'transformPageData'> = PREVIEW
+  ? {
+      transformPageData(pageData) {
+        pageData.frontmatter = fromBuiltCommit(pageData.frontmatter);
+      },
+    }
+  : {};
 
 /**
  * Strip emoji and keycap section numbers so they never reach a URL.
@@ -31,7 +95,8 @@ function slugify(str: string): string {
 }
 
 export default defineConfig({
-  title: 'Calendar Card Pro',
+  ...PREVIEW_PAGE_DATA,
+  title: PREVIEW ? 'Calendar Card Pro (Preview)' : 'Calendar Card Pro',
   description:
     'A sleek, fast and highly customizable calendar card for Home Assistant. Display upcoming events beautifully.',
   lang: 'en-US',
@@ -48,6 +113,7 @@ export default defineConfig({
   srcExclude: ['development/**'],
 
   markdown: {
+    ...PREVIEW_MARKDOWN,
     anchor: { slugify },
 
     // Home Assistant templates ({{ ... }}) appear throughout these docs and Vue
@@ -66,6 +132,7 @@ export default defineConfig({
   },
 
   head: [
+    ...PREVIEW_HEAD,
     // Favicon order matters. Browsers pick the best-matching <link rel="icon">
     // and, on a tie, the last one — so SVG-capable browsers take the SVG below.
     // The ICO must use a plain rel="icon": rel="alternate icon" is not in the
@@ -104,8 +171,17 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Usage', link: '/guide/usage' },
-          { text: 'One Calendar, Many Purposes', link: '/guide/one-calendar-many-purposes' },
           { text: "What's New", link: '/guide/whats-new' },
+        ],
+      },
+      {
+        // Whole cards built step by step, one problem each. The pages stay under /guide/
+        // because their URLs are already published in the release notes and the README.
+        text: 'Walkthroughs',
+        collapsed: false,
+        items: [
+          { text: 'Family Calendar: Weekly Grid', link: '/guide/family-calendar' },
+          { text: 'Family Calendar: Filtered Agenda', link: '/guide/one-calendar-many-purposes' },
         ],
       },
       {
@@ -115,6 +191,7 @@ export default defineConfig({
           { text: 'Visual Configuration Editor', link: '/features/editor' },
           { text: 'Core Settings', link: '/features/core-settings' },
           { text: 'Column View', link: '/features/column-view' },
+          { text: 'Grid View', link: '/features/grid-view' },
           { text: 'Event Content & Display', link: '/features/event-content' },
           { text: 'Layout & Appearance', link: '/features/layout-appearance' },
         ],

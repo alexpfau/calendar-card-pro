@@ -11,7 +11,7 @@
  * 🚨 **The entity it reads is not the calendar.** This is the one thing about the feature
  * that is easy to get backwards, and getting it backwards produces a feature that silently
  * finds nothing: {@link EntityIcons.entityIcon} is handed the *calendar's* entity id,
- * because the icon it wants belongs to the calendar being labelled. A person's picture
+ * because the icon it wants belongs to the calendar being labeled. A person's picture
  * belongs to a **different entity entirely** — the one named by the `label` value — so this
  * is handed `label`, never `entityId`. A calendar carries no `entity_picture` of its own, so
  * the mistake reads as "the option does nothing" rather than as a wrong picture.
@@ -104,7 +104,7 @@ export function personPicture(
  * picker populated so the choice is visible and changeable.
  *
  * Sorted rather than taken in object order, so two instances holding the same people seed the
- * same one and the editor's behaviour is reproducible.
+ * same one and the editor's behavior is reproducible.
  *
  * @param hass - Home Assistant state, absent before the editor is handed one
  * @returns A person entity id, or `undefined` on an instance with no people at all

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG, PROCESSING_TIME_KEYS } from '../src/config/config';
+import { DEFAULT_CONFIG, FOLDED_OPTIONS, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -9,10 +9,14 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
+  TIME_GRID_DEFAULTS,
+  TIME_GRID_DEFAULT_OVERRIDES,
+  TIME_GRID_ONLY_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
   isZeroLength,
+  multidaySplitPolicy,
   resolveColumnFit,
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
@@ -20,12 +24,12 @@ import {
   resolveEffectiveView,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
+  resolveTimeGridOption,
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
   validateView,
   viewAppliesCompactLimits,
-  viewForcesMultidaySplit,
 } from '../src/config/view';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
@@ -58,7 +62,7 @@ const Logger = await import('../src/utils/logger');
 const warnMock = vi.mocked(Logger.warn);
 
 describe('resolveViewOption — E4, both directions', () => {
-  it('honours an override of false against a top-level true', () => {
+  it('honors an override of false against a top-level true', () => {
     const config = buildConfig({
       show_location: true,
       column: { show_location: false },
@@ -70,7 +74,7 @@ describe('resolveViewOption — E4, both directions', () => {
 
   // The mirror. `!== false` passes the case above and fails this one, which is the
   // whole reason both are here.
-  it('honours an override of true against a top-level false', () => {
+  it('honors an override of true against a top-level false', () => {
     const config = buildConfig({
       show_location: false,
       column: { show_location: true },
@@ -132,12 +136,12 @@ describe('resolveViewOption — inheritance', () => {
 describe('resolveViewOption — falsy values are values', () => {
   // Each of these is falsy, so any `||`, `??`-on-falsy or truthiness check would
   // discard it and inherit the top-level value instead.
-  it('honours an override of false', () => {
+  it('honors an override of false', () => {
     const config = buildConfig({ show_time: true, column: { show_time: false } });
     expect(resolveViewOption(config, 'show_time', 'column')).toBe(false);
   });
 
-  it('honours an override of 0', () => {
+  it('honors an override of 0', () => {
     const config = buildConfig({
       description_max_lines: 3,
       column: { description_max_lines: 0 },
@@ -145,7 +149,7 @@ describe('resolveViewOption — falsy values are values', () => {
     expect(resolveViewOption(config, 'description_max_lines', 'column')).toBe(0);
   });
 
-  it('honours an override of an empty string', () => {
+  it('honors an override of an empty string', () => {
     const config = buildConfig({ empty_day_text: 'Nothing on', column: { empty_day_text: '' } });
     expect(resolveViewOption(config, 'empty_day_text', 'column')).toBe('');
   });
@@ -200,7 +204,7 @@ describe('resolveEffectiveConfig', () => {
    * The parity contract.
    *
    * Two resolvers now answer the same question, and the bulk one is reached by far
-   * the more travelled path. Asserting them equal over every declared key means a key
+   * the more traveled path. Asserting them equal over every declared key means a key
    * added to `COLUMN_OVERRIDE_KEYS` is covered the moment it is declared, and neither
    * resolver can be changed in isolation without this failing.
    */
@@ -208,10 +212,17 @@ describe('resolveEffectiveConfig', () => {
     expect(COLUMN_OVERRIDE_KEYS.length).toBeGreaterThan(30);
 
     for (const key of COLUMN_OVERRIDE_KEYS) {
-      // Resolution is pass-through, so a sentinel exercises it as well as a
-      // well-typed value would — and unlike a real value it cannot coincide with
-      // whatever the top level or the shipped default happens to hold.
-      const sentinel = `__${key}__`;
+      // Numeric overrides use the root's normalization, so their distinguishing value
+      // must be a number rather than a rejected text sentinel. A folded length or font size
+      // is refused the same way — a text sentinel lands on its default on both paths, and the
+      // test could no longer tell an applied override from an ignored one — so it gets a size.
+      const reference = DEFAULT_CONFIG[key];
+      const sentinel =
+        typeof reference === 'number'
+          ? reference + 17
+          : FOLDED_OPTIONS.includes(key)
+            ? '17em'
+            : `__${key}__`;
       const config = buildConfig({
         column: { [key]: sentinel } as Partial<Types.Config>['column'],
       });
@@ -232,13 +243,24 @@ describe('resolveEffectiveConfig', () => {
    * quietly turn every one of those comparisons into a miss.
    */
   describe('object identity', () => {
-    it('returns the original in list view, however populated the block', () => {
+    it('returns the original in list view when the list block is absent', () => {
       const config = buildConfig({
         show_location: true,
         column: { show_location: false, event_font_size: '11px' },
       });
 
       expect(resolveEffectiveConfig(config, 'list')).toBe(config);
+    });
+
+    // The other half of the same invariant: identity is the no-op path, not a special
+    // case for list. A populated block has to allocate, or the override never applies.
+    it('allocates in list view once the list block carries a value', () => {
+      const config = buildConfig({ show_location: true, list: { show_location: false } });
+
+      const resolved = resolveEffectiveConfig(config, 'list');
+
+      expect(resolved).not.toBe(config);
+      expect(resolved.show_location).toBe(false);
     });
 
     // Column view always allocates, because `COLUMN_DEFAULT_OVERRIDES` applies there
@@ -327,6 +349,129 @@ describe('resolveEffectiveConfig', () => {
       Object.keys(COLUMN_DEFAULT_OVERRIDES).forEach((key) => {
         expect(COLUMN_OVERRIDE_KEYS).toContain(key);
       });
+    });
+  });
+
+  describe('divergent grid defaults', () => {
+    it('fills the grid block with the progress bar, where column view leaves a margin', () => {
+      // `progress_bar_width` ships as `undefined` so each placement can supply its own
+      // fallback — 60px inline, 80% on its own row. Column's row has no boundary of its
+      // own, so a full-width bar there would read as an underline. A grid block is a
+      // tinted box with an edge, and a bar stopping short of that edge reads as
+      // unfinished rather than as restraint, so grid substitutes an explicit 100%.
+      const config = buildConfig({});
+
+      expect(config.progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'list').progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'column').progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'grid').progress_bar_width).toBe('100%');
+    });
+
+    it('lets the block set its own progress bar width in grid view', () => {
+      const config = buildConfig({ time_grid: { progress_bar_width: '60%' } });
+
+      expect(resolveEffectiveConfig(config, 'grid').progress_bar_width).toBe('60%');
+    });
+
+    it('defaults show_past_events to true in grid view and false in list view', () => {
+      const config = buildConfig({});
+
+      expect(config.show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(true);
+    });
+
+    it('does not inherit an explicit top-level show_past_events false into grid view', () => {
+      const config = buildConfig({ show_past_events: false });
+
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(true);
+    });
+
+    it('lets the block switch past events back off in grid view', () => {
+      const config = buildConfig({ time_grid: { show_past_events: false } });
+
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+    });
+
+    it('keeps every divergent default reachable through the block', () => {
+      Object.keys(TIME_GRID_DEFAULT_OVERRIDES).forEach((key) => {
+        expect(COLUMN_OVERRIDE_KEYS).toContain(key);
+      });
+    });
+
+    it('pins every grid divergent default by value, in both directions', () => {
+      // 🚨 A test that walks this table cannot notice a row leaving it — the loop above
+      // runs one fewer time and stays green — and it turns out it cannot notice one
+      // ARRIVING either. Five color rows were added here in the same afternoon as this
+      // pin, with every gate passing and nothing in the suite recording that grid now
+      // resolves five options the card level never asked it to. Both directions are
+      // silent, because this table changes what the card *tells* the user rather than
+      // what it draws.
+      //
+      // So it is compared whole, against a literal. Adding a row here means adding it
+      // below on purpose and saying why in the docblock; that is the cost, and it is the
+      // point.
+      //
+      // 🚨 This comment used to end by saying `check:docs` reconciled the grid-view table
+      // and its count against this one, and it did not — measured with a control, a grep
+      // of `check-docs.mjs` for `TIME_GRID`, `grid-view` or `divergent` returned zero
+      // against four hits for `COLUMN_DEFAULT_OVERRIDES` and two for `column-view`, so the
+      // search worked and the gate was absent. The thirteen entries agreed with the docs
+      // by luck. A comment claiming a reconciliation that does not exist is worse than no
+      // comment, because it is exactly what stops the next person adding one.
+      //
+      // Check 17b now does it, on the KEY SET and the spelled-out count, both directions —
+      // so this pin owns the VALUES and that gate owns which options are in the table.
+      expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
+        day_separator_width: '1px',
+        day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+        day_spacing: '1px',
+        description_color: 'accent',
+        event_background_opacity: 20,
+        event_color: 'accent',
+        event_font_size: '12px',
+        location_color: 'accent',
+        progress_bar_color: 'accent',
+        time_color: 'accent',
+        progress_bar_width: '100%',
+        show_empty_days: true,
+        show_past_events: true,
+      });
+    });
+
+    it('shrinks the event title in grid view and leaves the other layouts alone', () => {
+      // The whole path, not the table entry: a key can sit in the overrides and still be
+      // inert, because `resolveEffectiveConfig` only hoists what is also an override key
+      // and the property the stylesheet reads is written from the resolved config rather
+      // than from the raw one. Asserting the table alone would pass with either half
+      // missing.
+      const config = buildConfig({ view: 'grid' });
+
+      expect(resolveEffectiveConfig(config, 'grid').event_font_size).toBe('12px');
+      expect(resolveEffectiveConfig(config, 'list').event_font_size).toBe('14px');
+      expect(resolveEffectiveConfig(config, 'column').event_font_size).toBe('14px');
+      expect(
+        generateCustomPropertiesObject(resolveEffectiveConfig(config, 'grid'))[
+          '--calendar-card-font-size-event'
+        ],
+      ).toBe('12px');
+    });
+
+    it("lets a user's own event font size win over the grid default", () => {
+      // The reason this is a divergent default rather than a `.grid-event` font-size:
+      // a hardcoded stylesheet value would beat the user, and both routes to setting one
+      // have to survive — the block, and the top level with no block written.
+      const inBlock = buildConfig({ view: 'grid', time_grid: { event_font_size: '18px' } });
+      const topLevel = buildConfig({ view: 'grid', event_font_size: '18px' });
+
+      expect(resolveEffectiveConfig(inBlock, 'grid').event_font_size).toBe('18px');
+      // A top-level value does NOT reach grid, which is what "divergent default" means —
+      // pinned so the difference between the two routes is a decision rather than a
+      // surprise.
+      expect(resolveEffectiveConfig(topLevel, 'grid').event_font_size).toBe('12px');
+      expect(resolveEffectiveConfig(topLevel, 'list').event_font_size).toBe('18px');
     });
   });
 
@@ -435,20 +580,19 @@ describe('resolveEffectiveConfig', () => {
 /**
  * View-semantics predicates.
  *
- * These replaced inline `=== 'column'` comparisons so that a third view has somewhere
- * to be answered rather than silently inheriting the list answer from a negative-form
- * check. The tests pin the two shipped answers and, deliberately, nothing about a view
- * that does not exist yet.
+ * These replaced inline view comparisons so each shipped view has its own explicit answer.
  */
 describe('view-semantics predicates', () => {
-  it('applies compact-mode limits in list view but not in column view', () => {
+  it('applies compact-mode limits in list view only', () => {
     expect(viewAppliesCompactLimits('list')).toBe(true);
     expect(viewAppliesCompactLimits('column')).toBe(false);
+    expect(viewAppliesCompactLimits('grid')).toBe(false);
   });
 
-  it('forces the multi-day split in column view but not in list view', () => {
-    expect(viewForcesMultidaySplit('column')).toBe(true);
-    expect(viewForcesMultidaySplit('list')).toBe(false);
+  it('inherits the card-level answer everywhere except grid', () => {
+    expect(multidaySplitPolicy('list')).toBe('inherit');
+    expect(multidaySplitPolicy('column')).toBe('inherit');
+    expect(multidaySplitPolicy('grid')).toBe('never');
   });
 });
 
@@ -588,7 +732,10 @@ describe('validateColumnOverrides', () => {
     'month_separator_color',
   ])('accepts %s inside the block now that it renders in column view', (key) => {
     const config = buildConfig();
-    config.column = { [key]: 'iso' } as unknown as Types.ColumnOverrides;
+    // The value is beside the point here, which is whether the key is accepted, except that
+    // a font size is now validated as one: 'iso' would be refused as a font size.
+    const value = key === 'week_number_font_size' ? '12px' : 'iso';
+    config.column = { [key]: value } as unknown as Types.ColumnOverrides;
 
     validateColumnOverrides(config);
 
@@ -596,9 +743,9 @@ describe('validateColumnOverrides', () => {
   });
 
   // The mirror-image mistake, and the more likely one: the reference documentation
-  // lists these three in the same visual table as genuine top-level options, so
-  // nothing about their presentation signals that they are nested. Left unreported
-  // they are silently inert, which spec E rules out.
+  // lists these keys beside genuine top-level options, so nothing about their
+  // presentation signals that they are nested. Left unreported they are silently inert,
+  // and each view that owns the key needs its own placement hint.
   it.each(['day_header_gap', 'day_header_separator_width', 'day_header_separator_color'])(
     'warns when %s is written at the top level instead of inside the block',
     (key) => {
@@ -607,9 +754,11 @@ describe('validateColumnOverrides', () => {
 
       validateColumnOverrides(config);
 
-      expect(warnMock).toHaveBeenCalledTimes(1);
+      expect(warnMock).toHaveBeenCalledTimes(2);
       expect(warnMock.mock.calls[0][0]).toContain(`top-level "${key}"`);
       expect(warnMock.mock.calls[0][0]).toContain(`column: { ${key}`);
+      expect(warnMock.mock.calls[1][0]).toContain(`top-level "${key}"`);
+      expect(warnMock.mock.calls[1][0]).toContain(`time_grid: { ${key}`);
     },
   );
 
@@ -840,7 +989,7 @@ describe('column view config surface', () => {
    *
    * `today_indicator_color` shipped absent from the override list while `today_indicator`
    * and `_size` were both present, so a card could override whether the dot appears and
-   * how large it is but not what colour it is. Nothing failed -- an override list is a
+   * how large it is but not what color it is. Nothing failed -- an override list is a
    * flat array, and a missing entry is indistinguishable from a deliberate exclusion
    * until someone tries to use it. Asserting the cluster as a unit means the next key
    * added to it cannot be half-wired the same way.
@@ -961,6 +1110,25 @@ describe('computeColumnThresholdPx', () => {
     expect(computeColumnThresholdPx(config)).toBe(492);
   });
 
+  it('reads a pixel gutter whatever case its unit is written in', () => {
+    // CSS units are case-insensitive, so `20PX` is a 20px gutter the browser renders as
+    // one. A case-sensitive match reads it as unresolvable and substitutes the 10px
+    // default, under-counting the threshold by twice the difference.
+    //
+    // The value matters for the same reason it does above: `10PX` would pass either way,
+    // because the fallback is also 10.
+    const lower = computeColumnThresholdPx(buildConfig({ column: { day_spacing: '20px' } }));
+
+    expect(lower).toBe(492);
+
+    for (const written of ['20PX', '20Px', '20pX'] as const) {
+      const config = buildConfig();
+      config.column = { day_spacing: written };
+
+      expect(computeColumnThresholdPx(config), written).toBe(lower);
+    }
+  });
+
   it('falls back rather than producing NaN for a non-px gutter', () => {
     // `day_spacing` is a CSS length, so `2em` and `calc(...)` are legal values the card
     // cannot resolve without layout. A NaN threshold compares false against every
@@ -987,7 +1155,7 @@ describe('computeColumnThresholdPx', () => {
     // negative value and renders no gutter. Subtracting it from the threshold would
     // reserve space the layout is not saving and select columns that cannot fit: this
     // configuration thresholds at 252px unguarded, so a 280px card renders three 83px
-    // columns against the 140px floor it was told to honour. Tracks are `minmax(0, 1fr)`,
+    // columns against the 140px floor it was told to honor. Tracks are `minmax(0, 1fr)`,
     // so the arithmetic is the only thing holding that floor.
     const config = buildConfig();
     config.column = { day_spacing: '-100px', min_day_width: 140 };
@@ -1010,7 +1178,7 @@ describe('computeColumnThresholdPx', () => {
 });
 
 describe('resolveEffectiveView', () => {
-  // The Schmitt trigger is centred on the threshold, so neither edge is the threshold
+  // The Schmitt trigger is centered on the threshold, so neither edge is the threshold
   // itself. Deriving both from the exported constant rather than hardcoding 508/476
   // (the default threshold is now 472; 492 below is a deliberate round test input)
   // means widening the band cannot leave these tests asserting a stale geometry while
@@ -1057,18 +1225,18 @@ describe('resolveEffectiveView', () => {
     expect(resolveEffectiveView('column', 200, THRESHOLD, 'column')).toBe('list');
   });
 
-  it('centres the band on the threshold rather than hanging it below', () => {
+  it('centers the band on the threshold rather than hanging it below', () => {
     // The band used to run from the threshold down to threshold - 32, so a card had to
     // reach the *full* computed threshold to enter column view but only lost it a full
     // band later. Widening a window therefore felt far stickier than narrowing it, which
-    // is the behaviour this centring exists to fix. Assert both edges relative to the
+    // is the behavior this centering exists to fix. Assert both edges relative to the
     // threshold so a regression to the asymmetric form fails here rather than in a
     // subjective "feels wrong" report.
     expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('list');
     expect(resolveEffectiveView('column', ENTER, THRESHOLD, 'list')).toBe('column');
     expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'column')).toBe('column');
     expect(resolveEffectiveView('column', LEAVE - 1, THRESHOLD, 'column')).toBe('list');
-    // The total width of the band is what protects against oscillation, and centring
+    // The total width of the band is what protects against oscillation, and centering
     // must not have changed it.
     expect(ENTER - LEAVE).toBe(VIEW_SWITCH_HYSTERESIS_PX);
   });
@@ -1095,7 +1263,7 @@ describe('resolveViewOnMeasurement', () => {
   it('applies the hysteresis band once a measurement has confirmed the view', () => {
     // Same width, same rendered view, different history: now the band is earned. The
     // width has to sit *inside* the band for the contrast to mean anything, which the
-    // original 464 no longer does now that the band is centred -- 464 is below the
+    // original 464 no longer does now that the band is centered -- 464 is below the
     // leaving edge, so it would resolve to a list either way and the test would pass
     // for the wrong reason.
     const insideBand = THRESHOLD - 1;
@@ -1210,7 +1378,7 @@ describe('resolveMinDaysFallback', () => {
     expect(resolveMinDaysFallback(buildConfig())).toBe('list');
   });
 
-  it('honours an explicit cramp', () => {
+  it('honors an explicit cramp', () => {
     const config = buildConfig();
     config.column = { min_days_fallback: 'cramp' };
 
@@ -1221,7 +1389,7 @@ describe('resolveMinDaysFallback', () => {
     // The trap this function exists to close. `normalizeColumnValue` has no notion of
     // an enum, so a typo arrives here as a plain string -- and a naive
     // `value === 'list' ? 'list' : 'cramp'` would read every typo as an instruction to
-    // cramp, which is the behaviour the user did not ask for.
+    // cramp, which is the behavior the user did not ask for.
     const config = buildConfig();
 
     for (const value of ['lst', 'List', 'columns', '', 'true']) {
@@ -1236,7 +1404,7 @@ describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults
   //
   // min_days_to_show defaults to days_to_show, at which the staircase has exactly one
   // step and must be indistinguishable from the boundary it replaces. Anything else is
-  // a silent behavioural change shipped to every existing column-view user, none of
+  // a silent behavioral change shipped to every existing column-view user, none of
   // whom asked for the feature.
   //
   // Swept rather than spot-checked, and swept across both hysteresis states, because
@@ -1373,7 +1541,7 @@ describe('resolveColumnFit — reduction', () => {
     const config = build({ min_days_fallback: 'cramp' });
 
     // Columns now narrower than min_day_width, which is the entire point: the
-    // minimum is a judgement about legibility and the user is entitled to overrule it.
+    // minimum is a judgment about legibility and the user is entitled to overrule it.
     expect(resolveColumnFit('column', config, 471, null)).toEqual({ view: 'column', columns: 3 });
     expect(resolveColumnFit('column', config, 200, null)).toEqual({ view: 'column', columns: 3 });
     expect(resolveColumnFit('column', config, 1, null)).toEqual({ view: 'column', columns: 3 });
@@ -1403,7 +1571,7 @@ describe('resolveColumnFit — reduction', () => {
 
   it('keeps adjacent hysteresis bands from overlapping at a pathological width floor', () => {
     // With min_day_width at 12 and a 10px gutter the boundaries sit 22px apart,
-    // so an unclamped +/-16 band would reach past its neighbour and the trigger would
+    // so an unclamped +/-16 band would reach past its neighbor and the trigger would
     // oscillate rather than damp. The clamp caps the half-band at (22 - 1) / 2.
     //
     // Swept over every width in the dense region, asserting the only property that
@@ -1419,6 +1587,255 @@ describe('resolveColumnFit — reduction', () => {
 
       expect(Math.abs(stepped.columns - from.columns)).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('resolveColumnFit — grid reduction', () => {
+  const build = (overrides: Partial<Types.TimeGridOverrides> = {}) => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.time_grid = { ...overrides };
+    return config;
+  };
+
+  it('uses the grid density defaults rather than column density', () => {
+    const config = build();
+    config.column = { min_day_width: 300, min_days_to_show: 5, min_days_fallback: 'cramp' };
+
+    // 3 x 100 + 32 of card padding + 3 gutters (two between days, one before the axis)
+    // + a 48px max-content axis. The gutter is grid's own 1px, not the card-level 10px:
+    // the threshold has to reserve the space the grid renderer actually draws, or it
+    // sheds a column the card had room for.
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(383);
+    expect(resolveColumnFit('grid', config, 426, null)).toEqual({ view: 'grid', columns: 3 });
+  });
+
+  it('owns weekend shading as a grid-only option, not a shared one', () => {
+    // Grid-only, so it resolves through the block and has no top-level counterpart at
+    // all. That is the half a rendering test cannot state: a shared key with a divergent
+    // default would satisfy every assertion about grid and still be writable — and
+    // silently inert — on a list or column card.
+    expect(resolveTimeGridOption(build(), 'weekend_background_color')).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+    );
+    expect(
+      resolveTimeGridOption(
+        build({ weekend_background_color: 'transparent' }),
+        'weekend_background_color',
+      ),
+    ).toBe('transparent');
+    expect(TIME_GRID_ONLY_KEYS).toContain('weekend_background_color');
+    expect(Object.keys(DEFAULT_CONFIG)).not.toContain('weekend_background_color');
+    expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>).not.toContain('weekend_background_color');
+
+    // A non-string is refused rather than coerced, so a YAML `weekend_background_color: 0`
+    // cannot reach the style attribute as a bare number.
+    expect(
+      resolveTimeGridOption(
+        build({ weekend_background_color: 0 as unknown as string }),
+        'weekend_background_color',
+      ),
+    ).toBe('color-mix(in srgb, var(--primary-text-color) 4%, transparent)');
+  });
+
+  it('reserves the grid gutter the grid renderer draws, not the card-level one', () => {
+    // The falsifier for the paragraph above, and the one thing a threshold figure alone
+    // cannot show: a card-level `day_spacing` is invisible to grid, and a block one is not.
+    const cardLevel = build();
+    cardLevel.day_spacing = '40px';
+
+    expect(computeColumnThresholdPxFor(cardLevel, 3, 'grid')).toBe(383);
+    expect(computeColumnThresholdPxFor(build({ day_spacing: '40px' }), 3, 'grid')).toBe(500);
+  });
+
+  it('lets grid override its own minimum day width', () => {
+    const config = build({ min_day_width: 120 });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(443);
+  });
+
+  it('reserves a fixed time axis and every gap before accepting day tracks', () => {
+    const config = build({ axis_width: '48px' });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(383);
+    expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 2 });
+  });
+
+  it('reads a pixel axis width whatever case its unit is written in', () => {
+    // CSS units are case-insensitive, so `128PX` paints at 128px. A case-sensitive match
+    // reserves the 48px `max-content` fallback instead and accepts a day column the card
+    // has no room for. `48px` cannot state this: the fallback is also 48, so both branches
+    // agree by coincidence and the assertion holds whether the match succeeds or not.
+    const lower = computeColumnThresholdPxFor(build({ axis_width: '128px' }), 3, 'grid');
+
+    expect(lower).toBe(463);
+
+    for (const written of ['128PX', '128Px', '128pX'] as const) {
+      expect(computeColumnThresholdPxFor(build({ axis_width: written }), 3, 'grid'), written).toBe(
+        lower,
+      );
+    }
+  });
+
+  it('keeps the axis-to-day gap when hidden max-content labels collapse the axis', () => {
+    const config = build({ axis_width: 'max-content', show_axis_labels: false });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(335);
+  });
+
+  // 🚨 The trap `axis_label_minutes` sets, and the reason it is more than a formatting
+  // change. `max-content` sizes the drawn gutter from its own labels, so a cadence below
+  // the hour widens it for free — and this arithmetic, which decides how many day columns
+  // fit and whether the grid falls back to another view at all, would carry on reserving
+  // the hour-label width. The card renders plausibly and fits one column too many.
+  it('reserves a wider axis once the cadence puts minutes on every label', () => {
+    const hourly = computeColumnThresholdPxFor(build({ axis_label_minutes: 60 }), 3, 'grid');
+
+    expect(hourly).toBe(383);
+    // 72 rather than 48: measured at 63.14px painted in 12-hour format, and the
+    // reservation cannot read the clock convention because it runs before a `hass` is in
+    // hand.
+    expect(computeColumnThresholdPxFor(build({ axis_label_minutes: 30 }), 3, 'grid')).toBe(
+      hourly + 24,
+    );
+  });
+
+  it('reserves the hour-label width at every cadence that stays on the hour', () => {
+    // The coarser cadences draw a SUBSET of today's labels, so they cannot need more room
+    // than today — and reserving less would be an over-fit rather than an under-fit, which
+    // is the direction that overflows. Same figure, deliberately.
+    for (const cadence of [60, 120, 180] as const) {
+      expect(
+        computeColumnThresholdPxFor(build({ axis_label_minutes: cadence }), 3, 'grid'),
+        `cadence ${cadence}`,
+      ).toBe(383);
+    }
+  });
+
+  it('reserves nothing for a cadence whose labels are switched off', () => {
+    // The cadence is moot without `show_axis_labels`, and must not cost a pixel: the
+    // hidden branch is tested first, so the wider reservation cannot leak into a card
+    // drawing no gutter at all.
+    const config = build({
+      axis_width: 'max-content',
+      show_axis_labels: false,
+      axis_label_minutes: 30,
+    });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(335);
+  });
+
+  it('accounts an explicit pixel axis exactly, whatever the cadence says', () => {
+    // An explicit width is the user's own measurement, so the cadence must not add to it.
+    for (const cadence of [30, 60, 120, 180] as const) {
+      expect(
+        computeColumnThresholdPxFor(
+          build({ axis_width: '48px', axis_label_minutes: cadence }),
+          3,
+          'grid',
+        ),
+        `cadence ${cadence}`,
+      ).toBe(383);
+    }
+  });
+
+  it('falls back to list below one grid day by default', () => {
+    const config = build();
+
+    expect(resolveColumnFit('grid', config, 196, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('grid', config, 197, null)).toEqual({ view: 'grid', columns: 1 });
+  });
+
+  it('holds a one-day grid when asked to cramp', () => {
+    const config = build({ min_days_fallback: 'cramp' });
+
+    expect(resolveColumnFit('grid', config, 1, null)).toEqual({ view: 'grid', columns: 1 });
+  });
+
+  it('clamps a configured grid floor into the day range', () => {
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 4 }), 'grid')).toBe(4);
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 99 }), 'grid')).toBe(7);
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 0 }), 'grid')).toBe(1);
+  });
+
+  it('keeps the documented grid width defaults pinned', () => {
+    expect(TIME_GRID_DEFAULTS.min_day_width).toBe(100);
+    expect(TIME_GRID_DEFAULTS.min_days_to_show).toBe(1);
+    expect(TIME_GRID_DEFAULTS.min_days_fallback).toBe('list');
+    expect(TIME_GRID_DEFAULTS.axis_width).toBe('max-content');
+  });
+
+  // Both values are Apple's, and both are load-bearing for how the grid reads: one rule
+  // per hour means every rule on the card is a labeled one, and 48px is enough for two
+  // stacked lines of event text. Pinned by value because nothing else would notice either
+  // of them moving — a finer ruling and a shorter hour both still render.
+  it('rules the axis once an hour, at an hour height that seats two lines of text', () => {
+    expect(TIME_GRID_DEFAULTS.slot_minutes).toBe(60);
+    expect(TIME_GRID_DEFAULTS.hour_height).toBe('48px');
+  });
+
+  it('normalizes grid slot density to the declared numeric union', () => {
+    expect(
+      resolveTimeGridOption(
+        build({ slot_minutes: '20' as unknown as Types.TimeGridSlotMinutes }),
+        'slot_minutes',
+      ),
+    ).toBe(20);
+    expect(
+      resolveTimeGridOption(
+        build({ slot_minutes: 45 as Types.TimeGridSlotMinutes }),
+        'slot_minutes',
+      ),
+    ).toBe(60);
+  });
+
+  // The label cadence is a second numeric union beside `slot_minutes`, and a separate
+  // one: 15 and 20 are legitimate ruling densities and useless label densities, and 120
+  // and 180 are the reverse. Sharing a validator would accept every value in both.
+  it('normalizes the axis label cadence to its own declared union', () => {
+    expect(TIME_GRID_DEFAULTS.axis_label_minutes).toBe(60);
+    for (const value of [30, 60, 120, 180] as const) {
+      expect(
+        resolveTimeGridOption(build({ axis_label_minutes: value }), 'axis_label_minutes'),
+        `cadence ${value}`,
+      ).toBe(value);
+    }
+    expect(
+      resolveTimeGridOption(
+        build({ axis_label_minutes: '120' as unknown as Types.TimeGridAxisLabelMinutes }),
+        'axis_label_minutes',
+      ),
+    ).toBe(120);
+    // Both are ruling densities the ruling accepts, and neither is offered here.
+    for (const value of [15, 20] as const) {
+      expect(
+        resolveTimeGridOption(
+          build({ axis_label_minutes: value as unknown as Types.TimeGridAxisLabelMinutes }),
+          'axis_label_minutes',
+        ),
+        `rejected ${value}`,
+      ).toBe(60);
+    }
+  });
+
+  it('coerces bare grid length values without discarding non-pixel units', () => {
+    expect(resolveTimeGridOption(build({ axis_width: 60 as never }), 'axis_width')).toBe('60px');
+    expect(resolveTimeGridOption(build({ axis_width: '60' }), 'axis_width')).toBe('60px');
+    // `axis_width` is the exception to the second half of this test's name: it is
+    // reserved in pixels before layout exists, so a non-pixel unit is folded rather
+    // than carried. The moved case lives in `tests/grid-axis-width.test.ts`.
+    expect(resolveTimeGridOption(build({ hour_height: 72 as never }), 'hour_height')).toBe('72px');
+    expect(resolveTimeGridOption(build({ hour_height: '5em' }), 'hour_height')).toBe('5em');
+  });
+
+  it('normalizes grid min-days fallback to its declared values', () => {
+    expect(resolveTimeGridOption(build({ min_days_fallback: 'cramp' }), 'min_days_fallback')).toBe(
+      'cramp',
+    );
+    expect(
+      resolveTimeGridOption(build({ min_days_fallback: 'banana' as never }), 'min_days_fallback'),
+    ).toBe('list');
   });
 });
 

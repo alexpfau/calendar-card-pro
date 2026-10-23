@@ -23,7 +23,7 @@ import * as Leaves from '../src/rendering/leaves';
  * reason.
  *
  * The bail was established by planting a semantically inert mangle (an extra
- * space before a tag's closing `>`, which prettier always normalises) into
+ * space before a tag's closing `>`, which prettier always normalizes) into
  * every `html` template in the codebase and checking which ones prettier failed
  * to restore. Of 66 mangles across the 4 files that contain templates, 11
  * survived: 9 inside the three deliberate `// prettier-ignore` regions in this

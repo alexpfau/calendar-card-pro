@@ -200,18 +200,31 @@ export function asEntityConfig(entry: string | Types.EntityConfig): Types.Entity
  * replaces the marker on a row that is not being drawn, so offering it there is the editor
  * claiming to control something it does not.
  *
+ * 🚨 `undefined` means the shared base, and it is not the same as picking a view. A view
+ * name sends {@link ViewConfig.resolveViewOption} into that view's block, so answering the
+ * shared workspace with a view would consult a block the workspace cannot write to — and
+ * once `list:` existed, passing the built view read `list:` and hid `location_icon` for a
+ * card that had turned locations off in list alone, while column and grid still drew them.
+ * The shared base's own answer is the top-level value, with no block over it.
+ *
+ * Residual, and deliberate: a card whose base says no locations but whose `column:` turns
+ * them back on hides the control here. That is the shared base answering for itself, and
+ * the control is still offered in the workspace that overrode it.
+ *
  * @param entry - Entry as stored
  * @param config - Merged configuration
- * @param view - View the card is configured to render
+ * @param view - View being edited, or `undefined` for the shared base
  * @returns `true` when this calendar's events can show a location
  */
 export function showsLocation(
   entry: string | Types.EntityConfig,
   config: Readonly<Types.Config>,
-  view: Types.EffectiveView,
+  view: Types.EffectiveView | undefined,
 ): boolean {
   const own = asEntityConfig(entry).show_location;
   if (typeof own === 'boolean') return own;
+
+  if (view === undefined) return Boolean(config.show_location);
 
   return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'show_location', view));
 }
@@ -359,7 +372,7 @@ export function fromEntityFormData(
     if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
 
     if (key === 'accent_color') {
-      // Only the custom mode has a colour to store. The other two are the sentinel and
+      // Only the custom mode has a color to store. The other two are the sentinel and
       // nothing at all, both written below rather than carried through from the form.
       continue;
     }
@@ -395,7 +408,7 @@ export function fromEntityFormData(
   ) {
     // Leaving `home_assistant` for `custom`, start from the icon that was on screen, so
     // choosing "Custom icon" changes nothing until the user picks something else. Exactly
-    // `accentColorFor`'s "start from the colour on screen", and unlike that one it is
+    // `accentColorFor`'s "start from the color on screen", and unlike that one it is
     // polish rather than a fix: the icon source derives from two states, not three, so an
     // empty value still reads back as `custom` and nothing snaps back without it.
     //
@@ -430,35 +443,35 @@ export function fromEntityFormData(
  *
  * 🚨 Custom has to be seeded rather than left empty. It is the one mode with no value of
  * its own to be derived from — `inherit` is the absent key and `home_assistant` is the
- * sentinel, but a custom colour nobody has typed yet is indistinguishable from no colour
+ * sentinel, but a custom color nobody has typed yet is indistinguishable from no color
  * at all. Storing nothing re-derived as `inherit` on the next render, so the dropdown
  * snapped straight back and custom could never be selected. The card-wide control never
- * had this because its `apply` always writes a concrete colour; this is the same
+ * had this because its `apply` always writes a concrete color; this is the same
  * carry-or-seed, one level down.
  *
- * Seeding does write a colour into the user's configuration as soon as the dropdown moves.
+ * Seeding does write a color into the user's configuration as soon as the dropdown moves.
  * That is deliberate here and not the defaulting mistake it resembles: choosing "Custom
- * color" is an affirmative act meaning "I am about to name a colour", where the failure
+ * color" is an affirmative act meaning "I am about to name a color", where the failure
  * this project has seen before was a value appearing that nobody asked for.
  *
  * @param mode - Mode the dropdown names
- * @param value - Colour as the form holds it
- * @param inherited - The card-wide colour this calendar is currently showing
+ * @param value - Color as the form holds it
+ * @param inherited - The card-wide color this calendar is currently showing
  * @returns The value to store, or `undefined` to store nothing
  */
 function accentColorFor(mode: string, value: unknown, inherited: unknown): string | undefined {
   if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
   if (mode !== 'custom') return undefined;
 
-  // The sentinel is not a colour and cannot be carried — and it arrives here, because a
+  // The sentinel is not a color and cannot be carried — and it arrives here, because a
   // calendar leaving `home_assistant` hands back its stored value, which *is* the
   // sentinel. Carrying it stored the sentinel again, the next derivation read that as
   // `home_assistant`, and the dropdown snapped back: custom was reachable from `inherit`,
   // where the value is genuinely unset, and from nowhere else.
   if (isSet(value) && !isEntityColorSentinel(value)) return String(value);
 
-  // Start from the colour on screen, so picking custom changes nothing until the user
-  // says so. The sentinel is rejected on this side for the same reason: which colour it
+  // Start from the color on screen, so picking custom changes nothing until the user
+  // says so. The sentinel is rejected on this side for the same reason: which color it
   // resolves to is per-calendar and lives in the render path's registry map, not here.
   return isSet(inherited) && !isEntityColorSentinel(inherited)
     ? String(inherited)
@@ -472,7 +485,7 @@ function accentColorFor(mode: string, value: unknown, inherited: unknown): strin
  * @param index - Position of the calendar being edited
  * @param data - Form data as the form returned it
  * @param inheritedAccent - The card-wide `accent_color`, so a calendar moving to a custom
- *   colour starts from the one it was already showing
+ *   color starts from the one it was already showing
  * @param hass - Home Assistant state, so a calendar moving off its icon starts from the one
  *   it was already showing
  * @returns A new list, or the original when the index is not in it

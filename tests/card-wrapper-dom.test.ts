@@ -28,9 +28,11 @@ import * as Render from '../src/rendering/render';
 const noopHandlers = {
   keyDown: () => {},
   pointerDown: () => {},
+  pointerMove: () => {},
   pointerUp: () => {},
   pointerCancel: () => {},
   pointerLeave: () => {},
+  lostPointerCapture: () => {},
 };
 
 /** Renders the wrapper and returns its `ha-card` element. */
@@ -40,6 +42,8 @@ function wrapper(
     title?: string;
     isLoading?: boolean;
     titlePending?: boolean;
+    hasTapAction?: boolean;
+    hasHoldAction?: boolean;
   } = {},
 ): Element {
   const host = document.createElement('div');
@@ -52,6 +56,8 @@ function wrapper(
       opts.isLoading ?? false,
       opts.titlePending ?? false,
       opts.view ?? 'list',
+      opts.hasTapAction ?? false,
+      opts.hasHoldAction ?? false,
     ),
     host,
   );
@@ -109,5 +115,25 @@ describe('the card wrapper', () => {
     const idle = wrapper({ isLoading: false });
     expect(idle.getAttribute('aria-busy')).toBe('false');
     expect(idle.querySelector('.loading-indicator')).toBeNull();
+  });
+
+  it('advertises interaction only when a card action can run', () => {
+    const tap = wrapper({ hasTapAction: true });
+    expect(tap.getAttribute('tabindex')).toBe('0');
+    expect(tap.getAttribute('role')).toBe('button');
+    expect(classes(tap)).toContain('card-interactive');
+    expect(tap.querySelector('ha-ripple')).not.toBeNull();
+
+    const holdOnly = wrapper({ hasHoldAction: true });
+    expect(holdOnly.hasAttribute('tabindex')).toBe(false);
+    expect(holdOnly.hasAttribute('role')).toBe(false);
+    expect(classes(holdOnly)).toContain('card-interactive');
+    expect(holdOnly.querySelector('ha-ripple')).not.toBeNull();
+
+    const inert = wrapper();
+    expect(inert.hasAttribute('tabindex')).toBe(false);
+    expect(inert.hasAttribute('role')).toBe(false);
+    expect(classes(inert)).not.toContain('card-interactive');
+    expect(inert.querySelector('ha-ripple')).toBeNull();
   });
 });

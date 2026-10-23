@@ -4,11 +4,12 @@
 
 import { mdiCalendarWeekBegin } from '@mdi/js';
 
+import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, color, group, row, select, text } from './common';
+import { blockScope, bool, color, group, heading, row, select, text } from './common';
 
 export const DAY_HEADER_ICON = mdiCalendarWeekBegin;
 
@@ -16,8 +17,6 @@ const WEEKEND_ICON =
   'M12 20a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8m0-18a10 10 0 0 0-10 10 10 10 0' +
   ' 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m.5 5H11v6l4.75 2.85.75-1.23-4-2.37V7Z';
 const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1 0 12V6Z';
-const INDICATOR_ICON = 'M12 8a4 4 0 1 1-4 4 4 4 0 0 1 4-4Z';
-const WEEK_NUMBER_ICON = 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z';
 
 export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'none',
@@ -66,7 +65,7 @@ export function weekNumberFields(language: string): HaFormSchema[] {
  * @param style - Derived indicator style
  * @returns The group
  */
-function todayIndicatorGroup(language: string, style: string): HaFormSchema {
+function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
   const styling: HaFormSchema[] =
     style === 'none'
       ? []
@@ -75,10 +74,7 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
           text('today_indicator_position'),
         ];
 
-  return group(language, 'today_indicator', INDICATOR_ICON, [
-    ...todayIndicatorFields(language, style),
-    ...styling,
-  ]);
+  return [heading('today_indicator'), ...todayIndicatorFields(language, style), ...styling];
 }
 
 /**
@@ -88,7 +84,7 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
  * @param mode - Derived week-number mode
  * @returns The group
  */
-function weekNumberGroup(language: string, mode: string): HaFormSchema {
+function weekNumberRun(language: string, mode: string): HaFormSchema[] {
   const styling: HaFormSchema[] =
     mode === 'none'
       ? []
@@ -98,10 +94,37 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
           color('week_number_background_color'),
         ];
 
-  return group(language, 'week_numbers', WEEK_NUMBER_ICON, [
-    ...weekNumberFields(language),
-    ...styling,
-  ]);
+  return [heading('week_numbers'), ...weekNumberFields(language), ...styling];
+}
+
+/**
+ * The gap under a day header and the rule drawn inside it.
+ *
+ * The rule was a collapsed `nested()` under Separators, which was wrong twice over: every
+ * other rule in that panel is vertical in these two views and this one is horizontal, and
+ * the gap it is drawn *inside* was in Layout, one panel further away again. Gap and rule
+ * are one decision, so they are read together or not at all.
+ *
+ * Both live in the view's own block, and the two things that made this a presentation
+ * change are separate mechanisms — assuming the first buys the second is the trap here.
+ * The `scope` keeps the **data** path, so the values are still written to `column:` /
+ * `time_grid:`. It does *not* keep the string keys: Home Assistant qualifies a label only
+ * under an expandable, so without the `titleKey` below the three would label themselves
+ * bare and the two views would share one description. Only the chrome around them goes.
+ *
+ * @param blockKey - Config key holding this view's override block
+ * @returns The heading and its fields
+ */
+function dayHeaderRuleFields(blockKey: string): HaFormSchema[] {
+  return [
+    heading('heading_gap_and_rule'),
+    // `blockScope`, not `scope`: see its docblock. These three keep the `${blockKey}.`
+    // string prefix a collapsible used to earn them, so nothing translated moves.
+    blockScope(blockKey, [
+      text('day_header_gap'),
+      row(text('day_header_separator_width'), color('day_header_separator_color')),
+    ]),
+  ];
 }
 
 /**
@@ -111,6 +134,7 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
  * @param showMonth - Whether the month line is shown
  * @param indicatorStyle - Derived today-indicator style
  * @param weekNumberMode - Derived week-number mode
+ * @param blockKey - Config key holding this view's block, when it owns the rule keys
  * @returns The panel's schema
  */
 const dayHeaderSchema = Helpers.memoizeLast(
@@ -119,6 +143,7 @@ const dayHeaderSchema = Helpers.memoizeLast(
     showMonth: boolean,
     indicatorStyle: string,
     weekNumberMode: string,
+    blockKey: string | undefined,
   ): HaFormSchema[] => [
     select(language, 'date_vertical_alignment', ['top', 'middle', 'bottom']),
 
@@ -126,6 +151,37 @@ const dayHeaderSchema = Helpers.memoizeLast(
     row(text('day_font_size'), color('day_color')),
     bool('show_month'),
     ...(showMonth ? [row(text('month_font_size'), color('month_color'))] : []),
+
+    // Above the collapsibles, not below them. Every panel in this editor ends in its
+    // collapsed subsections, so a bare heading and two plain fields appended *after* four
+    // of them reads as an afterthought stapled to the bottom rather than as part of the
+    // panel — and a reader who has scrolled past four closed groups has stopped expecting
+    // ordinary options at all.
+    //
+    // An earlier version of this file argued the opposite, on the grounds that keeping the
+    // run last means a user switching workspaces sees the same panel with a section added
+    // rather than the same options reordered. That is true, and it is the weaker claim:
+    // the collapsibles-last convention is what a user reads on every panel of every view,
+    // whereas the reordering is noticed once by someone changing workspace. Consistency
+    // within a panel beats consistency between two visits to it.
+    ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
+
+    // Two headed runs where there were two collapsed groups. Both held exactly one control
+    // on a fresh card — a dropdown set to `none`, with every styling field below it
+    // conditional on that dropdown — so the panel offered two disclosures that opened onto
+    // one field each, and neither feature was discoverable without opening one.
+    //
+    // A heading rather than a promoted field, because the field cannot stand alone: the
+    // labels are `Style` and `Numbering`, which read correctly under a caption naming the
+    // subject and mean nothing at panel level. Renaming them would have been an
+    // English-only change against nine translated labels that are currently right.
+    //
+    // The headings reuse the group titles' own keys, so `Today Indicator` and
+    // `Week Numbers` arrive already translated in all nine languages. A new heading key
+    // would have been English everywhere — the same trap `lookupForView` documents, in the
+    // direction where nothing warns you.
+    ...todayIndicatorRun(language, indicatorStyle),
+    ...weekNumberRun(language, weekNumberMode),
 
     group(language, 'weekend_colors', WEEKEND_ICON, [
       color('weekend_weekday_color'),
@@ -138,9 +194,6 @@ const dayHeaderSchema = Helpers.memoizeLast(
       color('today_day_color'),
       color('today_month_color'),
     ]),
-
-    todayIndicatorGroup(language, indicatorStyle),
-    weekNumberGroup(language, weekNumberMode),
   ],
 );
 
@@ -151,10 +204,16 @@ const dayHeaderSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildDayHeaderSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const block = ViewConfig.viewBlockFor(ctx.view);
+
   return dayHeaderSchema(
     ctx.language,
     ctx.config.show_month,
     Synthetic.todayIndicatorStyle(ctx.config),
     ctx.config.show_week_numbers ?? 'none',
+    // Gated on the block owning the keys rather than on the view merely having one, the
+    // same test Layout and Separators used before these fields moved here. List has no
+    // block at all, so it gets neither the heading nor the fields.
+    block?.onlyKeys.includes('day_header_gap') === true ? block.blockKey : undefined,
   );
 }

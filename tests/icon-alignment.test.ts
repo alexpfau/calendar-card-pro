@@ -42,10 +42,10 @@ describe('event icon vertical alignment', () => {
     expect(generateCustomPropertiesObject(buildConfig())[PROP]).toBe('flex-start');
   });
 
-  it('falls back to centre for a value it does not recognise', () => {
+  it('falls back to center for a value it does not recognize', () => {
     // Not a design decision so much as a documented one: the mapping is a two-armed
-    // ternary whose else branch catches everything, so a typo renders centred rather
-    // than unstyled. Pinned because it is the one behaviour a reader would otherwise
+    // ternary whose else branch catches everything, so a typo renders centered rather
+    // than unstyled. Pinned because it is the one behavior a reader would otherwise
     // have to reconstruct from the ternary, and because the fallback is now *not* the
     // default -- before v4 the two coincided and this test could not have failed.
     expect(
@@ -94,8 +94,8 @@ describe('event icon vertical alignment', () => {
   it('leaves the date column alignment alone', () => {
     // `date_vertical_alignment` is a different option governing a different element, and
     // it keeps its `middle`. It is list-only -- column view ignores it, spec A3-A -- and
-    // it centres the date against the whole day's events, which is a deliberate and
-    // long-standing behaviour nobody has reported a problem with. Pinned here because the
+    // it centers the date against the whole day's events, which is a deliberate and
+    // long-standing behavior nobody has reported a problem with. Pinned here because the
     // two option names are one word apart and a future "make the alignments consistent"
     // pass would be a silent regression for every list-view user.
     expect(Config.DEFAULT_CONFIG.date_vertical_alignment).toBe('middle');
@@ -127,7 +127,7 @@ describe('date column vertical alignment', () => {
     expect(generateCustomPropertiesObject(buildConfig())[PROP]).toBe('middle');
   });
 
-  it('passes an unrecognised value straight through, unlike the icon option', () => {
+  it('passes an unrecognized value straight through, unlike the icon option', () => {
     // The two options genuinely differ here and the difference is worth stating. The icon
     // option funnels an unknown value into `center` through its ternary; this one hands
     // the string to CSS, where an invalid `vertical-align` is dropped and the cell falls

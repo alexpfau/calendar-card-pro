@@ -13,6 +13,9 @@ hero:
       text: Get started
       link: /guide/installation
     - theme: alt
+      text: See a family calendar
+      link: /guide/family-calendar
+    - theme: alt
       text: Configuration reference
       link: /reference/configuration
     - theme: alt

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
@@ -62,7 +62,7 @@ function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): F
  *
  * A `constant` node is a section label, not a setting, so it is not a "field" for the
  * purposes of these assertions — every test here is about which *options* survive the
- * filter. Heading behaviour has its own test below, so excluding them here narrows what
+ * filter. Heading behavior has its own test below, so excluding them here narrows what
  * each assertion is about rather than hiding anything.
  */
 function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
@@ -252,7 +252,7 @@ describe('editor filter: what counts as customized', () => {
    * The editor is handed raw YAML — its `setConfig` is a plain merge, while the card
    * normalizes on every one of its own — so this is asked through `config.ts` rather than
    * with a bare comparison. A quoted `'3'` renders an identical card, and a `-1` is
-   * discarded by the card in favour of the default; neither is a customization, and a
+   * discarded by the card in favor of the default; neither is a customization, and a
    * predicate that compared the raw values would report both as one.
    */
   it('reads a numeric option the way the card reads it', () => {
@@ -262,7 +262,7 @@ describe('editor filter: what counts as customized', () => {
     expect(visibleFields(quoted, { customizedOnly: true })).not.toContain('days_to_show');
     expect(visibleFields(negative, { customizedOnly: true })).not.toContain('days_to_show');
 
-    // ...and the value the card would honour is still reported, quoted or not.
+    // ...and the value the card would honor is still reported, quoted or not.
     const quotedSeven = buildConfig({ days_to_show: '7' as unknown as number });
     expect(visibleFields(quotedSeven, { customizedOnly: true })).toContain('days_to_show');
   });
@@ -458,7 +458,7 @@ describe('editor filter: the per-calendar settings', () => {
    * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
    * user had configured disappeared from the filter that promises to show exactly that.
    *
-   * With a custom colour the panel survives, but the colour field arrives with no control
+   * With a custom color the panel survives, but the color field arrives with no control
    * saying where it comes from and no way back to following the card.
    */
   it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
@@ -481,7 +481,7 @@ describe('editor filter: the per-calendar settings', () => {
     expect(kept(following, 'home_assistant')).toEqual(['accent_color_mode']);
     expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
 
-    // The control still stores nothing of its own, so a calendar that has set no colour
+    // The control still stores nothing of its own, so a calendar that has set no color
     // keeps neither and its panel drops out whole — as it did before.
     expect(kept(untouched, 'inherit')).toEqual([]);
   });
@@ -584,7 +584,9 @@ describe('editor filter: the bar itself', () => {
       subform.schema.map((node) => node.name),
     );
 
-    expect(declared).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
+    expect(
+      declared.filter((name) => name === SEARCH_FIELD || name === CUSTOMIZED_ONLY_FIELD),
+    ).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
     expect(CHASSIS_STRINGS).toContain('filter');
   });
 
@@ -610,7 +612,10 @@ describe('editor filter: the chassis', () => {
   async function mount(config: Partial<Types.Config>) {
     const element = document.createElement(TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
-    element.setConfig(config as Types.Config);
+    element.setConfig({
+      config_version: CURRENT_CONFIG_VERSION,
+      ...config,
+    } as Types.Config);
     document.body.appendChild(element);
     await element.updateComplete;
 
@@ -708,24 +713,20 @@ describe('editor filter: the chassis', () => {
     expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
   });
 
-  it('hides the exceptions widget until there is an exception to show', async () => {
+  it('offers no reset until a view has an explicit value', async () => {
     const { element, filterBy } = await mount({ view: 'column', entities: ['calendar.a'] });
 
-    expect(
-      element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions').length,
-    ).toBeGreaterThan(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
   });
 
   /**
-   * The other half of the rule, and the one that matters: an exception is a customization
-   * by construction, so it survives the filter that hides everything at a default —
-   * including before its value has been changed from the one it inherits.
+   * An explicit view value remains editable and resettable while customized-only is on.
    */
-  it('keeps the exceptions a card has declared', async () => {
+  it('keeps explicit view values and their reset controls', async () => {
     const { element, filterBy } = await mount({
       view: 'column',
       entities: ['calendar.a'],
@@ -734,8 +735,13 @@ describe('editor filter: the chassis', () => {
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(1);
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(1);
+    expect(
+      element.shadowRoot!.querySelectorAll('[data-reset-keys="event_font_size"]'),
+    ).toHaveLength(1);
+    const offered = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].flatMap(
+      (form) => fieldNames((form as unknown as { schema: HaFormSchema[] }).schema),
+    );
+    expect(offered).toContain('event_font_size');
   });
 
   /**
@@ -773,7 +779,11 @@ describe('editor filter: the chassis', () => {
     await element.updateComplete;
 
     expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]).toEqual({ entities: ['calendar.a'], days_to_show: 10 });
+    expect(dispatched[0]).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      days_to_show: 10,
+    });
   });
 });
 
@@ -846,7 +856,7 @@ describe('editor filter: section headings', () => {
   });
 
   it('keeps a heading whose section still has an option, and drops the rest', () => {
-    // "colour" reaches the appearance fields and nothing else, so exactly one heading
+    // "color" reaches the appearance fields and nothing else, so exactly one heading
     // should survive — the one that still has something under it.
     const entry = { entity: 'calendar.a' };
     const ctx = ctxFor(buildConfig({ entities: [entry] }), { query: 'accent' });
@@ -934,16 +944,17 @@ describe('editor: the order of the two panels', () => {
     ]);
   });
 
-  it('pins the card-level content group', () => {
-    // Sequenced from the group's own schema, not sliced out of the panel: a slice to the
-    // end swept in the locale group that follows.
-    const group = [...walkSchema(contentSchema())].find(
-      ({ node }) => 'schema' in node && node.name === 'content',
-    );
-
-    expect(group, 'the content group is gone').toBeDefined();
-
-    expect(sequence((group!.node as { schema: ReadonlyArray<HaFormSchema> }).schema)).toEqual([
+  it('pins the card-level content panel', () => {
+    // The whole panel, not a group inside it: the six options that used to sit in a
+    // collapsed group captioned "What The Card Shows" are now panel-level runs, so there
+    // is no group left to slice and the promotion is exactly what this has to pin. The
+    // two remaining groups are flattened into the tail by `sequence`, which is why the
+    // compact and locale fields appear here without their captions.
+    expect(sequence(contentSchema())).toEqual([
+      '# heading_time_range',
+      'days_to_show',
+      'start_date_mode',
+      'first_day_of_week',
       '# heading_filters',
       'event_type',
       'show_past_events',
@@ -955,6 +966,10 @@ describe('editor: the order of the two panels', () => {
       'empty_day_text',
       'empty_day_color',
       'hide_when_empty',
+      'compact_days_to_show',
+      'compact_events_to_show',
+      'language_mode',
+      'time_format',
     ]);
   });
 

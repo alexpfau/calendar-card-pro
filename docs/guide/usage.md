@@ -59,7 +59,8 @@ entities:
   - entity: calendar.personal
     color: '#c2ffb3' # Green for personal events
 days_to_show: 7
-compact_events_to_show: 3 # Always only show 3 events
+list:
+  compact_events_to_show: 3 # Always only show 3 events
 tap_action:
   action: expand # Tap to expand/collapse
 ```
@@ -82,7 +83,7 @@ Calendar Card Pro offers two ways to customize your card:
 ## 🚀 Next Steps
 
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
-- **Follow a Worked Example** - [One Calendar, Many Purposes](/guide/one-calendar-many-purposes) builds a single hallway card out of one calendar listed four times, explaining each setting as it goes
+- **Follow a Walkthrough** - one invented family, two displays, each built from start to finish. [The Weekly Grid](/guide/family-calendar) combines their calendars into one week on an hour axis for a wall tablet, with faces and every shared plan drawn once. [The Filtered Agenda](/guide/one-calendar-many-purposes) puts them on a short hallway list, splitting the calendars that mix several kinds of event into blocks with their own rules
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
 - **See Examples** - Browse [Examples](/reference/examples) for complete, ready-made setups
 - **Reference Configuration** - Use [Configuration Options](/reference/configuration) as the complete option reference

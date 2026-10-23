@@ -26,6 +26,7 @@ const EDITOR_T9N_INDEX_TS = join(ROOT, 'src/rendering/editor/translations/index.
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
+const ACTIONS_TS = join(ROOT, 'src/rendering/editor/schemas/actions.ts');
 const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
 const GLOSSARY_SOURCE = 'scripts/editor-glossary.mjs';
 const REFERENCE_LANG = 'en.json';
@@ -211,6 +212,14 @@ async function readEditorSchemaKeys() {
     roots.add(panel.titleKey);
     titles.add(panel.titleKey);
     helpers.add(panel.titleKey);
+    // `_panelTitle` and `_panelHelper` resolve `<titleKey>.<view>` before the shared key,
+    // so a panel whose contents differ enough by view can retitle itself there. The title
+    // needs no registration — it is reachable under the shared root — but the helper does,
+    // or a legitimate per-view helper reads as a string nothing can look up. Registered
+    // as permitted rather than required: adding these to `titles` would demand 27 headings
+    // that should not exist. Reconciled against VIEWS rather than listed, so the day a
+    // fourth view lands its qualified keys are covered without an edit here.
+    for (const view of VIEWS) helpers.add(`${panel.titleKey}.${view}`);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
@@ -237,8 +246,14 @@ async function readEditorSchemaKeys() {
     helpers,
     roots,
     strings: EDITOR_STRINGS,
-    // Both scope tables make the same promise on different surfaces.
-    viewScope: { ...VIEW_SCOPE, ...ENTITY_VIEW_SCOPE },
+    // Both scope tables make the same promise on different surfaces, but a key may
+    // legitimately appear in both with DIFFERENT scopes — `entityScopeFor` is
+    // `ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key]`, not a merge, so the per-calendar
+    // control and the card-level one can be inert in different views and need different
+    // notes. Spreading one over the other would drop a differing scope and orphan
+    // its string. Keep pairs so both declarations remain covered, even while the
+    // per-calendar table has no exceptions to the card-level scopes.
+    viewScopeEntries: [...Object.entries(VIEW_SCOPE), ...Object.entries(ENTITY_VIEW_SCOPE)],
     defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
   };
 }
@@ -274,14 +289,11 @@ function escapeForRegExp(value) {
  * `offset` — a documented setting gone from the editor while its control, its helper text
  * and its translations all stay put.
  *
- * The key is **taken from the editor rather than modelled**, because modelling it does not
- * work. Four different shapes are in use: `view.option.list.label` from the node's own
- * name, `column.min_days_fallback.option.list.label` from its group-qualified name,
- * `entity.show_time.option.inherit.label` from the per-calendar prefix, and — the one that
- * defeats any rule written from the schema — `week_number_mode.option.iso.label` for a node
- * *named* `show_week_numbers`, because `unionPickerField` labels the picker for a union
- * option through the synthetic mode field standing in for it. The built schema has thrown
- * that key away by the time anything can read it.
+ * The key is taken from the editor rather than reconstructed from a node name.
+ * Labels may use the node's own name (`view.option.list.label`), its group-qualified
+ * name (`column.min_days_fallback.option.list.label`), or a per-calendar prefix
+ * (`entity.show_time.option.inherit.label`). A schema helper can choose its label key
+ * independently of the stored name, so the actual lookup is the source of truth.
  *
  * So the schema is built under a language that echoes every key back instead of resolving
  * it. Each option's `label` is then literally the key the editor asked for, derived by the
@@ -297,8 +309,10 @@ async function readEditorOptionKeys() {
   const editor = await loadEditor();
   const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
   const { DEFAULT_CONFIG, VIEWS } = editor;
+  const { CARD_ACTIONS, cardActionLabelKey } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
+  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
   /** Option-label key -> the qualified node names that looked it up. */
   const asked = new Map();
@@ -314,10 +328,26 @@ async function readEditorOptionKeys() {
     for (const { node, path: nodePath } of walkSchema(schema, path)) {
       if (!node.name || !('selector' in node) || !node.selector) continue;
 
+      const where = [...nodePath, node.name].join('.');
+
+      // Home Assistant's action dropdown is not a `select`, and its option list is not
+      // labeled from our table — except for the actions this card adds, which HA has no
+      // string for and would render as a raw key. Those are ours to name, so they
+      // reconcile here like any other option: drop one from the schema and its string is
+      // orphaned, add one without a string and the lookup fails.
+      const uiAction = node.selector.ui_action;
+      if (uiAction && Array.isArray(uiAction.actions)) {
+        for (const action of uiAction.actions) {
+          if (!CARD_ACTIONS.includes(action)) continue;
+          const key = cardActionLabelKey(action);
+          const nodes = asked.get(key) ?? new Set();
+          nodes.add(where);
+          asked.set(key, nodes);
+        }
+      }
+
       const select = node.selector.select;
       if (!select || !Array.isArray(select.options)) continue;
-
-      const where = [...nodePath, node.name].join('.');
 
       for (const option of select.options) {
         const value = typeof option === 'string' ? option : option.value;
@@ -346,7 +376,9 @@ async function readEditorOptionKeys() {
   );
 
   try {
-    for (const subform of chassisSubforms()) collect(subform.schema, subform.path);
+    for (const subform of chassisSubforms(OPTION_KEY_ECHO_LANGUAGE)) {
+      collect(subform.schema, subform.path);
+    }
 
     for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
       for (const panel of PANELS) {
@@ -408,10 +440,10 @@ function probeConfigs(defaults, views) {
     { allday_badge: 'time' },
     { allday_badge: 'title' },
     // Two gates deep, which is why it needs a variant of its own rather than riding on the
-    // two above. The badge's colour picker is only built when the badge is ON *and* its
-    // colour is a custom one, so no variant that sets a single key can reach it, and without
+    // two above. The badge's color picker is only built when the badge is ON *and* its
+    // color is a custom one, so no variant that sets a single key can reach it, and without
     // this the checker reports `allday_badge_color` as referenced by no panel -- correctly,
-    // from what it can see. Any colour will do; the mode is read off the value's shape.
+    // from what it can see. Any color will do; the mode is read off the value's shape.
     { allday_badge: 'time', allday_badge_color: '#b5651d' },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
@@ -634,15 +666,24 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
 /**
  * The editor's string table must cover every field, and hold nothing else.
  *
- * Missing labels render humanised keys; unused strings become translation work for keys
+ * Missing labels render humanized keys; unused strings become translation work for keys
  * that label nothing. Helper text remains optional.
  */
 async function checkEditorStrings() {
-  const { labels, titles, helpers, roots, strings, viewScope, defaultOverridesByView } =
+  const { labels, titles, helpers, roots, strings, viewScopeEntries, defaultOverridesByView } =
     await readEditorSchemaKeys();
+  const { CARD_ACTIONS, cardActionLabelKey } = await loadEditor();
 
-  assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
+  assertFound([...labels.keys()], 'any labeled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
+  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
+
+  // A card action's label hangs off no field: Home Assistant's action dropdown asks for
+  // it by action, not by the node it sits under. Rooting it on the action list keeps the
+  // reconciliation honest in the direction that matters — drop `expand` from
+  // CARD_ACTIONS and its string stops being reachable here, rather than lingering as a
+  // translated name for an option nothing offers.
+  for (const action of CARD_ACTIONS) roots.add(cardActionLabelKey(action));
 
   for (const [qualified, bare] of labels) {
     if (!(qualified in strings) && !(bare in strings)) {
@@ -666,7 +707,7 @@ async function checkEditorStrings() {
   // against VIEW_SCOPE rather than against the schema: a scoped option with no note
   // says nothing about which layout it applies to, which is the whole point of scoping
   // it. `scope.<id>_only` is the shared wording, `scope.<id>_only.<key>` the specific.
-  for (const [key, views] of Object.entries(viewScope)) {
+  for (const [key, views] of viewScopeEntries) {
     const scopeId = [...views].sort().join('_');
     const general = `scope.${scopeId}_only`;
 
@@ -685,11 +726,14 @@ async function checkEditorStrings() {
   // An option a view has already decided for the user needs saying so beside the
   // shared control, or the control appears to be lying about what the card renders.
   for (const [view, defaults] of Object.entries(defaultOverridesByView)) {
+    const general = `view_default.${view}`;
+    roots.add(general);
+
     for (const key of Object.keys(defaults)) {
       const note = `view_default.${view}.${key}`;
       roots.add(note);
 
-      if (!(note in strings)) {
+      if (!(general in strings) && !(note in strings)) {
         error(
           'strings.ts',
           `\`${key}\` defaults differently in ${view} view but has no note — the shared ` +
@@ -1152,7 +1196,7 @@ async function checkTranslationQuality(languages, glossary) {
       if (rate > 15) {
         warn(
           where,
-          `${rate}% of multi-word labels capitalise a non-initial word ` +
+          `${rate}% of multi-word labels capitalize a non-initial word ` +
             `(${calques} of ${multiWordLabels.length}). ${code} uses sentence case — ` +
             'this is English orthography calqued onto it, not a translation choice',
         );
@@ -1183,7 +1227,7 @@ function checkCollapsedLabels(where, data, strings) {
     if (keys.length < 2) continue;
     const englishes = [...new Set(keys.map((k) => strings[k]))];
     if (englishes.length < 2) continue;
-    // Same English aside from capitalisation is an English-table issue.
+    // Same English aside from capitalization is an English-table issue.
     if (new Set(englishes.map((e) => e.toLowerCase())).size < 2) continue;
     warn(
       where,
@@ -1482,7 +1526,7 @@ async function checkRunningTextWeekdayCase(languages) {
   for (const [file, [got, want]] of mismatched) {
     warn(
       `languages/${file}`,
-      `fullDaysOfWeek is capitalised (${got}); dayjs has ${want} -- that array is only ever ` +
+      `fullDaysOfWeek is capitalized (${got}); dayjs has ${want} -- that array is only ever ` +
         `rendered mid-sentence after multiDay, so it wants the running-text form. ` +
         `DO NOT simply copy the dayjs value: it is the NOMINATIVE, and multiDay governs ` +
         `case in cs/hr/pl/sk (do), lt (iki) and lv (lidz) -- Polish wants "do poniedzialku", ` +

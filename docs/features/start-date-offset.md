@@ -71,10 +71,11 @@ following Monday. A bare weekday is shorthand for `today+<weekday>`.
 | Two weeks from next Tuesday                           | `tuesday+2w`        |
 
 ::: warning Pair This With show_past_events
-`start_of_week` resolves to a past date for most of the week. Because `show_past_events`
-defaults to `false`, already-finished timed events on the earlier days are hidden, which can
-make the start of the week look empty. Pair `start_of_week` with `show_past_events: true` to
-see the full week. (All-day events are always shown.)
+`start_of_week` resolves to a past date for most of the week. In the list and column views
+`show_past_events` defaults to `false`, so what has already finished on the earlier days is
+hidden: a timed event once it ends, and an all-day event from midnight after its last day. That
+can make the start of the week look empty, so pair `start_of_week` with `show_past_events: true`
+there to see the full week. Grid view shows past events by default and needs nothing.
 :::
 
 When using `start_date` with `days_to_show`, the calendar will display exactly that number of days starting from the specified date:

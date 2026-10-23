@@ -14,7 +14,7 @@ import { formatEventTime, formatLocation } from '../src/utils/format';
  * gate passes because the renderer agrees with the default by accident, not
  * because the option works. `max-lines.test.ts` closes that gap for the four
  * `*_max_lines` options; an audit of all 36 off-defaults in `DEFAULT_CONFIG`
- * found four more with no behavioural coverage at all:
+ * found four more with no behavioral coverage at all:
  *
  * | Option                    | Default     | Previously covered by       |
  * | ------------------------- | ----------- | --------------------------- |

@@ -42,7 +42,8 @@ entities:
   - entity: calendar.personal
     color: '#c2ffb3' # Green for personal events
 days_to_show: 7
-compact_events_to_show: 3 # Always only show 3 events
+list:
+  compact_events_to_show: 3 # Always only show 3 events
 tap_action:
   action: expand # Tap to expand/collapse
 ```
@@ -63,7 +64,8 @@ entities:
   - entity: calendar.personal
     accent_color: '#43a047'
 days_to_show: 5
-compact_events_to_show: 5
+list:
+  compact_events_to_show: 5
 event_background_opacity: 20
 vertical_line_width: 5px
 event_spacing: 6px
@@ -83,7 +85,8 @@ entities:
   - entity: calendar.family
     accent_color: '#ff6c92'
 days_to_show: 5
-compact_events_to_show: 6
+list:
+  compact_events_to_show: 6
 vertical_line_width: 5px
 event_spacing: 5px
 show_week_numbers: iso
@@ -152,6 +155,97 @@ becomes an ordinary list below 518 px — see [Falling Back to the List
 Layout](/features/column-view#falling-back-to-the-list-layout). The visual editor shows this
 same table for whatever you configure.
 
+## 🕐 A Week on an Hour Axis, in Grid View
+
+The same seven days, measured against a clock instead of listed. Each calendar keeps its own
+`accent_color`, so a block's color says which calendar it came from without a legend. Events
+sit at the time they start and are as tall as they are long, which makes a busy morning and a
+clear afternoon visible at a glance.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week.png" alt="A Week on an Hour Axis, in Grid View"><br>
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.family
+    accent_color: '#ff6c92'
+  - entity: calendar.work
+    accent_color: '#03a9f4'
+  - entity: calendar.personal
+    accent_color: '#fb8c00'
+view: grid
+days_to_show: 7
+title: This Week
+time_grid:
+  min_days_to_show: 3
+  show_location: false
+  max_simultaneous_events: 2
+  end_time: '23:30'
+```
+
+`end_time: '23:30'` trims the empty last half hour so the drawn band carries more of the day.
+`max_simultaneous_events: 2` keeps side-by-side blocks wide enough to read: events that start
+together share the width two at a time, and a third collapses into a counted `+1` block rather
+than squeezing all three. An event that starts well inside a longer one is drawn over it
+instead, which costs neither of them any width. Below three days' worth
+of width the card falls back to the list — see [Fitting Narrow
+Cards](/features/grid-view#fitting-narrow-cards).
+
+## 🧩 A Complete Grid Card
+
+Everything the grid layout offers on one card: ISO week numbers above the dates, weather on
+the day headers, a tinted weekend, recolored hour lines, and the now line on today.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_complete.png" alt="A complete grid card with week numbers, weather, a tinted weekend and the now line"><br>
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.family
+    accent_color: '#ff6c92'
+  - entity: calendar.work
+    accent_color: '#03a9f4'
+  - entity: calendar.personal
+    accent_color: '#fb8c00'
+view: grid
+days_to_show: 7
+title: This Week at a Glance
+show_week_numbers: iso
+show_countdown: false
+show_progress_bar: false
+weather:
+  entity: weather.forecast_home
+  position: date
+location_max_lines: 1
+time_grid:
+  min_day_width: 110
+  min_days_to_show: 3
+  show_now_line: true
+  show_location: true
+  max_simultaneous_events: 2
+  weekend_background_color: color-mix(in srgb, var(--primary-text-color) 6%, transparent)
+  hour_line_color: color-mix(in srgb, var(--primary-color) 30%, transparent)
+  day_header_separator_width: '2px'
+  day_header_separator_color: var(--primary-color)
+  end_time: '23:30'
+```
+
+Both color options take any CSS color, so `color-mix()` tints the weekend and the hour lines
+from theme variables rather than from fixed values — the card then follows a theme change
+instead of fighting it. `show_countdown: false` and `show_progress_bar: false` keep the blocks
+to a title, a time and a location, which is as much as a seven-day lane can hold.
+
+## 👨‍👩‍👦 A Family's Week on a Wall Tablet
+
+Three people's calendars, a work calendar, a Family calendar and the trash pickup on one grid
+card, sized for a 1280 × 800 tablet in kiosk mode. Faces say whose plan it is, and anything on
+more than one person's calendar turns gold. The configuration and the reasoning behind each line
+are on their own page, [A Family Calendar: The Weekly Grid](/guide/family-calendar). Screenshot using
+the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
+(ios-dark-mode-blue-red-alternative).
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_week.png" alt="A wall tablet showing one family's week in grid view, with faces on the timed events, shared plans in gold and a now line on Wednesday"><br>
+
 ## 🎨 Full Configuration
 
 A heavily **customized** configuration covering **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
@@ -171,7 +265,9 @@ entities:
     color: '#b3ffd9'
 start_date: today
 days_to_show: 10
-compact_events_to_show: 10
+list:
+  compact_events_to_show: 10
+  date_vertical_alignment: middle
 language: en
 
 # Header
@@ -191,7 +287,6 @@ day_separator_width: 2px
 day_separator_color: '#baf1ff80'
 
 # Date Column
-date_vertical_alignment: middle
 weekday_font_size: 14px
 weekday_color: '#baf1ff'
 day_font_size: 32px

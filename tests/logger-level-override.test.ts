@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * `rollup.config.mjs` pins `CURRENT_LOG_LEVEL` to 0 (ERROR) for production, which
  * silences all 17 `Logger.warn` sites — including user-actionable ones such as
  * *"Invalid start_date … falling back to today"*. The alternative to a runtime opt-in
- * was to decide, per call site, which warnings deserve to ship; that judgement has to
+ * was to decide, per call site, which warnings deserve to ship; that judgment has to
  * be re-made every time a call site is added and fails silently when it is skipped.
  *
  * These tests pin both halves of the bargain. The default must remain silent — a

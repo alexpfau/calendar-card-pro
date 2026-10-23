@@ -17,7 +17,7 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  * Every value below is distinct, so the assertions fail not only when a mapping is dropped
  * but also when two are crossed. That is the failure this file is really aimed at: a
  * property that carries *a* value looks correct in a browser until someone notices their
- * location colour is following their time colour.
+ * location color is following their time color.
  */
 type Pair = readonly [option: string, property: string, value: string];
 
@@ -108,6 +108,19 @@ describe('custom property mapping', () => {
     expect(custom['--calendar-card-empty-day-color']).toBe('rgb(14, 0, 0)');
   });
 
+  it.each([
+    [undefined, '0.6'],
+    [60, '0.6'],
+    [100, '1'],
+    [0, '0'],
+    [1, '0.01'],
+    [12.5, '0.125'],
+  ])('maps past content percentage %s to one inherited alpha', (value, alpha) => {
+    expect(propsFor({ past_event_opacity: value })['--calendar-card-past-event-opacity']).toBe(
+      alpha,
+    );
+  });
+
   it('covers every property the stylesheet reads', () => {
     // Without this the table can fall behind the source: a theming option added later would
     // arrive with no assertion and nothing would say so.
@@ -116,11 +129,15 @@ describe('custom property mapping', () => {
       ...PASS_THROUGH.map(([, property]) => property),
       '--calendar-card-date-column-width',
       '--calendar-card-empty-day-color',
+      '--calendar-card-past-event-opacity',
     ]);
     const known = new Set<string>([
       // Asserted in their own dedicated files, listed here so this check stays exhaustive.
       '--calendar-card-description-max-lines',
       '--calendar-card-title-max-lines',
+      '--calendar-card-grid-title-lines-compact',
+      '--calendar-card-grid-title-lines-medium',
+      '--calendar-card-grid-title-lines-expanded',
       '--calendar-card-time-max-lines',
       '--calendar-card-location-max-lines',
       '--calendar-card-title-display',
@@ -148,7 +165,7 @@ describe('custom property mapping', () => {
  * never asserted.
  *
  * v4 turned these into a real override surface: the badges used to carry their size and
- * colour as inline `style` attributes that no theme could reach, and `theming.md` now
+ * color as inline `style` attributes that no theme could reach, and `theming.md` now
  * publishes all six properties with defaults.
  *
  * 🚨 The pairs below do **not** pin the `|| '14px'` fallbacks in `styles.ts`, and an
@@ -211,7 +228,7 @@ describe('weather custom properties', () => {
   );
 
   it('keeps the two placements independent', () => {
-    // The badges sit beside different text colours and keep separate fallbacks; setting
+    // The badges sit beside different text colors and keep separate fallbacks; setting
     // one must not move the other. A single shared read would pass both tables above.
     const props = propsFor({
       weather: { entity: 'weather.home', date: { icon_size: '41px' } },
@@ -219,5 +236,20 @@ describe('weather custom properties', () => {
 
     expect(props['--calendar-card-weather-date-icon-size']).toBe('41px');
     expect(props['--calendar-card-weather-event-icon-size']).toBe('14px');
+  });
+
+  it('keeps clamped event conditions in inline flow', () => {
+    // The stylesheet still supplies the clamp declarations. This custom property chooses
+    // whether the condition becomes a block or stays in the surrounding text run.
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 0 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('inline');
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 2 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('-webkit-inline-box');
   });
 });

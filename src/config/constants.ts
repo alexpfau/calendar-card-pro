@@ -18,9 +18,27 @@ export const VERSION = {
 export const CACHE = {
   DEFAULT_DATA_REFRESH_MINUTES: 30,
 
-  MANUAL_RELOAD_CACHE_DURATION_SECONDS: 5, // 5 seconds
+  /**
+   * With `refresh_on_navigate` on, a card that appears refetches in the background — but
+   * not when its data is younger than this. Reloading the page twice in a row, or a
+   * dashboard re-laying its cards out, is not a reason to ask every calendar again.
+   */
+  NAVIGATION_REFETCH_MIN_AGE_SECONDS: 5,
 
   EMPTY_RESULTS_CACHE_DURATION_SECONDS: 15, // 15 seconds
+
+  /**
+   * Oldest cached data the card will still draw while it fetches, and the longest a
+   * calendar that keeps failing goes on showing its last loaded events.
+   */
+  MAX_STALE_HOURS: 24,
+
+  /**
+   * First retry after a calendar failed to load. Each further failure doubles it, up to
+   * `refresh_interval`, so a blip recovers in a minute and a calendar that stays broken
+   * settles at the normal cadence.
+   */
+  RETRY_INITIAL_SECONDS: 60,
 
   EVENT_CACHE_KEY_PREFIX: 'cache_data_',
 };
@@ -46,6 +64,18 @@ export const TIMING = {
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
 
   /**
+   * How long one calendar may take to answer before it counts as failed.
+   *
+   * `hass.callApi` has no timeout of its own, and a request that never settles used to
+   * pin the shared in-flight entry for good: every later refresh joined it, so the card
+   * silently stopped refreshing until the page was reloaded.
+   */
+  CALENDAR_FETCH_TIMEOUT: 30000,
+
+  /** Shortest delay the refresh timer is armed with, so it can never spin. */
+  REFRESH_MIN_DELAY: 1000,
+
+  /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.
    *
    * Home Assistant's sections grid lays a card out at its unconstrained width for at
@@ -60,9 +90,24 @@ export const TIMING = {
    * and short enough to be imperceptible against Home Assistant's own load.
    */
   WIDTH_SETTLE_DELAY: 100,
+
+  /**
+   * How often the grid view repaints its now line, in milliseconds.
+   *
+   * A minute, because that is the resolution the line is drawn at — anything finer
+   * repaints for a position that has not moved. It is deliberately not aligned to the
+   * wall-clock minute: the line slides continuously, so being up to a minute stale is
+   * invisible where the arithmetic to align it would not be.
+   */
+  NOW_LINE_INTERVAL: 60_000,
 };
 
 export const UI = {
+  /**
+   * Pointer travel that still counts as a tap rather than a scroll or drag.
+   */
+  POINTER_MOVE_TOLERANCE: 8,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,
@@ -74,6 +119,45 @@ export const UI = {
     TOUCH_SIZE: 100,
     POINTER_SIZE: 50,
   },
+};
+
+/**
+ * Tuning for `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing
+ * event titles. Read by the measurement step in calendar-card-pro.ts; the keyframes and
+ * the pause/reduced-motion behavior live in the stylesheet.
+ */
+export const TITLE_SCROLL = {
+  /** Overflow past which a title scrolls, in CSS pixels. Below it the title never moves. */
+  MIN_OVERFLOW_PX: 1,
+
+  /**
+   * Perceived travel speed, in CSS pixels per second, over the part of the cycle actually
+   * moving, except short trips that use the minimum forward duration.
+   */
+  SPEED_PX_PER_S: 45,
+
+  START_PAUSE_S: 0.6,
+  MIN_FORWARD_S: 2.8,
+  END_PAUSE_S: 0.6,
+  RETURN_SPEED_PX_PER_S: 360,
+  MIN_RETURN_S: 0.2,
+  MAX_RETURN_S: 0.6,
+
+  /**
+   * Legacy fallback's fraction spent moving rather than paused. Must match the
+   * calendar-card-title-scroll keyframes in styles.ts: 15%->85% is 70% travel, the
+   * remaining 30% split evenly as holds at the start and the end.
+   */
+  TRAVEL_FRACTION: 0.7,
+
+  /**
+   * Shortest legacy fallback cycle, in seconds.
+   *
+   * It also bounds how often the marquee's reset is seen. The cycle travels the overflow
+   * once and then restarts, so the floor is what stops a title that overflows by a few
+   * pixels from snapping back several times a second.
+   */
+  MIN_DURATION_S: 4,
 };
 
 /**

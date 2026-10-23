@@ -103,7 +103,7 @@ const NARROW = 300;
 
 /**
  * Inside the hysteresis band: past the 460px decision edge but short of the
- * centred enter edge a first measurement has to clear. A card measured here
+ * centered enter edge a first measurement has to clear. A card measured here
  * first lands in list view; one that already holds a column fit keeps it.
  */
 const INSIDE_HYSTERESIS_BAND = 464;
@@ -306,7 +306,12 @@ describe('teardown', () => {
     const card = mount({ hold_action: { action: 'expand' } });
 
     card._handlePointerDown(
-      new PointerEvent('pointerdown', { pointerId: 1, clientX: 0, clientY: 0 }),
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        isPrimary: true,
+      }),
     );
 
     // The user starts a hold, then the dashboard swaps views before it matures.
@@ -326,7 +331,12 @@ describe('teardown', () => {
     const card = mount({ hold_action: { action: 'expand' } });
 
     card._handlePointerDown(
-      new PointerEvent('pointerdown', { pointerId: 1, clientX: 0, clientY: 0 }),
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        isPrimary: true,
+      }),
     );
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
 

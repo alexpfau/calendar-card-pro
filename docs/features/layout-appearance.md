@@ -19,15 +19,16 @@ additional_card_spacing: '10px'
 
 The card offers two distinct height control mechanisms:
 
-- **Fixed Height (`height`)**: Creates a card with exactly the specified height regardless of content amount. This is ideal when you need a card that perfectly fits a specific dashboard layout.
+- **Fixed Height (`height`)**: Creates a calendar content area with exactly the specified height regardless of content amount. The full card also includes its header and card padding, so use the dashboard's layout controls when its outer height must fit a specific space.
 
-- **Maximum Height (`max_height`)**: Allows the card to grow naturally up to the specified limit. This provides flexibility while still ensuring the card doesn't become too large.
+- **Maximum Height (`max_height`)**: Allows the calendar content area to grow naturally up to the specified limit. This provides flexibility while still ensuring its event content does not become too large.
 
-Both options provide:
+In list and column views, both options scroll when content exceeds the available space.
+In grid view a fixed `height` compresses the time axis instead — see
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
 
-- Automatic scrolling when content exceeds the available space
-- Modern, clean scrollbars that only appear during hover/scrolling
-- Consistent behavior across desktop and mobile browsers
+Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
+same on desktop and mobile.
 
 ### Height in Column View
 
@@ -46,15 +47,43 @@ column:
 
 What scrolls is the **whole card**, not an individual day. The columns sit inside one
 scrolling area, so the day headers move together with their events and nothing scrolls out
-of alignment with its neighbors. The grid is exactly as tall as its tallest day, which
-means a quiet day leaves empty space beneath its last event rather than stretching to
-match — the events stay anchored under their header.
+of alignment with its neighbors. The column layout is exactly as tall as its tallest day,
+which means a quiet day leaves empty space beneath its last event rather than stretching
+to match — the events stay anchored under their header.
 
 ::: tip Sizing From The Dashboard Instead
 Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
 too, and they scroll it the same way. Use them when a row height is precise enough;
 reach for `max_height` when you want an exact pixel value, or a different limit per view.
 :::
+
+### Height in Grid View
+
+A fixed `height` here compresses the time axis rather than scrolling. Hours, events, and
+the now line are all positioned as a share of the band, so they squeeze into whatever
+room the calendar content area has left after the day headers and the all-day band.
+`hour_height` stops applying. The header and card padding sit outside that area, so use
+the dashboard's layout controls when the outer card needs a particular size.
+
+The time body retains at least half the configured content height, and a tall all-day band
+scrolls in whatever the day headers leave above it. That remainder shrinks as the card
+does: around `180px` the band is down to a row or two, and below about twice the header
+height it is a sliver — its events are still scrollable rather than dropped, but only a
+scroll gesture or the keyboard will reach them, and the time axis starts to be clipped by
+the bottom of the card.
+
+`max_height` still caps and scrolls, the same as in the other views.
+
+Both options may be overridden inside a `time_grid:` block. A height tuned for a list of
+events is the wrong size for a compressed axis, for the same reason a list height is
+usually wrong for columns.
+
+```yaml
+view: grid
+height: 400px
+```
+
+**→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
 
 ## 🎨 Visual Styling & Colors
 
@@ -73,6 +102,10 @@ vertical_line_width: '3px' # Width of the colored event indicator line
 ```
 
 The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+
+`title_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
+and the title keeps Home Assistant's card header size.
 
 When styling your calendar, you can use:
 
@@ -95,8 +128,9 @@ Fine-tune the spacing and alignment of your calendar elements:
 day_spacing: '8px' # Space between different calendar days
 event_spacing: '6px' # Internal padding within each event
 
-# Date column alignment
-date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+list:
+  # Date column alignment
+  date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 # Event icon alignment
 event_icon_vertical_alignment: 'middle' # Options: 'top', 'middle', 'bottom'
@@ -135,6 +169,11 @@ month_separator_color: '#03a9f4'
 ```
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers.png" alt="Week Numbers" width="600"><br>
+
+`week_number_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do, and the pill is sized from it: 2.5
+times as wide and 1.5 times as tall as its font size. A value that is not a font size falls
+back to `12px`.
 
 This feature creates a sophisticated visual hierarchy with:
 
@@ -254,10 +293,21 @@ today_month_color: '#03a9f4' # Today's month name
 
 The date column appears on the left side of each day's events and helps users quickly identify when events occur. By default, all dates use the base styling, but you can apply special styling to:
 
-- **Weekend days** (Saturday and Sunday) using the `weekend_*` options
+- **Weekend days** using the `weekend_*` options — which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set
 - **Today's date** using the `today_*` options
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+
+`weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
+such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or
+`inherit`, or an expression such as `calc()` that works out to one. A space before the unit is
+closed up, so `26 px` reads as `26px`, and a negative size, a misspelled unit or a word that is
+not a font size falls back to the option's default. The date column is 1.75 times as wide as
+the day number, whichever form you use. A keyword such as `x-large` depends on the browser's
+default text size, so for those the card assumes the usual 16px, and the column can come out a
+few pixels wider than the number needs. A `var()` is passed on as written, since the card
+cannot see what it refers to: the date column follows it when the property it names holds a
+length, but not a percentage or a keyword.
 
 ## 🌟 Today Indicator
 
@@ -279,9 +329,10 @@ today_indicator: /local/custom-indicator.png # Image path
 today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
-today_indicator_position: '15% 50%' # Centered left in the date column (default)
-today_indicator_position: '15% 15%' # Top left
-today_indicator_position: '85% 15%' # Top right
+list:
+  today_indicator_position: '15% 50%' # Centered left in the date column (default)
+  today_indicator_position: '15% 15%' # Top left
+  today_indicator_position: '85% 15%' # Top right
 
 # Restyle the indicator
 today_indicator_color: '#03a9f4' # Color — applies to the dot and to MDI icons (default)
@@ -310,6 +361,6 @@ The `today_indicator_position` option accepts CSS-like position values in the fo
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.
 :::
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
+`today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. It takes a CSS length such as `6px`, `0.5em` or `1rem`, or an expression such as `calc()` that works out to one, and tolerates a space before the unit, so `6 px` reads as `6px`. A percentage, a negative size, a keyword such as `large` or a misspelled unit falls back to `6px`, because each would otherwise let the indicator balloon across today's date. For a size that follows the text around it, use `em`: `1.5em` rather than `150%`. A `var()` is passed on as written, since the card cannot see what it refers to. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
 
-The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).
+The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

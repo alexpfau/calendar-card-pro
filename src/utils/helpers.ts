@@ -13,6 +13,23 @@ import * as PersonPictures from './person-pictures';
 // COLOR UTILITIES
 //-----------------------------------------------------------------------------
 
+/**
+ * Serialize CSS custom properties into an inline `style` fragment.
+ *
+ * For the two event elements whose `style` is a template string rather than a `styleMap`.
+ * Emits nothing at all for an empty record, so appending it to an existing attribute
+ * leaves that attribute byte-identical — which is what keeps the list view's DOM snapshot
+ * from moving for every card that does not use the feature.
+ *
+ * @param properties - Property names mapped to values
+ * @returns A `name:value;` fragment, or an empty string
+ */
+export function styleDeclarations(properties: Readonly<Record<string, string>>): string {
+  return Object.entries(properties)
+    .map(([name, value]) => `${name}:${value};`)
+    .join('');
+}
+
 /** Resolved RGBA cache keyed by `${color}|${opacity}`; avoids repeated computed-style lookups. */
 const rgbaCache = new Map<string, string>();
 

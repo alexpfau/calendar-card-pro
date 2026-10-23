@@ -239,7 +239,7 @@ exports[`list view DOM > renders an empty calendar 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -573,7 +573,7 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->
@@ -602,7 +602,7 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <div class="summary-row">
 <div class="summary">
 <span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
-          ✓ No upcoming events
+          ✓ No events
         </span>
 </div>
 <!--?-->

@@ -51,6 +51,26 @@ export interface EventTimeParts {
    * nothing to say beyond the label itself.
    */
   text: string;
+
+  /**
+   * The trailing separator and end time of `text`, when dropping it would still leave a
+   * true statement. Always a suffix of `text`, and never the whole of it.
+   *
+   * Present only for a single-day timed event drawn with `show_end_time`, because that is
+   * the only shape whose end time is recoverable from somewhere else: in grid view the
+   * block's bottom edge already draws it, so a row reduced to its start time has lost
+   * nothing. A multi-day phrase looks equally droppable and is not — "Ends tomorrow at
+   * 14:00" names a time on a day this block does not cover, so no edge of it carries that
+   * information and cutting the phrase would destroy it.
+   *
+   * Absent, too, for an event that starts and ends in the same minute, because its `text`
+   * is the start time alone and there is no end in it to drop (#625).
+   *
+   * Produced by the same formatter that built the string rather than found in it, so there
+   * is no separator to parse and nothing here assumes a locale writes a range left to
+   * right.
+   */
+  end?: string;
 }
 
 /**
@@ -137,8 +157,7 @@ export function formatEventTimeParts(
     return { allDayLabel: translations.allDay, text: '' };
   }
 
-  const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
-  const use24h = config.time_24h === true;
+  const use24h = resolveTimeFormat24h(config, hass);
 
   if (startDate.toDateString() !== endDate.toDateString()) {
     return {
@@ -147,23 +166,19 @@ export function formatEventTimeParts(
         endDate,
         language,
         translations,
-        useNativeFormatting,
         use24h,
         config.time_two_digit_hours,
-        hass,
       ),
     };
   }
 
   return {
-    text: formatSingleDayTime(
+    ...formatSingleDayTime(
       startDate,
       endDate,
       config.show_end_time,
-      useNativeFormatting,
       use24h,
       config.time_two_digit_hours,
-      hass,
     ),
   };
 }
@@ -286,7 +301,7 @@ export function formatLocation(location: string, removeCountry: boolean | string
 /** The location row's icon when nothing else applies. */
 export const LOCATION_ICON = 'mdi:map-marker-outline';
 
-/** The location row's icon for a recognised Microsoft Teams meeting. */
+/** The location row's icon for a recognized Microsoft Teams meeting. */
 export const TEAMS_LOCATION_ICON = 'mdi:microsoft-teams';
 
 /**
@@ -495,25 +510,158 @@ export function getLocalDateKey(date: Date): string {
 }
 
 /**
+ * CLDR weekend days for every country Home Assistant accepts whose weekend is not Saturday
+ * and Sunday, keyed by the ISO 3166-1 alpha-2 code `hass.config.country` holds. Day
+ * numbers are this module's own, where 0 is Sunday.
+ *
+ * This is the table the card reads first, because CLDR defines the weekend per territory,
+ * not per language. A language can only stand for one of the countries that speak it —
+ * `en` resolves to the United States and `ar` to Egypt — so through
+ * {@link WEEKEND_BY_LOCALE} alone an English-speaking home in Israel gets Saturday and
+ * Sunday, an Arabic-speaking one in Morocco gets Friday and Saturday, and Afghanistan's
+ * Thursday–Friday weekend cannot be reached at all.
+ *
+ * Saturday and Sunday is the CLDR majority, so only exceptions are listed, and a table
+ * rather than a call into `Intl` for the same reasons as {@link WEEKEND_BY_LOCALE}. The
+ * input domain is closed here too, because Home Assistant accepts a country only from its
+ * own list of ISO 3166-1 codes. Exported so that `tests/weekend-locale.test.ts` can pin
+ * it by value against the runtime's CLDR over every one of those codes, which fails on a
+ * missing exception and on an unexplained entry alike.
+ */
+export const WEEKEND_BY_COUNTRY: Readonly<Record<string, readonly number[]>> = {
+  AF: [4, 5],
+  BH: [5, 6],
+  DZ: [5, 6],
+  EG: [5, 6],
+  IL: [5, 6],
+  IN: [0],
+  IQ: [5, 6],
+  IR: [5],
+  JO: [5, 6],
+  KW: [5, 6],
+  LY: [5, 6],
+  OM: [5, 6],
+  QA: [5, 6],
+  SA: [5, 6],
+  SD: [5, 6],
+  SY: [5, 6],
+  UG: [0],
+  YE: [5, 6],
+};
+
+/**
+ * CLDR weekend days for every Home Assistant frontend language whose weekend is not
+ * Saturday and Sunday. Day numbers are this module's own, where 0 is Sunday.
+ *
+ * The fallback, read only for a home with no country set. CLDR resolves a bare language
+ * to a single territory, which is why {@link WEEKEND_BY_COUNTRY} comes first.
+ *
+ * Saturday and Sunday is the CLDR majority, so only exceptions are listed. Lookup is
+ * full tag first, then base language, then the default — the same three steps, and for
+ * the same reason, as the `FIRST_DAY_BY_LOCALE` table further down this file. No language
+ * currently needs a regional entry the way `en-gb` does there: every listed language is
+ * shipped without a regional variant, and every variant Home Assistant does ship
+ * (`en-GB`, `es-419`, `pt-BR`, `sr-Latn`, `zh-Hans`, `zh-Hant`) inherits a base whose
+ * weekend is already the default.
+ *
+ * A table rather than `Intl.Locale.prototype.getWeekInfo` for the three reasons given on
+ * that table: the API is ES2020+ against an ES2017 target, its spelling varies
+ * by engine — Node 22 exposes only the older `weekInfo` getter where Node 25 also has the
+ * method, and browsers differ the same way — and the input domain is closed, because the
+ * value reaching it is always a language Home Assistant ships.
+ * `tests/weekend-locale.test.ts` pins every entry against the runtime's own CLDR, so the
+ * table cannot silently drift.
+ */
+const WEEKEND_BY_LOCALE: Record<string, readonly number[]> = {
+  ar: [5, 6],
+  fa: [5],
+  he: [5, 6],
+  hi: [0],
+  ml: [0],
+  ta: [0],
+  te: [0],
+};
+
+/** Saturday and Sunday, which is what CLDR says for all but a handful of countries. */
+const DEFAULT_WEEKEND_DAYS: readonly number[] = [0, 6];
+
+/**
+ * The parts of `hass` the weekend is resolved from: the home's country, and the frontend
+ * language as the fallback.
+ *
+ * A slice of `hass` rather than the two values, so every caller hands over `hass` itself
+ * and none can thread one setting while forgetting the other. Both members are optional,
+ * which makes this a weak type: passing `hass.locale` here, the way callers did when the
+ * language was the only input, is a compile error rather than a silent Saturday and Sunday.
+ */
+export type WeekendSource = Pick<Types.Hass, 'config' | 'locale'>;
+
+/**
+ * Which days of the week count as the weekend in a Home Assistant home.
+ *
+ * Resolved in three steps, each consulted only when the one before it has nothing to say:
+ *
+ * 1. The country set in Home Assistant, looked up in {@link WEEKEND_BY_COUNTRY}. A country
+ *    that is set is final. One the table does not list has a Saturday–Sunday weekend, so
+ *    falling through to the language there would hand Egypt's Friday and Saturday to a
+ *    Moroccan home running Home Assistant in Arabic.
+ * 2. Home Assistant's language, looked up in {@link WEEKEND_BY_LOCALE}, for a home with
+ *    no country set.
+ * 3. Saturday and Sunday, which is also the answer before `hass` has arrived.
+ *
+ * The card's own `language` option is deliberately not consulted, for exactly the reason
+ * {@link getFirstDayOfWeek} gives: that option picks a translation, and it doubles as the
+ * fallback for the Home Assistant languages the card has no translation for, so it says
+ * nothing reliable about the user's region. A German household running the card in
+ * English still has a Saturday–Sunday weekend, and an Israeli one running it in German
+ * still has a Friday–Saturday one.
+ *
+ * @param hass Home Assistant, or the part of it holding the country and the language
+ * @returns Day numbers (0 = Sunday), Saturday and Sunday when neither setting says otherwise
+ */
+export function getWeekendDays(hass?: WeekendSource | null): readonly number[] {
+  const country = hass?.config?.country;
+
+  if (country) {
+    return WEEKEND_BY_COUNTRY[country.toUpperCase()] ?? DEFAULT_WEEKEND_DAYS;
+  }
+
+  const tag = hass?.locale?.language;
+
+  if (!tag) {
+    return DEFAULT_WEEKEND_DAYS;
+  }
+
+  const key = tag.toLowerCase();
+
+  return WEEKEND_BY_LOCALE[key] ?? WEEKEND_BY_LOCALE[key.split('-')[0]] ?? DEFAULT_WEEKEND_DAYS;
+}
+
+/**
  * Check whether a date falls on a weekend.
  *
- * Saturday and Sunday, deliberately fixed rather than derived from the locale or from
- * `first_day_of_week`. This is the card's **one** answer to the question, and it is read
- * by two features that have to agree: the weekend day-header colors, and the per-calendar
- * `days_of_week` filter. Were the filter locale-aware while the colors were not, a Friday
- * in a Friday–Saturday weekend would be filtered as a weekend day and colored as a
- * weekday — two visible answers to one question on the same row.
+ * Resolved from Home Assistant's country, or its language when no country is set, rather
+ * than fixed at Saturday and Sunday, which was wrong for every Friday–Saturday and
+ * Sunday-only region. This is still the card's **one** answer to the question, and it is
+ * read by two features that have to agree: the weekend day-header colors and shading, and
+ * the per-calendar `days_of_week` filter. Were the filter region-aware while the colors
+ * were not, a Friday in a Friday–Saturday weekend would be filtered as a weekend day and
+ * colored as a weekday — two visible answers to one question on the same row.
  *
  * Lives here rather than beside its first caller in `rendering/leaves.ts` for that reason:
  * `leaves.ts` imports `utils/events.ts`, so the filter could not have reached it without
  * a cycle, and a second copy is what this comment exists to prevent.
  *
+ * `hass` is optional, and omitting it answers for Saturday and Sunday. That is the
+ * fallback rather than a second definition: every production caller hands Home Assistant
+ * itself through, and the default is what a card renders with before `hass` has been set.
+ *
  * @param date Date to check
- * @returns True when the date is a Saturday or Sunday
+ * @param hass Home Assistant, whose country and language decide which days count
+ * @returns True when the date falls on a weekend day for that home
  */
-export function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+export function isWeekendDate(date: Date, hass?: WeekendSource | null): boolean {
+  return getWeekendDays(hass).includes(date.getDay());
 }
 
 /**
@@ -560,6 +708,19 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
   }
 
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
+}
+
+/**
+ * Resolve the configured clock convention the same way everywhere times are drawn.
+ *
+ * @param config Card configuration
+ * @param hass Home Assistant instance, for the user's time-format preference
+ * @returns `true` for 24-hour output
+ */
+export function resolveTimeFormat24h(config: Types.Config, hass?: Types.Hass | null): boolean {
+  if (config.time_24h === true) return true;
+  if (config.time_24h === false) return false;
+  return Helpers.getTimeFormat24h(hass?.locale, false);
 }
 
 function pad(n: number): string {
@@ -712,6 +873,29 @@ export function getFirstDayOfWeek(
 }
 
 /**
+ * Resolve which numbering method a week number is actually built with.
+ *
+ * `show_week_numbers` is `null` by default, and `null` means *hide the number*, not
+ * *compute no number* — the week rule and the column view's week band both fire wherever
+ * `EventsByDay.weekNumber` changes, so a number is still needed to say where the week
+ * breaks. ISO is the fallback for that.
+ *
+ * Exported because that fallback has to be visible to callers who branch on the method.
+ * {@link EventUtils.calculateWeekNumberWithMajorityRule} corrects ISO's Monday anchor for
+ * a Sunday-start week, and gated that correction on the raw config value — which is not
+ * the method in use whenever the value is `null`. The week rule then broke before Monday
+ * on a card configured to start its week on Sunday, and only on a card that *hid* week
+ * numbers, because turning them on took the same branch through a non-null value and
+ * resolved it correctly (#621).
+ *
+ * @param method Configured week numbering method, or `null` to hide the number
+ * @returns The method used to compute the number, which is never `null`
+ */
+export function resolveWeekNumberMethod(method: 'iso' | 'simple' | null): 'iso' | 'simple' {
+  return method || 'iso';
+}
+
+/**
  * Get week number based on config settings
  *
  * @param date Date to get week number for
@@ -724,7 +908,7 @@ export function getWeekNumber(
   method: 'iso' | 'simple' | null,
   firstDayOfWeek: number,
 ): number | null {
-  const effectiveMethod = method || 'iso';
+  const effectiveMethod = resolveWeekNumberMethod(method);
 
   if (effectiveMethod === 'iso') {
     return getISOWeekNumber(date);
@@ -741,26 +925,60 @@ export function getWeekNumber(
 // SPECIALIZED EVENT FORMATTING HELPERS
 //-----------------------------------------------------------------------------
 
+/**
+ * Whether two instants fall in the same minute, which is exactly when a range between them
+ * would print one clock reading twice.
+ *
+ * Compared as minutes of epoch time rather than as formatted text, because the text can
+ * repeat while the minute does not: when the clocks go back, 01:30 before the change and
+ * 01:30 after it read the same an hour apart, and an event running between them is an hour
+ * long rather than a moment. Every zone in use today is offset from UTC by a whole number
+ * of minutes, so a minute of epoch time is a minute on the local clock.
+ *
+ * @param a First instant
+ * @param b Second instant
+ * @returns True when both fall in the same minute
+ */
+function isSameMinute(a: Date, b: Date): boolean {
+  return Math.floor(a.getTime() / 60000) === Math.floor(b.getTime() / 60000);
+}
+
+/**
+ * Build a single-day time string, and say which trailing part of it is droppable.
+ *
+ * `text` is the join of what it returns, which is the invariant keeping `end` honest: it is
+ * a suffix by construction, so no caller has to search for a separator and none can cut in
+ * the wrong place. See `EventTimeParts.end` for why only this shape has one.
+ *
+ * An event that starts and ends in the same minute shows its start time alone, whatever
+ * `show_end_time` says (#625). A range there would read `9:41 - 9:41`, which says the start
+ * time twice and nothing else. That is mostly an event with no duration at all, such as a
+ * reminder; an event shorter than a minute that never leaves its first minute prints the
+ * same doubled reading and is treated the same way.
+ *
+ * @param startDate Event start
+ * @param endDate Event end
+ * @param showEndTime Whether the end time is drawn at all
+ * @param use24h Whether to format on a 24-hour clock
+ * @param twoDigitHours Whether to pad the hour
+ * @returns The time text, and its droppable end where it has one
+ */
 function formatSingleDayTime(
   startDate: Date,
   endDate: Date,
   showEndTime: boolean,
-  useNativeFormatting: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
-  hass?: Types.Hass | null,
-): string {
-  if (useNativeFormatting && hass?.locale) {
-    const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
+): Pick<EventTimeParts, 'text' | 'end'> {
+  const start = formatTime(startDate, use24h, twoDigitHours);
 
-    return showEndTime
-      ? `${formatTime(startDate, use24hFormat, twoDigitHours)} - ${formatTime(endDate, use24hFormat, twoDigitHours)}`
-      : formatTime(startDate, use24hFormat, twoDigitHours);
+  if (!showEndTime || isSameMinute(startDate, endDate)) {
+    return { text: start };
   }
 
-  return showEndTime
-    ? `${formatTime(startDate, use24h, twoDigitHours)} - ${formatTime(endDate, use24h, twoDigitHours)}`
-    : formatTime(startDate, use24h, twoDigitHours);
+  const end = ` - ${formatTime(endDate, use24h, twoDigitHours)}`;
+
+  return { text: `${start}${end}`, end };
 }
 
 function formatMultiDayTime(
@@ -768,23 +986,15 @@ function formatMultiDayTime(
   endDate: Date,
   language: string,
   translations: Types.Translations,
-  useNativeFormatting: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
-  hass?: Types.Hass | null,
 ): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const formatTimeStr = (date: Date) => {
-    if (useNativeFormatting && hass?.locale) {
-      const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
-      return formatTime(date, use24hFormat, twoDigitHours);
-    }
-    return formatTime(date, use24h, twoDigitHours);
-  };
+  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours);
 
   let endPart: string;
 

@@ -36,6 +36,41 @@ card_mod:
     }
 ```
 
+## 🕒 Past Event Opacity
+
+Use [`past_event_opacity`](/features/event-content#past-events-display) for built-in
+past-content dimming, shared or per view. The option accepts a percentage from 0 to 100;
+the CSS property `--calendar-card-past-event-opacity` carries its **0-1 alpha**, default
+`0.6`, on `ha-card`.
+
+Both `.past-event .event-content` and
+`.grid-banner.past-event .grid-banner-title` read that property. The `.past-event` class
+stays present even at 100%, and outer fills and accent stripes do not dim.
+
+Empty-day notices in list and column views carry `.past-event` too, once their own local
+date has ended, and dim through the same `.event-content` rule as any finished event. A
+rule written for finished events therefore reaches past notices as well; to treat them
+differently, add `.empty-day-title` to the selector.
+
+The generated property is inline on `ha-card`, so an inherited theme value alone does
+not replace it. For an explicit card-mod override, target that same element and use
+`!important`:
+
+```yaml
+card_mod:
+  style: |
+    ha-card {
+      --calendar-card-past-event-opacity: 0.8 !important;
+    }
+```
+
+Existing rules setting `opacity` directly on the two content selectors still work through
+the normal cascade. Setting the option to 100 removes the card's built-in dimming, not
+additional author CSS. Normal colors, translucent ink, and badge fills retain their own
+treatments beneath the layer; full opacity is not a contrast guarantee.
+
+**→ [Event Column in the configuration reference](/reference/configuration#event-column)**
+
 ## 🎨 Card-Mod Examples
 
 ### Day container classes
@@ -52,12 +87,12 @@ nothing in the other unless both are named:
 Both carry the same four state classes, so the state half of a selector is portable even
 though the container name is not:
 
-| Class        | Applied when                    |
-| ------------ | ------------------------------- |
-| `today`      | the day is today                |
-| `tomorrow`   | the day is tomorrow             |
-| `future-day` | the day is not today            |
-| `weekend`    | the day is a Saturday or Sunday |
+| Class        | Applied when             |
+| ------------ | ------------------------ |
+| `today`      | the day is today         |
+| `tomorrow`   | the day is tomorrow      |
+| `future-day` | the day is not today     |
+| `weekend`    | the day is a weekend day |
 
 In list view, `weekend` is additionally on the date cell (`.date-column.weekend`), which
 is what the built-in `weekend_day_color` and `weekend_weekday_color` options style.
@@ -172,8 +207,10 @@ card_mod:
 
 ### Shade weekend days
 
-`weekend` is on the day container in both views, so one rule covers Saturday and Sunday
-whichever layout is active:
+This rule covers the weekend in List and Column. Which days carry the `weekend` class
+follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only),
+or its language when no country is set, so this rule shades Friday and Saturday in Israel
+without being rewritten:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -187,6 +224,9 @@ card_mod:
       border-radius: 8px;
     }
 ```
+
+For Grid, use [`time_grid.weekend_background_color`](/features/grid-view#shading-the-weekend)
+instead. Its tint spans the time axis and all-day band rather than either day container above.
 
 ### Frameless calendar integration
 

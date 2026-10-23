@@ -14,7 +14,7 @@ import * as EventUtils from '../src/utils/events';
  * `progress-bar-fill` and `progress-bar-width` sound like the same subject and are not.
  * The other file guards `--calendar-card-progress-bar-width`, which is how wide the empty
  * track is. This one guards `style="width: N%"` on `.progress-bar-filled`, which is how
- * much of that track is coloured in -- the only part of the bar that carries information.
+ * much of that track is colored in -- the only part of the bar that carries information.
  *
  * There are three emissions of it, not one, because the bar renders differently depending
  * on what is beside it. List view passes no placement and gets the `inline` default, so

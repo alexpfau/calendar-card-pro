@@ -50,7 +50,31 @@ describe('per-field max-lines custom properties', () => {
     expect(props['--calendar-card-title-display']).toBe('-webkit-box');
   });
 
-  it('honours a per-field value overridden inside a column block', () => {
+  it('caps every grid disclosure title rung at the configured title limit', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 1 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('1');
+  });
+
+  it('leaves grid titles unclamped when title lines are unlimited', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 0 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('none');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('none');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('none');
+  });
+
+  it('keeps the grid disclosure ladder from rising above a two-line title limit', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 2 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('2');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('2');
+  });
+
+  it('honors a per-field value overridden inside a column block', () => {
     const config = buildConfig({ time_max_lines: 0, column: { time_max_lines: 1 } });
     // The override lives in the column block; generateCustomPropertiesObject reads
     // the resolved top-level value, so this asserts only that the key round-trips
@@ -62,7 +86,7 @@ describe('per-field max-lines custom properties', () => {
 /**
  * The fifth line limit, and the one that does not sit at the top level.
  *
- * `weather.event.max_lines` lives beside its neighbours `icon_size` / `font_size` /
+ * `weather.event.max_lines` lives beside its neighbors `icon_size` / `font_size` /
  * `color` rather than becoming a fifth top-level `*_max_lines`, and it clamps the only
  * thing in the per-event weather row long enough to wrap: the condition stated in words,
  * which the column layout adds.
@@ -105,17 +129,17 @@ describe('the weather row line limit', () => {
   // and found the same way: mutating this ternary to either constant left the whole
   // suite green, while the identical mutation on the title's display property was
   // killed. The clamp value alone is inert -- `-webkit-line-clamp` only applies to a
-  // `-webkit-box`, so the two properties have to agree or the limit silently does
-  // nothing. Asserting the count without the display is how a clamp can read as
+  // WebKit box display, so the two properties have to agree or the limit silently
+  // does nothing. Asserting the count without the display is how a clamp can read as
   // configured and still never truncate.
   it('leaves the weather condition inline at the default so the row is layout-neutral', () => {
     expect(generateCustomPropertiesObject(buildConfig())[DISPLAY]).toBe('inline');
     expect(generateCustomPropertiesObject(withWeather({ max_lines: 0 }))[DISPLAY]).toBe('inline');
   });
 
-  it('blockifies the weather condition only once a limit is actually set', () => {
+  it('uses an inline WebKit box once a limit is actually set', () => {
     expect(generateCustomPropertiesObject(withWeather({ max_lines: 2 }))[DISPLAY]).toBe(
-      '-webkit-box',
+      '-webkit-inline-box',
     );
   });
 });

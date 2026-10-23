@@ -1,0 +1,209 @@
+name: Docs Preview
+
+# Publishes the documentation site, built from any ref, to a second Cloudflare Worker on its
+# own hostname, so unreleased docs can be shared before the release PR deploys them. Manual
+# only: nothing here runs on push, so it spends no Workers Builds minutes, and the production
+# Worker (`calendar-card-pro`, built by Workers Builds on every push to `main`) is never
+# touched. See AGENTS.md, Docs site deployment.
+#
+# GitHub offers "Run workflow" only for a workflow file on the default branch, which is why
+# this file reached `main` ahead of the release that carries everything else from `dev`.
+#
+# Two jobs, split on trust. `build` runs the chosen ref's code (its dependencies' install
+# scripts, its VitePress config) and so never sees a secret. `deploy` holds the Cloudflare
+# token, never checks out or installs the ref, and publishes only the artifact `build`
+# produced, after checking its Wrangler config itself rather than trusting it.
+#
+# Run it from the Actions tab, or: gh workflow run docs-preview.yml -f ref=dev
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: dev
+
+permissions:
+  contents: read
+
+# Runs queue instead of overlapping, so the one dispatched last is what the preview shows.
+concurrency:
+  group: docs-preview
+  cancel-in-progress: false
+
+env:
+  PREVIEW_WORKER: calendar-card-pro-preview
+  PREVIEW_HOST: dev.calendar-card-pro.alexpfau.com
+  PRODUCTION_WORKER: calendar-card-pro
+  PRODUCTION_HOST: calendar-card-pro.alexpfau.com
+  # The input reaches shell only through this variable, never through an expression inside
+  # `run:`, so a ref name cannot inject a command.
+  REF: ${{ inputs.ref }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      sha: ${{ steps.stage.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      # Same pin as ci.yml and the Cloudflare build image. ci.yml fails any workflow that
+      # hardcodes a Node version instead.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # DOCS_PREVIEW labels the site "(Preview)" and adds a robots meta tag, through
+      # docs/.vitepress/config.mts on refs that carry that change. Inert everywhere else.
+      - name: Build docs site
+        run: npm run docs:build
+        env:
+          DOCS_PREVIEW: '1'
+
+      # Both edits touch only this run's build output. Workers static assets parse
+      # `_headers` and never serve it. The rewrite keeps the release notes' absolute links on
+      # the preview instead of sending readers to the released docs, where pages that are
+      # new on this ref do not exist yet.
+      - name: Mark the build as a preview
+        working-directory: docs/.vitepress/dist
+        run: |
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > _headers
+          # Single quotes on purpose: perl expands $ENV{...}, and \Q...\E escapes the dots.
+          # shellcheck disable=SC2016
+          { grep -rlF --null "https://$PRODUCTION_HOST" . || true; } \
+            | xargs -0 -r perl -pi -e 's#https://\Q$ENV{PRODUCTION_HOST}\E#https://$ENV{PREVIEW_HOST}#g'
+          if grep -rqF "https://$PRODUCTION_HOST" .; then
+            echo "::error::Links to https://$PRODUCTION_HOST survived the rewrite."
+            exit 1
+          fi
+
+      # The bundle `deploy` receives: the site, its Wrangler config and the Node pin. The
+      # config is derived from the production config of the ref being built, so the asset
+      # settings cannot drift, with only the name, the hostname and the asset path replaced.
+      # Never deploy a preview with `--name` or an `env` block instead: `routes` is
+      # inheritable, so both would carry the production custom domain with them.
+      - name: Stage the deploy bundle
+        id: stage
+        run: |
+          mkdir preview
+          cp -R docs/.vitepress/dist preview/site
+          cp .nvmrc preview/node-version
+          node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            const prod = JSON.parse(readFileSync("wrangler.jsonc", "utf8").replace(/^\s*\/\/.*$/gm, ""));
+            const { PREVIEW_WORKER: name, PREVIEW_HOST: host } = process.env;
+            const prodHosts = (prod.routes ?? []).map((r) => r.pattern);
+            if (!name || name === prod.name || !host || prodHosts.includes(host)) {
+              console.error("::error::Preview config would collide with production.");
+              process.exit(1);
+            }
+            const preview = {
+              ...prod,
+              name,
+              workers_dev: false,
+              preview_urls: false,
+              routes: [{ pattern: host, custom_domain: true }],
+              assets: { ...prod.assets, directory: "./site" },
+            };
+            writeFileSync("preview/wrangler.json", JSON.stringify(preview, null, 2));
+          '
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the deploy bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-preview
+          path: preview/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Reads nothing from the repository: the bundle comes from this run's artifact.
+    permissions: {}
+    # The Cloudflare secrets live on this environment, which only `main` may deploy from.
+    environment:
+      name: docs-preview
+      url: https://dev.calendar-card-pro.alexpfau.com
+    env:
+      # Pinned exactly so every run is reproducible. Dependabot cannot see this string, so it
+      # is bumped by hand.
+      WRANGLER_VERSION: 4.151.1
+      # The repository's .npmrc pins the public registry, but this job has no checkout, so it
+      # is restated here rather than left to whatever the runner is configured with.
+      npm_config_registry: https://registry.npmjs.org/
+      SHA: ${{ needs.build.outputs.sha }}
+    steps:
+      - name: Download the deploy bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-preview
+          path: preview
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: preview/node-version
+
+      # The bundle was produced by code from the ref, so it is checked here, against values
+      # from this file, rather than trusted: an allowlist of keys, the preview name and
+      # hostname exactly, never the production ones, and the noindex header present.
+      - name: Check the deploy bundle
+        working-directory: preview
+        run: |
+          # Single quotes on purpose: the ${...} below are JavaScript template literals.
+          # shellcheck disable=SC2016
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const env = process.env;
+            const cfg = JSON.parse(readFileSync("wrangler.json", "utf8"));
+            const problems = [];
+            const only = (obj, keys, where) => {
+              for (const k of Object.keys(obj ?? {})) {
+                if (!keys.includes(k)) problems.push(`unexpected key ${where}${k}`);
+              }
+            };
+            only(cfg, ["$schema", "name", "compatibility_date", "routes", "assets", "workers_dev", "preview_urls"], "");
+            only(cfg.assets, ["directory", "html_handling", "not_found_handling"], "assets.");
+            if (!env.PREVIEW_WORKER || env.PREVIEW_WORKER === env.PRODUCTION_WORKER) problems.push("preview worker name");
+            if (!env.PREVIEW_HOST || env.PREVIEW_HOST === env.PRODUCTION_HOST) problems.push("preview hostname");
+            if (cfg.name !== env.PREVIEW_WORKER) problems.push(`name ${cfg.name}`);
+            const routes = JSON.stringify(cfg.routes);
+            if (routes !== JSON.stringify([{ pattern: env.PREVIEW_HOST, custom_domain: true }])) problems.push(`routes ${routes}`);
+            if (cfg.workers_dev !== false || cfg.preview_urls !== false) problems.push("workers_dev or preview_urls not false");
+            if (cfg.assets?.directory !== "./site") problems.push(`assets.directory ${cfg.assets?.directory}`);
+            const headers = readFileSync("site/_headers", "utf8");
+            if (!/^\s+X-Robots-Tag: noindex, nofollow$/m.test(headers)) problems.push("site/_headers lacks noindex");
+            if (problems.length) {
+              for (const p of problems) console.error(`::error::Deploy bundle rejected: ${p}`);
+              process.exit(1);
+            }
+            console.log(`Bundle accepted: ${cfg.name} -> ${env.PREVIEW_HOST}`);
+          '
+
+      - name: Deploy
+        working-directory: preview
+        run: >-
+          npx --yes "wrangler@$WRANGLER_VERSION" deploy
+          --config wrangler.json
+          --message "docs preview: $REF @ $SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Summary
+        run: echo "Published \`$REF\` @ $SHA to https://$PREVIEW_HOST" >> "$GITHUB_STEP_SUMMARY"

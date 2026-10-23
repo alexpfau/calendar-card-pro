@@ -262,15 +262,15 @@ describe('allday_badge', () => {
     });
   });
 
-  describe('the colour the treatment is drawn in', () => {
+  describe('the color the treatment is drawn in', () => {
     /*
      * `allday_badge_color` is the second axis: the treatment names a SHAPE, this names whose
-     * colour that shape carries. Two of its three sources need nothing in the stylesheet at
-     * all -- `accent` is the default every rule already describes, and a custom colour is
-     * handed to the pill AS the accent, because a colour the whole card shares is just the
+     * color that shape carries. Two of its three sources need nothing in the stylesheet at
+     * all -- `accent` is the default every rule already describes, and a custom color is
+     * handed to the pill AS the accent, because a color the whole card shares is just the
      * accent overridden. Only `text` carries a class, and only `text` publishes a token.
      *
-     * That asymmetry is the thing worth pinning. A custom colour that arrived any other way
+     * That asymmetry is the thing worth pinning. A custom color that arrived any other way
      * would need every rule to learn about a second source, and the chroma recovery would
      * stop reaching it.
      */
@@ -288,7 +288,7 @@ describe('allday_badge', () => {
         ? badgeIn(rowFor(container, 'Bin day'))
         : (rowFor(container, 'Bin day')?.querySelector('.allday-title-pill') ?? null);
 
-    it.each(['time', 'title'])('hands a custom colour over as the accent, at %s', (position) => {
+    it.each(['time', 'title'])('hands a custom color over as the accent, at %s', (position) => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         withColor(position, '#b5651d'),
@@ -299,7 +299,7 @@ describe('allday_badge', () => {
       expect(pill?.getAttribute('style')?.replace(/\s/g, '')).toContain(
         '--calendar-card-event-accent:#b5651d',
       );
-      // The calendar's own accent is REPLACED, not sat beside: one card-wide colour means
+      // The calendar's own accent is REPLACED, not sat beside: one card-wide color means
       // every event alike, which is the whole difference from `accent`.
       expect(pill?.getAttribute('style')).not.toContain('#ff0000');
       // And no class, because nothing about the shape rules changes.
@@ -316,11 +316,11 @@ describe('allday_badge', () => {
       expect(pill?.className).toContain('allday-source-text');
     });
 
-    it('publishes the TIME colour on the time row', () => {
-      // Not `currentColor`, and not a colour resolved here. The stylesheet cannot use
+    it('publishes the TIME color on the time row', () => {
+      // Not `currentColor`, and not a color resolved here. The stylesheet cannot use
       // currentColor because `filled` sets a contrasting ink that its own ground would then
-      // read back; the renderer cannot resolve the colour because it is a theme token. Naming
-      // the property `.time` sets its own colour from is what makes the two agree.
+      // read back; the renderer cannot resolve the color because it is a theme token. Naming
+      // the property `.time` sets its own color from is what makes the two agree.
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         withColor('time', 'text'),
@@ -331,9 +331,9 @@ describe('allday_badge', () => {
       );
     });
 
-    it('publishes the TITLE colour on the title, not the time colour', () => {
+    it('publishes the TITLE color on the title, not the time color', () => {
       // The one source that reads differently at each position, and the reason it is worth
-      // two tests rather than one: a title pill following the TIME colour would be wrong in a
+      // two tests rather than one: a title pill following the TIME color would be wrong in a
       // way no shared assertion could see.
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
@@ -368,8 +368,8 @@ describe('allday_badge', () => {
       );
     });
 
-    describe('the colour resolver itself', () => {
-      it.each(['accent', 'text'])('takes %s as a source, not as a colour', (value) => {
+    describe('the color resolver itself', () => {
+      it.each(['accent', 'text'])('takes %s as a source, not as a color', (value) => {
         expect(Helpers.resolveAlldayBadgeColor(value)).toEqual({ source: value });
       });
 
@@ -385,7 +385,7 @@ describe('allday_badge', () => {
       );
 
       it.each(['#ff6c92', 'tomato', 'rgb(1, 2, 3)', 'var(--my-token)'])(
-        'takes %s as a colour',
+        'takes %s as a color',
         (value) => {
           expect(Helpers.resolveAlldayBadgeColor(value)).toEqual({
             source: 'custom',
@@ -394,7 +394,7 @@ describe('allday_badge', () => {
         },
       );
 
-      it('never folds the case of a colour', () => {
+      it('never folds the case of a color', () => {
         // 🚨 Custom property names are case-sensitive, so folding `var(--MyToken)` turns a
         // working theme token into one that resolves to nothing. Only the keyword comparison
         // folds, and it folds a copy.
@@ -404,9 +404,9 @@ describe('allday_badge', () => {
         });
       });
 
-      it('takes a typo as a colour rather than correcting it', () => {
+      it('takes a typo as a color rather than correcting it', () => {
         // The one badge option whose value set is OPEN, which changes what a typo does. The
-        // other two are closed sets that fall back. Here an unrecognized string IS a colour,
+        // other two are closed sets that fall back. Here an unrecognized string IS a color,
         // because that is the point -- the same contract `accent_color` has.
         expect(Helpers.resolveAlldayBadgeColor('acccent')).toEqual({
           source: 'custom',
@@ -431,7 +431,7 @@ describe('allday_badge', () => {
 
       expect(badge).not.toBeNull();
       // The treatment class is deliberately NOT prefixed with the position. Both positions
-      // wear the same four, which is what lets the stylesheet declare each colour derivation
+      // wear the same four, which is what lets the stylesheet declare each color derivation
       // once -- so a name tied to one position would either be a lie at the other or force a
       // second copy of every rule.
       expect(badge?.className).toBe(`allday-badge allday-pill-${style}`);
@@ -571,7 +571,7 @@ describe('allday_badge', () => {
      * the RESOLVER's fallback while claiming to protect the CARD's default. It survived
      * flipping the card default outright.
      *
-     * Both options are covered, since the colour key has the same pair and the same trap.
+     * Both options are covered, since the color key has the same pair and the same trap.
      */
     it('resolves an absent option and an unusable one to the same thing', () => {
       // The absent path: what the card merges in.
@@ -692,14 +692,14 @@ describe('allday_badge', () => {
     it('republishes the calendar accent on the title pill, as the time badge does', () => {
       // The sixth unguarded declaration, and the one that matters most: this property is
       // written in exactly two places and READ in ten, so losing it takes four of the five
-      // treatments with it -- only the text colour source, which names no accent, survives.
+      // treatments with it -- only the text color source, which names no accent, survives.
       // Deleting the
       // binding left the suite green at 3221, and so did replacing the accent with
       // `rebeccapurple`; the mirror binding on the time badge was already caught, and so was
       // the class on this very element, so nothing absorbed it.
       //
       // The value is asserted, not merely its presence, because a binding that survives with
-      // the WRONG colour is the failure mode a presence check cannot see.
+      // the WRONG color is the failure mode a presence check cannot see.
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         buildConfig({

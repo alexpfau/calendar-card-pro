@@ -19,11 +19,11 @@
  *   are exactly reachable under frozen time, and the predicate drives the
  *   progress bar and the running state class.
  *
- * Every boundary assertion below is paired with its one-millisecond neighbour so
+ * Every boundary assertion below is paired with its one-millisecond neighbor so
  * that a mutation which simply shifts the comparison is caught rather than
  * absorbed.
  *
- * Note on the neighbouring day-inclusion test in `groupEventsByDay`: the
+ * Note on the neighboring day-inclusion test in `groupEventsByDay`: the
  * `isEventOnOrAfterReference` and `isFutureEvent` disjuncts are both subsumed by
  * `isOngoingEvent` for any event whose end is not before its start, so their
  * edges are unobservable by construction and are deliberately not pinned here.

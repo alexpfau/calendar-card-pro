@@ -9,5 +9,6 @@
   "endsTomorrow": "končí zajtra",
   "noEvents": "Žiadne udalosti",
   "loading": "Načítavam udalosti z kalendára...",
-  "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná"
+  "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
+  "loadFailed": "Nepodarilo sa načítať:"
 }
