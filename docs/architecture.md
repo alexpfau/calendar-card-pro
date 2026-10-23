@@ -342,7 +342,8 @@ Provides core functionality across the card:
   - Processes and filters events based on configuration
   - Groups events by day for display
   - Rejects malformed endpoint or text payloads before processing, without discarding
-    valid neighboring events
+    valid neighboring events; a timed event with a missing or backwards end is kept as an
+    instant at its start, so every view draws it the same way
   - Retains the original start of split List/Column events for anniversary counts,
     without changing their per-day countdown or expiry behavior
   - Derives Grid's daily coverage before per-day filters and empty-day omission, without

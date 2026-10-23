@@ -264,6 +264,11 @@ An event that starts and ends in the same minute, such as a reminder, has a time
 reads its start time once: `9:41` rather than `9:41 - 9:41`, whatever `show_end_time` says. An
 event that runs into a later minute keeps its range.
 
+A timed event that arrives with no end, or with an end before its start, is shown the same
+way, at its start time, in every view. Home Assistant should always send a valid end, so this
+only happens with an integration or calendar file that gets it wrong. An all-day event whose
+end is missing or not after its start has no time to fall back on and is not shown.
+
 Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
 their locations as long as `show_location` is still on.
 

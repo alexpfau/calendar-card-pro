@@ -302,6 +302,10 @@ thinning the labels keeps a long day readable without making the card taller.
 A line marks the current time on today's column, and only there. It is drawn from the same
 arithmetic as the events, so it cannot drift away from them.
 
+The line runs beneath events, the way the hour lines do, so it never crosses an event's text
+like a strikethrough. A dot at the column's edge stays on top and marks where it is even when
+an event covers most of the line.
+
 ```yaml
 time_grid:
   show_now_line: true
@@ -529,6 +533,14 @@ lines, long titles wrap until the block clips at the bottom. Set
 `title_max_lines` above `0` when you want the title itself to stop after a fixed number of
 lines.
 
+Titles wrap only between words. Where overlapping events share a narrow column, a word can
+be wider than its block; it is then cut short and ends in "…", so "Quarterly review" reads
+"Quarte… review" rather than "Quarte rly review" broken over three lines. A hyphenated word
+can still wrap after its hyphen. Titles in Chinese, Japanese, Thai and other scripts written
+without spaces wrap between characters, as they always have, and so do titles containing a
+right-to-left script such as Hebrew or Arabic. A scrolling title (`scroll_long_titles`) stays
+on one line and moves instead.
+
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words
 can wrap beneath the temperature instead of competing with the title. The progress bar gets
@@ -650,10 +662,15 @@ next:
   At extreme widths, each day retains a `2rem` floor and the grid scrolls horizontally
   rather than collapsing days to zero width. The axis and day gaps keep their configured sizes.
 
+When the grid sheds columns, the days that stay always include today. They start at today
+and run forward, reaching back to earlier days only when the range ends before the columns
+are full. A `start_of_week` grid two columns wide on a Wednesday shows Wednesday and
+Thursday, not Monday and Tuesday. A range that lies entirely ahead keeps its first days, and
+one that lies entirely behind keeps its last. The columns move on at midnight.
+
 ::: warning Dropped Days Are Not Marked
-When the grid sheds columns, it shows the earliest days in the configured range and drops
-the later ones. The card does not draw a marker saying more days were hidden, so use
-`min_days_fallback: cramp` if seeing the whole range matters more than preserving the
+The card does not draw a marker saying days before or after the visible ones were hidden,
+so use `min_days_fallback: cramp` if seeing the whole range matters more than preserving the
 minimum column width.
 :::
 

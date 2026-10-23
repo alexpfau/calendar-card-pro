@@ -142,6 +142,28 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
 }
 
 /**
+ * Whether a mutation outside every timed block added or removed an element.
+ *
+ * Blocks, banners and whole day columns arrive and leave this way whenever a render changes
+ * what the grid draws, and nothing else announces it. A once-a-minute repaint can end an event
+ * under `show_past_events: false`, expire a banner, repack lanes or drop a sparse day, and the
+ * resize observer keyed to existing blocks cannot see a block that did not exist when it was
+ * attached. Text and comment nodes are ignored, and so is the cascade-threshold probe, which
+ * the reaction to this very signal inserts.
+ *
+ * @param record - A record from the grid disclosure observer, already known to lie outside
+ *   every timed block
+ * @returns Whether the grid's element structure changed
+ */
+function changesGridStructure(record: MutationRecord): boolean {
+  if (record.type !== 'childList') return false;
+  return [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
+    (node) =>
+      node instanceof Element && !node.classList.contains(CascadeThreshold.SCALE_PROBE_CLASS),
+  );
+}
+
+/**
  * How far content may exceed its box before the grid calls it clipped.
  *
  * Sub-pixel layout puts `scrollHeight` a pixel over `clientHeight` on content that visibly
@@ -533,6 +555,34 @@ class CalendarCardPro extends LitElement {
   private _nowLineDayKey: string | null = null;
 
   /**
+   * Bare `requestUpdate()` calls other than the now line's own repaint, and how many of them
+   * the last `updated()` had already seen.
+   *
+   * A bare call leaves `changedProperties` empty, so an update it causes looks the same as
+   * one the now-line tick causes. They need opposite treatment: a tick moves one line and must
+   * not refit every block (it rewrote 268 unchanged attributes a minute on a modest week, 3,017
+   * with ~500 events), while the others — a new cascade threshold, a width change, a forecast
+   * arriving — do change what is drawn. A counter rather than a flag, because two causes can
+   * land in one update, and because the scale passes call `requestUpdate()` from inside
+   * `updated()` itself, which a flag reset there would swallow.
+   */
+  private _bareUpdateRequests = 0;
+  private _bareUpdateRequestsSeen = 0;
+
+  /** True only while `_tickNowLine` is requesting its repaint. */
+  private _nowLineRepainting = false;
+
+  /**
+   * One-shot timer for the next local midnight, held while the card sheds day columns.
+   *
+   * Which columns survive depends on what today is (`visibleDayWindowStart`), so the window has
+   * to move at midnight. Grid with a now line already refetches then; column view and a grid
+   * without the line had nothing that re-renders at midnight. It re-renders and asks for a
+   * cache load, which fetches only if a relative start date moved the requested window.
+   */
+  private _midnightTimerId: number | null = null;
+
+  /**
    * Pending trailing timer for the last width measurement.
    */
   private _widthSettleTimerId: number | null = null;
@@ -789,6 +839,7 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
 
     this._stopNowLineTimer();
+    this._stopMidnightTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -908,6 +959,50 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Holds a timer for the next local midnight exactly while the card is shedding day columns.
+   *
+   * Reconciled from `updated()`, like the now-line timer, because the column count and the
+   * view both change after connection. The timer re-renders once and this re-arms it for the
+   * following midnight, so a card left open for a week moves its window every night.
+   */
+  private _syncMidnightTimer(): void {
+    const shedding =
+      this.isConnected &&
+      (this.effectiveView === 'grid' || this.effectiveView === 'column') &&
+      this._columnCount > 0 &&
+      this._columnCount < this.effectiveConfig.days_to_show;
+
+    if (!shedding) {
+      this._stopMidnightTimer();
+      return;
+    }
+
+    if (this._midnightTimerId !== null) {
+      return;
+    }
+
+    const now = new Date();
+    // One second past, so the render it causes reads the new day even if the timer fires a
+    // little early. Built from local fields, so a DST night is as long as it really is.
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    this._midnightTimerId = window.setTimeout(() => {
+      this._midnightTimerId = null;
+      this.requestUpdate();
+      // A relative start_date can move the whole window at midnight — start_of_week by a
+      // week — and drawing the new window from the old window's events shows false empty
+      // days. A cache load fetches exactly when the window it asks for has changed.
+      void this.updateEvents('cache');
+    }, nextMidnight.getTime() - now.getTime());
+  }
+
+  private _stopMidnightTimer(): void {
+    if (this._midnightTimerId !== null) {
+      clearTimeout(this._midnightTimerId);
+      this._midnightTimerId = null;
+    }
+  }
+
+  /**
    * Repaints the now line, and the whole card when the local day has rolled over.
    *
    * The rollover check is why this is not simply `requestUpdate()`. At midnight every
@@ -926,7 +1021,26 @@ class CalendarCardPro extends LitElement {
     }
 
     this._nowLineDayKey = dayKey;
-    this.requestUpdate();
+    this._nowLineRepainting = true;
+    try {
+      this.requestUpdate();
+    } finally {
+      this._nowLineRepainting = false;
+    }
+  }
+
+  /**
+   * Counts every bare update request except the now line's repaint; see
+   * `_bareUpdateRequests`.
+   *
+   * Lit calls this from its own constructor, before the counter's initializer has run, hence
+   * the `?? 0`.
+   */
+  override requestUpdate(...args: Parameters<LitElement['requestUpdate']>): void {
+    if (args[0] === undefined && !this._nowLineRepainting) {
+      this._bareUpdateRequests = (this._bareUpdateRequests ?? 0) + 1;
+    }
+    super.requestUpdate(...args);
   }
 
   private _stopWidthObserver(): void {
@@ -1362,23 +1476,61 @@ class CalendarCardPro extends LitElement {
       });
       this._watchGridDisclosureFonts();
     }
+    this._observeGridDisclosureTargets(blocks);
+    this._scheduleGridDisclosureSafety();
+  }
+
+  /**
+   * Brings the observed disclosure targets in line with the blocks now on screen.
+   *
+   * Drops targets whose block has gone and starts observing the title metrics of blocks that
+   * arrived since the last call. Observing is all it does to a block that was already there.
+   *
+   * @param blocks - The timed blocks currently rendered
+   */
+  private _observeGridDisclosureTargets(blocks: Iterable<HTMLElement>): void {
     const current = new Set<HTMLElement>(blocks);
     for (const [target, block] of this._gridDisclosureTargets) {
       if (!current.has(block) || !block.contains(target)) {
-        this._gridDisclosureObserver.unobserve(target);
+        this._gridDisclosureObserver?.unobserve(target);
         this._gridDisclosureTargets.delete(target);
       }
     }
     // Title stays visible under the clip class; detail rows do not — see the method doc.
     const contentTargets = '.summary, .event-title';
-    blocks.forEach((block) => {
+    current.forEach((block) => {
       for (const target of [block, ...block.querySelectorAll(contentTargets)]) {
         if (this._gridDisclosureTargets.has(target)) continue;
         this._gridDisclosureTargets.set(target, block);
         this._gridDisclosureObserver?.observe(target);
       }
     });
-    this._scheduleGridDisclosureSafety();
+  }
+
+  /**
+   * Reacts to blocks, banners or day columns arriving or leaving outside a full refit.
+   *
+   * The update that caused it may have skipped the full pass — a now-line tick does, and so
+   * does a Home Assistant update that changed nothing this card was told about but still
+   * re-rendered against a later clock. So it observes the new blocks, refits every block, and
+   * takes the two scale measurements, which read a day body's height and width, again.
+   *
+   * Every block, not just the new ones, because a block that stays can change shape through
+   * attributes alone, which nothing else here watches. A longer event's text area ends where
+   * an event drawn inside it starts; when that event ends and leaves, the longer one drops
+   * its limit and grows its text area without changing size, so the resize observer stays
+   * quiet and its old fit would stand. Structure changes at event boundaries, a few times a
+   * day, so this costs the steady tick nothing.
+   */
+  private _reconcileGridStructure(): void {
+    if (!this.isConnected || this.effectiveView !== 'grid' || !this._gridDisclosureObserver) {
+      return;
+    }
+    this._observeGridDisclosureTargets(
+      this.renderRoot.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
+    );
+    this._scheduleGridDisclosureSafety(true);
+    this._scheduleGridScaleSync();
   }
 
   /** Watch font loads, inherited theme changes, and late/recycled title content once per bind. */
@@ -1423,6 +1575,7 @@ class CalendarCardPro extends LitElement {
     if (typeof MutationObserver !== 'undefined') {
       this._gridDisclosureMutations = new MutationObserver((records) => {
         let all = false;
+        let structural = false;
         for (const record of records) {
           if (record.type === 'attributes') {
             if (isScrollPauseOnlyMutation(record, this)) continue;
@@ -1433,8 +1586,10 @@ class CalendarCardPro extends LitElement {
             const block = element?.closest<HTMLElement>('.grid-event:not(.grid-event-overflow)');
             if (block) this._gridDisclosureDirty.add(block);
             else if (element?.closest('style')) all = true;
+            else if (changesGridStructure(record)) structural = true;
           }
         }
+        if (structural) this._reconcileGridStructure();
         if (all || this._gridDisclosureDirty.size) this._scheduleGridDisclosureSafety(all);
       });
       this._gridDisclosureMutations.observe(this.renderRoot, {
@@ -1446,8 +1601,20 @@ class CalendarCardPro extends LitElement {
     }
   }
 
-  /** Unrelated Home Assistant state ticks must not remeasure thousands of unchanged blocks. */
+  /**
+   * Whether this update can have changed what the grid's fitting passes measured.
+   *
+   * Unrelated Home Assistant state ticks must not remeasure thousands of unchanged blocks, and
+   * neither must the now line's once-a-minute repaint: an update whose only cause was that
+   * repaint arrives with no changed properties and no other bare request since the last one.
+   * What such a repaint can still change — a block ending or appearing, a banner expiring, a
+   * day leaving — adds or removes elements, and the disclosure observer reacts to that on its
+   * own (`_reconcileGridStructure`).
+   */
   private _gridDisclosureChanged(changedProps: PropertyValues): boolean {
+    if (changedProps.size === 0) {
+      return this._bareUpdateRequests !== this._bareUpdateRequestsSeen;
+    }
     if (changedProps.size !== 1 || !changedProps.has('hass')) return true;
     const previous = changedProps.get('hass') as Types.Hass | undefined;
     if (
@@ -1514,9 +1681,14 @@ class CalendarCardPro extends LitElement {
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
+    this._syncMidnightTimer();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
-    // draws re-measures neither. A resize reaches the cascade through the width observer.
+    // draws re-measures neither, and neither does the now line's repaint. A resize reaches
+    // the cascade through the width observer.
     const gridChanged = this._gridDisclosureChanged(changedProps);
+    // Read before the passes below run: each can request another update from in here, and
+    // that request belongs to the next update, not to this one.
+    this._bareUpdateRequestsSeen = this._bareUpdateRequests;
     this._syncGridDisclosureSafety(gridChanged);
     if (gridChanged) {
       this._syncCascadeThreshold();
@@ -2839,12 +3011,19 @@ class CalendarCardPro extends LitElement {
 
     let content: TemplateResult;
 
+    // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
+    const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
+      if (this._columnCount <= 0 || this._columnCount >= days.length) {
+        return days;
+      }
+      const start = ViewConfig.visibleDayWindowStart(days, this._columnCount, new Date());
+      return days.slice(start, start + this._columnCount);
+    };
+
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
         return Render.renderGridGroupedEvents(
-          this._columnCount > 0 && this._columnCount < days.length
-            ? days.slice(0, this._columnCount)
-            : days,
+          visibleDays(days),
           this.effectiveConfig,
           this.effectiveLanguage,
           this.weatherForecasts,
@@ -2857,9 +3036,7 @@ class CalendarCardPro extends LitElement {
 
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
-            this._columnCount > 0 && this._columnCount < days.length
-              ? days.slice(0, this._columnCount)
-              : days,
+            visibleDays(days),
             this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,

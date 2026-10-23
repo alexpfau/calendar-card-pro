@@ -1823,6 +1823,11 @@ describe('card stylesheet', () => {
       // ...and the tint and the hour lines sit below everything by carrying neither.
       expect(declared('.grid-weekend', 'z-index')).toBe('');
       expect(declared('.grid-rules', 'z-index')).toBe('');
+      // The now line rides on the same rule: no z-index puts it under the blocks, which
+      // follow it in the day body, and its dot climbs back above the day rules.
+      expect(declared('.grid-now-line', 'z-index')).toBe('');
+      expect(declared('.grid-now-line', 'position')).toBe('absolute');
+      expect(declared('.grid-now-dot', 'z-index')).toBe('2');
     });
 
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {

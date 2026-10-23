@@ -277,6 +277,7 @@ export function buildEventPresentation(
     locationIcon,
     eventDescription,
     entityLabel: EventUtils.resolveEntityLabel(event._entityId, config, event, hass),
+    entityLabelAlt: EventUtils.resolveLabelAlt(event._entityId, config, event, hass),
     mergedLabels: EventUtils.resolveMergedLabels(event, config, hass),
     shouldShowTime,
     countdownStr,

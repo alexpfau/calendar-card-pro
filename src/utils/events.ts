@@ -514,7 +514,8 @@ function processRawEvents(
 }
 
 /**
- * Drop events with unusable dates or text before they reach the shared pipeline.
+ * Drop events with unusable dates or text before they reach the shared pipeline, and turn a
+ * timed event with a missing or backwards end into an instant.
  *
  * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
  * `start` and `end` without checking they are there, because Home Assistant's calendar API
@@ -522,6 +523,19 @@ function processRawEvents(
  * payload, though, so a malformed event does reach us in practice, and an exception thrown
  * while grouping does not cost that one event a row: it costs the whole card, taking every
  * other calendar's events down with it.
+ *
+ * A timed event whose end is missing, `null`, empty, or an instant before its start still
+ * says when it happens, so it is kept as an instant at its start: List shows the start time
+ * alone and Grid draws the reminder marker (#625). Before this the views disagreed — List
+ * printed "12:00 - 11:00" for a backwards event and Grid dropped it, and a missing end was
+ * dropped by both with a warning only the development build logs. The comparison is of
+ * parsed instants, so a DST fall-back event whose wall clock only looks backwards
+ * (`01:30+02:00` to `01:15+01:00`) is untouched. Returned as a copy: the original is also
+ * the cache's, and other cards read it.
+ *
+ * An all-day event has no instant to fall back on, so one whose end is missing or not after
+ * its start is dropped. That used to depend on the view and on `show_past_events`: Grid
+ * dropped it, List and Column could keep it.
  *
  * Applied at both entry points, because they are reachable independently: grouping must
  * also reject malformed input before deriving daily occurrences or comparing duplicates.
@@ -532,46 +546,63 @@ function processRawEvents(
 function keepWellFormedEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
 ): Types.CalendarEventData[] {
-  const valid = events.filter((event) => {
-    if (!event || !Helpers.isConfigBlock(event.start) || !Helpers.isConfigBlock(event.end)) {
-      return false;
-    }
+  let repaired = 0;
+  const valid = events.flatMap((event): Types.CalendarEventData[] => {
+    if (!event || !Helpers.isConfigBlock(event.start)) return [];
+    // Absent or `null` is a missing end; anything else that is not an object is malformed.
+    if (event.end != null && !Helpers.isConfigBlock(event.end)) return [];
 
+    const end = Helpers.isConfigBlock(event.end) ? event.end : undefined;
     const fields = [
       event.start.date,
       event.start.dateTime,
-      event.end.date,
-      event.end.dateTime,
+      end?.date,
+      end?.dateTime,
       event.summary,
       event.location,
       event.description,
     ];
-    if (fields.some((value) => value != null && typeof value !== 'string')) return false;
+    if (fields.some((value) => value != null && typeof value !== 'string')) return [];
 
     if (event.start.dateTime) {
-      return (
-        !event.start.date &&
-        !event.end.date &&
-        typeof event.end.dateTime === 'string' &&
-        Number.isFinite(Date.parse(event.start.dateTime)) &&
-        Number.isFinite(Date.parse(event.end.dateTime))
-      );
+      const startMs = Date.parse(event.start.dateTime);
+      if (event.start.date || end?.date || !Number.isFinite(startMs)) return [];
+
+      // An end that is there but cannot be read is malformed, not missing.
+      if (end?.dateTime) {
+        const endMs = Date.parse(end.dateTime);
+        if (!Number.isFinite(endMs)) return [];
+        if (endMs >= startMs) return [event];
+      }
+
+      repaired++;
+      return [{ ...event, end: { dateTime: event.start.dateTime } }];
     }
 
-    return (
-      !event.end.dateTime &&
-      [event.start.date, event.end.date].every(
+    if (!end || end.dateTime) return [];
+    const days = [event.start.date, end.date];
+    if (
+      !days.every(
         (value) =>
           typeof value === 'string' &&
           FormatUtils.getLocalDateKey(FormatUtils.parseAllDayDate(value)) === value,
       )
-    );
+    ) {
+      return [];
+    }
+
+    return end.date! > event.start.date! ? [event] : [];
   });
 
   const malformedCount = events.length - valid.length;
   if (malformedCount > 0) {
     Logger.warn(
       `Ignoring ${malformedCount} malformed calendar event(s): expected matching, parseable start/end values and string text fields`,
+    );
+  }
+  if (repaired > 0) {
+    Logger.warn(
+      `Showing ${repaired} timed event(s) whose end is missing or before their start at their start time`,
     );
   }
 
@@ -2030,6 +2061,37 @@ export function resolveEntityLabel(
 }
 
 /**
+ * The text alternative for a calendar's label picture.
+ *
+ * A picture taken from `label: person.anna` shows whose event it is, which nothing else in
+ * the row says, so it is named after that person as Home Assistant holds them. Any other
+ * picture is a configured image whose meaning only its author knows, and an empty `alt`
+ * marks it as decorative, the way the icon and emoji labels already read: a screen reader
+ * then skips it rather than announcing a file name. A missing `alt` was axe's only critical
+ * finding on the card.
+ *
+ * Render time, like `resolveEntityLabel`, so renaming the person in Home Assistant renames
+ * the picture with it.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance, which holds the person's name
+ * @returns The person's name, or `''`
+ */
+export function resolveLabelAlt(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string {
+  const label = getEntityLabel(entityId, config, event);
+  if (!label || !PersonPictures.isPersonEntityId(label)) return '';
+  const name = hass?.states?.[label]?.attributes?.friendly_name;
+  return typeof name === 'string' ? name.trim() : '';
+}
+
+/**
  * Resolve one label per calendar that contributed a copy of a merged duplicate.
  *
  * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
@@ -2078,6 +2140,7 @@ export function resolveMergedLabels(
       value,
       iconColor: getEntitySetting(calendar.entityId, 'label_icon_color', config, asContributor),
       type: getEntitySetting(calendar.entityId, 'label_type', config, asContributor),
+      alt: resolveLabelAlt(calendar.entityId, config, asContributor, hass),
     });
   }
 

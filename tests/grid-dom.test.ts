@@ -2376,6 +2376,127 @@ describe('the now line (#325)', () => {
     );
 
     expect(container.querySelectorAll('.grid-now-line')).toHaveLength(0);
+    expect(container.querySelectorAll('.grid-now-dot')).toHaveLength(0);
+  });
+
+  it('moves only when the minute changes, on the same nodes', () => {
+    // Every Home Assistant state change re-renders the card, several times a second on a
+    // busy instance. An unrounded position changed on each of those renders and rewrote the
+    // line's and the dot's style every time: about 150 times a minute each, measured live in
+    // Chromium, against 1 each once rounded. That count needs a real browser — happy-dom
+    // records a mutation for every style write, changed or not, and Lit's styleMap writes
+    // every property on each render — so this pins what decides it: the value written, and
+    // that the card keeps the same two nodes rather than replacing them.
+    const config = buildConfig({ view: 'grid', days_to_show: 3 });
+    const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+    const days = EventUtils.groupEventsByDay([], config, false, 'en', 'grid');
+    const container = document.createElement('div');
+    const renderAt = (iso: string) => {
+      litRender(
+        Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, new Date(iso)),
+        container,
+      );
+      return [
+        container.querySelector<HTMLElement>('.grid-now-line')!,
+        container.querySelector<HTMLElement>('.grid-now-dot')!,
+      ] as const;
+    };
+
+    const [line, dot] = renderAt('2026-06-17T10:00:05.000Z');
+    const top = line.style.top;
+    expect(dot.style.top).toBe(top);
+
+    const [sameLine, sameDot] = renderAt('2026-06-17T10:00:59.999Z');
+    expect(sameLine).toBe(line);
+    expect(sameDot).toBe(dot);
+    expect(line.style.top).toBe(top);
+
+    renderAt('2026-06-17T10:01:00.000Z');
+    expect(line.style.top).not.toBe(top);
+    expect(dot.style.top).toBe(line.style.top);
+  });
+
+  it('puts the line before the blocks and the dot after them', () => {
+    // Paint order is document order for positioned boxes without a z-index, so this order is
+    // what puts the line beneath the blocks — a line over a block at text height read as a
+    // strikethrough — while the dot, which carries a z-index of its own, stays above.
+    const body = renderGrid([timed(17, '09:30', '11:00', 'Quarterly review')]).querySelector(
+      '.grid-day-body.today',
+    )!;
+    const children = [...body.children].map((child) => child.className);
+
+    expect(children).toEqual(['grid-now-line', 'grid-day-plane', 'grid-now-dot']);
+    const line = body.querySelector<HTMLElement>('.grid-now-line')!;
+    const dot = body.querySelector<HTMLElement>('.grid-now-dot')!;
+    expect(dot.style.top).toBe(line.style.top);
+    expect(dot.getAttribute('aria-hidden')).toBe('true');
+  });
+});
+
+/**
+ * A timed block can be narrower than one word of its title, and `break-word` then broke
+ * inside the word: "Sprin / t / plann". Each word is its own element now, so the title wraps
+ * at spaces and the stylesheet cuts a word that is too wide with an ellipsis.
+ */
+describe('grid titles that wrap at spaces', () => {
+  const titleOf = (container: HTMLElement) =>
+    container.querySelector<HTMLElement>('.grid-event .event-title')!;
+  const wordsOf = (container: HTMLElement) =>
+    [...titleOf(container).querySelectorAll('.title-word')].map((word) => word.textContent);
+
+  it('draws each word of a timed title as its own element, and keeps the text', () => {
+    const container = renderGrid([timed(17, '09:00', '10:00', 'Parent-teacher meeting')]);
+
+    expect(wordsOf(container)).toEqual(['Parent-', 'teacher', 'meeting']);
+    expect(titleOf(container).textContent?.trim()).toBe('Parent-teacher meeting');
+  });
+
+  it('keeps the words inside one inline wrapper, so the spaces between them render', () => {
+    // `.event-title` is a -webkit-box, which Chrome lays out as the legacy flexbox when no
+    // line clamp applies, and that drops whitespace between the box's own children. Words
+    // placed directly inside it rendered run together ("Homeoffice") on every unlabeled
+    // title; measured in Chromium, the gap was 0px without the wrapper and a space with it.
+    const title = titleOf(renderGrid([timed(17, '09:00', '10:00', 'Home office')]));
+    const wrappers = title.querySelectorAll(':scope > .title-words');
+
+    expect(wrappers).toHaveLength(1);
+    // The words are ordered by the line's direction unless the wrapper states their own, so
+    // an English title on a right-to-left dashboard would read "office Home" without it.
+    expect(wrappers[0].getAttribute('dir')).toBe('auto');
+    expect(title.querySelectorAll(':scope > .title-word')).toHaveLength(0);
+    expect(wrappers[0].querySelectorAll(':scope > .title-word')).toHaveLength(2);
+    expect(wrappers[0].textContent).toBe('Home office');
+  });
+
+  it('leaves a run in a script written without spaces to the browser', () => {
+    const container = renderGrid([timed(17, '09:00', '10:00', '会議 Quarterly review')]);
+
+    expect(wordsOf(container)).toEqual(['Quarterly', 'review']);
+    expect(titleOf(container).textContent?.trim()).toBe('会議 Quarterly review');
+  });
+
+  it('leaves a scrolling title as one line of text', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Sprint planning')],
+      buildConfig({ view: 'grid', days_to_show: 3, scroll_long_titles: true }),
+    );
+
+    expect(wordsOf(container)).toEqual([]);
+    expect(titleOf(container).querySelector('.event-title-scroll')?.textContent).toBe(
+      'Sprint planning',
+    );
+  });
+
+  it('touches neither the all-day banners nor column view', () => {
+    const grid = renderGrid([allDay('2026-06-17', '2026-06-19', 'Grandparents visiting')]);
+    expect(grid.querySelectorAll('.grid-banner .title-word')).toHaveLength(0);
+
+    const column = renderColumn(
+      [timed(17, '09:00', '10:00', 'Sprint planning')],
+      buildConfig({ view: 'column', days_to_show: 3 }),
+    );
+    expect(column.querySelector('.event-title')?.textContent?.trim()).toBe('Sprint planning');
+    expect(column.querySelectorAll('.title-word')).toHaveLength(0);
   });
 });
 
@@ -3316,14 +3437,17 @@ describe('malformed events do not crash grid rendering', () => {
       container = renderGrid(malformedEvents);
     }).not.toThrow();
 
-    // Exactly one of the six fixtures is well-formed — the 10:00-11:00 event whose only
-    // problem is a missing summary — so that is the count this must land on. An earlier
-    // version asserted `toBeGreaterThanOrEqual(0)`, which a length satisfies by definition:
-    // it reads as coverage, cannot fail, and would have stayed green if the malformed
-    // entries had been rendered as blocks or if the valid one had been discarded with them.
-    const events = container!.querySelectorAll('.grid-event');
-    expect(events.length, 'only the well-formed event may reach the grid').toBe(1);
-    expect(events[0].textContent).not.toContain('Inverted');
+    // Two of the six fixtures reach the grid, and exactly those two: the 10:00-11:00 event
+    // whose only problem is a missing summary, and the inverted timed event, which becomes an
+    // instant at its 12:00 start — the reminder marker List also shows it as. The inverted
+    // all-day dates have no instant to fall back on and stay out. An earlier version asserted
+    // `toBeGreaterThanOrEqual(0)`, which a length satisfies by definition: it reads as
+    // coverage, cannot fail, and would have stayed green if the malformed entries had been
+    // rendered as blocks or if the valid one had been discarded with them.
+    const events = [...container!.querySelectorAll('.grid-event')];
+    expect(events.length, 'only the usable events may reach the grid').toBe(2);
+    expect(events.map((event) => event.textContent).join(' ')).toContain('Inverted times');
+    expect(container!.textContent).not.toContain('Inverted all-day dates');
   });
 });
 

@@ -2241,6 +2241,41 @@ export function resolveColumnFitOnMeasurement(
   );
 }
 
+/**
+ * Index of the first grouped day to draw when only `count` day columns fit.
+ *
+ * Shedding from the end hid today whenever the range began earlier: a `start_of_week` grid
+ * on a phone drew Monday and Tuesday on a Wednesday, with nothing to say the rest existed.
+ * So the visible window starts at today, and moves back only as far as it must to stay full
+ * when the range ends sooner. A range entirely in the future keeps its earliest days, and one
+ * entirely in the past its latest — the same rule both times: the window as close to today as
+ * the range allows. Nothing here needs the days to be consecutive, so the sparse list column
+ * view groups without `show_empty_days` works the same way.
+ *
+ * Compared by local calendar day, against the start of today rather than the current
+ * instant: a day's `timestamp` is a moment inside that day, so a comparison with `now` would
+ * skip today itself for the rest of the day after that moment.
+ *
+ * @param days - Grouped days, oldest first
+ * @param count - Day columns that fit
+ * @param now - The current instant
+ * @returns Index into `days` of the first day to draw
+ */
+export function visibleDayWindowStart(
+  days: ReadonlyArray<Pick<Types.EventsByDay, 'timestamp'>>,
+  count: number,
+  now: Date,
+): number {
+  if (count <= 0 || count >= days.length) {
+    return 0;
+  }
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const firstFromToday = days.findIndex((day) => day.timestamp >= startOfToday);
+
+  return Math.min(firstFromToday === -1 ? days.length : firstFromToday, days.length - count);
+}
+
 //-----------------------------------------------------------------------------
 // WIDTH BANDS
 //-----------------------------------------------------------------------------

@@ -303,11 +303,11 @@ describe('Grid segmentation boundaries', () => {
 
   it('rejects invalid and out-of-window spans without losing a valid neighbor', () => {
     // A zero-length timed event is deliberately absent: it is a reminder, drawn as a marker
-    // at its instant (#625), and `zero-duration-events.test.ts` pins it. The zero-length
-    // all-day event below is still rejected.
+    // at its instant (#625), and `zero-duration-events.test.ts` pins it. So is a timed event
+    // that ends before it starts, which becomes such an instant; see the test below. The
+    // zero-length all-day event below is still rejected.
     const invalid = [
       { start: { dateTime: 'invalid' }, end: { dateTime: 'invalid' } },
-      { start: { dateTime: '2026-06-20T10:00:00Z' }, end: { dateTime: '2026-06-20T09:00:00Z' } },
       { start: { date: '2026-06-20' }, end: { date: '2026-06-20' } },
       { start: { date: '2026-06-21' }, end: { date: '2026-06-20' } },
       { start: { date: '2026-06-32' }, end: { date: '2026-07-03' } },
@@ -323,5 +323,19 @@ describe('Grid segmentation boundaries', () => {
     expect(result.dates).toEqual(['2026-06-20']);
     expect(result.blocks).toEqual([['Valid']]);
     expect(result.banners).toEqual([]);
+  });
+
+  it('draws a timed event that ends before it starts as an instant, as List shows it', () => {
+    // List printed "10:00 - 9:00" for this and Grid dropped it. Both now treat it as the
+    // reminder it can only be: an instant at its start.
+    const backwards = {
+      start: { dateTime: '2026-06-20T10:00:00Z' },
+      end: { dateTime: '2026-06-20T09:00:00Z' },
+      summary: 'Backwards',
+      _entityId: 'calendar.anna',
+    };
+    const result = draw([backwards], {}, { time_grid: { show_empty_days: false } });
+    expect(result.dates).toEqual(['2026-06-20']);
+    expect(result.blocks).toEqual([['Backwards']]);
   });
 });

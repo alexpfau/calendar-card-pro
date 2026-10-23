@@ -2526,12 +2526,12 @@ export const cardStyles = css`
      to the band's height to land it on the real ones. 100cqh is that height, and a
      percentage cannot say it -- inside the backdrop, a percentage means the backdrop.
 
-     A wrapper rather than the body itself, so the now-line stays out of whatever the
-     container does to painting. Chrome 155 makes no stacking context of a size container,
-     but the specification once applied layout containment with it, which does; on the body
-     that would trap the now-line's z-index 2 under the vertical day rules at z-index 1,
-     which it is meant to cross. Here it could trap only the blocks, which carry no z-index
-     of their own and already paint below those rules. */
+     A wrapper rather than the body itself, so the now line and its dot stay out of whatever
+     the container does to painting. Chrome 155 makes no stacking context of a size
+     container, but the specification once applied layout containment with it, which does;
+     on the body that would trap the dot's z-index 2 under the vertical day rules at
+     z-index 1, which it is meant to cross. Here it could trap only the blocks, which carry
+     no z-index of their own and already paint below those rules. */
   .grid-day-plane {
     position: absolute;
     inset: 0;
@@ -2695,6 +2695,34 @@ export const cardStyles = css`
     overflow-wrap: break-word;
     word-break: normal;
     hyphens: manual;
+  }
+
+  /* One element per word, from splitTitleWords, and it replaces the break-word above for
+     every word in a script written with spaces. break-word kept every character on screen,
+     and in a lane narrower than one word that meant breaking inside it: three overlapping
+     events at 1024px read "Quarte / rly / review" and "Sprin / t / plann". A word is now a
+     unit the line breaks around, never inside, and one too wide for the block is cut and
+     ends in an ellipsis -- "Quarte… / review" -- so the rest of the title still reads, and
+     the cut is marked rather than silent, which is the failure the note above records.
+
+     inline-block is what gives one word its own clip and its own ellipsis; nothing that
+     stays inline can. max-width: 100% is the line's width, because the title is inline
+     inside the summary when labels share its line, so a word never claims more than a
+     whole line. top alignment is load-bearing: an inline-block that clips its overflow
+     takes its bottom margin edge as its baseline, which would lift every word above the
+     label beside it on the first line. Space between words stays a text node and is where
+     the line breaks; splitTitleWords also splits after the hyphen in a compound so it can
+     still wrap there.
+
+     Scripts written without spaces (Han, kana, Thai and the like) are left as text, so
+     break-word above still wraps them between characters. */
+  .grid-event-disclosure .title-word {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
   }
 
   /* Clamp the whole title line. */
@@ -3205,6 +3233,22 @@ export const cardStyles = css`
     -webkit-line-clamp: unset;
   }
 
+  /* The compact title is one line with one ellipsis at its end, as it was before titles
+     were split into words. Inline words lay out exactly like the single text node they
+     replaced, so a word that would cross the end is cut mid-word by that ellipsis rather
+     than dropped whole, which is what an inline-block at a line's end would do. */
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .title-word {
+    display: inline;
+    max-width: none;
+    overflow: visible;
+    vertical-align: baseline;
+  }
+
   .grid-event:is(
       [data-grid-title-fit='measuring'],
       [data-grid-title-fit='compact'],
@@ -3469,25 +3513,36 @@ export const cardStyles = css`
   }
 
   /* Inside today's column only, so it says where today has got to rather than drawing
-     a line across days it makes no claim about. */
+     a line across days it makes no claim about.
+
+     Beneath the blocks, like the hour rules, and for the same reason: a line drawn over a
+     block at text height read as a strikethrough, so a meeting in progress looked canceled.
+     No z-index is what puts it there, not an oversight. It sits before .grid-day-plane in
+     the day body, and positioned boxes without one paint in document order, so every block
+     paints after it. That leaves it above the weekend tint and the hour rules, which are
+     not positioned, and below the vertical day rules at z-index 1, which only meet it at
+     the column's edges. A block drawn on top of another repaints its own ground and hides
+     the line along its width, just as it hides the block beneath. */
   .grid-now-line {
     position: absolute;
     inset-inline: 0;
     height: 2px;
     background: var(--calendar-card-grid-now-color, #34d399);
     pointer-events: none;
-    z-index: 2;
   }
 
-  /* The dot that marks which column the line belongs to. */
-  .grid-now-line::before {
-    content: '';
+  /* The dot that marks which column the line belongs to. Its own element, after the plane
+     and at z-index 2, so it stays above the blocks and the day rules while the line itself
+     goes under them. The negative top margin centers it on the 2px line. */
+  .grid-now-dot {
     position: absolute;
     inset-inline-start: -3px;
-    top: -3px;
     width: 8px;
     height: 8px;
+    margin-top: -3px;
     border-radius: 50%;
-    background: inherit;
+    background: var(--calendar-card-grid-now-color, #34d399);
+    pointer-events: none;
+    z-index: 2;
   }
 `;

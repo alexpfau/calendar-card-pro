@@ -1034,15 +1034,21 @@ nothing ever loads. Waste for the many against convenience for the few, and the 
 served by prose. Do not re-add it without re-making that trade explicitly; the cost side
 has not changed.
 
-**Note which way round the gzip benefit ran, because it is easy to state backwards.** HACS
-has no compression logic anywhere in its source, and Home Assistant's `http` component
-serves static files through aiohttp's `FileResponse` without enabling compression. aiohttp
-will serve a `.gz` sibling when one is already on disk, and nothing in either project ever
-creates one. So the `.gz` files came from the zip and from nowhere else: **manual**
-installers had the compressed transfer and HACS users never did. After the removal nobody
-does. Any sentence claiming HACS delivers pre-compressed files is false, and one shipped in
-`README.md` and `docs/guide/installation.md` before being corrected — check the direction
-before repeating the claim.
+**Note which way round the gzip benefit runs, because this file stated it backwards from
+v4.0.0 through v4.2.0.** HACS writes a `.gz` beside every `.js` it installs: `dowload_repository_content`
+in `custom_components/hacs/repositories/base.py` saves each downloaded file — release assets
+included — through `async_save_file` in `custom_components/hacs/base.py`, whose
+`# Create gz for .js files` branch gzips it at Python's default level 9. Home Assistant's
+`http` component serves static files through aiohttp's `FileResponse`, which picks a `.gz`
+sibling when the browser accepts gzip. So **HACS users get the compressed transfer for both
+files, automatically**, and always did. Manual installers get it only by creating the `.gz`
+files themselves, which `docs/guide/installation.md` explains; the zip's `.gz` siblings only
+ever helped them. This paragraph used to say the opposite — that HACS has no compression
+logic and its users never got a compressed transfer — and `installation.md` repeated it, both
+written in #426 as the correction of an earlier claim that had in fact been right. Read the HACS
+source before repeating either direction. One practical consequence: replacing a
+HACS-installed `.js` by hand also needs its `.js.gz` deleted, or the browser keeps receiving
+the old file.
 
 **How other multi-file cards handle this, surveyed across ten popular ones.** The short
 answer is that almost none of them face it, because almost none code-split:
@@ -1061,10 +1067,11 @@ answer is that almost none of them face it, because almost none code-split:
   falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
   file in it with no extension filter.
 
-That third route is the only one that would put `.gz` files in front of HACS users, since
-the tree path does not filter by extension. It costs a committed `dist/`, zero release
-assets, and a clumsier manual download — GitHub offers no way to fetch one folder. It was
-considered and not taken; reopen it only with those three costs in hand.
+That third route was once weighed as the way to put `.gz` files in front of HACS users,
+since the tree path does not filter by extension. It is not needed for that: HACS writes its
+own (see above). It costs a committed `dist/`, zero release assets, and a clumsier manual
+download — GitHub offers no way to fetch one folder. It was considered and not taken; reopen
+it only with those three costs in hand.
 
 **Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
 failure it prevents is invisible from the manifest — which is why this warning lives here

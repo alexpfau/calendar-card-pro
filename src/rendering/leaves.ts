@@ -14,6 +14,7 @@ import * as Localize from '../translations/localize';
 import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import { splitTitleWords } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
 //-----------------------------------------------------------------------------
@@ -311,12 +312,14 @@ function isGlyphLabel(label: string): boolean {
  * @param label - Label content from entity configuration
  * @param labelIconColor - Optional color for icon labels
  * @param labelType - Shape the entity configuration names, if it names one
+ * @param alt - Text alternative for a picture label; `''` marks it as decorative
  * @returns TemplateResult for the appropriate label type
  */
 export function renderLabel(
   label: string | undefined,
   labelIconColor?: string,
   labelType?: Helpers.LabelType,
+  alt = '',
 ): TemplateResult | typeof nothing {
   if (!label) return nothing;
 
@@ -330,7 +333,7 @@ export function renderLabel(
   }
 
   if (type === 'image') {
-    return html`<img src="${label}" class="label-image" />`;
+    return html`<img src="${label}" class="label-image" alt=${alt} />`;
   }
 
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
@@ -346,6 +349,8 @@ function renderEventTitle(
   weatherForecasts?: Types.WeatherForecasts,
   titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
   mergedLabels?: Types.ResolvedLabel[],
+  titleWords = false,
+  entityLabelAlt = '',
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -365,7 +370,31 @@ function renderEventTitle(
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
 
-  const titleText = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const scrollTitles = config.scroll_long_titles;
+  // No whitespace inside the word spans, and the spaces between them stay text: joined, the
+  // pieces are the title exactly, so its text content does not change.
+  //
+  // 🚨 The one inline wrapper is what keeps those spaces on screen. `.event-title` is a
+  // `-webkit-box`, and with no line clamp in force Chrome lays that out as the legacy
+  // flexbox, which drops whitespace between its children: words sitting directly inside it
+  // rendered as "Homeoffice" on every unlabeled title. Inside one inline child they are
+  // ordinary inline content again. A labeled title hid this, because the label makes the
+  // title itself inline.
+  //
+  // `dir="auto"` gives the words the title's own direction. Inline-blocks are ordered by
+  // the direction of the line around them, so on a right-to-left dashboard an English
+  // title read "landlord with Call" until the wrapper said which way its words run.
+  const titleText =
+    titleWords && !scrollTitles
+      ? html`<span class="title-words" dir="auto"
+          >${splitTitleWords(titleString ?? '').map((segment) =>
+            segment.kind === 'word'
+              ? html`<span class="title-word">${segment.text}</span>`
+              : segment.text,
+          )}</span
+        >`
+      : titleString;
 
   // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is
   // what makes the `neutral` treatment mean the right thing here.
@@ -414,9 +443,9 @@ function renderEventTitle(
   // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
   // merge whose winner carries none renders as it always has.
   const labels = mergedLabels
-    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type))
+    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     : entityLabel
-      ? renderLabel(entityLabel, labelIconColor, labelType)
+      ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
       : nothing;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
@@ -430,7 +459,6 @@ function renderEventTitle(
   // The text is wrapped in `.event-title-scroll` only in the scroll branch: `.event-title`
   // is the fixed-width clip viewport and the inner span is the full-width element the
   // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow.
-  const scrollTitles = config.scroll_long_titles;
   const titleInner = scrollTitles
     ? html`<span class="event-title-scroll">${titleContent}</span>`
     : titleContent;
@@ -637,6 +665,12 @@ export interface EventContentParts {
   entityLabel: string | undefined;
 
   /**
+   * Text alternative for `entityLabel` when it draws as a picture: the person's name for a
+   * `person.…` label, `''` for any other picture. See `resolveLabelAlt`.
+   */
+  entityLabelAlt?: string;
+
+  /**
    * One label per calendar that contributed a copy of a merged duplicate, present only on
    * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
    *
@@ -691,6 +725,15 @@ export interface EventContentOptions {
    * is not droppable and the element would be dead weight.
    */
   splitTimeEnd?: boolean;
+  /**
+   * Draw each word of the title as its own element, so the title wraps only at spaces and a
+   * word too wide for the block is cut with an ellipsis instead of broken. Grid sets this for
+   * its timed blocks, which can be narrower than one word; list and column rows are never
+   * that narrow, so their markup stays a single text node. Ignored while
+   * `scroll_long_titles` is on, because a scrolling title is one line that moves rather
+   * than wraps. See `splitTitleWords`.
+   */
+  titleWords?: boolean;
 }
 
 /**
@@ -715,6 +758,7 @@ export function renderEventContent(
     countdownPlacement = 'trailing',
     hass,
     splitTimeEnd = false,
+    titleWords = false,
   } = options;
   const {
     eventTime,
@@ -728,6 +772,7 @@ export function renderEventContent(
     countdownStr,
     progressPercentage,
     entityLabel,
+    entityLabelAlt,
     mergedLabels,
   } = parts;
 
@@ -820,7 +865,7 @@ export function renderEventContent(
   // prettier-ignore
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels, titleWords, entityLabelAlt)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime
