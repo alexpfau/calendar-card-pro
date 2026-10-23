@@ -49,6 +49,13 @@ on:
   schedule:
     - cron: '0 0 * * *' # Run daily at midnight
   workflow_dispatch:
+    inputs:
+      pull_request:
+        description: >-
+          Validate this pull request's head the way a pull request from a fork is validated.
+          Leave empty to validate the branch the workflow runs on.
+        required: false
+        type: string
 
 # Read-only, for the reason given in ci.yml. hacs/action declares a `comment` input that
 # defaults to true, which reads as though it posts to the PR — but `action/action.py` in
@@ -63,7 +70,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      # Branches of this repository: pull requests from them, pushes to `main`, the schedule,
+      # and a manual run with no pull request number.
       - name: HACS validation
+        if: >-
+          ${{ !inputs.pull_request && !(github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository) }}
         uses: hacs/action@main
         with:
           category: 'plugin'
+
+      # A pull request from a fork. hacs/action validates the pull request's *head
+      # repository*, and a fork has no releases: HACS then looks for `calendar-card-pro.js`
+      # in the fork's tree, finds no committed `dist/`, and reports "Repository structure for
+      # <branch> is not compliant" on every outside contribution, whatever it changed. So
+      # validate this repository instead, at the pull request's head commit, which GitHub
+      # serves as `refs/pull/<n>/head` through both the API and raw.githubusercontent.com:
+      # the fork's `hacs.json` and README are checked, against this repository's releases.
+      #
+      # A step of its own rather than a conditional `env:` on the step above, because
+      # action.py reads `REPOSITORY_REF` with `os.getenv` and would take an empty string as
+      # a ref rather than as absent. `repository` is what makes it skip the pull request
+      # event's head repository, and `REPOSITORY_REF` overrides the default branch it would
+      # otherwise check out.
+      #
+      # `workflow_dispatch` with `pull_request` set runs this path on demand, which is the
+      # only way to exercise it without a fork:
+      #
+      #     gh workflow run hacs-validate.yml --ref <branch> -f pull_request=<n>
+      - name: HACS validation (pull request from a fork)
+        if: >-
+          ${{ inputs.pull_request || (github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository) }}
+        uses: hacs/action@main
+        env:
+          REPOSITORY_REF: refs/pull/${{ github.event.pull_request.number || inputs.pull_request }}/head
+        with:
+          category: 'plugin'
+          repository: ${{ github.repository }}
