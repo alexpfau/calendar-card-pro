@@ -29,8 +29,6 @@ export { renderGridGroupedEvents } from './grid';
 
 /** What the card hands the wrapper when it should draw an add-event button. */
 export interface AddEventButton {
-  style: Types.AddEventStyle;
-  size: Types.AddEventSize;
   label: string;
   onActivate: () => void;
 }
@@ -57,23 +55,9 @@ function renderAddEventButton(button: AddEventButton): TemplateResult {
     button.onActivate();
   };
 
-  if (button.style === 'header') {
-    return html`<ha-button
-      class="add-event-button add-event-header"
-      size="s"
-      aria-label=${button.label}
-      title=${button.label}
-      @pointerdown=${stopCardGesture}
-      @pointerup=${stopCardGesture}
-      @keydown=${stopCardGesture}
-      @click=${onClick}
-      ><ha-icon icon="mdi:plus"></ha-icon
-    ></ha-button>`;
-  }
-
   return html`<ha-button
-    class="add-event-button add-event-${button.style === 'on_top' ? 'on-top' : 'below'}"
-    size=${button.size.charAt(0)}
+    class="add-event-button add-event-below"
+    size="s"
     @pointerdown=${stopCardGesture}
     @pointerup=${stopCardGesture}
     @keydown=${stopCardGesture}
@@ -119,9 +103,7 @@ export function renderMainCardStructure(
   addEvent?: AddEventButton,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
-  const headerButton = addEvent?.style === 'header' ? renderAddEventButton(addEvent) : nothing;
-  const bodyButton =
-    addEvent && addEvent.style !== 'header' ? renderAddEventButton(addEvent) : nothing;
+  const bodyButton = addEvent ? renderAddEventButton(addEvent) : nothing;
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
   const cardClasses = [
@@ -166,15 +148,12 @@ export function renderMainCardStructure(
            text, so a template resolving to an empty string collapses back to
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
-      <div
-        class=${addEvent?.style === 'header' ? 'header-container has-add-event' : 'header-container'}
-      >
+      <div class="header-container">
         ${
           title || titlePending
             ? html`<h1 class="card-header">${title}</h1>`
             : html`<div class="card-header-placeholder"></div>`
         }
-        ${headerButton}
       </div>
 
       <!-- Content container is always present -->

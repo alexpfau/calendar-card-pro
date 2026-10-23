@@ -15,7 +15,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
-import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
 import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
@@ -162,7 +161,7 @@ describe('add-event button rendering', () => {
     expect(button(card)).toBeNull();
   });
 
-  it('draws the button below the events by default once switched on', async () => {
+  it('draws the button below the events once switched on', async () => {
     const card = await mount({ entities: [READ_ONLY, WRITABLE], show_add_event: true });
     const el = button(card)!;
 
@@ -173,63 +172,12 @@ describe('add-event button rendering', () => {
     expect(el.textContent?.trim()).toBe('Add event');
   });
 
-  it('honors on_top and the size', async () => {
-    const card = await mount({
-      entities: [WRITABLE],
-      show_add_event: true,
-      add_event_style: 'on_top',
-      add_event_size: 'large',
-    });
-    const el = button(card)!;
-
-    expect(el.classList.contains('add-event-on-top')).toBe(true);
-    expect(el.getAttribute('size')).toBe('l');
-  });
-
-  it('puts a small icon button in the header, whatever the size', async () => {
-    const card = await mount({
-      entities: [WRITABLE],
-      show_add_event: true,
-      add_event_style: 'header',
-      add_event_size: 'large',
-    });
-    const el = button(card)!;
-    const header = card.shadowRoot!.querySelector('.header-container')!;
-
-    expect(el.classList.contains('add-event-header')).toBe(true);
-    expect(header.contains(el)).toBe(true);
-    expect(header.classList.contains('has-add-event')).toBe(true);
-    expect(el.getAttribute('size')).toBe('s');
-    expect(el.getAttribute('aria-label')).toBe('Add event');
-  });
-
-  it('leaves the header row alone when the button is elsewhere', async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
-    const header = card.shadowRoot!.querySelector('.header-container')!;
-
-    expect(header.classList.contains('has-add-event')).toBe(false);
-  });
-
   it("uses Home Assistant's own translation of the label", async () => {
     const localize = (key: string) =>
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
     const card = await mount({ entities: [WRITABLE], show_add_event: true }, { localize });
 
     expect(button(card)!.textContent?.trim()).toBe('Aggiungi evento');
-  });
-});
-
-describe('add-event configuration values', () => {
-  it('falls back to the defaults for values the card does not draw', () => {
-    expect(Config.resolveAddEventStyle('sideways')).toBe('below');
-    expect(Config.resolveAddEventSize(42)).toBe('small');
-    expect(Config.resolveAddEventStyle('header')).toBe('header');
-    expect(Config.resolveAddEventSize('medium')).toBe('medium');
-  });
-
-  it('offers exactly the documented vocabulary', () => {
-    expect(Config.ADD_EVENT_STYLES).toEqual(['below', 'header', 'on_top']);
-    expect(Config.ADD_EVENT_SIZES).toEqual(['small', 'medium', 'large']);
   });
 });
 

@@ -330,16 +330,14 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option               | Type    | Default | Description                                                                                                                              |
-| -------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                             |
-| `hold_action`        | object  | `none`  | Action when holding the card                                                                                                             |
-| `show_add_event`     | boolean | `false` | Show a button that opens Home Assistant's new-event dialog. Drawn only when at least one of the card's calendars accepts new events      |
-| `add_event_style`    | string  | `below` | Where the button sits — `below` the events, in the `header` beside the title, or `on_top`, floating over the bottom corner of the events |
-| `add_event_size`     | string  | `small` | Size of the button — `small`, `medium` or `large`. Ignored when `add_event_style` is `header`, where the button is always a small icon   |
-| `show_event_details` | boolean | `false` | Tapping an event opens Home Assistant's event dialog for that event                                                                      |
-| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar that cannot update events never offers it                              |
-| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar that cannot delete events never offers it                            |
+| Option               | Type    | Default | Description                                                                                                                         |
+| -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                        |
+| `hold_action`        | object  | `none`  | Action when holding the card                                                                                                        |
+| `show_add_event`     | boolean | `false` | Show a button that opens Home Assistant's new-event dialog. Drawn only when at least one of the card's calendars accepts new events |
+| `show_event_details` | boolean | `false` | Tapping an event opens Home Assistant's event dialog for that event                                                                 |
+| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar that cannot update events never offers it                         |
+| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar that cannot delete events never offers it                       |
 
 ### Action Parameters
 

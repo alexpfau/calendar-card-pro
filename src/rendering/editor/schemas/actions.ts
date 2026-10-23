@@ -4,11 +4,9 @@
 
 import { mdiGestureTapButton } from '@mdi/js';
 
-import * as Config from '../../../config/config';
-import * as Types from '../../../config/types';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
-import { bool, number, select } from './common';
+import { bool, number } from './common';
 
 export const ACTIONS_ICON = mdiGestureTapButton;
 
@@ -59,37 +57,16 @@ export function cardActionLabelKey(action: string): string {
 }
 
 /**
- * The add-event controls, each shown only once it would do something.
- *
- * The style and size are inert while the button is off, and the size is inert in the
- * header, where the button is always a small icon — so neither is offered then.
- *
- * @param config - Merged configuration
- * @returns The toggle, and whichever of its modifiers currently apply
- */
-function addEventFields(config: Readonly<Types.Config>, language: string): HaFormSchema[] {
-  if (config.show_add_event !== true) return [bool('show_add_event')];
-
-  const style = Config.resolveAddEventStyle(config.add_event_style);
-
-  return [
-    bool('show_add_event'),
-    select(language, 'add_event_style', Config.ADD_EVENT_STYLES),
-    ...(style === 'header' ? [] : [select(language, 'add_event_size', Config.ADD_EVENT_SIZES)]),
-  ];
-}
-
-/**
  * Builds the Actions & Refresh panel schema.
  *
  * The add-event button sits between the card's own gestures and the refresh settings:
  * it is another way of acting on the card, and it is what triggers the one refresh the
  * card does on the user's behalf rather than on a timer.
  *
- * @param ctx - Schema context
+ * @param _ctx - Schema context, unused
  * @returns The panel's schema
  */
-export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
+export function buildActionsSchema(_ctx: SchemaCtx): HaFormSchema[] {
   return [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
@@ -97,7 +74,7 @@ export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
     // reworks this panel decides where they belong.
     bool('allow_event_edit'),
     bool('allow_event_delete'),
-    ...addEventFields(ctx.config, ctx.language),
+    bool('show_add_event'),
     bool('show_event_details'),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),

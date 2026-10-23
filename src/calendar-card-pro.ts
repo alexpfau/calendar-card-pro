@@ -3222,8 +3222,6 @@ class CalendarCardPro extends LitElement {
     if (writable.length === 0) return undefined;
 
     return {
-      style: Config.resolveAddEventStyle(this.config.add_event_style),
-      size: Config.resolveAddEventSize(this.config.add_event_size),
       label: AddEvent.addEventLabel(this.safeHass),
       onActivate: () => {
         void Dialogs.openCreateEventDialog(this, {

@@ -153,8 +153,6 @@ export interface Config {
 
   // Add event button
   show_add_event: boolean;
-  add_event_style: AddEventStyle;
-  add_event_size: AddEventSize;
 
   // Cache and refresh settings
   refresh_interval: number;
@@ -181,15 +179,6 @@ export type TimeGridAxisLabelMinutes = 30 | 60 | 120 | 180;
 
 /** How the grid draws events that overlap in time. */
 export type TimeGridOverlapLayout = 'cascade' | 'columns';
-
-/**
- * Where the add-event button sits, named after Home Assistant's own calendar card so
- * the same value means the same thing in both.
- */
-export type AddEventStyle = 'below' | 'header' | 'on_top';
-
-/** Size of the add-event button. `header` always draws a small icon-only button. */
-export type AddEventSize = 'small' | 'medium' | 'large';
 
 /**
  * Which class of event a calendar contributes.
