@@ -179,8 +179,7 @@ export function renderMainCardStructure(
 
       <!-- Content container is always present -->
       <div class="content-container">${content}</div>
-      ${notice}
-      ${bodyButton}
+      ${notice} ${bodyButton}
     </ha-card>
   `;
 }
