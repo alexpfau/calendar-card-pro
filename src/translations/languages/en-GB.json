@@ -9,5 +9,6 @@
   "endsTomorrow": "ends tomorrow",
   "noEvents": "No events",
   "loading": "Loading calendar events...",
-  "error": "Error: Calendar entity not found or improperly configured"
+  "error": "Error: Calendar entity not found or improperly configured",
+  "loadFailed": "Couldn't load:"
 }

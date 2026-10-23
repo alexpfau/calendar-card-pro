@@ -9,5 +9,6 @@
   "endsTomorrow": "konča se jutri",
   "noEvents": "Ni dogodkov",
   "loading": "Nalagam dogodke...",
-  "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana."
+  "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",
+  "loadFailed": "Nalaganje ni uspelo:"
 }

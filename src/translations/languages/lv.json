@@ -17,5 +17,6 @@
   "endsTomorrow": "beidzas rīt",
   "noEvents": "Nav notikumu",
   "loading": "Ielādē kalendāra notikumus...",
-  "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta"
+  "error": "Kļūda: Kalendāra entitīja nav atrasta vai nav pareizi konfigurēta",
+  "loadFailed": "Neizdevās ielādēt:"
 }

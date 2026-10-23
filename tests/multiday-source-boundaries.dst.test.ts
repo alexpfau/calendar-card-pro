@@ -26,7 +26,7 @@ async function draw(
     callApi: async () => [event],
   } as unknown as Types.Hass;
   card.hass = hass;
-  card.events = (await fetchEventData(hass, card.config, 'source-boundary', true)).events;
+  card.events = (await fetchEventData(hass, card.config, 'source-boundary', 'network')).events;
   card.isInitialLoad = false;
   const container = document.createElement('div');
   render(card.render(), container);

@@ -9,5 +9,6 @@
   "endsTomorrow": "termina mañana",
   "noEvents": "No hay eventos",
   "loading": "Cargando eventos del calendario...",
-  "error": "Error: La entidad del calendario no se encontró o está mal configurada"
+  "error": "Error: La entidad del calendario no se encontró o está mal configurada",
+  "loadFailed": "No se pudo cargar:"
 }

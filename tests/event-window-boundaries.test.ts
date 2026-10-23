@@ -82,7 +82,7 @@ describe('event window boundaries', () => {
       hass,
       buildConfig({ days_to_show: 3 }),
       'boundary-upper',
-      true,
+      'network',
     );
 
     expect(result.events.map((event) => event.summary)).toEqual(['inside']);

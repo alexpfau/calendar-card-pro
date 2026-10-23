@@ -80,6 +80,16 @@ See [per-calendar options](https://calendar-card-pro.alexpfau.com/features/core-
 
 See [Weather Display Positions](https://calendar-card-pro.alexpfau.com/features/weather#weather-display-positions).
 
+### ⚡ Your Events, the Moment the Dashboard Opens
+
+Open a dashboard and the card draws the events it last loaded straight away, instead of _Loading calendar events..._, then checks with Home Assistant in the background and swaps in anything new. It draws cached events up to 24 hours old, so a phone opening Home Assistant after a night away is not left waiting either.
+
+- **`refresh_on_navigate` does what it says** - With it on, which is the default, the card refetches in the background whenever it appears: on a page load, on opening a dashboard, on returning to its view. It skips that when its data is under 5 seconds old. Turn it off and the cached events stand until `refresh_interval` is up. It used to act only in a browser tab that had started with a manual reload
+- **All calendars at once** - Every calendar is requested in parallel, so a load takes as long as the slowest calendar rather than the sum of all of them, and one slow calendar no longer holds back the ones listed after it. Seven calendars answering in 150 ms each drew their first event after about a second; now it is about 160 ms
+- **A calendar that fails is named** - A line at the bottom of the card reads "Couldn't load: Ben", using the calendar's name in Home Assistant, or its entity id when Home Assistant does not know it. That calendar's last loaded events stay on the card for up to 24 hours, and it is tried again after 1 minute, then 2, 4, 8 and so on up to `refresh_interval`, with every card showing it sharing one retry. When nothing loads at all, the line replaces "Error: Calendar entity not found or improperly configured", which the card also showed when a calendar that exists was merely down
+
+See [Performance & Caching](https://calendar-card-pro.alexpfau.com/features/performance).
+
 ### 🔭 What Comes After This
 
 A block is only as tall as its event lasts, so no amount of layout work makes a half-hour meeting hold a description — which is why grid view reveals detail as a block grows. The other half comes next: tapping an event to open, change or remove it where the calendar supports it, tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604).
@@ -126,6 +136,12 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - **An anniversary could gain a year halfway through** - Split List and Column events crossing New Year now keep their original occurrence year on every row, rather than increasing the count on January 1
 - **An event with non-text fields could break valid calendars** - An event whose title or dates arrived as something other than text threw during processing, and the valid events beside it went with it. An impossible all-day date such as June 31 was quietly moved to the next day. Both are now rejected individually and reported in the log
 - **Language changes waited for another update** - Changing the card language or Home Assistant's language now updates the rendered dates and event text in the first repaint
+
+### Loading & Refreshing
+
+- **The card refreshed at twice its `refresh_interval`** - Each refresh was scheduled before the fetch it went with had finished, and cached events lived exactly one interval, so every second refresh found them a few milliseconds too young and skipped. The default 30 minutes behaved as an hour. Refreshes now follow the age of the data on screen
+- **A calendar that never answered stopped the card refreshing** - Every later refresh waited on the request still open for it, until the page was reloaded. A calendar now has 30 seconds to answer before it counts as failed
+- **A reload could hide a calendar that had failed** - An incomplete result was cached as if it were whole, so for the rest of the refresh interval the card showed the remaining calendars and logged nothing at all
 
 ## Related Issues
 

@@ -61,7 +61,7 @@ async function countdowns(events: unknown[], nowIso: string, split = true) {
     fakeHass(events),
     config,
     `countdown-${instance++}`,
-    true,
+    'network',
   );
   return EventUtils.groupEventsByDay(processed, config, false, 'en')
     .flatMap((day) => day.events)

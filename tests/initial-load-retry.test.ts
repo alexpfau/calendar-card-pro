@@ -23,7 +23,7 @@ import '../src/calendar-card-pro';
 
 interface CardUnderTest extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
-  updateEvents(force?: boolean): Promise<void>;
+  updateEvents(mode?: string | boolean): Promise<void>;
   hass: Types.Hass;
 }
 
@@ -59,10 +59,12 @@ async function connectWithoutHass(): Promise<{ card: CardUnderTest; retries: () 
   const card = document.createElement('calendar-card-pro-dev') as CardUnderTest;
   const original = card.updateEvents.bind(card);
   let retryCalls = 0;
-  card.updateEvents = (force?: boolean) => {
-    // The retry is the only site that calls `updateEvents` from a timer callback.
-    if (force === true && armed) retryCalls += 1;
-    return original(force);
+  card.updateEvents = (mode?: string | boolean) => {
+    // The retry re-runs the load that found no `hass`, which here is the appear load. The
+    // refresh timer is the only other timer that calls `updateEvents`, and it runs `cache`
+    // a full interval out.
+    if (mode === 'navigate' && armed) retryCalls += 1;
+    return original(mode);
   };
   let armed = false;
   document.body.appendChild(card);

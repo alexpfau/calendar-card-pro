@@ -20,6 +20,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
@@ -130,6 +131,11 @@ function withAt(
     ),
   };
 }
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 describe('the fold covers every option that sizes a Home Assistant icon', () => {
   /**

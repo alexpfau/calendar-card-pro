@@ -1902,6 +1902,39 @@ export const cardStyles = css`
     color: var(--error-color);
   }
 
+  /* Names the calendars that could not be loaded, below everything else, so the events
+     that did load keep their place and a failure never reads as an empty calendar.
+     The 8px start margin matches the title's in list view, where the card itself pads
+     only 8px; column and grid views pad 16px themselves. */
+  .fetch-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 8px 0 0;
+    margin-inline-start: 8px;
+    color: var(--error-color);
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .calendar-card-pro.column-view .fetch-error,
+  .calendar-card-pro.grid-view .fetch-error {
+    margin-inline-start: 0;
+  }
+
+  .fetch-error-icon {
+    flex: none;
+    --mdc-icon-size: 1.25em;
+  }
+
+  /* An entity id has no break opportunity of its own, and the one shown for a calendar
+     Home Assistant does not know is usually long. Without these the line runs past the
+     card edge on a phone or in a narrow section and is clipped mid-name. */
+  .fetch-error-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   /* ===== CORNER LOADING INDICATOR ===== */
   .loading-indicator {
     position: absolute;

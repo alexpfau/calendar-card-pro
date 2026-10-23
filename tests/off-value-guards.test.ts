@@ -2,10 +2,10 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import * as Types from '../src/config/types';
 import * as Leaves from '../src/rendering/leaves';
 import * as Presentation from '../src/rendering/presentation';
-import * as EventUtils from '../src/utils/events';
 import * as FormatUtils from '../src/utils/format';
 import '../src/calendar-card-pro';
 
@@ -122,59 +122,85 @@ describe('daily_forecast_fallback on an event with no hourly forecast', () => {
   });
 });
 
-describe('refresh_on_navigate shortens the cache window on a manual reload', () => {
+describe('refresh_on_navigate refetches when a card appears', () => {
   /**
-   * On a manual page reload the cache is treated as valid for seconds rather than
-   * minutes, so navigating back to a dashboard shows fresh events. Nothing tested
-   * it: both forcing the short window and removing it left the suite green.
+   * With the option on, a card that appears draws its cached events and then asks Home
+   * Assistant again in the background; with it off, a cache that is not yet due stands.
+   * The option used to act only through a short cache window applied to every read in a
+   * tab that had started with a browser reload, so in a tab opened normally it did
+   * nothing at all.
    */
-  const KEY = 'cpc_refresh_on_navigate_probe';
+  const CONFIG = { entities: [{ entity: 'calendar.anna' }], days_to_show: 3 };
 
-  function memoryStorage(): Storage {
-    const store = new Map<string, string>();
+  function countingHass(counter: { n: number }): Types.Hass {
     return {
-      get length() {
-        return store.size;
+      states: {},
+      locale: { language: 'en' },
+      callApi: (_method: string, path: string) => {
+        if (path.startsWith('calendars/')) counter.n += 1;
+        // Not empty: an empty result is cached for seconds, not the refresh interval.
+        return Promise.resolve([
+          {
+            summary: 'Dentist',
+            start: { dateTime: '2026-06-17T15:00:00Z' },
+            end: { dateTime: '2026-06-17T16:00:00Z' },
+          },
+        ]);
       },
-      clear: () => store.clear(),
-      getItem: (k: string) => store.get(k) ?? null,
-      key: (i: number) => Array.from(store.keys())[i] ?? null,
-      removeItem: (k: string) => void store.delete(k),
-      setItem: (k: string, v: string) => void store.set(k, String(v)),
-    } as Storage;
+    } as unknown as Types.Hass;
   }
 
-  /** Ages the entry past the manual-reload window but well inside the normal one. */
-  const AGE_MS = 30_000;
+  /** Requests made by a card that appears `ageMs` after another card cached the data. */
+  async function requestsOnAppear(refreshOnNavigate: boolean, ageMs: number): Promise<number> {
+    const counter = { n: 0 };
+    const hass = countingHass(counter);
 
-  function hit(refreshOnNavigate: boolean, isManualPageReload: boolean): boolean {
-    globalThis.localStorage.setItem(
-      KEY,
-      JSON.stringify({ events: [], timestamp: Date.now() - AGE_MS }),
-    );
+    const first = document.createElement('calendar-card-pro-dev') as unknown as {
+      setConfig(c: unknown): void;
+      hass: Types.Hass;
+    } & HTMLElement;
+    first.hass = hass;
+    first.setConfig({ ...CONFIG, refresh_on_navigate: refreshOnNavigate });
+    document.body.appendChild(first);
+    await vi.advanceTimersByTimeAsync(0);
+    first.remove();
 
-    const config = buildConfig({ refresh_on_navigate: refreshOnNavigate });
-    return EventUtils.getValidCacheEntry(KEY, config, isManualPageReload) !== null;
+    await vi.advanceTimersByTimeAsync(ageMs);
+    counter.n = 0;
+
+    const second = document.createElement('calendar-card-pro-dev') as typeof first;
+    second.hass = hass;
+    second.setConfig({ ...CONFIG, refresh_on_navigate: refreshOnNavigate });
+    document.body.appendChild(second);
+    await vi.advanceTimersByTimeAsync(0);
+    second.remove();
+
+    return counter.n;
   }
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
     vi.stubGlobal('localStorage', memoryStorage());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+    document.body.innerHTML = '';
   });
 
-  it('keeps the entry when the page was not manually reloaded', () => {
-    expect(hit(true, false)).toBe(true);
+  it('refetches when the option is on', async () => {
+    expect(await requestsOnAppear(true, 30_000)).toBe(1);
   });
 
-  it('keeps the entry on a manual reload when the option is off', () => {
-    expect(hit(false, true)).toBe(true);
+  it('keeps a cache that is not yet due when the option is off', async () => {
+    expect(await requestsOnAppear(false, 30_000)).toBe(0);
   });
 
-  it('drops the entry on a manual reload when the option is on', () => {
-    expect(hit(true, true)).toBe(false);
+  it('keeps data younger than five seconds even when the option is on', async () => {
+    // The floor: a reload a moment after the last fetch is not a reason to repeat it.
+    expect(await requestsOnAppear(true, 2_000)).toBe(0);
   });
 });
 

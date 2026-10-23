@@ -848,6 +848,29 @@ export interface EventFetchResult {
   events: CalendarEventData[];
   /** Entity IDs whose calendar could not be retrieved during this fetch. */
   failedEntities: string[];
+  /** When this payload was retrieved from Home Assistant, in epoch milliseconds. */
+  fetchedAt: number;
+  /**
+   * When the longest-unrefreshed calendar among `events` last loaded successfully. Equal to
+   * `fetchedAt` unless the events include a failing calendar's kept ones.
+   */
+  loadedAt: number;
+  /**
+   * When the card should next ask Home Assistant for this payload, in epoch
+   * milliseconds: one refresh interval after `fetchedAt`, or the retry deadline while a
+   * calendar is failing.
+   */
+  nextAttemptAt: number;
+}
+
+/**
+ * Cached events processed for the current config, plus what the cache knows about them.
+ */
+export interface EventSnapshot extends EventFetchResult {
+  /** Whether the payload is worth a network attempt now. */
+  due: boolean;
+  /** Whether a request for this exact query and window is already in flight. */
+  inFlight: boolean;
 }
 
 /** Grouped events by day. */
@@ -861,11 +884,30 @@ export interface EventsByDay {
   monthNumber?: number;
 }
 
-/** Cache entry structure. */
+/**
+ * Cache entry structure.
+ *
+ * Everything the card needs to decide when to ask Home Assistant again lives here rather
+ * than on the card, so every card sharing the key, and the same card after a view switch,
+ * reads one answer.
+ */
 export interface CacheEntry {
+  /** Raw events as the API returned them, plus kept events of failed calendars. */
   events: CalendarEventData[];
+  /** When this entry was written. */
   timestamp: number;
+  /** Entry-specific lifetime, used for a successful but empty result. */
   ttlMs?: number;
+  /** Bounds of the window the events were fetched for, as ISO strings. */
+  window?: { start: string; end: string };
+  /** Last successful fetch per calendar. */
+  lastSuccess?: Record<string, number>;
+  /** Calendars that failed on the attempt that wrote this entry. */
+  failedEntities?: string[];
+  /** Consecutive attempts for this key that had at least one failure. */
+  failureCount?: number;
+  /** Earliest time a failing entry is worth another network attempt. */
+  retryAt?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -1078,6 +1120,8 @@ export interface Translations {
   loading: string;
   noEvents: string;
   error: string;
+  /** Label before the names of calendars that could not be loaded. */
+  loadFailed: string;
   allDay: string;
   multiDay: string;
   at: string;

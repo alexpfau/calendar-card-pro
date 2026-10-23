@@ -17,5 +17,6 @@
   "endsTomorrow": "eindigt morgen",
   "noEvents": "Geen afspraken",
   "loading": "Kalender afspraken laden...",
-  "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd"
+  "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
+  "loadFailed": "Laden mislukt:"
 }

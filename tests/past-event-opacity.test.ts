@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
@@ -27,6 +28,11 @@ const VALID = [
 function raw(overrides: Record<string, unknown>): Types.Config {
   return buildConfig(overrides);
 }
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 describe('past-event opacity normalization and view inheritance', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -105,7 +111,7 @@ describe('past-event opacity normalization and view inheritance', () => {
 
 interface CardProbe extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
-  updateEvents(force?: boolean): Promise<void>;
+  updateEvents(mode?: string | boolean): Promise<void>;
 }
 
 describe('opacity is render-time state, not event eligibility', () => {
@@ -136,7 +142,7 @@ describe('opacity is render-time state, not event eligibility', () => {
       }
       expect(update).not.toHaveBeenCalled();
       card.setConfig({ ...base, days_to_show: 7 });
-      expect(update).toHaveBeenCalledExactlyOnceWith(true);
+      expect(update).toHaveBeenCalledExactlyOnceWith('network');
       update.mockClear();
       card.setConfig({ ...base, days_to_show: 7, show_location: false });
       expect(update).not.toHaveBeenCalled();

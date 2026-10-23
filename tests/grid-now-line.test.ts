@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 
 /**
  * The grid view's now-line repaint.
@@ -29,7 +30,7 @@ interface CardUnderTest extends HTMLElement {
   _wantsNowLine: boolean;
   _syncNowLineTimer(): void;
   _tickNowLine(): void;
-  updateEvents(force?: boolean): Promise<void>;
+  updateEvents(mode?: string | boolean): Promise<void>;
 }
 
 function card(config: Record<string, unknown> = {}): CardUnderTest {
@@ -46,6 +47,11 @@ async function mounted(config: Record<string, unknown> = {}): Promise<CardUnderT
   await element.updateComplete;
   return element;
 }
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -161,7 +167,7 @@ describe('midnight', () => {
     element._nowLineDayKey = '2026-06-16';
     element._tickNowLine();
 
-    expect(update, 'a rollover must refetch').toHaveBeenCalledWith(true);
+    expect(update, 'a rollover must refetch').toHaveBeenCalledWith('network');
     expect(repaint, 'and must not merely repaint').not.toHaveBeenCalled();
 
     update.mockRestore();
@@ -209,7 +215,7 @@ describe('midnight', () => {
     visibility.mockReturnValue('visible');
     document.dispatchEvent(new Event('visibilitychange'));
 
-    expect(update, 'returning on a new local day must refetch').toHaveBeenCalledWith(true);
+    expect(update, 'returning on a new local day must refetch').toHaveBeenCalledWith('network');
 
     visibility.mockRestore();
     update.mockRestore();

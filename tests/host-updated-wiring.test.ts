@@ -21,6 +21,8 @@
  * inverse of what happened, or not fire at all.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 
 const subscriptions = vi.hoisted(() => [] as RecordingSubscriptionShape[]);
@@ -60,7 +62,7 @@ interface CardUnderTest extends HTMLElement {
   editMode: boolean;
   isInitialLoad: boolean;
   renderedTitle?: string;
-  updateEvents(force?: boolean): Promise<void>;
+  updateEvents(mode?: string | boolean): Promise<void>;
   updateComplete: Promise<boolean>;
   _language: string;
   _hasFetchError: boolean;
@@ -87,6 +89,8 @@ async function mount(card: CardUnderTest): Promise<void> {
 
 beforeEach(() => {
   subscriptions.length = 0;
+  // A fresh cache per test; see `memory-storage.ts`.
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 afterEach(() => {
@@ -94,26 +98,28 @@ afterEach(() => {
 });
 
 describe('updated(): fetch, language and weather re-wiring', () => {
-  it('force-fetches once when hass first arrives, not on every later hass', async () => {
+  it('loads once when hass arrives after attach, not on every later hass', async () => {
     const card = make();
     card.isInitialLoad = false;
     const updateEvents = vi.spyOn(card, 'updateEvents').mockResolvedValue(undefined);
     document.body.appendChild(card);
+    // The attach itself runs the appear load, which finds no `hass` and stays pending.
+    updateEvents.mockClear();
 
     card.hass = HASS;
     await card.updateComplete;
-    const afterFirst = updateEvents.mock.calls.filter((c) => c[0] === true).length;
+    const afterFirst = updateEvents.mock.calls.filter((c) => c[0] === 'navigate').length;
 
     card.hass = { ...HASS, states: { 'light.x': { state: 'on' } } };
     await card.updateComplete;
     card.hass = { ...HASS, states: { 'light.x': { state: 'off' } } };
     await card.updateComplete;
 
-    // Positive control: the first hass really does trigger the forced fetch.
+    // Positive control: the first hass really does run the pending appear load.
     expect(afterFirst).toBe(1);
     // Home Assistant replaces `hass` on every state change in the house. Without
     // the `!changedProps.get('hass')` guard each one re-fetches every calendar.
-    expect(updateEvents.mock.calls.filter((c) => c[0] === true)).toHaveLength(1);
+    expect(updateEvents.mock.calls).toHaveLength(1);
   });
 
   it('re-derives the language when only the config language changes', async () => {
