@@ -32,6 +32,7 @@ import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
 import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
+import * as Dialogs from './interaction/ha-calendar-dialogs';
 import type * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
@@ -489,9 +490,17 @@ class CalendarCardPro extends LitElement {
    * dialog reports an edit or a delete.
    */
   private readonly _openEventDetails: Activation.EventActivateHandler = (event, color) => {
-    void EventDetails.openEventDetailDialog(this, this.safeHass, event, color, () =>
-      this.updateEvents(true),
-    );
+    const calendarId = event._entityId;
+    const entry = EventDetails.buildDetailEntry(event);
+    if (!calendarId || !entry) return;
+
+    void Dialogs.openEventDetailDialog(this, {
+      calendarId,
+      entry,
+      color,
+      ...EventDetails.detailPermissions(this.safeHass, calendarId, entry),
+      updated: () => this.updateEvents(true),
+    });
   };
 
   /**
@@ -3146,7 +3155,10 @@ class CalendarCardPro extends LitElement {
       size: Config.resolveAddEventSize(this.config.add_event_size),
       label: AddEvent.addEventLabel(this.safeHass),
       onActivate: () => {
-        void AddEvent.openCreateEventDialog(this, writable[0], () => this.updateEvents(true));
+        void Dialogs.openCreateEventDialog(this, {
+          calendarId: writable[0],
+          updated: () => this.updateEvents(true),
+        });
       },
     };
   }

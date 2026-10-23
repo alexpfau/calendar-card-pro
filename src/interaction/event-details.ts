@@ -1,29 +1,18 @@
 /**
- * Event-detail support for Calendar Card Pro.
+ * What Home Assistant's event-detail dialog is handed for one rendered event.
  *
  * A tap on an event opens Home Assistant's own event-detail dialog — the one its calendar
  * panel opens — so the full description, the recurrence and, where the calendar allows
- * them, Edit and Delete all stay Home Assistant's. The card only hands it the event.
+ * them, Edit and Delete all stay Home Assistant's. This module builds the entry and the
+ * permissions; `ha-calendar-dialogs.ts` opens the dialog.
  */
 
+import {
+  DELETE_EVENT_FEATURE,
+  UPDATE_EVENT_FEATURE,
+  calendarSupports,
+} from './ha-calendar-dialogs';
 import * as Types from '../config/types';
-import * as Logger from '../utils/logger';
-
-//-----------------------------------------------------------------------------
-// CONSTANTS
-//-----------------------------------------------------------------------------
-
-/** Element name of Home Assistant's event-detail dialog. */
-export const EVENT_DETAIL_DIALOG_TAG = 'dialog-calendar-event-detail';
-
-/** Home Assistant's `CalendarEntityFeature.DELETE_EVENT` bit. */
-export const DELETE_EVENT_FEATURE = 2;
-
-/** Home Assistant's `CalendarEntityFeature.UPDATE_EVENT` bit. */
-export const UPDATE_EVENT_FEATURE = 4;
-
-/** How long to wait for a Home Assistant module that is being lazy-loaded. */
-const LOAD_TIMEOUT_MS = 10000;
 
 //-----------------------------------------------------------------------------
 // DIALOG PARAMETERS
@@ -90,158 +79,8 @@ export function detailPermissions(
 ): { canEdit: boolean; canDelete: boolean } {
   if (!entry.uid) return { canEdit: false, canDelete: false };
 
-  const features = Number(hass?.states?.[entityId]?.attributes?.supported_features ?? 0);
   return {
-    canEdit: (features & UPDATE_EVENT_FEATURE) !== 0,
-    canDelete: (features & DELETE_EVENT_FEATURE) !== 0,
+    canEdit: calendarSupports(hass, entityId, UPDATE_EVENT_FEATURE),
+    canDelete: calendarSupports(hass, entityId, DELETE_EVENT_FEATURE),
   };
-}
-
-//-----------------------------------------------------------------------------
-// DIALOG
-//-----------------------------------------------------------------------------
-
-interface CardHelpers {
-  createCardElement(config: Record<string, unknown>): HTMLElement;
-}
-
-/**
- * Wait for a custom element to be defined, giving up after a timeout.
- *
- * @param tag - Element name
- * @returns Resolves once defined
- */
-function whenDefined(tag: string): Promise<unknown> {
-  if (customElements.get(tag)) return Promise.resolve();
-
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(
-      () => reject(new Error(`${tag} was not defined within ${LOAD_TIMEOUT_MS}ms`)),
-      LOAD_TIMEOUT_MS,
-    );
-    customElements.whenDefined(tag).then(() => {
-      window.clearTimeout(timer);
-      resolve(undefined);
-    }, reject);
-  });
-}
-
-/**
- * Make sure Home Assistant's event-detail dialog is defined.
- *
- * The dialog lives in a lazily loaded chunk whose file name is a build hash, so a custom
- * card cannot import it. It is defined already once anything in the session has opened
- * it. Otherwise this borrows the loader Home Assistant's own `ha-full-calendar` uses:
- * creating a core calendar card makes Home Assistant load `ha-full-calendar`, and calling
- * its event-click handler against a stand-in captures the `dialogImport` function it would
- * have dispatched — without opening anything. Running that import defines the dialog.
- *
- * 🚨 This reaches into Home Assistant's frontend internals (`_handleEventClick` and the
- * shape of its `show-dialog` event). It fails closed: any mismatch throws, and the caller
- * falls back to the calendar panel instead.
- *
- * @param calendarId - A calendar to give the core card, which refuses an empty list
- * @returns Resolves once the dialog element is defined
- */
-export async function ensureEventDetailLoaded(calendarId: string): Promise<void> {
-  if (customElements.get(EVENT_DETAIL_DIALOG_TAG)) return;
-
-  if (!customElements.get('ha-full-calendar')) {
-    const loadCardHelpers = (window as unknown as { loadCardHelpers?: () => Promise<CardHelpers> })
-      .loadCardHelpers;
-    if (typeof loadCardHelpers !== 'function') {
-      throw new Error('window.loadCardHelpers is unavailable');
-    }
-
-    const helpers = await loadCardHelpers();
-    helpers.createCardElement({ type: 'calendar', entities: [calendarId] });
-    await whenDefined('ha-full-calendar');
-  }
-
-  const fullCalendar = customElements.get('ha-full-calendar');
-  const handleEventClick = (fullCalendar?.prototype as { _handleEventClick?: unknown } | undefined)
-    ?._handleEventClick;
-  if (typeof handleEventClick !== 'function') {
-    throw new Error('ha-full-calendar has no _handleEventClick handler');
-  }
-
-  let dialogImport: unknown;
-  const standIn = {
-    hass: { states: {} },
-    dispatchEvent(event: Event): boolean {
-      const detail = (event as Event & { detail?: { dialogImport?: unknown } }).detail;
-      dialogImport = detail?.dialogImport;
-      return true;
-    },
-  };
-  handleEventClick.call(standIn, {
-    event: { extendedProps: { calendar: calendarId, eventData: {} }, backgroundColor: '' },
-  });
-
-  if (typeof dialogImport !== 'function') {
-    throw new Error('ha-full-calendar did not supply a dialog import');
-  }
-
-  await (dialogImport as () => Promise<unknown>)();
-  await whenDefined(EVENT_DETAIL_DIALOG_TAG);
-}
-
-/**
- * Open Home Assistant's calendar panel, which shows the same event when tapped.
- *
- * @param node - Element to dispatch from
- */
-function navigateToCalendarPanel(node: HTMLElement): void {
-  window.history.pushState(null, '', '/calendar');
-  node.dispatchEvent(
-    new CustomEvent('location-changed', {
-      bubbles: true,
-      composed: true,
-      detail: { replace: false },
-    }),
-  );
-}
-
-/**
- * Open Home Assistant's event-detail dialog for one rendered event.
- *
- * @param node - Element to dispatch from; must be inside Home Assistant's DOM
- * @param hass - Home Assistant instance, for the calendar's features
- * @param event - The rendered event that was tapped
- * @param color - The event's accent color, shown by the dialog
- * @param onUpdated - Called by the dialog once the event was edited or deleted
- */
-export async function openEventDetailDialog(
-  node: HTMLElement,
-  hass: Types.Hass | null | undefined,
-  event: Types.CalendarEventData,
-  color: string | undefined,
-  onUpdated: () => void,
-): Promise<void> {
-  const calendarId = event._entityId;
-  const entry = buildDetailEntry(event);
-  if (!calendarId || !entry) return;
-
-  try {
-    await ensureEventDetailLoaded(calendarId);
-  } catch (error) {
-    Logger.warn('Could not load the event dialog, opening the calendar panel instead', error);
-    navigateToCalendarPanel(node);
-    return;
-  }
-
-  const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
-  (showDialog as Event & { detail?: unknown }).detail = {
-    dialogTag: EVENT_DETAIL_DIALOG_TAG,
-    dialogImport: () => whenDefined(EVENT_DETAIL_DIALOG_TAG),
-    dialogParams: {
-      calendarId,
-      entry,
-      color,
-      ...detailPermissions(hass, calendarId, entry),
-      updated: onUpdated,
-    },
-  };
-  node.dispatchEvent(showDialog);
-  Logger.debug(`Opened the event-detail dialog for ${calendarId}`);
 }

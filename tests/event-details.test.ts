@@ -3,11 +3,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import type * as Types from '../src/config/types';
-import {
-  EVENT_DETAIL_DIALOG_TAG,
-  buildDetailEntry,
-  detailPermissions,
-} from '../src/interaction/event-details';
+import { buildDetailEntry, detailPermissions } from '../src/interaction/event-details';
+import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
 
 /**
  * `show_event_details`: a tap on an event opens Home Assistant's event-detail dialog.
@@ -17,7 +14,7 @@ import {
  * it into the display row, rendering hands the row to the click handler — and a stage
  * that drops it breaks only this. The dialog is defined up front, which is the state of
  * any session that has opened it once; the paths that load it are in
- * `event-details-loader.test.ts`, because a defined element cannot be undefined again.
+ * `ha-calendar-dialogs.test.ts`.
  */
 
 interface Card extends HTMLElement {

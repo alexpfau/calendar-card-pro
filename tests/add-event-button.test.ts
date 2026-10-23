@@ -18,6 +18,7 @@ import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
+import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
 import '../src/calendar-card-pro';
 
 vi.mock('../src/utils/logger', () => ({
@@ -76,7 +77,7 @@ function button(card: CardUnderTest): HTMLElement | null {
 function dialogAlreadyLoaded(): void {
   const original = customElements.get.bind(customElements);
   vi.spyOn(customElements, 'get').mockImplementation((tag: string) =>
-    tag === AddEvent.EVENT_EDITOR_DIALOG_TAG
+    tag === Dialogs.EVENT_EDITOR_DIALOG_TAG
       ? (class {} as CustomElementConstructor)
       : original(tag),
   );
@@ -234,58 +235,5 @@ describe('pressing the add-event button', () => {
 
     expect(card._activePointerId).toBeNull();
     expect(handleAction).not.toHaveBeenCalled();
-  });
-});
-
-// Order matters below: the last case defines the dialog element for real, and a custom
-// element cannot be undefined again, so the fallback has to run first.
-describe('loading the dialog', () => {
-  it('falls back to the calendar panel when the dialog cannot be loaded', async () => {
-    const node = document.createElement('div');
-    document.body.appendChild(node);
-    const pushState = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
-    const shown = vi.fn();
-    const navigated = vi.fn();
-    document.body.addEventListener('show-dialog', shown);
-    document.body.addEventListener('location-changed', navigated);
-
-    await AddEvent.openCreateEventDialog(node, WRITABLE, () => {});
-
-    expect(pushState).toHaveBeenCalledWith(null, '', '/calendar');
-    expect(navigated).toHaveBeenCalledTimes(1);
-    expect(shown).not.toHaveBeenCalled();
-  });
-
-  it("borrows Home Assistant's own dialog import from ha-full-calendar", async () => {
-    const dialogImport = vi.fn(async () => {
-      customElements.define(AddEvent.EVENT_EDITOR_DIALOG_TAG, class extends HTMLElement {});
-    });
-    const createCardElement = vi.fn(() => {
-      class FullCalendar extends HTMLElement {
-        _activeView?: string;
-        _createEvent(): void {
-          const event = new Event('show-dialog');
-          (event as Event & { detail?: unknown }).detail = {
-            dialogTag: AddEvent.EVENT_EDITOR_DIALOG_TAG,
-            dialogImport,
-            dialogParams: {},
-          };
-          this.dispatchEvent(event);
-        }
-      }
-      customElements.define('ha-full-calendar', FullCalendar);
-      return document.createElement('div');
-    });
-    (window as unknown as { loadCardHelpers: unknown }).loadCardHelpers = async () => ({
-      createCardElement,
-    });
-
-    await AddEvent.ensureEventEditorLoaded(WRITABLE);
-
-    expect(createCardElement).toHaveBeenCalledWith({ type: 'calendar', entities: [WRITABLE] });
-    expect(dialogImport).toHaveBeenCalledTimes(1);
-    expect(customElements.get(AddEvent.EVENT_EDITOR_DIALOG_TAG)).toBeDefined();
-
-    delete (window as unknown as { loadCardHelpers?: unknown }).loadCardHelpers;
   });
 });
