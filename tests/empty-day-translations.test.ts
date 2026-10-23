@@ -16,7 +16,7 @@ import * as Events from '../src/utils/events';
  * The card writes this string onto a day that has nothing on it. It used to say "No
  * upcoming events" and its equivalents, which is a claim about the *future* — correct
  * on a future day, wrong on a past one, and the card draws both. Now that a past
- * notice dims rather than disappearing, the wording has to be date-neutral in all 35
+ * notice dims rather than disappearing, the wording has to be date-neutral in all 36
  * languages, or a dimmed row reads as a statement about a future that has already
  * happened.
  *
@@ -73,6 +73,7 @@ const EXPECTED: Record<string, string> = {
   'hu.json': 'Nincs esemény',
   'is.json': 'Engir viðburðir',
   'it.json': 'Nessun evento',
+  'ko.json': '일정 없음',
   'lt.json': 'Nėra įvykių',
   'lv.json': 'Nav notikumu',
   'nb.json': 'Ingen hendelser',
@@ -120,9 +121,9 @@ describe('empty-day default wording', () => {
     expect(onDisk()).toEqual(EXPECTED);
   });
 
-  it('covers 35 languages and no more', () => {
-    expect(languageFiles()).toHaveLength(35);
-    expect(Object.keys(EXPECTED)).toHaveLength(35);
+  it('covers 36 languages and no more', () => {
+    expect(languageFiles()).toHaveLength(36);
+    expect(Object.keys(EXPECTED)).toHaveLength(36);
   });
 
   /**
