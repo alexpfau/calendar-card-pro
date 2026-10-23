@@ -18,6 +18,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Activation from './activation';
 import { gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
@@ -796,6 +797,7 @@ function cascadeHorizontal(
  * @param language - Language code for translations
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
+ * @param onEventActivate - Makes the block a tap target when set
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -807,8 +809,14 @@ function renderTimedEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  onEventActivate?: Activation.EventActivateHandler,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const activation = Activation.eventActivation(
+    event,
+    presentation.entityAccentColor,
+    onEventActivate,
+  );
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
 
@@ -851,6 +859,7 @@ function renderTimedEvent(
         'clipped-bottom': placement.clippedBottom,
         'grid-event-raised': horizontal.raised,
         'grid-event-content-limited': horizontal.contentLimited,
+        'event-interactive': activation !== undefined,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -862,6 +871,12 @@ function renderTimedEvent(
           : {}),
         ...presentation.accentTextProperties,
       })}
+      role=${activation ? 'button' : nothing}
+      tabindex=${activation ? '0' : nothing}
+      @click=${activation?.onClick ?? nothing}
+      @keydown=${activation?.onKeyDown ?? nothing}
+      @pointerdown=${activation?.onPointer ?? nothing}
+      @pointerup=${activation?.onPointer ?? nothing}
     >
       <div
         class="grid-event-accessible"
@@ -1006,6 +1021,7 @@ function renderOverflow(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
+ * @param onEventActivate - Makes the banner a tap target when set
  * @returns Rendered banner
  */
 function renderBanner(
@@ -1015,8 +1031,14 @@ function renderBanner(
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
+  onEventActivate?: Activation.EventActivateHandler,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const activation = Activation.eventActivation(
+    event,
+    presentation.entityAccentColor,
+    onEventActivate,
+  );
 
   return html`
     <div
@@ -1026,6 +1048,7 @@ function renderBanner(
         'past-event': presentation.isPastEvent,
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
+        'event-interactive': activation !== undefined,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
@@ -1033,6 +1056,12 @@ function renderBanner(
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
       })}
+      role=${activation ? 'button' : nothing}
+      tabindex=${activation ? '0' : nothing}
+      @click=${activation?.onClick ?? nothing}
+      @keydown=${activation?.onKeyDown ?? nothing}
+      @pointerdown=${activation?.onPointer ?? nothing}
+      @pointerup=${activation?.onPointer ?? nothing}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>
     </div>
@@ -1173,6 +1202,8 @@ function layoutBanners(
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of a day column,
  *   measured by the host off a rendered label; `Infinity` until then, which leaves the strip
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
+ * @param onEventActivate - Makes each timed block and banner a tap target when set; the
+ *   `+N` strip stays inert, since it stands for several events rather than one
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1184,6 +1215,7 @@ export function renderGridGroupedEvents(
   now: Date = new Date(),
   cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
+  onEventActivate?: Activation.EventActivateHandler,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1388,7 +1420,15 @@ export function renderGridGroupedEvents(
                 })}
               >
                 ${banners.map((banner) =>
-                  renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
+                  renderBanner(
+                    banner.event,
+                    banner.placement,
+                    banner.row,
+                    config,
+                    language,
+                    hass,
+                    onEventActivate,
+                  ),
                 )}
               </div>
             `
@@ -1410,6 +1450,7 @@ export function renderGridGroupedEvents(
           now,
           weatherForecasts,
           hass,
+          onEventActivate,
         ),
       )}
       ${separators} ${bandBoundaries}
@@ -1522,6 +1563,7 @@ function renderDayHeader(
  * @param now - Instant to draw the now line at
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
+ * @param onEventActivate - Makes each timed block a tap target when set
  * @returns Rendered column
  */
 function renderDayBody(
@@ -1537,6 +1579,7 @@ function renderDayBody(
   now: Date,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  onEventActivate?: Activation.EventActivateHandler,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday } = Leaves.classifyDay(day.timestamp);
@@ -1653,6 +1696,7 @@ function renderDayBody(
                   language,
                   weatherForecasts,
                   hass,
+                  onEventActivate,
                 )
               : nothing;
           },

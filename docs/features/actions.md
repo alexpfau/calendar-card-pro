@@ -1,6 +1,6 @@
 # Actions & Interactions
 
-Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — and show a button for adding new events.
+Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — show a button for adding new events, and let a tap on an event open its details.
 
 ## 🔄 Expandable Calendar Card
 
@@ -153,3 +153,29 @@ The button does not trigger the card's `tap_action` or `hold_action`, so it can 
 :::
 
 Actions are set via the card's `tap_action` and `hold_action` options, and the button via `show_add_event`, `add_event_style` and `add_event_size` — see [Actions in the configuration reference](/reference/configuration#actions).
+
+## 🗒️ Event Details
+
+Turn on `show_event_details` and every event becomes something you can tap. It opens Home Assistant's own event dialog — the one the Calendar panel shows — with the full description, the location and, for a repeating event, how it repeats:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.holidays
+show_event_details: true
+```
+
+It works in all three layouts: a list row, a column event, and a grid block or all-day banner. Keyboard users reach each event with Tab and open it with Enter or Space. A grid `+N` block stands for several events, so it opens nothing; [raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap them one by one.
+
+The dialog offers **Edit** and **Delete** exactly where Home Assistant's Calendar panel would: only for calendars whose integration supports changing events, such as a Local Calendar, and only for events that carry the identifier Home Assistant needs to address them. A subscribed holiday feed shows the details and nothing else. After an edit or a delete the card fetches its events again, so the change appears straight away.
+
+::: tip A Tap on an Event Is Not a Tap on the Card
+With the option on, tapping an event opens its details and does **not** run the card's `tap_action` or `hold_action`. Those still run for taps anywhere else on the card, such as the title or a day's date. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
+:::
+
+::: warning The Dialog Shows the Event as Stored
+The card's display options do not reach the dialog. A title you rewrote with [text replacement](/features/core-settings#text-replacement), a location or description you hid, or a [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appended appears in the dialog the way the calendar stores it. Leave the option off on a card whose replacements exist to keep something private.
+:::
+
+Actions are set via the card's `tap_action` and `hold_action` options, and event taps via `show_event_details` — see [Actions in the configuration reference](/reference/configuration#actions).

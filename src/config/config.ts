@@ -152,6 +152,7 @@ export const DEFAULT_CONFIG: Types.Config = {
 
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
+  show_event_details: false,
 
   show_add_event: false,
   add_event_style: 'below',

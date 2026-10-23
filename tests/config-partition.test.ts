@@ -101,6 +101,12 @@ const CARD_LEVEL_REASONS = {
   action: ['tap_action', 'hold_action'],
 
   /**
+   * What touching the card does, beyond the stored actions above. A tap means the same
+   * thing whichever view drew the event under the finger.
+   */
+  interaction: ['show_event_details'],
+
+  /**
    * The date column's ink. Every view draws a date, and none of them has ever offered to
    * draw it differently, so these are shared by agreement rather than by oversight.
    */

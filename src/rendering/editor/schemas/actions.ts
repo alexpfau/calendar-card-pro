@@ -94,6 +94,7 @@ export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     ...addEventFields(ctx.config, ctx.language),
+    bool('show_event_details'),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
   ];

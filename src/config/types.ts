@@ -142,6 +142,7 @@ export interface Config {
   // Actions
   tap_action: ActionConfig;
   hold_action: ActionConfig;
+  show_event_details: boolean;
 
   // Add event button
   show_add_event: boolean;
@@ -758,8 +759,22 @@ export interface CalendarEventData {
   summary?: string;
   location?: string;
   description?: string;
+  /** Identity Home Assistant needs to edit or delete the event; absent for many feeds. */
+  uid?: string | null;
+  recurrence_id?: string | null;
+  rrule?: string | null;
   _entityId?: string;
   _entityLabel?: string;
+  /**
+   * The event as Home Assistant returned it, stamped before any splitting or text
+   * replacement and carried through to the rendered row.
+   *
+   * The event-detail dialog is built from this rather than from the row, because the row's
+   * title, location and description are display text: replaced, age-counted or blanked.
+   * Handing those to Home Assistant's dialog would show them as the event's real fields,
+   * and its Edit form would write them back into the calendar.
+   */
+  _source?: SourceEvent;
   _isEmptyDay?: boolean;
   /** Empty-day placeholder uses custom text; suppresses the checkmark prefix only. */
   _isCustomEmptyText?: boolean;
@@ -827,6 +842,12 @@ export interface CalendarEventData {
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
 }
+
+/** The untouched fields of a fetched event that Home Assistant's event dialogs read. */
+export type SourceEvent = Pick<
+  CalendarEventData,
+  'start' | 'end' | 'summary' | 'location' | 'description' | 'uid' | 'recurrence_id' | 'rrule'
+>;
 
 /**
  * One calendar that contributed a copy of a merged duplicate.
