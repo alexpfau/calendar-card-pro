@@ -18,9 +18,27 @@ export const VERSION = {
 export const CACHE = {
   DEFAULT_DATA_REFRESH_MINUTES: 30,
 
-  MANUAL_RELOAD_CACHE_DURATION_SECONDS: 5, // 5 seconds
+  /**
+   * With `refresh_on_navigate` on, a card that appears refetches in the background — but
+   * not when its data is younger than this. Reloading the page twice in a row, or a
+   * dashboard re-laying its cards out, is not a reason to ask every calendar again.
+   */
+  NAVIGATION_REFETCH_MIN_AGE_SECONDS: 5,
 
   EMPTY_RESULTS_CACHE_DURATION_SECONDS: 15, // 15 seconds
+
+  /**
+   * Oldest cached data the card will still draw while it fetches, and the longest a
+   * calendar that keeps failing goes on showing its last loaded events.
+   */
+  MAX_STALE_HOURS: 24,
+
+  /**
+   * First retry after a calendar failed to load. Each further failure doubles it, up to
+   * `refresh_interval`, so a blip recovers in a minute and a calendar that stays broken
+   * settles at the normal cadence.
+   */
+  RETRY_INITIAL_SECONDS: 60,
 
   EVENT_CACHE_KEY_PREFIX: 'cache_data_',
 };
@@ -44,6 +62,18 @@ export const TIMING = {
   HOLD_INDICATOR_FADEOUT: 300,
 
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
+
+  /**
+   * How long one calendar may take to answer before it counts as failed.
+   *
+   * `hass.callApi` has no timeout of its own, and a request that never settles used to
+   * pin the shared in-flight entry for good: every later refresh joined it, so the card
+   * silently stopped refreshing until the page was reloaded.
+   */
+  CALENDAR_FETCH_TIMEOUT: 30000,
+
+  /** Shortest delay the refresh timer is armed with, so it can never spin. */
+  REFRESH_MIN_DELAY: 1000,
 
   /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.

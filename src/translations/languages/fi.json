@@ -30,5 +30,6 @@
   "endsTomorrow": "päättyy huomenna",
   "noEvents": "Ei tapahtumia",
   "loading": "Ladataan kalenteritapahtumia...",
-  "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty"
+  "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",
+  "loadFailed": "Lataus epäonnistui:"
 }

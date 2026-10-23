@@ -9,5 +9,6 @@
   "endsTomorrow": "slutter i morgen",
   "noEvents": "Ingen hendelser",
   "loading": "Laster kalenderhendelser...",
-  "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig"
+  "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",
+  "loadFailed": "Kunne ikke lastes:"
 }

@@ -19,6 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
@@ -110,6 +111,11 @@ const REFUSED: ReadonlyArray<readonly [value: unknown]> = [
   {},
   [],
 ].map((value) => [value] as const);
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 describe('toValidSize', () => {
   it.each(FORGIVEN)('reads %o as %o', (input, size) => {

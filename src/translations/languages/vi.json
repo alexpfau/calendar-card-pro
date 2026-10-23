@@ -9,5 +9,6 @@
   "endsTomorrow": "kết thúc ngày mai",
   "noEvents": "Không có sự kiện",
   "loading": "Đang tải sự kiện...",
-  "error": "Lỗi: Không tìm thấy lịch hoặc cấu hình không đúng"
+  "error": "Lỗi: Không tìm thấy lịch hoặc cấu hình không đúng",
+  "loadFailed": "Không tải được:"
 }

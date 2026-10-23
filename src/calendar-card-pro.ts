@@ -21,7 +21,7 @@
  * This package includes lit/LitElement (BSD-3-Clause License)
  */
 
-import { LitElement, PropertyValues, TemplateResult } from 'lit';
+import { LitElement, PropertyValues, TemplateResult, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import * as Config from './config/config';
@@ -258,6 +258,11 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
 //-----------------------------------------------------------------------------
 
 /**
+ * How `updateEvents` uses the cache and the network; its docblock has the table.
+ */
+type LoadMode = 'navigate' | 'cache' | 'reprocess' | 'network' | 'reload';
+
+/**
  * Main Calendar Card Pro custom element.
  */
 @customElement('calendar-card-pro-dev')
@@ -353,6 +358,19 @@ class CalendarCardPro extends LitElement {
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
+  /**
+   * When the events held in `events` were fetched, in epoch milliseconds. Bounds how long
+   * the card keeps drawing them when nothing newer can be loaded.
+   */
+  private _eventsFetchedAt = 0;
+  /**
+   * Set when the card is attached and cleared by the first load that can run. That load
+   * draws whatever is cached before it asks Home Assistant, and honors
+   * `refresh_on_navigate`; every later load is a refresh.
+   */
+  private _appearLoadPending = false;
+  /** Consecutive failed attempts this card has seen, for when no cache can record them. */
+  private _failureCountHint = 0;
   private _weatherUnsubscribers: Array<() => void> = [];
   /**
    * Monotonic ticket for weather forecast setup and callbacks.
@@ -371,9 +389,14 @@ class CalendarCardPro extends LitElement {
    */
   private _titleSubscription?: Templates.TemplateSubscription;
   /**
-   * True when the most recent fetch could not read at least one calendar.
+   * True when the most recent load could not read at least one calendar.
    */
   private _hasFetchError = false;
+  /**
+   * Calendars that failed on the most recent load, named in the notice at the bottom of
+   * the card.
+   */
+  private _failedEntities: string[] = [];
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
     config: Types.Config;
@@ -691,9 +714,11 @@ class CalendarCardPro extends LitElement {
     super.connectedCallback();
     Logger.debug('Component connected');
 
+    // Provisional: the load below re-arms it for the data's own deadline once it lands.
     this.startRefreshTimer();
 
-    this.updateEvents();
+    this._appearLoadPending = true;
+    this.updateEvents('navigate');
 
     this._scheduleWeatherSetup();
 
@@ -866,7 +891,7 @@ class CalendarCardPro extends LitElement {
     if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
       this._nowLineDayKey = dayKey;
       Logger.debug('Local day rolled over while the now-line timer was stopped, refreshing events');
-      this.updateEvents(true);
+      this.updateEvents('network');
       return;
     }
 
@@ -894,7 +919,7 @@ class CalendarCardPro extends LitElement {
     if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
       this._nowLineDayKey = dayKey;
       Logger.debug('Local day rolled over, refreshing events');
-      this.updateEvents(true);
+      this.updateEvents('network');
       return;
     }
 
@@ -1496,11 +1521,16 @@ class CalendarCardPro extends LitElement {
       this._syncOverflowStrip();
     }
 
-    if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
-      this.updateEvents(true);
+    const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
+
+    // Only for a card attached before `hass` existed: its appear load is still waiting.
+    // Home Assistant hands over `hass` before it attaches a card, so normally the load in
+    // `connectedCallback` has already run — and forcing another fetch here, as this arm
+    // once did, threw away the cached events that load had just drawn.
+    if (hassJustAvailable && this._appearLoadPending) {
+      this.updateEvents('navigate');
     }
 
-    const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
     const prevConfig = changedProps.get('config') as Types.Config | undefined;
     const weatherEntityChanged =
       changedProps.has('config') && this.config?.weather?.entity !== prevConfig?.weather?.entity;
@@ -1878,7 +1908,7 @@ class CalendarCardPro extends LitElement {
       const now = Date.now();
       if (now - this._lastUpdateTime > Constants.TIMING.VISIBILITY_REFRESH_THRESHOLD) {
         Logger.debug('Visibility changed to visible, updating events');
-        this.updateEvents();
+        this.updateEvents('cache');
       }
     }
   };
@@ -1926,36 +1956,65 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Start the refresh timer.
+   * Arm the refresh timer one interval from now.
    *
-   * 🚨 Guarded on `isConnected` for the same reason as `_syncNowLineTimer`:
-   * `setConfig` always ends here, and a config edit (or a late `setConfig` after
-   * the card left the DOM) must not re-arm a periodic `updateEvents` loop on a
-   * detached element. `connectedCallback` starts the timer once the card is live.
+   * Provisional: called on connect, before any data has landed. Every load re-arms it
+   * through `_scheduleRefresh` for the deadline of the data it actually committed.
    */
   private startRefreshTimer() {
+    this._scheduleRefresh(Date.now() + this._refreshIntervalMs());
+  }
+
+  /**
+   * Arm the refresh timer for a deadline.
+   *
+   * The deadline comes from the data, never from when the timer happens to be armed.
+   * Arming one interval from "now" — before the fetch it accompanied had written the
+   * cache — is what made every other tick find the cache a few milliseconds too young to
+   * refetch, so the card refreshed at twice its configured interval.
+   *
+   * The tick runs a `cache` load. If another card sharing the calendars refreshed them in
+   * the meantime, that load reuses their data and re-arms from its timestamp; a tick that
+   * fires a little early by the wall clock just re-arms for the remainder.
+   *
+   * 🚨 Guarded on `isConnected` for the same reason as `_syncNowLineTimer`: a load can
+   * finish after the card left the DOM, and must not re-arm a periodic `updateEvents`
+   * loop on a detached element. `connectedCallback` starts the timer once the card is
+   * live again.
+   *
+   * @param at Epoch milliseconds at which to refresh
+   */
+  private _scheduleRefresh(at: number): void {
+    if (this._refreshTimerId) {
+      clearTimeout(this._refreshTimerId);
+      this._refreshTimerId = undefined;
+    }
+
     if (!this.isConnected) {
-      if (this._refreshTimerId) {
-        clearTimeout(this._refreshTimerId);
-        this._refreshTimerId = undefined;
-      }
       return;
     }
 
-    if (this._refreshTimerId) {
-      clearTimeout(this._refreshTimerId);
-    }
-
-    const refreshMinutes =
-      this.config.refresh_interval || Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES;
-    const refreshMs = refreshMinutes * 60 * 1000;
+    // `setTimeout` treats anything beyond 2^31 - 1 ms as zero, which would refresh in a loop.
+    const delay = Math.min(
+      Math.max(at - Date.now(), Constants.TIMING.REFRESH_MIN_DELAY),
+      2 ** 31 - 1,
+    );
 
     this._refreshTimerId = window.setTimeout(() => {
-      this.updateEvents();
-      this.startRefreshTimer();
-    }, refreshMs);
+      this._refreshTimerId = undefined;
+      this.updateEvents('cache');
+    }, delay);
 
-    Logger.debug(`Scheduled next refresh in ${refreshMinutes} minutes`);
+    Logger.debug(`Scheduled next refresh in ${Math.round(delay / 1000)}s`);
+  }
+
+  /**
+   * The configured refresh interval in milliseconds.
+   *
+   * @returns Interval in milliseconds
+   */
+  private _refreshIntervalMs(): number {
+    return EventUtils.getCacheDuration(this.config);
   }
 
   /**
@@ -2357,6 +2416,7 @@ class CalendarCardPro extends LitElement {
    */
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
+    const previousInstanceId = this._instanceId;
 
     for (const message of Config.findDeprecatedKeys(config)) {
       Logger.deprecation(message);
@@ -2425,29 +2485,67 @@ class CalendarCardPro extends LitElement {
       this.config.first_day_of_week,
     );
 
+    if (this._instanceId !== previousInstanceId) {
+      // Failures belong to the query that produced them. Carrying them over would name a
+      // calendar this card no longer shows, or start the new query mid-backoff.
+      this._setFailures([]);
+      this._failureCountHint = 0;
+    }
+
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);
     if (configChanged) {
       Logger.debug('Configuration changed, refreshing data');
-      this.updateEvents(true);
+      // A card configured after it was attached has not had its appear load yet, so it
+      // still gets to draw from the cache first.
+      this.updateEvents(this._appearLoadPending ? 'navigate' : 'network');
     } else if (Config.hasEntityProcessingChanged(previousConfig, this.config)) {
       // A per-calendar edit that left every entity ID alone. The API request is
       // unchanged, but the decoration derived from it — label, color, filters — is
       // stamped onto each event at fetch time and shadows the live config, so the
-      // cached payload has to be run through processing again. `false` keeps this on
-      // the cache-hit path; without it a color tweak in the editor would appear to do
-      // nothing until the next scheduled refresh.
+      // cached payload has to be run through processing again. `reprocess` never goes
+      // to the network for it; without that a color tweak in the editor would either
+      // appear to do nothing or, against a calendar that is failing, cost a fetch per
+      // keystroke.
       Logger.debug('Per-calendar configuration changed, reprocessing cached data');
-      this.updateEvents(false);
+      this.updateEvents('reprocess');
     }
+  }
 
-    this.startRefreshTimer();
+  /**
+   * Fetch fresh events now, ignoring the cache and any request already under way.
+   *
+   * For the moment after the card itself changed a calendar: a request that started
+   * before the change may already be carrying the old answer, so this one never joins it,
+   * and only the newest response may write the cache.
+   *
+   * @returns Resolves once the new events are committed
+   */
+  refreshEvents(): Promise<void> {
+    return this.updateEvents('reload');
   }
 
   /**
    * Update calendar events from API or cache. Simplified for card-mod compatibility.
+   *
+   * | Mode        | Draws the cache                | Asks Home Assistant when                       |
+   * | ----------- | ------------------------------ | ---------------------------------------------- |
+   * | `navigate`  | anything up to 24 h old, first | nothing cached, cache due, or `refresh_on_navigate` and ≥ 5 s old |
+   * | `cache`     | only if not due                | nothing fresh is cached                        |
+   * | `reprocess` | anything up to 24 h old        | nothing is cached at all                       |
+   * | `network`   | no                             | always, joining a matching request under way   |
+   * | `reload`    | no                             | always, never joining an older request         |
+   *
+   * Every mode but `reload` joins a matching request already in flight rather than
+   * stopping at the cache. A later call supersedes an earlier one, so a cache read that
+   * stopped there would discard a fetch another call had just started.
+   *
+   * A boolean is still accepted: `true` is `network`, `false` is `cache`.
+   *
+   * @param mode How to use the cache and the network
    */
-  async updateEvents(force = false): Promise<void> {
-    Logger.debug(`Updating events (force=${force})`);
+  async updateEvents(mode: LoadMode | boolean = 'cache'): Promise<void> {
+    const load: LoadMode = mode === true ? 'network' : mode === false ? 'cache' : mode;
+    Logger.debug(`Updating events (${load})`);
 
     // Detached setConfig still reaches here (and the no-hass branch arms a 1.5s
     // retry). connectedCallback re-runs updateEvents on attach; cache hits still
@@ -2465,25 +2563,78 @@ class CalendarCardPro extends LitElement {
     const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
 
     // A retry is only ever armed because `hass` was missing. Now that it is present the
-    // retry has nothing left to do, and it would fire with `force = true` — bypassing the
-    // cache — 1.5 seconds after the card has already rendered.
+    // retry has nothing left to do, and it would fire 1.5 seconds after the card has
+    // already rendered.
     if (this.safeHass && this._initialLoadRetryId) {
       clearTimeout(this._initialLoadRetryId);
       this._initialLoadRetryId = undefined;
     }
 
-    if (!this.safeHass || !this.config.entities.length) {
+    const hass = this.safeHass;
+    if (!hass || !this.config.entities.length) {
       this.isLoading = false;
-      if (!this.safeHass) {
+      if (!hass) {
         if (this._initialLoadRetryId) {
           clearTimeout(this._initialLoadRetryId);
         }
         this._initialLoadRetryId = window.setTimeout(() => {
-          this.updateEvents(true);
+          this.updateEvents(load);
         }, 1500);
       } else {
+        // Nothing to load, and so nothing failing either.
+        this._setFailures([]);
         this.isInitialLoad = false;
       }
+      return;
+    }
+
+    const isAppearLoad = load === 'navigate';
+    this._appearLoadPending = false;
+
+    const config = this.config;
+    const instanceId = this._instanceId;
+    const usesCache = load !== 'network' && load !== 'reload';
+
+    // Read synchronously, before any await, so a card attached with data on disk draws
+    // it on its very first render.
+    let snapshot: Types.EventSnapshot | null = null;
+    if (usesCache) {
+      try {
+        snapshot = EventUtils.readEventSnapshot(hass, config, instanceId);
+      } catch (error) {
+        Logger.warn('Could not read cached events:', error);
+      }
+    }
+
+    const draws =
+      snapshot !== null && (load === 'navigate' || load === 'reprocess' || !snapshot.due);
+
+    if (draws && snapshot) {
+      Logger.info(`Drawing ${snapshot.events.length} cached events`);
+      this._commitEvents(snapshot, instanceId);
+    } else if (isAppearLoad && this.events.length > 0 && !this._residentEventsDrawable()) {
+      // The element itself still holds events from before it was detached. With nothing
+      // cached to replace them, they would be drawn under a config they were not fetched
+      // for, or beyond the 24-hour bound, until the fetch lands.
+      this.events = [];
+      this._eventsInstanceId = '';
+      this._setFailures([]);
+      this.isInitialLoad = true;
+    }
+
+    const ageMs = snapshot ? Date.now() - snapshot.fetchedAt : Infinity;
+    const needsNetwork =
+      !snapshot ||
+      snapshot.inFlight ||
+      (load !== 'reprocess' && snapshot.due) ||
+      (isAppearLoad &&
+        config.refresh_on_navigate === true &&
+        snapshot.failedEntities.length === 0 &&
+        ageMs >= Constants.CACHE.NAVIGATION_REFETCH_MIN_AGE_SECONDS * 1000);
+
+    if (!needsNetwork && snapshot) {
+      this.isLoading = false;
+      this._scheduleRefresh(snapshot.nextAttemptAt);
       return;
     }
 
@@ -2491,11 +2642,17 @@ class CalendarCardPro extends LitElement {
       this.isLoading = true;
       await this.updateComplete;
 
-      const { events: eventData, failedEntities } = await EventUtils.fetchEventData(
-        this.safeHass,
-        this.config,
-        this._instanceId,
-        force,
+      if (isSuperseded()) {
+        Logger.debug('Discarding a superseded event request');
+        return;
+      }
+
+      const result = await EventUtils.fetchEventData(
+        hass,
+        config,
+        instanceId,
+        load === 'reload' ? 'reload' : 'network',
+        this._failureCountHint,
       );
 
       if (isSuperseded()) {
@@ -2503,36 +2660,35 @@ class CalendarCardPro extends LitElement {
         return;
       }
 
-      this._hasFetchError = failedEntities.length > 0;
-      if (this._hasFetchError) {
+      const failedEntities = result.failedEntities ?? [];
+      if (failedEntities.length > 0) {
         Logger.warn(`Could not load calendar(s): ${failedEntities.join(', ')}`);
       }
+      this._failureCountHint = failedEntities.length > 0 ? this._failureCountHint + 1 : 0;
 
-      this.isLoading = false;
-      this.isInitialLoad = false;
-      await this.updateComplete;
-
-      if (isSuperseded()) {
-        Logger.debug('Discarding a superseded event response');
-        return;
-      }
-
-      const eventsMatchCurrentQuery = this._eventsInstanceId === this._instanceId;
+      const eventsMatchCurrentQuery = this._eventsInstanceId === instanceId;
+      const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+      // The cache normally carries a failing calendar's last events forward itself. This
+      // covers the case where it cannot — storage unavailable — within the same bound.
       const keepPreviousEvents =
-        this._hasFetchError &&
-        eventData.length === 0 &&
+        failedEntities.length > 0 &&
+        result.events.length === 0 &&
         this.events.length > 0 &&
-        eventsMatchCurrentQuery;
+        eventsMatchCurrentQuery &&
+        Date.now() - this._eventsFetchedAt < maxStaleMs;
 
       if (keepPreviousEvents) {
         Logger.warn('Refresh failed and returned nothing — keeping previously loaded events');
+        this._setFailures(failedEntities);
+        this.isInitialLoad = false;
       } else {
-        this.events = [...eventData];
-        this._eventsInstanceId = this._instanceId;
+        this._commitEvents(result, instanceId);
       }
 
-      if (!this._hasFetchError) {
-        this._lastUpdateTime = Date.now();
+      this.isLoading = false;
+      this._scheduleRefresh(result.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
+
+      if (failedEntities.length === 0) {
         Logger.info('Event update completed successfully');
       }
     } catch (error) {
@@ -2541,10 +2697,80 @@ class CalendarCardPro extends LitElement {
         return;
       }
       Logger.error('Failed to update events:', error);
-      this._hasFetchError = true;
+      this._failureCountHint += 1;
+      this._setFailures(
+        Array.from(
+          new Set(
+            config.entities.map((entity) => (typeof entity === 'string' ? entity : entity.entity)),
+          ),
+        ),
+      );
       this.isLoading = false;
       this.isInitialLoad = false;
+      this._scheduleRefresh(
+        Date.now() +
+          Math.min(
+            Constants.CACHE.RETRY_INITIAL_SECONDS *
+              1000 *
+              2 ** Math.min(this._failureCountHint - 1, 20),
+            this._refreshIntervalMs(),
+          ),
+      );
     }
+  }
+
+  /**
+   * Put a loaded set of events on the card.
+   *
+   * @param result Events and what is known about them
+   * @param instanceId Query identity the events were loaded for
+   */
+  private _commitEvents(result: Types.EventFetchResult, instanceId: string): void {
+    const failedEntities = result.failedEntities ?? [];
+
+    this.events = [...(result.events ?? [])];
+    this._eventsInstanceId = instanceId;
+    this._eventsFetchedAt = result.fetchedAt ?? Date.now();
+    this._setFailures(failedEntities);
+    this.isInitialLoad = false;
+
+    if (failedEntities.length === 0) {
+      this._lastUpdateTime = Date.now();
+    }
+  }
+
+  /**
+   * Record which calendars failed, and whether anything failed at all.
+   *
+   * @param failedEntities Calendar entity ids that could not be loaded
+   */
+  private _setFailures(failedEntities: string[]): void {
+    const changed =
+      failedEntities.length !== this._failedEntities.length ||
+      failedEntities.some((id, i) => id !== this._failedEntities[i]);
+
+    this._failedEntities = [...failedEntities];
+    this._hasFetchError = failedEntities.length > 0;
+
+    if (changed) {
+      this.requestUpdate();
+    }
+  }
+
+  /**
+   * Whether the events the element already holds may still be drawn for the current
+   * config.
+   *
+   * @returns True when they belong to the current query and are within the 24-hour bound
+   */
+  private _residentEventsDrawable(): boolean {
+    // Events nothing on this card loaded carry no query to compare, so they are left alone.
+    if (this._eventsInstanceId === '') return true;
+
+    const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+    return (
+      this._eventsInstanceId === this._instanceId && Date.now() - this._eventsFetchedAt < maxStaleMs
+    );
   }
 
   /**
@@ -2648,7 +2874,9 @@ class CalendarCardPro extends LitElement {
     } else if (!this.safeHass || !this.config.entities.length) {
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0 && this._hasFetchError) {
-      content = Render.renderCardContent('error', this.effectiveLanguage);
+      // Nothing loaded and nothing kept: the notice below names what failed, and an empty
+      // calendar here would claim there was nothing to show.
+      content = html``;
     } else {
       // No separate empty-events branch: `groupedEvents` groups `this.events`, which is
       // already the empty array in that case, with exactly the arguments a dedicated
@@ -2668,7 +2896,32 @@ class CalendarCardPro extends LitElement {
       this.effectiveView,
       this._hasTapAction,
       this._hasHoldAction,
+      this._renderFetchErrorNotice(),
     );
+  }
+
+  /**
+   * The notice naming calendars that could not be loaded, or nothing.
+   *
+   * Names come from Home Assistant's friendly names; an entity that does not exist — the
+   * usual cause of a calendar that never loads — has none, and is named by its id, which
+   * is exactly what someone fixing the config needs to see.
+   *
+   * @returns The notice, or `nothing`
+   */
+  private _renderFetchErrorNotice(): TemplateResult | typeof nothing {
+    if (this.isInitialLoad || this._failedEntities.length === 0) {
+      return nothing;
+    }
+
+    const names = this._failedEntities.map((entityId) => {
+      const friendlyName = this.hass?.states?.[entityId]?.attributes?.friendly_name;
+      return typeof friendlyName === 'string' && friendlyName.trim() !== ''
+        ? friendlyName
+        : entityId;
+    });
+
+    return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
   }
 }
 

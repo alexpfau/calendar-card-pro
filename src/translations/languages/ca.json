@@ -17,5 +17,6 @@
   "endsTomorrow": "acaba damà",
   "noEvents": "Cap esdeveniment",
   "loading": "Carregant esdeveniments...",
-  "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada"
+  "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada",
+  "loadFailed": "No s'ha pogut carregar:"
 }

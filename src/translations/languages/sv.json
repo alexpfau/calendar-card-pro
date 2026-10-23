@@ -9,5 +9,6 @@
   "endsTomorrow": "slutar imorgon",
   "noEvents": "Inga händelser",
   "loading": "Laddar kalenderhändelser...",
-  "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad."
+  "error": "Fel: Kalenderentiteten hittades inte eller är felaktigt konfigurerad.",
+  "loadFailed": "Kunde inte läsas in:"
 }

@@ -24,35 +24,70 @@ import * as Localize from '../translations/localize';
 //-----------------------------------------------------------------------------
 
 /**
- * Raw fetches that have been started but not yet settled, keyed by cache key.
+ * How a caller wants the network used.
  *
- * Three independent paths start the first load — `setConfig()`, `connectedCallback()`
- * and the `updated()` arm that fires when `hass` arrives — and Home Assistant assigns
- * both the config and `hass` before it appends the card, so all three run before any
- * of them has written the cache. Without this map one configured calendar produced
- * three round-trips. The editor's two live previews are the same shape: they share a
- * cache key by design, but a shared key only helps once an entry exists.
+ * - `cache` — serve a fresh cache entry; otherwise fetch, joining a matching request
+ *   already in flight.
+ * - `network` — skip the cache and fetch, still joining a matching request in flight.
+ * - `reload` — skip the cache and start a new request even if one is in flight. Meant for
+ *   the moment after the card itself changed a calendar, when a request that started
+ *   earlier may already be carrying the old answer.
+ */
+export type EventLoad = 'cache' | 'network' | 'reload';
+
+/** One raw request that has started but not yet settled. */
+interface InFlightRequest {
+  promise: Promise<Types.EventFetchResult>;
+}
+
+/**
+ * Raw fetches that have been started but not yet settled, keyed by request signature:
+ * the cache key plus the resolved window.
+ *
+ * Several paths can start a load at once — a card appearing, a second card sharing its
+ * calendars, the editor's two live previews, which share a cache key by design — and
+ * none of them can see the others' requests until one has written the cache. Without
+ * this map each paid its own round-trip.
+ *
+ * The window is part of the key because the cache key is not: `today` resolves to a new
+ * date at midnight while the key stays the same, and a request for the new day must not
+ * join one still carrying yesterday's.
  *
  * Only the raw payload is shared. Each caller still processes it against its own live
  * config, so joining a request never leaks another caller's display options.
  */
-const inFlightRawFetches = new Map<string, Promise<Types.EventFetchResult>>();
+const inFlightRawFetches = new Map<string, InFlightRequest>();
 
 /**
- * Fetch calendar event data with caching support
+ * Sequence number of the newest request started for each cache key.
+ *
+ * Two requests for one key can overlap once a `reload` refuses to join an older one, and
+ * whichever settles last would otherwise win the cache. Only the newest may write it.
+ */
+const latestRequestSeq = new Map<string, number>();
+let requestSeq = 0;
+
+/** Everything that identifies one request for the current config. */
+interface ResolvedRequest {
+  cacheKey: string;
+  firstDayOfWeek: number;
+  window: { start: Date; end: Date };
+  signature: string;
+}
+
+/**
+ * Resolve the cache key, first weekday and window a config asks for right now.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
  * @param instanceId Component instance ID for caching
- * @param force Whether to force API refresh
- * @returns Promise resolving to calendar event data array
+ * @returns The request identity
  */
-export async function fetchEventData(
+function resolveRequest(
   hass: Types.Hass,
   config: Types.Config,
   instanceId: string,
-  force = false,
-): Promise<Types.EventFetchResult> {
+): ResolvedRequest {
   // Resolved before the key is built, not after. `first_day_of_week: 'system'` is a
   // single config string that resolves to a different weekday per user profile, so
   // keying on the raw value gave a Sunday-start and a Monday-start week one shared
@@ -67,77 +102,340 @@ export async function fetchEventData(
     firstDayOfWeek,
   );
 
-  const isManualPageReload = isManualPageLoad();
-  if (!force) {
-    const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
-    if (cachedEvents) {
-      Logger.info(`Using ${cachedEvents.length} events from cache`);
+  const window = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
+
+  return {
+    cacheKey,
+    firstDayOfWeek,
+    window,
+    signature: `${cacheKey}|${window.start.toISOString()}|${window.end.toISOString()}`,
+  };
+}
+
+/**
+ * Read the cached events for a config, processed and ready to draw, without touching the
+ * network.
+ *
+ * Synchronous on purpose: a card that has data on disk can draw it on its very first
+ * render instead of flashing its loading state for one frame.
+ *
+ * Returns data up to `MAX_STALE_HOURS` old. Whether it is current enough to stop there is
+ * a separate question, answered by `due`.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @returns The snapshot, or null when nothing paintable is cached
+ */
+export function readEventSnapshot(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+): Types.EventSnapshot | null {
+  const request = resolveRequest(hass, config, instanceId);
+  const entry = readCacheEntry(request.cacheKey);
+  if (!entry) return null;
+
+  const now = Date.now();
+  const paintable = paintableEvents(entry, now);
+
+  return {
+    events: processRawEvents(paintable, config, request.firstDayOfWeek),
+    failedEntities: [...(entry.failedEntities ?? [])],
+    fetchedAt: entry.timestamp,
+    nextAttemptAt: nextAttemptAt(entry, config),
+    due: isEntryDue(entry, config, request.window, now),
+    inFlight: inFlightRawFetches.has(request.signature),
+  };
+}
+
+/**
+ * Fetch calendar event data with caching support
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @param load How to use the cache and requests already in flight
+ * @param failureCountHint Consecutive failures the caller has seen for this query, used
+ *   when no cache entry records them (storage unavailable)
+ * @returns Promise resolving to calendar event data array
+ */
+export async function fetchEventData(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+  load: EventLoad = 'cache',
+  failureCountHint = 0,
+): Promise<Types.EventFetchResult> {
+  const request = resolveRequest(hass, config, instanceId);
+
+  if (load === 'cache') {
+    const entry = readCacheEntry(request.cacheKey);
+    const now = Date.now();
+    if (entry && !isEntryDue(entry, config, request.window, now)) {
+      Logger.info(`Using ${entry.events.length} events from cache`);
       return {
-        events: processRawEvents(cachedEvents, config, firstDayOfWeek),
-        failedEntities: [],
+        events: processRawEvents(paintableEvents(entry, now), config, request.firstDayOfWeek),
+        failedEntities: [...(entry.failedEntities ?? [])],
+        fetchedAt: entry.timestamp,
+        nextAttemptAt: nextAttemptAt(entry, config),
       };
     }
   }
 
-  let rawFetch = inFlightRawFetches.get(cacheKey);
+  let rawFetch = load === 'reload' ? undefined : inFlightRawFetches.get(request.signature);
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    rawFetch = fetchRawEvents(hass, config, cacheKey, firstDayOfWeek);
-    inFlightRawFetches.set(cacheKey, rawFetch);
+    rawFetch = startRawFetch(hass, config, request, failureCountHint);
   }
 
-  const { events: fetchedEvents, failedEntities } = await rawFetch;
+  const result = await rawFetch.promise;
 
-  return { events: processRawEvents(fetchedEvents, config, firstDayOfWeek), failedEntities };
+  return {
+    ...result,
+    events: processRawEvents(result.events, config, request.firstDayOfWeek),
+  };
+}
+
+/**
+ * Register and start one raw request.
+ *
+ * The map entry is the request's own object, so `finally` removes it only while it is
+ * still the registered one: a `reload` that replaced it must not be unregistered by the
+ * request it replaced settling first.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param request Resolved request identity
+ * @param failureCountHint Consecutive failures the caller has seen for this query
+ * @returns The registered request
+ */
+function startRawFetch(
+  hass: Types.Hass,
+  config: Types.Config,
+  request: ResolvedRequest,
+  failureCountHint: number,
+): InFlightRequest {
+  const seq = ++requestSeq;
+  latestRequestSeq.set(request.cacheKey, seq);
+
+  const inFlight = {} as InFlightRequest;
+  inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint).finally(() => {
+    if (inFlightRawFetches.get(request.signature) === inFlight) {
+      inFlightRawFetches.delete(request.signature);
+    }
+  });
+  inFlightRawFetches.set(request.signature, inFlight);
+
+  return inFlight;
 }
 
 /**
  * Perform one API round-trip and cache its raw payload.
  *
- * Returns the events exactly as the API supplied them; callers apply their own config.
- * The in-flight entry is cleared in `finally` so a failure cannot pin a stale promise
- * and block every later attempt at the same window.
+ * Returns the events exactly as the API supplied them, plus the kept events of any
+ * calendar that failed; callers apply their own config.
+ *
+ * Success is judged per calendar, never by event count: a calendar that answered with no
+ * events succeeded, and one that failed beside it makes this a partial failure even though
+ * nothing at all came back.
+ *
+ * Any failure is written to the cache, a total one included. Leaving the previous entry in
+ * place would let every other card sharing the key read it as healthy and stay silent.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
- * @param cacheKey Key under which to cache the raw payload
- * @param firstDayOfWeek Resolved first day of the week, used to build the time window
+ * @param request Resolved request identity
+ * @param seq This request's sequence number
+ * @param failureCountHint Consecutive failures the caller has seen for this query
  * @returns Promise resolving to the raw events and any entities that failed
  */
 async function fetchRawEvents(
   hass: Types.Hass,
   config: Types.Config,
-  cacheKey: string,
-  firstDayOfWeek: number,
+  request: ResolvedRequest,
+  seq: number,
+  failureCountHint: number,
 ): Promise<Types.EventFetchResult> {
-  try {
-    Logger.info('Fetching events from API');
-    const entities = config.entities.map((e) =>
-      typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-    );
+  Logger.info('Fetching events from API');
+  const entities = config.entities.map((e) =>
+    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+  );
 
-    const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
-    const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
+  const { events: fetchedEvents, failedEntities } = await fetchEvents(
+    hass,
+    entities,
+    request.window,
+  );
 
-    if (fetchedEvents.length > 0) {
-      cacheEvents(cacheKey, fetchedEvents);
-    } else if (failedEntities.length > 0) {
-      Logger.warn(
-        `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
-      );
-    } else {
-      const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
-      Logger.info(
-        `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
-      );
-      cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+  const now = Date.now();
+  const previous = readCacheEntry(request.cacheKey);
+  const failed = new Set(failedEntities);
+  const entityIds = uniqueEntityIds(config.entities);
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+
+  const lastSuccess: Record<string, number> = {};
+  const events = [...fetchedEvents];
+
+  for (const entityId of entityIds) {
+    if (!failed.has(entityId)) {
+      lastSuccess[entityId] = now;
+      continue;
     }
 
-    return { events: fetchedEvents, failedEntities };
-  } finally {
-    inFlightRawFetches.delete(cacheKey);
+    const lastLoaded = previous ? lastSuccessOf(previous, entityId) : undefined;
+    if (lastLoaded === undefined || now - lastLoaded >= maxStaleMs) continue;
+
+    lastSuccess[entityId] = lastLoaded;
+    events.push(...previous!.events.filter((event) => event._entityId === entityId));
   }
+
+  const entry: Types.CacheEntry = {
+    events,
+    timestamp: now,
+    window: { start: request.window.start.toISOString(), end: request.window.end.toISOString() },
+    lastSuccess,
+  };
+
+  if (failed.size > 0) {
+    const previousCount = previous?.failedEntities?.length ? (previous.failureCount ?? 1) : 0;
+    const failureCount = Math.max(previousCount, failureCountHint) + 1;
+    entry.failedEntities = entityIds.filter((id) => failed.has(id));
+    entry.failureCount = failureCount;
+    entry.retryAt = now + retryDelayMs(failureCount, config);
+
+    const kept = events.length - fetchedEvents.length;
+    Logger.warn(
+      `${failed.size} of ${entityIds.length} calendar(s) failed to load (attempt ${failureCount}); ` +
+        `keeping ${kept} previously loaded event(s), retrying in ${Math.round((entry.retryAt - now) / 1000)}s`,
+    );
+  } else if (events.length === 0) {
+    entry.ttlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+    Logger.info(
+      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+    );
+  }
+
+  if (latestRequestSeq.get(request.cacheKey) === seq) {
+    writeCacheEntry(request.cacheKey, entry);
+  } else {
+    Logger.info('A newer request for the same calendars has started; not caching this response');
+  }
+
+  return {
+    events,
+    failedEntities: entry.failedEntities ?? [],
+    fetchedAt: now,
+    nextAttemptAt: nextAttemptAt(entry, config),
+  };
+}
+
+/**
+ * Configured calendar ids, each once, in the order they first appear.
+ *
+ * @param entities Configured calendars
+ * @returns Unique entity ids
+ */
+function uniqueEntityIds(entities: Array<string | Types.EntityConfig>): string[] {
+  return [...new Set(entities.map((e) => (typeof e === 'string' ? e : e.entity)))];
+}
+
+/**
+ * When a calendar last loaded successfully, according to a cache entry.
+ *
+ * @param entry Cache entry
+ * @param entityId Calendar entity id
+ * @returns Epoch milliseconds, or undefined when the entry never held it
+ */
+function lastSuccessOf(entry: Types.CacheEntry, entityId: string): number | undefined {
+  const recorded = entry.lastSuccess?.[entityId];
+  if (typeof recorded === 'number') return recorded;
+  if (entry.lastSuccess) return undefined;
+  // Written without per-calendar bookkeeping: everything in it loaded at `timestamp`.
+  return entry.failedEntities?.includes(entityId) ? undefined : entry.timestamp;
+}
+
+/**
+ * Delay before the next attempt after `failureCount` consecutive failed attempts.
+ *
+ * @param failureCount Consecutive failed attempts, 1 for the first
+ * @param config Card configuration, for the refresh interval that caps the delay
+ * @returns Delay in milliseconds
+ */
+function retryDelayMs(failureCount: number, config: Types.Config): number {
+  const initial = Constants.CACHE.RETRY_INITIAL_SECONDS * 1000;
+  const exponent = Math.min(Math.max(failureCount - 1, 0), 20);
+  return Math.min(initial * 2 ** exponent, getCacheDuration(config));
+}
+
+/**
+ * When the card should next ask Home Assistant for the payload in an entry.
+ *
+ * A healthy entry is due one refresh interval after it was written. Its own shorter TTL
+ * (an empty result) is deliberately ignored here: that TTL decides whether a card that
+ * appears refetches, but polling an empty calendar every 15 seconds would cost far more
+ * than it could ever catch.
+ *
+ * @param entry Cache entry
+ * @param config Card configuration
+ * @returns Epoch milliseconds
+ */
+function nextAttemptAt(entry: Types.CacheEntry, config: Types.Config): number {
+  if (entry.failedEntities?.length && typeof entry.retryAt === 'number') {
+    return entry.retryAt;
+  }
+  return entry.timestamp + getCacheDuration(config);
+}
+
+/**
+ * Whether a cache entry is worth a network attempt now.
+ *
+ * @param entry Cache entry
+ * @param config Card configuration
+ * @param window Window the config asks for now
+ * @param now Current time in epoch milliseconds
+ * @returns True when the entry should be refetched
+ */
+function isEntryDue(
+  entry: Types.CacheEntry,
+  config: Types.Config | undefined,
+  window: { start: Date; end: Date } | undefined,
+  now: number,
+): boolean {
+  if (
+    window &&
+    entry.window &&
+    (entry.window.start !== window.start.toISOString() ||
+      entry.window.end !== window.end.toISOString())
+  ) {
+    return true;
+  }
+
+  if (entry.failedEntities?.length) {
+    return typeof entry.retryAt !== 'number' || now >= entry.retryAt;
+  }
+
+  const ttl =
+    typeof entry.ttlMs === 'number' && entry.ttlMs > 0 ? entry.ttlMs : getCacheDuration(config);
+  return now - entry.timestamp >= ttl;
+}
+
+/**
+ * The events of an entry that may still be drawn: those of calendars that loaded
+ * successfully within `MAX_STALE_HOURS`.
+ *
+ * @param entry Cache entry
+ * @param now Current time in epoch milliseconds
+ * @returns Raw events
+ */
+function paintableEvents(entry: Types.CacheEntry, now: number): Types.CalendarEventData[] {
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+  return entry.events.filter((event) => {
+    if (!event._entityId) return true;
+    const loadedAt = lastSuccessOf(entry, event._entityId) ?? entry.timestamp;
+    return now - loadedAt < maxStaleMs;
+  });
 }
 
 function processRawEvents(
@@ -1821,58 +2119,87 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 
 /**
  * Fetch calendar events from Home Assistant API
+ *
+ * All calendars are requested at once, so a load takes as long as the slowest calendar
+ * rather than the sum of all of them, and one slow calendar no longer holds back the
+ * request of every calendar listed after it. Results are still assembled in config order,
+ * so nothing downstream sees a difference.
+ *
+ * Each request is bounded by `CALENDAR_FETCH_TIMEOUT`. A calendar that does not answer in
+ * time counts as failed; its late response, if one ever arrives, is ignored.
+ *
+ * @param hass Home Assistant instance
+ * @param entities Configured calendars; a calendar listed more than once is fetched once
+ * @param timeWindow Window to request
+ * @returns The events of every calendar that answered, and the ids of those that did not
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
-): Promise<Types.EventFetchResult> {
+): Promise<Pick<Types.EventFetchResult, 'events' | 'failedEntities'>> {
+  const entityIds = uniqueEntityIds(entities);
+  const query = `start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
+
+  const outcomes = await Promise.all(
+    entityIds.map(async (entityId) => {
+      const path = `calendars/${entityId}?${query}`;
+      Logger.info(`Fetching calendar events with path: ${path}`);
+
+      try {
+        const events = await withTimeout(
+          hass.callApi('GET', path),
+          Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+          `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
+        );
+
+        if (!events || !Array.isArray(events)) {
+          Logger.warn(`Invalid response for ${entityId}`);
+          return { entityId, events: null };
+        }
+
+        return {
+          entityId,
+          events: (events as Types.CalendarEventData[]).map((event) => ({
+            ...event,
+            _entityId: entityId,
+          })),
+        };
+      } catch (error) {
+        Logger.error(`Failed to fetch events for ${entityId}:`, error);
+        return { entityId, events: null };
+      }
+    }),
+  );
+
   const allEvents: Types.CalendarEventData[] = [];
   const failedEntities: string[] = [];
 
-  const fetchedEntityIds = new Set<string>();
-
-  for (const entityConfig of entities) {
-    if (fetchedEntityIds.has(entityConfig.entity)) {
-      continue;
-    }
-
-    try {
-      const path = `calendars/${entityConfig.entity}?start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
-      Logger.info(`Fetching calendar events with path: ${path}`);
-
-      const events = await hass.callApi('GET', path);
-
-      if (!events || !Array.isArray(events)) {
-        Logger.warn(`Invalid response for ${entityConfig.entity}`);
-        failedEntities.push(entityConfig.entity);
-        continue;
-      }
-
-      const processedEvents = (events as Types.CalendarEventData[]).map(
-        (event: Types.CalendarEventData) => ({
-          ...event,
-          _entityId: entityConfig.entity,
-        }),
-      );
-
-      allEvents.push(...processedEvents);
-
-      fetchedEntityIds.add(entityConfig.entity);
-    } catch (error) {
-      Logger.error(`Failed to fetch events for ${entityConfig.entity}:`, error);
-      failedEntities.push(entityConfig.entity);
-
-      try {
-        Logger.info(
-          'Available hass API methods:',
-          Object.keys(hass).filter((k) => typeof hass[k as keyof Types.Hass] === 'function'),
-        );
-      } catch {}
+  for (const outcome of outcomes) {
+    if (outcome.events) {
+      allEvents.push(...outcome.events);
+    } else {
+      failedEntities.push(outcome.entityId);
     }
   }
 
   return { events: allEvents, failedEntities };
+}
+
+/**
+ * Reject a promise that has not settled within `ms`.
+ *
+ * @param promise Promise to bound
+ * @param ms Timeout in milliseconds
+ * @param message Error message on timeout
+ * @returns The promise's own outcome, or a rejection after `ms`
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -1967,44 +2294,23 @@ export function getTimeWindow(
   return { start, end };
 }
 
-/**
- * Determine whether the current page load is a manual reload.
- *
- * @returns True when browser navigation metadata identifies a reload
- */
-export function isManualPageLoad(): boolean {
-  if (window.performance && window.performance.navigation) {
-    return window.performance.navigation.type === 1; // reload
-  }
-
-  if (window.performance && window.performance.getEntriesByType) {
-    const navEntries = window.performance.getEntriesByType('navigation');
-    if (navEntries.length > 0 && 'type' in navEntries[0]) {
-      return (navEntries[0] as { type: string }).type === 'reload';
-    }
-  }
-
-  return false;
-}
-
 //-----------------------------------------------------------------------------
 // CACHE MANAGEMENT FUNCTIONS
 //-----------------------------------------------------------------------------
 
 /**
- * Read cached event data if it is still valid.
+ * Read cached event data if it is still fresh: within its lifetime and with no calendar
+ * failing.
  *
  * @param key Cache key
  * @param config Card configuration
- * @param isManualPageReload Whether this check happens during a manual reload
- * @returns Cached events, or null when absent or expired
+ * @returns Cached events, or null when absent, due for a refetch or unusable
  */
 export function getCachedEvents(
   key: string,
   config?: Types.Config,
-  isManualPageReload: boolean = false,
 ): Types.CalendarEventData[] | null {
-  const cacheEntry = getValidCacheEntry(key, config, isManualPageReload);
+  const cacheEntry = getValidCacheEntry(key, config);
   if (cacheEntry) {
     return [...cacheEntry.events];
   }
@@ -2024,20 +2330,31 @@ export function cacheEvents(
   events: Types.CalendarEventData[],
   ttlMs?: number,
 ): boolean {
+  const cacheEntry: Types.CacheEntry = {
+    events,
+    timestamp: Date.now(),
+  };
+
+  if (typeof ttlMs === 'number' && ttlMs > 0) {
+    cacheEntry.ttlMs = ttlMs;
+  }
+
+  return writeCacheEntry(key, cacheEntry);
+}
+
+/**
+ * Write a complete cache entry to localStorage.
+ *
+ * @param key Cache key
+ * @param entry Entry to store
+ * @returns True when the entry can be read back
+ */
+function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
   try {
-    Logger.info(`Caching ${events.length} events`);
-    const cacheEntry: Types.CacheEntry = {
-      events,
-      timestamp: Date.now(),
-    };
+    Logger.info(`Caching ${entry.events.length} events`);
+    localStorage.setItem(key, JSON.stringify(entry));
 
-    if (typeof ttlMs === 'number' && ttlMs > 0) {
-      cacheEntry.ttlMs = ttlMs;
-    }
-
-    localStorage.setItem(key, JSON.stringify(cacheEntry));
-
-    return getValidCacheEntry(key) !== null;
+    return readCacheEntry(key) !== null;
   } catch (e) {
     Logger.error('Failed to cache calendar events:', e);
     return false;
@@ -2123,18 +2440,16 @@ function isCacheEntryShape(value: unknown): value is Types.CacheEntry {
 }
 
 /**
- * Parse and validate a cache entry.
+ * Parse and validate a cache entry, however old, as long as it may still be drawn.
+ *
+ * An entry past its lifetime is kept, because a card that appears draws it while the
+ * refetch runs. Only an entry older than `MAX_STALE_HOURS`, or one that is malformed, is
+ * removed.
  *
  * @param key Cache key
- * @param config Card configuration
- * @param isManualPageReload Whether this validation happens during a manual reload
- * @returns Valid cache entry, or null when missing, malformed or expired
+ * @returns The entry, or null when missing, malformed or too old to draw
  */
-export function getValidCacheEntry(
-  key: string,
-  config?: Types.Config,
-  isManualPageReload: boolean = false,
-): Types.CacheEntry | null {
+export function readCacheEntry(key: string): Types.CacheEntry | null {
   try {
     const item = localStorage.getItem(key);
     if (!item) return null;
@@ -2154,28 +2469,14 @@ export function getValidCacheEntry(
       return null;
     }
 
-    const cache = parsed;
-    const now = Date.now();
-
-    let cacheDuration;
-
-    if (typeof cache.ttlMs === 'number' && cache.ttlMs > 0) {
-      cacheDuration = cache.ttlMs;
-    } else if (isManualPageReload && config?.refresh_on_navigate) {
-      cacheDuration = Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000;
-    } else {
-      cacheDuration = getCacheDuration(config);
-    }
-
-    const isValid = now - cache.timestamp < cacheDuration;
-
-    if (!isValid) {
+    const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+    if (Date.now() - parsed.timestamp >= maxStaleMs) {
       localStorage.removeItem(key);
-      Logger.info(`Cache expired and removed for ${key}`);
+      Logger.info(`Cache older than ${Constants.CACHE.MAX_STALE_HOURS}h removed for ${key}`);
       return null;
     }
 
-    return cache;
+    return parsed;
   } catch (e) {
     Logger.warn('Cache error:', e);
     try {
@@ -2183,6 +2484,26 @@ export function getValidCacheEntry(
     } catch {}
     return null;
   }
+}
+
+/**
+ * Parse and validate a cache entry that is still fresh: within its lifetime, and with no
+ * calendar failing past its retry deadline.
+ *
+ * @param key Cache key
+ * @param config Card configuration
+ * @returns Valid cache entry, or null when missing, malformed or due for a refetch
+ */
+export function getValidCacheEntry(key: string, config?: Types.Config): Types.CacheEntry | null {
+  const entry = readCacheEntry(key);
+  if (!entry) return null;
+
+  if (isEntryDue(entry, config, undefined, Date.now())) {
+    Logger.info(`Cache due for a refresh for ${key}`);
+    return null;
+  }
+
+  return entry;
 }
 
 /**

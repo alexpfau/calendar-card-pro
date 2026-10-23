@@ -17,5 +17,6 @@
   "endsTomorrow": "endet morgen",
   "noEvents": "Keine Termine",
   "loading": "Kalendereinträge werden geladen...",
-  "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert"
+  "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",
+  "loadFailed": "Laden fehlgeschlagen:"
 }

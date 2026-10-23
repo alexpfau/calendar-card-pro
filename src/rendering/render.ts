@@ -58,6 +58,7 @@ export function renderMainCardStructure(
   effectiveView: Types.EffectiveView = 'list',
   hasTapAction: boolean = false,
   hasHoldAction: boolean = false,
+  notice: TemplateResult | typeof nothing = nothing,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
@@ -114,7 +115,30 @@ export function renderMainCardStructure(
 
       <!-- Content container is always present -->
       <div class="content-container">${content}</div>
+      ${notice}
     </ha-card>
+  `;
+}
+
+/**
+ * Render the line naming the calendars that could not be loaded.
+ *
+ * A label followed by the names rather than a sentence with a slot in it, so it reads
+ * naturally in every language without the card needing an interpolation mechanism. The
+ * label carries its own colon, because the punctuation differs by language.
+ *
+ * @param names Display names of the calendars that failed
+ * @param language Language code for translations
+ * @returns Template result for the notice
+ */
+export function renderFetchErrorNotice(names: string[], language: string): TemplateResult {
+  const translations = Localize.getTranslations(language);
+
+  return html`
+    <div class="fetch-error" role="status">
+      <ha-icon class="fetch-error-icon" icon="mdi:alert-circle-outline"></ha-icon>
+      <span class="fetch-error-text">${translations.loadFailed} ${names.join(', ')}</span>
+    </div>
   `;
 }
 

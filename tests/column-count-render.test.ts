@@ -28,6 +28,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 
 vi.mock('../src/utils/logger', () => ({
@@ -82,6 +83,11 @@ async function renderedDays(view: 'column' | 'grid', columnCount: number): Promi
     Number(column.querySelector('.day')?.textContent?.trim()),
   );
 }
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 describe('rendered day-column count', () => {
   beforeEach(() => {

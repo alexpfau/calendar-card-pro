@@ -42,7 +42,7 @@ async function grouped(
     callApi: async () => [event],
     callService: vi.fn(),
   };
-  const result = await fetchEventData(hass, config, 'duplicate-eligibility', true);
+  const result = await fetchEventData(hass, config, 'duplicate-eligibility', 'network');
   expect(result.failedEntities).toEqual([]);
   return groupEventsByDay(result.events, config, false, 'en', view, hass);
 }
@@ -235,7 +235,7 @@ it.each(['column', 'grid'] as const)(
       callApi: async () => raw,
       callService: vi.fn(),
     };
-    const fetched = await fetchEventData(hass, config, 'distinct-intervals', true);
+    const fetched = await fetchEventData(hass, config, 'distinct-intervals', 'network');
     const days = groupEventsByDay(fetched.events, config, false, 'en', view);
     expect(days.map((day) => day.events.filter((event) => !event._isEmptyDay).length)).toEqual([
       1, 2, 2,

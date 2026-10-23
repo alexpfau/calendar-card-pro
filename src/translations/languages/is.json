@@ -17,5 +17,6 @@
   "endsTomorrow": "lýkur á morgun",
   "noEvents": "Engir viðburðir",
   "loading": "Hleður inn dagatal...",
-  "error": "Villa: Dagatalseining finnst ekki eða er vanstillt"
+  "error": "Villa: Dagatalseining finnst ekki eða er vanstillt",
+  "loadFailed": "Tókst ekki að hlaða inn:"
 }
