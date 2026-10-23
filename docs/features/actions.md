@@ -16,7 +16,7 @@ tap_action:
   action: expand
 ```
 
-When a `compact_events_to_show` limit is set, the card displays that number of events initially, adding a subtle indicator when more events are available. The `expand` action then allows users to toggle between this compact mode and the full set of events.
+When a `compact_events_to_show` limit is set, the card displays that number of events initially. The `expand` action then allows users to toggle between this compact mode and the full set of events. Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show.
 
 ::: warning List View Only
 The whole compact family is inert while the card is rendering as column or grid —
@@ -86,7 +86,7 @@ The commonly used ones:
 | Action Type                       | Description                                       | Additional Parameters                                     |
 | --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | `expand`                          | Toggle between compact and full calendar view     | None                                                      |
-| `more-info`                       | Open the Home Assistant entity dialog             | None                                                      |
+| `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below              |
 | `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
 | `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
 | `perform-action` / `call-service` | Call any Home Assistant action (service)          | `service: domain.service`, `service_data: { key: value }` |
@@ -97,6 +97,17 @@ The commonly used ones:
 
 ::: tip Both Action Names Work
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
+:::
+
+::: info Tap & Hold Act on the Whole Card
+A tap or hold belongs to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
+
+```yaml
+tap_action:
+  action: more-info
+  entity: calendar.family
+```
+
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More

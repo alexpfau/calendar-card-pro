@@ -169,7 +169,7 @@ the card-wide settings for that one calendar:
 | `title_font_size` | string | `--calendar-card-font-size-title` | Card title font size, as a CSS font size such as `20px`, `1.5em`, `150%` or `large`. A negative size, misspelled unit or word that is not a font size is ignored       |
 | `title_color`     | string | `--calendar-card-color-title`     | Card title font color                                                                                                                                                  |
 
-**→ [Dynamic titles with templates](/features/title-templates)** — placeholders such as `{event_count}` and `{next_event}`.
+**→ [Dynamic titles with templates](/features/title-templates)** — today's date, a sensor's state, or anything else a Home Assistant template can render.
 
 ## 📏 Layout & Spacing
 
