@@ -406,6 +406,44 @@ describe('the add-event label follows the width of the card', () => {
   });
 });
 
+describe('the card around the add-event button', () => {
+  function haCard(card: CardUnderTest): Element {
+    return card.shadowRoot!.querySelector('ha-card')!;
+  }
+
+  const TAPPABLE = { tap_action: { action: 'expand' as const } };
+
+  it('is not a button while the add-event button is in it', async () => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...TAPPABLE });
+
+    expect(button(card)).not.toBeNull();
+    expect(haCard(card).hasAttribute('role')).toBe(false);
+    expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+  });
+
+  it.each([
+    ['the button is off', { entities: [WRITABLE] }],
+    ['no calendar accepts events', { entities: [READ_ONLY], show_add_event: true }],
+  ])('stays a button when %s', async (_name, overrides) => {
+    const card = await mount({ ...overrides, ...TAPPABLE });
+
+    expect(button(card)).toBeNull();
+    expect(haCard(card).getAttribute('role')).toBe('button');
+    expect(haCard(card).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('becomes a button again once every writable calendar is failing', async () => {
+    const card = await mount(
+      { entities: [READ_ONLY, WRITABLE], show_add_event: true, ...TAPPABLE },
+      { callApi: vi.fn().mockRejectedValue(new Error('unavailable')) },
+    );
+
+    await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
+    expect(button(card)).toBeNull();
+    expect(haCard(card).getAttribute('role')).toBe('button');
+  });
+});
+
 describe('pressing the add-event button', () => {
   it('opens the dialog for the first writable calendar and refreshes once saved', async () => {
     dialogAlreadyLoaded();

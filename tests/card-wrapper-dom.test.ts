@@ -46,6 +46,7 @@ function wrapper(
     hasTapAction?: boolean;
     hasHoldAction?: boolean;
     toolbar?: Toolbar.HeaderToolbar;
+    hostsControls?: boolean;
   } = {},
 ): Element {
   const host = document.createElement('div');
@@ -62,6 +63,7 @@ function wrapper(
       opts.hasHoldAction ?? false,
       undefined,
       opts.toolbar,
+      opts.hostsControls,
     ),
     host,
   );
@@ -139,6 +141,19 @@ describe('the card wrapper', () => {
     expect(inert.hasAttribute('role')).toBe(false);
     expect(classes(inert)).not.toContain('card-interactive');
     expect(inert.querySelector('ha-ripple')).toBeNull();
+  });
+
+  it('stops being a button while it hosts controls, and stays tappable', () => {
+    // A button may not contain another, so the card gives up the role and the tab stop,
+    // and keeps what a pointer tap still uses.
+    const host = wrapper({ hasTapAction: true, hostsControls: true });
+    expect(host.hasAttribute('tabindex')).toBe(false);
+    expect(host.hasAttribute('role')).toBe(false);
+    expect(classes(host)).toContain('card-interactive');
+    expect(host.querySelector('ha-ripple')).not.toBeNull();
+
+    // The control is the tap case above: the same card without controls is a button.
+    expect(wrapper({ hasTapAction: true }).getAttribute('role')).toBe('button');
   });
 
   it('draws no toolbar, and the header it always drew, when the toolbar holds nothing', () => {

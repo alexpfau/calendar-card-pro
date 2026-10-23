@@ -3179,6 +3179,8 @@ class CalendarCardPro extends LitElement {
       content = renderDays(this.groupedEvents);
     }
 
+    const addEvent = this._addEventButton();
+
     return Render.renderMainCardStructure(
       customStyles,
       this.effectiveTitle,
@@ -3190,8 +3192,22 @@ class CalendarCardPro extends LitElement {
       this._hasTapAction,
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
-      { labeled: this._toolbarLabeled, addEvent: this._addEventButton() },
+      { labeled: this._toolbarLabeled, addEvent },
+      this._hostsControls(addEvent),
     );
+  }
+
+  /**
+   * Whether this render draws interactive children of the card's own, so `ha-card` must not
+   * present itself as a button around them.
+   *
+   * The one place that answers it, so every control that makes the card a host joins here.
+   *
+   * @param addEvent - The add-event button this render draws, if any
+   * @returns True while the card hosts at least one control
+   */
+  private _hostsControls(addEvent: Toolbar.AddEventButton | undefined): boolean {
+    return addEvent !== undefined;
   }
 
   /**

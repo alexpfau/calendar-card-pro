@@ -42,6 +42,7 @@ export { renderGridGroupedEvents } from './grid';
  * @param hasHoldAction Whether the card has a pointer hold action
  * @param notice The fetch-failure notice, drawn after the content
  * @param toolbar The controls for the header toolbar; none draws no toolbar
+ * @param hostsControls Whether the card draws interactive children of its own
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -64,8 +65,13 @@ export function renderMainCardStructure(
   hasHoldAction: boolean = false,
   notice: TemplateResult | typeof nothing = nothing,
   toolbar: Toolbar.HeaderToolbar = {},
+  hostsControls: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
+  // A button may not contain another. While the card hosts controls of its own it stops
+  // presenting itself as one to keyboards and assistive technology; a pointer tap anywhere
+  // else on it still runs its tap action, which is why the ripple and cursor stay.
+  const isCardButton = hasTapAction && !hostsControls;
   const hasTitle = Boolean(title || titlePending);
   const titleBlock = hasTitle
     ? html`<h1 class="card-header">${title}</h1>`
@@ -95,8 +101,8 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex=${hasTapAction ? '0' : nothing}
-      role=${hasTapAction ? 'button' : nothing}
+      tabindex=${isCardButton ? '0' : nothing}
+      role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
       @pointerdown=${handlers.pointerDown}
