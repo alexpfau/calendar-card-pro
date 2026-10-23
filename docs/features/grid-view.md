@@ -650,10 +650,15 @@ next:
   At extreme widths, each day retains a `2rem` floor and the grid scrolls horizontally
   rather than collapsing days to zero width. The axis and day gaps keep their configured sizes.
 
+When the grid sheds columns, the days that stay always include today. They start at today
+and run forward, reaching back to earlier days only when the range ends before the columns
+are full. A `start_of_week` grid two columns wide on a Wednesday shows Wednesday and
+Thursday, not Monday and Tuesday. A range that lies entirely ahead keeps its first days, and
+one that lies entirely behind keeps its last. The columns move on at midnight.
+
 ::: warning Dropped Days Are Not Marked
-When the grid sheds columns, it shows the earliest days in the configured range and drops
-the later ones. The card does not draw a marker saying more days were hidden, so use
-`min_days_fallback: cramp` if seeing the whole range matters more than preserving the
+The card does not draw a marker saying days before or after the visible ones were hidden,
+so use `min_days_fallback: cramp` if seeing the whole range matters more than preserving the
 minimum column width.
 :::
 

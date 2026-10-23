@@ -57,7 +57,7 @@ configured.
 ## 🔢 Showing Fewer Columns Instead
 
 `min_days_to_show` changes that. It is the fewest columns the card may shrink to, and it
-lets a narrow card drop trailing days one at a time instead of abandoning the column layout
+lets a narrow card drop days one at a time instead of abandoning the column layout
 outright:
 
 ```yaml
@@ -72,6 +72,12 @@ column:
 
 That card shows seven columns when there is room, then six, five, four and three as it
 narrows, and only falls back to the list layout once even three columns will not fit.
+
+The columns that stay always include today. They start at today and run forward, reaching
+back to earlier days only when the range ends before the columns are full. So a week that
+starts on Monday, three columns wide on a Wednesday, shows Wednesday to Friday; on a Sunday
+it shows Friday to Sunday. A range that lies entirely ahead keeps its first days, and one
+that lies entirely behind keeps its last. The columns move on at midnight.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
 

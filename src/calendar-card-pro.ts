@@ -573,6 +573,16 @@ class CalendarCardPro extends LitElement {
   private _nowLineRepainting = false;
 
   /**
+   * One-shot timer for the next local midnight, held while the card sheds day columns.
+   *
+   * Which columns survive depends on what today is (`visibleDayWindowStart`), so the window has
+   * to move at midnight. Grid with a now line already refetches then; column view and a grid
+   * without the line had nothing that re-renders at midnight. This only re-renders — fetching
+   * the next day's events at midnight is a separate concern.
+   */
+  private _midnightTimerId: number | null = null;
+
+  /**
    * Pending trailing timer for the last width measurement.
    */
   private _widthSettleTimerId: number | null = null;
@@ -829,6 +839,7 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
 
     this._stopNowLineTimer();
+    this._stopMidnightTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -944,6 +955,46 @@ class CalendarCardPro extends LitElement {
     if (this._nowLineTimerId !== null) {
       clearInterval(this._nowLineTimerId);
       this._nowLineTimerId = null;
+    }
+  }
+
+  /**
+   * Holds a timer for the next local midnight exactly while the card is shedding day columns.
+   *
+   * Reconciled from `updated()`, like the now-line timer, because the column count and the
+   * view both change after connection. The timer re-renders once and this re-arms it for the
+   * following midnight, so a card left open for a week moves its window every night.
+   */
+  private _syncMidnightTimer(): void {
+    const shedding =
+      this.isConnected &&
+      (this.effectiveView === 'grid' || this.effectiveView === 'column') &&
+      this._columnCount > 0 &&
+      this._columnCount < this.effectiveConfig.days_to_show;
+
+    if (!shedding) {
+      this._stopMidnightTimer();
+      return;
+    }
+
+    if (this._midnightTimerId !== null) {
+      return;
+    }
+
+    const now = new Date();
+    // One second past, so the render it causes reads the new day even if the timer fires a
+    // little early. Built from local fields, so a DST night is as long as it really is.
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    this._midnightTimerId = window.setTimeout(() => {
+      this._midnightTimerId = null;
+      this.requestUpdate();
+    }, nextMidnight.getTime() - now.getTime());
+  }
+
+  private _stopMidnightTimer(): void {
+    if (this._midnightTimerId !== null) {
+      clearTimeout(this._midnightTimerId);
+      this._midnightTimerId = null;
     }
   }
 
@@ -1626,6 +1677,7 @@ class CalendarCardPro extends LitElement {
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
+    this._syncMidnightTimer();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
     // draws re-measures neither, and neither does the now line's repaint. A resize reaches
     // the cascade through the width observer.
@@ -2955,12 +3007,19 @@ class CalendarCardPro extends LitElement {
 
     let content: TemplateResult;
 
+    // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
+    const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
+      if (this._columnCount <= 0 || this._columnCount >= days.length) {
+        return days;
+      }
+      const start = ViewConfig.visibleDayWindowStart(days, this._columnCount, new Date());
+      return days.slice(start, start + this._columnCount);
+    };
+
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
         return Render.renderGridGroupedEvents(
-          this._columnCount > 0 && this._columnCount < days.length
-            ? days.slice(0, this._columnCount)
-            : days,
+          visibleDays(days),
           this.effectiveConfig,
           this.effectiveLanguage,
           this.weatherForecasts,
@@ -2973,9 +3032,7 @@ class CalendarCardPro extends LitElement {
 
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
-            this._columnCount > 0 && this._columnCount < days.length
-              ? days.slice(0, this._columnCount)
-              : days,
+            visibleDays(days),
             this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,
