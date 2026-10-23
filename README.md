@@ -55,7 +55,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 35 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), community contributions welcome!
 
 ### 🔗 Dependencies
 
@@ -203,7 +203,7 @@ Then open a Pull Request against the `dev` branch.
 
 - 📋 [Contributing guide](https://calendar-card-pro.alexpfau.com/contributing) — full workflow, coding standards, and how to add a translation
 - 🏗️ [Architecture documentation](https://calendar-card-pro.alexpfau.com/architecture) — module responsibilities, data flow, and performance design
-- 🌍 **Adding a translation?** The card speaks [35 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 11 — new ones are always welcome.
+- 🌍 **Adding a translation?** The card speaks [36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
 
 💡 Got a feature request? **Open a GitHub Issue** or start a **discussion**!
 

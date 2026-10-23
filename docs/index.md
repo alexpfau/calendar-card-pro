@@ -39,7 +39,7 @@ features:
     title: Optimized Performance
     details: Smart caching, progressive rendering and minimal API calls.
   - icon: 🌍
-    title: 35 Languages
+    title: 36 Languages
     details: Fully translated interface, with community contributions welcome.
 ---
 
@@ -61,7 +61,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 35 languages](/contributing#adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 36 languages](/contributing#adding-translations), community contributions welcome!
 
 ## 🔗 Dependencies
 
