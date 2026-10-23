@@ -346,9 +346,9 @@ behavior. The remaining keys depend on which action you chose:
 
 ## ⚡ Cache & Refresh
 
-| Option                | Type    | Default | Description                                                           |
-| --------------------- | ------- | ------- | --------------------------------------------------------------------- |
-| `refresh_interval`    | number  | `30`    | Time in minutes between data refreshes                                |
-| `refresh_on_navigate` | boolean | `true`  | Whether to force refresh data when navigating between dashboard views |
+| Option                | Type    | Default | Description                                                                             |
+| --------------------- | ------- | ------- | --------------------------------------------------------------------------------------- |
+| `refresh_interval`    | number  | `30`    | Time in minutes between data refreshes                                                  |
+| `refresh_on_navigate` | boolean | `true`  | Refetch in the background when the card appears, after drawing the events it has cached |
 
 **→ [Performance and caching](/features/performance)**

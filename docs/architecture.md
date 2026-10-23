@@ -449,10 +449,14 @@ graph TD
 ### Event Data Flow
 
 1. **Initial Load**:
-   - Component initializes and calls `updateEvents()`
+   - Attaching the card runs `updateEvents('navigate')`; the `updated()` arm for the first
+     `hass` runs it instead only when the card was attached before `hass` existed
    - `events.ts` generates a cache key based on configured entities and settings
-   - Cache is checked first, API used only if needed
-   - Events are stored in local storage with configurable expiration
+   - `readEventSnapshot()` reads and processes the cached payload synchronously, so cached
+     events up to 24 hours old are on the first frame
+   - The API is asked when nothing is cached, the cache is due, or `refresh_on_navigate`
+     asks for a background refetch; every calendar is requested in parallel
+   - Requests for the same query and window share one round-trip
 2. **Data Processing**:
    - Raw calendar events are filtered for relevant dates
    - Events are grouped by day using `groupEventsByDay()` with the effective view's options
@@ -468,10 +472,13 @@ graph TD
    - Loading, error, and empty states are handled appropriately
 
 4. **Refresh Mechanisms**:
-   - Automatic refresh via `refresh_interval` configuration
-   - Manual refresh when page visibility changes
-   - Forced refresh when configuration changes
-   - Cache invalidation based on timing and parameters
+   - The refresh timer is armed for the deadline of the data on screen: one
+     `refresh_interval` after it was fetched, or the retry deadline while a calendar fails
+   - A tab returning after five minutes reads the cache, and refetches only if it is due
+   - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
+   - Grid view refetches when the local day rolls over
+   - `refreshEvents()` refetches without joining a request already under way, for use
+     after the card itself changed a calendar
 
 ### Interaction Flow
 
@@ -489,9 +496,9 @@ graph TD
 ### Performance Optimizations
 
 1. **Smart Caching**:
-   - Cached event data with configurable lifetime
+   - Cached event data with configurable lifetime, drawn on the first frame
    - Deterministic cache keys based on configuration
-   - Selective cache invalidation
+   - Calendars requested in parallel, each bounded by a timeout
 
 2. **Efficient Rendering**:
    - Pure rendering functions to improve performance
@@ -605,6 +612,10 @@ The card implements a multi-level caching strategy:
      such as `show_past_events` and `filter_duplicates` are reapplied on every read,
      so toggling one re-renders from cache instead of refetching
    - Cache duration is configurable through refresh_interval setting
+   - An entry past its lifetime is kept for drawing until it is 24 hours old
+   - Each entry records which calendars failed, when each last loaded, and when to
+     retry, so every card sharing the key follows one backoff. A failed calendar keeps
+     its last loaded events for up to 24 hours
 
 2. **Deterministic IDs**:
    - Each card instance generates a deterministic ID based on configuration
@@ -613,8 +624,10 @@ The card implements a multi-level caching strategy:
 
 3. **Intelligent Cache Refresh**:
    - Cache is refreshed automatically based on configured interval
-   - Manual refreshes are rate-limited to prevent API abuse
-   - Reactive to page visibility changes and Home Assistant reconnection events
+   - A card that appears refetches in the background only when its data is at least
+     5 seconds old, so a reload right after a fetch does not repeat it
+   - A failing calendar is retried after 1 minute, doubling up to the refresh interval
+   - Reactive to page visibility changes
 
 ## 🎯 Design Principles
 
