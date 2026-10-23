@@ -106,10 +106,23 @@ describe('malformed calendar payloads', () => {
     expect(summaries).toEqual(['Complete event', 'Second complete event']);
   });
 
-  it('drops an event with no end without losing the valid event beside it', async () => {
+  it('keeps a timed event with no end, as an instant, beside the valid event', async () => {
+    // A missing end used to be dropped, and before that it crashed duplicate comparison. It
+    // now becomes an instant at its start, which every later stage handles (#625), so the
+    // event shows instead of vanishing and the valid neighbor is still untouched.
     const summaries = await summariesFor([VALID, NO_END], 'defect-end', {
       filter_duplicates: true,
     });
+
+    expect(summaries).toEqual(['Complete event', 'Event with no end']);
+  });
+
+  it('still drops an end that is present but not an object', async () => {
+    const summaries = await summariesFor(
+      [VALID, { ...NO_END, end: '2026-06-17T16:00:00Z' }],
+      'defect-end-type',
+      { filter_duplicates: true },
+    );
 
     expect(summaries).toEqual(['Complete event']);
   });
@@ -129,9 +142,9 @@ describe('malformed calendar payloads', () => {
       'en',
     );
 
-    expect(days.flatMap((day) => day.events.map((event) => event.summary))).toEqual([
-      'Complete event',
-    ]);
+    const events = days.flatMap((day) => day.events);
+    expect(events.map((event) => event.summary)).toEqual(['Complete event', 'Event with no end']);
+    expect(events[1].end).toEqual(NO_END.start);
   });
 
   it('drops an event with no start without losing the valid event beside it', async () => {

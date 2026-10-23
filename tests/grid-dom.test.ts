@@ -3383,14 +3383,17 @@ describe('malformed events do not crash grid rendering', () => {
       container = renderGrid(malformedEvents);
     }).not.toThrow();
 
-    // Exactly one of the six fixtures is well-formed — the 10:00-11:00 event whose only
-    // problem is a missing summary — so that is the count this must land on. An earlier
-    // version asserted `toBeGreaterThanOrEqual(0)`, which a length satisfies by definition:
-    // it reads as coverage, cannot fail, and would have stayed green if the malformed
-    // entries had been rendered as blocks or if the valid one had been discarded with them.
-    const events = container!.querySelectorAll('.grid-event');
-    expect(events.length, 'only the well-formed event may reach the grid').toBe(1);
-    expect(events[0].textContent).not.toContain('Inverted');
+    // Two of the six fixtures reach the grid, and exactly those two: the 10:00-11:00 event
+    // whose only problem is a missing summary, and the inverted timed event, which becomes an
+    // instant at its 12:00 start — the reminder marker List also shows it as. The inverted
+    // all-day dates have no instant to fall back on and stay out. An earlier version asserted
+    // `toBeGreaterThanOrEqual(0)`, which a length satisfies by definition: it reads as
+    // coverage, cannot fail, and would have stayed green if the malformed entries had been
+    // rendered as blocks or if the valid one had been discarded with them.
+    const events = [...container!.querySelectorAll('.grid-event')];
+    expect(events.length, 'only the usable events may reach the grid').toBe(2);
+    expect(events.map((event) => event.textContent).join(' ')).toContain('Inverted times');
+    expect(container!.textContent).not.toContain('Inverted all-day dates');
   });
 });
 
