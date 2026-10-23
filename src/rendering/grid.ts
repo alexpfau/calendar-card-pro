@@ -884,6 +884,7 @@ function renderTimedEvent(
           countdownPlacement: 'text',
           hass,
           splitTimeEnd: true,
+          titleWords: true,
         })}
       </div>
     </div>

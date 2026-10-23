@@ -114,6 +114,36 @@ export function gridTitlePrefix(text: string): string {
   return '';
 }
 
+/**
+ * Where the useful prefix ends in a title laid out across several text nodes.
+ *
+ * Grid draws each word of a static title as its own element, so a title arrives as one run
+ * per word and the first run alone is not the title: a lone dash in front of the first word
+ * (`– Team sync`) has no useful grapheme, and reading only that run would call the whole
+ * title unreadable and blank it. The prefix runs from the first run's start to the first
+ * useful grapheme in any run. Engines without segmentation keep their rule of fitting the
+ * entire title, which is now every run.
+ *
+ * @param texts - Each run's trimmed text, in order
+ * @returns The run the prefix ends in and its length within that run, or `null` when no run
+ *   holds a useful grapheme
+ */
+export function gridTitleUsefulPrefix(
+  texts: readonly string[],
+): { run: number; length: number } | null {
+  if (!GRAPHEMES) {
+    const last = texts.length - 1;
+    return texts.some((text) => gridTitlePrefix(text) !== '')
+      ? { run: last, length: texts[last].length }
+      : null;
+  }
+  for (const [run, text] of texts.entries()) {
+    const prefix = gridTitlePrefix(text);
+    if (prefix) return { run, length: prefix.length };
+  }
+  return null;
+}
+
 /** Require useful title text after every unshortened label, plus the ellipsis when needed. */
 export function gridTitleHasUsefulWidth(
   available: number,
@@ -219,13 +249,42 @@ function textRuns(element: Element): TextRun[] {
   }
 }
 
-function prefixWidth(run: TextRun | undefined, prefix: string): number {
-  const document = run?.node.ownerDocument;
-  if (!run || !document || !prefix) return 0;
+/** Width from the first run's start through the useful prefix; see gridTitleUsefulPrefix. */
+function prefixWidth(runs: TextRun[]): number {
+  const first = runs[0];
+  const end = gridTitleUsefulPrefix(runs.map((run) => run.text));
+  const document = first?.node.ownerDocument;
+  if (!first || !end || !document) return 0;
+  const last = runs[end.run];
   const range = measurementRange(document);
   try {
-    range.setStart(run.node, run.start);
-    range.setEnd(run.node, run.start + prefix.length);
+    range.setStart(first.node, first.start);
+    range.setEnd(last.node, last.start + end.length);
+    return range.getBoundingClientRect().width;
+  } finally {
+    parkRange(range, document);
+  }
+}
+
+/**
+ * Width of a single-line title, spaces between its words included.
+ *
+ * One run is summed by its rectangles, as it always was. Several runs are measured as one
+ * range from the first to the last, because the spaces between words are text nodes of
+ * their own that textRuns skips, and summing the words alone would call a title that
+ * overflows by its spaces a fit. Only ever asked of a title laid out on one line.
+ */
+function runsWidth(runs: TextRun[]): number {
+  const first = runs[0];
+  const last = runs[runs.length - 1];
+  const document = first?.node.ownerDocument;
+  if (runs.length <= 1 || !document) {
+    return runs.flatMap((run) => run.rects).reduce((width, rect) => width + rect.width, 0);
+  }
+  const range = measurementRange(document);
+  try {
+    range.setStart(first.node, first.start);
+    range.setEnd(last.node, last.start + last.text.length);
     return range.getBoundingClientRect().width;
   } finally {
     parkRange(range, document);
@@ -332,8 +391,8 @@ export function reserveScrollingLabelWidths(titles: Iterable<HTMLElement>): void
         imagesReady &&
         gridTitleHasUsefulWidth(
           titleBox.width - titleInsets,
-          runs.flatMap((run) => run.rects).reduce((width, rect) => width + rect.width, 0),
-          prefixWidth(first, gridTitlePrefix(first?.text ?? '')),
+          runsWidth(runs),
+          prefixWidth(runs),
           ellipsis,
         )
       ) {
@@ -482,15 +541,13 @@ function measureCompact(
   const glyphs = runs.flatMap((run) => run.rects);
   const labels = labelRects(target);
   const bounds = union([row, ...glyphs, ...labels]);
-  const text = runs[0]?.text ?? '';
-  const prefix = gridTitlePrefix(text);
   const zoom = px(getComputedStyle(target.summary).zoom) || 1;
   if (canvas) canvas.font = titleStyle.font || `${titleStyle.fontSize} ${titleStyle.fontFamily}`;
   const ellipsis = canvas
     ? (canvas.measureText('\u2026').width + px(titleStyle.letterSpacing)) * scale * zoom
     : Infinity;
-  const fullWidth = glyphs.reduce((width, rect) => width + rect.width, 0);
-  const usefulWidth = prefixWidth(runs[0], prefix);
+  const fullWidth = runsWidth(runs);
+  const usefulWidth = prefixWidth(runs);
   const labelsFit = labels.every(
     (label) =>
       label.left >= summary.left - PRECISION &&

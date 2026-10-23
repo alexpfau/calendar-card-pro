@@ -2697,6 +2697,34 @@ export const cardStyles = css`
     hyphens: manual;
   }
 
+  /* One element per word, from splitTitleWords, and it replaces the break-word above for
+     every word in a script written with spaces. break-word kept every character on screen,
+     and in a lane narrower than one word that meant breaking inside it: three overlapping
+     events at 1024px read "Quarte / rly / review" and "Sprin / t / plann". A word is now a
+     unit the line breaks around, never inside, and one too wide for the block is cut and
+     ends in an ellipsis -- "Quarte… / review" -- so the rest of the title still reads, and
+     the cut is marked rather than silent, which is the failure the note above records.
+
+     inline-block is what gives one word its own clip and its own ellipsis; nothing that
+     stays inline can. max-width: 100% is the line's width, because the title is inline
+     inside the summary when labels share its line, so a word never claims more than a
+     whole line. top alignment is load-bearing: an inline-block that clips its overflow
+     takes its bottom margin edge as its baseline, which would lift every word above the
+     label beside it on the first line. Space between words stays a text node and is where
+     the line breaks; splitTitleWords also splits after the hyphen in a compound so it can
+     still wrap there.
+
+     Scripts written without spaces (Han, kana, Thai and the like) are left as text, so
+     break-word above still wraps them between characters. */
+  .grid-event-disclosure .title-word {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+
   /* Clamp the whole title line. */
   .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: -webkit-box;
@@ -3203,6 +3231,22 @@ export const cardStyles = css`
     padding: 0;
     text-overflow: ellipsis;
     -webkit-line-clamp: unset;
+  }
+
+  /* The compact title is one line with one ellipsis at its end, as it was before titles
+     were split into words. Inline words lay out exactly like the single text node they
+     replaced, so a word that would cross the end is cut mid-word by that ellipsis rather
+     than dropped whole, which is what an inline-block at a line's end would do. */
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .title-word {
+    display: inline;
+    max-width: none;
+    overflow: visible;
+    vertical-align: baseline;
   }
 
   .grid-event:is(

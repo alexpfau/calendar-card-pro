@@ -164,4 +164,26 @@ describe('Grid-only fitting CSS', () => {
     expect(css).toMatch(/\.event-title-scroll\s*\{[^}]*animation:\s*none !important/);
     expect(css).toMatch(/\[data-grid-title-fit='blank'\][^}]*visibility:\s*hidden/);
   });
+
+  it('gives each title word its own clip and ellipsis, and none in the compact line', () => {
+    // The word rule is what turns "Sprin / t / plann" into "Sprint / plann…": an
+    // inline-block with its own overflow clip is the only box that can end in its own
+    // ellipsis. Top alignment keeps that clip from lifting the word off the label's baseline.
+    const word = css.match(/\.grid-event-disclosure \.title-word\s*\{([^}]*)\}/)?.[1] ?? '';
+    for (const declaration of [
+      'display: inline-block',
+      'max-width: 100%',
+      'overflow: hidden',
+      'text-overflow: ellipsis',
+      'white-space: nowrap',
+      'vertical-align: top',
+    ]) {
+      expect(word).toContain(declaration);
+    }
+    // The compact title is one line with one ellipsis at its end; inline-blocks there would
+    // drop the last word whole instead of cutting it.
+    expect(css).toMatch(
+      /\[data-grid-title-fit='blank'\]\s*\)\s*\.title-word\s*\{[^}]*display:\s*inline;[^}]*max-width:\s*none;[^}]*overflow:\s*visible/,
+    );
+  });
 });

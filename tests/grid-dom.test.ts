@@ -2396,6 +2396,56 @@ describe('the now line (#325)', () => {
   });
 });
 
+/**
+ * A timed block can be narrower than one word of its title, and `break-word` then broke
+ * inside the word: "Sprin / t / plann". Each word is its own element now, so the title wraps
+ * at spaces and the stylesheet cuts a word that is too wide with an ellipsis.
+ */
+describe('grid titles that wrap at spaces', () => {
+  const titleOf = (container: HTMLElement) =>
+    container.querySelector<HTMLElement>('.grid-event .event-title')!;
+  const wordsOf = (container: HTMLElement) =>
+    [...titleOf(container).querySelectorAll('.title-word')].map((word) => word.textContent);
+
+  it('draws each word of a timed title as its own element, and keeps the text', () => {
+    const container = renderGrid([timed(17, '09:00', '10:00', 'Parent-teacher meeting')]);
+
+    expect(wordsOf(container)).toEqual(['Parent-', 'teacher', 'meeting']);
+    expect(titleOf(container).textContent?.trim()).toBe('Parent-teacher meeting');
+  });
+
+  it('leaves a run in a script written without spaces to the browser', () => {
+    const container = renderGrid([timed(17, '09:00', '10:00', '会議 Quarterly review')]);
+
+    expect(wordsOf(container)).toEqual(['Quarterly', 'review']);
+    expect(titleOf(container).textContent?.trim()).toBe('会議 Quarterly review');
+  });
+
+  it('leaves a scrolling title as one line of text', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Sprint planning')],
+      buildConfig({ view: 'grid', days_to_show: 3, scroll_long_titles: true }),
+    );
+
+    expect(wordsOf(container)).toEqual([]);
+    expect(titleOf(container).querySelector('.event-title-scroll')?.textContent).toBe(
+      'Sprint planning',
+    );
+  });
+
+  it('touches neither the all-day banners nor column view', () => {
+    const grid = renderGrid([allDay('2026-06-17', '2026-06-19', 'Grandparents visiting')]);
+    expect(grid.querySelectorAll('.grid-banner .title-word')).toHaveLength(0);
+
+    const column = renderColumn(
+      [timed(17, '09:00', '10:00', 'Sprint planning')],
+      buildConfig({ view: 'column', days_to_show: 3 }),
+    );
+    expect(column.querySelector('.event-title')?.textContent?.trim()).toBe('Sprint planning');
+    expect(column.querySelectorAll('.title-word')).toHaveLength(0);
+  });
+});
+
 describe('the axis', () => {
   it('uses the default time band as the control row for block-key probes', () => {
     const container = renderGrid(

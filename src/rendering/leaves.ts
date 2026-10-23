@@ -14,6 +14,7 @@ import * as Localize from '../translations/localize';
 import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import { splitTitleWords } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
 //-----------------------------------------------------------------------------
@@ -346,6 +347,7 @@ function renderEventTitle(
   weatherForecasts?: Types.WeatherForecasts,
   titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
   mergedLabels?: Types.ResolvedLabel[],
+  titleWords = false,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -365,7 +367,18 @@ function renderEventTitle(
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
 
-  const titleText = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const scrollTitles = config.scroll_long_titles;
+  // No whitespace inside the word spans, and the spaces between them stay text: joined, the
+  // pieces are the title exactly, so its text content does not change.
+  const titleText =
+    titleWords && !scrollTitles
+      ? splitTitleWords(titleString ?? '').map((segment) =>
+          segment.kind === 'word'
+            ? html`<span class="title-word">${segment.text}</span>`
+            : segment.text,
+        )
+      : titleString;
 
   // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is
   // what makes the `neutral` treatment mean the right thing here.
@@ -430,7 +443,6 @@ function renderEventTitle(
   // The text is wrapped in `.event-title-scroll` only in the scroll branch: `.event-title`
   // is the fixed-width clip viewport and the inner span is the full-width element the
   // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow.
-  const scrollTitles = config.scroll_long_titles;
   const titleInner = scrollTitles
     ? html`<span class="event-title-scroll">${titleContent}</span>`
     : titleContent;
@@ -691,6 +703,15 @@ export interface EventContentOptions {
    * is not droppable and the element would be dead weight.
    */
   splitTimeEnd?: boolean;
+  /**
+   * Draw each word of the title as its own element, so the title wraps only at spaces and a
+   * word too wide for the block is cut with an ellipsis instead of broken. Grid sets this for
+   * its timed blocks, which can be narrower than one word; list and column rows are never
+   * that narrow, so their markup stays a single text node. Ignored while
+   * `scroll_long_titles` is on, because a scrolling title is one line that moves rather
+   * than wraps. See `splitTitleWords`.
+   */
+  titleWords?: boolean;
 }
 
 /**
@@ -715,6 +736,7 @@ export function renderEventContent(
     countdownPlacement = 'trailing',
     hass,
     splitTimeEnd = false,
+    titleWords = false,
   } = options;
   const {
     eventTime,
@@ -820,7 +842,7 @@ export function renderEventContent(
   // prettier-ignore
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels, titleWords)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime
