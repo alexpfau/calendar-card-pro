@@ -79,14 +79,13 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles two actions itself — `expand` and `details` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
 | Action Type                       | Description                                       | Additional Parameters                                     |
 | --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | `expand`                          | Toggle between compact and full calendar view     | None                                                      |
-| `details`                         | Open the tapped event; `event_tap_action` only    | None                                                      |
 | `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below              |
 | `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
 | `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
@@ -109,11 +108,11 @@ tap_action:
   entity: calendar.family
 ```
 
-To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-event).
+To open the event you tapped instead, use [`event_tap_action`](#tapping-an-event).
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions, and its Event Tap Action dropdown offers `details` in its place. Home Assistant builds each dropdown from a single list rather than merging one, so naming a card action means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming `expand` means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
@@ -122,7 +121,7 @@ A tap or hold on the card shows Home Assistant's own ripple. A tap on an event s
 
 ## 🗒️ Tapping an Event
 
-A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
+A tap on an event can open that event instead of acting on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -133,6 +132,8 @@ event_tap_action:
   action: details
 ```
 
+`details` is the one thing a tap on an event does. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. Any other value, such as `more-info` or `expand`, reads as `none`. The visual editor's Event Tap Action dropdown offers the same two choices: Nothing and Show Event Details.
+
 ### Event Details
 
 The dialog shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, the dialog also offers **Edit** and **Delete**; [Editing & Deleting Events](#editing-deleting-events) covers when it does.
@@ -141,30 +142,16 @@ The dialog shows the whole event, whichever part of it you tapped: a multi-day e
 The card's display options do not reach the dialog. A title you rewrote with [text replacement](/features/core-settings#text-replacement), a location or description you hid, or a [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appended appears in the dialog the way the calendar stores it. Leave `details` off a card whose replacements exist to keep something private.
 :::
 
-### Other Actions on an Event
-
-`event_tap_action` takes Home Assistant's own actions as well, such as `more-info` or `navigate`. They run for the calendar the tapped event came from, so `more-info` opens that calendar rather than the first one in `entities`. A row that [`filter_duplicates`](/features/core-settings#filtering-duplicate-events) merged from several calendars counts as whichever of them comes first in `entities`, the calendar whose copy the card kept.
-
-That calendar is only the default `entity`. Name one on the action and it is used instead, whatever the action:
-
-```yaml
-event_tap_action:
-  action: more-info
-  entity: calendar.family
-```
-
-`expand` works here too, and expands the card exactly as `tap_action: expand` does. The visual editor does not offer it for Event Tap Action, so write it in YAML.
-
 ### Where You Can Tap
 
-Every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
+With `details` set, every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 
 Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button, described by its day, so two events with the same title on different days can be told apart.
 
 ::: tip A Tap on an Event Is Not a Tap on the Card
-With `event_tap_action` set, tapping an event runs it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
+With `event_tap_action: details`, tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
 :::
 
 ::: info The Card Stays on the Keyboard
@@ -199,7 +186,7 @@ allow_event_edit: false
 allow_event_delete: false
 ```
 
-The visual editor shows the two switches only while Event Tap Action is Show Event Details, because with any other action there is no dialog for them to narrow.
+The visual editor shows the two switches only while Event Tap Action is Show Event Details, because with Nothing there is no dialog for them to narrow.
 
 ### When the Card Leaves Them Out
 

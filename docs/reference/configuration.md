@@ -332,24 +332,24 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option               | Type    | Default | Description                                                                                                                                                                                                          |
-| -------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                                                                                                         |
-| `hold_action`        | object  | `none`  | Action when holding the card, an event included                                                                                                                                                                      |
-| `event_tap_action`   | object  | `none`  | Action when tapping an event, in place of `tap_action`. `details` opens Home Assistant's event dialog and `expand` expands the card; any other action runs for the event's own calendar, unless it names an `entity` |
-| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it                                                                                             |
-| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it                                                                                           |
+| Option               | Type    | Default | Description                                                                                                                                                                 |
+| -------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                                                                |
+| `hold_action`        | object  | `none`  | Action when holding the card, an event included                                                                                                                             |
+| `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action` |
+| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it                                                    |
+| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it                                                  |
 
 ### Action Parameters
 
 `tap_action`, `hold_action` and `event_tap_action` take an object whose `action` key
-selects the behavior. The remaining keys depend on which action you chose:
+selects the behavior. For `tap_action` and `hold_action`, the remaining keys depend on which
+action you chose:
 
 `action` · `entity` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 
-The card's own two actions take no further keys: `expand`, for the card's tap and hold and,
-written in YAML, for `event_tap_action`; and `details`, for `event_tap_action` only. On
-`event_tap_action`, `entity` defaults to the tapped event's calendar.
+The card's own `expand` takes no further keys. `event_tap_action` takes `action` alone:
+`details`, or `none`, its default.
 
 **→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
 **→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap on an event opens, and where on the card it counts.

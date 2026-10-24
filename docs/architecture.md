@@ -274,13 +274,12 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 `ha-calendar-dialogs.ts` is the only module that opens one.
 
 - **actions.ts**:
-  - Runs `tap_action`, `hold_action` and, for a tapped event, `event_tap_action`
-  - Handles the card's own two actions, `expand` and `details`, and forwards everything
-    else to Home Assistant as a `hass-action` event
-  - For an event tap, names the event's own calendar as the entity, so `more-info` opens
-    the calendar the event came from rather than the card's first one. An `entity` named
-    on `event_tap_action` replaces it, for every action: Home Assistant's `toggle`, unlike
-    its `more-info`, reads only the entity the card hands it
+  - Runs `tap_action` and `hold_action`, for the card
+  - Handles the card's own `expand`, and forwards everything else to Home Assistant as a
+    `hass-action` event naming the card's first calendar as the entity
+  - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
+    event's details itself. It reads any other value as `none`, so it forwards nothing
+    for an event
 
 - **ha-calendar-dialogs.ts**:
   - Gets Home Assistant's `dialog-calendar-event-editor` and `dialog-calendar-event-detail`
@@ -379,7 +378,7 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     `<td>`, which would stop being the row's cell; column and grid event roots carry it
     themselves
   - Empty-day rows and the grid `+N` block are never targets, and nothing is drawn while
-    `event_tap_action` is `none`, so the default markup is unchanged
+    `event_tap_action` is anything but `details`, so the default markup is unchanged
   - Each event button is described by its day's header through `aria-describedby`, so two
     events with the same title and time on different days are announced apart. The
     headers (list view's date cell, the shared day header in column and grid) get an id
@@ -639,11 +638,11 @@ graph TD
    - The recognizer arms when the card has an action of its own or the press landed on an
      event, so turning event taps on changes nothing about a press anywhere else
    - Pointer-up: a hold runs `hold_action` wherever it landed, events included; a tap that
-     began on an event runs `event_tap_action` for it; any other tap runs `tap_action`; a
-     moved pointer runs nothing
-   - A `click` naming an event is assistive technology activating it, and runs
-     `event_tap_action`, unless it is the click a browser derives from the gesture that
-     just ended. That click names no event when the capture retargeted it, or the event
+     began on an event opens its details; any other tap runs `tap_action`; a moved pointer
+     runs nothing
+   - A `click` naming an event is assistive technology activating it, and opens its
+     details, unless it is the click a browser derives from the gesture that just ended.
+     That click names no event when the capture retargeted it, or the event
      the pointer went down on when a browser did not, so the guard (`_derivedClick`)
      remembers that event's element and, for `TIMING.DERIVED_CLICK_WINDOW`, swallows the
      first click naming it or naming none. A click on any other event acts. A tap on the
