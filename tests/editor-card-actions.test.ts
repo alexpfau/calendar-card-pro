@@ -1,6 +1,5 @@
 /**
- * The tap and hold dropdowns offer the card's own `expand` action, the event tap dropdown
- * its `details` action, and each is named.
+ * The tap and hold dropdowns offer the card's own `expand` action, and name it.
  *
  * `expand` has been honored by `handleAction` since v3, but the v4 editor rebuild replaced
  * a hand-written dropdown with Home Assistant's `ui_action` selector, whose option list is
@@ -30,7 +29,7 @@ import { describe, expect, it } from 'vitest';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import {
   HA_ACTION_LABEL_PREFIX,
   withCardActionLabels,
@@ -39,25 +38,26 @@ import { walkSchema } from '../src/rendering/editor/panels';
 import {
   ACTION_OPTIONS,
   CARD_ACTIONS,
-  EVENT_ACTION_OPTIONS,
+  EVENT_TAP_CHOICES,
   buildActionsSchema,
   cardActionLabelKey,
 } from '../src/rendering/editor/schemas/actions';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { SYNTHETIC_FIELDS } from '../src/rendering/editor/synthetic';
 
 customElements.define('editor-card-actions-probe', CalendarCardProEditor);
 
-/** Home Assistant's own actions, in the order its editor offers them. */
-const HA_ACTIONS = ['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none'];
-
-/** The exact list the tap and hold dropdowns offer, the card action first. */
-const EXPECTED_ACTIONS = ['expand', ...HA_ACTIONS];
-
-/**
- * The exact list the event tap dropdown offers. `details` needs an event, which a tap on the
- * card does not have; `expand` acts on the card, which a tap on an event is not aimed at.
- */
-const EXPECTED_EVENT_ACTIONS = ['details', ...HA_ACTIONS];
+/** The exact list both dropdowns offer, card actions first. */
+const EXPECTED_ACTIONS = [
+  'expand',
+  'more-info',
+  'toggle',
+  'navigate',
+  'url',
+  'perform-action',
+  'assist',
+  'none',
+];
 
 /**
  * Minimal `hass` with a localize that reports what it was asked.
@@ -84,20 +84,15 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('offers exactly the documented event action list, in order', () => {
-    expect([...EVENT_ACTION_OPTIONS]).toEqual(EXPECTED_EVENT_ACTIONS);
-  });
-
-  it('names expand and details as card actions rather than Home Assistant ones', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand', 'details']);
+  it('names expand as a card action rather than a Home Assistant one', () => {
+    expect([...CARD_ACTIONS]).toEqual(['expand']);
   });
 
   it('puts the card action ahead of Home Assistant’s, so it is not buried', () => {
     expect(ACTION_OPTIONS.indexOf('expand')).toBe(0);
-    expect(EVENT_ACTION_OPTIONS.indexOf('details')).toBe(0);
   });
 
-  it('gives each dropdown its list, through a ui_action selector', () => {
+  it('gives both dropdowns the same list, through a ui_action selector', () => {
     const schema = buildActionsSchema({
       view: 'list',
       config: { ...Config.DEFAULT_CONFIG },
@@ -109,21 +104,11 @@ describe('card action options', () => {
     );
     const actionRows = rows.filter((node) => 'ui_action' in (node.selector as object));
 
-    expect(
-      Object.fromEntries(
-        actionRows.map((node) => [
-          node.name,
-          [
-            ...((node.selector as { ui_action: { actions?: ReadonlyArray<string> } }).ui_action
-              .actions ?? []),
-          ],
-        ]),
-      ),
-    ).toEqual({
-      tap_action: EXPECTED_ACTIONS,
-      hold_action: EXPECTED_ACTIONS,
-      event_tap_action: EXPECTED_EVENT_ACTIONS,
-    });
+    expect(actionRows.map((node) => node.name)).toEqual(['tap_action', 'hold_action']);
+    for (const node of actionRows) {
+      const selector = node.selector as { ui_action: { actions?: ReadonlyArray<string> } };
+      expect([...(selector.ui_action.actions ?? [])]).toEqual(EXPECTED_ACTIONS);
+    }
   });
 
   it('defines an English label for every card action', () => {
@@ -133,7 +118,6 @@ describe('card action options', () => {
       expect(EDITOR_STRINGS[cardActionLabelKey(action)]).toBeTruthy();
     }
     expect(EDITOR_STRINGS[cardActionLabelKey('expand')]).toBe('Toggle Compact/Expanded View');
-    expect(EDITOR_STRINGS[cardActionLabelKey('details')]).toBe('Show Event Details');
   });
 });
 
@@ -143,7 +127,6 @@ describe('withCardActionLabels', () => {
     expect(wrappedHass?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
       'Toggle Compact/Expanded View',
     );
-    expect(wrappedHass?.localize?.(`${HA_ACTION_LABEL_PREFIX}details`)).toBe('Show Event Details');
   });
 
   it('delegates every other key untouched', () => {
@@ -166,7 +149,6 @@ describe('withCardActionLabels', () => {
     expect(german?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
       'Kompakte/Erweiterte Ansicht umschalten',
     );
-    expect(german?.localize?.(`${HA_ACTION_LABEL_PREFIX}details`)).toBe('Termindetails anzeigen');
 
     // A language with no editor translations at all falls back to English, not to the
     // raw key, and never reaches Home Assistant.
@@ -244,14 +226,109 @@ describe('editor wiring', () => {
 });
 
 /**
- * The event dialog's two switches, driven through the rendered editor.
+ * The event tap dropdown: two choices, Nothing and Show Event Details, and nothing else.
  *
- * The schema tests in `editor-schema.test.ts` prove the builder branches; these prove the
- * editor rebuilds the panel when the dropdown above the switches changes, and that what it
- * reports to Home Assistant is the minimal configuration — `ha-form` hands back every field
- * it shows, so a switch left at its default must still write nothing.
+ * Not Home Assistant's action selector. That offered all of Home Assistant's actions, none
+ * of them about an event, and a "Default" entry that cleared the action and so showed as
+ * Nothing straight after. Pinned by value, labels included, so a third choice, a lost one
+ * or a label that falls back to a humanized value all fail here.
  */
-describe('event dialog permissions in the editor', () => {
+describe('the event tap dropdown', () => {
+  /** The dropdown as the panel builds it for a configuration and language. */
+  function dropdown(config: Partial<Types.Config> = {}, language = 'en') {
+    const schema = buildActionsSchema({
+      view: 'list',
+      config: { ...Config.DEFAULT_CONFIG, ...config } as Types.Config,
+      language,
+    });
+    const nodes = [...walkSchema(schema)].map(({ node }) => node);
+    const field = nodes.find((node) => node.name === 'event_tap_action_mode') as
+      SelectorSchema | undefined;
+    return { nodes, field };
+  }
+
+  it('offers exactly Nothing and Show Event Details, Nothing first', () => {
+    expect([...EVENT_TAP_CHOICES]).toEqual(['none', 'details']);
+    expect(dropdown().field?.selector).toEqual({
+      select: {
+        mode: 'dropdown',
+        options: [
+          { value: 'none', label: 'Nothing' },
+          { value: 'details', label: 'Show Event Details' },
+        ],
+      },
+    });
+  });
+
+  it('names both choices in the editor language', () => {
+    expect(dropdown({}, 'de').field?.selector).toEqual({
+      select: {
+        mode: 'dropdown',
+        options: [
+          { value: 'none', label: 'Nichts' },
+          { value: 'details', label: 'Termindetails anzeigen' },
+        ],
+      },
+    });
+  });
+
+  it("leaves Home Assistant's action selector to the card's own tap and hold", () => {
+    // The event tap is not one of them, so it offers no Default entry and none of Home
+    // Assistant's actions, whatever the configuration holds.
+    for (const config of [{}, { event_tap_action: { action: 'more-info' } }]) {
+      const { nodes } = dropdown(config);
+      const uiActions = nodes.filter(
+        (node) => 'selector' in node && 'ui_action' in (node.selector as object),
+      );
+      expect(uiActions.map((node) => node.name)).toEqual(['tap_action', 'hold_action']);
+      expect(nodes.map((node) => node.name)).not.toContain('event_tap_action');
+    }
+  });
+
+  it.each([
+    ['no event tap action', 'none', {}],
+    ['details', 'details', { event_tap_action: { action: 'details' } }],
+    ['none', 'none', { event_tap_action: { action: 'none' } }],
+    ["one of Home Assistant's actions", 'none', { event_tap_action: { action: 'more-info' } }],
+    ['expand', 'none', { event_tap_action: { action: 'expand' } }],
+    ['a bare key', 'none', { event_tap_action: null }],
+  ])('shows %s as %s', (_name, shown, config) => {
+    const merged = { ...Config.DEFAULT_CONFIG, ...config } as unknown as Types.Config;
+    expect(SYNTHETIC_FIELDS.event_tap_action_mode.derive(merged)).toBe(shown);
+  });
+
+  it('stores details whole and Nothing as no key at all, whatever was stored before', () => {
+    const field = SYNTHETIC_FIELDS.event_tap_action_mode;
+    const holding = (action: Record<string, unknown> | null) =>
+      ({ ...Config.DEFAULT_CONFIG, event_tap_action: action }) as unknown as Types.Config;
+
+    for (const before of [
+      null,
+      { action: 'none' },
+      { action: 'details' },
+      { action: 'more-info', entity: 'calendar.ben' },
+      { action: 'navigate', navigation_path: '/lovelace/0' },
+    ]) {
+      expect(field.apply('details', holding(before))).toEqual({
+        changes: { event_tap_action: { action: 'details' } },
+      });
+      expect(field.apply('none', holding(before))).toEqual({
+        changes: { event_tap_action: undefined },
+      });
+    }
+  });
+});
+
+/**
+ * The event tap dropdown and the event dialog's two switches, driven through the rendered
+ * editor.
+ *
+ * The schema tests above and in `editor-schema.test.ts` prove the builder branches; these
+ * prove the editor rebuilds the panel when the dropdown changes, and that what it reports to
+ * Home Assistant is the minimal configuration — `ha-form` hands back every field it shows,
+ * so a switch left at its default must still write nothing.
+ */
+describe('the event tap dropdown in the editor', () => {
   type EditorHost = HTMLElement & {
     hass: unknown;
     setConfig(config: unknown): void;
@@ -283,6 +360,8 @@ describe('event dialog permissions in the editor', () => {
         ({ node }) => node.name,
       );
     const owner = (option: string) => forms().find((form) => names(form).includes(option));
+    const shown = (option: string) =>
+      (owner(option) as unknown as { data: Record<string, unknown> } | undefined)?.data[option];
 
     /** Fires the whole-object change `ha-form` emits, from the form owning `option`. */
     const change = async (option: string, value: unknown) => {
@@ -295,36 +374,58 @@ describe('event dialog permissions in the editor', () => {
       await element.updateComplete;
     };
 
-    return { reported, owner, names, change };
+    return { reported, owner, names, shown, change };
   }
 
   const last = (reported: ReadonlyArray<Record<string, unknown>>) => reported[reported.length - 1];
 
-  it('reveals the switches when the event tap action becomes details', async () => {
-    const { reported, owner, change } = await mount({});
+  it('stores Show Event Details as the details action, and reveals the switches', async () => {
+    const { reported, owner, shown, change } = await mount({});
 
+    expect(shown('event_tap_action_mode')).toBe('none');
     expect(owner('allow_event_edit')).toBeUndefined();
     expect(owner('allow_event_delete')).toBeUndefined();
 
-    await change('event_tap_action', { action: 'details' });
+    await change('event_tap_action_mode', 'details');
 
     // Both under the same form as the dropdown, and nothing but the action written.
-    expect(owner('allow_event_edit')).toBe(owner('event_tap_action'));
-    expect(owner('allow_event_delete')).toBe(owner('event_tap_action'));
+    expect(owner('allow_event_edit')).toBe(owner('event_tap_action_mode'));
+    expect(owner('allow_event_delete')).toBe(owner('event_tap_action_mode'));
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
       event_tap_action: { action: 'details' },
     });
   });
 
-  it('hides them again when the event tap action moves away from details', async () => {
-    const { owner, change } = await mount({ event_tap_action: { action: 'details' } });
+  it('stores Nothing as no key at all, and hides the switches again', async () => {
+    const { reported, owner, shown, change } = await mount({
+      event_tap_action: { action: 'details' },
+    });
+    expect(shown('event_tap_action_mode')).toBe('details');
     expect(owner('allow_event_edit')).toBeDefined();
 
-    await change('event_tap_action', { action: 'more-info' });
+    await change('event_tap_action_mode', 'none');
 
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
     expect(owner('allow_event_edit')).toBeUndefined();
     expect(owner('allow_event_delete')).toBeUndefined();
+  });
+
+  it('shows any other stored action as Nothing, and replaces it with what is chosen', async () => {
+    const { reported, owner, shown, change } = await mount({
+      event_tap_action: { action: 'more-info', entity: 'calendar.ben' },
+    });
+    expect(shown('event_tap_action_mode')).toBe('none');
+    expect(owner('allow_event_edit')).toBeUndefined();
+
+    await change('event_tap_action_mode', 'details');
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      event_tap_action: { action: 'details' },
+    });
+
+    await change('event_tap_action_mode', 'none');
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
   });
 
   it.each(['allow_event_edit', 'allow_event_delete'])(

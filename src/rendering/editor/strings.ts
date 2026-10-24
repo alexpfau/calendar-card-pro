@@ -817,13 +817,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
   // below, for toggling an entity rather than the card.
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
-  // Offered by the event tap dropdown alone; a tap on the card has no event to open.
-  'card_action.option.details.label': 'Show Event Details',
-  event_tap_action: 'Event Tap Action',
-  'event_tap_action.helper':
+  // The card's own dropdown rather than Home Assistant's action editor, so it names both of
+  // its choices. "Nothing" is the word Home Assistant's action editor uses for `none` in the
+  // two dropdowns above, and each translation takes Home Assistant's own word for it, so the
+  // panel says it one way in every language.
+  event_tap_action_mode: 'Event Tap Action',
+  'event_tap_action_mode.option.none.label': 'Nothing',
+  'event_tap_action_mode.option.details.label': 'Show Event Details',
+  'event_tap_action_mode.helper':
     "Show Event Details opens Home Assistant's event dialog, offering Edit and Delete where " +
-    "the event's calendar allows them. Other actions apply to that calendar; holding an " +
-    'event still runs the hold action.',
+    "the event's calendar allows them. With Nothing, a tap on an event runs the tap action, " +
+    'as anywhere else on the card. Holding an event always runs the hold action.',
   // Shown only while the event tap action is `details`, directly under it, so "the event
   // dialog" needs no introduction. Each ends on the calendar because that is the question a
   // user with the switch on and no Edit button is asking: these can only take away.

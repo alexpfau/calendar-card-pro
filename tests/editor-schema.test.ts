@@ -802,6 +802,7 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
+      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -1870,6 +1871,7 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
       max_height: 'height_mode',
+      event_tap_action: 'event_tap_action_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2783,7 +2785,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(buildConfig())).toEqual([
       'tap_action',
       'hold_action',
-      'event_tap_action',
+      'event_tap_action_mode',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2793,7 +2795,7 @@ describe('editor: the Actions & Refresh panel', () => {
     expect(namesIn(withEventTap('details'))).toEqual([
       'tap_action',
       'hold_action',
-      'event_tap_action',
+      'event_tap_action_mode',
       'allow_event_edit',
       'allow_event_delete',
       'refresh_interval',
@@ -2802,17 +2804,17 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 
   /**
-   * Every other action the event tap dropdown offers, each by name rather than by walking
-   * `EVENT_ACTION_OPTIONS`, which `editor-card-actions.test.ts` pins by value. With no dialog
-   * the switches could change nothing, and offering them would invite the reading that
-   * turning one on adds a way to edit. `expand` is not offered there but works in YAML, and a
-   * bare `event_tap_action:` is `null`, which the card reads as nothing on tap.
+   * Every action but `details`, each by name. The card reads all of them as `none`, which
+   * the dropdown shows as Nothing, so there is no dialog and the switches could change
+   * nothing; offering them would invite the reading that turning one on adds a way to
+   * edit. Home Assistant's actions and `expand` are what YAML written for the earlier
+   * selector may still hold, and a bare `event_tap_action:` is `null`.
    */
   it.each(['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none', 'expand'])(
-    'withholds the dialog switches while an event tap runs %s',
+    'withholds the dialog switches while the event tap action is %s',
     (action) => {
       const names = namesIn(withEventTap(action));
-      expect(names).toContain('event_tap_action');
+      expect(names).toContain('event_tap_action_mode');
       expect(names).not.toContain('allow_event_edit');
       expect(names).not.toContain('allow_event_delete');
     },
@@ -2820,7 +2822,7 @@ describe('editor: the Actions & Refresh panel', () => {
 
   it('withholds the dialog switches for a bare event_tap_action', () => {
     const names = namesIn(withEventTap(null));
-    expect(names).toContain('event_tap_action');
+    expect(names).toContain('event_tap_action_mode');
     expect(names).not.toContain('allow_event_edit');
     expect(names).not.toContain('allow_event_delete');
   });
@@ -4982,6 +4984,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
+      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
