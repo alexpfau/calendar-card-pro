@@ -21,6 +21,7 @@ export interface Config {
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
   show_empty_days: boolean;
+  show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
   filter_duplicates: boolean;

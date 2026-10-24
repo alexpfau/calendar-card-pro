@@ -963,6 +963,7 @@ describe('editor: the order of the two panels', () => {
       'split_multiday_events',
       '# heading_nothing',
       'show_empty_days',
+      'show_empty_today',
       'empty_day_text',
       'empty_day_color',
       'hide_when_empty',

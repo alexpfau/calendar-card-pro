@@ -1513,14 +1513,25 @@ export function groupEventsByDay(
     }
   }
 
-  if (showEmptyDays || days.length === 0) {
+  // Today, and only today, when empty days are otherwise hidden and today sits in
+  // the window. Absent means the fill below runs exactly as it always has.
+  let emptyToday: Date | undefined;
+  if (config.show_empty_today && !showEmptyDays) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const offset = FormatUtils.getCalendarDayDiff(referenceStart, today);
+    if (offset >= 0 && offset < config.days_to_show) emptyToday = today;
+  }
+
+  const eventDayCount = days.length;
+
+  if (showEmptyDays || days.length === 0 || emptyToday) {
     const translations = Localize.getTranslations(language);
 
     const customEmptyText = config.empty_day_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    const startDateForEmptyDays = new Date(referenceDate);
+    let startDateForEmptyDays = new Date(referenceDate);
 
     let endDateForEmptyDays: Date;
 
@@ -1549,6 +1560,14 @@ export function groupEventsByDay(
       // a reader could distinguish from the default.
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+    }
+
+    // Collapse the range the loop already walks, rather than filling it and then
+    // throwing the other days away. A blank card's single start-date row becomes
+    // today the same way, when today is the day in range.
+    if (emptyToday) {
+      startDateForEmptyDays = new Date(emptyToday);
+      endDateForEmptyDays = new Date(emptyToday);
     }
 
     const existingDayKeys = new Set(
@@ -1596,7 +1615,10 @@ export function groupEventsByDay(
     days = allDays;
   }
 
-  return days.slice(0, effectiveDaysToShow);
+  // The extra day is the empty today just inserted. It does not spend a
+  // `days_to_show` slot, so an event day the cap already kept stays kept.
+  const addedToday = emptyToday && days.length > eventDayCount ? 1 : 0;
+  return days.slice(0, effectiveDaysToShow + addedToday);
 }
 
 function getEntityIndex(entityId: string | undefined, config: Types.Config): number {

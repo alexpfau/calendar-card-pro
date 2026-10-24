@@ -65,6 +65,7 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
  *   `compact_events_complete_days` toggle depends on
  * @param showEmptyDays - Whether empty days are shown, which is what the two empty-day
  *   fields depend on
+ * @param showEmptyToday - Whether today is shown even when it is empty
  * @param filterDuplicates - Whether duplicates are filtered, which is what the merged-row
  *   accent color depends on
  * @returns The panel's schema
@@ -76,11 +77,11 @@ const contentSchema = Helpers.memoizeLast(
     languageMode: string,
     hasEventLimit: boolean,
     showEmptyDays: boolean,
+    showEmptyToday: boolean,
     filterDuplicates: boolean,
   ): HaFormSchema[] => {
-    const emptyDayFields: HaFormSchema[] = showEmptyDays
-      ? [text('empty_day_text'), color('empty_day_color')]
-      : [];
+    const emptyDayFields: HaFormSchema[] =
+      showEmptyDays || showEmptyToday ? [text('empty_day_text'), color('empty_day_color')] : [];
 
     return [
       // The time range the card covers, which is what the panel's own title leads with.
@@ -117,6 +118,7 @@ const contentSchema = Helpers.memoizeLast(
       // Card-level only: the pipeline's terminal state, when nothing survived it.
       heading('heading_nothing'),
       bool('show_empty_days'),
+      bool('show_empty_today'),
       ...emptyDayFields,
       bool('hide_when_empty'),
 
@@ -145,6 +147,7 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
     Synthetic.languageMode(ctx.config),
     hasCompactEventLimit(ctx.config),
     Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_days', workspace)),
+    Boolean(ctx.config.show_empty_today),
     Boolean(resolveWorkspaceOption(ctx.config, 'filter_duplicates', workspace)),
   );
 }
