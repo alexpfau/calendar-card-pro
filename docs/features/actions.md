@@ -1,6 +1,6 @@
 # Actions & Interactions
 
-Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — show a button for adding new events, and let a tap on an event open its details.
+Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — and let a tap on an event open its details, where it can be edited or deleted. A button in the card's header adds new events.
 
 ## 🔄 Expandable Calendar Card
 
@@ -79,13 +79,14 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles two actions itself — `expand` and `details` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
 | Action Type                       | Description                                       | Additional Parameters                                     |
 | --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | `expand`                          | Toggle between compact and full calendar view     | None                                                      |
+| `details`                         | Open the tapped event; `event_tap_action` only    | None                                                      |
 | `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below              |
 | `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
 | `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
@@ -100,7 +101,7 @@ Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names 
 :::
 
 ::: info Tap & Hold Act on the Whole Card
-A tap or hold belongs to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
+`tap_action` and `hold_action` belong to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
 
 ```yaml
 tap_action:
@@ -108,45 +109,20 @@ tap_action:
   entity: calendar.family
 ```
 
+To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-event).
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming `expand` means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions, and its Event Tap Action dropdown offers `details` in its place. Home Assistant builds each dropdown from a single list rather than merging one, so naming a card action means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
 All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.
 
-## ➕ Add Event Button
+## 🗒️ Tapping an Event
 
-The card can show a button that opens Home Assistant's own new-event dialog — the same one the calendar panel and Home Assistant's calendar card use — so events can be created straight from the dashboard:
-
-```yaml
-type: custom:calendar-card-pro
-entities:
-  - calendar.anna
-  - calendar.holidays
-show_add_event: true
-```
-
-The button only appears when at least one of the card's calendars accepts new events, which is the calendar integration's decision rather than the card's. Read-only calendars, such as a subscribed holiday feed, do not, so a card showing only those keeps its usual look even with `show_add_event: true`. The dialog opens with the first writable calendar in your `entities` list preselected — `calendar.anna` above — and you can pick another in the dialog itself. Once the event is saved the card fetches its events again, so the new one appears straight away.
-
-The button sits at the end of the title's row, or, on a card without a title, in a slim row of its own above the events. Its label comes from Home Assistant, so it follows the language of your Home Assistant profile.
-
-::: tip Pressing The Button Is Not A Tap On The Card
-The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped.
-:::
-
-::: warning Hidden With The Card
-`hide_when_empty` still hides the whole card when there is nothing to show, button included. Leave it off on a card you rely on for adding events.
-:::
-
-Actions are set via the card's `tap_action` and `hold_action` options, and the button via `show_add_event` — see [Actions in the configuration reference](/reference/configuration#actions).
-
-## 🗒️ Event Details
-
-Set `event_tap_action` to `details` and every event becomes something you can tap. It opens Home Assistant's own event dialog — the one the Calendar panel shows — with the full description, the location and, for a repeating event, how it repeats:
+A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -157,18 +133,110 @@ event_tap_action:
   action: details
 ```
 
-It works in all three layouts: a list row, a column event, and a grid block or all-day banner. Keyboard users reach each event with Tab and open it with Enter or Space. A grid `+N` block stands for several events, so it opens nothing; [raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap them one by one.
+### Event Details
 
-The dialog offers **Edit** and **Delete** exactly where Home Assistant's Calendar panel would: only for calendars whose integration supports changing events, such as a Local Calendar, and only for events that carry the identifier Home Assistant needs to address them. A subscribed holiday feed shows the details and nothing else. After an edit or a delete the card fetches its events again, so the change appears straight away.
-
-`event_tap_action` takes Home Assistant's own actions as well, such as `more-info` or `navigate`. Those run for the calendar the tapped event came from, so `more-info` opens that calendar rather than the first one in `entities`.
-
-::: tip A Tap on an Event Is Not a Tap on the Card
-With `event_tap_action` set, tapping an event runs it and does **not** run the card's `tap_action`, which still runs for taps anywhere else on the card, such as the title or a day's date. Holding an event still runs the card's `hold_action`. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
-:::
+The dialog shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, the dialog also offers **Edit** and **Delete**; [Editing & Deleting Events](#editing-deleting-events) covers when it does.
 
 ::: warning The Dialog Shows the Event as Stored
 The card's display options do not reach the dialog. A title you rewrote with [text replacement](/features/core-settings#text-replacement), a location or description you hid, or a [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appended appears in the dialog the way the calendar stores it. Leave `details` off a card whose replacements exist to keep something private.
 :::
 
-Actions are set via the card's `tap_action` and `hold_action` options, and event taps via `event_tap_action` — see [Actions in the configuration reference](/reference/configuration#actions).
+### Other Actions on an Event
+
+`event_tap_action` takes Home Assistant's own actions as well, such as `more-info` or `navigate`. They run for the calendar the tapped event came from, so `more-info` opens that calendar rather than the first one in `entities`. A row that [`filter_duplicates`](/features/core-settings#filtering-duplicate-events) merged from several calendars counts as whichever of them comes first in `entities`, the calendar whose copy the card kept.
+
+### Where You Can Tap
+
+Every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
+
+Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
+
+Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button.
+
+::: tip A Tap on an Event Is Not a Tap on the Card
+With `event_tap_action` set, tapping an event runs it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
+:::
+
+::: warning The Card Itself Leaves the Keyboard
+A button cannot hold other buttons, so while its events are buttons the card stops being one for the keyboard. A mouse or a finger still runs `tap_action` anywhere off the events, but a keyboard user can no longer reach it: on a card whose `tap_action` is `expand`, compact mode cannot be expanded from the keyboard. The same applies while the [add-event button](#add-event-button) is shown.
+:::
+
+## ✏️ Editing & Deleting Events
+
+The event dialog can change an event as well as show it. **Edit** opens the same form the Calendar panel uses, and **Delete** removes the event; for a repeating event, Home Assistant asks which occurrences you mean. Once the change is saved the card fetches its events again, so it appears straight away.
+
+### What Each Integration Allows
+
+Whether a calendar offers Edit, Delete or new events at all is decided by the integration it comes from, not by the card. For the calendar integrations that ship with Home Assistant:
+
+| Integration                                            | Add | Edit | Delete |
+| ------------------------------------------------------ | --- | ---- | ------ |
+| Local Calendar                                         | Yes | Yes  | Yes    |
+| Google Calendar                                        | Yes | No   | Yes    |
+| CalDAV                                                 | Yes | No   | No     |
+| Read-only calendars, such as a subscribed holiday feed | No  | No   | No     |
+
+A Local Calendar can also edit or delete a repeating event from one occurrence onward. A Google calendar added to Home Assistant as read-only offers nothing, and calendars from custom integrations offer whatever their integration declares. The Add column decides which calendars the [add-event button](#add-event-button) can write to.
+
+### Narrowing What the Dialog Offers
+
+`allow_event_edit` and `allow_event_delete` take Edit or Delete away on one card, for a dashboard where events should be read but not changed, such as a wall tablet in the hall. Both are on by default, and neither can offer a button the integration does not:
+
+```yaml
+event_tap_action:
+  action: details
+allow_event_edit: false
+allow_event_delete: false
+```
+
+The visual editor shows the two switches only while Event Tap Action is Show Event Details, because with any other action there is no dialog for them to narrow.
+
+### When the Card Leaves Them Out
+
+The details still open, but the card withholds Edit and Delete where using them would go wrong, whatever the two options say:
+
+- **A row merged by [`filter_duplicates`](/features/core-settings#filtering-duplicate-events).** The event exists in more than one calendar, so editing one copy is ambiguous, and deleting one brings the row straight back from the other.
+- **An event from a calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load).** The card is drawing it from its cache, which can be up to a day old, and saving an edit would write those old values over the calendar's current ones.
+- **An event without an identifier.** Home Assistant finds the event to change by its unique ID, and some calendars do not send one.
+- **Edit only, an event its calendar stores without an end.** The dialog shows it ending where it starts, and saving the form would write that end into the calendar.
+
+## ➕ Add Event Button
+
+The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. It opens Home Assistant's own new-event dialog, the same one the Calendar panel and Home Assistant's calendar card use:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.holidays
+show_add_event: true
+```
+
+The button sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events. On a card at least 480px wide it carries Home Assistant's own "Add event" label, and narrower than that it is a plus icon, with the label as its tooltip.
+
+The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above, and you can pick another in the dialog itself. The new event is set for today when the card's date range includes today, and for the first day of the range otherwise, so a card looking at next week does not suggest today.
+
+The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars keeps its usual look even with `show_add_event: true`. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
+
+::: tip Pressing the Button Is Not a Tap on the Card
+The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users lose the card's own `tap_action` while it is shown, though, as they do with [tappable events](#where-you-can-tap).
+:::
+
+::: warning Hidden With the Card
+`hide_when_empty` still hides the whole card when there is nothing to show, button included. Leave it off on a card you rely on for adding events.
+:::
+
+## 🧩 Home Assistant's Own Dialogs
+
+The event dialog and the new-event dialog are Home Assistant's own rather than copies of them: the forms, the validation, the repeat rules and the saving all stay Home Assistant's, and the card only decides what to open them with. Three things follow from that.
+
+- **Their words are Home Assistant's.** The button's label and everything in the dialogs follow the language of your Home Assistant profile, not the card's `language` option.
+- **Changes appear at once.** After a save in either dialog the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`.
+- **They are loaded when first needed.** Home Assistant offers custom cards no public way to open its calendar dialogs, so the first time one is needed the card loads it through Home Assistant's own calendar code.
+
+::: info When a Dialog Cannot Be Loaded
+A future Home Assistant release may change the calendar code the card loads its dialogs through. If loading fails, or has not finished after ten seconds, the card falls back rather than doing nothing: a tap that should show an event's details opens its calendar's more-info dialog instead, and the add button opens the Calendar panel, which has an add button of its own.
+:::
+
+Card taps are set with `tap_action` and `hold_action`, and event taps with `event_tap_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `show_add_event`, under [Header](/reference/configuration#header).

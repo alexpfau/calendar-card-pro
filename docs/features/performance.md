@@ -22,6 +22,10 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   Cards showing the same calendars share one cache, so one card's refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as
   long as the slowest calendar rather than the sum of all of them.
+- **At once after a change made on the card.** Adding, editing or deleting an event through
+  the card's [dialogs](/features/actions#home-assistants-own-dialogs) refetches straight
+  away, on that card and on every other Calendar Card Pro card on the page that shows the
+  calendar.
 
 ```yaml
 # A wall tablet that should not refetch on every view switch
@@ -37,6 +41,9 @@ Assistant is restarting, or because it does not answer within 30 seconds. The ca
 - names it in a line at the bottom of the card, such as "Couldn't load: Ben", using the
   calendar's name in Home Assistant, or its entity id when Home Assistant does not know it;
 - keeps showing that calendar's last loaded events, for up to 24 hours;
+- offers no Edit or Delete for those events, which may be a day out of date, and never
+  preselects that calendar for a [new event](/features/actions#add-event-button) (see
+  [Editing & Deleting Events](/features/actions#when-the-card-leaves-them-out));
 - tries again after 1 minute, then after 2, 4, 8 and so on, up to `refresh_interval`.
 
 A calendar that has never loaded, for example because of a typo in its entity id, is named

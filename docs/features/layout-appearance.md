@@ -107,6 +107,10 @@ The `event_background_opacity` option (ranging from 0-100) works together with e
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
 and the title keeps Home Assistant's card header size.
 
+The header can also hold the [add-event button](/features/actions#add-event-button), which
+`show_add_event` turns on. It sits at the end of the title's row, and on a card without a
+title it takes a slim row of its own above the events.
+
 When styling your calendar, you can use:
 
 - CSS color values (`#ff6c92`, `rgba(255,0,0,0.5)`)
