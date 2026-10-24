@@ -370,6 +370,12 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     themselves
   - Empty-day rows and the grid `+N` block are never targets, and nothing is drawn while
     `event_tap_action` is `none`, so the default markup is unchanged
+  - Each event button is described by its day's header through `aria-describedby`, so two
+    events with the same title and time on different days are announced apart. The
+    headers (list view's date cell, the shared day header in column and grid) get an id
+    from `dayLabelId` only while events are tap targets, unique within the shadow root
+    because every view draws one header per day; a grid banner names the first day it
+    covers on screen
 
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the

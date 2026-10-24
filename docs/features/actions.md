@@ -151,7 +151,7 @@ Every event is a tap target, in all three layouts: a list row, a column event, a
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 
-Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button.
+Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button, described by its day, so two events with the same title on different days can be told apart.
 
 ::: tip A Tap on an Event Is Not a Tap on the Card
 With `event_tap_action` set, tapping an event runs it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.

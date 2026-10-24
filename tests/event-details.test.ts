@@ -985,6 +985,64 @@ describe('the click a pointer gesture owes', () => {
   });
 });
 
+describe("a tappable event's day", () => {
+  // Two events with the same title and time on different days are otherwise announced
+  // identically, so each event button is described by its day's header.
+  const yoga = (day: number) => ({
+    summary: 'Yoga',
+    start: { dateTime: `2026-06-${day}T11:00:00Z` },
+    end: { dateTime: `2026-06-${day}T12:00:00Z` },
+    uid: `uid-yoga-${day}`,
+  });
+  const holiday = (day: number) => ({
+    summary: 'Holiday',
+    start: { date: `2026-06-${day}` },
+    end: { date: `2026-06-${day + 1}` },
+  });
+  const EVENTS = [RAW_EVENTS[0], yoga(17), yoga(18), holiday(17), holiday(18)];
+
+  /** What assistive technology reads as an element's description, from its references. */
+  function description(card: Card, element: Element): string {
+    const ids = (element.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+    return ids
+      .map((id) => card.shadowRoot!.querySelector(`[id="${id}"]`)?.textContent ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  it.each([
+    ['list', 'Yoga'],
+    ['column', 'Yoga'],
+    ['grid', 'Yoga'],
+    ['grid', 'Holiday'],
+  ])('tells two identical %s events on different days apart (%s)', async (view, summary) => {
+    const { card } = await mount({ view, ...DETAILS }, { events: EVENTS });
+
+    const buttons = buttonsShowing(card, summary);
+    expect(buttons).toHaveLength(2);
+    const [first, second] = buttons.map((button) => description(card, button));
+    expect(first).toMatch(/\b17\b/);
+    expect(second).toMatch(/\b18\b/);
+    expect(first).not.toBe(second);
+
+    // Unique within the shadow root, which is where the references resolve.
+    const ids = Array.from(card.shadowRoot!.querySelectorAll('[id]'), (el) => el.id);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it.each(['list', 'column', 'grid'])(
+    'adds no id and no description in %s view while events are not tap targets',
+    async (view) => {
+      const { card } = await mount({ view }, { events: EVENTS });
+
+      expect(eventsShowing(card, 'Yoga')).toHaveLength(2);
+      expect(card.shadowRoot!.querySelectorAll('[id], [aria-describedby]')).toHaveLength(0);
+    },
+  );
+});
+
 describe('what the dialog is handed for events the card had to change', () => {
   /** No end at all: kept as the instant at its start. */
   const REMINDER = {

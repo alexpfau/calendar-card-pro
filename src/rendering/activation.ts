@@ -7,7 +7,8 @@
  * own taps: the recognizer reads which event the pointer landed on from the pointer-down's
  * composed path, and decides at pointer-up whether the gesture was a tap on it, a tap on the
  * card or a hold. An event therefore stops nothing. It only carries what it is, under a
- * property the recognizer looks for, plus the role and tab stop that make it a button.
+ * property the recognizer looks for, plus the role and tab stop that make it a button and
+ * the reference to its day's header that describes it.
  */
 
 import * as Types from '../config/types';
@@ -49,6 +50,25 @@ export function eventTapTarget(
 ): EventTapTarget | undefined {
   if (!tappable || event._isEmptyDay) return undefined;
   return { event, color };
+}
+
+/**
+ * The id a day's header carries while events are tap targets, so each of the day's events
+ * can name its day with `aria-describedby`.
+ *
+ * Two events with the same title and time on different days are otherwise announced
+ * identically. The id is only ever drawn while events are tap targets, so the default
+ * markup gains nothing. It is unique within the card's shadow root, which is the scope an
+ * `aria-describedby` reference resolves in: every view draws one header per day, and the
+ * id is the day's own local date.
+ *
+ * @param timestamp - The day's local midnight, as grouping stamps it
+ * @returns The header's id
+ */
+export function dayLabelId(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `calendar-card-day-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /**

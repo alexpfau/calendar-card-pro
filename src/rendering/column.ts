@@ -151,6 +151,7 @@ function renderColumnSeparator(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param eventsTappable - Whether the event is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes a tappable event
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -162,6 +163,7 @@ function renderColumnEvent(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -189,6 +191,7 @@ function renderColumnEvent(
       )}"
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
     >
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
@@ -232,6 +235,7 @@ function renderDayColumn(
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
+  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
 
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
@@ -258,6 +262,7 @@ function renderDayColumn(
         weatherContent,
         headerSeparator,
         hass,
+        dayLabelId,
       )}
       <div class="column-events">
         ${repeat(
@@ -273,6 +278,7 @@ function renderDayColumn(
               weatherForecasts,
               hass,
               eventsTappable,
+              dayLabelId,
             ),
         )}
       </div>

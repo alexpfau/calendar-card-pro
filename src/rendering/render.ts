@@ -461,6 +461,8 @@ export function renderDay(
     isWeekBoundary &&
     (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
 
+  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
 
@@ -505,6 +507,7 @@ export function renderDay(
             weatherForecasts,
             hass,
             eventsTappable,
+            dayLabelId,
           ),
       )}
     </table>
@@ -597,17 +600,20 @@ export function renderGroupedEvents(
  *
  * @param content - The event's rendered content
  * @param tap - The event's tap target, or undefined when it is not one
+ * @param dayLabelId - The id of the day's date cell, which describes the button
  * @returns The content, wrapped in the button when the event is a tap target
  */
 function renderEventButton(
   content: TemplateResult,
   tap: Activation.EventTapTarget | undefined,
+  dayLabelId: string | undefined,
 ): TemplateResult {
   if (!tap) return content;
   return html`<div
     class="event-button event-interactive"
     role="button"
     tabindex="0"
+    aria-describedby=${dayLabelId ?? nothing}
     .calendarCardEventTap=${tap}
   >
     ${content}
@@ -623,6 +629,8 @@ function renderEventButton(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param eventsTappable - Whether the event is a tap target of its own
+ * @param dayLabelId - The id the day's date cell carries while events are tap targets, by
+ *   which each event names its day
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -635,6 +643,7 @@ function renderEvent(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -667,6 +676,7 @@ function renderEvent(
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
               rowspan="${day.events.length}"
               style="position: relative;"
+              id=${dayLabelId ?? nothing}
             >
               ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
               ${Leaves.renderTodayIndicator(config, isToday)}
@@ -684,6 +694,7 @@ function renderEvent(
             weatherForecasts,
           }),
           tap,
+          dayLabelId,
         )}
       </td>
     </tr>

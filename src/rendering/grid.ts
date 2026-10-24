@@ -798,6 +798,7 @@ function cascadeHorizontal(
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether the block is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes a tappable block
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -810,6 +811,7 @@ function renderTimedEvent(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -869,6 +871,7 @@ function renderTimedEvent(
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
     >
       <div
@@ -1015,6 +1018,8 @@ function renderOverflow(
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether the banner is a tap target of its own
+ * @param dayLabelId - The id of the header of the first day the banner covers on screen,
+ *   which describes a tappable banner
  * @returns Rendered banner
  */
 function renderBanner(
@@ -1025,6 +1030,7 @@ function renderBanner(
   language: string,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -1047,6 +1053,7 @@ function renderBanner(
       })}
       role=${tap ? 'button' : nothing}
       tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>
@@ -1260,6 +1267,10 @@ export function renderGridGroupedEvents(
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const boundaries = computeDayBoundaries(gridDays);
+  // Each day's header names the day for its tappable events; ids only while there are any.
+  const dayLabelIds = gridDays.map((day) =>
+    eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined,
+  );
 
   const banners = layoutBanners(gridDays, maxRows);
   // The all-day band below takes `grid-template-columns: subgrid` rather than repeating the
@@ -1417,7 +1428,7 @@ export function renderGridGroupedEvents(
       ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
-        renderDayHeader(day, config, language, index, weatherForecasts, hass),
+        renderDayHeader(day, config, language, index, weatherForecasts, hass, dayLabelIds[index]),
       )}
       ${
         bandRows > 0
@@ -1447,6 +1458,7 @@ export function renderGridGroupedEvents(
                     language,
                     hass,
                     eventsTappable,
+                    dayLabelIds[banner.placement.columnIndex],
                   ),
                 )}
               </div>
@@ -1470,6 +1482,7 @@ export function renderGridGroupedEvents(
           weatherForecasts,
           hass,
           eventsTappable,
+          dayLabelIds[index],
         ),
       )}
       ${separators} ${bandBoundaries}
@@ -1528,6 +1541,7 @@ function renderWeekNumbers(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
+ * @param dayLabelId - The header's id, given only while the day's events are tap targets
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -1537,6 +1551,7 @@ function renderDayHeader(
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
@@ -1561,6 +1576,7 @@ function renderDayHeader(
         weatherContent,
         null,
         hass,
+        dayLabelId,
       )}
     </div>
   `;
@@ -1583,6 +1599,7 @@ function renderDayHeader(
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether each timed block is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes each tappable block
  * @returns Rendered column
  */
 function renderDayBody(
@@ -1599,6 +1616,7 @@ function renderDayBody(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday } = Leaves.classifyDay(day.timestamp);
@@ -1716,6 +1734,7 @@ function renderDayBody(
                   weatherForecasts,
                   hass,
                   eventsTappable,
+                  dayLabelId,
                 )
               : nothing;
           },
