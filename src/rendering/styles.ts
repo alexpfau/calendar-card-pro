@@ -2062,6 +2062,21 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* A tap on an event is the event's, so the card's ripple must not flash as though the card
+   * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
+   * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than
+   * kept from seeing them: while the pointer is over an event, a press is on one, or one has
+   * keyboard focus (assistive technology clicks the focused event, and the ripple answers a
+   * click with no press before it), its hover and press opacities are zero and the event's
+   * own wash answers instead. A hold on an event runs the card's hold action without the
+   * ripple; the hold indicator is the feedback for it. Where :has is not supported the rule
+   * is dropped and the ripple flashes as it did before. */
+  ha-card:has(.event-interactive:hover, .event-interactive:active, .event-interactive:focus-visible)
+    > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
   /* List view draws an event in a table cell, and a cell may not be a button, so the button
    * is a block inside the cell, around the event's content. Layout stays the cell's: the
    * button takes no padding and no size of its own. But the cell can be taller than its
