@@ -62,7 +62,7 @@ function declaredConfigKeys(): string[] {
 }
 
 /** Options holding a nested block rather than a value of their own. */
-const CONTAINER_KEYS = ['weather', 'list', 'column', 'time_grid'] as const;
+const CONTAINER_KEYS = ['weather', 'toolbar', 'list', 'column', 'time_grid'] as const;
 
 /**
  * Why an option is decided at card level rather than routed into a view's block.
@@ -83,7 +83,6 @@ const CARD_LEVEL_REASONS = {
     'background_color',
     'accent_color',
     'hide_when_empty',
-    'show_add_event',
   ],
 
   /**

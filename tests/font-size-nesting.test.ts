@@ -547,7 +547,7 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['all-day pill', { allday_badge: 'title' }],
   // The header toolbar shares the title's row and sizes itself from the title's option, so
   // it is drawn here beside the title it must not be nested in.
-  ['add-event button', { show_add_event: true }],
+  ['header toolbar', { toolbar: { show: true } }],
 ];
 
 /**
@@ -654,8 +654,16 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       undefined,
       undefined,
       undefined,
-      config.show_add_event
-        ? { labeled: true, addEvent: { label: 'Add event', onActivate: () => undefined } }
+      config.toolbar?.show
+        ? {
+            labeled: true,
+            viewSwitcher: {
+              views: VIEWS.map((option) => ({ view: option, label: option, available: true })),
+              selected: view,
+              onSelect: () => undefined,
+            },
+            addEvent: { label: 'Add event', onActivate: () => undefined },
+          }
         : undefined,
     ),
     container,
@@ -929,6 +937,7 @@ describe('every piece of text is sized by its own option', () => {
       // A control, not card text: it takes Home Assistant's own control size, so it reads
       // the same as the buttons around the card whatever the card's own sizes are.
       'toolbar-button-label in toolbar-button': ['--ha-font-size-m'],
+      'toolbar-button-label in view-switcher-segment': ['--ha-font-size-m'],
       'weather-temp-high in weather': ['weather.date.font_size'],
       'week-number in column-week-number': ['week_number_font_size'],
       'week-number in week-number-cell': ['week_number_font_size'],

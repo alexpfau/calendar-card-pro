@@ -1,11 +1,14 @@
 /**
  * The add-event button.
  *
- * `show_add_event` defaults to `false`, so every DOM gate built from default config sees
- * no button at all and would stay green if the option did nothing. Each on-state case
- * below is paired with the state that must draw nothing — the flag off, or only
- * read-only calendars — so the pair distinguishes "the option works" from "the fixture
- * happens to produce this".
+ * The toolbar defaults to hidden, so every DOM gate built from default config sees no
+ * button at all and would stay green if the option did nothing. Each on-state case below
+ * is paired with the state that must draw nothing — the toolbar hidden, the button
+ * switched off inside a shown one, or only read-only calendars — so the pair distinguishes
+ * "the option works" from "the fixture happens to produce this".
+ *
+ * Every case shows the add button alone (`ADD_ONLY`): the view switcher beside it has
+ * its own file, and keeping it out here keeps these assertions about one control.
  *
  * Where it goes is the header toolbar rule: in the title's row when there is a title, in a
  * slim row of its own when there is not, and — the half no other gate can see — with no
@@ -25,6 +28,9 @@ import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
 import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
 import '../src/calendar-card-pro';
+
+/** A shown toolbar holding the add button and nothing else. */
+const ADD_ONLY = { show: true, view_switcher: false };
 
 vi.mock('../src/utils/logger', () => ({
   warn: vi.fn(),
@@ -245,7 +251,12 @@ describe('newEventDate', () => {
 describe('add-event button rendering', () => {
   it.each([
     ['switched off', { entities: [WRITABLE] }],
-    ['switched on with only read-only calendars', { entities: [READ_ONLY], show_add_event: true }],
+    ['the toolbar is hidden', { entities: [WRITABLE], toolbar: { show: false, add_event: true } }],
+    [
+      'switched off inside a shown toolbar',
+      { entities: [WRITABLE], toolbar: { ...ADD_ONLY, add_event: false } },
+    ],
+    ['switched on with only read-only calendars', { entities: [READ_ONLY], toolbar: ADD_ONLY }],
   ])('leaves the header exactly as it was when %s', async (_name, overrides) => {
     const untitled = await mount(overrides);
     const titled = await mount({ ...overrides, title: 'Family' });
@@ -259,7 +270,7 @@ describe('add-event button rendering', () => {
   it('puts the button in the title row, after the title', async () => {
     const card = await mount({
       entities: [READ_ONLY, WRITABLE],
-      show_add_event: true,
+      toolbar: ADD_ONLY,
       title: 'Family',
     });
     const row = header(card);
@@ -279,7 +290,7 @@ describe('add-event button rendering', () => {
     // No `hass.connection`, so the template never resolves and the heading stays pending.
     const card = await mount({
       entities: [WRITABLE],
-      show_add_event: true,
+      toolbar: ADD_ONLY,
       title: '{{ states("sensor.family") }}',
     });
     const [title, toolbar] = Array.from(header(card).children);
@@ -289,7 +300,7 @@ describe('add-event button rendering', () => {
   });
 
   it('gives an untitled card a slim row of its own', async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const row = header(card);
     const [placeholder, toolbar] = Array.from(row.children);
 
@@ -303,7 +314,7 @@ describe('add-event button rendering', () => {
   });
 
   it("draws a native button with Home Assistant's label beside a plus", async () => {
-    const card = await mountWide({ entities: [WRITABLE], show_add_event: true });
+    const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const el = button(card)!;
 
     expect(el.tagName).toBe('BUTTON');
@@ -318,7 +329,7 @@ describe('add-event button rendering', () => {
   it("uses Home Assistant's own translation of the label", async () => {
     const localize = (key: string) =>
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
-    const card = await mountWide({ entities: [WRITABLE], show_add_event: true }, { localize });
+    const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY }, { localize });
 
     expect(button(card)!.querySelector('.toolbar-button-label')?.textContent).toBe(
       'Aggiungi evento',
@@ -328,7 +339,7 @@ describe('add-event button rendering', () => {
   it('draws only the icon, still named, when Home Assistant has no label to give', async () => {
     // Measured wide, so it is the missing string and not the width that drops the label.
     const card = await mountWide(
-      { entities: [WRITABLE], show_add_event: true },
+      { entities: [WRITABLE], toolbar: ADD_ONLY },
       { localize: () => '' },
     );
     const el = button(card)!;
@@ -358,7 +369,7 @@ describe('the add-event label follows the width of the card', () => {
   const ICON_ONLY = { label: null, iconOnly: true, ariaLabel: 'Add event', title: 'Add event' };
 
   it('draws the icon alone, named, until the card has been measured', async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     expect(shape(card)).toEqual(ICON_ONLY);
   });
 
@@ -367,13 +378,13 @@ describe('the add-event label follows the width of the card', () => {
     [480, LABELED],
     [900, LABELED],
   ])('at %ipx draws %o', async (width, expected) => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     await measure(card, width);
     expect(shape(card)).toEqual(expected);
   });
 
   it('drops the label again when the card narrows', async () => {
-    const card = await mountWide({ entities: [WRITABLE], show_add_event: true });
+    const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
     expect(shape(card)).toEqual(LABELED);
 
     await measure(card, 479);
@@ -384,7 +395,7 @@ describe('the add-event label follows the width of the card', () => {
     // `measure` awaits only the render, never the settle delay, so a label decided where
     // the column fit is decided would still be missing here.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const card = await mount({ entities: [WRITABLE], show_add_event: true });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     await measure(card, 600);
 
     expect(vi.getTimerCount()).toBeGreaterThan(0);
@@ -399,7 +410,7 @@ describe('the add-event label follows the width of the card', () => {
     expect(requestUpdate).not.toHaveBeenCalled();
 
     // The control: the same measurement on a card with the button does ask.
-    const withButton = await mount({ entities: [WRITABLE], show_add_event: true });
+    const withButton = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const asks = vi.spyOn(withButton as unknown as LitLike, 'requestUpdate');
     await measure(withButton, 600);
     expect(asks).toHaveBeenCalled();
@@ -414,7 +425,7 @@ describe('the card around the add-event button', () => {
   const TAPPABLE = { tap_action: { action: 'expand' as const } };
 
   it('is not a button while the add-event button is in it, and keeps its tab stop', async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...TAPPABLE });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE });
 
     expect(button(card)).not.toBeNull();
     expect(haCard(card).hasAttribute('role')).toBe(false);
@@ -422,7 +433,7 @@ describe('the card around the add-event button', () => {
   });
 
   it('runs its tap action for Enter and Space on the card itself, beside the button', async () => {
-    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...TAPPABLE });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE });
 
     for (const key of ['Enter', ' ']) {
       haCard(card).dispatchEvent(
@@ -440,7 +451,7 @@ describe('the card around the add-event button', () => {
 
   it.each([
     ['the button is off', { entities: [WRITABLE] }],
-    ['no calendar accepts events', { entities: [READ_ONLY], show_add_event: true }],
+    ['no calendar accepts events', { entities: [READ_ONLY], toolbar: ADD_ONLY }],
   ])('stays a button when %s', async (_name, overrides) => {
     const card = await mount({ ...overrides, ...TAPPABLE });
 
@@ -451,7 +462,7 @@ describe('the card around the add-event button', () => {
 
   it('becomes a button again once every writable calendar is failing', async () => {
     const card = await mount(
-      { entities: [READ_ONLY, WRITABLE], show_add_event: true, ...TAPPABLE },
+      { entities: [READ_ONLY, WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE },
       { callApi: vi.fn().mockRejectedValue(new Error('unavailable')) },
     );
 
@@ -464,7 +475,7 @@ describe('the card around the add-event button', () => {
 describe('pressing the add-event button', () => {
   it('opens the dialog for the first writable calendar and refreshes once saved', async () => {
     dialogAlreadyLoaded();
-    const card = await mount({ entities: [READ_ONLY, WRITABLE_2, WRITABLE], show_add_event: true });
+    const card = await mount({ entities: [READ_ONLY, WRITABLE_2, WRITABLE], toolbar: ADD_ONLY });
     const refreshEvents = vi.spyOn(card, 'refreshEvents').mockResolvedValue();
 
     const shown = new Promise<CustomEvent>((resolve) =>
@@ -496,7 +507,7 @@ describe('pressing the add-event button', () => {
         : Promise.resolve([]),
     );
     const card = await mount(
-      { entities: [READ_ONLY, WRITABLE_2, WRITABLE], show_add_event: true },
+      { entities: [READ_ONLY, WRITABLE_2, WRITABLE], toolbar: ADD_ONLY },
       { callApi },
     );
     await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
@@ -514,7 +525,7 @@ describe('pressing the add-event button', () => {
 
   it('draws nothing while every writable calendar is failing to load', async () => {
     const card = await mount(
-      { entities: [READ_ONLY, WRITABLE], show_add_event: true },
+      { entities: [READ_ONLY, WRITABLE], toolbar: ADD_ONLY },
       { callApi: vi.fn().mockRejectedValue(new Error('unavailable')) },
     );
 
@@ -540,7 +551,7 @@ describe('pressing the add-event button', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(FROZEN_NOW);
     dialogAlreadyLoaded();
-    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...overrides });
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...overrides });
 
     const shown = new Promise<CustomEvent>((resolve) =>
       document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
@@ -556,7 +567,7 @@ describe('pressing the add-event button', () => {
     dialogAlreadyLoaded();
     const card = await mount({
       entities: [WRITABLE],
-      show_add_event: true,
+      toolbar: ADD_ONLY,
       tap_action: { action: 'expand' },
     });
     const el = button(card)!;
@@ -584,7 +595,7 @@ describe('pressing the add-event button', () => {
     vi.useFakeTimers();
     const card = await mount({
       entities: [WRITABLE],
-      show_add_event: true,
+      toolbar: ADD_ONLY,
       hold_action: { action: 'expand' },
     });
     const el = button(card)!;
@@ -606,7 +617,7 @@ describe('pressing the add-event button', () => {
   it("lets keys through to Home Assistant without running the card's tap action", async () => {
     const card = await mount({
       entities: [WRITABLE],
-      show_add_event: true,
+      toolbar: ADD_ONLY,
       tap_action: { action: 'expand' },
     });
     const seen: string[] = [];

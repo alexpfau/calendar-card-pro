@@ -34,6 +34,7 @@ import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
+import * as ViewChoice from '../../utils/view-choice';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
@@ -90,6 +91,32 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
+  /**
+   * Fingerprint of the configuration this editor opened with, and whether the view this
+   * device remembers for it has been forgotten yet. See `_forgetOpenedViewChoice`.
+   */
+  private _openedFingerprint?: string;
+
+  private _openedViewChoiceForgotten = false;
+
+  /**
+   * Forgets the view this device's switcher chose for the configuration being edited, once
+   * an edit is really made.
+   *
+   * An edit resets every device to the configured view, because a changed configuration has
+   * a different fingerprint. That alone would let undoing the edit later bring the old choice
+   * back, so the old choice is forgotten as well. The card cannot do it on this device: in
+   * edit mode Home Assistant builds a fresh card for the new configuration rather than
+   * handing it to the old one, so no card here ever sees its configuration change. Other
+   * devices forget theirs when the saved edit reaches their dashboard.
+   */
+  private _forgetOpenedViewChoice(): void {
+    if (this._openedViewChoiceForgotten || this._openedFingerprint === undefined) return;
+
+    this._openedViewChoiceForgotten = true;
+    ViewChoice.writeViewChoice(this._openedFingerprint, undefined);
+  }
+
   private _gridResetKeys = new Set<string>();
 
   /**
@@ -103,6 +130,10 @@ export class CalendarCardProEditor extends LitElement {
       this._lastDispatched !== undefined && Value.equalConfigs(rawConfig, this._lastDispatched);
 
     if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
+    // A change arriving from outside the visual editor, such as its YAML mode, is an edit too.
+    const fingerprint = ViewChoice.configFingerprint(rawConfig);
+    if (this._openedFingerprint === undefined) this._openedFingerprint = fingerprint;
+    else if (!isEcho && fingerprint !== this._openedFingerprint) this._forgetOpenedViewChoice();
     this._rawConfig = structuredClone(rawConfig);
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
 
@@ -201,6 +232,7 @@ export class CalendarCardProEditor extends LitElement {
     const result = this._migrationResult(mode);
     this._adoptMigration(result);
     this._lastDispatched = result.config;
+    this._forgetOpenedViewChoice();
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: result.config } }));
   }
 
@@ -345,6 +377,7 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     this._lastDispatched = stored;
+    this._forgetOpenedViewChoice();
 
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
   }

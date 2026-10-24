@@ -105,7 +105,7 @@ function readDefaults() {
 /**
  * Field names of the user-facing config interfaces.
  *
- * Only these five are user-facing. types.ts also describes Home Assistant payloads and
+ * Only these six are user-facing. types.ts also describes Home Assistant payloads and
  * internal render state, which are not configuration and must not be required to appear
  * in the docs.
  */
@@ -114,6 +114,7 @@ const USER_FACING_INTERFACES = [
   'EntityConfig',
   'WeatherPositionConfig',
   'WeatherConfig',
+  'ToolbarConfig',
   'ActionConfig',
 ];
 
@@ -1427,6 +1428,74 @@ function checkColumnDefaults(columnDefaults, columnRows) {
   for (const key of columnRows.keys()) {
     if (!columnDefaults.has(key) && !DYNAMIC_COLUMN_DEFAULTS.has(key)) {
       warn(`column → ${key}: documented in the reference but not in COLUMN_DEFAULTS — stale row`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 31 — the toolbar's rows match DEFAULT_CONFIG.toolbar, in both directions
+// ---------------------------------------------------------------------------
+
+/**
+ * Check 1 reads `DEFAULT_CONFIG` at two-space indent, so it sees the `toolbar` row and
+ * never the controls inside the block. Each control is a `toolbar → key` row in the
+ * reference, and this reconciles those rows against the block's own defaults.
+ *
+ * Both directions are errors, not one: the block is where every toolbar control the card
+ * will ever have is switched on, so a control added to it without a row is a control
+ * shipped undocumented, and a row without a default is a control that no longer exists.
+ */
+function readToolbarDefaults() {
+  const src = readFileSync(CONFIG_TS, 'utf8');
+  const block = src.match(
+    /DEFAULT_CONFIG[^=]*=\s*\{[\s\S]*?\n {2}toolbar:\s*\{([\s\S]*?)\n {2}\},/,
+  );
+  if (!block) {
+    console.error(
+      `\n✗ FATAL: could not locate DEFAULT_CONFIG.toolbar in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const out = new Map();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {4}([a-z0-9_]+):\s*(.+?),?\s*$/);
+    if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
+  }
+  assertFound(out, 'DEFAULT_CONFIG.toolbar keys', CONFIG_TS);
+  return out;
+}
+
+function readToolbarRows() {
+  const doc = readFileSync(REFERENCE_DOC, 'utf8');
+  const out = new Map();
+  for (const line of doc.split('\n')) {
+    const m = line.match(/^\|\s*`toolbar\s*→\s*([a-z0-9_]+)`\s*\|([^|]*)\|([^|]*)\|/);
+    if (m) out.set(m[1], { type: m[2].trim(), def: m[3].trim() });
+  }
+  assertFound(out, 'toolbar option rows', REFERENCE_DOC);
+  return out;
+}
+
+function checkToolbarDefaults(toolbarDefaults, toolbarRows) {
+  for (const [key, raw] of toolbarDefaults) {
+    if (!toolbarRows.has(key)) {
+      error(
+        `toolbar → ${key}: in DEFAULT_CONFIG.toolbar but has no row in docs/reference/configuration.md`,
+      );
+      continue;
+    }
+    const { def } = toolbarRows.get(key);
+    if (normalise(def) !== normalise(raw)) {
+      error(`toolbar → ${key}: docs say ${def} but DEFAULT_CONFIG.toolbar has \`${raw}\``);
+    }
+  }
+
+  for (const key of toolbarRows.keys()) {
+    if (!toolbarDefaults.has(key)) {
+      error(
+        `toolbar → ${key}: documented in the reference but not in DEFAULT_CONFIG.toolbar — stale row`,
+      );
     }
   }
 }
@@ -3141,6 +3210,7 @@ function main() {
     readDefaultOverrides('TIME_GRID_DEFAULT_OVERRIDES'),
   );
   checkWeatherScopes(readWeatherScopeDefaults(), readWeatherScopeRows(), fields);
+  checkToolbarDefaults(readToolbarDefaults(), readToolbarRows());
   checkCoverage(fields, docs);
   checkFences(docs);
   checkSilentMarkdown(docs);

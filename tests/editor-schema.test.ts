@@ -2754,7 +2754,8 @@ describe('editor: the Card & Title panel', () => {
         '',
         'title_font_size',
         'title_color',
-        'show_add_event',
+        'toolbar',
+        'show',
         'background_color',
       ]);
     }
@@ -2989,6 +2990,8 @@ describe('editor: the write path over the whole configuration', () => {
       if (key === 'entities') custom[key] = ['calendar.a'];
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
+      else if (key === 'toolbar')
+        custom[key] = { ...(value as object), show: true, view_switcher: false };
       else if (VIEW_BLOCK_KEYS.has(key)) custom[key] = blockThatSurvivesTheStrip(key);
       else if (key === 'tap_action' || key === 'hold_action' || key === 'event_tap_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
