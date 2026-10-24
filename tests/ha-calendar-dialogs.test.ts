@@ -367,6 +367,64 @@ describe('a load that cannot complete', () => {
   );
 });
 
+describe('asking for both dialogs', () => {
+  const ORDERS = [
+    { first: OPENERS[0], second: OPENERS[1] },
+    { first: OPENERS[1], second: OPENERS[0] },
+  ];
+
+  it.each(ORDERS)(
+    'opens only $second.tag when it is asked for while $first.tag loads',
+    async ({ first, second }) => {
+      let release!: () => void;
+      fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+      const { node, dispatched } = host();
+
+      const requests = [first.open(node, 'calendar.anna'), second.open(node, 'calendar.ben')];
+      await Promise.resolve();
+      release();
+      await Promise.all(requests);
+
+      expect(dispatched).toEqual([
+        {
+          type: 'show-dialog',
+          detail: {
+            dialogTag: second.tag,
+            dialogImport: expect.any(Function),
+            dialogParams: second.params('calendar.ben'),
+          },
+        },
+      ]);
+
+      // The replaced request is forgotten, not left waiting to open later.
+      dispatched.length = 0;
+      await first.open(node, 'calendar.cleo');
+      expect(dispatched.map((d) => (d.detail as { dialogTag: string }).dialogTag)).toEqual([
+        first.tag,
+      ]);
+    },
+  );
+
+  it.each(ORDERS)(
+    'does not open $first.tag after $second.tag, already loaded, opened in its place',
+    async ({ first, second }) => {
+      registry.define(second.tag, Element);
+      let release!: () => void;
+      fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+      const { node, dispatched } = host();
+
+      const loading = first.open(node, 'calendar.anna');
+      await second.open(node, 'calendar.ben');
+      release();
+      await loading;
+
+      expect(dispatched.map((d) => (d.detail as { dialogTag: string }).dialogTag)).toEqual([
+        second.tag,
+      ]);
+    },
+  );
+});
+
 describe('loading both dialogs', () => {
   it('creates one core card for both, and borrows each through its own handler', async () => {
     const ha = fakeHomeAssistant();

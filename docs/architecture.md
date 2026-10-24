@@ -294,8 +294,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     Nothing else is taken from the borrow: the card dispatches its own `show-dialog` with
     its own parameters
   - Keeps one load in flight per element for the whole page, bounded by
-    `LOAD_TIMEOUT_MS`. A press made while a dialog loads replaces any older waiting request,
-    so one dialog opens, with the newest parameters
+    `LOAD_TIMEOUT_MS`, and one waiting request for both dialogs. A press made while a dialog
+    loads replaces any older waiting request, for either dialog, so one dialog opens: the
+    newest, with its parameters
   - Checks every step and falls back on any mismatch or timeout: details to
     `hass-more-info` for the event's calendar, which keeps the user on the dashboard, and
     add to navigating to the `/calendar` panel

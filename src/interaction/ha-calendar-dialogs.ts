@@ -155,9 +155,14 @@ const BORROWS: Record<
 const loads = new Map<string, Promise<void>>();
 
 /**
- * Requests waiting for their dialog to load, the newest per dialog.
+ * The request waiting for its dialog to load, if any: the newest, whichever dialog it asks
+ * for.
+ *
+ * One slot rather than one per dialog, because only one dialog should end up on screen. A
+ * press on the add button followed, during the first load, by a tap on an event means the
+ * event, and must not leave the create dialog opening behind it a moment later.
  */
-const waiting = new Map<DialogTag, OpenRequest>();
+let waiting: OpenRequest | undefined;
 
 interface OpenRequest {
   node: HTMLElement;
@@ -290,16 +295,16 @@ export function ensureDialogLoaded(tag: DialogTag, calendarId: string): Promise<
 /**
  * Open a dialog once it is defined, or run the fallback when it cannot be loaded.
  *
- * Presses made while the dialog is still loading do not each open it once it arrives:
- * the newest request replaces any older one still waiting, so only one dialog opens, with
- * the newest parameters.
+ * Presses made while a dialog is still loading do not each open one once it arrives: the
+ * newest request, for either dialog, replaces any older one still waiting, so only one
+ * dialog opens, the newest, with the newest parameters.
  *
  * @param tag - Dialog to open
  * @param request - Where to dispatch, what to pass, and what to do on failure
  * @returns Resolves once the request has opened the dialog, fallen back, or been replaced
  */
 async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
-  waiting.set(tag, request);
+  waiting = request;
 
   let failure: unknown;
   let failed = false;
@@ -310,8 +315,8 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
     failure = error;
   }
 
-  if (waiting.get(tag) !== request) return;
-  waiting.delete(tag);
+  if (waiting !== request) return;
+  waiting = undefined;
 
   if (failed) {
     Logger.warn(`Could not load ${tag}, falling back`, failure);
