@@ -118,7 +118,7 @@ The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongsid
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
-All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.
+A tap or hold on the card shows Home Assistant's own ripple. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand` and `details` have none.
 
 ## 🗒️ Tapping an Event
 

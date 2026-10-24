@@ -2479,3 +2479,33 @@ describe('card stylesheet', () => {
     });
   });
 });
+
+describe('a pressed tappable event', () => {
+  /** The wash percentage a rule mixes into `currentColor`, read from the raw text. */
+  function washPercent(selector: string): number {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = CSS.match(new RegExp(`${escaped}\\s*\\{[^}]*currentColor (\\d+)%`));
+    return Number(match?.[1]);
+  }
+
+  // The hover wash is gated on `(hover: hover)`, and the card's ripple is muted over events,
+  // so on touch the pressed wash is the only thing a tap on an event shows. `rulesFor` sees
+  // top-level rules only, so finding these there also proves they are not inside that
+  // media query.
+  it('washes on any input, more strongly than on hover', () => {
+    expect(declared('.event-interactive:active', 'box-shadow')).toMatch(/currentColor 10%/);
+    expect(washPercent('.event-interactive:active')).toBeGreaterThan(
+      washPercent('.event-interactive:hover'),
+    );
+  });
+
+  it("washes the list button's whole cell, not the button itself", () => {
+    expect(declared('.event-button:active::before', 'background-color')).toMatch(
+      /currentColor 10%/,
+    );
+    expect(declared('.event-button.event-interactive:active', 'box-shadow')).toBe('none');
+    expect(washPercent('.event-button:active::before')).toBeGreaterThan(
+      washPercent('.event-button:hover::before'),
+    );
+  });
+});

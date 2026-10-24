@@ -2042,7 +2042,10 @@ export const cardStyles = css`
    * Assistant's event-detail dialog. The event's own background is an inline style, so the
    * hover wash is an inset shadow drawn over it rather than a second background, and it
    * mixes the event's text color so it reads on light and dark themes alike. Hover
-   * only where there is a real pointer: on touch, a hover state sticks after the tap. */
+   * only where there is a real pointer: on touch, a hover state sticks after the tap.
+   * The pressed wash is not gated, and is a little stronger so it reads over the hover one:
+   * on touch it is the only feedback a tap on an event gets, the card's ripple being muted
+   * over events (below). */
   .event-interactive {
     cursor: pointer;
   }
@@ -2051,6 +2054,10 @@ export const cardStyles = css`
     .event-interactive:hover {
       box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 6%, transparent);
     }
+  }
+
+  .event-interactive:active {
+    box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 10%, transparent);
   }
 
   .event-interactive:focus {
@@ -2127,6 +2134,14 @@ export const cardStyles = css`
     .event-button:hover::before {
       background-color: color-mix(in srgb, currentColor 6%, transparent);
     }
+  }
+
+  .event-button.event-interactive:active {
+    box-shadow: none;
+  }
+
+  .event-button:active::before {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
   }
 
   .event-button.event-interactive:focus-visible {
