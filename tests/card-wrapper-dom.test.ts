@@ -28,6 +28,8 @@ import type * as Toolbar from '../src/rendering/toolbar';
 
 const noopHandlers = {
   keyDown: () => {},
+  keyUp: () => {},
+  click: () => {},
   pointerDown: () => {},
   pointerMove: () => {},
   pointerUp: () => {},

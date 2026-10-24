@@ -34,7 +34,7 @@ import * as CalendarChanges from './interaction/calendar-changes';
 import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
 import * as Dialogs from './interaction/ha-calendar-dialogs';
-import type * as Activation from './rendering/activation';
+import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
@@ -465,6 +465,26 @@ class CalendarCardPro extends LitElement {
   private _pointerCaptureTarget: Element | null = null;
   private _capturedPointerId: number | null = null;
   private _releasingPointerCapture = false;
+  /**
+   * The event the active gesture's pointer-down landed on, if any. A tap ending this
+   * gesture runs `event_tap_action` for it instead of the card's `tap_action`.
+   */
+  private _pointerTapTarget: Activation.EventTapTarget | null = null;
+  /**
+   * Until when a `click` counts as derived from the pointer gesture that just ended.
+   *
+   * A browser follows a pointer tap with a `click`. Where the card captured the pointer
+   * that click is aimed at `ha-card` and names no event, but where capture failed or a
+   * browser does not retarget it, it is aimed at the event the pointer-up already acted on,
+   * and must not act a second time. Assistive technology activates a button with a bare
+   * `click` and no pointer events at all, so a click is otherwise an activation in its own
+   * right. The first click after a pointer-up spends this whatever it is aimed at; the
+   * deadline only bounds a gesture no click follows, such as a touch long-press, so it
+   * cannot swallow an unrelated activation later.
+   */
+  private _derivedClickDeadline: number | null = null;
+  /** The event a Space keydown armed. A native button activates on Space's keyup. */
+  private _spaceArmedOn: EventTarget | null = null;
 
   /**
    * Whether the card has a tap action to advertise to pointer and keyboard users.
@@ -525,7 +545,10 @@ class CalendarCardPro extends LitElement {
    * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
    * dialog reports an edit or a delete.
    */
-  private readonly _openEventDetails: Activation.EventActivateHandler = (event, color) => {
+  private readonly _openEventDetails = (
+    event: Types.CalendarEventData,
+    color: string | undefined,
+  ): void => {
     const calendarId = event._entityId;
     const entry = EventDetails.buildDetailEntry(event);
     if (!calendarId || !entry) return;
@@ -559,19 +582,30 @@ class CalendarCardPro extends LitElement {
    * `details` opens the event; anything else goes to Home Assistant for the event's own
    * calendar, which for a merged row is the calendar whose copy the card kept. `expand`,
    * offered only to the card's own tap, still means the card's expand if written in YAML.
+   *
+   * @param target - The tapped event and the accent color it is drawn in
    */
-  private readonly _runEventTapAction: Activation.EventActivateHandler = (event, color) => {
+  private _runEventTapAction({ event, color }: Activation.EventTapTarget): void {
+    Logger.debug('Executing event tap action');
     Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded(), {
       entity: event._entityId,
       details: () => this._openEventDetails(event, color),
     });
-  };
+  }
 
   /**
-   * The handler that makes events tap targets, or undefined to leave them inert.
+   * The tappable event an input event started on, or undefined.
+   *
+   * Read from the composed path rather than the target, because a pointer-down's target is
+   * whatever leaf of the event's content the pointer hit. Undefined whenever events are not
+   * tap targets, so a render still showing the previous configuration cannot act on it.
+   *
+   * @param ev - A pointer or mouse event dispatched to `ha-card` or inside it
+   * @returns The event's tap target, or undefined
    */
-  private get _eventActivateHandler(): Activation.EventActivateHandler | undefined {
-    return this._hasEventTapAction ? this._runEventTapAction : undefined;
+  private _eventTapAt(ev: Event): Activation.EventTapTarget | undefined {
+    if (!this._hasEventTapAction || typeof ev.composedPath !== 'function') return undefined;
+    return Activation.findEventTap(ev.composedPath(), ev.currentTarget)?.target;
   }
 
   /**
@@ -944,6 +978,9 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = null;
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = null;
+    this._derivedClickDeadline = null;
+    this._spaceArmedOn = null;
 
     this._stopNowLineTimer();
     this._stopMidnightTimer();
@@ -2470,12 +2507,19 @@ class CalendarCardPro extends LitElement {
    * with `isPrimary === false`. Accepting either armed or transferred the hold
    * to an input that was not the gesture the user began. Touch and pen primary
    * contacts report `button === 0`; unit stubs may omit either field.
+   *
+   * This is also the one moment the tapped event is known. The capture below retargets
+   * every later event of the gesture, the click included, to `ha-card`, so the event the
+   * pointer landed on is read from this pointer-down's path and held until pointer-up. A
+   * card with no action of its own arms only for a pointer that landed on an event, so
+   * turning event taps on changes nothing about a press anywhere else.
    */
   private _handlePointerDown(ev: PointerEvent) {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
-    if (!this._hasCardAction) {
+    const tapTarget = this._eventTapAt(ev);
+    if (!this._hasCardAction && !tapTarget) {
       return;
     }
     if (ev.isPrimary === false || this._activePointerId !== null) {
@@ -2486,6 +2530,9 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = { x: ev.clientX, y: ev.clientY };
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = tapTarget ?? null;
+    // A new gesture: whatever click the last one owed has had its chance.
+    this._derivedClickDeadline = null;
     this._captureActivePointer(ev);
 
     // Defensive cleanup for an indicator left by an externally interrupted prior
@@ -2578,6 +2625,8 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
+    // A hold is the card's wherever it lands, an event included; only a tap is the event's.
+    const tapTarget = this._pointerTapTarget;
     if (
       !this._pointerMoved &&
       this._holdTriggered &&
@@ -2586,6 +2635,8 @@ class CalendarCardPro extends LitElement {
     ) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
+    } else if (!this._pointerMoved && !this._holdTriggered && tapTarget) {
+      this._runEventTapAction(tapTarget);
     } else if (
       !this._pointerMoved &&
       !this._holdTriggered &&
@@ -2596,11 +2647,16 @@ class CalendarCardPro extends LitElement {
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
+    // Whatever this gesture was, it has been decided; the click a browser derives from it
+    // is not a second one. See `_derivedClickDeadline`.
+    this._derivedClickDeadline = Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW;
+
     this._releaseActivePointerCapture();
     this._activePointerId = null;
     this._pointerStart = null;
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = null;
 
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
@@ -2626,6 +2682,7 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = null;
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = null;
 
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
@@ -2701,6 +2758,7 @@ class CalendarCardPro extends LitElement {
    * which is why the pin below dispatches a real bubbling event instead.
    */
   private _handleKeyDown(ev: KeyboardEvent) {
+    if (this._handleEventKeyDown(ev)) return;
     if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
 
     if (ev.key === 'Enter' || ev.key === ' ') {
@@ -2711,6 +2769,77 @@ class CalendarCardPro extends LitElement {
       ev.preventDefault();
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
+  }
+
+  /**
+   * Enter and Space on a focused event, taken as a native button takes them: Enter on its
+   * keydown, Space on its keyup, and only if focus is still on the event Space went down
+   * on. Neither repeats while the key is held, and Space never scrolls the card.
+   *
+   * Only when the event itself is the key's target. An event has no focusable content, so
+   * anything else holding focus inside the card is not an event and keeps its keys.
+   *
+   * @param ev - A keydown bubbling to `ha-card`
+   * @returns True when the key was the focused event's, and was consumed
+   */
+  private _handleEventKeyDown(ev: KeyboardEvent): boolean {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return false;
+    const target = this._hasEventTapAction ? Activation.tapTargetOn(ev.target) : undefined;
+    if (!target) return false;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.repeat) return true;
+
+    if (ev.key === 'Enter') {
+      this._runEventTapAction(target);
+    } else {
+      this._spaceArmedOn = ev.target;
+    }
+    return true;
+  }
+
+  /**
+   * Space's keyup on the event its keydown armed activates it.
+   *
+   * @param ev - A keyup bubbling to `ha-card`
+   */
+  private _handleKeyUp(ev: KeyboardEvent) {
+    if (ev.key !== ' ') return;
+    const armed = this._spaceArmedOn;
+    this._spaceArmedOn = null;
+
+    const target = this._hasEventTapAction ? Activation.tapTargetOn(ev.target) : undefined;
+    if (!target || armed === null || armed !== ev.target) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    this._runEventTapAction(target);
+  }
+
+  /**
+   * A click on an event: assistive technology's way of activating it, or the echo of a
+   * pointer tap the pointer-up already acted on.
+   *
+   * Assistive technology activates a `role="button"` with a bare `click` and no pointer
+   * events, so a click that names an event runs `event_tap_action` for it. Unless it was
+   * derived from the pointer gesture that just ended; see `_derivedClickDeadline`. Either
+   * way a click the event owns stops here, as a click on a native button would be the
+   * button's and not its container's.
+   *
+   * @param ev - A click bubbling to `ha-card`
+   */
+  private _handleClick(ev: MouseEvent) {
+    const deadline = this._derivedClickDeadline;
+    this._derivedClickDeadline = null;
+    const derived = deadline !== null && Date.now() <= deadline;
+
+    const target = this._eventTapAt(ev);
+    if (!target) return;
+
+    ev.stopPropagation();
+    if (derived) return;
+    this._runEventTapAction(target);
   }
 
   //-----------------------------------------------------------------------------
@@ -3133,6 +3262,8 @@ class CalendarCardPro extends LitElement {
 
     const handlers = {
       keyDown: (ev: KeyboardEvent) => this._handleKeyDown(ev),
+      keyUp: (ev: KeyboardEvent) => this._handleKeyUp(ev),
+      click: (ev: MouseEvent) => this._handleClick(ev),
       pointerDown: (ev: PointerEvent) => this._handlePointerDown(ev),
       pointerMove: (ev: PointerEvent) => this._handlePointerMove(ev),
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
@@ -3163,7 +3294,7 @@ class CalendarCardPro extends LitElement {
           undefined,
           this._cascadeThresholdMin,
           this._overflowStripPct,
-          this._eventActivateHandler,
+          this._hasEventTapAction,
         );
       }
 
@@ -3174,7 +3305,7 @@ class CalendarCardPro extends LitElement {
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
-            this._eventActivateHandler,
+            this._hasEventTapAction,
           )
         : Render.renderGroupedEvents(
             days,
@@ -3182,7 +3313,7 @@ class CalendarCardPro extends LitElement {
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
-            this._eventActivateHandler,
+            this._hasEventTapAction,
           );
     };
 

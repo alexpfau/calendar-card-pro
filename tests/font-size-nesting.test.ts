@@ -598,6 +598,8 @@ const RUNTIME_STATES: Array<{
 
 const HANDLERS = {
   keyDown: () => undefined,
+  keyUp: () => undefined,
+  click: () => undefined,
   pointerDown: () => undefined,
   pointerMove: () => undefined,
   pointerUp: () => undefined,

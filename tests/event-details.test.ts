@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
   type DetailContext,
@@ -128,18 +129,58 @@ function eventsShowing(card: Card, text: string): HTMLElement[] {
   );
 }
 
-function press(target: Element, key: string): KeyboardEvent {
-  const ev = new KeyboardEvent('keydown', { key, bubbles: true, composed: true, cancelable: true });
+/**
+ * Every rendered event button whose text includes `text`: the element a tap or a click on the
+ * event has to reach, and the one that carries the role and the tab stop.
+ */
+function buttonsShowing(card: Card, text: string): HTMLElement[] {
+  return Array.from(card.shadowRoot?.querySelectorAll<HTMLElement>('[role="button"]') ?? []).filter(
+    (el) => el.textContent?.includes(text),
+  );
+}
+
+/** A key event on `target`, as a browser dispatches it to the focused element. */
+function key(target: Element, type: 'keydown' | 'keyup', name: string, repeat = false) {
+  const ev = new KeyboardEvent(type, {
+    key: name,
+    repeat,
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+  });
   target.dispatchEvent(ev);
   return ev;
 }
 
+/** One pointer event of the primary contact, at a point. */
+function pointer(target: Element, type: string, x = 0, y = 0): void {
+  const ev = new Event(type, { bubbles: true, composed: true });
+  target.dispatchEvent(
+    Object.assign(ev, { pointerId: 1, button: 0, isPrimary: true, clientX: x, clientY: y }),
+  );
+}
+
+/** The click a browser derives from a pointer gesture, or assistive technology sends alone. */
+function click(target: Element): void {
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+}
+
 /** A pointer press and release, then the click a browser fires after them. */
 function tap(target: Element): void {
-  const opts = { bubbles: true, composed: true };
-  target.dispatchEvent(Object.assign(new Event('pointerdown', opts), { pointerId: 1, button: 0 }));
-  target.dispatchEvent(Object.assign(new Event('pointerup', opts), { pointerId: 1, button: 0 }));
-  target.dispatchEvent(new MouseEvent('click', opts));
+  pointer(target, 'pointerdown');
+  pointer(target, 'pointerup');
+  click(target);
+}
+
+/**
+ * The innermost element inside `root` showing `text`: where a real pointer lands, rather
+ * than on the event's own root.
+ */
+function leafShowing(root: Element, text: string): Element {
+  const leaves = Array.from(root.querySelectorAll('*')).filter((el) =>
+    el.textContent?.includes(text),
+  );
+  return leaves[leaves.length - 1] ?? root;
 }
 
 /** Let the async open finish; it awaits the loader before dispatching. */
@@ -169,10 +210,23 @@ describe('event_tap_action none, the default', () => {
     expect(root.querySelectorAll('.event-interactive')).toHaveLength(0);
     expect(root.querySelectorAll('.event[role], .event[tabindex]')).toHaveLength(0);
 
-    eventsShowing(card, 'Dentist')[0].click();
+    tap(eventsShowing(card, 'Dentist')[0]);
+    click(eventsShowing(card, 'Dentist')[0]);
     await settle();
     expect(dialogs).toHaveLength(0);
   });
+
+  it.each(['list', 'column', 'grid'])(
+    "runs the card's tap action for a tap on a %s event, as before",
+    async (view) => {
+      const { card, dialogs, actions } = await mount({ view, tap_action: { action: 'more-info' } });
+
+      tap(leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist'));
+      await settle();
+      expect(actions).toEqual(['tap']);
+      expect(dialogs).toHaveLength(0);
+    },
+  );
 });
 
 describe('event_tap_action details', () => {
@@ -181,26 +235,29 @@ describe('event_tap_action details', () => {
     ['column', 'Dentist'],
     ['grid', 'Dentist'],
     ['grid', 'Public holiday'],
-  ])('makes a %s event a button that opens its details (%s)', async (view, summary) => {
-    const { card, dialogs } = await mount({ view, ...DETAILS });
+  ])(
+    'makes a %s event a button a bare click opens, as assistive technology sends (%s)',
+    async (view, summary) => {
+      const { card, dialogs } = await mount({ view, ...DETAILS });
 
-    const target = eventsShowing(card, summary)[0];
-    expect(target.getAttribute('role')).toBe('button');
-    expect(target.getAttribute('tabindex')).toBe('0');
-    expect(target.classList.contains('event-interactive')).toBe(true);
+      const target = buttonsShowing(card, summary)[0];
+      expect(target.getAttribute('role')).toBe('button');
+      expect(target.getAttribute('tabindex')).toBe('0');
+      expect(target.classList.contains('event-interactive')).toBe(true);
 
-    target.click();
-    await settle();
-    expect(dialogs).toHaveLength(1);
-    expect(dialogs[0].dialogTag).toBe(EVENT_DETAIL_DIALOG_TAG);
-    expect(dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
-    expect(dialogs[0].dialogParams.entry.summary).toBe(summary);
-  });
+      click(target);
+      await settle();
+      expect(dialogs).toHaveLength(1);
+      expect(dialogs[0].dialogTag).toBe(EVENT_DETAIL_DIALOG_TAG);
+      expect(dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
+      expect(dialogs[0].dialogParams.entry.summary).toBe(summary);
+    },
+  );
 
   it('hands the dialog every field Home Assistant returned', async () => {
     const { card, dialogs } = await mount({ ...DETAILS });
 
-    eventsShowing(card, 'Dentist')[0].click();
+    buttonsShowing(card, 'Dentist')[0].click();
     await settle();
     expect(dialogs[0].dialogParams.entry).toEqual({
       summary: 'Dentist',
@@ -223,9 +280,9 @@ describe('event_tap_action details', () => {
 
     // The control: the rows really were split and rewritten, so the entry below cannot
     // be passing because the row already said the same thing.
-    const segments = eventsShowing(card, 'Away');
+    const segments = buttonsShowing(card, 'Away');
     expect(segments.length).toBeGreaterThan(1);
-    expect(eventsShowing(card, 'Trip')).toHaveLength(0);
+    expect(buttonsShowing(card, 'Trip')).toHaveLength(0);
 
     segments[segments.length - 1].click();
     await settle();
@@ -245,7 +302,7 @@ describe('event_tap_action details', () => {
   ])('offers Edit and Delete as features %i allow for %s', async (features, summary, expected) => {
     const { card, dialogs } = await mount({ ...DETAILS }, { states: calendarState(features) });
 
-    eventsShowing(card, summary)[0].click();
+    buttonsShowing(card, summary)[0].click();
     await settle();
     expect(dialogs[0].dialogParams).toMatchObject(expected);
   });
@@ -253,7 +310,7 @@ describe('event_tap_action details', () => {
   it('fetches again once the dialog has edited or deleted the event', async () => {
     const { card, callApi, dialogs } = await mount({ ...DETAILS });
 
-    eventsShowing(card, 'Dentist')[0].click();
+    buttonsShowing(card, 'Dentist')[0].click();
     await settle();
     const fetchesBefore = callApi.mock.calls.length;
 
@@ -261,32 +318,109 @@ describe('event_tap_action details', () => {
     await vi.waitFor(() => expect(callApi.mock.calls.length).toBeGreaterThan(fetchesBefore));
   });
 
-  it('opens on Enter and Space, and on no other key', async () => {
-    const { card, dialogs } = await mount({ ...DETAILS });
-    const target = eventsShowing(card, 'Dentist')[0];
+  it.each([
+    ['list', 'Dentist'],
+    ['column', 'Dentist'],
+    ['grid', 'Dentist'],
+    ['grid', 'Public holiday'],
+  ])(
+    'opens a %s event for a pointer tap on its content and the click that follows (%s)',
+    async (view, summary) => {
+      const { card, dialogs } = await mount({ view, ...DETAILS });
 
-    press(target, 'a');
+      // On the event's content rather than its root, where a real pointer lands. That the
+      // tap and its click run the action once, not twice, is pinned with `more-info` below:
+      // a second request for the dialog in the same tick supersedes the first, so a dialog
+      // count cannot tell.
+      tap(leafShowing(buttonsShowing(card, summary)[0], summary));
+      await settle();
+      expect(dialogs.map((dialog) => dialog.dialogParams.entry.summary)).toEqual([summary]);
+    },
+  );
+
+  it.each(['list', 'column', 'grid'])(
+    'opens a %s event on Enter, once however long it is held',
+    async (view) => {
+      const { card, dialogs } = await mount({ view, ...DETAILS });
+      const target = buttonsShowing(card, 'Dentist')[0];
+
+      // The control: a key that is not the event's does nothing and is left alone.
+      expect(key(target, 'keydown', 'a').defaultPrevented).toBe(false);
+      await settle();
+      expect(dialogs).toHaveLength(0);
+
+      expect(key(target, 'keydown', 'Enter').defaultPrevented).toBe(true);
+      await settle();
+      expect(dialogs).toHaveLength(1);
+
+      expect(key(target, 'keydown', 'Enter', true).defaultPrevented).toBe(true);
+      key(target, 'keyup', 'Enter');
+      await settle();
+      expect(dialogs).toHaveLength(1);
+    },
+  );
+
+  it.each(['list', 'column', 'grid'])(
+    'opens a %s event on Space as it is let go, once, and never scrolls',
+    async (view) => {
+      const { card, dialogs } = await mount({ view, ...DETAILS });
+      const target = buttonsShowing(card, 'Dentist')[0];
+
+      // Space would otherwise scroll the card, so every Space keydown is prevented.
+      expect(key(target, 'keydown', ' ').defaultPrevented).toBe(true);
+      expect(key(target, 'keydown', ' ', true).defaultPrevented).toBe(true);
+      await settle();
+      expect(dialogs).toHaveLength(0);
+
+      expect(key(target, 'keyup', ' ').defaultPrevented).toBe(true);
+      await settle();
+      expect(dialogs).toHaveLength(1);
+
+      // A keyup with no keydown before it, as when Space was pressed elsewhere, does nothing.
+      key(target, 'keyup', ' ');
+      await settle();
+      expect(dialogs).toHaveLength(1);
+    },
+  );
+
+  it('opens nothing when Space is let go of on another event', async () => {
+    const { card, dialogs } = await mount({ view: 'grid', ...DETAILS });
+
+    key(buttonsShowing(card, 'Dentist')[0], 'keydown', ' ');
+    key(buttonsShowing(card, 'Public holiday')[0], 'keyup', ' ');
     await settle();
     expect(dialogs).toHaveLength(0);
-
-    press(target, 'Enter');
-    await settle();
-    expect(dialogs).toHaveLength(1);
-
-    const space = press(target, ' ');
-    await settle();
-    expect(dialogs).toHaveLength(2);
-    // Space would otherwise scroll the card.
-    expect(space.defaultPrevented).toBe(true);
   });
 
-  it("does not run the card's tap action for a tap on an event", async () => {
+  it('starts no gesture for a press off the events on a card with no action of its own', async () => {
+    // Turning event taps on must change nothing about a press anywhere else on the card: no
+    // pointer capture, which would retarget that press's click, and no gesture bookkeeping.
+    const { card } = await mount({ ...DETAILS });
+    const haCard = card.shadowRoot!.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+    };
+    const capture = vi.fn();
+    haCard.setPointerCapture = capture;
+    const active = () => (card as unknown as { _activePointerId: number | null })._activePointerId;
+
+    pointer(haCard, 'pointerdown');
+    expect(capture).not.toHaveBeenCalled();
+    expect(active()).toBeNull();
+    pointer(haCard, 'pointerup');
+
+    // The control: the same press on an event is a gesture, captured like any other.
+    pointer(buttonsShowing(card, 'Dentist')[0], 'pointerdown');
+    expect(capture).toHaveBeenCalledOnce();
+    expect(active()).toBe(1);
+  });
+
+  it("runs the card's tap action for a tap off the events, and not for one on them", async () => {
     const { card, dialogs, actions } = await mount({
       ...DETAILS,
       tap_action: { action: 'more-info' },
     });
 
-    tap(eventsShowing(card, 'Dentist')[0]);
+    tap(buttonsShowing(card, 'Dentist')[0]);
     await settle();
     expect(dialogs).toHaveLength(1);
     expect(actions).toEqual([]);
@@ -295,33 +429,130 @@ describe('event_tap_action details', () => {
     tap(card.shadowRoot!.querySelector('ha-card')!);
     await settle();
     expect(actions).toEqual(['tap']);
+    expect(dialogs).toHaveLength(1);
   });
 
-  it('keeps an event tap or key from reaching whatever contains the card', async () => {
-    // The card ignores clicks and keys from its own descendants anyway; a wrapping card or
-    // dashboard handler does not, and would act on the same tap that opened the dialog.
+  it.each(['list', 'column', 'grid'])(
+    "runs the card's hold action for a hold on a %s event, and does not open it",
+    async (view) => {
+      const { card, dialogs, actions } = await mount({
+        view,
+        ...DETAILS,
+        hold_action: { action: 'more-info' },
+      });
+      const target = leafShowing(buttonsShowing(card, 'Dentist')[0], 'Dentist');
+
+      pointer(target, 'pointerdown');
+      vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+      pointer(target, 'pointerup');
+      click(target);
+      await settle();
+      expect(actions).toEqual(['hold']);
+      expect(dialogs).toHaveLength(0);
+
+      // The control: the same press let go before the threshold is a tap on the event.
+      tap(target);
+      await settle();
+      expect(actions).toEqual(['hold']);
+      expect(dialogs).toHaveLength(1);
+    },
+  );
+
+  it.each(['list', 'column', 'grid'])(
+    'does neither for a pointer that moved on a %s event, as a scroll does',
+    async (view) => {
+      const { card, dialogs, actions } = await mount({
+        view,
+        ...DETAILS,
+        tap_action: { action: 'more-info' },
+      });
+      const target = buttonsShowing(card, 'Dentist')[0];
+      const far = Constants.UI.POINTER_MOVE_TOLERANCE * 4;
+
+      pointer(target, 'pointerdown');
+      pointer(target, 'pointermove', 0, far);
+      pointer(target, 'pointerup', 0, far);
+      click(target);
+      await settle();
+      expect(dialogs).toHaveLength(0);
+      expect(actions).toEqual([]);
+    },
+  );
+
+  it('still opens on a bare click once a gesture elsewhere has had its own', async () => {
+    // The click a pointer tap off the events derives spends the guard, even though it names
+    // no event, so the next activation by assistive technology counts.
+    const { card, dialogs, actions } = await mount({
+      ...DETAILS,
+      tap_action: { action: 'more-info' },
+    });
+
+    tap(card.shadowRoot!.querySelector('ha-card')!);
+    click(buttonsShowing(card, 'Dentist')[0]);
+    await settle();
+    expect(actions).toEqual(['tap']);
+    expect(dialogs).toHaveLength(1);
+  });
+
+  it('still opens on a bare click after a pointer tap whose own click never came', async () => {
+    const { card, dialogs } = await mount({ ...DETAILS });
+    const target = buttonsShowing(card, 'Dentist')[0];
+
+    pointer(target, 'pointerdown');
+    pointer(target, 'pointerup');
+    await settle();
+    expect(dialogs).toHaveLength(1);
+
+    // Within the window a click is taken for the tap's own and opens nothing more...
+    click(target);
+    await settle();
+    expect(dialogs).toHaveLength(1);
+
+    // ...and that spent it, so the next one opens again, as does one after the window.
+    click(target);
+    await settle();
+    expect(dialogs).toHaveLength(2);
+
+    pointer(target, 'pointerdown');
+    pointer(target, 'pointerup');
+    await settle();
+    expect(dialogs).toHaveLength(3);
+    vi.advanceTimersByTime(Constants.TIMING.DERIVED_CLICK_WINDOW + 1);
+    click(target);
+    await settle();
+    expect(dialogs).toHaveLength(4);
+  });
+
+  it('lets the pointer through, and keeps the clicks and keys it acts on', async () => {
+    // A wrapping card or dashboard handler does not ignore the card's descendants, and would
+    // act on the same click or key that opened the dialog. Pointer events are different: the
+    // card's own recognizer listens for them on `ha-card`, and Home Assistant's edit mode
+    // drags a card by them, so they travel on as a press anywhere else on the card does.
     const { card } = await mount({ ...DETAILS });
     const reached: string[] = [];
-    for (const type of ['click', 'keydown', 'pointerdown', 'pointerup']) {
+    for (const type of ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup']) {
       document.body.addEventListener(type, () => reached.push(type));
     }
 
-    const target = eventsShowing(card, 'Dentist')[0];
+    const target = buttonsShowing(card, 'Dentist')[0];
     tap(target);
-    press(target, 'Enter');
-    press(target, ' ');
+    click(target);
+    key(target, 'keydown', 'Enter');
+    key(target, 'keydown', ' ');
+    key(target, 'keyup', ' ');
     await settle();
-    expect(reached).toEqual([]);
+    expect(reached).toEqual(['pointerdown', 'pointerup']);
 
     // The control: keys other than the two that open it pass through, as do taps elsewhere.
-    press(target, 'Escape');
+    reached.length = 0;
+    key(target, 'keydown', 'Escape');
     tap(card.shadowRoot!.querySelector('ha-card')!);
     expect(reached).toEqual(['keydown', 'pointerdown', 'pointerup', 'click']);
   });
 
-  it('leaves empty-day rows inert', async () => {
+  it.each(['list', 'column'])('leaves %s empty-day rows inert', async (view) => {
     const { card, dialogs } = await mount(
-      { ...DETAILS, show_empty_days: true },
+      { view, ...DETAILS, show_empty_days: true },
       { events: [RAW_EVENTS[0]] },
     );
 
@@ -333,7 +564,10 @@ describe('event_tap_action details', () => {
     for (const placeholder of placeholders) {
       expect(placeholder.hasAttribute('role')).toBe(false);
       expect(placeholder.hasAttribute('tabindex')).toBe(false);
-      placeholder.click();
+      expect(placeholder.querySelector('[role], [tabindex]')).toBeNull();
+      tap(leafShowing(placeholder, placeholder.textContent!.trim()));
+      click(placeholder);
+      key(placeholder, 'keydown', 'Enter');
     }
     await settle();
     expect(dialogs).toHaveLength(0);
@@ -361,7 +595,9 @@ describe('event_tap_action details', () => {
     expect(overflow!.hasAttribute('role')).toBe(false);
     expect(overflow!.hasAttribute('tabindex')).toBe(false);
 
-    overflow!.click();
+    tap(overflow!);
+    click(overflow!);
+    key(overflow!, 'keydown', 'Enter');
     await settle();
     expect(dialogs).toHaveLength(0);
   });
@@ -404,7 +640,7 @@ describe("event_tap_action set to one of Home Assistant's actions", () => {
         { eventsFor: { 'calendar.ben': [SWIMMING] } },
       );
 
-      eventsShowing(card, 'Swimming')[0].click();
+      buttonsShowing(card, 'Swimming')[0].click();
       await settle();
       expect(dialogs).toEqual([]);
       expect(hassActions).toEqual([
@@ -412,12 +648,41 @@ describe("event_tap_action set to one of Home Assistant's actions", () => {
       ]);
 
       // The control: an event of the first calendar names the first.
-      eventsShowing(card, 'Dentist')[0].click();
+      buttonsShowing(card, 'Dentist')[0].click();
       await settle();
       expect(hassActions.map((detail) => detail.config.entity)).toEqual([
         'calendar.ben',
         'calendar.anna',
       ]);
+    },
+  );
+
+  it.each(['list', 'column', 'grid'])(
+    'runs it once in %s view per activation, however the activation arrives',
+    async (view) => {
+      // Counted on `hass-action`, which is dispatched as the action runs. The details dialog
+      // cannot show a second run: a second request in the same tick supersedes the first,
+      // so it opens once whether the card asked once or twice.
+      const { card, hassActions } = await mount({ view, ...MORE_INFO });
+      const target = buttonsShowing(card, 'Dentist')[0];
+      const runs = () => hassActions.length;
+
+      tap(leafShowing(target, 'Dentist'));
+      expect(runs()).toBe(1);
+
+      click(target);
+      expect(runs()).toBe(2);
+
+      key(target, 'keydown', 'Enter');
+      key(target, 'keydown', 'Enter', true);
+      key(target, 'keyup', 'Enter');
+      expect(runs()).toBe(3);
+
+      key(target, 'keydown', ' ');
+      key(target, 'keydown', ' ', true);
+      expect(runs()).toBe(3);
+      key(target, 'keyup', ' ');
+      expect(runs()).toBe(4);
     },
   );
 
@@ -439,8 +704,8 @@ describe("event_tap_action set to one of Home Assistant's actions", () => {
       },
     );
 
-    expect(eventsShowing(card, 'Swimming')).toHaveLength(1);
-    eventsShowing(card, 'Swimming')[0].click();
+    expect(buttonsShowing(card, 'Swimming')).toHaveLength(1);
+    buttonsShowing(card, 'Swimming')[0].click();
     await settle();
     expect(hassActions.map((detail) => detail.config.entity)).toEqual(['calendar.ben']);
   });
@@ -453,7 +718,7 @@ describe("event_tap_action set to one of Home Assistant's actions", () => {
     const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
     expect(expanded()).toBe(false);
 
-    eventsShowing(card, 'Dentist')[0].click();
+    buttonsShowing(card, 'Dentist')[0].click();
     await settle();
     expect(expanded()).toBe(true);
     expect(dialogs).toEqual([]);
@@ -485,7 +750,7 @@ describe('what the dialog is handed for events the card had to change', () => {
       );
 
       // The control: the row really was repaired, so it no longer draws the stored end.
-      const row = eventsShowing(card, 'Backwards')[0];
+      const row = buttonsShowing(card, 'Backwards')[0];
       expect(row.textContent).toContain('18:00');
       expect(row.textContent).not.toContain('17:00');
 
@@ -515,7 +780,7 @@ describe('what the dialog is handed for events the card had to change', () => {
       expect(held._source).toBeDefined();
       expect(held._source!.end).toBeUndefined();
 
-      eventsShowing(card, 'Reminder')[0].click();
+      buttonsShowing(card, 'Reminder')[0].click();
       await settle();
       // Home Assistant's dialog formats `dtend` unconditionally, so it is shown the instant
       // the card draws. Edit would save that instant as the event's end, so it is withheld;
@@ -537,11 +802,11 @@ describe('what the dialog is handed for events the card had to change', () => {
       { events: [RAW_EVENTS[0], { ...RAW_EVENTS[1], status: 'tentative' }] },
     );
 
-    const segments = eventsShowing(card, 'Trip');
+    const segments = buttonsShowing(card, 'Trip');
     expect(segments.length).toBeGreaterThan(1);
     segments[segments.length - 1].click();
     await settle();
-    eventsShowing(card, 'Dentist')[0].click();
+    buttonsShowing(card, 'Dentist')[0].click();
     await settle();
 
     expect(dialogs.map((dialog) => dialog.dialogParams.entry.status)).toEqual([
@@ -562,7 +827,7 @@ describe('what the card lets the dialog offer', () => {
   };
 
   async function permissionsFor(card: Card, dialogs: DialogDetail[], summary: string) {
-    eventsShowing(card, summary)[0].click();
+    buttonsShowing(card, summary)[0].click();
     await settle();
     const { canEdit, canDelete } = dialogs[dialogs.length - 1].dialogParams;
     return { canEdit, canDelete };
@@ -590,7 +855,7 @@ describe('what the card lets the dialog offer', () => {
       { ...DETAILS, entities, filter_duplicates: false },
       { states: twoCalendars },
     );
-    expect(eventsShowing(apart.card, 'Dentist')).toHaveLength(2);
+    expect(buttonsShowing(apart.card, 'Dentist')).toHaveLength(2);
     expect(await permissionsFor(apart.card, apart.dialogs, 'Dentist')).toEqual({
       canEdit: true,
       canDelete: true,
@@ -602,7 +867,7 @@ describe('what the card lets the dialog offer', () => {
       { ...DETAILS, entities, filter_duplicates: true },
       { states: twoCalendars },
     );
-    expect(eventsShowing(merged.card, 'Dentist')).toHaveLength(1);
+    expect(buttonsShowing(merged.card, 'Dentist')).toHaveLength(1);
     expect(await permissionsFor(merged.card, merged.dialogs, 'Dentist')).toEqual({
       canEdit: false,
       canDelete: false,

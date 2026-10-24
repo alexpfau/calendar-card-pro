@@ -51,6 +51,8 @@ export function renderMainCardStructure(
   content: TemplateResult,
   handlers: {
     keyDown: (ev: KeyboardEvent) => void;
+    keyUp: (ev: KeyboardEvent) => void;
+    click: (ev: MouseEvent) => void;
     pointerDown: (ev: PointerEvent) => void;
     pointerMove: (ev: PointerEvent) => void;
     pointerUp: (ev: PointerEvent) => void;
@@ -105,6 +107,8 @@ export function renderMainCardStructure(
       role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
+      @keyup=${handlers.keyUp}
+      @click=${handlers.click}
       @pointerdown=${handlers.pointerDown}
       @pointermove=${handlers.pointerMove}
       @pointerup=${handlers.pointerUp}
@@ -402,7 +406,7 @@ function renderDateColumn(
  * @param language - Language code for translations
  * @param prevDay - Previous day data for determining separators
  * @param boundaryInfo - Information about week and month boundaries
- * @param onEventActivate - Makes each event a tap target when set
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns TemplateResult for the day
  */
 export function renderDay(
@@ -413,7 +417,7 @@ export function renderDay(
   boundaryInfo?: { isNewWeek: boolean; isNewMonth: boolean },
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
-  onEventActivate?: Activation.EventActivateHandler,
+  eventsTappable = false,
 ): TemplateResult {
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
@@ -474,7 +478,7 @@ export function renderDay(
             isToday,
             weatherForecasts,
             hass,
-            onEventActivate,
+            eventsTappable,
           ),
       )}
     </table>
@@ -484,7 +488,7 @@ export function renderDay(
 /**
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  *
- * @param onEventActivate - Makes each event a tap target when set
+ * @param eventsTappable - Whether each event is a tap target of its own
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -492,7 +496,7 @@ export function renderGroupedEvents(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
-  onEventActivate?: Activation.EventActivateHandler,
+  eventsTappable = false,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -549,7 +553,7 @@ export function renderGroupedEvents(
           boundaryInfo,
           weatherForecasts,
           hass,
-          onEventActivate,
+          eventsTappable,
         )}
       `;
     })}
@@ -564,7 +568,7 @@ export function renderGroupedEvents(
  * @param index - Event index within the day
  * @param config - Card configuration
  * @param language - Language code for translations
- * @param onEventActivate - Makes the event a tap target when set
+ * @param eventsTappable - Whether the event is a tap target of its own
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -576,14 +580,10 @@ function renderEvent(
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
-  onEventActivate?: Activation.EventActivateHandler,
+  eventsTappable = false,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
-  const activation = Activation.eventActivation(
-    event,
-    presentation.entityAccentColor,
-    onEventActivate,
-  );
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const dayDate = new Date(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
@@ -598,7 +598,7 @@ function renderEvent(
     'event-middle': isMiddle,
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
-    'event-interactive': activation !== undefined,
+    'event-interactive': tap !== undefined,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -624,12 +624,9 @@ function renderEvent(
         style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
           presentation.accentTextProperties,
         )}"
-        role=${activation ? 'button' : nothing}
-        tabindex=${activation ? '0' : nothing}
-        @click=${activation?.onClick ?? nothing}
-        @keydown=${activation?.onKeyDown ?? nothing}
-        @pointerdown=${activation?.onPointer ?? nothing}
-        @pointerup=${activation?.onPointer ?? nothing}
+        role=${tap ? 'button' : nothing}
+        tabindex=${tap ? '0' : nothing}
+        .calendarCardEventTap=${tap}
       >
         ${Leaves.renderEventContent(event, config, presentation.contentParts, {
           weatherForecasts,

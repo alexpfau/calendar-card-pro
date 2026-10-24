@@ -57,6 +57,16 @@ export const LOGGING = {
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 
+  /**
+   * How long after a pointer gesture ends a `click` still counts as derived from it.
+   *
+   * Browsers dispatch that click straight after the pointer-up, so the window only bounds a
+   * gesture no click follows. Generous, because a wall tablet can be slow to get to the
+   * click, and an activation by assistive technology this soon after a pointer gesture on
+   * the same card is not a thing a person does.
+   */
+  DERIVED_CLICK_WINDOW: 1000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
