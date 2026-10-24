@@ -626,8 +626,12 @@ graph TD
      moved pointer runs nothing
    - A `click` naming an event is assistive technology activating it, and runs
      `event_tap_action`, unless it is the click a browser derives from the gesture that
-     just ended. Every pointer-up opens a window (`TIMING.DERIVED_CLICK_WINDOW`) that the
-     next click spends, whatever it is aimed at
+     just ended. That click names no event when the capture retargeted it, or the event
+     the pointer went down on when a browser did not, so the guard (`_derivedClick`)
+     remembers that event's element and, for `TIMING.DERIVED_CLICK_WINDOW`, swallows the
+     first click naming it or naming none. A click on any other event acts. A tap on the
+     card arms the guard for no event, a hold or a drag that began on an event arms it for
+     that event, and a gesture that ran nothing off the events arms nothing
    - On a focused event, Enter acts on keydown and Space on keyup, without repeats; the
      card's own Enter and Space handling is unchanged
    - Events stop no pointer event, so a hold, and Home Assistant's edit-mode drag, work on

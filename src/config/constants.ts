@@ -58,12 +58,13 @@ export const TIMING = {
   HOLD_THRESHOLD: 500,
 
   /**
-   * How long after a pointer gesture ends a `click` still counts as derived from it.
+   * How long after a pointer gesture ends the `click` it owes is still expected.
    *
    * Browsers dispatch that click straight after the pointer-up, so the window only bounds a
    * gesture no click follows. Generous, because a wall tablet can be slow to get to the
-   * click, and an activation by assistive technology this soon after a pointer gesture on
-   * the same card is not a thing a person does.
+   * click, and an activation by assistive technology of the very event a pointer gesture
+   * just ended on, this soon after it, is not a thing a person does. A click on any other
+   * event is never held back; see `_derivedClick` in the card.
    */
   DERIVED_CLICK_WINDOW: 1000,
 

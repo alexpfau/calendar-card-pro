@@ -469,20 +469,30 @@ class CalendarCardPro extends LitElement {
    * The event the active gesture's pointer-down landed on, if any. A tap ending this
    * gesture runs `event_tap_action` for it instead of the card's `tap_action`.
    */
-  private _pointerTapTarget: Activation.EventTapTarget | null = null;
+  private _pointerTapTarget: Activation.EventTapHit | null = null;
   /**
-   * Until when a `click` counts as derived from the pointer gesture that just ended.
+   * The `click` a browser owes the pointer gesture that just ended, and until when.
    *
-   * A browser follows a pointer tap with a `click`. Where the card captured the pointer
-   * that click is aimed at `ha-card` and names no event, but where capture failed or a
-   * browser does not retarget it, it is aimed at the event the pointer-up already acted on,
-   * and must not act a second time. Assistive technology activates a button with a bare
-   * `click` and no pointer events at all, so a click is otherwise an activation in its own
-   * right. The first click after a pointer-up spends this whatever it is aimed at; the
-   * deadline only bounds a gesture no click follows, such as a touch long-press, so it
-   * cannot swallow an unrelated activation later.
+   * A browser follows a pointer gesture with a `click`, and the pointer-up has already
+   * decided the gesture, so that click must not act again. Where the card captured the
+   * pointer the click is aimed at `ha-card` and names no event. Where capture failed, or a
+   * browser does not retarget it, it is aimed at the event the pointer went down on. So
+   * the guard remembers that event's element (null when the gesture began off the events)
+   * and swallows only a click naming that element or naming none, then is spent.
+   *
+   * Assistive technology activates a button with a bare `click` and no pointer events at
+   * all, so every other click is an activation in its own right, a click on a different
+   * event included. A gesture that ran nothing and began off the events arms no guard.
+   * A hold or a drag that began on an event does, for that event alone: the click a browser
+   * that does not retarget sends after it would otherwise open the event the hold or drag
+   * deliberately did not.
+   *
+   * The element rather than its event data, because a tap that expands the card regroups
+   * the events before the click arrives, which replaces every row's data and keeps the
+   * element. The deadline only bounds a gesture no click follows, such as a touch
+   * long-press, so the guard cannot swallow a later activation.
    */
-  private _derivedClickDeadline: number | null = null;
+  private _derivedClick: { element: EventTarget | null; deadline: number } | null = null;
   /** The event a Space keydown armed. A native button activates on Space's keyup. */
   private _spaceArmedOn: EventTarget | null = null;
 
@@ -629,11 +639,11 @@ class CalendarCardPro extends LitElement {
    * tap targets, so a render still showing the previous configuration cannot act on it.
    *
    * @param ev - A pointer or mouse event dispatched to `ha-card` or inside it
-   * @returns The event's tap target, or undefined
+   * @returns The event's element and tap target, or undefined
    */
-  private _eventTapAt(ev: Event): Activation.EventTapTarget | undefined {
+  private _eventTapAt(ev: Event): Activation.EventTapHit | undefined {
     if (!this._eventsActivatable || typeof ev.composedPath !== 'function') return undefined;
-    return Activation.findEventTap(ev.composedPath(), ev.currentTarget)?.target;
+    return Activation.findEventTap(ev.composedPath(), ev.currentTarget);
   }
 
   /**
@@ -1007,7 +1017,7 @@ class CalendarCardPro extends LitElement {
     this._pointerMoved = false;
     this._holdTriggered = false;
     this._pointerTapTarget = null;
-    this._derivedClickDeadline = null;
+    this._derivedClick = null;
     this._spaceArmedOn = null;
 
     this._stopNowLineTimer();
@@ -2560,7 +2570,7 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
     // A new gesture: whatever click the last one owed has had its chance.
-    this._derivedClickDeadline = null;
+    this._derivedClick = null;
     this._captureActivePointer(ev);
 
     // Defensive cleanup for an indicator left by an externally interrupted prior
@@ -2655,6 +2665,7 @@ class CalendarCardPro extends LitElement {
 
     // A hold is the card's wherever it lands, an event included; only a tap is the event's.
     const tapTarget = this._pointerTapTarget;
+    let ranCardTap = false;
     if (
       !this._pointerMoved &&
       this._holdTriggered &&
@@ -2664,7 +2675,7 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
     } else if (!this._pointerMoved && !this._holdTriggered && tapTarget) {
-      this._runEventTapAction(tapTarget);
+      this._runEventTapAction(tapTarget.target);
     } else if (
       !this._pointerMoved &&
       !this._holdTriggered &&
@@ -2673,11 +2684,18 @@ class CalendarCardPro extends LitElement {
     ) {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
+      ranCardTap = true;
     }
 
-    // Whatever this gesture was, it has been decided; the click a browser derives from it
-    // is not a second one. See `_derivedClickDeadline`.
-    this._derivedClickDeadline = Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW;
+    // The click a browser derives from this gesture is not a second activation. Guarded for
+    // the event the gesture began on, whatever it was, or for no event after a tap on the
+    // card; a gesture that ran nothing and began off the events owes nothing that could
+    // act. See `_derivedClick`.
+    const owedBy = tapTarget ? tapTarget.element : ranCardTap ? null : undefined;
+    this._derivedClick =
+      owedBy === undefined
+        ? null
+        : { element: owedBy, deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW };
 
     this._releaseActivePointerCapture();
     this._activePointerId = null;
@@ -2847,27 +2865,32 @@ class CalendarCardPro extends LitElement {
 
   /**
    * A click on an event: assistive technology's way of activating it, or the echo of a
-   * pointer tap the pointer-up already acted on.
+   * pointer gesture the pointer-up already decided.
    *
    * Assistive technology activates a `role="button"` with a bare `click` and no pointer
-   * events, so a click that names an event runs `event_tap_action` for it. Unless it was
-   * derived from the pointer gesture that just ended; see `_derivedClickDeadline`. Either
-   * way a click the event owns stops here, as a click on a native button would be the
-   * button's and not its container's.
+   * events, so a click that names an event runs `event_tap_action` for it. Unless it is the
+   * click the pointer gesture that just ended owes, which names that gesture's event or no
+   * event at all; see `_derivedClick`. A click naming another event is not that click: it
+   * acts, and leaves the guard for the one still owed. Either way a click the event owns
+   * stops here, as a click on a native button would be the button's and not its container's.
    *
    * @param ev - A click bubbling to `ha-card`
    */
   private _handleClick(ev: MouseEvent) {
-    const deadline = this._derivedClickDeadline;
-    this._derivedClickDeadline = null;
-    const derived = deadline !== null && Date.now() <= deadline;
+    const hit = this._eventTapAt(ev);
+    const owed = this._derivedClick;
+    if (owed && Date.now() > owed.deadline) this._derivedClick = null;
 
-    const target = this._eventTapAt(ev);
-    if (!target) return;
+    const element = hit ? hit.element : null;
+    if (this._derivedClick && (element === null || element === this._derivedClick.element)) {
+      this._derivedClick = null;
+      if (hit) ev.stopPropagation();
+      return;
+    }
 
+    if (!hit) return;
     ev.stopPropagation();
-    if (derived) return;
-    this._runEventTapAction(target);
+    this._runEventTapAction(hit.target);
   }
 
   //-----------------------------------------------------------------------------

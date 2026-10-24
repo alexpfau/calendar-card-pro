@@ -10,6 +10,7 @@ import {
   detailPermissions,
 } from '../src/interaction/event-details';
 import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
+import type * as Activation from '../src/rendering/activation';
 
 /**
  * `event_tap_action`: a tap on an event runs an action of its own. `details` opens Home
@@ -855,6 +856,132 @@ describe("event_tap_action set to one of Home Assistant's actions", () => {
     expect(expanded()).toBe(true);
     expect(dialogs).toEqual([]);
     expect(hassActions).toEqual([]);
+  });
+});
+
+describe('the click a pointer gesture owes', () => {
+  // A browser follows a pointer gesture with a click, which the card's pointer capture
+  // retargets to `ha-card`, and which a browser that does not retarget aims at the event the
+  // pointer went down on. That click must not act a second time; any other click is an
+  // activation in its own right, which is what assistive technology sends.
+  //
+  // Counted on `hass-action`, which names the calendar the action ran for: Dentist is Anna's
+  // and Swimming is Ben's, so every run says which event it was for.
+  const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
+  const TWO_CALENDARS = {
+    entities: ['calendar.anna', 'calendar.ben'],
+    event_tap_action: { action: 'more-info' },
+  };
+
+  async function mountTwo(config: Record<string, unknown> = {}) {
+    const mounted = await mount(
+      { ...TWO_CALENDARS, ...config },
+      { eventsFor: { 'calendar.ben': [SWIMMING] } },
+    );
+    const runs = () =>
+      mounted.hassActions.map((detail) => `${detail.action} ${detail.config.entity}`);
+    const dentist = buttonsShowing(mounted.card, 'Dentist')[0];
+    const swimming = buttonsShowing(mounted.card, 'Swimming')[0];
+    const haCard = mounted.card.shadowRoot!.querySelector('ha-card')!;
+    return { ...mounted, runs, dentist, swimming, haCard };
+  }
+
+  it('lets a click on another event through after a hold', async () => {
+    const { dentist, swimming, runs } = await mountTwo({ hold_action: { action: 'more-info' } });
+
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    expect(runs()).toEqual(['hold calendar.anna']);
+
+    click(swimming);
+    expect(runs()).toEqual(['hold calendar.anna', 'tap calendar.ben']);
+  });
+
+  it('lets a click on an event through after a pointer that moved', async () => {
+    const { dentist, swimming, haCard, runs } = await mountTwo({
+      tap_action: { action: 'more-info' },
+    });
+    const far = Constants.UI.POINTER_MOVE_TOLERANCE * 4;
+
+    // On an event: a click on another one passes.
+    pointer(dentist, 'pointerdown');
+    pointer(dentist, 'pointermove', 0, far);
+    pointer(dentist, 'pointerup', 0, far);
+    click(swimming);
+    expect(runs()).toEqual(['tap calendar.ben']);
+
+    // Off the events: a drag that ran nothing owes no click, so even the event it would
+    // otherwise have been mistaken for passes.
+    vi.advanceTimersByTime(Constants.TIMING.DERIVED_CLICK_WINDOW + 1);
+    pointer(haCard, 'pointerdown');
+    pointer(haCard, 'pointermove', 0, far);
+    pointer(haCard, 'pointerup', 0, far);
+    click(dentist);
+    expect(runs()).toEqual(['tap calendar.ben', 'tap calendar.anna']);
+  });
+
+  it('runs a tap once when its click is retargeted to the card, and is then spent', async () => {
+    const { dentist, haCard, runs } = await mountTwo();
+
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    click(haCard);
+    expect(runs()).toEqual(['tap calendar.anna']);
+
+    // That click was the one owed, so the next, from assistive technology, acts.
+    click(dentist);
+    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.anna']);
+  });
+
+  it('runs a tap once when its click still names the event', async () => {
+    const { dentist, runs } = await mountTwo();
+
+    tap(leafShowing(dentist, 'Dentist'));
+    expect(runs()).toEqual(['tap calendar.anna']);
+
+    click(dentist);
+    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.anna']);
+  });
+
+  it('opens another event clicked before the tap on the first has had its click', async () => {
+    const { dentist, swimming, runs } = await mountTwo();
+
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    click(swimming);
+    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben']);
+
+    // The click the tap owes is still owed, and spent by its arrival.
+    click(dentist);
+    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben']);
+    click(dentist);
+    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben', 'tap calendar.anna']);
+  });
+
+  it('knows the tapped event by its element, which a re-render keeps', async () => {
+    // `expand` regroups the events before the click arrives, which replaces each row's data;
+    // a guard comparing data would take the click for a new activation and collapse the card.
+    const { card } = await mount({
+      event_tap_action: { action: 'expand' },
+      list: { compact_events_to_show: 1 },
+    });
+    const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
+    const dentist = buttonsShowing(card, 'Dentist')[0];
+    const before = (dentist as Activation.TappableEventElement).calendarCardEventTap;
+
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    await card.updateComplete;
+    expect(expanded()).toBe(true);
+    // The control: the re-render really did replace the data and keep the element.
+    expect(buttonsShowing(card, 'Dentist')[0]).toBe(dentist);
+    expect((dentist as Activation.TappableEventElement).calendarCardEventTap?.event).not.toBe(
+      before?.event,
+    );
+
+    click(leafShowing(dentist, 'Dentist'));
+    expect(expanded()).toBe(true);
   });
 });
 

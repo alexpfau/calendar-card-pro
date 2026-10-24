@@ -62,6 +62,16 @@ export function tapTargetOn(node: EventTarget | null | undefined): EventTapTarge
 }
 
 /**
+ * The tappable event an input event started on: the element that carries it, and what a tap
+ * on it acts on.
+ */
+export interface EventTapHit {
+  /** The rendered event's element, which keeps its identity when the card re-renders. */
+  readonly element: EventTarget;
+  readonly target: EventTapTarget;
+}
+
+/**
  * The tappable event an input event started on, read from its composed path.
  *
  * The walk stops at `boundary`, the element the recognizer listens on, so nothing outside
@@ -74,7 +84,7 @@ export function tapTargetOn(node: EventTarget | null | undefined): EventTapTarge
 export function findEventTap(
   path: ReadonlyArray<EventTarget>,
   boundary: EventTarget | null,
-): { element: EventTarget; target: EventTapTarget } | undefined {
+): EventTapHit | undefined {
   for (const node of path) {
     if (node === boundary) return undefined;
     const target = tapTargetOn(node);
