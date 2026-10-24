@@ -524,6 +524,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'keeps itself up to date.',
   title_font_size: 'Title Font Size',
   title_color: 'Title Color',
+  show_add_event: 'Show Add Event Button',
+  'show_add_event.helper':
+    "Opens Home Assistant's own new-event dialog. Shown only when at least one of the " +
+    "card's calendars accepts new events.",
   background_color: 'Background Color',
 
   // --- Day Header -----------------------------------------------------------
@@ -817,21 +821,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.details.label': 'Show Event Details',
   event_tap_action: 'Event Tap Action',
   'event_tap_action.helper':
-    "What tapping an event does. Show Event Details opens Home Assistant's event dialog; any " +
-    'other action applies to the calendar the event came from. Holding an event still runs ' +
-    'the hold action.',
-  show_add_event: 'Show Add Event Button',
-  'show_add_event.helper':
-    "Opens Home Assistant's own new-event dialog. Shown only when at least one of the " +
-    "card's calendars accepts new events.",
+    "Show Event Details opens Home Assistant's event dialog, offering Edit and Delete where " +
+    "the event's calendar allows them. Other actions apply to that calendar; holding an " +
+    'event still runs the hold action.',
+  // Shown only while the event tap action is `details`, directly under it, so "the event
+  // dialog" needs no introduction. Each ends on the calendar because that is the question a
+  // user with the switch on and no Edit button is asking: these can only take away.
   allow_event_edit: 'Allow Editing Events',
-  'allow_event_edit.helper':
-    "Offer Edit in Home Assistant's event details. Only ever narrows what a calendar " +
-    'allows: a calendar that cannot be edited never offers it.',
+  'allow_event_edit.helper': 'Offers Edit in the event dialog, on calendars that support it.',
   allow_event_delete: 'Allow Deleting Events',
-  'allow_event_delete.helper':
-    "Offer Delete in Home Assistant's event details. Only ever narrows what a calendar " +
-    'allows: a calendar that cannot delete events never offers it.',
+  'allow_event_delete.helper': 'Offers Delete in the event dialog, on calendars that support it.',
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

@@ -4,6 +4,8 @@
 
 import { mdiGestureTapButton } from '@mdi/js';
 
+import type * as Types from '../../../config/types';
+import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import { bool, number } from './common';
@@ -73,26 +75,56 @@ export function cardActionLabelKey(action: string): string {
 }
 
 /**
+ * Whether a tap on an event opens Home Assistant's event dialog.
+ *
+ * Optional chaining on purpose: a bare `event_tap_action:` in YAML is `null`, which the card
+ * reads as nothing on tap, so the editor must too.
+ *
+ * @param config - Merged configuration
+ * @returns `true` when the event tap action is `details`
+ */
+function opensEventDetails(config: Readonly<Types.Config>): boolean {
+  const eventTapAction: Types.ActionConfig | null | undefined = config.event_tap_action;
+  return eventTapAction?.action === 'details';
+}
+
+/**
  * Builds the Actions & Refresh panel schema.
  *
- * The add-event button sits between the card's own gestures and the refresh settings:
- * it is another way of acting on the card, and it is what triggers the one refresh the
- * card does on the user's behalf rather than on a timer.
+ * The card's two gestures lead, as they always have, and the event's own tap follows the
+ * hold rather than the tap it is named after: the hold still runs on an event, so all
+ * three describe what a finger on the card does, and the event tap is the one that only
+ * fires over part of it.
  *
- * @param _ctx - Schema context, unused
+ * No sub-headings, although "card taps" against "event taps" is the obvious split. The
+ * hold belongs to both, so a heading over either half would misfile it — and a heading
+ * over the actions forces one over the refresh pair too, where `Refresh` above `Refresh
+ * Interval` and `Refresh On Navigation` is a stutter. The panel title already names both
+ * halves, and the event tap's own label already sets it apart from the card's two.
+ *
+ * @param opensDetails - Whether a tap on an event opens Home Assistant's event dialog,
+ *   which is what the two `allow_event_*` switches depend on
  * @returns The panel's schema
  */
-export function buildActionsSchema(_ctx: SchemaCtx): HaFormSchema[] {
-  return [
-    { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
-    { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
-    { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
-    // Placed here provisionally so `check:i18n` sees the strings referenced; the step that
-    // reworks this panel decides where they belong.
-    bool('allow_event_edit'),
-    bool('allow_event_delete'),
-    bool('show_add_event'),
-    number('refresh_interval', 1, undefined, 'min'),
-    bool('refresh_on_navigate'),
-  ];
+const actionsSchema = Helpers.memoizeLast((opensDetails: boolean): HaFormSchema[] => [
+  { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+  { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+  { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
+  // Dependent on purpose: they narrow what the event dialog offers, and with any other
+  // event tap action there is no dialog, so always-visible switches would be inert.
+  // Directly under the dropdown that reveals them, which is a single field rather than a
+  // row, so nothing can come between the two on a narrow viewport.
+  ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
+  number('refresh_interval', 1, undefined, 'min'),
+  bool('refresh_on_navigate'),
+]);
+
+/**
+ * Builds the Actions & Refresh panel schema for a context.
+ *
+ * @param ctx - Schema context
+ * @returns The panel's schema
+ */
+export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
+  return actionsSchema(opensEventDetails(ctx.config));
 }

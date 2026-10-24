@@ -1839,6 +1839,8 @@ describe('editor: the panel set', () => {
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
       buildConfig({ filter_duplicates: true }),
+      // The event dialog's two permissions are held back until an event tap opens it.
+      buildConfig({ event_tap_action: { action: 'details' } }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -2726,6 +2728,120 @@ describe('editor: the Time Range & Content panel', () => {
 
     expect(namesIn(config)).not.toContain('compact_events_complete_days');
     expect(toStoredConfig(config).compact_events_complete_days).toBe(true);
+  });
+});
+
+describe('editor: the Card & Title panel', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'card')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
+  }
+
+  /**
+   * Pinned by value and in order, because the position is the decision. The add-event
+   * button sits in the card's header, so it follows the title's own options and comes
+   * before the background, which belongs to the card as a whole; a `toContain` would pass
+   * with it appended after the background or stranded in another panel's run.
+   */
+  it('puts the add-event switch with the title, ahead of the background', () => {
+    for (const view of VIEWS) {
+      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([
+        'title',
+        '',
+        'title_font_size',
+        'title_color',
+        'show_add_event',
+        'background_color',
+      ]);
+    }
+  });
+});
+
+describe('editor: the Actions & Refresh panel', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'actions')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
+  }
+
+  const withEventTap = (action: string | null): Types.Config =>
+    ({
+      ...buildConfig(),
+      event_tap_action: action === null ? null : { action },
+    }) as unknown as Types.Config;
+
+  /**
+   * Pinned by value, both states. The event tap follows the hold rather than the tap it is
+   * named after, the dialog's two switches sit directly under the dropdown that reveals
+   * them, and the refresh pair closes the panel. No headings: a split between card and
+   * event taps would misfile the hold, which runs on events too.
+   */
+  it('orders the three gestures, then refresh, with no dialog switches by default', () => {
+    expect(namesIn(buildConfig())).toEqual([
+      'tap_action',
+      'hold_action',
+      'event_tap_action',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers the two dialog switches under the event tap action once it opens details', () => {
+    expect(namesIn(withEventTap('details'))).toEqual([
+      'tap_action',
+      'hold_action',
+      'event_tap_action',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  /**
+   * Every other action the event tap dropdown offers, each by name rather than by walking
+   * `EVENT_ACTION_OPTIONS`, which `editor-card-actions.test.ts` pins by value. With no dialog
+   * the switches could change nothing, and offering them would invite the reading that
+   * turning one on adds a way to edit. `expand` is not offered there but works in YAML, and a
+   * bare `event_tap_action:` is `null`, which the card reads as nothing on tap.
+   */
+  it.each(['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none', 'expand'])(
+    'withholds the dialog switches while an event tap runs %s',
+    (action) => {
+      const names = namesIn(withEventTap(action));
+      expect(names).toContain('event_tap_action');
+      expect(names).not.toContain('allow_event_edit');
+      expect(names).not.toContain('allow_event_delete');
+    },
+  );
+
+  it('withholds the dialog switches for a bare event_tap_action', () => {
+    const names = namesIn(withEventTap(null));
+    expect(names).toContain('event_tap_action');
+    expect(names).not.toContain('allow_event_edit');
+    expect(names).not.toContain('allow_event_delete');
+  });
+
+  it('keeps a stored permission while its switch is out of the schema', () => {
+    // Dormant, not dead, as with the compact modifier: setting the event tap back to
+    // details must find the preference where the user left it.
+    const config = { ...withEventTap('more-info'), allow_event_edit: false } as Types.Config;
+
+    expect(namesIn(config)).not.toContain('allow_event_edit');
+    expect(toStoredConfig(config).allow_event_edit).toBe(false);
+  });
+
+  it('builds the schema once per state rather than once per render', () => {
+    // Fresh context and configuration objects each time, which is what defeats a memoizer
+    // keyed on the context instead of on the one value the panel branches on.
+    const panel = PANELS.find((entry) => entry.id === 'actions')!;
+    const build = (config: Types.Config) => panel.build({ view: 'list', config, language: 'en' });
+
+    expect(build(withEventTap('details'))).toBe(build(withEventTap('details')));
+    expect(build(withEventTap('details'))).not.toBe(build(withEventTap('none')));
   });
 });
 
