@@ -166,6 +166,7 @@ describe('withCardActionLabels', () => {
     expect(german?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
       'Kompakte/Erweiterte Ansicht umschalten',
     );
+    expect(german?.localize?.(`${HA_ACTION_LABEL_PREFIX}details`)).toBe('Termindetails anzeigen');
 
     // A language with no editor translations at all falls back to English, not to the
     // raw key, and never reaches Home Assistant.
