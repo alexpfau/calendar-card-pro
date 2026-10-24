@@ -521,23 +521,26 @@ class CalendarCardPro extends LitElement {
    * Refetch once one of Home Assistant's dialogs reports that it saved a change, and tell
    * the other cards on the page.
    *
-   * `refreshEvents()` rather than `updateEvents('network')`, because `network` joins a
-   * matching request already under way, and one that started before Home Assistant
-   * committed the save carries the old answer. Returns nothing, deliberately: Home
-   * Assistant awaits this callback before it closes the dialog; see `DialogUpdated`.
+   * The write advances the page's write generation once, here, and every card refreshes for
+   * that one number: this card directly, the others through the announcement. So a request
+   * started before the save, which carries the old answer, is never joined, while the cards
+   * refreshing for this save share one request per calendar set and window. Returns
+   * nothing, deliberately: Home Assistant awaits this callback before it closes the dialog;
+   * see `DialogUpdated`.
    *
    * @param calendarIds - Calendars the change touched, or `null` when it could be any
    */
   private _refreshAfterWrite(calendarIds: ReadonlyArray<string> | null): undefined {
-    void this.refreshEvents();
-    CalendarChanges.announceCalendarsChanged(this, calendarIds);
+    const writeGeneration = EventUtils.advanceWriteGeneration();
+    void this.refreshEvents(writeGeneration);
+    CalendarChanges.announceCalendarsChanged(this, calendarIds, writeGeneration);
   }
 
   /**
    * Refetch when another card announces a change to a calendar this card shows.
    *
-   * The announcing card is skipped: it refreshed before it announced. Same `reload` mode
-   * as the announcer, for the same reason.
+   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
+   * announced write's generation, as the announcer did, so they can share its request.
    */
   private readonly _handleCalendarsChanged = (ev: Event): void => {
     const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
@@ -547,7 +550,7 @@ class CalendarCardPro extends LitElement {
       typeof entity === 'string' ? entity : entity.entity,
     );
     if (CalendarChanges.concernsCalendars(detail, shownIds)) {
-      void this.refreshEvents();
+      void this.refreshEvents(detail.writeGeneration);
     }
   };
 
@@ -2999,16 +3002,21 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Fetch fresh events now, ignoring the cache and any request already under way.
+   * Fetch fresh events now, ignoring the cache and any request that may have started before
+   * a calendar changed.
    *
-   * For the moment after the card itself changed a calendar: a request that started
-   * before the change may already be carrying the old answer, so this one never joins it,
-   * and only the newest response may write the cache.
+   * For the moment after a calendar was written to: a request that started before the
+   * change may already be carrying the old answer, so this one never joins it, and only the
+   * newest response may write the cache. Called with no argument it joins no request at all.
+   * Given a write's generation (`EventUtils.advanceWriteGeneration`), it joins a request
+   * started since that write, which is how every card refreshing for one write shares one
+   * request per calendar set and window.
    *
+   * @param afterWrite - The generation of the write this refresh is for
    * @returns Resolves once the new events are committed
    */
-  refreshEvents(): Promise<void> {
-    return this.updateEvents('reload');
+  refreshEvents(afterWrite?: number): Promise<void> {
+    return this.updateEvents('reload', afterWrite);
   }
 
   /**
@@ -3020,17 +3028,20 @@ class CalendarCardPro extends LitElement {
    * | `cache`     | only if not due                | nothing fresh is cached                        |
    * | `reprocess` | anything up to 24 h old        | nothing is cached at all                       |
    * | `network`   | no                             | always, joining a matching request under way   |
-   * | `reload`    | no                             | always, never joining an older request         |
+   * | `reload`    | no                             | always, never joining a request from before a write |
    *
    * Every mode but `reload` joins a matching request already in flight rather than
    * stopping at the cache. A later call supersedes an earlier one, so a cache read that
-   * stopped there would discard a fetch another call had just started.
+   * stopped there would discard a fetch another call had just started. A `reload` given a
+   * write's generation joins only a request started since that write; without one it joins
+   * none (see `refreshEvents`).
    *
    * A boolean is still accepted: `true` is `network`, `false` is `cache`.
    *
    * @param mode How to use the cache and the network
+   * @param afterWrite For `reload`, the generation of the write it refreshes for
    */
-  async updateEvents(mode: LoadMode | boolean = 'cache'): Promise<void> {
+  async updateEvents(mode: LoadMode | boolean = 'cache', afterWrite?: number): Promise<void> {
     const load: LoadMode = mode === true ? 'network' : mode === false ? 'cache' : mode;
     Logger.debug(`Updating events (${load})`);
 
@@ -3065,7 +3076,7 @@ class CalendarCardPro extends LitElement {
           clearTimeout(this._initialLoadRetryId);
         }
         this._initialLoadRetryId = window.setTimeout(() => {
-          this.updateEvents(load);
+          this.updateEvents(load, afterWrite);
         }, 1500);
       } else {
         // Nothing to load, and so nothing failing either.
@@ -3140,6 +3151,7 @@ class CalendarCardPro extends LitElement {
         instanceId,
         load === 'reload' ? 'reload' : 'network',
         this._failureCountHint,
+        afterWrite,
       );
 
       if (isSuperseded()) {

@@ -8,6 +8,7 @@ import {
   EVENT_DETAIL_DIALOG_TAG,
   EVENT_EDITOR_DIALOG_TAG,
 } from '../src/interaction/ha-calendar-dialogs';
+import * as EventUtils from '../src/utils/events';
 
 /**
  * What the card does once one of Home Assistant's dialogs reports that it saved a change.
@@ -23,7 +24,7 @@ interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
   hass: Types.Hass;
   updateEvents(mode?: unknown): Promise<void>;
-  refreshEvents(): Promise<void>;
+  refreshEvents(afterWrite?: number): Promise<void>;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -37,6 +38,14 @@ const DENTIST = {
   start: { dateTime: '2026-06-17T14:00:00Z' },
   end: { dateTime: '2026-06-17T15:00:00Z' },
   uid: 'uid-dentist',
+};
+
+/** The event a save adds, so a card drawing it proves it saw the answer from after the save. */
+const LUNCH = {
+  summary: 'Lunch',
+  start: { dateTime: '2026-06-17T12:00:00Z' },
+  end: { dateTime: '2026-06-17T13:00:00Z' },
+  uid: 'uid-lunch',
 };
 
 /** Every calendar may be written to, so both dialogs can be opened from any card. */
@@ -77,6 +86,31 @@ function eventRoot(card: Card): HTMLElement | null {
       el.textContent?.includes('Dentist'),
     ) ?? null
   );
+}
+
+/** Summaries of the events a card draws, from its rendered rows, in alphabetical order. */
+function drawn(card: Card): string[] {
+  return [DENTIST, LUNCH]
+    .map(({ summary }) => summary)
+    .filter((summary) =>
+      Array.from(card.shadowRoot?.querySelectorAll('.event') ?? []).some((el) =>
+        el.textContent?.includes(summary),
+      ),
+    );
+}
+
+/**
+ * Summaries of the events cached for a card's query, which only the newest response may
+ * write, in alphabetical order.
+ */
+function cached(card: Card): string[] {
+  const instanceId = (card as unknown as { _instanceId: string })._instanceId;
+  const snapshot = EventUtils.readEventSnapshot(
+    card.hass,
+    (card as unknown as { config: Types.Config }).config,
+    instanceId,
+  );
+  return (snapshot?.events ?? []).map((event) => event.summary ?? '').sort();
 }
 
 /**
@@ -166,7 +200,10 @@ describe('telling the other cards on the page', () => {
 
   it('refreshes another card showing the edited calendar, and no card that does not', async () => {
     const editing = await mount({ event_tap_action: { action: 'details' } });
-    const sameCalendar = await mount({ entities: [{ entity: 'calendar.anna' }] });
+    // A different window from the editing card's, so it needs a request of its own and its
+    // count shows that it refreshed. A card over the same window shares the editing card's
+    // request; see the next block.
+    const sameCalendar = await mount({ entities: [{ entity: 'calendar.anna' }], days_to_show: 7 });
     const otherCalendar = await mount({ entities: ['calendar.ben'] });
     await OPENERS.details(editing.card);
     const calls = counter([editing, sameCalendar, otherCalendar]);
@@ -177,8 +214,8 @@ describe('telling the other cards on the page', () => {
 
     expect(calls()).toEqual([1, 1, 0]);
     // The editing card refreshes once, itself, and does not answer its own announcement.
-    // Its request count cannot show that: a second `reload` supersedes the first before
-    // either reaches Home Assistant, so both arms of the mistake make one request.
+    // Its request count cannot show that: a second refresh for the same write joins the
+    // first, so both arms of the mistake make one request.
     expect(ownRefresh).toHaveBeenCalledOnce();
   });
 
@@ -212,5 +249,183 @@ describe('telling the other cards on the page', () => {
   it('uses one event name in the development build and in a release', () => {
     // The release build rewrites this string wherever it appears; see the constant.
     expect(CALENDARS_CHANGED_EVENT).not.toContain('calendar-card-pro-dev');
+  });
+});
+
+describe('one request per write', () => {
+  /**
+   * One Home Assistant behind every card. Each card keeps its own `hass`, as on a
+   * dashboard, but a request is counted here once, whichever card started it, and stays
+   * open until the test answers it: on a real dashboard every card asks within the same
+   * frame, long before Home Assistant answers the first.
+   *
+   * @returns The open requests, oldest first, each answered by calling it with events
+   */
+  function oneHomeAssistant(
+    cards: Array<{ callApi: ReturnType<typeof vi.fn> }>,
+  ): Array<(events: unknown) => void> {
+    const held: Array<(events: unknown) => void> = [];
+    for (const { callApi } of cards) {
+      callApi.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            held.push(resolve);
+            pending.push(resolve);
+          }),
+      );
+    }
+    return held;
+  }
+
+  /** Mount a card that can open the details dialog, and open it. */
+  async function editingCard() {
+    const editing = await mount(DIALOG_CONFIG.details);
+    await OPENERS.details(editing.card);
+    return { ...editing, save: () => editing.dialogs[0].dialogParams.updated() };
+  }
+
+  it('shares it between the cards showing the same calendars over the same days', async () => {
+    const editing = await editingCard();
+    const twin = await mount({});
+    const held = oneHomeAssistant([editing, twin]);
+
+    editing.save();
+    await settle();
+
+    expect(held).toHaveLength(1);
+
+    held[0]([DENTIST, LUNCH]);
+    await settle();
+
+    // The control for the count: one request that nobody drew from would also be one.
+    expect({ editing: drawn(editing.card), twin: drawn(twin.card) }).toEqual({
+      editing: ['Dentist', 'Lunch'],
+      twin: ['Dentist', 'Lunch'],
+    });
+  });
+
+  it('makes one per window when the cards show different days', async () => {
+    const editing = await editingCard();
+    const twin = await mount({});
+    const week = await mount({ days_to_show: 7 });
+    const weekTwin = await mount({ days_to_show: 7 });
+    const held = oneHomeAssistant([editing, twin, week, weekTwin]);
+
+    editing.save();
+    await settle();
+
+    expect(held).toHaveLength(2);
+
+    for (const answer of held) answer([DENTIST, LUNCH]);
+    await settle();
+
+    expect([editing, twin, week, weekTwin].map(({ card }) => drawn(card))).toEqual([
+      ['Dentist', 'Lunch'],
+      ['Dentist', 'Lunch'],
+      ['Dentist', 'Lunch'],
+      ['Dentist', 'Lunch'],
+    ]);
+  });
+
+  it('does not join a request that started before the save', async () => {
+    const editing = await editingCard();
+    const twin = await mount({});
+    const held = oneHomeAssistant([editing, twin]);
+
+    // A scheduled refresh on the other card, started before the save. Home Assistant
+    // answers it from before the change.
+    void twin.card.updateEvents('network');
+    await settle();
+    expect(held).toHaveLength(1);
+
+    editing.save();
+    await settle();
+
+    // One new request, shared by both cards. Joining the old one would leave this at 1.
+    expect(held).toHaveLength(2);
+
+    held[1]([DENTIST, LUNCH]);
+    await settle();
+    // The old answer arrives last, and must neither be drawn nor overwrite the cache.
+    held[0]([DENTIST]);
+    await settle();
+
+    expect({
+      editing: drawn(editing.card),
+      twin: drawn(twin.card),
+      cached: cached(twin.card),
+    }).toEqual({
+      editing: ['Dentist', 'Lunch'],
+      twin: ['Dentist', 'Lunch'],
+      cached: ['Dentist', 'Lunch'],
+    });
+  });
+
+  it('lets a second save supersede the request for the first', async () => {
+    const editing = await editingCard();
+    const twin = await mount({});
+    const held = oneHomeAssistant([editing, twin]);
+
+    // The first save adds Lunch; the second, before Home Assistant has answered, deletes
+    // the dentist appointment.
+    editing.save();
+    await settle();
+    expect(held).toHaveLength(1);
+
+    editing.save();
+    await settle();
+    expect(held).toHaveLength(2);
+
+    held[1]([LUNCH]);
+    await settle();
+    held[0]([DENTIST, LUNCH]);
+    await settle();
+
+    expect({
+      editing: drawn(editing.card),
+      twin: drawn(twin.card),
+      cached: cached(twin.card),
+    }).toEqual({ editing: ['Lunch'], twin: ['Lunch'], cached: ['Lunch'] });
+  });
+
+  it('refreshes for the announced write, even when a card hears of it late', async () => {
+    const editing = await editingCard();
+    const twin = await mount({});
+    const held = oneHomeAssistant([editing, twin]);
+
+    // Hold the announcement back until the editing card's request is under way. In the
+    // ordinary flow every card hears it before any request starts, so a card advancing the
+    // generation for itself would go unnoticed; this is where it would cost a request.
+    const late: Event[] = [];
+    const intercept = (ev: Event) => {
+      ev.stopImmediatePropagation();
+      late.push(ev);
+    };
+    window.addEventListener(CALENDARS_CHANGED_EVENT, intercept, { capture: true });
+    editing.save();
+    await settle();
+    window.removeEventListener(CALENDARS_CHANGED_EVENT, intercept, { capture: true });
+    expect({ requests: held.length, held: late.length }).toEqual({ requests: 1, held: 1 });
+
+    const { detail } = late[0] as CustomEvent;
+    window.dispatchEvent(new CustomEvent(CALENDARS_CHANGED_EVENT, { detail }));
+    await settle();
+    expect(held).toHaveLength(1);
+
+    held[0]([DENTIST, LUNCH]);
+    await settle();
+    expect(drawn(twin.card)).toEqual(['Dentist', 'Lunch']);
+  });
+
+  it('still never joins a request when asked for no write in particular', async () => {
+    const plain = await mount({});
+    const held = oneHomeAssistant([plain]);
+
+    void plain.card.updateEvents('network');
+    await settle();
+    void plain.card.refreshEvents();
+    await settle();
+
+    expect(held).toHaveLength(2);
   });
 });

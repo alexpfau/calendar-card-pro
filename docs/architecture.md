@@ -320,9 +320,10 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 - **calendar-changes.ts**:
   - Announces a saved change on `window`, naming the changed calendars, or `null` after a
     create, because Home Assistant's create dialog can write to any writable calendar
-  - Every connected card listens, from `connectedCallback` to `disconnectedCallback`, and
-    calls `refreshEvents()` when it shows an affected calendar, skipping the card that
-    announced it
+  - Carries the write's generation, which the announcing card advanced once. Every
+    connected card listens, from `connectedCallback` to `disconnectedCallback`, and calls
+    `refreshEvents()` with that generation when it shows an affected calendar, skipping the
+    card that announced it
   - The event name is the same in development and production builds, and must never
     contain `calendar-card-pro-dev`, which the production build rewrites
 
@@ -617,8 +618,9 @@ graph TD
    - A tab returning after five minutes reads the cache, and refetches only if it is due
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
    - Grid view refetches when the local day rolls over
-   - `refreshEvents()` refetches without joining a request already under way, for use
-     after the card itself changed a calendar
+   - `refreshEvents()` refetches without joining a request that may have started before a
+     calendar changed. Given a write's generation, it joins a request started since that
+     write; given none, it joins nothing
 
 ### Interaction Flow
 
@@ -653,9 +655,21 @@ graph TD
    - Expansion toggle, event details, navigation, and service calls
    - Home Assistant service integration
 3. **After a Write**:
-   - A dialog's `updated` callback calls `refreshEvents()` and announces the change through
-     `calendar-changes.ts`, so other cards showing the calendar refetch too
-   - It returns nothing. Home Assistant awaits the callback before closing the dialog and
+   - A dialog's `updated` callback advances the page's write generation once
+     (`advanceWriteGeneration` in `events.ts`), calls `refreshEvents()` with it, and
+     announces the change with it through `calendar-changes.ts`, so other cards showing the
+     calendar refetch too
+   - Every card refreshing for one write shares one request per calendar set and window: the
+     first to ask starts it and the others join it. Each in-flight request records the
+     generation it started at, and a refresh for a write joins only a request started since
+     that write, so a request already under way at the save, which may carry the old answer,
+     is never joined, and a later write supersedes an earlier one. Only the newest request
+     for a cache key writes the cache, and each card still discards a response its own
+     newer request superseded
+   - The generation lives on `globalThis` under a registered symbol rather than in the
+     module, because a development build and a release on one dashboard hear each other's
+     announcements but each has its own copy of `events.ts`
+   - The callback returns nothing. Home Assistant awaits it before closing the dialog and
      re-enables Save meanwhile, so returning the refetch would invite a duplicate event
    - `updateEvents('network')` is not used: it joins a matching request already under way,
      which may have started before Home Assistant committed the save

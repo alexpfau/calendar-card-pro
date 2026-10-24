@@ -32,6 +32,11 @@ export interface CalendarsChangedDetail {
    * writable calendar, not only the one the card preselected.
    */
   calendarIds: ReadonlyArray<string> | null;
+  /**
+   * The write's generation, from `advanceWriteGeneration`. Every card refreshes for this
+   * number rather than advancing its own, which is what lets them share one request.
+   */
+  writeGeneration: number;
   /** The card that announced it, which has already refreshed. */
   source: EventTarget;
 }
@@ -45,14 +50,16 @@ export interface CalendarsChangedDetail {
  *
  * @param source - The announcing card
  * @param calendarIds - Calendars that changed, or `null` for any
+ * @param writeGeneration - The write's generation
  */
 export function announceCalendarsChanged(
   source: EventTarget,
   calendarIds: ReadonlyArray<string> | null,
+  writeGeneration: number,
 ): void {
   window.dispatchEvent(
     new CustomEvent<CalendarsChangedDetail>(CALENDARS_CHANGED_EVENT, {
-      detail: { calendarIds, source },
+      detail: { calendarIds, writeGeneration, source },
     }),
   );
 }
