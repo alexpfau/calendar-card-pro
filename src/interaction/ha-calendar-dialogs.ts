@@ -119,28 +119,27 @@ export function calendarSupports(
  * Both stand-ins carry exactly what the handler reads. `_createEvent` reads `_activeView`,
  * and touches `this.calendar` only for its day-grid views. `_handleEventClick` reads
  * `this.hass.states` and the clicked event's `extendedProps` and `backgroundColor`.
+ * `invoke` hands back whatever the handler returned, for the caller to await.
  */
 const BORROWS: Record<
   DialogTag,
   {
     method: string;
-    invoke(handler: Handler, dispatchEvent: (event: Event) => boolean, calendarId: string): void;
+    invoke(handler: Handler, dispatchEvent: (event: Event) => boolean, calendarId: string): unknown;
   }
 > = {
   [EVENT_EDITOR_DIALOG_TAG]: {
     method: '_createEvent',
-    invoke: (handler, dispatchEvent) => {
-      handler.call({ _activeView: undefined, dispatchEvent }, undefined);
-    },
+    invoke: (handler, dispatchEvent) =>
+      handler.call({ _activeView: undefined, dispatchEvent }, undefined),
   },
   [EVENT_DETAIL_DIALOG_TAG]: {
     method: '_handleEventClick',
-    invoke: (handler, dispatchEvent, calendarId) => {
+    invoke: (handler, dispatchEvent, calendarId) =>
       handler.call(
         { hass: { states: {} }, dispatchEvent },
         { event: { extendedProps: { calendar: calendarId, eventData: {} }, backgroundColor: '' } },
-      );
-    },
+      ),
   },
 };
 
@@ -256,7 +255,11 @@ async function borrowDialogImport(tag: DialogTag, calendarId: string): Promise<v
   }
 
   let dialogImport: unknown;
-  borrow.invoke(
+  // Awaited although both handlers dispatch synchronously today. A Home Assistant whose
+  // handler became async and dispatched after an `await` would otherwise be read before
+  // it had dispatched, sending every press to the fallback, and a rejection from it would go
+  // unhandled. Awaited, a rejection fails the load like any other mismatch.
+  await borrow.invoke(
     handler as Handler,
     (event: Event): boolean => {
       const detail = (event as Event & { detail?: ShowDialogDetail }).detail;

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   type CreateDialogParams,
@@ -118,7 +118,14 @@ function fakeHomeAssistant(gate: Promise<void> = Promise.resolve()) {
   });
   (window as HelperWindow).loadCardHelpers = loadCardHelpers;
 
-  return { loadCardHelpers, createCardElement, createEvent, handleEventClick, dialogImports };
+  return {
+    loadCardHelpers,
+    createCardElement,
+    createEvent,
+    handleEventClick,
+    dialogImports,
+    prototype: FullCalendar.prototype as unknown as Record<string, unknown>,
+  };
 }
 
 /** An element in the page, recording what it dispatches. */
@@ -363,6 +370,67 @@ describe('a load that cannot complete', () => {
 
       expect(await settledBeforeTimeout(open(node))).toBe(true);
       expectFallback(tag, dispatched);
+    },
+  );
+});
+
+describe('a borrowed handler that is asynchronous', () => {
+  type AnyHandler = Mock<(this: StandIn, ...args: unknown[]) => unknown>;
+
+  /** The fake handler each dialog's import is borrowed through. */
+  const handlerFor = (ha: ReturnType<typeof fakeHomeAssistant>, tag: DialogTag) =>
+    (tag === EVENT_EDITOR_DIALOG_TAG
+      ? ha.createEvent
+      : ha.handleEventClick) as unknown as AnyHandler;
+
+  it.each(OPENERS)(
+    'opens the dialog when the handler dispatches after an await ($tag)',
+    async ({ tag, open, params }) => {
+      const ha = fakeHomeAssistant();
+      const handler = handlerFor(ha, tag);
+      const dispatchNow = handler.getMockImplementation()!;
+      handler.mockImplementation(async function (this: StandIn, ...args: unknown[]) {
+        await Promise.resolve();
+        return dispatchNow.apply(this, args);
+      });
+      const { node, dispatched } = host();
+
+      await open(node);
+
+      expect(dispatched).toEqual([
+        {
+          type: 'show-dialog',
+          detail: { dialogTag: tag, dialogImport: expect.any(Function), dialogParams: params() },
+        },
+      ]);
+    },
+  );
+
+  it.each(OPENERS)(
+    'falls back, leaving nothing unhandled, when the handler rejects ($tag)',
+    async ({ tag, open }) => {
+      const ha = fakeHomeAssistant();
+      // A plain function, not a mock: a mock attaches its own handler to any promise it
+      // returns, to record how it settled, so a rejection from one is never unhandled and
+      // this test could not fail.
+      ha.prototype[tag === EVENT_EDITOR_DIALOG_TAG ? '_createEvent' : '_handleEventClick'] =
+        async () => {
+          throw new Error('Home Assistant changed');
+        };
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+      const { node, dispatched } = host();
+
+      try {
+        await open(node);
+        // Node reports an unhandled rejection once the microtask queue has drained.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      } finally {
+        process.off('unhandledRejection', unhandled);
+      }
+
+      expectFallback(tag, dispatched);
+      expect(unhandled).not.toHaveBeenCalled();
     },
   );
 });

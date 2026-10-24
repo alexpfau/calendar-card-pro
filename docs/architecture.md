@@ -290,9 +290,10 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     borrows its import. It creates a core calendar card through
     `window.loadCardHelpers()`, which defines `ha-full-calendar`, then calls that element's
     private `_createEvent` or `_handleEventClick` on a stand-in that records the
-    `show-dialog` event instead of dispatching it, and runs the captured `dialogImport`.
-    Nothing else is taken from the borrow: the card dispatches its own `show-dialog` with
-    its own parameters
+    `show-dialog` event instead of dispatching it, awaits whatever the handler returns, so
+    an asynchronous handler and its rejection are both handled, and runs the captured
+    `dialogImport`. Nothing else is taken from the borrow: the card dispatches its own
+    `show-dialog` with its own parameters
   - Keeps one load in flight per element for the whole page, bounded by
     `LOAD_TIMEOUT_MS`, and one waiting request for both dialogs. A press made while a dialog
     loads replaces any older waiting request, for either dialog, so one dialog opens: the
