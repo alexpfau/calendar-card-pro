@@ -8,6 +8,7 @@
  * and `event-details.ts`, which hold no side effects.
  */
 
+import { fireHassAction } from './actions';
 import type { DetailEntry } from './event-details';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
@@ -342,17 +343,15 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
 /**
  * Open Home Assistant's calendar panel, which has its own add button.
  *
+ * Asks Home Assistant to navigate, as a card's `navigate` action does, rather than pushing
+ * history here. Its navigation closes any dialog still open, lets a page with unsaved
+ * changes refuse, and records the history state its own back handling reads; a bare
+ * `pushState` does none of that.
+ *
  * @param node - Element to dispatch from
  */
 function navigateToCalendarPanel(node: HTMLElement): void {
-  window.history.pushState(null, '', '/calendar');
-  node.dispatchEvent(
-    new CustomEvent('location-changed', {
-      bubbles: true,
-      composed: true,
-      detail: { replace: false },
-    }),
-  );
+  fireHassAction(node, { tap_action: { action: 'navigate', navigation_path: '/calendar' } }, 'tap');
 }
 
 /**

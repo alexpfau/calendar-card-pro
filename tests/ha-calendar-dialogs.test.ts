@@ -133,7 +133,7 @@ function host() {
   const node = document.createElement('div');
   document.body.appendChild(node);
   const dispatched: { type: string; detail: unknown }[] = [];
-  for (const type of ['show-dialog', 'location-changed', 'hass-more-info']) {
+  for (const type of ['show-dialog', 'hass-action', 'hass-more-info', 'location-changed']) {
     node.addEventListener(type, (ev) =>
       dispatched.push({ type, detail: (ev as Event & { detail?: unknown }).detail }),
     );
@@ -202,13 +202,22 @@ function expectFallback(
   calendarId = 'calendar.anna',
 ): void {
   if (tag === EVENT_EDITOR_DIALOG_TAG) {
-    expect(dispatched.map((d) => d.type)).toEqual(['location-changed']);
-    expect(window.location.pathname).toBe('/calendar');
+    // Home Assistant is asked to navigate, so its own navigation runs: it closes open
+    // dialogs and lets a page with unsaved changes refuse. The card moves no history itself.
+    expect(dispatched).toEqual([
+      {
+        type: 'hass-action',
+        detail: {
+          config: { tap_action: { action: 'navigate', navigation_path: '/calendar' } },
+          action: 'tap',
+        },
+      },
+    ]);
   } else {
     // The details fallback keeps the user on the dashboard, showing the event's calendar.
     expect(dispatched).toEqual([{ type: 'hass-more-info', detail: { entityId: calendarId } }]);
-    expect(window.location.pathname).toBe('/');
   }
+  expect(window.location.pathname).toBe('/');
 }
 
 beforeEach(() => {
