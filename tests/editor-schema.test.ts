@@ -141,21 +141,27 @@ describe('editor: default stripping', () => {
    * `{ action: 'none', navigation_path: '/x' }` loses its `action` key and becomes an
    * action with no action in it. `value.ts` holds these out and treats them whole.
    */
-  it('keeps an action config intact rather than stripping its default members', () => {
-    const stored = toStoredConfig(
-      buildConfig({
-        tap_action: { action: 'none', navigation_path: '/lovelace/0' } as Types.ActionConfig,
-      }),
-    );
+  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+    'keeps %s whole rather than stripping its default members',
+    (key) => {
+      const stored = toStoredConfig(
+        buildConfig({
+          [key]: { action: 'none', navigation_path: '/lovelace/0' } as Types.ActionConfig,
+        }),
+      );
 
-    expect(stored.tap_action).toEqual({ action: 'none', navigation_path: '/lovelace/0' });
-  });
+      expect(stored[key]).toEqual({ action: 'none', navigation_path: '/lovelace/0' });
+    },
+  );
 
-  it('drops an action config that equals the default', () => {
-    const stored = toStoredConfig(buildConfig({ tap_action: { action: 'none' } }));
+  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+    'drops %s when it equals the default',
+    (key) => {
+      const stored = toStoredConfig(buildConfig({ [key]: { action: 'none' } }));
 
-    expect(stored).not.toHaveProperty('tap_action');
-  });
+      expect(stored).not.toHaveProperty(key);
+    },
+  );
 
   /**
    * `filterDefaultValues` passes `weather` through unconditionally — its comment says
@@ -2866,7 +2872,7 @@ describe('editor: the write path over the whole configuration', () => {
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
       else if (VIEW_BLOCK_KEYS.has(key)) custom[key] = blockThatSurvivesTheStrip(key);
-      else if (key === 'tap_action' || key === 'hold_action')
+      else if (key === 'tap_action' || key === 'hold_action' || key === 'event_tap_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
       else if (typeof value === 'boolean') custom[key] = !value;
       else if (typeof value === 'number') custom[key] = value + 7;

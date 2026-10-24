@@ -239,3 +239,119 @@ describe('handleAction with nothing configured', () => {
     expect(events).toHaveLength(1);
   });
 });
+
+describe('handleAction for a tap on an event', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  /** A tap on an event of `entity`, with a details callback to observe. */
+  function eventTap(entity: string | undefined) {
+    return { entity, details: vi.fn() };
+  }
+
+  const twoCalendars = {
+    entities: ['calendar.first', 'calendar.second'],
+    tap_action: { action: 'navigate', navigation_path: '/lovelace/0' },
+  };
+
+  it("runs event_tap_action for the event's own calendar, and not the card's tap", () => {
+    const { node, events } = listeningNode();
+    const tap = eventTap('calendar.second');
+
+    handleAction(
+      node,
+      config({ ...twoCalendars, event_tap_action: { action: 'more-info' } }),
+      'tap',
+      undefined,
+      tap,
+    );
+
+    expect(events).toHaveLength(1);
+    // Only `tap_action`, holding the event's action: Home Assistant runs whichever config the
+    // label names, so the card's own tap must not be in reach of it.
+    expect(detailOf(events[0])).toEqual({
+      action: 'tap',
+      config: { entity: 'calendar.second', tap_action: { action: 'more-info' } },
+    });
+    expect(tap.details).not.toHaveBeenCalled();
+  });
+
+  it('labels it a tap whatever the caller passed', () => {
+    const { node, events } = listeningNode();
+
+    handleAction(
+      node,
+      config({ ...twoCalendars, event_tap_action: { action: 'more-info' } }),
+      'hold',
+      undefined,
+      eventTap('calendar.second'),
+    );
+
+    expect(detailOf(events[0]).action).toBe('tap');
+  });
+
+  it('falls back to the first calendar for an event that names none', () => {
+    const { node, events } = listeningNode();
+
+    handleAction(
+      node,
+      config({ ...twoCalendars, event_tap_action: { action: 'more-info' } }),
+      'tap',
+      undefined,
+      eventTap(undefined),
+    );
+
+    expect(detailOf(events[0]).config.entity).toBe('calendar.first');
+  });
+
+  it('opens the details for details, and dispatches nothing', () => {
+    const { node, events } = listeningNode();
+    const tap = eventTap('calendar.second');
+    const expand = vi.fn();
+
+    handleAction(
+      node,
+      config({ ...twoCalendars, event_tap_action: { action: 'details' } }),
+      'tap',
+      expand,
+      tap,
+    );
+
+    expect(tap.details).toHaveBeenCalledOnce();
+    expect(events).toHaveLength(0);
+    expect(expand).not.toHaveBeenCalled();
+  });
+
+  it('treats expand written for an event as the card expand', () => {
+    const { node, events } = listeningNode();
+    const tap = eventTap('calendar.second');
+    const expand = vi.fn();
+
+    handleAction(node, config({ event_tap_action: { action: 'expand' } }), 'tap', expand, tap);
+
+    expect(expand).toHaveBeenCalledOnce();
+    expect(tap.details).not.toHaveBeenCalled();
+    expect(events).toHaveLength(0);
+  });
+
+  it('does nothing for none, whatever the card tap is', () => {
+    const { node, events } = listeningNode();
+    const tap = eventTap('calendar.second');
+
+    handleAction(node, config(twoCalendars), 'tap', undefined, tap);
+
+    expect(events).toHaveLength(0);
+    expect(tap.details).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for details as a card action, which has no event to open', () => {
+    const { node, events } = listeningNode();
+    const expand = vi.fn();
+
+    handleAction(node, config({ tap_action: { action: 'details' } }), 'tap', expand);
+
+    expect(events).toHaveLength(0);
+    expect(expand).not.toHaveBeenCalled();
+  });
+});

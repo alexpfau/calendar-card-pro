@@ -1,5 +1,6 @@
 /**
- * The tap and hold dropdowns offer the card's own `expand` action, and name it.
+ * The tap and hold dropdowns offer the card's own `expand` action, the event tap dropdown
+ * its `details` action, and each is named.
  *
  * `expand` has been honored by `handleAction` since v3, but the v4 editor rebuild replaced
  * a hand-written dropdown with Home Assistant's `ui_action` selector, whose option list is
@@ -36,6 +37,7 @@ import {
 import {
   ACTION_OPTIONS,
   CARD_ACTIONS,
+  EVENT_ACTION_OPTIONS,
   buildActionsSchema,
   cardActionLabelKey,
 } from '../src/rendering/editor/schemas/actions';
@@ -43,17 +45,17 @@ import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 
 customElements.define('editor-card-actions-probe', CalendarCardProEditor);
 
-/** The exact list both dropdowns offer, card actions first. */
-const EXPECTED_ACTIONS = [
-  'expand',
-  'more-info',
-  'toggle',
-  'navigate',
-  'url',
-  'perform-action',
-  'assist',
-  'none',
-];
+/** Home Assistant's own actions, in the order its editor offers them. */
+const HA_ACTIONS = ['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none'];
+
+/** The exact list the tap and hold dropdowns offer, the card action first. */
+const EXPECTED_ACTIONS = ['expand', ...HA_ACTIONS];
+
+/**
+ * The exact list the event tap dropdown offers. `details` needs an event, which a tap on the
+ * card does not have; `expand` acts on the card, which a tap on an event is not aimed at.
+ */
+const EXPECTED_EVENT_ACTIONS = ['details', ...HA_ACTIONS];
 
 /**
  * Minimal `hass` with a localize that reports what it was asked.
@@ -80,15 +82,20 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('names expand as a card action rather than a Home Assistant one', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand']);
+  it('offers exactly the documented event action list, in order', () => {
+    expect([...EVENT_ACTION_OPTIONS]).toEqual(EXPECTED_EVENT_ACTIONS);
+  });
+
+  it('names expand and details as card actions rather than Home Assistant ones', () => {
+    expect([...CARD_ACTIONS]).toEqual(['expand', 'details']);
   });
 
   it('puts the card action ahead of Home Assistant’s, so it is not buried', () => {
     expect(ACTION_OPTIONS.indexOf('expand')).toBe(0);
+    expect(EVENT_ACTION_OPTIONS.indexOf('details')).toBe(0);
   });
 
-  it('gives both dropdowns the same list, through a ui_action selector', () => {
+  it('gives each dropdown its list, through a ui_action selector', () => {
     const schema = buildActionsSchema({
       view: 'list',
       config: { ...Config.DEFAULT_CONFIG },
@@ -100,11 +107,21 @@ describe('card action options', () => {
     );
     const actionRows = rows.filter((node) => 'ui_action' in (node.selector as object));
 
-    expect(actionRows.map((node) => node.name)).toEqual(['tap_action', 'hold_action']);
-    for (const node of actionRows) {
-      const selector = node.selector as { ui_action: { actions?: ReadonlyArray<string> } };
-      expect([...(selector.ui_action.actions ?? [])]).toEqual(EXPECTED_ACTIONS);
-    }
+    expect(
+      Object.fromEntries(
+        actionRows.map((node) => [
+          node.name,
+          [
+            ...((node.selector as { ui_action: { actions?: ReadonlyArray<string> } }).ui_action
+              .actions ?? []),
+          ],
+        ]),
+      ),
+    ).toEqual({
+      tap_action: EXPECTED_ACTIONS,
+      hold_action: EXPECTED_ACTIONS,
+      event_tap_action: EXPECTED_EVENT_ACTIONS,
+    });
   });
 
   it('defines an English label for every card action', () => {
@@ -114,6 +131,7 @@ describe('card action options', () => {
       expect(EDITOR_STRINGS[cardActionLabelKey(action)]).toBeTruthy();
     }
     expect(EDITOR_STRINGS[cardActionLabelKey('expand')]).toBe('Toggle Compact/Expanded View');
+    expect(EDITOR_STRINGS[cardActionLabelKey('details')]).toBe('Show Event Details');
   });
 });
 
@@ -123,6 +141,7 @@ describe('withCardActionLabels', () => {
     expect(wrappedHass?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
       'Toggle Compact/Expanded View',
     );
+    expect(wrappedHass?.localize?.(`${HA_ACTION_LABEL_PREFIX}details`)).toBe('Show Event Details');
   });
 
   it('delegates every other key untouched', () => {

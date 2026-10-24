@@ -813,6 +813,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
   // below, for toggling an entity rather than the card.
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
+  // Offered by the event tap dropdown alone; a tap on the card has no event to open.
+  'card_action.option.details.label': 'Show Event Details',
+  event_tap_action: 'Event Tap Action',
+  'event_tap_action.helper':
+    "What tapping an event does. Show Event Details opens Home Assistant's event dialog; any " +
+    'other action applies to the calendar the event came from. Holding an event still runs ' +
+    'the hold action.',
   show_add_event: 'Show Add Event Button',
   'show_add_event.helper':
     "Opens Home Assistant's own new-event dialog. Shown only when at least one of the " +
@@ -825,9 +832,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'allow_event_delete.helper':
     "Offer Delete in Home Assistant's event details. Only ever narrows what a calendar " +
     'allows: a calendar that cannot delete events never offers it.',
-  show_event_details: 'Show Event Details On Tap',
-  'show_event_details.helper':
-    "Tapping an event opens Home Assistant's event details, with Edit and Delete where the calendar allows them. Taps elsewhere on the card still run the tap action.",
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

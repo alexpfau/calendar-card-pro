@@ -544,10 +544,34 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
+   * Whether a tap on an event runs an action of its own.
+   *
+   * Both operands, for the reason `_handlePointerDown` gives about `hold_action`: a bare
+   * `event_tap_action:` in YAML means nothing on tap, not a tap target with nothing to run.
+   */
+  private get _hasEventTapAction(): boolean {
+    return Boolean(this.config.event_tap_action && this.config.event_tap_action.action !== 'none');
+  }
+
+  /**
+   * Runs `event_tap_action` for one tapped event.
+   *
+   * `details` opens the event; anything else goes to Home Assistant for the event's own
+   * calendar, which for a merged row is the calendar whose copy the card kept. `expand`,
+   * offered only to the card's own tap, still means the card's expand if written in YAML.
+   */
+  private readonly _runEventTapAction: Activation.EventActivateHandler = (event, color) => {
+    Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded(), {
+      entity: event._entityId,
+      details: () => this._openEventDetails(event, color),
+    });
+  };
+
+  /**
    * The handler that makes events tap targets, or undefined to leave them inert.
    */
   private get _eventActivateHandler(): Activation.EventActivateHandler | undefined {
-    return this.config.show_event_details === true ? this._openEventDetails : undefined;
+    return this._hasEventTapAction ? this._runEventTapAction : undefined;
   }
 
   /**

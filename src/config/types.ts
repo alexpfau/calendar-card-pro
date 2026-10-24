@@ -142,7 +142,12 @@ export interface Config {
   // Actions
   tap_action: ActionConfig;
   hold_action: ActionConfig;
-  show_event_details: boolean;
+  /**
+   * What a tap on an event does, instead of the card's `tap_action`. `details` opens Home
+   * Assistant's event dialog; any other action is Home Assistant's, run for the calendar the
+   * event came from. A hold on an event still runs `hold_action`.
+   */
+  event_tap_action: ActionConfig;
   /**
    * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
    * support updates never gets Edit, whatever this says.

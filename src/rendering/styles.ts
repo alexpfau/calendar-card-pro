@@ -2038,9 +2038,9 @@ export const cardStyles = css`
   }
 
   /* ===== TAPPABLE EVENTS =====
-   * With show_event_details on, each event is a button that opens Home Assistant's
-   * event-detail dialog. The event's own background is an inline style, so the hover
-   * wash is an inset shadow drawn over it rather than a second background, and it
+   * With event_tap_action set, each event is a button that runs it; details opens Home
+   * Assistant's event-detail dialog. The event's own background is an inline style, so the
+   * hover wash is an inset shadow drawn over it rather than a second background, and it
    * mixes the event's text color so it reads on light and dark themes alike. Hover
    * only where there is a real pointer: on touch, a hover state sticks after the tap. */
   .event-interactive {

@@ -11,7 +11,9 @@ import {
 import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
 
 /**
- * `show_event_details`: a tap on an event opens Home Assistant's event-detail dialog.
+ * `event_tap_action`: a tap on an event runs an action of its own. `details` opens Home
+ * Assistant's event-detail dialog; any other action goes to Home Assistant for the event's
+ * own calendar.
  *
  * Driven through the real card, from the fetch to the click, because the entry the dialog
  * receives is assembled across three stages — processing stamps `_source`, grouping copies
@@ -38,6 +40,15 @@ interface DialogDetail {
     canDelete: boolean;
     updated: () => void;
   };
+}
+
+/** The event tap action this file is mostly about. */
+const DETAILS = { event_tap_action: { action: 'details' } } as const;
+
+/** What the card hands Home Assistant's own action handler. */
+interface HassActionDetail {
+  action: string;
+  config: { entity?: string; tap_action?: unknown; hold_action?: unknown };
 }
 
 const RAW_EVENTS = [
@@ -73,11 +84,19 @@ const calendarState = (supportedFeatures: number) => ({
 
 async function mount(
   config: Record<string, unknown>,
-  { states = {}, events = RAW_EVENTS }: { states?: object; events?: object[] } = {},
+  {
+    states = {},
+    events = RAW_EVENTS,
+    eventsFor = {},
+  }: { states?: object; events?: object[]; eventsFor?: Record<string, object[]> } = {},
 ) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
-  const callApi = vi.fn().mockResolvedValue(events);
+  // `eventsFor` answers for the calendars it names; every other calendar answers `events`.
+  const callApi = vi.fn(async (_method: string, path: string) => {
+    const calendar = Object.keys(eventsFor).find((id) => path.startsWith(`calendars/${id}?`));
+    return calendar ? eventsFor[calendar] : events;
+  });
   card.hass = {
     states: states as Types.Hass['states'],
     locale: { language: 'en', time_format: '24' },
@@ -87,16 +106,19 @@ async function mount(
 
   const dialogs: DialogDetail[] = [];
   const actions: string[] = [];
+  const hassActions: HassActionDetail[] = [];
   card.addEventListener('show-dialog', (ev) =>
     dialogs.push((ev as Event & { detail: DialogDetail }).detail),
   );
-  card.addEventListener('hass-action', (ev) =>
-    actions.push((ev as Event & { detail: { action: string } }).detail.action),
-  );
+  card.addEventListener('hass-action', (ev) => {
+    const detail = (ev as Event & { detail: HassActionDetail }).detail;
+    actions.push(detail.action);
+    hassActions.push(detail);
+  });
 
   document.body.appendChild(card);
   await vi.waitFor(() => expect(eventsShowing(card, 'Dentist').length).toBeGreaterThan(0));
-  return { card, callApi, dialogs, actions };
+  return { card, callApi, dialogs, actions, hassActions };
 }
 
 /** Every rendered event root whose text includes `text`. */
@@ -139,7 +161,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('show_event_details off, the default', () => {
+describe('event_tap_action none, the default', () => {
   it.each(['list', 'column', 'grid'])('leaves %s events inert', async (view) => {
     const { card, dialogs } = await mount({ view });
 
@@ -153,14 +175,14 @@ describe('show_event_details off, the default', () => {
   });
 });
 
-describe('show_event_details on', () => {
+describe('event_tap_action details', () => {
   it.each([
     ['list', 'Dentist'],
     ['column', 'Dentist'],
     ['grid', 'Dentist'],
     ['grid', 'Public holiday'],
   ])('makes a %s event a button that opens its details (%s)', async (view, summary) => {
-    const { card, dialogs } = await mount({ view, show_event_details: true });
+    const { card, dialogs } = await mount({ view, ...DETAILS });
 
     const target = eventsShowing(card, summary)[0];
     expect(target.getAttribute('role')).toBe('button');
@@ -176,7 +198,7 @@ describe('show_event_details on', () => {
   });
 
   it('hands the dialog every field Home Assistant returned', async () => {
-    const { card, dialogs } = await mount({ show_event_details: true });
+    const { card, dialogs } = await mount({ ...DETAILS });
 
     eventsShowing(card, 'Dentist')[0].click();
     await settle();
@@ -194,7 +216,7 @@ describe('show_event_details on', () => {
 
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({
-      show_event_details: true,
+      ...DETAILS,
       split_multiday_events: true,
       entities: [{ entity: 'calendar.anna', replace_pattern: 'Trip', replace_with: 'Away' }],
     });
@@ -221,10 +243,7 @@ describe('show_event_details on', () => {
     [1, 'Dentist', { canEdit: false, canDelete: false }],
     [7, 'Public holiday', { canEdit: false, canDelete: false }],
   ])('offers Edit and Delete as features %i allow for %s', async (features, summary, expected) => {
-    const { card, dialogs } = await mount(
-      { show_event_details: true },
-      { states: calendarState(features) },
-    );
+    const { card, dialogs } = await mount({ ...DETAILS }, { states: calendarState(features) });
 
     eventsShowing(card, summary)[0].click();
     await settle();
@@ -232,7 +251,7 @@ describe('show_event_details on', () => {
   });
 
   it('fetches again once the dialog has edited or deleted the event', async () => {
-    const { card, callApi, dialogs } = await mount({ show_event_details: true });
+    const { card, callApi, dialogs } = await mount({ ...DETAILS });
 
     eventsShowing(card, 'Dentist')[0].click();
     await settle();
@@ -243,7 +262,7 @@ describe('show_event_details on', () => {
   });
 
   it('opens on Enter and Space, and on no other key', async () => {
-    const { card, dialogs } = await mount({ show_event_details: true });
+    const { card, dialogs } = await mount({ ...DETAILS });
     const target = eventsShowing(card, 'Dentist')[0];
 
     press(target, 'a');
@@ -263,7 +282,7 @@ describe('show_event_details on', () => {
 
   it("does not run the card's tap action for a tap on an event", async () => {
     const { card, dialogs, actions } = await mount({
-      show_event_details: true,
+      ...DETAILS,
       tap_action: { action: 'more-info' },
     });
 
@@ -281,7 +300,7 @@ describe('show_event_details on', () => {
   it('keeps an event tap or key from reaching whatever contains the card', async () => {
     // The card ignores clicks and keys from its own descendants anyway; a wrapping card or
     // dashboard handler does not, and would act on the same tap that opened the dialog.
-    const { card } = await mount({ show_event_details: true });
+    const { card } = await mount({ ...DETAILS });
     const reached: string[] = [];
     for (const type of ['click', 'keydown', 'pointerdown', 'pointerup']) {
       document.body.addEventListener(type, () => reached.push(type));
@@ -302,7 +321,7 @@ describe('show_event_details on', () => {
 
   it('leaves empty-day rows inert', async () => {
     const { card, dialogs } = await mount(
-      { show_event_details: true, show_empty_days: true },
+      { ...DETAILS, show_empty_days: true },
       { events: [RAW_EVENTS[0]] },
     );
 
@@ -324,7 +343,7 @@ describe('show_event_details on', () => {
     const { card, dialogs } = await mount(
       {
         view: 'grid',
-        show_event_details: true,
+        ...DETAILS,
         days_to_show: 1,
         time_grid: { max_simultaneous_events: 1 },
       },
@@ -348,6 +367,75 @@ describe('show_event_details on', () => {
   });
 });
 
+describe("event_tap_action set to one of Home Assistant's actions", () => {
+  const MORE_INFO = { event_tap_action: { action: 'more-info' } } as const;
+  const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
+
+  it.each(['list', 'column', 'grid'])(
+    "runs it in %s view for the tapped event's own calendar",
+    async (view) => {
+      const { card, dialogs, hassActions } = await mount(
+        { view, entities: ['calendar.anna', 'calendar.ben'], ...MORE_INFO },
+        { eventsFor: { 'calendar.ben': [SWIMMING] } },
+      );
+
+      eventsShowing(card, 'Swimming')[0].click();
+      await settle();
+      expect(dialogs).toEqual([]);
+      expect(hassActions).toEqual([
+        { action: 'tap', config: { entity: 'calendar.ben', tap_action: { action: 'more-info' } } },
+      ]);
+
+      // The control: an event of the first calendar names the first.
+      eventsShowing(card, 'Dentist')[0].click();
+      await settle();
+      expect(hassActions.map((detail) => detail.config.entity)).toEqual([
+        'calendar.ben',
+        'calendar.anna',
+      ]);
+    },
+  );
+
+  it('runs it for the calendar whose copy a merged row kept', async () => {
+    // Ben and Carl share the event and Anna, the card's first calendar, does not, so the
+    // first configured calendar and the kept copy's differ.
+    const { card, hassActions } = await mount(
+      {
+        entities: ['calendar.anna', 'calendar.ben', 'calendar.carl'],
+        filter_duplicates: true,
+        ...MORE_INFO,
+      },
+      {
+        eventsFor: {
+          'calendar.anna': [RAW_EVENTS[0]],
+          'calendar.ben': [SWIMMING],
+          'calendar.carl': [SWIMMING],
+        },
+      },
+    );
+
+    expect(eventsShowing(card, 'Swimming')).toHaveLength(1);
+    eventsShowing(card, 'Swimming')[0].click();
+    await settle();
+    expect(hassActions.map((detail) => detail.config.entity)).toEqual(['calendar.ben']);
+  });
+
+  it('expands the card for expand, written in YAML', async () => {
+    const { card, dialogs, hassActions } = await mount({
+      event_tap_action: { action: 'expand' },
+      list: { compact_events_to_show: 1 },
+    });
+    const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
+    expect(expanded()).toBe(false);
+
+    eventsShowing(card, 'Dentist')[0].click();
+    await settle();
+    expect(expanded()).toBe(true);
+    expect(dialogs).toEqual([]);
+    expect(hassActions).toEqual([]);
+  });
+});
+
 describe('what the dialog is handed for events the card had to change', () => {
   /** No end at all: kept as the instant at its start. */
   const REMINDER = {
@@ -367,7 +455,7 @@ describe('what the dialog is handed for events the card had to change', () => {
     'hands a %s event with a backwards end the end the calendar stores',
     async (view) => {
       const { card, dialogs } = await mount(
-        { view, show_event_details: true },
+        { view, ...DETAILS },
         { states: calendarState(7), events: [RAW_EVENTS[0], BACKWARDS] },
       );
 
@@ -391,7 +479,7 @@ describe('what the dialog is handed for events the card had to change', () => {
     'keeps a %s event with no end free of one, and withholds Edit',
     async (view) => {
       const { card, dialogs } = await mount(
-        { view, show_event_details: true },
+        { view, ...DETAILS },
         { states: calendarState(7), events: [RAW_EVENTS[0], REMINDER] },
       );
 
@@ -420,7 +508,7 @@ describe('what the dialog is handed for events the card had to change', () => {
     ['grid', {}],
   ])("hands a split %s segment the event's status", async (view, extra) => {
     const { card, dialogs } = await mount(
-      { view, show_event_details: true, ...extra },
+      { view, ...DETAILS, ...extra },
       { events: [RAW_EVENTS[0], { ...RAW_EVENTS[1], status: 'tentative' }] },
     );
 
@@ -464,10 +552,7 @@ describe('what the card lets the dialog offer', () => {
       { canEdit: false, canDelete: false },
     ],
   ])('honors %o', async (options, expected) => {
-    const { card, dialogs } = await mount(
-      { show_event_details: true, ...options },
-      { states: calendarState(7) },
-    );
+    const { card, dialogs } = await mount({ ...DETAILS, ...options }, { states: calendarState(7) });
 
     expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual(expected);
   });
@@ -477,7 +562,7 @@ describe('what the card lets the dialog offer', () => {
 
     // The control: the same two copies left apart are each fully editable.
     const apart = await mount(
-      { show_event_details: true, entities, filter_duplicates: false },
+      { ...DETAILS, entities, filter_duplicates: false },
       { states: twoCalendars },
     );
     expect(eventsShowing(apart.card, 'Dentist')).toHaveLength(2);
@@ -489,7 +574,7 @@ describe('what the card lets the dialog offer', () => {
     localStorage.clear();
 
     const merged = await mount(
-      { show_event_details: true, entities, filter_duplicates: true },
+      { ...DETAILS, entities, filter_duplicates: true },
       { states: twoCalendars },
     );
     expect(eventsShowing(merged.card, 'Dentist')).toHaveLength(1);
@@ -502,10 +587,7 @@ describe('what the card lets the dialog offer', () => {
   });
 
   it('withholds both while the calendar is failing and its events come from the cache', async () => {
-    const { card, callApi, dialogs } = await mount(
-      { show_event_details: true },
-      { states: calendarState(7) },
-    );
+    const { card, callApi, dialogs } = await mount({ ...DETAILS }, { states: calendarState(7) });
     // The control: the same event, freshly loaded.
     expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual({
       canEdit: true,

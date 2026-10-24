@@ -95,14 +95,12 @@ const CARD_LEVEL_REASONS = {
   /** Editor-maintained marker for the persisted configuration shape. */
   metadata: ['config_version'],
 
-  /** Stored whole rather than option by option; reconciled against `ATOMIC_KEYS` below. */
-  action: ['tap_action', 'hold_action'],
-
   /**
-   * What touching the card does, beyond the stored actions above. A tap means the same
-   * thing whichever view drew the event under the finger.
+   * What touching the card does. Stored whole rather than option by option; reconciled
+   * against `ATOMIC_KEYS` below. A tap on an event means the same thing whichever view drew
+   * the event under the finger, as a tap on the card does.
    */
-  interaction: ['show_event_details'],
+  action: ['tap_action', 'hold_action', 'event_tap_action'],
 
   /**
    * What Home Assistant's event dialog may offer once an event is open. The dialog is the

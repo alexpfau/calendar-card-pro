@@ -25,21 +25,41 @@ function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): strin
   return typeof firstEntity === 'string' ? firstEntity : firstEntity.entity;
 }
 
+/** A tap on one event, which runs `event_tap_action` instead of the card's `tap_action`. */
+export interface EventTap {
+  /** The calendar the tapped event came from: for a merged row, the one whose copy was kept. */
+  entity: string | undefined;
+  /** What the card-specific `details` action does: open the event's details. */
+  details: () => void;
+}
+
 /**
  * Handle an action by delegating to HA's native action handler.
  *
+ * A tap on an event runs `event_tap_action` through the same path, with one difference that
+ * is the point of having it: Home Assistant is told the event's own calendar as the entity,
+ * so `more-info` opens the calendar the event came from rather than the card's first one.
+ * `expand` stays the card's own, wherever it was configured. `details` needs an event, so
+ * as a card action it does nothing.
+ *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
- * @param action - Action type: "tap" or "hold"
+ * @param action - Action type: "tap" or "hold"; ignored for an event tap, which is a tap
  * @param expandCallback - Optional callback for the card-specific expand action
+ * @param eventTap - The tapped event, to run `event_tap_action` for it
  */
 export function handleAction(
   node: HTMLElement,
   config: Types.Config,
   action: 'tap' | 'hold',
   expandCallback?: () => void,
+  eventTap?: EventTap,
 ): void {
-  const actionConfig = action === 'hold' ? config.hold_action : config.tap_action;
+  const actionConfig = eventTap
+    ? config.event_tap_action
+    : action === 'hold'
+      ? config.hold_action
+      : config.tap_action;
   // Defaults and the documented disable form are both `{ action: 'none' }`. Without this
   // guard every default-config tap still dispatched `hass-action` to Home Assistant.
   if (!actionConfig || actionConfig.action === 'none') return;
@@ -50,22 +70,33 @@ export function handleAction(
     return;
   }
 
-  const entityId = getPrimaryEntityId(config.entities);
-  const hassActionConfig = {
-    entity: entityId,
-    tap_action: config.tap_action,
-    hold_action: config.hold_action,
-  };
+  if (actionConfig.action === 'details') {
+    if (eventTap) eventTap.details();
+    Logger.debug(eventTap ? 'Executed details action' : 'Ignored details action: no event');
+    return;
+  }
+
+  const entityId = eventTap?.entity ?? getPrimaryEntityId(config.entities);
+  const hassActionConfig = eventTap
+    ? { entity: entityId, tap_action: actionConfig }
+    : {
+        entity: entityId,
+        tap_action: config.tap_action,
+        hold_action: config.hold_action,
+      };
 
   const event = new Event('hass-action', {
     bubbles: true,
     composed: true,
   });
+  // Home Assistant reads the action config named by `action`, and an event tap's is held
+  // under `tap_action`, so it is a tap whatever the caller said.
+  const haAction = eventTap ? 'tap' : action;
   (event as unknown as Record<string, unknown>).detail = {
     config: hassActionConfig,
-    action,
+    action: haAction,
   };
 
   node.dispatchEvent(event);
-  Logger.debug(`Delegated ${action} action (${actionConfig.action}) to HA native handler`);
+  Logger.debug(`Delegated ${haAction} action (${actionConfig.action}) to HA native handler`);
 }

@@ -334,15 +334,15 @@ meaning no limit.
 | -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                        |
 | `hold_action`        | object  | `none`  | Action when holding the card                                                                                                        |
+| `event_tap_action`   | object  | `none`  | Action when tapping an event. `details` opens Home Assistant's event dialog; any other action applies to the event's own calendar   |
 | `show_add_event`     | boolean | `false` | Show a button that opens Home Assistant's new-event dialog. Drawn only when at least one of the card's calendars accepts new events |
-| `show_event_details` | boolean | `false` | Tapping an event opens Home Assistant's event dialog for that event                                                                 |
 | `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar that cannot update events never offers it                         |
 | `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar that cannot delete events never offers it                       |
 
 ### Action Parameters
 
-`tap_action` and `hold_action` take an object whose `action` key selects the
-behavior. The remaining keys depend on which action you chose:
+`tap_action`, `hold_action` and `event_tap_action` take an object whose `action` key
+selects the behavior. The remaining keys depend on which action you chose:
 
 `action` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 

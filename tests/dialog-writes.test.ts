@@ -103,7 +103,7 @@ const OPENERS = {
 
 const DIALOG_CONFIG = {
   add: { show_add_event: true },
-  details: { show_event_details: true },
+  details: { event_tap_action: { action: 'details' } },
 } as const;
 
 beforeAll(() => {
@@ -164,7 +164,7 @@ describe('telling the other cards on the page', () => {
   }
 
   it('refreshes another card showing the edited calendar, and no card that does not', async () => {
-    const editing = await mount({ show_event_details: true });
+    const editing = await mount({ event_tap_action: { action: 'details' } });
     const sameCalendar = await mount({ entities: [{ entity: 'calendar.anna' }] });
     const otherCalendar = await mount({ entities: ['calendar.ben'] });
     await OPENERS.details(editing.card);
@@ -194,7 +194,7 @@ describe('telling the other cards on the page', () => {
   });
 
   it('leaves a card alone once it has left the page', async () => {
-    const editing = await mount({ show_event_details: true });
+    const editing = await mount({ event_tap_action: { action: 'details' } });
     const detached = await mount({});
     detached.card.remove();
     // A detached card's refresh returns before it fetches, so counting requests could not
