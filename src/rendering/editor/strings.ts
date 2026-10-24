@@ -722,6 +722,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_now_indicator: 'Show Now Indicator',
   'show_now_indicator.helper':
     'Puts a green “Now” before the time of events that are happening right now.',
+  now_color: 'Now Color',
+  'now_color.helper':
+    'The color of an event that is happening right now, and of the now line in grid view.',
   progress_bar_color: 'Progress Bar Color',
   progress_bar_height: 'Progress Bar Height',
   progress_bar_width: 'Progress Bar Width',

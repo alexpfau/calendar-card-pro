@@ -322,6 +322,7 @@
   "show_progress_bar": "진행률 막대 표시",
   "show_now_indicator": "지금 표시기 표시",
   "show_now_indicator.helper": "진행 중인 일정의 시간 앞에 녹색 ‘지금’을 표시합니다.",
+  "now_color": "지금 색상",
   "progress_bar_color": "진행률 막대 색상",
   "progress_bar_height": "진행률 막대 높이",
   "progress_bar_width": "진행률 막대 너비",

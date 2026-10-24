@@ -93,6 +93,34 @@ describe.each(['list', 'column', 'grid'] as const)('in %s view', (view) => {
   });
 });
 
+describe("the tile's digits on a weekend", () => {
+  // Today's colors fall back to the weekend ones, as the editor's helper says. The tile's
+  // automatic shade must not cut in between: on a weekend, a weekend_day_color names the
+  // digits just as today_day_color would.
+  const saturday = new Date(2026, 5, 20);
+  const digits = (overrides: Partial<Types.Config>, date = saturday) => {
+    const host = document.createElement('div');
+    litRender(Leaves.renderDateContent(date, buildConfig(overrides), 'en', true), host);
+    return host.querySelector<HTMLElement>('.day.today-tile')!.style.color;
+  };
+
+  it('takes weekend_day_color on a weekend', () => {
+    expect(saturday.getDay()).toBe(6);
+    expect(digits({ weekend_day_color: 'rgb(9, 8, 7)' })).toBe('rgb(9, 8, 7)');
+  });
+
+  it('keeps its own shade on a weekday, and gives way to today_day_color always', () => {
+    const wednesday = new Date(2026, 5, 17);
+    expect(digits({ weekend_day_color: 'rgb(9, 8, 7)' }, wednesday)).toBe(
+      'var(--calendar-card-today-indicator-ink)',
+    );
+    expect(digits({})).toBe('var(--calendar-card-today-indicator-ink)');
+    expect(digits({ weekend_day_color: 'rgb(9, 8, 7)', today_day_color: 'rgb(1, 2, 3)' })).toBe(
+      'rgb(1, 2, 3)',
+    );
+  });
+});
+
 describe.each(['column', 'grid'] as const)('the %s header row', (view) => {
   it("reserves the tile's footprint on every day, so the date row stays level", () => {
     const headers = [...renderView(view).querySelectorAll('.column-date-content')];

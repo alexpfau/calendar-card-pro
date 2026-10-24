@@ -434,6 +434,8 @@
   "show_progress_bar": "Näita edenemisriba",
   "show_now_indicator": "Näita praeguse hetke tähist",
   "show_now_indicator.helper": "Lisab praegu toimuvate sündmuste kellaaja ette rohelise „Nüüd“.",
+  "now_color": "Praeguse hetke värv",
+  "now_color.helper": "Praegu toimuvate sündmuste ja ajarastri praeguse aja joone värv.",
   "progress_bar_color": "Edenemisriba värv",
   "progress_bar_height": "Edenemisriba kõrgus",
   "progress_bar_width": "Edenemisriba laius",

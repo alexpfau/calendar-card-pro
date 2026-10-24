@@ -102,6 +102,7 @@ export interface Config {
   show_countdown_allday: boolean;
   show_progress_bar: boolean;
   show_now_indicator: boolean;
+  now_color: string;
   progress_bar_color: string;
   progress_bar_height: string;
   progress_bar_width?: string;
@@ -318,6 +319,7 @@ export interface SharedViewOverrides {
   show_countdown_allday?: boolean;
   show_progress_bar?: boolean;
   show_now_indicator?: boolean;
+  now_color?: string;
   progress_bar_color?: string;
   progress_bar_height?: string;
   progress_bar_width?: string;

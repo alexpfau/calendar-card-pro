@@ -115,6 +115,31 @@ describe('in list view, where empty days ship hidden', () => {
     ).toEqual(['2026-06-17: -', '2026-06-18: Tomorrow event']);
   });
 
+  it.each([
+    ['day', { compact_days_to_show: 1 }],
+    ['event', { compact_events_to_show: 1 }],
+  ] as const)(
+    'never calls today free when a compact %s limit only hid its events',
+    (_limit, compact) => {
+      // A window that starts yesterday, where a running all-day event takes the one slot the
+      // collapsed card has. Today's own event is cut, not missing, and expanding shows it.
+      const vacation: Types.CalendarEventData = {
+        summary: 'Vacation',
+        start: { date: '2026-06-16' },
+        end: { date: '2026-06-19' },
+        _entityId: 'calendar.personal',
+      };
+      const window = { start_date: 'today-1', show_past_events: true, ...compact };
+
+      expect(layout([vacation, TODAY_LATER], { ...window, show_empty_today: true })).toEqual(
+        layout([vacation, TODAY_LATER], window),
+      );
+      expect(layout([vacation, TODAY_LATER], window, 'list', true)).toContain(
+        '2026-06-17: Today event',
+      );
+    },
+  );
+
   it('adds only today when the card is expanded, not every empty day', () => {
     expect(
       layout([IN_TWO_DAYS], { compact_events_to_show: 1, show_empty_today: true }, 'list', true),

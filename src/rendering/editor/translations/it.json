@@ -434,6 +434,8 @@
   "show_progress_bar": "Mostra barra di progresso",
   "show_now_indicator": "Mostra indicatore Ora",
   "show_now_indicator.helper": "Aggiunge un “Ora” verde prima dell’orario degli eventi in corso.",
+  "now_color": "Colore dell'ora corrente",
+  "now_color.helper": "Il colore degli eventi in corso e della linea dell'ora corrente nella griglia oraria.",
   "progress_bar_color": "Colore barra progresso",
   "progress_bar_height": "Altezza barra progresso",
   "progress_bar_width": "Larghezza barra progresso",

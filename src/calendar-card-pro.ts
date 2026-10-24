@@ -760,17 +760,20 @@ class CalendarCardPro extends LitElement {
 
   /**
    * One-shot timer for the next moment a timed event starts or ends, held in list and column
-   * view, and the instant it is set for.
+   * view and in a grid without its now line, and the instant it is set for.
    *
    * Those views otherwise repaint only when `hass` happens to change, so an event could keep
    * its "Now" label, or a finished one stay on screen under `show_past_events: false`, until
    * some unrelated entity updated. A timeout per boundary rather than a tick: a day with eight
-   * events costs sixteen repaints, not 1,440. Grid needs none of it, because its now-line tick
-   * already repaints every minute.
+   * events costs sixteen repaints, not 1,440. A grid with its now line needs none of it,
+   * because the line's tick already repaints every minute.
    */
   private _nowBoundaryTimerId: number | null = null;
 
   private _nowBoundaryAt: number | null = null;
+
+  /** The event list the armed boundary was computed from, so an unrelated update skips the scan. */
+  private _nowBoundaryEvents: ReadonlyArray<Types.CalendarEventData> | null = null;
 
   /**
    * Pending trailing timer for the last width measurement.
@@ -1208,23 +1211,44 @@ class CalendarCardPro extends LitElement {
     }
   }
 
-  /** Whether the card draws a view that changes at event boundaries without a repaint of its own. */
+  /**
+   * Whether the card draws a view that changes at event boundaries without a repaint of its
+   * own. List and column always do. Grid does when its now line is off: the line's minute
+   * tick is what otherwise repaints a finished event dim, or away under show_past_events off.
+   */
   private get _wantsNowBoundary(): boolean {
-    return this.effectiveView === 'list' || this.effectiveView === 'column';
+    return (
+      this.effectiveView === 'list' ||
+      this.effectiveView === 'column' ||
+      (this.effectiveView === 'grid' && !this._wantsNowLine)
+    );
   }
 
   /**
-   * Holds a timer for the next event boundary exactly while list or column view is on screen.
+   * Holds a timer for the next event boundary exactly while a view that needs one is on screen.
    *
    * Reconciled from `updated()` like the other timers, and re-armed by the render the timer
    * itself causes, so it walks from one boundary to the next. It keeps a timer already set
-   * for the same instant, so the renders `hass` causes in between cost nothing here.
+   * from the same events, so the renders `hass` causes in between cost nothing here.
    */
   private _syncNowBoundaryTimer(): void {
-    const next =
-      this.isConnected && this._wantsNowBoundary && document.visibilityState !== 'hidden'
-        ? EventUtils.nextEventBoundary(this.events, Date.now())
-        : null;
+    const wanted =
+      this.isConnected && this._wantsNowBoundary && document.visibilityState !== 'hidden';
+
+    // An armed timer computed from these same events is still right until it fires: no
+    // boundary lies between the moment it was computed and the one it waits for, and a
+    // later moment cannot add one. So the renders hass causes in between skip the scan.
+    if (
+      wanted &&
+      this._nowBoundaryTimerId !== null &&
+      this._nowBoundaryEvents === this.events &&
+      this._nowBoundaryAt !== null &&
+      this._nowBoundaryAt > Date.now()
+    ) {
+      return;
+    }
+
+    const next = wanted ? EventUtils.nextEventBoundary(this.events, Date.now()) : null;
 
     if (next === null) {
       this._stopNowBoundaryTimer();
@@ -1237,6 +1261,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopNowBoundaryTimer();
     this._nowBoundaryAt = next;
+    this._nowBoundaryEvents = this.events;
     // A second past the boundary, so the render reads the new state even if the timer fires
     // a little early, and capped so a boundary far ahead never meets setTimeout's 24.8-day
     // limit; the capped timer simply re-arms.
@@ -1254,6 +1279,7 @@ class CalendarCardPro extends LitElement {
       this._nowBoundaryTimerId = null;
     }
     this._nowBoundaryAt = null;
+    this._nowBoundaryEvents = null;
   }
 
   /**

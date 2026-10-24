@@ -293,6 +293,7 @@ const eventsSchema = Helpers.memoizeLast(
     // finished one fades.
     heading('heading_event_state'),
     bool('show_now_indicator'),
+    color('now_color'),
     {
       name: 'past_event_opacity',
       selector: {

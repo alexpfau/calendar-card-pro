@@ -434,6 +434,8 @@
   "show_progress_bar": "Visa förloppsindikator",
   "show_now_indicator": "Visa nu-markering",
   "show_now_indicator.helper": "Lägger ett grönt ”Nu” före tiden för händelser som pågår just nu.",
+  "now_color": "Nu-färg",
+  "now_color.helper": "Färgen på händelser som pågår just nu och på nu-linjen i tidsrutnätet.",
   "progress_bar_color": "Förloppsindikatorns färg",
   "progress_bar_height": "Förloppsindikatorns höjd",
   "progress_bar_width": "Förloppsindikatorns bredd",

@@ -245,10 +245,11 @@ export function renderDateContent(
 
   if (isToday) {
     weekdayColor = config.today_weekday_color || weekdayColor;
-    // On the tile the digits take an ink chosen against the tile's own color (see
-    // `.day.today-tile` in the stylesheet), unless the user named a color for them.
-    dayColor =
-      config.today_day_color || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
+    // On the tile the digits take a deeper shade of the tile's own color (see
+    // `.day.today-tile` in the stylesheet), unless the user named a color for them: today's,
+    // or on a weekend the weekend one, which today's falls back to everywhere else too.
+    const namedDayColor = config.today_day_color || (isWeekendDay && config.weekend_day_color);
+    dayColor = namedDayColor || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
     monthColor = config.today_month_color || monthColor;
   }
 
@@ -893,13 +894,14 @@ export function renderEventContent(
     ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
     : timeValue;
 
-  // Composed into the time's own binding rather than given one of its own before the clock
-  // icon, so a row that is not under way renders exactly the markup it always did. The label
-  // still reads first: .time-actual is a flex row, and the stylesheet orders it ahead of the
-  // icon. No whitespace between the two, for the same reason as the split above.
+  // A running event's row keeps its clock where every row has it, filled rather than outlined,
+  // and reads "Now · 22:30 - 23:59" after it as one run of inline text, so it wraps as a
+  // sentence on a narrow card instead of squeezing the time beside a label that holds its
+  // width. Composed into the time's own binding, so a row that is not under way renders
+  // exactly the markup it always did. No whitespace inside: the spacing is the stylesheet's.
   // prettier-ignore
   const timeContent = nowLabel
-    ? html`<span class="now-indicator">${nowLabel}</span>${timeText}`
+    ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
     : timeText;
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -915,7 +917,7 @@ export function renderEventContent(
           ? html`
               <div class="time">
                 <div class="time-actual">
-                  <ha-icon icon="mdi:clock-outline"></ha-icon>
+                  <ha-icon icon=${nowLabel ? 'mdi:clock' : 'mdi:clock-outline'}></ha-icon>
                   ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown

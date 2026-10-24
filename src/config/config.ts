@@ -91,6 +91,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_countdown_allday: true,
   show_progress_bar: false,
   show_now_indicator: true,
+  // The card's color for "now": a running event's time in list and column view, and the
+  // grid's now line, which follows it unless time_grid.now_line_color is set. Emerald, to sit
+  // with the card's own colors rather than with the theme's error red.
+  now_color: '#34d399',
   progress_bar_color: 'var(--secondary-text-color)',
   // Three quarters of the time text: every bar carries the time font size, so `em` follows
   // it in both placements, whatever font size `time_font_size` holds.

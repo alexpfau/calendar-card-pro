@@ -674,7 +674,8 @@ describe('editor: the grid block as the form shows it', () => {
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       hour_height: '48px',
       show_now_line: true,
-      now_line_color: '#34d399',
+      // The card's now color, which the line follows until it is given its own.
+      now_line_color: 'var(--calendar-card-now-color, #34d399)',
       max_simultaneous_events: 3,
       overlap_layout: 'cascade',
       allday_band_max_rows: 3,
@@ -2560,6 +2561,7 @@ describe('editor: the Events panel opening run', () => {
       'show_progress_bar',
       'heading_event_state',
       'show_now_indicator',
+      'now_color',
       'past_event_opacity',
       'heading_accent',
       'accent_event_text',

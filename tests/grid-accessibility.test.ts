@@ -179,7 +179,9 @@ describe('timed Grid accessible information', () => {
     const name = accessibleGroup(container.querySelector('.grid-event')!).getAttribute(
       'aria-label',
     );
-    expect(name).toBe(`\u2068${source.summary}\u2069`);
+    // "Now" is not one of the details turned off: it stands in for the now line, which this
+    // config leaves on and which runs through this block at the frozen time.
+    expect(name).toBe(`\u2068${source.summary}\u2069, \u2068Now\u2069`);
   });
 
   it('uses the complete original interval on every timed continuation, honoring formatting', () => {

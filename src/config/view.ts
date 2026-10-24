@@ -66,6 +66,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_countdown_allday',
   'show_progress_bar',
   'show_now_indicator',
+  'now_color',
   'progress_bar_color',
   'progress_bar_height',
   'progress_bar_width',
@@ -593,10 +594,11 @@ export const TIME_GRID_DEFAULTS = {
   hour_height: '48px',
   show_now_line: true,
 
-  // Emerald, to sit with the card's own colors rather than with the theme's error red. It
-  // is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
-  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
-  now_line_color: '#34d399',
+  // The card's now color (now_color, emerald by default), so the line and a running event's
+  // time in list and column agree. It is a quiet line on a white card, about 1.9:1, and a
+  // bright one on a dark card; `var(--error-color)` brings the red back for anyone who wants
+  // the line to stand out.
+  now_line_color: 'var(--calendar-card-now-color, #34d399)',
   max_simultaneous_events: 3,
   overlap_layout: 'cascade',
   allday_band_max_rows: 3,

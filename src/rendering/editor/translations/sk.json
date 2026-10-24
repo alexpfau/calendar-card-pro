@@ -434,6 +434,8 @@
   "show_progress_bar": "Zobraziť lištu priebehu",
   "show_now_indicator": "Zobraziť indikátor „Teraz“",
   "show_now_indicator.helper": "Pred čas práve prebiehajúcich udalostí pridá zelené „Teraz“.",
+  "now_color": "Farba „Teraz“",
+  "now_color.helper": "Farba práve prebiehajúcich udalostí a čiary aktuálneho času v časovej mriežke.",
   "progress_bar_color": "Farba lišty priebehu",
   "progress_bar_height": "Výška lišty priebehu",
   "progress_bar_width": "Šírka lišty priebehu",

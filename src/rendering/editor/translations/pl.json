@@ -434,6 +434,8 @@
   "show_progress_bar": "Pokaż pasek postępu",
   "show_now_indicator": "Pokaż wskaźnik „Teraz”",
   "show_now_indicator.helper": "Dodaje zielone „Teraz” przed godziną wydarzeń, które właśnie trwają.",
+  "now_color": "Kolor „Teraz”",
+  "now_color.helper": "Kolor wydarzeń, które właśnie trwają, i linii bieżącego czasu w siatce czasu.",
   "progress_bar_color": "Kolor paska postępu",
   "progress_bar_height": "Wysokość paska postępu",
   "progress_bar_width": "Szerokość paska postępu",

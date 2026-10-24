@@ -434,6 +434,8 @@
   "show_progress_bar": "Vis fremdriftslinje",
   "show_now_indicator": "Vis nå-markør",
   "show_now_indicator.helper": "Setter en grønn «Nå» foran tidspunktet for hendelser som pågår akkurat nå.",
+  "now_color": "Nå-farge",
+  "now_color.helper": "Fargen på hendelser som pågår akkurat nå, og på nå-linjen i tidsrutenettet.",
   "progress_bar_color": "Fremdriftslinjefarge",
   "progress_bar_height": "Fremdriftslinjehøyde",
   "progress_bar_width": "Fremdriftslinjebredde",

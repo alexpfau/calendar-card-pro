@@ -279,12 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(120_400);
+    expect(saved).toBeLessThan(122_700);
     // The today tile and the now indicator moved the ceiling last, from 116,600: the notes on why
     // the tile takes layout space rather than being painted behind the digits, how its shape was
-    // scored against an iOS icon mask, why its digits flip dark on a pale theme color, and why
-    // the "now" green is mixed toward the text color instead of drawn raw. The reading went
-    // 115,832 on dev to 119,348, taken with stripComments after the last comment was written.
+    // scored against an iOS icon mask, why it is a wash in the all-day pill's recipe rather than
+    // a fill, why the "now" green is mixed toward the text color instead of drawn raw, how the
+    // label's separator was measured ink to ink so the space either side of it is equal, and
+    // why a running row's run is kept out of the time clamp. The reading went 115,832 on dev to
+    // 121,650, taken with stripComments after the last comment was written.
     //
     // Muting the card's ripple over an event moved the ceiling before that, from 115,800: the note on
     // why the ripple is muted rather than kept from seeing the press -- the recognizer needs

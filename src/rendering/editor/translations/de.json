@@ -434,6 +434,8 @@
   "show_progress_bar": "Fortschrittsbalken anzeigen",
   "show_now_indicator": "Jetzt-Markierung anzeigen",
   "show_now_indicator.helper": "Setzt ein grünes „Jetzt“ vor die Uhrzeit von Terminen, die gerade laufen.",
+  "now_color": "Jetzt-Farbe",
+  "now_color.helper": "Die Farbe von Terminen, die gerade laufen, und der Jetzt-Linie im Zeitraster.",
   "progress_bar_color": "Fortschrittsbalken-Farbe",
   "progress_bar_height": "Fortschrittsbalken-Höhe",
   "progress_bar_width": "Fortschrittsbalken-Breite",

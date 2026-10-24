@@ -92,7 +92,17 @@ function readDefaults() {
   }
 
   const out = new Map();
-  for (const line of block[1].split('\n')) {
+  // Prettier moves a value too long for the key's line onto the next one, leaving the key
+  // on its own line with nothing after the colon. Join those back first, or the value is
+  // never read and its documented default goes unchecked with only a warning to show for it.
+  const lines = block[1].split('\n').reduce((joined, line) => {
+    const prev = joined[joined.length - 1];
+    if (prev !== undefined && /^ {2}[a-z0-9_]+:\s*$/.test(prev))
+      joined[joined.length - 1] = `${prev} ${line.trim()}`;
+    else joined.push(line);
+    return joined;
+  }, []);
+  for (const line of lines) {
     // Exactly two spaces of indent keeps this to top-level keys.
     const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*(\/\/\s*(.*))?$/);
     if (!m) continue;

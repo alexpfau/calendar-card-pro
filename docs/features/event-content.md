@@ -659,23 +659,28 @@ State**, in any workspace.
 
 ## 🟢 The Now Indicator
 
-An event that is happening right now gets a green "● Now ·" in front of its time, and its
-time turns the same green, in list and column view. It is on by default, needs no
-configuration, and takes nothing away: the row keeps its color and its stripe.
+An event that is happening right now has its clock filled in and "Now ·" in front of its
+time, and that whole row turns green, in list and column view. The clock stays where every
+other row has its icons, so the column of icons stays straight. It is on by default, needs no
+configuration, and takes nothing away: the event keeps its color and its stripe.
 
 ```yaml
 show_now_indicator: false # Turn it off
+now_color: '#ef4444' # Mark it in red instead
 ```
 
 Only timed events are marked. An all-day event is not "now" in this sense, or a day of them
-would read "Now" from morning to night. A multi-day timed event is marked on the day it is
-running.
+would read "Now" from morning to night. A multi-day timed event is marked while it runs. Split
+across days, as column view does by default, it is marked on its first and last day; the days
+in between show it as an all-day event, and those are not marked.
 
 The word comes from your browser in the card's language, "Jetzt" in German or "Maintenant" in
 French, so it needs no translation. A browser that carries no such word for a language shows "Now" in English instead; Chromium, as tested, does that for Icelandic and Norwegian Nynorsk.
 
-The green is the grid's now line emerald, mixed toward your theme's text color so it stays
-readable as text: a darker green on a light theme, a lighter one on a dark theme. The card
+The green is `now_color`, emerald by default, mixed toward your theme's text color so it
+stays readable as text: a darker green on a light theme, a lighter one on a dark theme. The
+grid's now line is drawn in the same color, so both views mark the present alike; give the
+line a color of its own with `now_line_color` in the `time_grid` block. The card
 updates the mark at the moment an event starts or ends, so it appears and disappears on time
 without waiting for Home Assistant to send anything. With `show_past_events` off, a finished event leaves the card on time for the same reason.
 

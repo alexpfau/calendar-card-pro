@@ -149,7 +149,7 @@ On a list card, [`allday_expires_at`](/features/core-settings#retiring-all-day-e
 
 The axis runs from 07:00 to 22:00, the hours a family is awake. See [Choosing the Hours the Card Shows](/features/grid-view#choosing-the-hours-the-card-shows).
 
-`show_now_line: true` draws a line at the current time across today's column, in emerald green by default. `today_indicator_color` puts today's day number on a tile in that same green, `#34d399`, and the two `today_*_color` options paint the weekday and month around it to match, so today and now read as one thing. The tile picks dark digits on a green this light by itself. See [The Now Line](/features/grid-view#the-now-line), [The Date Tile](/features/layout-appearance#the-date-tile) and [Date Column Customization](/features/layout-appearance#date-column-customization).
+`show_now_line: true` draws a line at the current time across today's column, in emerald green by default. `today_indicator_color` puts today's day number on a tile in that same green, `#34d399`, and the two `today_*_color` options paint the weekday and month around it to match, so today and now read as one thing. The tile is a light wash of that green with the day number in a deeper one. See [The Now Line](/features/grid-view#the-now-line), [The Date Tile](/features/layout-appearance#the-date-tile) and [Date Column Customization](/features/layout-appearance#date-column-customization).
 
 `past_event_opacity: 100` keeps finished events at full strength. Monday is over by Wednesday, but on a wall calendar it is still part of the week. See [A Full Week Without Dimming](/features/grid-view#a-full-week-without-dimming).
 

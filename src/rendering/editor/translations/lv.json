@@ -434,6 +434,8 @@
   "show_progress_bar": "Rādīt progresa joslu",
   "show_now_indicator": "Rādīt “Tagad” atzīmi",
   "show_now_indicator.helper": "Pirms notiekošo notikumu laika pievieno zaļu “Tagad”.",
+  "now_color": "“Tagad” krāsa",
+  "now_color.helper": "Notiekošo notikumu un laika režģa pašreizējā laika līnijas krāsa.",
   "progress_bar_color": "Progresa joslas krāsa",
   "progress_bar_height": "Progresa joslas augstums",
   "progress_bar_width": "Progresa joslas platums",

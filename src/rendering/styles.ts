@@ -58,6 +58,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-height': config.height || 'auto',
     '--calendar-card-max-height': config.max_height,
     '--calendar-card-progress-bar-color': config.progress_bar_color,
+    '--calendar-card-now-color': config.now_color,
     '--calendar-card-progress-bar-height': config.progress_bar_height,
     '--calendar-card-icon-size-time': config.time_icon_size || '14px',
     '--calendar-card-icon-size-location': config.location_icon_size || '14px',
@@ -214,9 +215,6 @@ export const cardStyles = css`
   :host {
     display: block;
     height: 100%;
-    /* The card's color for "now", shared with the grid's shipped now line. Not an option:
-       a theme or card-mod can set it, and list and column derive their text from it. */
-    --calendar-card-now-color: #34d399;
   }
 
   ha-card {
@@ -556,7 +554,7 @@ export const cardStyles = css`
     color: var(--calendar-card-color-month);
   }
 
-  /* ===== The today tile: a filled rounded square behind today's day number =====
+  /* ===== The today tile: a tinted rounded square behind today's day number =====
      Shaped after an iOS app icon, which Apple draws with continuous ("squircle") corners
      and publishes no number for. The community fit for that mask is a 22.37% radius with
      60% corner smoothing; scored against it pixel by pixel in Chromium, a plain 22.5% radius
@@ -579,8 +577,7 @@ export const cardStyles = css`
     margin: 0.075em auto;
     border-radius: 22.5%;
     background: var(--calendar-card-today-indicator-color);
-    /* Home Assistant's own "text on the primary color" token, for browsers without relative
-       color syntax. The upgrade below chooses against the tile's actual color instead. */
+    /* Home Assistant's own "text on the primary color" token, for the solid floor. */
     --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
   }
 
@@ -591,17 +588,56 @@ export const cardStyles = css`
     }
   }
 
-  /* Light digits on a mid or dark tile, dark ones on a light tile. --text-primary-color is
-     white in the stock theme and most custom themes never set it, so a pale primary (pink,
-     amber, lime) left white digits at about 1.5:1. The threshold is OKLCH lightness 0.72:
-     stock HA blue (0.64, 3.3:1 in white), the card's old #03a9f4 (0.70), green and
-     terracotta keep white digits; cyan, orange, amber and pastels get near-black ones at 9:1
-     or better. Declared on the element that paints it, because the color it reads is set
-     below the host. */
+  /* The tile is a wash, not a fill: a quarter of the indicator color over the card, with the
+     digits in a deeper shade of the same color -- the all-day pill's recipe, at a wash strong
+     enough to read as a mark across a room. The solid tile above is the floor for a browser
+     without color-mix(), and it was the shipped look until the maintainer found it too loud.
+     Measured contrast of the digits on the tile: 4.7 to 6.7 to 1 across stock HA light and
+     dark, a terracotta theme and a dark theme with a pale pink primary; the tile itself
+     stays at 1.3 to 1.7 to 1 against the card, which is what makes it soft.
+
+     Mixed into the card's own background and text colors, both theme tokens, so the wash
+     darkens on a dark theme and the digits lighten, with no question asked of the OS (see
+     the all-day pill's ink for why light-dark() is not used). */
+  @supports (color: color-mix(in oklch, red, blue)) {
+    .day.today-tile {
+      background: color-mix(
+        in oklch,
+        var(--calendar-card-today-indicator-color) 25%,
+        var(--calendar-card-background-color, var(--card-background-color))
+      );
+      --calendar-card-today-indicator-ink: color-mix(
+        in oklch,
+        var(--calendar-card-today-indicator-color) 45%,
+        var(--primary-text-color)
+      );
+    }
+  }
+
+  /* Chroma restored, as for the all-day pill: a mix spends the color's chroma along with its
+     lightness, so each half takes its lightness from the mix and its chroma back up toward
+     the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
+     the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
+     so a half-transparent indicator color still gives a solid number. */
   @supports (color: oklch(from red l c h)) {
     .day.today-tile {
+      background: oklch(
+        from
+          color-mix(
+            in oklch,
+            var(--calendar-card-today-indicator-color) 25%,
+            var(--calendar-card-background-color, var(--card-background-color))
+          )
+          l calc(c * 1.8) h
+      );
       --calendar-card-today-indicator-ink: oklch(
-        from var(--calendar-card-today-indicator-color) clamp(0.15, (0.72 - l) * 1000, 1) 0 0
+        from
+          color-mix(
+            in oklch,
+            var(--calendar-card-today-indicator-color) 45%,
+            var(--primary-text-color)
+          )
+          l calc(c * 2.2) h / 1
       );
     }
   }
@@ -773,19 +809,23 @@ export const cardStyles = css`
 
   /* ===== Now: an event under way, in list and column view =====
    *
-   * A running timed event gets a "● Now ·" label ahead of its time, and its whole time row
-   * turns green. Grid has no label: its now line already runs through the block.
+   * A running timed event's clock fills in, a "Now ·" label goes ahead of its time, and the
+   * whole time row turns green. Grid has no label: its now line already runs through the
+   * block.
    *
    * The green is the now line's emerald, but text is not drawn in it raw: #34d399 is 1.9:1
    * on a white card, fine for a line and unreadable as 12px type. So it climbs the same
    * three tiers as the accent ink above, mixed toward --primary-text-color, which darkens it
    * on a light theme and lightens it on a dark one. Its own property rather than the accent
    * ink's, because an event whose text already takes its calendar's accent writes that
-   * source inline, and would otherwise turn its "now" the calendar's color. */
+   * source inline, and would otherwise turn its "now" the calendar's color.
+   *
+   * now_color chooses another color, and the grid's now line follows it. The reads keep
+   * the default as a fallback for a card that sets no custom properties at all. */
   .event-now {
     --calendar-card-now-ink: color-mix(
       in srgb,
-      var(--calendar-card-now-color) 30%,
+      var(--calendar-card-now-color, #34d399) 30%,
       var(--primary-text-color)
     );
   }
@@ -794,7 +834,7 @@ export const cardStyles = css`
     .event-now {
       --calendar-card-now-ink: color-mix(
         in oklch,
-        var(--calendar-card-now-color) 45%,
+        var(--calendar-card-now-color, #34d399) 45%,
         var(--primary-text-color)
       );
     }
@@ -803,8 +843,13 @@ export const cardStyles = css`
   @supports (color: oklch(from red l c h)) {
     .event-now {
       --calendar-card-now-ink: oklch(
-        from color-mix(in oklch, var(--calendar-card-now-color) 45%, var(--primary-text-color)) l
-          calc(c * 2.2) h
+        from
+          color-mix(
+            in oklch,
+            var(--calendar-card-now-color, #34d399) 45%,
+            var(--primary-text-color)
+          )
+          l calc(c * 2.2) h
       );
     }
   }
@@ -813,31 +858,46 @@ export const cardStyles = css`
     color: var(--calendar-card-now-ink);
   }
 
-  /* After the clock icon in the markup, ahead of it on screen. The dot and the separator
-     are drawn here rather than written into the label, so the label is the one word a
-     screen reader announces. Two classes, to outrank the .time span rule that makes every
-     span in the row an inline block. */
-  .time .now-indicator {
-    order: -1;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35em;
-    margin-inline-end: 0.35em;
-    font-weight: 600;
-    white-space: nowrap;
+  /* Every span in the time row is an inline block (.time span, below the time rules); inside
+     a running row's run the time has to flow with the word before it, not wrap as a box of
+     its own. */
+  .time .now-time > span:not(.now-indicator) {
+    display: inline;
   }
 
-  .time .now-indicator::before {
-    content: '';
-    flex: none;
-    width: 0.55em;
-    height: 0.55em;
-    border-radius: 50%;
-    background: currentColor;
+  /* "Now ·" stays together: it wraps to the next line as a whole, as an atomic inline. Only
+     a column narrower than the label itself breaks the word, as a title breaks at that width,
+     rather than clipping it to its first letter. The separator is drawn rather than written
+     into the label, so the label is the one word a screen reader announces, and the
+     separator has no glyph side bearings: a typed "·" carries a different amount of empty
+     space on each side in every font, which made the space before it and the space after it
+     visibly unequal. Baseline alignment keeps "Now" on the time's baseline; the dot takes no
+     part in it and centers on the word instead, as a centered row would hand the label a
+     baseline synthesized from the dot. */
+  .time .now-indicator {
+    --calendar-card-now-gap: 0.35em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--calendar-card-now-gap);
+    /* The space after the separator matches the space before it, ink to ink. Before it, the
+       word's last letter leaves a little room of its own, 0.016em for the "w" of "Now" in
+       Roboto; after it, the time's first digit leaves 0.0835em when it is a 1, which leads
+       every time from 10:00 to 19:59 and most 12-hour times. The margin takes off the
+       difference. The other digits leave 0.026em to 0.075em, so after them the two spaces
+       differ by at most 0.7px at the default 12px. */
+    margin-inline-end: calc(var(--calendar-card-now-gap) - 0.0675em);
+    font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   .time .now-indicator::after {
-    content: '·';
+    content: '';
+    flex: none;
+    align-self: center;
+    width: 0.2em;
+    height: 0.2em;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .event-first.event-last {
@@ -2033,8 +2093,14 @@ export const cardStyles = css`
      text-overflow ellipsis, and -webkit-line-clamp: none meant no clamp ellipsis either.
      A pill too wide for its column was therefore cut off flat, mid-word, with no mark that
      anything had been dropped. Excluding it here is what lets the badge's own
-     inline-block + nowrap + ellipsis apply. */
-  .time .time-actual > span:not(.time-text):not(.allday-badge) {
+     inline-block + nowrap + ellipsis apply.
+
+     :not(.now-time) is the third, for a running event's row: the "Now" label, its own
+     clock and the time, wrapped so they flow as one sentence. As a -webkit-box that wrapper
+     is a legacy flex container, which in Safari stacks those three children one above the
+     other, and an earlier shape of the label lost its dot here in Chromium with every gate
+     green. So time_max_lines does not clip the row of an event under way. */
+  .time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-time-max-lines);

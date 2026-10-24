@@ -50,8 +50,8 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -260,8 +260,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1026,8 +1026,8 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1226,8 +1226,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1438,8 +1438,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1638,8 +1638,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1820,8 +1820,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
