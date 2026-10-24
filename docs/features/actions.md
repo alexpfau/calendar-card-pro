@@ -157,8 +157,8 @@ Keyboard users reach each event with Tab and open it with Enter or Space, and sc
 With `event_tap_action` set, tapping an event runs it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
 :::
 
-::: warning The Card Itself Leaves the Keyboard
-A button cannot hold other buttons, so while its events are buttons the card stops being one for the keyboard. A mouse or a finger still runs `tap_action` anywhere off the events, but a keyboard user can no longer reach it: on a card whose `tap_action` is `expand`, compact mode cannot be expanded from the keyboard. The same applies while the [add-event button](#add-event-button) is shown.
+::: info The Card Stays on the Keyboard
+A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. It keeps its place in the Tab order, though: with the card itself focused, Enter or Space runs its `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. The same holds while the [add-event button](#add-event-button) is shown. A card with no event to tap, such as one showing only "No events", stays a button as before.
 :::
 
 ## ✏️ Editing & Deleting Events
@@ -220,7 +220,7 @@ The dialog opens with the first calendar in `entities` that accepts new events p
 The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars keeps its usual look even with `show_add_event: true`. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
 
 ::: tip Pressing the Button Is Not a Tap on the Card
-The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users lose the card's own `tap_action` while it is shown, though, as they do with [tappable events](#where-you-can-tap).
+The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users keep the card's own `tap_action` too: Tab to the card itself and press Enter, as [beside tappable events](#where-you-can-tap).
 :::
 
 ::: warning Hidden With the Card

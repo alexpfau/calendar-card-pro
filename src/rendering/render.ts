@@ -8,6 +8,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Activation from './activation';
+import { gridDrawsEvent } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Toolbar from './toolbar';
@@ -23,6 +24,29 @@ import * as Helpers from '../utils/helpers';
  */
 export { renderColumnGroupedEvents } from './column';
 export { renderGridGroupedEvents } from './grid';
+
+/**
+ * Whether a view draws at least one event for these days, rather than only empty-day
+ * placeholders, a grid `+N` block or nothing at all.
+ *
+ * Asked before the content renders, because the card decides from it whether `ha-card`
+ * hosts tap targets, and so whether it may still present itself as a button. List and
+ * column views draw every event their days hold; grid view draws a subset, which
+ * `gridDrawsEvent` works out.
+ *
+ * @param view - The view that renders the days
+ * @param days - The days it renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for that view
+ * @returns True when at least one event is drawn
+ */
+export function drawsEvent(
+  view: Types.EffectiveView,
+  days: Types.EventsByDay[],
+  config: Types.Config,
+): boolean {
+  if (view === 'grid') return gridDrawsEvent(days, config);
+  return days.some((day) => day.events.some((event) => !event._isEmptyDay));
+}
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
@@ -71,8 +95,10 @@ export function renderMainCardStructure(
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
-  // presenting itself as one to keyboards and assistive technology; a pointer tap anywhere
-  // else on it still runs its tap action, which is why the ripple and cursor stay.
+  // presenting itself as one to assistive technology, but keeps its tab stop: keys aimed
+  // at the card itself still run its tap action, and those aimed at a control inside it
+  // are the control's. A pointer tap anywhere off the controls still runs the tap action
+  // too, which is why the ripple and cursor stay.
   const isCardButton = hasTapAction && !hostsControls;
   const hasTitle = Boolean(title || titlePending);
   const titleBlock = hasTitle
@@ -103,7 +129,7 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex=${isCardButton ? '0' : nothing}
+      tabindex=${hasTapAction ? '0' : nothing}
       role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}

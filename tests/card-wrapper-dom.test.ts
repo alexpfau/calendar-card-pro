@@ -145,17 +145,24 @@ describe('the card wrapper', () => {
     expect(inert.querySelector('ha-ripple')).toBeNull();
   });
 
-  it('stops being a button while it hosts controls, and stays tappable', () => {
-    // A button may not contain another, so the card gives up the role and the tab stop,
-    // and keeps what a pointer tap still uses.
+  it('stops being a button while it hosts controls, keeps its tab stop, and stays tappable', () => {
+    // A button may not contain another, so the card gives up the role. It keeps the tab stop,
+    // so a keyboard can still reach the card itself and run its tap action, and keeps what a
+    // pointer tap still uses.
     const host = wrapper({ hasTapAction: true, hostsControls: true });
-    expect(host.hasAttribute('tabindex')).toBe(false);
+    expect(host.getAttribute('tabindex')).toBe('0');
     expect(host.hasAttribute('role')).toBe(false);
     expect(classes(host)).toContain('card-interactive');
     expect(host.querySelector('ha-ripple')).not.toBeNull();
 
     // The control is the tap case above: the same card without controls is a button.
     expect(wrapper({ hasTapAction: true }).getAttribute('role')).toBe('button');
+
+    // And the tab stop is the tap action's, not the controls': with nothing for a key to
+    // run, hosting controls adds none.
+    const holdOnly = wrapper({ hasHoldAction: true, hostsControls: true });
+    expect(holdOnly.hasAttribute('tabindex')).toBe(false);
+    expect(holdOnly.hasAttribute('role')).toBe(false);
   });
 
   it('draws no toolbar, and the header it always drew, when the toolbar holds nothing', () => {

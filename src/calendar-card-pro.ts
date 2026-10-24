@@ -3301,6 +3301,9 @@ class CalendarCardPro extends LitElement {
     };
 
     let content: TemplateResult;
+    // Whether the content holds at least one event that is a tap target. Not while loading,
+    // and not for an error or for days holding nothing but empty-day placeholders.
+    let drawsEventTarget = false;
 
     // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
@@ -3311,10 +3314,14 @@ class CalendarCardPro extends LitElement {
       return days.slice(start, start + this._columnCount);
     };
 
+    // The days a view draws: column and grid shed days to fit the width, list never does.
+    const shownDays = (days: Types.EventsByDay[]): Types.EventsByDay[] =>
+      this.effectiveView === 'list' ? days : visibleDays(days);
+
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
         return Render.renderGridGroupedEvents(
-          visibleDays(days),
+          days,
           this.effectiveConfig,
           this.effectiveLanguage,
           this.weatherForecasts,
@@ -3328,7 +3335,7 @@ class CalendarCardPro extends LitElement {
 
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
-            visibleDays(days),
+            days,
             this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,
@@ -3359,7 +3366,11 @@ class CalendarCardPro extends LitElement {
       // branch would pass. Column and grid views both default `show_empty_days` on, so
       // an eventless card still fills from here — with empty day columns in column view
       // and a full empty time axis in grid.
-      content = renderDays(this.groupedEvents);
+      const days = shownDays(this.groupedEvents);
+      content = renderDays(days);
+      drawsEventTarget =
+        this._eventsActivatable &&
+        Render.drawsEvent(this.effectiveView, days, this.effectiveConfig);
     }
 
     const addEvent = this._addEventButton();
@@ -3376,7 +3387,7 @@ class CalendarCardPro extends LitElement {
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
       { labeled: this._toolbarLabeled, addEvent },
-      this._hostsControls(addEvent),
+      this._hostsControls(addEvent, drawsEventTarget),
     );
   }
 
@@ -3385,13 +3396,21 @@ class CalendarCardPro extends LitElement {
    * present itself as a button around them.
    *
    * The one place that answers it, so every control that makes the card a host joins here:
-   * the add-event button, and every event while a tap on one runs an action of its own.
+   * the add-event button, and the events while they are tap targets. Answered from what
+   * this render draws rather than from the configuration: `event_tap_action` on a card
+   * showing only "No events", an error or the loading line hosts nothing, and stays a
+   * button. Either way the card keeps its tab stop while it has a tap action; only the
+   * button role goes.
    *
    * @param addEvent - The add-event button this render draws, if any
+   * @param drawsEventTarget - Whether this render draws at least one event as a tap target
    * @returns True while the card hosts at least one control
    */
-  private _hostsControls(addEvent: Toolbar.AddEventButton | undefined): boolean {
-    return addEvent !== undefined || this._eventsActivatable;
+  private _hostsControls(
+    addEvent: Toolbar.AddEventButton | undefined,
+    drawsEventTarget: boolean,
+  ): boolean {
+    return addEvent !== undefined || drawsEventTarget;
   }
 
   /**

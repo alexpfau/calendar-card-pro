@@ -197,10 +197,15 @@ come slot in without moving the ones already there. `renderHeaderToolbar` in
   evaluate one, so it could not be tested.
 - **Controls are native.** The add button is a `<button>` styled from theme variables
   rather than `ha-button`, so the card names no new Home Assistant element.
-- **The card stops being a button while it hosts controls.** `_hostsControls` answers this
-  once, for toolbar controls and tappable events alike: `ha-card` drops `role="button"` and
-  `tabindex`, because a button may not contain another, and keeps the ripple and the
-  pointer `tap_action`.
+- **The card stops being a button while it hosts controls, and stays focusable.**
+  `_hostsControls` answers this once, for toolbar controls and tappable events alike, from
+  what the render draws: the add button, or at least one event that is a tap target, which
+  the loading line, an error and days holding only empty-day placeholders are not
+  (`drawsEvent` in `rendering/render.ts`, with `gridDrawsEvent` for grid view). `ha-card`
+  then drops `role="button"`, because a button may not contain another, but keeps
+  `tabindex="0"` while it has a `tap_action`: with the card itself focused, Enter and Space
+  still run it, since `_handleKeyDown` leaves keys aimed at a child to the child. The
+  ripple and the pointer `tap_action` stay too.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's
   own date.

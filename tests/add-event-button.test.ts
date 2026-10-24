@@ -413,12 +413,29 @@ describe('the card around the add-event button', () => {
 
   const TAPPABLE = { tap_action: { action: 'expand' as const } };
 
-  it('is not a button while the add-event button is in it', async () => {
+  it('is not a button while the add-event button is in it, and keeps its tab stop', async () => {
     const card = await mount({ entities: [WRITABLE], show_add_event: true, ...TAPPABLE });
 
     expect(button(card)).not.toBeNull();
     expect(haCard(card).hasAttribute('role')).toBe(false);
-    expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+    expect(haCard(card).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('runs its tap action for Enter and Space on the card itself, beside the button', async () => {
+    const card = await mount({ entities: [WRITABLE], show_add_event: true, ...TAPPABLE });
+
+    for (const key of ['Enter', ' ']) {
+      haCard(card).dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, composed: true, cancelable: true }),
+      );
+    }
+    expect(handleAction.mock.calls.map((call) => call[2])).toEqual(['tap', 'tap']);
+
+    // The control: the same key on the button is the button's, as the next describe pins.
+    button(card)!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+    expect(handleAction).toHaveBeenCalledTimes(2);
   });
 
   it.each([

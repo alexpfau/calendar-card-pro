@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
@@ -651,24 +651,112 @@ describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const TAPPABLE = { tap_action: { action: 'expand' } } as const;
 
+  /**
+   * Mount without waiting for an event to show, for cards that show none. A `pending` fetch
+   * is released once the test is done with it rather than left in flight, where every later
+   * card asking for the same calendars would join it and never load either.
+   */
+  async function mountShowing(config: Record<string, unknown>, events: object[] | 'pending') {
+    let release: () => void = () => {};
+    const pending = new Promise<object[]>((resolve) => (release = () => resolve([])));
+    onTestFinished(() => release());
+
+    const card = document.createElement('calendar-card-pro-dev') as Card;
+    card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
+    card.hass = {
+      states: {},
+      locale: { language: 'en', time_format: '24' },
+      callApi: vi.fn(() => (events === 'pending' ? pending : Promise.resolve(events))),
+      callService: vi.fn(),
+    } as unknown as Types.Hass;
+    document.body.appendChild(card);
+    const loaded = () => !(card as unknown as { isInitialLoad: boolean }).isInitialLoad;
+    if (events !== 'pending') await vi.waitFor(() => expect(loaded()).toBe(true));
+    await card.updateComplete;
+    expect(loaded()).toBe(events !== 'pending');
+    return card;
+  }
+
   it.each(['list', 'column', 'grid'])(
-    'is not a button in %s view while its events are',
+    'is not a button in %s view while its events are, and keeps its tab stop',
     async (view) => {
       const { card } = await mount({ view, ...TAPPABLE, ...DETAILS });
 
       expect(haCard(card).hasAttribute('role')).toBe(false);
-      expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+      expect(haCard(card).getAttribute('tabindex')).toBe('0');
       // A pointer tap off the events still runs `tap_action`, so what shows that stays.
       expect(haCard(card).classList.contains('card-interactive')).toBe(true);
       expect(haCard(card).querySelector('ha-ripple')).not.toBeNull();
     },
   );
 
+  it('runs its tap action for Enter on the card itself, and the event its own', async () => {
+    const { card, dialogs } = await mount({
+      ...TAPPABLE,
+      ...DETAILS,
+      list: { compact_events_to_show: 1 },
+    });
+    const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
+
+    expect(key(haCard(card), 'keydown', 'Enter').defaultPrevented).toBe(true);
+    await settle();
+    expect(expanded()).toBe(true);
+    expect(dialogs).toHaveLength(0);
+
+    // The control: Enter aimed at an event inside the card is the event's.
+    key(buttonsShowing(card, 'Dentist')[0], 'keydown', 'Enter');
+    await settle();
+    expect(expanded()).toBe(true);
+    expect(dialogs).toHaveLength(1);
+  });
+
   it('stays a button while its events are not', async () => {
     const { card } = await mount({ ...TAPPABLE, event_tap_action: { action: 'none' } });
 
     expect(haCard(card).getAttribute('role')).toBe('button');
     expect(haCard(card).getAttribute('tabindex')).toBe('0');
+  });
+
+  it.each([
+    ['list view has no event to show', { view: 'list' }, []],
+    ['column view has no event to show', { view: 'column' }, []],
+    ['grid view has no event to show', { view: 'grid' }, []],
+    [
+      'grid view draws none of its events, all outside the hours shown',
+      { view: 'grid', time_grid: { start_time: '06:00', end_time: '10:00' } },
+      [RAW_EVENTS[0]],
+    ],
+    // A calendar of its own: once released, its fetch caches an empty answer, which a later
+    // card asking for the same calendars would read instead of fetching.
+    ['the events are still loading', { entities: ['calendar.loading'] }, 'pending'],
+  ] as const)(
+    'stays a button with event_tap_action set while %s',
+    async (_name, config, events) => {
+      const card = await mountShowing(
+        { ...TAPPABLE, ...DETAILS, ...config },
+        events as object[] | 'pending',
+      );
+
+      expect(card.shadowRoot!.querySelectorAll('.event-interactive')).toHaveLength(0);
+      expect(haCard(card).getAttribute('role')).toBe('button');
+      expect(haCard(card).getAttribute('tabindex')).toBe('0');
+    },
+  );
+
+  it('stops being a button once grid view draws an event', async () => {
+    // The control for the grid case above: the same card with hours that include the event.
+    const card = await mountShowing(
+      {
+        ...TAPPABLE,
+        ...DETAILS,
+        view: 'grid',
+        time_grid: { start_time: '12:00', end_time: '18:00' },
+      },
+      [RAW_EVENTS[0]],
+    );
+
+    expect(card.shadowRoot!.querySelectorAll('.event-interactive')).toHaveLength(1);
+    expect(haCard(card).hasAttribute('role')).toBe(false);
   });
 });
 

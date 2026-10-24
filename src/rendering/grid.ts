@@ -1160,6 +1160,39 @@ function layoutBanners(
   return placed;
 }
 
+/**
+ * Whether grid view draws at least one event of its own for these days: a banner, or a
+ * timed block inside the visible hours. The `+N` block does not count; it stands for
+ * several events and is not a tap target.
+ *
+ * Grid view draws a subset of what its days hold, so the days alone cannot answer this.
+ * It is built from the steps the renderer itself takes rather than a model of them.
+ * `layoutBanners` always places the first banner it is given, because
+ * `allday_band_max_rows` resolves to at least one row. And every timed event inside the
+ * band belongs to an overlapping group whose first lane is drawn, because both lane
+ * layouts cap at one lane or more; the events past the cap become the `+N` block beside it.
+ *
+ * @param gridDays - The days grid view renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for grid view
+ * @returns True when at least one banner or timed block is drawn
+ */
+export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Config): boolean {
+  if (gridDays.length === 0) return false;
+
+  const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
+  if (layoutBanners(gridDays, maxRows).length > 0) return true;
+
+  const band = Grid.resolveBand(
+    ViewConfig.resolveTimeGridOption(config, 'start_time'),
+    ViewConfig.resolveTimeGridOption(config, 'end_time'),
+  );
+  return gridDays.some((day) =>
+    sortDayEvents(day).timed.some((event) =>
+      Grid.intersectsBand(event.startMin, event.endMin, band),
+    ),
+  );
+}
+
 //-----------------------------------------------------------------------------
 // GRID CONTAINER
 //-----------------------------------------------------------------------------
