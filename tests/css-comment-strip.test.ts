@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(116_600);
-    // Muting the card's ripple over an event moved the ceiling last, from 115,800: the note on
+    expect(saved).toBeLessThan(120_400);
+    // The today tile and the now indicator moved the ceiling last, from 116,600: the notes on why
+    // the tile takes layout space rather than being painted behind the digits, how its shape was
+    // scored against an iOS icon mask, why its digits flip dark on a pale theme color, and why
+    // the "now" green is mixed toward the text color instead of drawn raw. The reading went
+    // 115,832 on dev to 119,348, taken with stripComments after the last comment was written.
+    //
+    // Muting the card's ripple over an event moved the ceiling before that, from 115,800: the note on
     // why the ripple is muted rather than kept from seeing the press -- the recognizer needs
     // the same press to reach ha-card -- and why keyboard focus mutes it too. The reading went
     // 114,822 to 115,624, taken with stripComments after the last comment in the change was

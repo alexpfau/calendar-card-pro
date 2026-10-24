@@ -289,7 +289,10 @@ const eventsSchema = Helpers.memoizeLast(
     bool('show_progress_bar'),
 
     // State affects the whole content layer, before the individual accent and ink choices.
+    // The present before the past: the switch that marks a running event, then how far a
+    // finished one fades.
     heading('heading_event_state'),
+    bool('show_now_indicator'),
     {
       name: 'past_event_opacity',
       selector: {

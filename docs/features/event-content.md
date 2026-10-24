@@ -38,9 +38,17 @@ show_empty_days: false
 show_empty_today: true
 ```
 
-Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full. The row uses the same "No upcoming events" message as any other empty day, including a custom `empty_day_text`.
+Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full. The row uses the same "No events" message as any other empty day, including a custom `empty_day_text`.
 
-Today has to fall inside the card's date window: a card that starts next week does not gain a row for a day it was not asked to cover. While `show_empty_days` is on, this option changes nothing, because today is already one of the days being shown. Column view shows every day by default, so the option changes that layout only when empty days have been turned off for columns as well.
+Today has to fall inside the card's date window: a card that starts next week does not gain a row for a day it was not asked to cover. While `show_empty_days` is on, this option changes nothing, because today is already one of the days being shown — which is why the editor only offers it while empty days are hidden.
+
+Column and grid view show every day by default, so there the option changes something only once empty days are turned off for that view as well:
+
+```yaml
+column:
+  show_empty_days: false
+  show_empty_today: true
+```
 
 ### Custom Empty-Day Text
 
@@ -648,6 +656,33 @@ In the [editor](/features/editor), find **Past Event Opacity** under **Events �
 State**, in any workspace.
 
 **→ [Event Column in the configuration reference](/reference/configuration#event-column)**
+
+## 🟢 The Now Indicator
+
+An event that is happening right now gets a green "● Now ·" in front of its time, and its
+time turns the same green, in list and column view. It is on by default, needs no
+configuration, and takes nothing away: the row keeps its color and its stripe.
+
+```yaml
+show_now_indicator: false # Turn it off
+```
+
+Only timed events are marked. An all-day event is not "now" in this sense, or a day of them
+would read "Now" from morning to night. A multi-day timed event is marked on the day it is
+running.
+
+The word comes from your browser in the card's language, "Jetzt" in German or "Maintenant" in
+French, so it needs no translation. A browser that carries no such word for a language shows "Now" in English instead; Chromium, as tested, does that for Icelandic and Norwegian Nynorsk.
+
+The green is the grid's now line emerald, mixed toward your theme's text color so it stays
+readable as text: a darker green on a light theme, a lighter one on a dark theme. The card
+updates the mark at the moment an event starts or ends, so it appears and disappears on time
+without waiting for Home Assistant to send anything. With `show_past_events` off, a finished event leaves the card on time for the same reason.
+
+Grid view draws no mark. Its now line already runs through the block that is under way.
+
+Like the other options on this page, `show_now_indicator` can differ per view; see
+[Event Column in the configuration reference](/reference/configuration#event-column).
 
 ## 🎨 Event Text in Calendar Colors
 

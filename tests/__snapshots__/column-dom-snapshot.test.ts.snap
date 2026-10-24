@@ -4,11 +4,11 @@ exports[`column view DOM > renders a single day 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -17,7 +17,7 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -37,7 +37,7 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -51,13 +51,13 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -77,7 +77,7 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -110,11 +110,11 @@ exports[`column view DOM > renders a single event 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -123,7 +123,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -147,7 +147,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -160,7 +160,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -178,7 +178,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -191,7 +191,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -214,11 +214,11 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(20, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -227,7 +227,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -247,7 +247,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -261,13 +261,13 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -287,7 +287,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -315,7 +315,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -328,7 +328,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -352,7 +352,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -365,7 +365,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -385,7 +385,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -409,7 +409,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:4;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sat
     </div>
@@ -422,7 +422,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -440,7 +440,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:5;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sun
     </div>
@@ -453,7 +453,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -471,7 +471,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:6;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Mon
     </div>
@@ -484,7 +484,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -502,7 +502,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:7;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Tue
     </div>
@@ -515,7 +515,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -533,7 +533,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:8;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
@@ -546,7 +546,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -564,7 +564,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:9;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -577,7 +577,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -595,7 +595,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:10;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -608,7 +608,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -626,7 +626,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:11;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sat
     </div>
@@ -639,7 +639,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -657,7 +657,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:12;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sun
     </div>
@@ -670,7 +670,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -688,7 +688,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:13;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Mon
     </div>
@@ -701,7 +701,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -719,7 +719,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:14;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Tue
     </div>
@@ -732,7 +732,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -750,7 +750,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:15;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
@@ -763,7 +763,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -781,7 +781,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:16;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -794,7 +794,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -812,7 +812,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:17;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -825,7 +825,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -843,7 +843,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:18;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sat
     </div>
@@ -856,7 +856,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -874,7 +874,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day weekend " style="grid-column:19;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Sun
     </div>
@@ -887,7 +887,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -905,7 +905,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:20;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Mon
     </div>
@@ -918,7 +918,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -938,21 +938,21 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="column-separator column-separator-day" style="grid-column:3;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:4;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:5;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:6;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:6;grid-row:1 / -1;width:2px;background-color:color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent);margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:7;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:8;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:9;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:10;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:11;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:12;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:13;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:13;grid-row:1 / -1;width:2px;background-color:color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent);margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:14;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-month" style="grid-column:15;grid-row:1 / -1;width:3px;background-color:var(--primary-text-color);margin-inline-start:calc(-0.5 * (10px + 3px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:16;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:17;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:18;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
 <div class="column-separator column-separator-day" style="grid-column:19;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:20;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:20;grid-row:1 / -1;width:2px;background-color:color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent);margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
 </div>"
 `;
 
@@ -960,11 +960,11 @@ exports[`column view DOM > renders past events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -973,7 +973,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -993,7 +993,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1013,7 +1013,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1027,13 +1027,13 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1053,7 +1053,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1081,7 +1081,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1094,7 +1094,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1118,7 +1118,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1131,7 +1131,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1151,7 +1151,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1180,11 +1180,11 @@ exports[`column view DOM > renders the default configuration 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1193,7 +1193,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1213,7 +1213,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1227,13 +1227,13 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1253,7 +1253,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1281,7 +1281,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1294,7 +1294,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1318,7 +1318,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1331,7 +1331,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1351,7 +1351,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1389,11 +1389,11 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1402,7 +1402,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1422,7 +1422,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1439,13 +1439,13 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1465,7 +1465,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1493,7 +1493,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1506,7 +1506,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1530,7 +1530,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1543,7 +1543,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1563,7 +1563,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1592,11 +1592,11 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1605,7 +1605,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1625,7 +1625,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1639,13 +1639,13 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1665,7 +1665,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1693,7 +1693,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1706,7 +1706,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1730,7 +1730,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1743,7 +1743,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1772,11 +1772,11 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1786,7 +1786,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1807,7 +1807,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1821,14 +1821,14 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span><!--?-->
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1849,7 +1849,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1878,7 +1878,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1892,7 +1892,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1917,7 +1917,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1931,7 +1931,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1952,7 +1952,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1982,11 +1982,11 @@ exports[`column view DOM > renders with no events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1995,7 +1995,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2013,7 +2013,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 <div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -2026,7 +2026,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2044,7 +2044,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 <div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -2057,7 +2057,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2080,11 +2080,11 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
 <div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content ">
+<div class=" column-date-content with-today-tile ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -2093,7 +2093,7 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">

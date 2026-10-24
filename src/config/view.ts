@@ -31,6 +31,9 @@ import * as Logger from '../utils/logger';
  */
 export const COLUMN_OVERRIDE_KEYS = [
   'show_empty_days',
+  // Read beside `show_empty_days`, and inert whenever that resolves on, so each view has to
+  // be able to answer it for itself: column and grid ship empty days on, list ships them off.
+  'show_empty_today',
   'empty_day_text',
   // Paired with `empty_day_text` deliberately. `VIEW_SCOPE` gives both the identical
   // `{list, column}` scope, so a column user overriding the placeholder's text and not its
@@ -62,6 +65,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_countdown',
   'show_countdown_allday',
   'show_progress_bar',
+  'show_now_indicator',
   'progress_bar_color',
   'progress_bar_height',
   'progress_bar_width',
@@ -314,6 +318,10 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // only the placeholder's text and color are irrelevant there.
   empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
   empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid shows "now" with its now line, and draws no chip: `gridTimedEventContentParts`
+  // clears the label whatever this resolves to.
+  show_now_indicator: new Set<Types.EffectiveView>(['list', 'column']),
 
   // Grid draws an all-day event as a banner in its own band, and `renderBanner` emits the
   // summary and nothing else — no time, no location, no description, no countdown. So the

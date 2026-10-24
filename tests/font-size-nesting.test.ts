@@ -914,6 +914,7 @@ describe('every piece of text is sized by its own option', () => {
       'grid-event-overflow-label in event': ['time_font_size'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],
+      'now-indicator in time-actual': ['time_font_size'],
       'span in description': ['description_font_size'],
       'span in event-weather-text': ['weather.event.font_size'],
       'span in grid-axis-sizer': ['time_font_size'],

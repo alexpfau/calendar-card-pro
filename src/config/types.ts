@@ -101,6 +101,7 @@ export interface Config {
   show_countdown: boolean;
   show_countdown_allday: boolean;
   show_progress_bar: boolean;
+  show_now_indicator: boolean;
   progress_bar_color: string;
   progress_bar_height: string;
   progress_bar_width?: string;
@@ -279,6 +280,7 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
 export interface SharedViewOverrides {
   // Day grouping and empty days
   show_empty_days?: boolean;
+  show_empty_today?: boolean;
   empty_day_text?: string;
   empty_day_color?: string;
   split_multiday_events?: boolean;
@@ -315,6 +317,7 @@ export interface SharedViewOverrides {
   show_countdown?: boolean;
   show_countdown_allday?: boolean;
   show_progress_bar?: boolean;
+  show_now_indicator?: boolean;
   progress_bar_color?: string;
   progress_bar_height?: string;
   progress_bar_width?: string;

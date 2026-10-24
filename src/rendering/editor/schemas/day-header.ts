@@ -20,6 +20,7 @@ const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1
 
 export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'none',
+  'tile',
   'dot',
   'pulse',
   'glow',
@@ -66,13 +67,17 @@ export function weekNumberFields(language: string): HaFormSchema[] {
  * @returns The group
  */
 function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
+  // The tile is sized from the day number and drawn on it, so it has a color and nothing
+  // else: a size or a position field would be the silent no-op this editor avoids.
   const styling: HaFormSchema[] =
     style === 'none'
       ? []
-      : [
-          row(color('today_indicator_color'), text('today_indicator_size')),
-          text('today_indicator_position'),
-        ];
+      : style === 'tile'
+        ? [color('today_indicator_color')]
+        : [
+            row(color('today_indicator_color'), text('today_indicator_size')),
+            text('today_indicator_position'),
+          ];
 
   return [heading('today_indicator'), ...todayIndicatorFields(language, style), ...styling];
 }

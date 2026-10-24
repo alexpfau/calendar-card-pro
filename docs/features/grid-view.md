@@ -821,7 +821,12 @@ used, because it would turn the middle day of a timed event into an all-day bann
 
 `empty_day_text` and `empty_day_color` also have no effect: grid discards the placeholder
 rows those options describe. `show_empty_days` still controls whether empty day columns
-are included.
+are included, and with it off, `show_empty_today` keeps today's column.
+
+`show_now_indicator` does nothing here either. The now line already runs through the block
+that is under way, so a "Now" label inside it would say the same thing twice; list and
+column view, which have no line, show the [label](/features/event-content#the-now-indicator)
+instead.
 
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing while the card is rendering

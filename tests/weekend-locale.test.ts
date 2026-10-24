@@ -549,7 +549,12 @@ describe('every view reads the weekend from Home Assistant, not from its own ide
 
   /** Which of the four date blocks took `weekend_day_color`. */
   function coloredDates(view: Types.EffectiveView, hass: Types.Hass | null): boolean[] {
-    const container = renderWith(view, hass, { weekend_day_color: 'rgb(1, 2, 3)' });
+    // The today tile, on by default, paints today's digits in its own ink whatever day it
+    // is, so it would mask the weekend color on the one date this fixture puts on today.
+    const container = renderWith(view, hass, {
+      weekend_day_color: 'rgb(1, 2, 3)',
+      today_indicator: false,
+    });
 
     return Array.from(container.querySelectorAll<HTMLElement>('.day')).map(
       (element) => element.style.color === 'rgb(1, 2, 3)',

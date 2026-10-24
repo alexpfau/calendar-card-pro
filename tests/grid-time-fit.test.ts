@@ -352,7 +352,14 @@ describe('grid time row fit', () => {
      * element would be dead weight.
      */
     it('leaves the other views with one text node', () => {
-      const config = buildConfig({ view: 'list', days_to_show: 1, time_24h: true });
+      // The fake clock stands inside this event, so the "Now" label would join the row's
+      // text; it is a sibling of the time, not part of it, and this test is about the time.
+      const config = buildConfig({
+        view: 'list',
+        days_to_show: 1,
+        time_24h: true,
+        show_now_indicator: false,
+      });
       const event = timed('10:00', '12:00', 'QA Window');
       const parts = FormatUtils.formatEventTimeParts(event, config, 'en');
       const container = document.createElement('div');

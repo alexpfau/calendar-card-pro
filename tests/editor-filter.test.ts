@@ -963,7 +963,8 @@ describe('editor: the order of the two panels', () => {
       'split_multiday_events',
       '# heading_nothing',
       'show_empty_days',
-      'show_empty_today',
+      // No `show_empty_today`: with every empty day already showing it has nothing to add,
+      // so the switch is withheld (see the empty-day tests in editor-schema.test.ts).
       'empty_day_text',
       'empty_day_color',
       'hide_when_empty',

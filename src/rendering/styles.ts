@@ -214,6 +214,9 @@ export const cardStyles = css`
   :host {
     display: block;
     height: 100%;
+    /* The card's color for "now", shared with the grid's shipped now line. Not an option:
+       a theme or card-mod can set it, and list and column derive their text from it. */
+    --calendar-card-now-color: #34d399;
   }
 
   ha-card {
@@ -553,6 +556,56 @@ export const cardStyles = css`
     color: var(--calendar-card-color-month);
   }
 
+  /* ===== The today tile: a filled rounded square behind today's day number =====
+     Shaped after an iOS app icon, which Apple draws with continuous ("squircle") corners
+     and publishes no number for. The community fit for that mask is a 22.37% radius with
+     60% corner smoothing; scored against it pixel by pixel in Chromium, a plain 22.5% radius
+     had the smallest area error and corner-shape: squircle at 38% the closest curvature
+     where the corner begins, so the first is the floor and the second the upgrade below.
+     The tile takes layout space rather than being painted behind the digits, so it cannot
+     overlap the weekday above it (no gap in the list cell) or stick out past a column's
+     left edge, where the date is flush left. Its footprint is 1.5em of day_font_size and
+     the tile itself 1.35em, centered in it by the margin: that leaves a hair of air to the
+     weekday and month, and the footprint is what the column and grid headers reserve on
+     every day (below), so changing the tile's size does not move anything around it. It
+     stays inside the list view's date cell, which is 1.75 times the same font size. */
+  .day.today-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 1.35em;
+    height: 1.35em;
+    margin: 0.075em auto;
+    border-radius: 22.5%;
+    background: var(--calendar-card-today-indicator-color);
+    /* Home Assistant's own "text on the primary color" token, for browsers without relative
+       color syntax. The upgrade below chooses against the tile's actual color instead. */
+    --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
+  }
+
+  @supports (corner-shape: squircle) {
+    .day.today-tile {
+      border-radius: 38%;
+      corner-shape: squircle;
+    }
+  }
+
+  /* Light digits on a mid or dark tile, dark ones on a light tile. --text-primary-color is
+     white in the stock theme and most custom themes never set it, so a pale primary (pink,
+     amber, lime) left white digits at about 1.5:1. The threshold is OKLCH lightness 0.72:
+     stock HA blue (0.64, 3.3:1 in white), the card's old #03a9f4 (0.70), green and
+     terracotta keep white digits; cyan, orange, amber and pastels get near-black ones at 9:1
+     or better. Declared on the element that paints it, because the color it reads is set
+     below the host. */
+  @supports (color: oklch(from red l c h)) {
+    .day.today-tile {
+      --calendar-card-today-indicator-ink: oklch(
+        from var(--calendar-card-today-indicator-color) clamp(0.15, (0.72 - l) * 1000, 1) 0 0
+      );
+    }
+  }
+
   /* Shared today-indicator values. Positioning stays out of this rule so the
    * inline column-view indicator is not forced absolute by equal specificity. */
   .today-indicator-container {
@@ -716,6 +769,75 @@ export const cardStyles = css`
           l calc(c * 2.2) h
       );
     }
+  }
+
+  /* ===== Now: an event under way, in list and column view =====
+   *
+   * A running timed event gets a "● Now ·" label ahead of its time, and its whole time row
+   * turns green. Grid has no label: its now line already runs through the block.
+   *
+   * The green is the now line's emerald, but text is not drawn in it raw: #34d399 is 1.9:1
+   * on a white card, fine for a line and unreadable as 12px type. So it climbs the same
+   * three tiers as the accent ink above, mixed toward --primary-text-color, which darkens it
+   * on a light theme and lightens it on a dark one. Its own property rather than the accent
+   * ink's, because an event whose text already takes its calendar's accent writes that
+   * source inline, and would otherwise turn its "now" the calendar's color. */
+  .event-now {
+    --calendar-card-now-ink: color-mix(
+      in srgb,
+      var(--calendar-card-now-color) 30%,
+      var(--primary-text-color)
+    );
+  }
+
+  @supports (color: color-mix(in oklch, red, blue)) {
+    .event-now {
+      --calendar-card-now-ink: color-mix(
+        in oklch,
+        var(--calendar-card-now-color) 45%,
+        var(--primary-text-color)
+      );
+    }
+  }
+
+  @supports (color: oklch(from red l c h)) {
+    .event-now {
+      --calendar-card-now-ink: oklch(
+        from color-mix(in oklch, var(--calendar-card-now-color) 45%, var(--primary-text-color)) l
+          calc(c * 2.2) h
+      );
+    }
+  }
+
+  .event-now .time-actual {
+    color: var(--calendar-card-now-ink);
+  }
+
+  /* After the clock icon in the markup, ahead of it on screen. The dot and the separator
+     are drawn here rather than written into the label, so the label is the one word a
+     screen reader announces. Two classes, to outrank the .time span rule that makes every
+     span in the row an inline block. */
+  .time .now-indicator {
+    order: -1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin-inline-end: 0.35em;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .time .now-indicator::before {
+    content: '';
+    flex: none;
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .time .now-indicator::after {
+    content: '·';
   }
 
   .event-first.event-last {
@@ -2256,6 +2378,21 @@ export const cardStyles = css`
 
   .column-date-content .day {
     grid-area: day;
+  }
+
+  /* With the tile configured, every day's number sits in a box as tall as the tile's
+     footprint, so the date row stays level and every column's first event starts on the
+     same line. Without it, today's header alone grew by the tile and pushed its column (and
+     in grid, the shared header row) down. */
+  .column-date-content.with-today-tile .day {
+    display: flex;
+    align-items: center;
+    min-height: 1.5em;
+  }
+
+  .column-date-content.with-today-tile .day.today-tile {
+    min-height: 0;
+    margin-inline: 0;
   }
 
   .column-date-content .month {

@@ -111,6 +111,8 @@ export const TIMING = {
    * invisible where the arithmetic to align it would not be.
    */
   NOW_LINE_INTERVAL: 60_000,
+  /** Longest wait for the next event boundary before the timer re-arms (24 hours). */
+  NOW_BOUNDARY_MAX_DELAY: 86_400_000,
 };
 
 export const UI = {

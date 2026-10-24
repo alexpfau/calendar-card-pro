@@ -662,6 +662,7 @@ function renderEvent(
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
     'event-tappable': tap !== undefined,
+    'event-now': presentation.isNow,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks

@@ -1515,6 +1515,10 @@ export function groupEventsByDay(
 
   // Today, and only today, when empty days are otherwise hidden and today sits in
   // the window. Absent means the fill below runs exactly as it always has.
+  //
+  // The window is `days_to_show` from the start date, not `effectiveDaysToShow`: a compact
+  // day limit counts days that have events rather than marking out a range of dates, so it
+  // says nothing about whether today is one the card covers.
   let emptyToday: Date | undefined;
   if (config.show_empty_today && !showEmptyDays) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -2307,6 +2311,36 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
   if (!startDateTime || !endDateTime) return false;
 
   return now >= startDateTime && now < endDateTime;
+}
+
+/**
+ * The next instant at which a timed event starts or ends, after `now`.
+ *
+ * Those are the only instants at which list and column view change with no new data: an
+ * event becomes "now", stops being it, or turns past (dimmed, or gone under
+ * `show_past_events: false`). All-day events are left out — their boundaries are local
+ * midnights, when the whole day grouping moves, which is a refresh rather than a repaint.
+ *
+ * @param events Events the card holds
+ * @param now Instant to measure from, in milliseconds
+ * @returns The next boundary in milliseconds, or `null` when no timed event has one ahead
+ */
+export function nextEventBoundary(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  now: number,
+): number | null {
+  let next: number | null = null;
+
+  for (const event of events) {
+    if (event._isEmptyDay || !event.start?.dateTime || !event.end?.dateTime) continue;
+
+    for (const iso of [event.start.dateTime, event.end.dateTime]) {
+      const at = new Date(iso).getTime();
+      if (at > now && (next === null || at < next)) next = at;
+    }
+  }
+
+  return next;
 }
 
 /**
