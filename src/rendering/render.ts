@@ -561,6 +561,34 @@ export function renderGroupedEvents(
 }
 
 /**
+ * A list event's content, inside the button that makes the event a tap target when it is one.
+ *
+ * Not the cell itself: in a table exposed as one, ARIA in HTML keeps a `<td>` a cell, and a
+ * cell given `role="button"` stops being the row's cell. So the button is an element of its
+ * own, drawn only while events are tap targets, which leaves the default markup exactly as it
+ * was. The cell carries `event-tappable` meanwhile, which is what lets the button answer for
+ * the whole cell; see `.event-button` in `styles.ts`.
+ *
+ * @param content - The event's rendered content
+ * @param tap - The event's tap target, or undefined when it is not one
+ * @returns The content, wrapped in the button when the event is a tap target
+ */
+function renderEventButton(
+  content: TemplateResult,
+  tap: Activation.EventTapTarget | undefined,
+): TemplateResult {
+  if (!tap) return content;
+  return html`<div
+    class="event-button event-interactive"
+    role="button"
+    tabindex="0"
+    .calendarCardEventTap=${tap}
+  >
+    ${content}
+  </div>`;
+}
+
+/**
  * Render a single event
  *
  * @param event - Event data to render
@@ -598,7 +626,7 @@ function renderEvent(
     'event-middle': isMiddle,
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
-    'event-interactive': tap !== undefined,
+    'event-tappable': tap !== undefined,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -624,13 +652,13 @@ function renderEvent(
         style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
           presentation.accentTextProperties,
         )}"
-        role=${tap ? 'button' : nothing}
-        tabindex=${tap ? '0' : nothing}
-        .calendarCardEventTap=${tap}
       >
-        ${Leaves.renderEventContent(event, config, presentation.contentParts, {
-          weatherForecasts,
-        })}
+        ${renderEventButton(
+          Leaves.renderEventContent(event, config, presentation.contentParts, {
+            weatherForecasts,
+          }),
+          tap,
+        )}
       </td>
     </tr>
   `;

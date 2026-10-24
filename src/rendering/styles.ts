@@ -2062,6 +2062,67 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* List view draws an event in a table cell, and a cell may not be a button, so the button
+   * is a block inside the cell, around the event's content. Layout stays the cell's: the
+   * button takes no padding and no size of its own. But the cell can be taller than its
+   * content (a day's date column spans every row and can outgrow a short event, which is
+   * then centered in a stretched cell), and every part of the colored block has to answer
+   * to a tap, wash on hover and show the focus ring. So the button's two pseudo-elements
+   * span the whole cell instead, accent stripe included: the cell is their containing block.
+   *
+   * ::before is the hit area and the hover wash. It sits at z-index -1, which the cell's
+   * own stacking context keeps above the cell's background and below its text, as the
+   * inset shadow drawn on the column and grid roots is. A tap on the cell's empty part hits
+   * it, and a pointer event on a pseudo-element is its button's, so the recognizer finds
+   * the event in the path either way. ::after is the focus ring, above the text like an
+   * outline and transparent to the pointer. The button's own wash and ring are switched off
+   * so neither is drawn twice. */
+  .event-tappable {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .event-button,
+  .event-button::before,
+  .event-button::after {
+    border-radius: inherit;
+  }
+
+  .event-button::before,
+  .event-button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    inset-inline-start: calc(-1 * var(--calendar-card-line-width-vertical));
+  }
+
+  .event-button::before {
+    z-index: -1;
+  }
+
+  .event-button::after {
+    pointer-events: none;
+  }
+
+  @media (hover: hover) {
+    .event-button.event-interactive:hover {
+      box-shadow: none;
+    }
+
+    .event-button:hover::before {
+      background-color: color-mix(in srgb, currentColor 6%, transparent);
+    }
+  }
+
+  .event-button.event-interactive:focus-visible {
+    outline: none;
+  }
+
+  .event-button:focus-visible::after {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
   /* ===== CORNER LOADING INDICATOR ===== */
   .loading-indicator {
     position: absolute;

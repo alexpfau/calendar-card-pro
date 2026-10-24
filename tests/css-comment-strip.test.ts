@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(114_600);
-    // The header toolbar moved the ceiling last, from 112,600: the notes on why the header
+    expect(saved).toBeLessThan(115_800);
+    // The list view's event button moved the ceiling last, from 114,600: the note on why the
+    // button's two pseudo-elements span the whole cell rather than the button's own box -- a
+    // short event in a cell the date column stretched would otherwise answer to a tap, a
+    // hover and a focus ring in its middle only -- and why the hit area sits under the text
+    // and the ring above it. The reading went 113,594 to 114,822, taken with stripComments
+    // after the last comment in the change was written.
+    //
+    // The header toolbar moved the ceiling before that, from 112,600: the notes on why the header
     // becomes a row only while it holds a control -- a float placed after the title would
     // drop below any title long enough to wrap -- why the toolbar is one line of the title
     // tall and in em, so its button centers on the title's first line at any title size, and

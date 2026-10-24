@@ -603,6 +603,50 @@ describe('event_tap_action details', () => {
   });
 });
 
+describe("the list view's event button", () => {
+  /** Every list event cell that draws an event rather than an empty day. */
+  const cells = (card: Card) =>
+    Array.from(card.shadowRoot!.querySelectorAll<HTMLElement>('td.event')).filter(
+      (cell) => !cell.querySelector('.empty-day-title'),
+    );
+
+  it('is drawn only while events are tap targets, so the default cell is as it was', async () => {
+    const { card } = await mount({ show_empty_days: true });
+
+    expect(cells(card).length).toBeGreaterThan(0);
+    expect(card.shadowRoot!.querySelectorAll('.event-button, .event-tappable')).toHaveLength(0);
+    expect(card.shadowRoot!.querySelectorAll('[role="button"], [tabindex]')).toHaveLength(0);
+  });
+
+  it('wraps the content of every event cell, and leaves the cell a cell', async () => {
+    const { card } = await mount({ ...DETAILS, show_empty_days: true });
+
+    expect(cells(card).length).toBeGreaterThan(1);
+    for (const cell of cells(card)) {
+      const buttons = cell.querySelectorAll('[role="button"]');
+      expect(buttons).toHaveLength(1);
+      const button = buttons[0];
+      expect(button.parentElement).toBe(cell);
+      expect(button.classList.contains('event-button')).toBe(true);
+      expect(button.classList.contains('event-interactive')).toBe(true);
+      expect(button.getAttribute('tabindex')).toBe('0');
+      // Everything the cell draws is inside the button, so all of it is the button's to tap.
+      expect(button.querySelector('.event-content')).not.toBeNull();
+      expect(Array.from(cell.children)).toEqual([button]);
+
+      expect(cell.classList.contains('event-tappable')).toBe(true);
+      expect(cell.classList.contains('event-interactive')).toBe(false);
+    }
+    expect(card.shadowRoot!.querySelectorAll('td[role], td[tabindex]')).toHaveLength(0);
+    // An empty day is no event, so its cell gets neither the button nor the cell class.
+    const emptyDays = card.shadowRoot!.querySelectorAll('td.event:has(.empty-day-title)');
+    expect(emptyDays.length).toBeGreaterThan(0);
+    for (const cell of emptyDays) {
+      expect(cell.classList.contains('event-tappable')).toBe(false);
+    }
+  });
+});
+
 describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const TAPPABLE = { tap_action: { action: 'expand' } } as const;

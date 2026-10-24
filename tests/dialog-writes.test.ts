@@ -96,7 +96,8 @@ const OPENERS = {
     await settle();
   },
   details: async (card: Card) => {
-    eventRoot(card)!.click();
+    // The event's button, which in list view is inside the cell rather than the cell itself.
+    eventRoot(card)!.querySelector<HTMLElement>('[role="button"]')!.click();
     await settle();
   },
 } as const;
