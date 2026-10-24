@@ -963,6 +963,11 @@ export interface CacheEntry {
 /** Action configuration for tap and hold actions. */
 export interface ActionConfig {
   action: string;
+  /**
+   * The entity the action acts on. For `event_tap_action` it defaults to the tapped event's
+   * calendar; naming one here overrides that.
+   */
+  entity?: string;
   navigation_path?: string;
   service?: string;
   service_data?: object;

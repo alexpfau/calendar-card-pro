@@ -278,7 +278,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
   - Handles the card's own two actions, `expand` and `details`, and forwards everything
     else to Home Assistant as a `hass-action` event
   - For an event tap, names the event's own calendar as the entity, so `more-info` opens
-    the calendar the event came from rather than the card's first one
+    the calendar the event came from rather than the card's first one. An `entity` named
+    on `event_tap_action` replaces it, for every action: Home Assistant's `toggle`, unlike
+    its `more-info`, reads only the entity the card hands it
 
 - **ha-calendar-dialogs.ts**:
   - Gets Home Assistant's `dialog-calendar-event-editor` and `dialog-calendar-event-detail`

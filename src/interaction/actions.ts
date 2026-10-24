@@ -39,8 +39,10 @@ export interface EventTap {
  * A tap on an event runs `event_tap_action` through the same path, with one difference that
  * is the point of having it: Home Assistant is told the event's own calendar as the entity,
  * so `more-info` opens the calendar the event came from rather than the card's first one.
- * `expand` stays the card's own, wherever it was configured. `details` needs an event, so
- * as a card action it does nothing.
+ * That calendar is only the default. An `entity` named on `event_tap_action` replaces it
+ * here, so it wins for every action: Home Assistant's `more-info` prefers the action's own
+ * entity anyway, but its `toggle` reads only this one. `expand` stays the card's own,
+ * wherever it was configured. `details` needs an event, so as a card action it does nothing.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
@@ -76,7 +78,13 @@ export function handleAction(
     return;
   }
 
-  const entityId = eventTap?.entity ?? getPrimaryEntityId(config.entities);
+  const namedEntity =
+    typeof actionConfig.entity === 'string' && actionConfig.entity !== ''
+      ? actionConfig.entity
+      : undefined;
+  const entityId = eventTap
+    ? (namedEntity ?? eventTap.entity ?? getPrimaryEntityId(config.entities))
+    : getPrimaryEntityId(config.entities);
   const hassActionConfig = eventTap
     ? { entity: entityId, tap_action: actionConfig }
     : {

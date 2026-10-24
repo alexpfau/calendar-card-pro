@@ -305,6 +305,45 @@ describe('handleAction for a tap on an event', () => {
     expect(detailOf(events[0]).config.entity).toBe('calendar.first');
   });
 
+  it.each([
+    // Home Assistant's more-info would prefer the action's own entity anyway.
+    ['more-info', 'calendar.third'],
+    // Its toggle reads only the entity the card hands it, so the card has to resolve this.
+    ['toggle', 'input_boolean.guest_mode'],
+  ])(
+    "hands Home Assistant the entity a %s names, in place of the event's calendar",
+    (action, entity) => {
+      const { node, events } = listeningNode();
+
+      handleAction(
+        node,
+        config({ ...twoCalendars, event_tap_action: { action, entity } }),
+        'tap',
+        undefined,
+        eventTap('calendar.second'),
+      );
+
+      expect(detailOf(events[0])).toEqual({
+        action: 'tap',
+        config: { entity, tap_action: { action, entity } },
+      });
+    },
+  );
+
+  it("keeps the card's first calendar for its own tap, whatever the action names", () => {
+    // The override is the event tap's; the card's own taps are as they were, and an entity
+    // on `tap_action` reaches Home Assistant inside it, for it to resolve.
+    const { node, events } = listeningNode();
+
+    handleAction(
+      node,
+      config({ ...twoCalendars, tap_action: { action: 'more-info', entity: 'calendar.third' } }),
+      'tap',
+    );
+
+    expect(detailOf(events[0]).config.entity).toBe('calendar.first');
+  });
+
   it('opens the details for details, and dispatches nothing', () => {
     const { node, events } = listeningNode();
     const tap = eventTap('calendar.second');

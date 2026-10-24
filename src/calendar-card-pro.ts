@@ -618,8 +618,9 @@ class CalendarCardPro extends LitElement {
    * Runs `event_tap_action` for one tapped event.
    *
    * `details` opens the event; anything else goes to Home Assistant for the event's own
-   * calendar, which for a merged row is the calendar whose copy the card kept. `expand`,
-   * offered only to the card's own tap, still means the card's expand if written in YAML.
+   * calendar, which for a merged row is the calendar whose copy the card kept, unless the
+   * action names an `entity` of its own. `expand`, offered only to the card's own tap,
+   * still means the card's expand if written in YAML.
    *
    * @param target - The tapped event and the accent color it is drawn in
    */

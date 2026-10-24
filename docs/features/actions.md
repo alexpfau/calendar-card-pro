@@ -145,6 +145,16 @@ The card's display options do not reach the dialog. A title you rewrote with [te
 
 `event_tap_action` takes Home Assistant's own actions as well, such as `more-info` or `navigate`. They run for the calendar the tapped event came from, so `more-info` opens that calendar rather than the first one in `entities`. A row that [`filter_duplicates`](/features/core-settings#filtering-duplicate-events) merged from several calendars counts as whichever of them comes first in `entities`, the calendar whose copy the card kept.
 
+That calendar is only the default `entity`. Name one on the action and it is used instead, whatever the action:
+
+```yaml
+event_tap_action:
+  action: more-info
+  entity: calendar.family
+```
+
+`expand` works here too, and expands the card exactly as `tap_action: expand` does. The visual editor does not offer it for Event Tap Action, so write it in YAML.
+
 ### Where You Can Tap
 
 Every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
@@ -215,7 +225,7 @@ show_add_event: true
 
 The button sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events. On a card at least 480px wide it carries Home Assistant's own "Add event" label, and narrower than that it is a plus icon, with the label as its tooltip.
 
-The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above, and you can pick another in the dialog itself. The new event is set for today when the card's date range includes today, and for the first day of the range otherwise, so a card looking at next week does not suggest today.
+The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above. Its calendar picker is Home Assistant's own, though, so it offers every calendar in Home Assistant that accepts new events, not only this card's, and the event is saved to whichever you pick. The new event is set for today when the card's date range includes today, and for the first day of the range otherwise, so a card looking at next week does not suggest today.
 
 The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars keeps its usual look even with `show_add_event: true`. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
 
@@ -232,7 +242,7 @@ The button does not trigger the card's `tap_action` or `hold_action`, so it can 
 The event dialog and the new-event dialog are Home Assistant's own rather than copies of them: the forms, the validation, the repeat rules and the saving all stay Home Assistant's, and the card only decides what to open them with. Three things follow from that.
 
 - **Their words are Home Assistant's.** The button's label and everything in the dialogs follow the language of your Home Assistant profile, not the card's `language` option.
-- **Changes appear at once.** After a save in either dialog the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`.
+- **Changes appear at once.** After a save in either dialog the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`. A new event could have gone to any calendar, so after one every card on the page refreshes.
 - **They are loaded when first needed.** Home Assistant offers custom cards no public way to open its calendar dialogs, so the first time one is needed the card loads it through Home Assistant's own calendar code.
 
 ::: info When a Dialog Cannot Be Loaded
