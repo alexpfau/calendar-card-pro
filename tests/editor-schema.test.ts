@@ -141,21 +141,27 @@ describe('editor: default stripping', () => {
    * `{ action: 'none', navigation_path: '/x' }` loses its `action` key and becomes an
    * action with no action in it. `value.ts` holds these out and treats them whole.
    */
-  it('keeps an action config intact rather than stripping its default members', () => {
-    const stored = toStoredConfig(
-      buildConfig({
-        tap_action: { action: 'none', navigation_path: '/lovelace/0' } as Types.ActionConfig,
-      }),
-    );
+  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+    'keeps %s whole rather than stripping its default members',
+    (key) => {
+      const stored = toStoredConfig(
+        buildConfig({
+          [key]: { action: 'none', navigation_path: '/lovelace/0' } as Types.ActionConfig,
+        }),
+      );
 
-    expect(stored.tap_action).toEqual({ action: 'none', navigation_path: '/lovelace/0' });
-  });
+      expect(stored[key]).toEqual({ action: 'none', navigation_path: '/lovelace/0' });
+    },
+  );
 
-  it('drops an action config that equals the default', () => {
-    const stored = toStoredConfig(buildConfig({ tap_action: { action: 'none' } }));
+  it.each(['tap_action', 'hold_action', 'event_tap_action'])(
+    'drops %s when it equals the default',
+    (key) => {
+      const stored = toStoredConfig(buildConfig({ [key]: { action: 'none' } }));
 
-    expect(stored).not.toHaveProperty('tap_action');
-  });
+      expect(stored).not.toHaveProperty(key);
+    },
+  );
 
   /**
    * `filterDefaultValues` passes `weather` through unconditionally — its comment says
@@ -796,6 +802,7 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
+      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -1833,6 +1840,8 @@ describe('editor: the panel set', () => {
       // The merged-row accent is held back until duplicates are actually filtered, since
       // with duplicates showing there is no merged row for it to recolor.
       buildConfig({ filter_duplicates: true }),
+      // The event dialog's two permissions are held back until an event tap opens it.
+      buildConfig({ event_tap_action: { action: 'details' } }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1862,6 +1871,7 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
       max_height: 'height_mode',
+      event_tap_action: 'event_tap_action_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2723,6 +2733,120 @@ describe('editor: the Time Range & Content panel', () => {
   });
 });
 
+describe('editor: the Card & Title panel', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'card')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
+  }
+
+  /**
+   * Pinned by value and in order, because the position is the decision. The add-event
+   * button sits in the card's header, so it follows the title's own options and comes
+   * before the background, which belongs to the card as a whole; a `toContain` would pass
+   * with it appended after the background or stranded in another panel's run.
+   */
+  it('puts the add-event switch with the title, ahead of the background', () => {
+    for (const view of VIEWS) {
+      expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([
+        'title',
+        '',
+        'title_font_size',
+        'title_color',
+        'show_add_event',
+        'background_color',
+      ]);
+    }
+  });
+});
+
+describe('editor: the Actions & Refresh panel', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'actions')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
+  }
+
+  const withEventTap = (action: string | null): Types.Config =>
+    ({
+      ...buildConfig(),
+      event_tap_action: action === null ? null : { action },
+    }) as unknown as Types.Config;
+
+  /**
+   * Pinned by value, both states. The event tap follows the hold rather than the tap it is
+   * named after, the dialog's two switches sit directly under the dropdown that reveals
+   * them, and the refresh pair closes the panel. No headings: a split between card and
+   * event taps would misfile the hold, which runs on events too.
+   */
+  it('orders the three gestures, then refresh, with no dialog switches by default', () => {
+    expect(namesIn(buildConfig())).toEqual([
+      'tap_action',
+      'hold_action',
+      'event_tap_action_mode',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers the two dialog switches under the event tap action once it opens details', () => {
+    expect(namesIn(withEventTap('details'))).toEqual([
+      'tap_action',
+      'hold_action',
+      'event_tap_action_mode',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  /**
+   * Every action but `details`, each by name. The card reads all of them as `none`, which
+   * the dropdown shows as Nothing, so there is no dialog and the switches could change
+   * nothing; offering them would invite the reading that turning one on adds a way to
+   * edit. Home Assistant's actions and `expand` are what YAML written for the earlier
+   * selector may still hold, and a bare `event_tap_action:` is `null`.
+   */
+  it.each(['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none', 'expand'])(
+    'withholds the dialog switches while the event tap action is %s',
+    (action) => {
+      const names = namesIn(withEventTap(action));
+      expect(names).toContain('event_tap_action_mode');
+      expect(names).not.toContain('allow_event_edit');
+      expect(names).not.toContain('allow_event_delete');
+    },
+  );
+
+  it('withholds the dialog switches for a bare event_tap_action', () => {
+    const names = namesIn(withEventTap(null));
+    expect(names).toContain('event_tap_action_mode');
+    expect(names).not.toContain('allow_event_edit');
+    expect(names).not.toContain('allow_event_delete');
+  });
+
+  it('keeps a stored permission while its switch is out of the schema', () => {
+    // Dormant, not dead, as with the compact modifier: setting the event tap back to
+    // details must find the preference where the user left it.
+    const config = { ...withEventTap('more-info'), allow_event_edit: false } as Types.Config;
+
+    expect(namesIn(config)).not.toContain('allow_event_edit');
+    expect(toStoredConfig(config).allow_event_edit).toBe(false);
+  });
+
+  it('builds the schema once per state rather than once per render', () => {
+    // Fresh context and configuration objects each time, which is what defeats a memoizer
+    // keyed on the context instead of on the one value the panel branches on.
+    const panel = PANELS.find((entry) => entry.id === 'actions')!;
+    const build = (config: Types.Config) => panel.build({ view: 'list', config, language: 'en' });
+
+    expect(build(withEventTap('details'))).toBe(build(withEventTap('details')));
+    expect(build(withEventTap('details'))).not.toBe(build(withEventTap('none')));
+  });
+});
+
 describe('editor: a group states its family applicability once', () => {
   /**
    * All three compact fields are list-only, so each carried the same sentence and the
@@ -2866,7 +2990,7 @@ describe('editor: the write path over the whole configuration', () => {
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
       else if (VIEW_BLOCK_KEYS.has(key)) custom[key] = blockThatSurvivesTheStrip(key);
-      else if (key === 'tap_action' || key === 'hold_action')
+      else if (key === 'tap_action' || key === 'hold_action' || key === 'event_tap_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
       else if (typeof value === 'boolean') custom[key] = !value;
       else if (typeof value === 'number') custom[key] = value + 7;
@@ -4860,6 +4984,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
+      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

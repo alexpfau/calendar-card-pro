@@ -12,6 +12,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Activation from './activation';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
@@ -149,6 +150,8 @@ function renderColumnSeparator(
  * @param language - Language code for translations
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether the event is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes a tappable event
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -159,8 +162,11 @@ function renderColumnEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
@@ -171,6 +177,7 @@ function renderColumnEvent(
     'event-middle': !isFirst && !isLast,
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
+    'event-interactive': tap !== undefined,
   };
 
   // Column view places two of these differently from list view: the countdown rides the
@@ -182,6 +189,10 @@ function renderColumnEvent(
       style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
         presentation.accentTextProperties,
       )}"
+      role=${tap ? 'button' : nothing}
+      tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
+      .calendarCardEventTap=${tap}
     >
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
         weatherForecasts,
@@ -207,6 +218,7 @@ function renderColumnEvent(
  * @param columnIndex - Zero-based track this column occupies
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns Rendered day column
  */
 function renderDayColumn(
@@ -216,12 +228,14 @@ function renderDayColumn(
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
+  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
 
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
@@ -248,13 +262,24 @@ function renderDayColumn(
         weatherContent,
         headerSeparator,
         hass,
+        dayLabelId,
       )}
       <div class="column-events">
         ${repeat(
           day.events,
           (event, index) => `${event._entityId}-${event.summary}-${index}`,
           (event, index) =>
-            renderColumnEvent(event, day, index, config, language, weatherForecasts, hass),
+            renderColumnEvent(
+              event,
+              day,
+              index,
+              config,
+              language,
+              weatherForecasts,
+              hass,
+              eventsTappable,
+              dayLabelId,
+            ),
         )}
       </div>
     </div>
@@ -323,6 +348,7 @@ function buildWeekRows(
  * @param language - Language code for translations
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns Rendered column grid
  */
 export function renderColumnGroupedEvents(
@@ -331,6 +357,7 @@ export function renderColumnGroupedEvents(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -355,7 +382,7 @@ export function renderColumnGroupedEvents(
     >
       ${weekRows}
       ${days.map((day, index) =>
-        renderDayColumn(day, config, language, index, weatherForecasts, hass),
+        renderDayColumn(day, config, language, index, weatherForecasts, hass, eventsTappable),
       )}
       ${separators}
     </div>

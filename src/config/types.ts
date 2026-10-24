@@ -142,6 +142,22 @@ export interface Config {
   // Actions
   tap_action: ActionConfig;
   hold_action: ActionConfig;
+  /**
+   * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
+   * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
+   * event to `tap_action`. A hold on an event runs `hold_action` either way.
+   */
+  event_tap_action: ActionConfig;
+  /**
+   * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
+   * support updates never gets Edit, whatever this says.
+   */
+  allow_event_edit: boolean;
+  /** Whether the event-detail dialog may offer Delete. Narrows only, like `allow_event_edit`. */
+  allow_event_delete: boolean;
+
+  // Add event button
+  show_add_event: boolean;
 
   // Cache and refresh settings
   refresh_interval: number;
@@ -744,8 +760,24 @@ export interface CalendarEventData {
   summary?: string;
   location?: string;
   description?: string;
+  /** Identity Home Assistant needs to edit or delete the event; absent for many feeds. */
+  uid?: string | null;
+  recurrence_id?: string | null;
+  rrule?: string | null;
+  /** `confirmed` or `tentative` where the calendar says; Home Assistant's dialog marks the latter. */
+  status?: string | null;
   _entityId?: string;
   _entityLabel?: string;
+  /**
+   * The event as Home Assistant returned it, stamped before any repair, splitting or text
+   * replacement and carried through to the rendered row.
+   *
+   * The event-detail dialog is built from this rather than from the row, because the row's
+   * title, location and description are display text: replaced, age-counted or blanked.
+   * Handing those to Home Assistant's dialog would show them as the event's real fields,
+   * and its Edit form would write them back into the calendar.
+   */
+  _source?: SourceEvent;
   _isEmptyDay?: boolean;
   /** Empty-day placeholder uses custom text; suppresses the checkmark prefix only. */
   _isCustomEmptyText?: boolean;
@@ -813,6 +845,18 @@ export interface CalendarEventData {
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
 }
+
+/**
+ * The untouched fields of a fetched event that Home Assistant's event dialogs read.
+ *
+ * `end` is optional here although it is required on a row: an event Home Assistant
+ * returned without one keeps it absent, so nothing downstream can mistake the instant
+ * `keepWellFormedEvents` repairs it into for an end the calendar stores.
+ */
+export type SourceEvent = Pick<
+  CalendarEventData,
+  'start' | 'summary' | 'location' | 'description' | 'uid' | 'recurrence_id' | 'rrule' | 'status'
+> & { readonly end?: CalendarEventData['end'] };
 
 /**
  * One calendar that contributed a copy of a merged duplicate.

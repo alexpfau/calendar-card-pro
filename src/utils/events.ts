@@ -29,9 +29,11 @@ import * as Localize from '../translations/localize';
  * - `cache` — serve a fresh cache entry; otherwise fetch, joining a matching request
  *   already in flight.
  * - `network` — skip the cache and fetch, still joining a matching request in flight.
- * - `reload` — skip the cache and start a new request even if one is in flight. Meant for
- *   the moment after the card itself changed a calendar, when a request that started
- *   earlier may already be carrying the old answer.
+ * - `reload` — skip the cache and do not join a request that may have started before a
+ *   calendar changed, because it may already be carrying the old answer. Meant for the
+ *   moment after a write. Named for one write (see `advanceWriteGeneration`), it joins a
+ *   request started since that write, so every card refreshing for it shares one request
+ *   per signature; named for none, it always starts its own.
  */
 export type EventLoad = 'cache' | 'network' | 'reload';
 
@@ -44,6 +46,45 @@ export type EventLoad = 'cache' | 'network' | 'reload';
  */
 interface InFlightRequest {
   promise: Promise<Types.CacheEntry>;
+  /** The write generation when the request started: it carries every write up to that one. */
+  writeGeneration: number;
+}
+
+/**
+ * Where the page keeps its write generation: a counter of the calendar writes made through
+ * Home Assistant's dialogs, which `reload` compares requests against.
+ *
+ * On `globalThis` rather than in this module, because a development build and an installed
+ * release on one dashboard each carry their own copy of this module while hearing each
+ * other's announcements (see `CALENDARS_CHANGED_EVENT`). Two counters would make one copy's
+ * generation meaningless against the other copy's requests, and a card could join a request
+ * started before the write it is refreshing for. A registered symbol is the same in both.
+ */
+const WRITE_GENERATION_KEY = Symbol.for('calendar-card-pro.write-generation');
+
+/**
+ * The page's current write generation.
+ *
+ * @returns Writes recorded so far, 0 before the first
+ */
+function currentWriteGeneration(): number {
+  return (globalThis as unknown as Record<symbol, number | undefined>)[WRITE_GENERATION_KEY] ?? 0;
+}
+
+/**
+ * Record that a dialog wrote to a calendar, and return the write's generation.
+ *
+ * Called once per write, by the card whose dialog saved it, which hands the number to every
+ * card it tells. A `reload` naming it then joins a request started since the write, and only
+ * such a request: the first card to ask for a signature starts one, every other card asking
+ * for that signature joins it, and a later write supersedes it by advancing the generation.
+ *
+ * @returns The new generation
+ */
+export function advanceWriteGeneration(): number {
+  const generation = currentWriteGeneration() + 1;
+  (globalThis as unknown as Record<symbol, number>)[WRITE_GENERATION_KEY] = generation;
+  return generation;
 }
 
 /**
@@ -160,6 +201,8 @@ export function readEventSnapshot(
  * @param load How to use the cache and requests already in flight
  * @param failureCountHint Consecutive failures the caller has seen for this query, used
  *   when no cache entry records them (storage unavailable)
+ * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
+ *   `advanceWriteGeneration`. Ignored by every other load
  * @returns Promise resolving to calendar event data array
  */
 export async function fetchEventData(
@@ -168,6 +211,7 @@ export async function fetchEventData(
   instanceId: string,
   load: EventLoad = 'cache',
   failureCountHint = 0,
+  afterWrite?: number,
 ): Promise<Types.EventFetchResult> {
   const request = resolveRequest(hass, config, instanceId);
 
@@ -180,7 +224,12 @@ export async function fetchEventData(
     }
   }
 
-  let rawFetch = load === 'reload' ? undefined : inFlightRawFetches.get(request.signature);
+  let rawFetch = inFlightRawFetches.get(request.signature);
+  if (rawFetch && load === 'reload') {
+    // Only a request started since the write carries it. With no write named, none does.
+    const sinceWrite = afterWrite !== undefined && rawFetch.writeGeneration >= afterWrite;
+    if (!sinceWrite) rawFetch = undefined;
+  }
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
@@ -261,7 +310,7 @@ function startRawFetch(
   const seq = ++requestSeq;
   latestRequestSeq.set(request.cacheKey, seq);
 
-  const inFlight = {} as InFlightRequest;
+  const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
   inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint).finally(() => {
     if (inFlightRawFetches.get(request.signature) === inFlight) {
       inFlightRawFetches.delete(request.signature);
@@ -514,6 +563,31 @@ function processRawEvents(
 }
 
 /**
+ * The fields of a fetched event that Home Assistant's event dialogs read, as fetched.
+ *
+ * Taken at the last point before the event is reshaped: `keepWellFormedEvents` stamps it on
+ * an event whose end it repairs, and `processEvents` on every other one, before splitting
+ * rewrites the interval and grouping rewrites the text. A missing or `null` end is kept
+ * absent.
+ *
+ * @param event - Event as returned by Home Assistant
+ * @returns Its untouched dialog fields
+ */
+function sourceEvent(event: Types.CalendarEventData): Types.SourceEvent {
+  return {
+    start: event.start,
+    end: Helpers.isConfigBlock(event.end) ? event.end : undefined,
+    summary: event.summary,
+    location: event.location,
+    description: event.description,
+    uid: event.uid,
+    recurrence_id: event.recurrence_id,
+    rrule: event.rrule,
+    status: event.status,
+  };
+}
+
+/**
  * Drop events with unusable dates or text before they reach the shared pipeline, and turn a
  * timed event with a missing or backwards end into an instant.
  *
@@ -531,7 +605,8 @@ function processRawEvents(
  * dropped by both with a warning only the development build logs. The comparison is of
  * parsed instants, so a DST fall-back event whose wall clock only looks backwards
  * (`01:30+02:00` to `01:15+01:00`) is untouched. Returned as a copy: the original is also
- * the cache's, and other cards read it.
+ * the cache's, and other cards read it. The copy carries `_source`, stamped from the event
+ * before its end was rewritten.
  *
  * An all-day event has no instant to fall back on, so one whose end is missing or not after
  * its start is dropped. That used to depend on the view and on `show_past_events`: Grid
@@ -576,7 +651,16 @@ function keepWellFormedEvents(
       }
 
       repaired++;
-      return [{ ...event, end: { dateTime: event.start.dateTime } }];
+      // Stamped here, before the end is rewritten, because this is the last point that
+      // still knows what Home Assistant sent. Stamped afterwards, the event-detail
+      // dialog's Edit would write the synthesized end back into the calendar.
+      return [
+        {
+          ...event,
+          end: { dateTime: event.start.dateTime },
+          _source: event._source ?? sourceEvent(event),
+        },
+      ];
     }
 
     if (!end || end.dateTime) return [];
@@ -1229,6 +1313,7 @@ export function groupEventsByDay(
         // segments escape that because `splitMultiDayEvent` copies with a spread;
         // the display copies do not.
         _mergedFrom: event._mergedFrom,
+        _source: event._source,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
@@ -1546,6 +1631,8 @@ function processEvents(
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
         ...event,
+        // A repaired event already carries the stamp, taken before its end was rewritten.
+        _source: event._source ?? sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);

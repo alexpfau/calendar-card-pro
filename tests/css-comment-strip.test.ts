@@ -279,8 +279,30 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(112_600);
-    // Grid titles wrapping only at spaces moved the ceiling last, from 110,200: the notes on
+    expect(saved).toBeLessThan(116_600);
+    // Muting the card's ripple over an event moved the ceiling last, from 115,800: the note on
+    // why the ripple is muted rather than kept from seeing the press -- the recognizer needs
+    // the same press to reach ha-card -- and why keyboard focus mutes it too. The reading went
+    // 114,822 to 115,624, taken with stripComments after the last comment in the change was
+    // written.
+    //
+    // The list view's event button moved the ceiling before that, from 114,600: the note on why the
+    // button's two pseudo-elements span the whole cell rather than the button's own box -- a
+    // short event in a cell the date column stretched would otherwise answer to a tap, a
+    // hover and a focus ring in its middle only -- and why the hit area sits under the text
+    // and the ring above it. The reading went 113,594 to 114,822, taken with stripComments
+    // after the last comment in the change was written.
+    //
+    // The header toolbar moved the ceiling before that, from 112,600: the notes on why the header
+    // becomes a row only while it holds a control -- a float placed after the title would
+    // drop below any title long enough to wrap -- why the toolbar is one line of the title
+    // tall and in em, so its button centers on the title's first line at any title size, and
+    // why nothing in it carries an inline-end margin, which is what keeps its edge on the
+    // content's in all three views. It also retired the add-event placements' note. The
+    // reading went 112,232 to 113,578, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // Grid titles wrapping only at spaces moved the ceiling before that, from 110,200: the notes on
     // why each word is an inline-block with its own clip -- break-word broke "Sprint" inside
     // itself in a 30px lane -- why it aligns to the top rather than the baseline, and why the
     // compact single line puts the words back inline. The reading went 109,813 to 111,599,

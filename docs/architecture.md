@@ -17,8 +17,12 @@ src/
 │   ├── types.ts                  # TypeScript interface definitions
 │   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
 ├── interaction/                  # User interaction handling
-│   ├── actions.ts                # Action execution (tap, hold, etc.)
-│   └── feedback.ts               # Visual feedback (ripple, hold indicators)
+│   ├── actions.ts                # Action execution (tap, hold, event tap)
+│   ├── add-event.ts              # Add button: writable calendars, label, start date
+│   ├── calendar-changes.ts       # Page-wide announcement after a dialog saves
+│   ├── event-details.ts          # Event dialog entry, Edit and Delete permissions
+│   ├── feedback.ts               # Visual feedback (ripple, hold indicators)
+│   └── ha-calendar-dialogs.ts    # Loads and opens Home Assistant's calendar dialogs
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
@@ -41,6 +45,8 @@ src/
 │   │   ├── translations/         # The same keys per language, partial by design
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
+│   ├── toolbar.ts                # Header toolbar and its controls
+│   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
@@ -152,6 +158,59 @@ from the card, and the query string HACS appends to the card's own URL would mak
 browser treat that as a second copy of the card. `npm run check:bundle` asserts the
 result after every build.
 
+## 🧰 Header Toolbar
+
+The card's own controls live in a toolbar between the title and the events. Only the
+add-event button exists so far, but the layout rule is fixed now, so the controls still to
+come slot in without moving the ones already there. `renderHeaderToolbar` in
+`rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
+
+- **It is conditional.** With no control enabled or available there is no toolbar and no
+  new DOM: the header renders byte for byte as it did before the toolbar existed. That is
+  why the header keeps a single child binding, since a second one, even rendering nothing,
+  adds a Lit marker and a text node, and why no default snapshot moved.
+- **Two groups, in a fixed order.** A leading group holds navigation (previous, Today,
+  next) and the visible range. A trailing group holds actions: refresh, then any view
+  switch, then add, which is always last. Only the trailing group is drawn today. A
+  calendar legend, when it comes, gets a horizontally scrolling lane of its own below the
+  bar.
+- **Trailing actions alone share the title's row.** With a title, a pending templated
+  title included, they sit at the inline end of the title's row inside
+  `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
+  beside them rather than pushing them below it, and the card gains no height. Without a
+  title they get a slim row of about 40px. A leading group, once there is one, takes a row
+  of its own between the title and the events.
+- **card-mod selectors stay valid.** `.header-container > h1.card-header` and
+  `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
+  inside `.header-container`, so the card's children and the `.header-container` +
+  `.content-container` adjacency are unchanged.
+- **A control never starts the card's gesture.** Each stops `pointerdown`, which arms the
+  card's tap and hold and captures the pointer, and `click`. None stops `keydown`: the card
+  already ignores keys aimed at anything but itself, and stopping them would hide them from
+  Home Assistant's own shortcuts.
+- **Labels follow the card's width, not the viewport's.** From
+  `UI.TOOLBAR_LABEL_MIN_WIDTH` (480px) up, a control carries its label beside its icon;
+  below it, the icon alone, named by `aria-label`. The width is the card's own
+  `ResizeObserver` reading, acted on inside the callback so the first painted frame is
+  already right. A container query was rejected: it needs a `container-type` ancestor,
+  which could capture the `cqh` units grid view sizes against, and happy-dom cannot
+  evaluate one, so it could not be tested.
+- **Controls are native.** The add button is a `<button>` styled from theme variables
+  rather than `ha-button`, so the card names no new Home Assistant element.
+- **The card stops being a button while it hosts controls, and stays focusable.**
+  `_hostsControls` answers this once, for toolbar controls and tappable events alike, from
+  what the render draws: the add button, or at least one event that is a tap target, which
+  the loading line, an error and days holding only empty-day placeholders are not
+  (`drawsEvent` in `rendering/render.ts`, with `gridDrawsEvent` for grid view). `ha-card`
+  then drops `role="button"`, because a button may not contain another, but keeps
+  `tabindex="0"` while it has a `tap_action`: with the card itself focused, Enter and Space
+  still run it, since `_handleKeyDown` leaves keys aimed at a child to the child. The
+  ripple and the pointer `tap_action` stay too.
+- **Weather is deliberately not a toolbar control.** The toolbar holds things the card
+  does. A current-weather readout is content, and if it is built it belongs beside today's
+  own date.
+- **The fetch-failure notice stays where it was**, after the content.
+
 ## 🧩 Module Responsibilities
 
 ### Main Component (`calendar-card-pro.ts`)
@@ -162,7 +221,10 @@ The main entry point serves as the orchestrator for the entire card:
 - **Lifecycle Management**: Handles component connection, disconnection, and updates
 - **Property Definition**: Defines reactive properties via LitElement's `@property` decorator
 - **State Management**: Manages loading state, expanded state, and events data
-- **Event Handling**: Sets up user interaction handling (tap, hold, keyboard)
+- **Event Handling**: Runs the one gesture recognizer for card taps, event taps, holds and
+  keys (see _Interaction Flow_)
+- **Write Coordination**: Opens Home Assistant's calendar dialogs, refetches after a save,
+  and listens for other cards' change announcements
 - **Configuration Processing**: Handles config updates from Home Assistant
 - **Rendering Coordination**: Builds the component's DOM structure
 
@@ -205,13 +267,71 @@ Manages all configuration aspects of the card:
 
 ### Interaction (`interaction/`)
 
-Handles all user interaction with the card:
+Handles all user interaction with the card. The card never writes a calendar itself: adding,
+viewing, editing and deleting all happen in Home Assistant's own dialogs, so the forms,
+validation, recurrence and service calls stay Home Assistant's. `add-event.ts` and
+`event-details.ts` decide what goes into a dialog and hold no side effects;
+`ha-calendar-dialogs.ts` is the only module that opens one.
 
 - **actions.ts**:
-  - Processes user actions (tap, hold, etc.)
-  - Dispatches Home Assistant events
-  - Handles navigation and service calls
-  - Manages toggle/expand actions
+  - Runs `tap_action` and `hold_action`, for the card
+  - Handles the card's own `expand`, and forwards everything else to Home Assistant as a
+    `hass-action` event naming the card's first calendar as the entity
+  - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
+    event's details itself. It reads any other value as `none`, so it forwards nothing
+    for an event
+
+- **ha-calendar-dialogs.ts**:
+  - Gets Home Assistant's `dialog-calendar-event-editor` and `dialog-calendar-event-detail`
+    defined and opens them. It is the one module that reaches into Home Assistant's
+    frontend internals
+  - The dialogs live in a lazily loaded chunk whose file name is a build hash, so the card
+    borrows its import. It creates a core calendar card through
+    `window.loadCardHelpers()`, which defines `ha-full-calendar`, then calls that element's
+    private `_createEvent` or `_handleEventClick` on a stand-in that records the
+    `show-dialog` event instead of dispatching it, awaits whatever the handler returns, so
+    an asynchronous handler and its rejection are both handled, and runs the captured
+    `dialogImport`. Nothing else is taken from the borrow: the card dispatches its own
+    `show-dialog` with its own parameters
+  - Keeps one load in flight per element for the whole page, bounded by
+    `LOAD_TIMEOUT_MS`, and one waiting request for both dialogs. A press made while a dialog
+    loads replaces any older waiting request, for either dialog, so one dialog opens: the
+    newest, with its parameters
+  - Checks every step and falls back on any mismatch or timeout: details to
+    `hass-more-info` for the event's calendar, which keeps the user on the dashboard, and
+    add to the `/calendar` panel. The card asks Home Assistant to navigate there with a
+    `hass-action` carrying a `navigate` action, as `actions.ts` does for a configured one,
+    so Home Assistant's own navigation runs: it closes open dialogs and lets a page with
+    unsaved changes refuse. The card never pushes history itself
+  - Reads the calendar feature bits from `supported_features`: 1 create, 2 delete,
+    4 update
+
+- **event-details.ts**:
+  - Builds the detail dialog's entry from the event's `_source`, never from the rendered
+    row, whose text is display text and whose interval may be one day of a split event
+  - Decides Edit and Delete: the calendar's feature bit, a `uid`, `allow_event_edit` or
+    `allow_event_delete`, a row that is not a `filter_duplicates` merge, and a calendar that
+    is not failing to load. Edit also needs an end the calendar stores
+
+- **add-event.ts**:
+  - Lists the writable calendars, in `entities` order and without failing ones; none means
+    no button, and the first is preselected
+  - Takes the button's label from `hass.localize`, and never draws an English word in its
+    place
+  - Picks the dialog's `selectedDate`: now when today is in the card's window, otherwise
+    the window's first day
+
+- **calendar-changes.ts**:
+  - Announces a saved change on `window`. An edit or a delete names the event's calendar. A
+    create names the create feature bit instead, because Home Assistant's create dialog can
+    write to any calendar that accepts new events: a receiving card refreshes only if it
+    shows such a calendar, read from its own `hass.states`
+  - Carries the write's generation, which the announcing card advanced once. Every
+    connected card listens, from `connectedCallback` to `disconnectedCallback`, and calls
+    `refreshEvents()` with that generation when it shows an affected calendar, skipping the
+    card that announced it
+  - The event name is the same in development and production builds, and must never
+    contain `calendar-card-pro-dev`, which the production build rewrites
 
 - **feedback.ts**:
   - Creates visual feedback for user interactions
@@ -224,7 +344,7 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 `presentation.ts`, with time-grid geometry kept separate from DOM construction:
 
 - **render.ts**:
-  - Renders the card shell — title, states, error and empty output
+  - Renders the card shell — title, header toolbar, states, error and empty output
   - Renders the **list** view: days stacked vertically, each event a table row
   - Exposes Column and Grid renderers for the main component's view dispatch
 
@@ -246,6 +366,25 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     original source times, and the shared presentation/weather helpers
   - Leaves intentionally disabled details out; the visual subtree is hidden from the
     accessibility tree to avoid duplicate announcements
+
+- **toolbar.ts**:
+  - Renders the header toolbar and its controls, following the rule in _Header Toolbar_
+
+- **activation.ts**:
+  - Marks a rendered event as a tap target with a Lit property, `calendarCardEventTap`,
+    which leaves no trace in the markup; the gesture recognizer reads it from the
+    pointer-down's composed path
+  - List view puts `role="button"` on a `div.event-button` inside the cell, never on the
+    `<td>`, which would stop being the row's cell; column and grid event roots carry it
+    themselves
+  - Empty-day rows and the grid `+N` block are never targets, and nothing is drawn while
+    `event_tap_action` is anything but `details`, so the default markup is unchanged
+  - Each event button is described by its day's header through `aria-describedby`, so two
+    events with the same title and time on different days are announced apart. The
+    headers (list view's date cell, the shared day header in column and grid) get an id
+    from `dayLabelId` only while events are tap targets, unique within the shadow root
+    because every view draws one header per day; a grid banner names the first day it
+    covers on screen
 
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
@@ -344,6 +483,11 @@ Provides core functionality across the card:
   - Rejects malformed endpoint or text payloads before processing, without discarding
     valid neighboring events; a timed event with a missing or backwards end is kept as an
     instant at its start, so every view draws it the same way
+  - Stamps `_source`, the fields Home Assistant's event dialogs read, as Home Assistant
+    returned them, `status` included. It is taken before `keepWellFormedEvents` repairs an
+    end and carried through splitting and the `groupEventsByDay` projection, so the detail
+    dialog shows the event as stored and Edit never writes a repaired end or display text
+    back
   - Retains the original start of split List/Column events for anniversary counts,
     without changing their per-day countdown or expiry behavior
   - Derives Grid's daily coverage before per-day filters and empty-day omission, without
@@ -432,6 +576,8 @@ graph TD
     Inter --> Actions[Action Handling]
     Inter --> Ripple[Ripple Effects]
     Inter --> Feedback[Visual Feedback]
+    Inter --> Dialogs[Home Assistant Calendar Dialogs]
+    Dialogs --> Changes[Page-Wide Change Announcement]
 
     %% State management
     State --> Lifecycle[Component Lifecycle]
@@ -478,19 +624,61 @@ graph TD
    - A tab returning after five minutes reads the cache, and refetches only if it is due
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
    - Grid view refetches when the local day rolls over
-   - `refreshEvents()` refetches without joining a request already under way, for use
-     after the card itself changed a calendar
+   - `refreshEvents()` refetches without joining a request that may have started before a
+     calendar changed. Given a write's generation, it joins a request started since that
+     write; given none, it joins nothing
 
 ### Interaction Flow
 
-1. **User Input**:
-   - Pointer events (mouse/touch) captured in main component
-   - Hold detection with visual feedback
-   - Keyboard navigation support
+1. **User Input**: one gesture recognizer on `ha-card` decides every press, on the card or
+   on an event:
+   - Pointer-down reads the tappable event, if any, from its `composedPath()`. The card
+     captures the pointer there, which retargets every later event of the gesture, the
+     derived `click` included, to `ha-card`, so this is the one moment the event is known
+   - The recognizer arms when the card has an action of its own or the press landed on an
+     event, so turning event taps on changes nothing about a press anywhere else
+   - Pointer-up: a hold runs `hold_action` wherever it landed, events included; a tap that
+     began on an event opens its details; any other tap runs `tap_action`; a moved pointer
+     runs nothing
+   - A `click` naming an event is assistive technology activating it, and opens its
+     details, unless it is the click a browser derives from the gesture that just ended.
+     That click names no event when the capture retargeted it, or the event
+     the pointer went down on when a browser did not, so the guard (`_derivedClick`)
+     remembers that event's element and, for `TIMING.DERIVED_CLICK_WINDOW`, swallows the
+     first click naming it or naming none. A click on any other event acts. A tap on the
+     card arms the guard for no event, a hold or a drag that began on an event arms it for
+     that event, and a gesture that ran nothing off the events arms nothing
+   - On a focused event, Enter acts on keydown and Space on keyup, without repeats; the
+     card's own Enter and Space handling is unchanged
+   - Events stop no pointer event, so a hold, and Home Assistant's edit-mode drag, work on
+     them as on the rest of the card
+   - While Home Assistant draws the card for editing (`preview` in the card editor,
+     `editMode` on a dashboard) events are not tap targets, and the functions that open
+     the create and detail dialogs refuse, so nothing in a preview can write to a calendar.
+     The add button is still drawn there, to show the layout
 2. **Action Execution**:
-   - `actions.ts` handles tap/hold actions
-   - Expansion toggle, navigation, and service calls
+   - `actions.ts` handles tap, hold and event-tap actions
+   - Expansion toggle, event details, navigation, and service calls
    - Home Assistant service integration
+3. **After a Write**:
+   - A dialog's `updated` callback advances the page's write generation once
+     (`advanceWriteGeneration` in `events.ts`), calls `refreshEvents()` with it, and
+     announces the change with it through `calendar-changes.ts`, so other cards showing the
+     calendar refetch too
+   - Every card refreshing for one write shares one request per calendar set and window: the
+     first to ask starts it and the others join it. Each in-flight request records the
+     generation it started at, and a refresh for a write joins only a request started since
+     that write, so a request already under way at the save, which may carry the old answer,
+     is never joined, and a later write supersedes an earlier one. Only the newest request
+     for a cache key writes the cache, and each card still discards a response its own
+     newer request superseded
+   - The generation lives on `globalThis` under a registered symbol rather than in the
+     module, because a development build and a release on one dashboard hear each other's
+     announcements but each has its own copy of `events.ts`
+   - The callback returns nothing. Home Assistant awaits it before closing the dialog and
+     re-enables Save meanwhile, so returning the refetch would invite a duplicate event
+   - `updateEvents('network')` is not used: it joins a matching request already under way,
+     which may have started before Home Assistant committed the save
 
 ## ⚡ Optimizations
 

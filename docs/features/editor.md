@@ -12,17 +12,17 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
 
-| Panel                    | What it covers                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| **Calendars**            | Which calendars the card shows, and how each one looks                            |
-| **Layout**               | How the card arranges days, and how much room it takes up                         |
-| **Time Range & Content** | Which days the card covers, and what it puts in them                              |
-| **Card & Title**         | The card itself, and the heading above it                                         |
-| **Day Header**           | How each day announces itself, whichever layout it is announced in                |
-| **Events**               | The events themselves, and the lines each one can carry                           |
-| **Separators**           | Every rule the card draws — between days in any view, and in grid across them too |
-| **Weather**              | A forecast beside the day, beside the event, or both                              |
-| **Actions & Refresh**    | What a tap does, and how often the card re-reads its calendars                    |
+| Panel                    | What it covers                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| **Calendars**            | Which calendars the card shows, and how each one looks                                 |
+| **Layout**               | How the card arranges days, and how much room it takes up                              |
+| **Time Range & Content** | Which days the card covers, and what it puts in them                                   |
+| **Card & Title**         | The card itself, and its header: the title and the add-event button                    |
+| **Day Header**           | How each day announces itself, whichever layout it is announced in                     |
+| **Events**               | The events themselves, and the lines each one can carry                                |
+| **Separators**           | Every rule the card draws — between days in any view, and in grid across them too      |
+| **Weather**              | A forecast beside the day, beside the event, or both                                   |
+| **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars |
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
@@ -251,7 +251,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 - **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults are not user edits.
 
 ::: tip Not Everything Is There To Be Found
-The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
+The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, and Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
 ## 📋 Per-Calendar Panels & Actions

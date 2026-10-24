@@ -18,6 +18,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Activation from './activation';
 import { gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
@@ -796,6 +797,8 @@ function cascadeHorizontal(
  * @param language - Language code for translations
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether the block is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes a tappable block
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -807,8 +810,11 @@ function renderTimedEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
 
@@ -851,6 +857,7 @@ function renderTimedEvent(
         'clipped-bottom': placement.clippedBottom,
         'grid-event-raised': horizontal.raised,
         'grid-event-content-limited': horizontal.contentLimited,
+        'event-interactive': tap !== undefined,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -862,6 +869,10 @@ function renderTimedEvent(
           : {}),
         ...presentation.accentTextProperties,
       })}
+      role=${tap ? 'button' : nothing}
+      tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
+      .calendarCardEventTap=${tap}
     >
       <div
         class="grid-event-accessible"
@@ -1006,6 +1017,9 @@ function renderOverflow(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether the banner is a tap target of its own
+ * @param dayLabelId - The id of the header of the first day the banner covers on screen,
+ *   which describes a tappable banner
  * @returns Rendered banner
  */
 function renderBanner(
@@ -1015,8 +1029,11 @@ function renderBanner(
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   return html`
     <div
@@ -1026,6 +1043,7 @@ function renderBanner(
         'past-event': presentation.isPastEvent,
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
+        'event-interactive': tap !== undefined,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
@@ -1033,6 +1051,10 @@ function renderBanner(
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
       })}
+      role=${tap ? 'button' : nothing}
+      tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
+      .calendarCardEventTap=${tap}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>
     </div>
@@ -1145,6 +1167,39 @@ function layoutBanners(
   return placed;
 }
 
+/**
+ * Whether grid view draws at least one event of its own for these days: a banner, or a
+ * timed block inside the visible hours. The `+N` block does not count; it stands for
+ * several events and is not a tap target.
+ *
+ * Grid view draws a subset of what its days hold, so the days alone cannot answer this.
+ * It is built from the steps the renderer itself takes rather than a model of them.
+ * `layoutBanners` always places the first banner it is given, because
+ * `allday_band_max_rows` resolves to at least one row. And every timed event inside the
+ * band belongs to an overlapping group whose first lane is drawn, because both lane
+ * layouts cap at one lane or more; the events past the cap become the `+N` block beside it.
+ *
+ * @param gridDays - The days grid view renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for grid view
+ * @returns True when at least one banner or timed block is drawn
+ */
+export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Config): boolean {
+  if (gridDays.length === 0) return false;
+
+  const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
+  if (layoutBanners(gridDays, maxRows).length > 0) return true;
+
+  const band = Grid.resolveBand(
+    ViewConfig.resolveTimeGridOption(config, 'start_time'),
+    ViewConfig.resolveTimeGridOption(config, 'end_time'),
+  );
+  return gridDays.some((day) =>
+    sortDayEvents(day).timed.some((event) =>
+      Grid.intersectsBand(event.startMin, event.endMin, band),
+    ),
+  );
+}
+
 //-----------------------------------------------------------------------------
 // GRID CONTAINER
 //-----------------------------------------------------------------------------
@@ -1173,6 +1228,8 @@ function layoutBanners(
  * @param overflowStripPct - Width the `+N` strip prefers, as a percentage of a day column,
  *   measured by the host off a rendered label; `Infinity` until then, which leaves the strip
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
+ * @param eventsTappable - Whether each timed block and banner is a tap target of its own; the
+ *   `+N` strip stays inert, since it stands for several events rather than one
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1184,6 +1241,7 @@ export function renderGridGroupedEvents(
   now: Date = new Date(),
   cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
+  eventsTappable = false,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1209,6 +1267,10 @@ export function renderGridGroupedEvents(
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const boundaries = computeDayBoundaries(gridDays);
+  // Each day's header names the day for its tappable events; ids only while there are any.
+  const dayLabelIds = gridDays.map((day) =>
+    eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined,
+  );
 
   const banners = layoutBanners(gridDays, maxRows);
   // The all-day band below takes `grid-template-columns: subgrid` rather than repeating the
@@ -1366,7 +1428,7 @@ export function renderGridGroupedEvents(
       ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
-        renderDayHeader(day, config, language, index, weatherForecasts, hass),
+        renderDayHeader(day, config, language, index, weatherForecasts, hass, dayLabelIds[index]),
       )}
       ${
         bandRows > 0
@@ -1388,7 +1450,16 @@ export function renderGridGroupedEvents(
                 })}
               >
                 ${banners.map((banner) =>
-                  renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
+                  renderBanner(
+                    banner.event,
+                    banner.placement,
+                    banner.row,
+                    config,
+                    language,
+                    hass,
+                    eventsTappable,
+                    dayLabelIds[banner.placement.columnIndex],
+                  ),
                 )}
               </div>
             `
@@ -1410,6 +1481,8 @@ export function renderGridGroupedEvents(
           now,
           weatherForecasts,
           hass,
+          eventsTappable,
+          dayLabelIds[index],
         ),
       )}
       ${separators} ${bandBoundaries}
@@ -1468,6 +1541,7 @@ function renderWeekNumbers(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
+ * @param dayLabelId - The header's id, given only while the day's events are tap targets
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -1477,6 +1551,7 @@ function renderDayHeader(
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
@@ -1501,6 +1576,7 @@ function renderDayHeader(
         weatherContent,
         null,
         hass,
+        dayLabelId,
       )}
     </div>
   `;
@@ -1522,6 +1598,8 @@ function renderDayHeader(
  * @param now - Instant to draw the now line at
  * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
+ * @param eventsTappable - Whether each timed block is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes each tappable block
  * @returns Rendered column
  */
 function renderDayBody(
@@ -1537,6 +1615,8 @@ function renderDayBody(
   now: Date,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday } = Leaves.classifyDay(day.timestamp);
@@ -1653,6 +1733,8 @@ function renderDayBody(
                   language,
                   weatherForecasts,
                   hass,
+                  eventsTappable,
+                  dayLabelId,
                 )
               : nothing;
           },

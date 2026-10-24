@@ -119,6 +119,8 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param separator Optional rule under the header
  * @param hass Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
+ * @param id The header's id, given only while the day's events are tap targets; see
+ *   `dayLabelId` in `activation.ts`
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -129,6 +131,7 @@ export function renderSharedDayHeader(
   weatherContent: TemplateResult | typeof nothing = nothing,
   separator?: { width: string; color: string } | null,
   hass?: Types.Hass | null,
+  id?: string,
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -144,7 +147,7 @@ export function renderSharedDayHeader(
     : nothing;
 
   return html`
-    <div class="column-day-header">
+    <div class="column-day-header" id=${id ?? nothing}>
       <div
         class=${classMap({
           'column-date-content': true,

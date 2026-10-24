@@ -29,10 +29,16 @@ import * as Constants from './config/constants';
 import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
+import * as AddEvent from './interaction/add-event';
+import * as CalendarChanges from './interaction/calendar-changes';
+import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
+import * as Dialogs from './interaction/ha-calendar-dialogs';
+import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
+import type * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
@@ -459,6 +465,36 @@ class CalendarCardPro extends LitElement {
   private _pointerCaptureTarget: Element | null = null;
   private _capturedPointerId: number | null = null;
   private _releasingPointerCapture = false;
+  /**
+   * The event the active gesture's pointer-down landed on, if any. A tap ending this
+   * gesture runs `event_tap_action` for it instead of the card's `tap_action`.
+   */
+  private _pointerTapTarget: Activation.EventTapHit | null = null;
+  /**
+   * The `click` a browser owes the pointer gesture that just ended, and until when.
+   *
+   * A browser follows a pointer gesture with a `click`, and the pointer-up has already
+   * decided the gesture, so that click must not act again. Where the card captured the
+   * pointer the click is aimed at `ha-card` and names no event. Where capture failed, or a
+   * browser does not retarget it, it is aimed at the event the pointer went down on. So
+   * the guard remembers that event's element (null when the gesture began off the events)
+   * and swallows only a click naming that element or naming none, then is spent.
+   *
+   * Assistive technology activates a button with a bare `click` and no pointer events at
+   * all, so every other click is an activation in its own right, a click on a different
+   * event included. A gesture that ran nothing and began off the events arms no guard.
+   * A hold or a drag that began on an event does, for that event alone: the click a browser
+   * that does not retarget sends after it would otherwise open the event the hold or drag
+   * deliberately did not.
+   *
+   * The element rather than its event data, because a hold on an event whose `hold_action`
+   * expands the card regroups the events before the click arrives, which replaces every
+   * row's data and keeps the element. The deadline only bounds a gesture no click follows,
+   * such as a touch long-press, so the guard cannot swallow a later activation.
+   */
+  private _derivedClick: { element: EventTarget | null; deadline: number } | null = null;
+  /** The event a Space keydown armed. A native button activates on Space's keyup. */
+  private _spaceArmedOn: EventTarget | null = null;
 
   /**
    * Whether the card has a tap action to advertise to pointer and keyboard users.
@@ -482,9 +518,149 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Refetch once one of Home Assistant's dialogs reports that it saved a change, and tell
+   * the other cards on the page.
+   *
+   * The write advances the page's write generation once, here, and every card refreshes for
+   * that one number: this card directly, the others through the announcement. So a request
+   * started before the save, which carries the old answer, is never joined, while the cards
+   * refreshing for this save share one request per calendar set and window. Returns
+   * nothing, deliberately: Home Assistant awaits this callback before it closes the dialog;
+   * see `DialogUpdated`.
+   *
+   * @param changed - The calendars the change may have touched
+   */
+  private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
+    const writeGeneration = EventUtils.advanceWriteGeneration();
+    void this.refreshEvents(writeGeneration);
+    CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
+  }
+
+  /**
+   * Refetch when another card announces a change that may have touched a calendar this card
+   * shows: one it names, or after a new event, any this card shows that accepts new events.
+   *
+   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
+   * announced write's generation, as the announcer did, so they can share its request.
+   */
+  private readonly _handleCalendarsChanged = (ev: Event): void => {
+    const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
+    if (!detail || detail.source === this) return;
+
+    const shownIds = this.config.entities.map((entity) =>
+      typeof entity === 'string' ? entity : entity.entity,
+    );
+    if (CalendarChanges.concernsCalendars(detail, shownIds, this.safeHass)) {
+      void this.refreshEvents(detail.writeGeneration);
+    }
+  };
+
+  /**
+   * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
+   * dialog reports an edit or a delete.
+   *
+   * Refuses while the card is being edited. Events are not tap targets then, so nothing
+   * should reach here; this is the last guard for anything that does, since the dialog
+   * offers Edit and Delete.
+   */
+  private readonly _openEventDetails = (
+    event: Types.CalendarEventData,
+    color: string | undefined,
+  ): void => {
+    if (this._isBeingEdited) {
+      Logger.debug('Not opening event details while the card is being edited');
+      return;
+    }
+
+    const calendarId = event._entityId;
+    const entry = EventDetails.buildDetailEntry(event);
+    if (!calendarId || !entry) return;
+
+    void Dialogs.openEventDetailDialog(this, {
+      calendarId,
+      entry,
+      color,
+      ...EventDetails.detailPermissions(this.safeHass, event, entry, {
+        allowEdit: this.config.allow_event_edit !== false,
+        allowDelete: this.config.allow_event_delete !== false,
+        failedEntities: this._failedEntities,
+      }),
+      updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
+    });
+  };
+
+  /**
+   * Whether a tap on an event opens its details, the one thing `event_tap_action` does.
+   *
+   * Every other value, Home Assistant's actions and `expand` included, reads as `none`: the
+   * events stay what they are by default, and a tap on one is a tap on the card. A bare
+   * `event_tap_action:` in YAML is `null`, which reads the same way.
+   */
+  private get _eventTapOpensDetails(): boolean {
+    const eventTapAction: Types.ActionConfig | null | undefined = this.config.event_tap_action;
+    return eventTapAction?.action === 'details';
+  }
+
+  /**
+   * Whether Home Assistant is drawing the card for someone editing a dashboard: in the card
+   * editor's live preview (`preview`), or on a dashboard in edit mode (`editMode`).
+   *
+   * Nothing drawn there may write to a calendar. A press meant to try the configuration or
+   * to arrange the dashboard would otherwise open a dialog whose Save writes a real event.
+   */
+  private get _isBeingEdited(): boolean {
+    return this.preview || this.editMode;
+  }
+
+  /**
+   * Whether events are tap targets: a tap on one opens its details, and the card is not
+   * being edited. While it is, events render and behave as they do with taps off.
+   */
+  private get _eventsActivatable(): boolean {
+    return this._eventTapOpensDetails && !this._isBeingEdited;
+  }
+
+  /**
+   * Runs `event_tap_action` for one tapped event, which opens its details.
+   *
+   * @param target - The tapped event and the accent color it is drawn in
+   */
+  private _runEventTapAction({ event, color }: Activation.EventTapTarget): void {
+    Logger.debug('Executing event tap action');
+    this._openEventDetails(event, color);
+  }
+
+  /**
+   * The tappable event an input event started on, or undefined.
+   *
+   * Read from the composed path rather than the target, because a pointer-down's target is
+   * whatever leaf of the event's content the pointer hit. Undefined whenever events are not
+   * tap targets, so a render still showing the previous configuration cannot act on it.
+   *
+   * @param ev - A pointer or mouse event dispatched to `ha-card` or inside it
+   * @returns The event's element and tap target, or undefined
+   */
+  private _eventTapAt(ev: Event): Activation.EventTapHit | undefined {
+    if (!this._eventsActivatable || typeof ev.composedPath !== 'function') return undefined;
+    return Activation.findEventTap(ev.composedPath(), ev.currentTarget);
+  }
+
+  /**
    * Card width in CSS pixels, as most recently measured.
    */
   private _measuredWidthPx: number | null = null;
+
+  /**
+   * Whether the card is wide enough for its toolbar controls to carry text labels.
+   *
+   * Set from the observer's own callback rather than after the settle delay the view fit
+   * waits for: the browser delivers that callback after layout and before paint, and the
+   * update it requests runs in the microtask straight after, so the first frame painted
+   * already has the right button. The settle delay would paint the wrong one first.
+   * `false` until a width arrives, so a card that is never measured draws the icon, which
+   * fits at any width.
+   */
+  private _toolbarLabeled = false;
 
   private _effectiveView: Types.EffectiveView = 'list';
 
@@ -778,6 +954,8 @@ class CalendarCardPro extends LitElement {
 
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
 
+    window.addEventListener(CalendarChanges.CALENDARS_CHANGED_EVENT, this._handleCalendarsChanged);
+
     this._syncEntityColors();
 
     this._startWidthObserver();
@@ -822,26 +1000,19 @@ class CalendarCardPro extends LitElement {
       this._initialLoadRetryId = undefined;
     }
 
-    if (this._holdTimer) {
-      clearTimeout(this._holdTimer);
-      this._holdTimer = null;
-    }
-
-    if (this._holdIndicator) {
-      Feedback.removeHoldIndicator(this._holdIndicator);
-      this._holdIndicator = null;
-    }
-
-    this._releaseActivePointerCapture();
-    this._activePointerId = null;
-    this._pointerStart = null;
-    this._pointerMoved = false;
-    this._holdTriggered = false;
+    this._endGesture();
+    this._derivedClick = null;
+    this._spaceArmedOn = null;
 
     this._stopNowLineTimer();
     this._stopMidnightTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+
+    window.removeEventListener(
+      CalendarChanges.CALENDARS_CHANGED_EVENT,
+      this._handleCalendarsChanged,
+    );
 
     EntityColors.releaseEntityColors(this._onEntityColorsChanged);
 
@@ -864,6 +1035,7 @@ class CalendarCardPro extends LitElement {
       const width = entries[0]?.contentRect?.width;
 
       if (typeof width === 'number' && width > 0) {
+        this._syncToolbarLabels(width);
         this._scheduleWidthMeasurement(width);
       }
 
@@ -874,6 +1046,25 @@ class CalendarCardPro extends LitElement {
     });
 
     this._resizeObserver.observe(this);
+  }
+
+  /**
+   * Labels the toolbar's controls when the card is wide enough, at once.
+   *
+   * No hysteresis: a dashboard sizes the card, not the card's content, so the label cannot
+   * feed back into the width it was chosen from, and there is no loop for a band to damp.
+   * Re-renders only when the answer changes and the card asks for a toolbar control.
+   *
+   * @param widthPx - Measured card width in CSS pixels
+   */
+  private _syncToolbarLabels(widthPx: number): void {
+    const labeled = widthPx >= Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+    if (labeled === this._toolbarLabeled) return;
+
+    this._toolbarLabeled = labeled;
+    if (this.config.show_add_event === true) {
+      this.requestUpdate();
+    }
   }
 
   /**
@@ -2338,12 +2529,19 @@ class CalendarCardPro extends LitElement {
    * with `isPrimary === false`. Accepting either armed or transferred the hold
    * to an input that was not the gesture the user began. Touch and pen primary
    * contacts report `button === 0`; unit stubs may omit either field.
+   *
+   * This is also the one moment the tapped event is known. The capture below retargets
+   * every later event of the gesture, the click included, to `ha-card`, so the event the
+   * pointer landed on is read from this pointer-down's path and held until pointer-up. A
+   * card with no action of its own arms only for a pointer that landed on an event, so
+   * turning event taps on changes nothing about a press anywhere else.
    */
   private _handlePointerDown(ev: PointerEvent) {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
-    if (!this._hasCardAction) {
+    const tapTarget = this._eventTapAt(ev);
+    if (!this._hasCardAction && !tapTarget) {
       return;
     }
     if (ev.isPrimary === false || this._activePointerId !== null) {
@@ -2354,6 +2552,9 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = { x: ev.clientX, y: ev.clientY };
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = tapTarget ?? null;
+    // A new gesture: whatever click the last one owed has had its chance.
+    this._derivedClick = null;
     this._captureActivePointer(ev);
 
     // Defensive cleanup for an indicator left by an externally interrupted prior
@@ -2446,6 +2647,9 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
+    // A hold is the card's wherever it lands, an event included; only a tap is the event's.
+    const tapTarget = this._pointerTapTarget;
+    let ranCardTap = false;
     if (
       !this._pointerMoved &&
       this._holdTriggered &&
@@ -2454,6 +2658,8 @@ class CalendarCardPro extends LitElement {
     ) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
+    } else if (!this._pointerMoved && !this._holdTriggered && tapTarget) {
+      this._runEventTapAction(tapTarget.target);
     } else if (
       !this._pointerMoved &&
       !this._holdTriggered &&
@@ -2462,18 +2668,20 @@ class CalendarCardPro extends LitElement {
     ) {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
+      ranCardTap = true;
     }
 
-    this._releaseActivePointerCapture();
-    this._activePointerId = null;
-    this._pointerStart = null;
-    this._pointerMoved = false;
-    this._holdTriggered = false;
+    // The click a browser derives from this gesture is not a second activation. Guarded for
+    // the event the gesture began on, whatever it was, or for no event after a tap on the
+    // card; a gesture that ran nothing and began off the events owes nothing that could
+    // act. See `_derivedClick`.
+    const owedBy = tapTarget ? tapTarget.element : ranCardTap ? null : undefined;
+    this._derivedClick =
+      owedBy === undefined
+        ? null
+        : { element: owedBy, deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW };
 
-    if (this._holdIndicator) {
-      Feedback.removeHoldIndicator(this._holdIndicator);
-      this._holdIndicator = null;
-    }
+    this._endGesture();
   }
 
   /**
@@ -2484,6 +2692,17 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    this._endGesture();
+  }
+
+  /**
+   * Forget the active gesture: its hold timer, its pointer capture, its bookkeeping and its
+   * hold indicator.
+   *
+   * Leaves `_derivedClick` alone, which outlives the gesture on purpose: pointer-up sets it
+   * just before calling this, for the click that follows.
+   */
+  private _endGesture(): void {
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
@@ -2494,6 +2713,7 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = null;
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._pointerTapTarget = null;
 
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
@@ -2569,6 +2789,7 @@ class CalendarCardPro extends LitElement {
    * which is why the pin below dispatches a real bubbling event instead.
    */
   private _handleKeyDown(ev: KeyboardEvent) {
+    if (this._handleEventKeyDown(ev)) return;
     if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
 
     if (ev.key === 'Enter' || ev.key === ' ') {
@@ -2579,6 +2800,82 @@ class CalendarCardPro extends LitElement {
       ev.preventDefault();
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
+  }
+
+  /**
+   * Enter and Space on a focused event, taken as a native button takes them: Enter on its
+   * keydown, Space on its keyup, and only if focus is still on the event Space went down
+   * on. Neither repeats while the key is held, and Space never scrolls the card.
+   *
+   * Only when the event itself is the key's target. An event has no focusable content, so
+   * anything else holding focus inside the card is not an event and keeps its keys.
+   *
+   * @param ev - A keydown bubbling to `ha-card`
+   * @returns True when the key was the focused event's, and was consumed
+   */
+  private _handleEventKeyDown(ev: KeyboardEvent): boolean {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return false;
+    const target = this._eventsActivatable ? Activation.tapTargetOn(ev.target) : undefined;
+    if (!target) return false;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.repeat) return true;
+
+    if (ev.key === 'Enter') {
+      this._runEventTapAction(target);
+    } else {
+      this._spaceArmedOn = ev.target;
+    }
+    return true;
+  }
+
+  /**
+   * Space's keyup on the event its keydown armed activates it.
+   *
+   * @param ev - A keyup bubbling to `ha-card`
+   */
+  private _handleKeyUp(ev: KeyboardEvent) {
+    if (ev.key !== ' ') return;
+    const armed = this._spaceArmedOn;
+    this._spaceArmedOn = null;
+
+    const target = this._eventsActivatable ? Activation.tapTargetOn(ev.target) : undefined;
+    if (!target || armed === null || armed !== ev.target) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    this._runEventTapAction(target);
+  }
+
+  /**
+   * A click on an event: assistive technology's way of activating it, or the echo of a
+   * pointer gesture the pointer-up already decided.
+   *
+   * Assistive technology activates a `role="button"` with a bare `click` and no pointer
+   * events, so a click that names an event runs `event_tap_action` for it. Unless it is the
+   * click the pointer gesture that just ended owes, which names that gesture's event or no
+   * event at all; see `_derivedClick`. A click naming another event is not that click: it
+   * acts, and leaves the guard for the one still owed. Either way a click the event owns
+   * stops here, as a click on a native button would be the button's and not its container's.
+   *
+   * @param ev - A click bubbling to `ha-card`
+   */
+  private _handleClick(ev: MouseEvent) {
+    const hit = this._eventTapAt(ev);
+    const owed = this._derivedClick;
+    if (owed && Date.now() > owed.deadline) this._derivedClick = null;
+
+    const element = hit ? hit.element : null;
+    if (this._derivedClick && (element === null || element === this._derivedClick.element)) {
+      this._derivedClick = null;
+      if (hit) ev.stopPropagation();
+      return;
+    }
+
+    if (!hit) return;
+    ev.stopPropagation();
+    this._runEventTapAction(hit.target);
   }
 
   //-----------------------------------------------------------------------------
@@ -2686,16 +2983,21 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Fetch fresh events now, ignoring the cache and any request already under way.
+   * Fetch fresh events now, ignoring the cache and any request that may have started before
+   * a calendar changed.
    *
-   * For the moment after the card itself changed a calendar: a request that started
-   * before the change may already be carrying the old answer, so this one never joins it,
-   * and only the newest response may write the cache.
+   * For the moment after a calendar was written to: a request that started before the
+   * change may already be carrying the old answer, so this one never joins it, and only the
+   * newest response may write the cache. Called with no argument it joins no request at all.
+   * Given a write's generation (`EventUtils.advanceWriteGeneration`), it joins a request
+   * started since that write, which is how every card refreshing for one write shares one
+   * request per calendar set and window.
    *
+   * @param afterWrite - The generation of the write this refresh is for
    * @returns Resolves once the new events are committed
    */
-  refreshEvents(): Promise<void> {
-    return this.updateEvents('reload');
+  refreshEvents(afterWrite?: number): Promise<void> {
+    return this.updateEvents('reload', afterWrite);
   }
 
   /**
@@ -2707,17 +3009,20 @@ class CalendarCardPro extends LitElement {
    * | `cache`     | only if not due                | nothing fresh is cached                        |
    * | `reprocess` | anything up to 24 h old        | nothing is cached at all                       |
    * | `network`   | no                             | always, joining a matching request under way   |
-   * | `reload`    | no                             | always, never joining an older request         |
+   * | `reload`    | no                             | always, never joining a request from before a write |
    *
    * Every mode but `reload` joins a matching request already in flight rather than
    * stopping at the cache. A later call supersedes an earlier one, so a cache read that
-   * stopped there would discard a fetch another call had just started.
+   * stopped there would discard a fetch another call had just started. A `reload` given a
+   * write's generation joins only a request started since that write; without one it joins
+   * none (see `refreshEvents`).
    *
    * A boolean is still accepted: `true` is `network`, `false` is `cache`.
    *
    * @param mode How to use the cache and the network
+   * @param afterWrite For `reload`, the generation of the write it refreshes for
    */
-  async updateEvents(mode: LoadMode | boolean = 'cache'): Promise<void> {
+  async updateEvents(mode: LoadMode | boolean = 'cache', afterWrite?: number): Promise<void> {
     const load: LoadMode = mode === true ? 'network' : mode === false ? 'cache' : mode;
     Logger.debug(`Updating events (${load})`);
 
@@ -2752,7 +3057,7 @@ class CalendarCardPro extends LitElement {
           clearTimeout(this._initialLoadRetryId);
         }
         this._initialLoadRetryId = window.setTimeout(() => {
-          this.updateEvents(load);
+          this.updateEvents(load, afterWrite);
         }, 1500);
       } else {
         // Nothing to load, and so nothing failing either.
@@ -2827,6 +3132,7 @@ class CalendarCardPro extends LitElement {
         instanceId,
         load === 'reload' ? 'reload' : 'network',
         this._failureCountHint,
+        afterWrite,
       );
 
       if (isSuperseded()) {
@@ -3001,6 +3307,8 @@ class CalendarCardPro extends LitElement {
 
     const handlers = {
       keyDown: (ev: KeyboardEvent) => this._handleKeyDown(ev),
+      keyUp: (ev: KeyboardEvent) => this._handleKeyUp(ev),
+      click: (ev: MouseEvent) => this._handleClick(ev),
       pointerDown: (ev: PointerEvent) => this._handlePointerDown(ev),
       pointerMove: (ev: PointerEvent) => this._handlePointerMove(ev),
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
@@ -3010,6 +3318,9 @@ class CalendarCardPro extends LitElement {
     };
 
     let content: TemplateResult;
+    // Whether the content holds at least one event that is a tap target. Not while loading,
+    // and not for an error or for days holding nothing but empty-day placeholders.
+    let drawsEventTarget = false;
 
     // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
@@ -3020,10 +3331,14 @@ class CalendarCardPro extends LitElement {
       return days.slice(start, start + this._columnCount);
     };
 
+    // The days a view draws: column and grid shed days to fit the width, list never does.
+    const shownDays = (days: Types.EventsByDay[]): Types.EventsByDay[] =>
+      this.effectiveView === 'list' ? days : visibleDays(days);
+
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
         return Render.renderGridGroupedEvents(
-          visibleDays(days),
+          days,
           this.effectiveConfig,
           this.effectiveLanguage,
           this.weatherForecasts,
@@ -3031,16 +3346,18 @@ class CalendarCardPro extends LitElement {
           undefined,
           this._cascadeThresholdMin,
           this._overflowStripPct,
+          this._eventsActivatable,
         );
       }
 
       return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
-            visibleDays(days),
+            days,
             this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
+            this._eventsActivatable,
           )
         : Render.renderGroupedEvents(
             days,
@@ -3048,6 +3365,7 @@ class CalendarCardPro extends LitElement {
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
+            this._eventsActivatable,
           );
     };
 
@@ -3065,8 +3383,14 @@ class CalendarCardPro extends LitElement {
       // branch would pass. Column and grid views both default `show_empty_days` on, so
       // an eventless card still fills from here — with empty day columns in column view
       // and a full empty time axis in grid.
-      content = renderDays(this.groupedEvents);
+      const days = shownDays(this.groupedEvents);
+      content = renderDays(days);
+      drawsEventTarget =
+        this._eventsActivatable &&
+        Render.drawsEvent(this.effectiveView, days, this.effectiveConfig);
     }
+
+    const addEvent = this._addEventButton();
 
     return Render.renderMainCardStructure(
       customStyles,
@@ -3079,7 +3403,31 @@ class CalendarCardPro extends LitElement {
       this._hasTapAction,
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
+      { labeled: this._toolbarLabeled, addEvent },
+      this._hostsControls(addEvent, drawsEventTarget),
     );
+  }
+
+  /**
+   * Whether this render draws interactive children of the card's own, so `ha-card` must not
+   * present itself as a button around them.
+   *
+   * The one place that answers it, so every control that makes the card a host joins here:
+   * the add-event button, and the events while they are tap targets. Answered from what
+   * this render draws rather than from the configuration: `event_tap_action: details` on a
+   * card showing only "No events", an error or the loading line hosts nothing, and stays a
+   * button. Either way the card keeps its tab stop while it has a tap action; only the
+   * button role goes.
+   *
+   * @param addEvent - The add-event button this render draws, if any
+   * @param drawsEventTarget - Whether this render draws at least one event as a tap target
+   * @returns True while the card hosts at least one control
+   */
+  private _hostsControls(
+    addEvent: Toolbar.AddEventButton | undefined,
+    drawsEventTarget: boolean,
+  ): boolean {
+    return addEvent !== undefined || drawsEventTarget;
   }
 
   /**
@@ -3104,6 +3452,71 @@ class CalendarCardPro extends LitElement {
     });
 
     return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
+  }
+
+  /**
+   * The date a new event starts on in Home Assistant's create dialog.
+   *
+   * Taken when the button is pressed rather than when it was drawn, so a card left open
+   * past midnight still offers the right day.
+   *
+   * @returns The dialog's `selectedDate`
+   */
+  private _newEventDate(): Date {
+    const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
+      this.config.first_day_of_week,
+      this.hass?.locale,
+    );
+    const { start } = EventUtils.getTimeWindow(
+      this.config.days_to_show,
+      this.config.start_date,
+      firstDayOfWeek,
+    );
+    return AddEvent.newEventDate(start, this.config.days_to_show);
+  }
+
+  /**
+   * The add-event button, when the card asks for one and has somewhere to write.
+   *
+   * @returns Button description for the wrapper, or undefined for no button
+   */
+  private _addEventButton(): Toolbar.AddEventButton | undefined {
+    if (this.config.show_add_event !== true) return undefined;
+
+    const writable = AddEvent.writableCalendarIds(
+      this.safeHass,
+      this.config.entities,
+      this._failedEntities,
+    );
+    if (writable.length === 0) return undefined;
+
+    return {
+      label: AddEvent.addEventLabel(this.safeHass),
+      onActivate: () => this._openCreateEventDialog(writable[0]),
+    };
+  }
+
+  /**
+   * Opens Home Assistant's create-event dialog, and refetches once it reports a new event.
+   *
+   * Refuses while the card is being edited: the button is still drawn there, so the
+   * preview shows the layout the dashboard will have, but a press on it opens nothing.
+   *
+   * @param calendarId - The calendar the dialog preselects
+   */
+  private _openCreateEventDialog(calendarId: string): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not opening the new-event dialog while the card is being edited');
+      return;
+    }
+
+    void Dialogs.openCreateEventDialog(this, {
+      calendarId,
+      selectedDate: this._newEventDate(),
+      // Home Assistant's create dialog lets the user pick any calendar that accepts new
+      // events, so every card showing one refreshes, and no card showing only read-only ones.
+      updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
+    });
   }
 }
 

@@ -445,6 +445,10 @@ function probeConfigs(defaults, views) {
     // this the checker reports `allday_badge_color` as referenced by no panel -- correctly,
     // from what it can see. Any color will do; the mode is read off the value's shape.
     { allday_badge: 'time', allday_badge_color: '#b5651d' },
+    // An action object, so no boolean sweep reaches it either. The two `allow_event_*`
+    // switches are built only while an event tap opens the event dialog, and without this
+    // the checker reports both, and their helpers, as referenced by no panel.
+    { event_tap_action: { action: 'details' } },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
       weather: {

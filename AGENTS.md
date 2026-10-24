@@ -1111,6 +1111,11 @@ download would have to live outside the release assets entirely.
 - `hacs-validate.yml` — HACS validation on the same PR branches, plus `main` and nightly.
   Everything it validates is decided before a merge, so running it only on `main` meant a
   packaging mistake could only be found once `main` already carried it.
+  **A pull request from a fork is validated as this repository at `refs/pull/<n>/head`**,
+  not as the fork. `hacs/action` validates a pull request's head repository, and a fork has
+  no releases, so until v5 every outside contribution failed with _"Repository structure …
+  is not compliant"_ whatever it changed. The fork path only runs for a fork; to exercise it
+  without one, `gh workflow run hacs-validate.yml --ref <branch> -f pull_request=<n>`.
 - `release.yml` — tag-triggered draft release.
 - `docs-preview.yml` — manual only (`workflow_dispatch`); publishes the docs preview
   described under _Docs site deployment_. Its Cloudflare credentials are secrets on the

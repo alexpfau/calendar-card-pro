@@ -163,13 +163,15 @@ the card-wide settings for that one calendar:
 
 ## 🏷️ Header
 
-| Option            | Type   | Default                           | Description                                                                                                                                                            |
-| ----------------- | ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`           | string | -                                 | Card title. Accepts a [Home Assistant template](/features/title-templates) — any value containing `{{` or `{%` is rendered by Home Assistant and updates automatically |
-| `title_font_size` | string | `--calendar-card-font-size-title` | Card title font size, as a CSS font size such as `20px`, `1.5em`, `150%` or `large`. A negative size, misspelled unit or word that is not a font size is ignored       |
-| `title_color`     | string | `--calendar-card-color-title`     | Card title font color                                                                                                                                                  |
+| Option            | Type    | Default                           | Description                                                                                                                                                                                                                                    |
+| ----------------- | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`           | string  | -                                 | Card title. Accepts a [Home Assistant template](/features/title-templates) — any value containing `{{` or `{%` is rendered by Home Assistant and updates automatically                                                                         |
+| `title_font_size` | string  | `--calendar-card-font-size-title` | Card title font size, as a CSS font size such as `20px`, `1.5em`, `150%` or `large`. A negative size, misspelled unit or word that is not a font size is ignored                                                                               |
+| `title_color`     | string  | `--calendar-card-color-title`     | Card title font color                                                                                                                                                                                                                          |
+| `show_add_event`  | boolean | `false`                           | Show a button in the header that opens Home Assistant's new-event dialog, at the end of the title's row or in a slim row of its own without a title. Drawn only when one of the card's calendars accepts new events and is not failing to load |
 
 **→ [Dynamic titles with templates](/features/title-templates)** — today's date, a sensor's state, or anything else a Home Assistant template can render.
+**→ [Add Event Button](/features/actions#add-event-button)** — where the button sits, which calendar it preselects, and when it appears.
 
 ## 📏 Layout & Spacing
 
@@ -330,19 +332,28 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option        | Type   | Default | Description                  |
-| ------------- | ------ | ------- | ---------------------------- |
-| `tap_action`  | object | `none`  | Action when tapping the card |
-| `hold_action` | object | `none`  | Action when holding the card |
+| Option               | Type    | Default | Description                                                                                                                                                                 |
+| -------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card                                                                                                                                                |
+| `hold_action`        | object  | `none`  | Action when holding the card, an event included                                                                                                                             |
+| `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action` |
+| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it                                                    |
+| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it                                                  |
 
 ### Action Parameters
 
-`tap_action` and `hold_action` take an object whose `action` key selects the
-behavior. The remaining keys depend on which action you chose:
+`tap_action`, `hold_action` and `event_tap_action` take an object whose `action` key
+selects the behavior. For `tap_action` and `hold_action`, the remaining keys depend on which
+action you chose:
 
-`action` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
+`action` · `entity` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 
-**→ [Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
+The card's own `expand` takes no further keys. `event_tap_action` takes `action` alone:
+`details`, or `none`, its default.
+
+**→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
+**→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap on an event opens, and where on the card it counts.
+**→ [Editing & Deleting Events](/features/actions#editing-deleting-events)** — which calendars allow Edit and Delete, and when the card leaves them out.
 
 ## ⚡ Cache & Refresh
 

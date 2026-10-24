@@ -183,6 +183,21 @@ export function accentColorMode(config: Readonly<Types.Config>): 'custom' | 'hom
 }
 
 /**
+ * Derives what a tap on an event does, as the editor's two-choice dropdown shows it.
+ *
+ * `details` is the one value the card acts on, and it reads every other value as `none`:
+ * Home Assistant's actions, `expand`, and a bare `event_tap_action:` in YAML, which is
+ * `null`. So does this, or the dropdown would claim a choice it does not offer.
+ *
+ * @param config - Current configuration
+ * @returns Which of the two choices applies
+ */
+export function eventTapActionMode(config: Readonly<Types.Config>): 'none' | 'details' {
+  const eventTapAction: Types.ActionConfig | null | undefined = config.event_tap_action;
+  return eventTapAction?.action === 'details' ? 'details' : 'none';
+}
+
+/**
  * Reads the entity id out of an entry that may be a bare string or a config object.
  *
  * @param entry - One member of the `entities` array
@@ -559,6 +574,24 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         ? { changes: { today_indicator: text }, pending: { today_indicator_custom: null } }
         : { changes: {}, pending: { today_indicator_custom: text } };
     },
+  },
+
+  /**
+   * The event tap dropdown, two choices over an action object.
+   *
+   * Show Event Details stores `{ action: details }` whole, dropping anything an action the
+   * card no longer runs left beside it. Nothing removes the key rather than storing
+   * `{ action: none }`, the default, which would be a line of YAML that says nothing. Any
+   * other stored action derives as Nothing, so the dropdown never claims a choice it does
+   * not offer, and a write from it never stores one either.
+   */
+  event_tap_action_mode: {
+    configKeys: ['event_tap_action'],
+    derive: (config) => eventTapActionMode(config),
+    apply: (value) =>
+      value === 'details'
+        ? { changes: { event_tap_action: { action: 'details' } } }
+        : { changes: { event_tap_action: undefined } },
   },
 
   calendars: {

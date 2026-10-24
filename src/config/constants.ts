@@ -57,6 +57,17 @@ export const LOGGING = {
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 
+  /**
+   * How long after a pointer gesture ends the `click` it owes is still expected.
+   *
+   * Browsers dispatch that click straight after the pointer-up, so the window only bounds a
+   * gesture no click follows. Generous, because a wall tablet can be slow to get to the
+   * click, and an activation by assistive technology of the very event a pointer gesture
+   * just ended on, this soon after it, is not a thing a person does. A click on any other
+   * event is never held back; see `_derivedClick` in the card.
+   */
+  DERIVED_CLICK_WINDOW: 1000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
@@ -107,6 +118,12 @@ export const UI = {
    * Pointer travel that still counts as a tap rather than a scroll or drag.
    */
   POINTER_MOVE_TOLERANCE: 8,
+
+  /**
+   * Card width, in CSS pixels, from which the header toolbar's controls carry a text label
+   * beside their icon. Narrower cards draw the icon alone, named for assistive technology.
+   */
+  TOOLBAR_LABEL_MIN_WIDTH: 480,
 
   SEPARATOR_SPACING: {
     WEEK: 1,

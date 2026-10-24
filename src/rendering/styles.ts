@@ -287,6 +287,108 @@ export const cardStyles = css`
     line-height: 1.33;
   }
 
+  /* ===== HEADER TOOLBAR ===== */
+
+  /* Drawn only while it holds a control; without one none of these rules match and the
+     header is exactly the floated title above. With one, the header becomes a row, so a
+     title too long for one line wraps beside the controls instead of pushing them below
+     itself, which is what a float placed after the title would do. The title's own rule
+     is untouched: a flex item simply ignores its float. */
+  .header-container.has-toolbar {
+    display: flex;
+    align-items: flex-start;
+    column-gap: 8px;
+  }
+
+  /* No inline-end margin anywhere in the toolbar, so its end edge is the content box's in
+     every view: list pads the card 16px on that side, column and grid 16px on both. */
+  .card-toolbar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    margin-inline-start: auto;
+  }
+
+  /* Exactly one line of the title tall, so the controls center on its first line however
+     many it wraps to. The font size and the 1.33 line height are the title's own, from
+     .card-header above: in em, a keyword or percentage title size works as well as a
+     length. The controls reset the font size for themselves. */
+  .card-toolbar.toolbar-in-title-row {
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    height: 1.33em;
+  }
+
+  /* About 40px with its gap, so an untitled card does not gain a title's worth of height
+     for one button. */
+  .card-toolbar.toolbar-own-row {
+    margin-bottom: 4px;
+  }
+
+  .toolbar-trailing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* A native button dressed from Home Assistant's theme: primary-colored text and icon in
+     a pill outlined with the same color, the shape of Home Assistant's own outlined
+     buttons. 36px tall, which is the hit target and leaves the slim row at 40px. */
+  .toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-sizing: border-box;
+    height: 36px;
+    min-width: 36px;
+    margin: 0;
+    padding: 0 14px 0 10px;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+    border-radius: 18px;
+    background: transparent;
+    color: var(--primary-color);
+    font-family: inherit;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .toolbar-button.icon-only {
+    width: 36px;
+    padding: 0;
+  }
+
+  .toolbar-button-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  /* Hover only where there is a real pointer: on touch a hover state sticks after the
+     tap. Pressed applies everywhere, and only for as long as the press lasts. */
+  @media (hover: hover) {
+    .toolbar-button:hover {
+      background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    }
+  }
+
+  .toolbar-button:active {
+    background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  }
+
+  .toolbar-button:focus {
+    outline: none;
+  }
+
+  .toolbar-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
 
   /* No height of its own. It used to declare 1.5x the week-number font size, which is what the
@@ -1933,6 +2035,122 @@ export const cardStyles = css`
   .fetch-error-text {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  /* ===== TAPPABLE EVENTS =====
+   * With event_tap_action set to details, each event is a button that opens Home
+   * Assistant's event-detail dialog. The event's own background is an inline style, so the
+   * hover wash is an inset shadow drawn over it rather than a second background, and it
+   * mixes the event's text color so it reads on light and dark themes alike. Hover
+   * only where there is a real pointer: on touch, a hover state sticks after the tap.
+   * The pressed wash is not gated, and is a little stronger so it reads over the hover one:
+   * on touch it is the only feedback a tap on an event gets, the card's ripple being muted
+   * over events (below). */
+  .event-interactive {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .event-interactive:hover {
+      box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 6%, transparent);
+    }
+  }
+
+  .event-interactive:active {
+    box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .event-interactive:focus {
+    outline: none;
+  }
+
+  .event-interactive:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* A tap on an event is the event's, so the card's ripple must not flash as though the card
+   * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
+   * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than
+   * kept from seeing them: while the pointer is over an event, a press is on one, or one has
+   * keyboard focus (assistive technology clicks the focused event, and the ripple answers a
+   * click with no press before it), its hover and press opacities are zero and the event's
+   * own wash answers instead. A hold on an event runs the card's hold action without the
+   * ripple; the hold indicator is the feedback for it. Where :has is not supported the rule
+   * is dropped and the ripple flashes as it did before. */
+  ha-card:has(.event-interactive:hover, .event-interactive:active, .event-interactive:focus-visible)
+    > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
+  /* List view draws an event in a table cell, and a cell may not be a button, so the button
+   * is a block inside the cell, around the event's content. Layout stays the cell's: the
+   * button takes no padding and no size of its own. But the cell can be taller than its
+   * content (a day's date column spans every row and can outgrow a short event, which is
+   * then centered in a stretched cell), and every part of the colored block has to answer
+   * to a tap, wash on hover and show the focus ring. So the button's two pseudo-elements
+   * span the whole cell instead, accent stripe included: the cell is their containing block.
+   *
+   * ::before is the hit area and the hover wash. It sits at z-index -1, which the cell's
+   * own stacking context keeps above the cell's background and below its text, as the
+   * inset shadow drawn on the column and grid roots is. A tap on the cell's empty part hits
+   * it, and a pointer event on a pseudo-element is its button's, so the recognizer finds
+   * the event in the path either way. ::after is the focus ring, above the text like an
+   * outline and transparent to the pointer. The button's own wash and ring are switched off
+   * so neither is drawn twice. */
+  .event-tappable {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .event-button,
+  .event-button::before,
+  .event-button::after {
+    border-radius: inherit;
+  }
+
+  .event-button::before,
+  .event-button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    inset-inline-start: calc(-1 * var(--calendar-card-line-width-vertical));
+  }
+
+  .event-button::before {
+    z-index: -1;
+  }
+
+  .event-button::after {
+    pointer-events: none;
+  }
+
+  @media (hover: hover) {
+    .event-button.event-interactive:hover {
+      box-shadow: none;
+    }
+
+    .event-button:hover::before {
+      background-color: color-mix(in srgb, currentColor 6%, transparent);
+    }
+  }
+
+  .event-button.event-interactive:active {
+    box-shadow: none;
+  }
+
+  .event-button:active::before {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .event-button.event-interactive:focus-visible {
+    outline: none;
+  }
+
+  .event-button:focus-visible::after {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
   }
 
   /* ===== CORNER LOADING INDICATOR ===== */

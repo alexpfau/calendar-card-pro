@@ -83,6 +83,7 @@ const CARD_LEVEL_REASONS = {
     'background_color',
     'accent_color',
     'hide_when_empty',
+    'show_add_event',
   ],
 
   /**
@@ -94,8 +95,19 @@ const CARD_LEVEL_REASONS = {
   /** Editor-maintained marker for the persisted configuration shape. */
   metadata: ['config_version'],
 
-  /** Stored whole rather than option by option; reconciled against `ATOMIC_KEYS` below. */
-  action: ['tap_action', 'hold_action'],
+  /**
+   * What touching the card does. Stored whole rather than option by option; reconciled
+   * against `ATOMIC_KEYS` below. A tap on an event means the same thing whichever view drew
+   * the event under the finger, as a tap on the card does.
+   */
+  action: ['tap_action', 'hold_action', 'event_tap_action'],
+
+  /**
+   * What Home Assistant's event dialog may offer once an event is open. The dialog is the
+   * same whichever view opened it, and a calendar that can be edited from one view but not
+   * another would be a permission depending on the layout, which nobody could predict.
+   */
+  'dialog-permission': ['allow_event_edit', 'allow_event_delete'],
 
   /**
    * The date column's ink. Every view draws a date, and none of them has ever offered to

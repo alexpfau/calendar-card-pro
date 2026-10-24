@@ -4,9 +4,11 @@
 
 import { mdiGestureTapButton } from '@mdi/js';
 
+import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
-import { bool, number } from './common';
+import * as Synthetic from '../synthetic';
+import { bool, number, select } from './common';
 
 export const ACTIONS_ICON = mdiGestureTapButton;
 
@@ -43,6 +45,17 @@ const HA_ACTIONS = [
 export const ACTION_OPTIONS: ReadonlyArray<string> = [...CARD_ACTIONS, ...HA_ACTIONS];
 
 /**
+ * What the event tap dropdown offers, the default first.
+ *
+ * A plain dropdown rather than Home Assistant's action selector, because a tap on an event
+ * does one thing of its own and the card reads every other action as `none`. That
+ * selector would offer Home Assistant's whole list, none of it about an event, and a
+ * "Default" entry that clears the action and so shows as Nothing straight after. Nothing
+ * is `none` and stores nothing; see `event_tap_action_mode` in `SYNTHETIC_FIELDS`.
+ */
+export const EVENT_TAP_CHOICES = ['none', 'details'] as const;
+
+/**
  * String key naming one card-specific action in the editor's own table.
  *
  * Home Assistant labels its own actions, so only the card's need a string here — which is
@@ -59,14 +72,43 @@ export function cardActionLabelKey(action: string): string {
 /**
  * Builds the Actions & Refresh panel schema.
  *
- * @param _ctx - Schema context, unused
+ * The card's two gestures lead, as they always have, and the event's own tap follows the
+ * hold rather than the tap it is named after: the hold still runs on an event, so all
+ * three describe what a finger on the card does, and the event tap is the one that only
+ * fires over part of it.
+ *
+ * No sub-headings, although "card taps" against "event taps" is the obvious split. The
+ * hold belongs to both, so a heading over either half would misfile it — and a heading
+ * over the actions forces one over the refresh pair too, where `Refresh` above `Refresh
+ * Interval` and `Refresh On Navigation` is a stutter. The panel title already names both
+ * halves, and the event tap's own label already sets it apart from the card's two.
+ *
+ * @param language - Effective language code
+ * @param opensDetails - Whether a tap on an event opens Home Assistant's event dialog,
+ *   which is what the two `allow_event_*` switches depend on
  * @returns The panel's schema
  */
-export function buildActionsSchema(_ctx: SchemaCtx): HaFormSchema[] {
-  return [
+const actionsSchema = Helpers.memoizeLast(
+  (language: string, opensDetails: boolean): HaFormSchema[] => [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+    select(language, 'event_tap_action_mode', EVENT_TAP_CHOICES),
+    // Dependent on purpose: they narrow what the event dialog offers, and without details
+    // there is no dialog, so always-visible switches would be inert. Directly under the
+    // dropdown that reveals them, which is a single field rather than a row, so nothing can
+    // come between the two on a narrow viewport.
+    ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
-  ];
+  ],
+);
+
+/**
+ * Builds the Actions & Refresh panel schema for a context.
+ *
+ * @param ctx - Schema context
+ * @returns The panel's schema
+ */
+export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
+  return actionsSchema(ctx.language, Synthetic.eventTapActionMode(ctx.config) === 'details');
 }

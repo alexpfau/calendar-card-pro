@@ -26,6 +26,27 @@ function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): strin
 }
 
 /**
+ * Hand an action to Home Assistant, which runs it as it runs one of its own cards' actions.
+ *
+ * @param node - Element to dispatch from; must be inside Home Assistant's DOM
+ * @param config - What Home Assistant reads: the actions by kind (`tap_action` and so on)
+ *   and the `entity` they apply to
+ * @param action - Which of those actions to run
+ */
+export function fireHassAction(
+  node: HTMLElement,
+  config: Record<string, unknown>,
+  action: 'tap' | 'hold',
+): void {
+  const event = new Event('hass-action', {
+    bubbles: true,
+    composed: true,
+  });
+  (event as unknown as Record<string, unknown>).detail = { config, action };
+  node.dispatchEvent(event);
+}
+
+/**
  * Handle an action by delegating to HA's native action handler.
  *
  * @param node - Element that triggered the action
@@ -57,15 +78,6 @@ export function handleAction(
     hold_action: config.hold_action,
   };
 
-  const event = new Event('hass-action', {
-    bubbles: true,
-    composed: true,
-  });
-  (event as unknown as Record<string, unknown>).detail = {
-    config: hassActionConfig,
-    action,
-  };
-
-  node.dispatchEvent(event);
+  fireHassAction(node, hassActionConfig, action);
   Logger.debug(`Delegated ${action} action (${actionConfig.action}) to HA native handler`);
 }
