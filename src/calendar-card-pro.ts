@@ -1006,22 +1006,7 @@ class CalendarCardPro extends LitElement {
       this._initialLoadRetryId = undefined;
     }
 
-    if (this._holdTimer) {
-      clearTimeout(this._holdTimer);
-      this._holdTimer = null;
-    }
-
-    if (this._holdIndicator) {
-      Feedback.removeHoldIndicator(this._holdIndicator);
-      this._holdIndicator = null;
-    }
-
-    this._releaseActivePointerCapture();
-    this._activePointerId = null;
-    this._pointerStart = null;
-    this._pointerMoved = false;
-    this._holdTriggered = false;
-    this._pointerTapTarget = null;
+    this._endGesture();
     this._derivedClick = null;
     this._spaceArmedOn = null;
 
@@ -2702,17 +2687,7 @@ class CalendarCardPro extends LitElement {
         ? null
         : { element: owedBy, deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW };
 
-    this._releaseActivePointerCapture();
-    this._activePointerId = null;
-    this._pointerStart = null;
-    this._pointerMoved = false;
-    this._holdTriggered = false;
-    this._pointerTapTarget = null;
-
-    if (this._holdIndicator) {
-      Feedback.removeHoldIndicator(this._holdIndicator);
-      this._holdIndicator = null;
-    }
+    this._endGesture();
   }
 
   /**
@@ -2723,6 +2698,17 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    this._endGesture();
+  }
+
+  /**
+   * Forget the active gesture: its hold timer, its pointer capture, its bookkeeping and its
+   * hold indicator.
+   *
+   * Leaves `_derivedClick` alone, which outlives the gesture on purpose: pointer-up sets it
+   * just before calling this, for the click that follows.
+   */
+  private _endGesture(): void {
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
