@@ -188,7 +188,7 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
   beside them rather than pushing them below it, and the card gains no height. Without a
-  title they get a slim row of about 40px. A leading group, once there is one, takes a row
+  title they get a slim row of 48px, the bar and a 12px gap under it. A leading group, once there is one, takes a row
   of its own between the title and the events.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
@@ -220,11 +220,11 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   always follows it, so nothing about a switch is new to the fitting code. A switch draws
   without fetching, because `FETCH_TIME_KEYS` keep the window identical across views.
   `utils/view-choice.ts` keeps the choice in one `localStorage` entry keyed by a fingerprint
-  of the raw configuration, so any edit resets every device. The previous fingerprint's
-  entry is forgotten too, so undoing an edit cannot bring an old choice back: by the card
-  when a new configuration reaches it outside edit mode, which is how another device
-  receives a saved edit, and by the editor on its first real change, because Home Assistant
-  builds a fresh card for each configuration in edit mode.
+  of the raw configuration, so any edit resets every device. Nothing deletes the old entry:
+  Home Assistant builds a fresh card for a changed configuration, in edit mode and when a
+  dashboard reloads alike, so no card learns which configuration it replaced. A
+  configuration changed back to exactly what it was therefore finds its old choice, which
+  the docs state; the oldest entries are pruned past `MAX_VIEW_CHOICES`.
 - **Which views it offers is decided at render.** A view is offered when picking it would
   draw it at the settled width: the requested view by what is on screen, any other by
   `resolveColumnFit` with the enter threshold. A view that does not fit stays in place,

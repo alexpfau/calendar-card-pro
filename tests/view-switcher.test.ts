@@ -271,25 +271,52 @@ describe('the view switcher', () => {
     expect(callApi.mock.calls.length).toBe(fetchesBefore);
   });
 
-  it('never runs the card’s tap or hold action', async () => {
-    const card = await mount({ tap_action: { action: 'more-info' } });
-    const grid = segment(card, 'grid');
-
-    const down = new Event('pointerdown', { bubbles: true, composed: true });
-    Object.defineProperties(down, {
+  /** A bubbling, composed pointer event carrying the fields the card's gesture reads. */
+  function dispatchPointer(target: EventTarget, type: string): void {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
       pointerId: { value: 1 },
       button: { value: 0 },
       isPrimary: { value: true },
       clientX: { value: 0 },
       clientY: { value: 0 },
     });
-    grid.dispatchEvent(down);
-    grid.click();
-    await card.updateComplete;
+    target.dispatchEvent(event);
+  }
 
-    expect(handleAction).not.toHaveBeenCalled();
-    // The card stops presenting itself as a button around it, and keeps its tab stop.
+  it.each([
+    ['a segment', (card: CardUnderTest) => segment(card, 'grid')],
+    // The gray rim around the segments belongs to the switcher, not to any button.
+    ['the track around the segments', (card: CardUnderTest) => switcher(card)!],
+    // So does the gap between the switcher and the add button.
+    [
+      'the gap between controls',
+      (card: CardUnderTest) => card.shadowRoot!.querySelector<HTMLElement>('.toolbar-trailing')!,
+    ],
+  ])(
+    "never runs the card's tap action from %s, while the rest of the card still does",
+    async (_name, target) => {
+      const card = await mount({ toolbar: { show: true }, tap_action: { action: 'more-info' } });
+      const el = target(card);
+
+      dispatchPointer(el, 'pointerdown');
+      dispatchPointer(el, 'pointerup');
+      el.click();
+      await card.updateComplete;
+      expect(handleAction).not.toHaveBeenCalled();
+
+      // The control: the same press on the events reaches the card's gesture.
+      const content = card.shadowRoot!.querySelector('.content-container')!;
+      dispatchPointer(content, 'pointerdown');
+      dispatchPointer(content, 'pointerup');
+      expect(handleAction).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('stops the card presenting itself as a button around it, and keeps its tab stop', async () => {
+    const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = card.shadowRoot!.querySelector('ha-card')!;
+
     expect(haCard.hasAttribute('role')).toBe(false);
     expect(haCard.getAttribute('tabindex')).toBe('0');
   });
@@ -375,7 +402,7 @@ describe('what a device remembers', () => {
     expect(segment(second, 'grid').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('forgets it when the configuration changes, and does not bring it back on undo', async () => {
+  it('resets when the configuration changes', async () => {
     const card = await mount();
     await measure(card, WIDE);
     await press(card, 'grid');
@@ -383,11 +410,24 @@ describe('what a device remembers', () => {
     card.setConfig(configFor({ title: 'Family' }));
     await card.updateComplete;
     expect(card.effectiveView).toBe('list');
+  });
 
+  /**
+   * The stated limit of keying a choice by the configuration: nothing tells a card which
+   * configuration it replaced, because Home Assistant builds a fresh card for a changed one.
+   * So a configuration changed back to exactly what it was finds its choice again. Pinned so
+   * the docs that say so stay true.
+   */
+  it('finds the choice again when the configuration is changed back exactly', async () => {
+    const card = await mount();
+    await measure(card, WIDE);
+    await press(card, 'grid');
+
+    card.setConfig(configFor({ title: 'Family' }));
+    await card.updateComplete;
     card.setConfig(configFor());
     await card.updateComplete;
-    expect(card.effectiveView).toBe('list');
-    expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toBeNull();
+    expect(card.effectiveView).toBe('grid');
   });
 
   it('stores nothing for the configured view itself', async () => {

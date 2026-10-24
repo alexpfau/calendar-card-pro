@@ -158,10 +158,13 @@ The view switcher changes the layout on the dashboard without editing the card. 
 configured `view` stays the layout the card opens with, and each device remembers its own
 switch in the browser, so a wall tablet can show Grid while a phone keeps List. The choice is
 never written to the configuration, and editing the card resets every device to its `view`.
+The choice belongs to the configuration it was made for, though, so a card changed back to
+exactly what it was finds it again.
 
-Every layout shows the same days. `days_to_show` and `start_date` are shared by all three,
-so a switch changes how the days are arranged rather than which days are shown, and the card
-does not reload its events to switch. Settings made for one layout in its own `list:`,
+Every layout covers the same dates. `days_to_show` and `start_date` are shared by all three,
+so a switch changes how the days are arranged rather than which dates they span, and the card
+does not reload its events to switch. List draws every day; Columns and Grid draw as many as
+fit the card's width, as close to today as the range allows. Settings made for one layout in its own `list:`,
 `column:` or `time_grid:` block come with it.
 
 Columns and Grid need room. A layout that cannot fit at the card's current width — Columns

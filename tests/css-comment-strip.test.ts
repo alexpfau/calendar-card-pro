@@ -283,9 +283,9 @@ describe('stripComments', () => {
     // The view switcher moved the ceiling last, from 116,600: the notes on why every toolbar
     // control shares one neutral look mixed into transparent rather than a named gray, why the
     // toolbar's custom properties live on the toolbar and not the card, and why the raised
-    // segment needs light-dark() behind @supports in a dark color scheme. The reading went
-    // 115,624 to 117,211, taken with stripComments after the last comment in the change was
-    // written.
+    // segment needs light-dark() behind @supports in a dark color scheme, and why the slim
+    // toolbar row keeps 12px under it. The reading went 115,624 to 117,458, taken with
+    // stripComments after the last comment in the change was written.
     //
     // Muting the card's ripple over an event moved the ceiling before that, from 115,800: the note on
     // why the ripple is muted rather than kept from seeing the press -- the recognizer needs

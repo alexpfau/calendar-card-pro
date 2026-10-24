@@ -3047,12 +3047,11 @@ class CalendarCardPro extends LitElement {
   /**
    * Adopts this device's remembered view for a newly set configuration.
    *
-   * A different fingerprint is a different configuration, so the view chosen for the old
-   * one no longer applies: it is forgotten here, which is also what stops it returning if
-   * the edit is later undone. Not while the card is being edited, though. Home Assistant
-   * builds a fresh card for every keystroke in the editor's preview, and an edit there may
-   * still be abandoned; the editor itself forgets the choice once an edit is really made,
-   * and a dashboard showing the saved edit forgets it here.
+   * A different fingerprint is a different configuration, which is what resets every device
+   * to `view` after an edit. Nothing is deleted here: Home Assistant builds a fresh card for
+   * a changed configuration rather than handing it to the old one, so a card almost never
+   * learns which configuration it replaced. The cost is narrow and stated in the docs: a
+   * configuration changed back to exactly what it was finds the choice made for it again.
    *
    * @param rawConfig - Configuration exactly as Home Assistant passed it
    */
@@ -3060,11 +3059,7 @@ class CalendarCardPro extends LitElement {
     const fingerprint = ViewChoice.configFingerprint(rawConfig);
     if (fingerprint === this._configFingerprint) return;
 
-    if (this._configFingerprint !== null && !this._isBeingEdited) {
-      ViewChoice.writeViewChoice(this._configFingerprint, undefined);
-    }
     this._configFingerprint = fingerprint;
-
     const remembered = this._wantsViewSwitcher ? ViewChoice.readViewChoice(fingerprint) : undefined;
     this._viewChoice =
       remembered !== undefined && remembered !== this.config.view ? remembered : null;

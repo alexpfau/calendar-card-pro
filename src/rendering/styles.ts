@@ -318,10 +318,12 @@ export const cardStyles = css`
     height: 1.33em;
   }
 
-  /* About 40px with its gap, so an untitled card does not gain a title's worth of height
-     for one button. */
+  /* 48px with its gap: less than a title's worth of height for one row of controls, and
+     enough room under them that the day headers of the column and grid layouts, which start
+     right below, do not crowd the bar. The bar already sits about 17px below the card's top
+     edge, so less than this left it visibly closer to the dates than to the edge. */
   .card-toolbar.toolbar-own-row {
-    margin-bottom: 4px;
+    margin-bottom: 12px;
   }
 
   .toolbar-trailing {

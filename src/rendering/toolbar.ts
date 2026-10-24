@@ -233,8 +233,13 @@ export function renderHeaderToolbar(
 
   const labeled = toolbar.labeled === true;
 
+  // The press guard sits on the toolbar's own box as well as on each control, because the
+  // switcher's gray track and the gaps between controls are part of the bar but no button:
+  // a near miss there must do nothing, not run the card's tap or hold action.
   return html`<div
     class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
   >
     <div class="toolbar-trailing">
       ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
