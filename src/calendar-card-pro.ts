@@ -3225,13 +3225,14 @@ class CalendarCardPro extends LitElement {
    * Whether this render draws interactive children of the card's own, so `ha-card` must not
    * present itself as a button around them.
    *
-   * The one place that answers it, so every control that makes the card a host joins here.
+   * The one place that answers it, so every control that makes the card a host joins here:
+   * the add-event button, and every event while a tap on one runs an action of its own.
    *
    * @param addEvent - The add-event button this render draws, if any
    * @returns True while the card hosts at least one control
    */
   private _hostsControls(addEvent: Toolbar.AddEventButton | undefined): boolean {
-    return addEvent !== undefined;
+    return addEvent !== undefined || this._hasEventTapAction;
   }
 
   /**

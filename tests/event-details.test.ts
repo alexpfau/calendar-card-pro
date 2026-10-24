@@ -367,6 +367,31 @@ describe('event_tap_action details', () => {
   });
 });
 
+describe('the card around events that are buttons', () => {
+  const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
+  const TAPPABLE = { tap_action: { action: 'expand' } } as const;
+
+  it.each(['list', 'column', 'grid'])(
+    'is not a button in %s view while its events are',
+    async (view) => {
+      const { card } = await mount({ view, ...TAPPABLE, ...DETAILS });
+
+      expect(haCard(card).hasAttribute('role')).toBe(false);
+      expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+      // A pointer tap off the events still runs `tap_action`, so what shows that stays.
+      expect(haCard(card).classList.contains('card-interactive')).toBe(true);
+      expect(haCard(card).querySelector('ha-ripple')).not.toBeNull();
+    },
+  );
+
+  it('stays a button while its events are not', async () => {
+    const { card } = await mount({ ...TAPPABLE, event_tap_action: { action: 'none' } });
+
+    expect(haCard(card).getAttribute('role')).toBe('button');
+    expect(haCard(card).getAttribute('tabindex')).toBe('0');
+  });
+});
+
 describe("event_tap_action set to one of Home Assistant's actions", () => {
   const MORE_INFO = { event_tap_action: { action: 'more-info' } } as const;
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
