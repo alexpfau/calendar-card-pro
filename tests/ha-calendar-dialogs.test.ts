@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type CreateDialogParams,
   type DetailDialogParams,
-  type DialogOutcome,
   type DialogTag,
   EVENT_DETAIL_DIALOG_TAG,
   EVENT_EDITOR_DIALOG_TAG,
@@ -173,20 +172,20 @@ const OPENERS = [
 ] as const;
 
 /**
- * What a request came to before its load would have timed out.
+ * Whether a request settled before its load would have timed out.
  *
  * A load that cannot complete has to fail at once, not after `LOAD_TIMEOUT_MS` of nothing
  * happening: the timeout is for a Home Assistant that is slow, not for one the card can
  * already tell will never answer.
  *
  * @param request - An open request, made with fake timers installed
- * @returns Its outcome, or `waiting` if it has not settled short of the timeout
+ * @returns True once it has settled short of the timeout
  */
-async function beforeTimeout(request: Promise<DialogOutcome>): Promise<DialogOutcome | 'waiting'> {
-  let outcome: DialogOutcome | 'waiting' = 'waiting';
-  void request.then((value) => (outcome = value));
+async function settledBeforeTimeout(request: Promise<void>): Promise<boolean> {
+  let settled = false;
+  void request.then(() => (settled = true));
   await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
-  return outcome;
+  return settled;
 }
 
 /** The fallback each dialog takes, as the host records it. */
@@ -225,7 +224,7 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     const ha = fakeHomeAssistant();
     const { node, dispatched } = host();
 
-    expect(await open(node)).toBe('opened');
+    await open(node);
 
     expect(ha.loadCardHelpers).not.toHaveBeenCalled();
     expect(ha.createEvent).not.toHaveBeenCalled();
@@ -242,7 +241,7 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     vi.useFakeTimers();
     const { node, dispatched } = host();
 
-    expect(await beforeTimeout(open(node, 'calendar.ben'))).toBe('fallback');
+    expect(await settledBeforeTimeout(open(node, 'calendar.ben'))).toBe(true);
     expectFallback(tag, dispatched, 'calendar.ben');
   });
 
@@ -250,7 +249,7 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     const ha = fakeHomeAssistant();
     const { node, dispatched } = host();
 
-    expect(await open(node)).toBe('opened');
+    await open(node);
 
     // A core calendar card for a calendar the card shows is what makes Home Assistant
     // load `ha-full-calendar`.
@@ -275,7 +274,7 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     const ha = fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
     const { node, dispatched } = host();
 
-    const outcomes = [
+    const requests = [
       open(node, 'calendar.anna'),
       open(node, 'calendar.ben'),
       open(node, 'calendar.cleo'),
@@ -283,7 +282,7 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     await Promise.resolve();
     release();
 
-    expect(await Promise.all(outcomes)).toEqual(['superseded', 'superseded', 'opened']);
+    await Promise.all(requests);
     expect(ha.loadCardHelpers).toHaveBeenCalledOnce();
     expect(ha.createCardElement).toHaveBeenCalledOnce();
     expect(ha.dialogImports[tag]).toHaveBeenCalledOnce();
@@ -306,14 +305,13 @@ describe.each(OPENERS)('opening $tag', ({ tag, open, params }) => {
     await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS - 1);
     expect(dispatched).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(await first).toBe('fallback');
+    await first;
     expectFallback(tag, dispatched);
 
     // The hung load is forgotten rather than joined forever.
     dispatched.length = 0;
     release();
-    const second = open(node);
-    expect(await second).toBe('opened');
+    await open(node);
     expect(ha.loadCardHelpers).toHaveBeenCalledTimes(2);
     expect(dispatched.map((d) => d.type)).toEqual(['show-dialog']);
   });
@@ -331,7 +329,7 @@ describe('a load that cannot complete', () => {
       });
       const { node, dispatched } = host();
 
-      expect(await beforeTimeout(open(node))).toBe('fallback');
+      expect(await settledBeforeTimeout(open(node))).toBe(true);
       expectFallback(tag, dispatched);
     },
   );
@@ -351,7 +349,7 @@ describe('a load that cannot complete', () => {
       });
       const { node, dispatched } = host();
 
-      expect(await beforeTimeout(open(node))).toBe('fallback');
+      expect(await settledBeforeTimeout(open(node))).toBe(true);
       expectFallback(tag, dispatched);
     },
   );
@@ -363,7 +361,7 @@ describe('a load that cannot complete', () => {
       (window as HelperWindow).loadCardHelpers = async () => ({});
       const { node, dispatched } = host();
 
-      expect(await beforeTimeout(open(node))).toBe('fallback');
+      expect(await settledBeforeTimeout(open(node))).toBe(true);
       expectFallback(tag, dispatched);
     },
   );

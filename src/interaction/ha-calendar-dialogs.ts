@@ -75,14 +75,6 @@ export interface DetailDialogParams {
   updated: DialogUpdated;
 }
 
-/**
- * What became of one request to open a dialog.
- *
- * `superseded` means a later request for the same dialog arrived while this one waited for
- * the dialog to load, and opened in its place.
- */
-export type DialogOutcome = 'opened' | 'fallback' | 'superseded';
-
 interface ShowDialogDetail {
   dialogTag?: unknown;
   dialogImport?: unknown;
@@ -304,9 +296,9 @@ export function ensureDialogLoaded(tag: DialogTag, calendarId: string): Promise<
  *
  * @param tag - Dialog to open
  * @param request - Where to dispatch, what to pass, and what to do on failure
- * @returns What became of the request
+ * @returns Resolves once the request has opened the dialog, fallen back, or been replaced
  */
-async function openDialog(tag: DialogTag, request: OpenRequest): Promise<DialogOutcome> {
+async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
   waiting.set(tag, request);
 
   let failure: unknown;
@@ -318,13 +310,13 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<DialogO
     failure = error;
   }
 
-  if (waiting.get(tag) !== request) return 'superseded';
+  if (waiting.get(tag) !== request) return;
   waiting.delete(tag);
 
   if (failed) {
     Logger.warn(`Could not load ${tag}, falling back`, failure);
     request.fallback();
-    return 'fallback';
+    return;
   }
 
   const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
@@ -337,7 +329,6 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<DialogO
   };
   request.node.dispatchEvent(showDialog);
   Logger.debug(`Opened ${tag} for ${request.params.calendarId}`);
-  return 'opened';
 }
 
 /**
@@ -382,12 +373,12 @@ function showMoreInfo(node: HTMLElement, entityId: string): void {
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
- * @returns What became of the request
+ * @returns Resolves once the request has been dealt with
  */
 export function openCreateEventDialog(
   node: HTMLElement,
   params: CreateDialogParams,
-): Promise<DialogOutcome> {
+): Promise<void> {
   return openDialog(EVENT_EDITOR_DIALOG_TAG, {
     node,
     params,
@@ -403,12 +394,12 @@ export function openCreateEventDialog(
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
- * @returns What became of the request
+ * @returns Resolves once the request has been dealt with
  */
 export function openEventDetailDialog(
   node: HTMLElement,
   params: DetailDialogParams,
-): Promise<DialogOutcome> {
+): Promise<void> {
   return openDialog(EVENT_DETAIL_DIALOG_TAG, {
     node,
     params,
