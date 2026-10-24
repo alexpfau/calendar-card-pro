@@ -48,10 +48,19 @@ const LUNCH = {
   uid: 'uid-lunch',
 };
 
-/** Every calendar may be written to, so both dialogs can be opened from any card. */
-const WRITABLE = { supported_features: 7 };
+/**
+ * Create, delete and update. Every calendar may be written to unless a test says otherwise,
+ * so both dialogs can be opened from any card.
+ */
+const WRITABLE = 7;
 
-async function mount(config: Record<string, unknown>) {
+/**
+ * Mount a card and wait for its first events.
+ *
+ * @param config - The card's configuration, over one calendar and three days
+ * @param features - `supported_features` for a calendar that is not fully writable
+ */
+async function mount(config: Record<string, unknown>, features: Record<string, number> = {}) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
 
@@ -60,7 +69,10 @@ async function mount(config: Record<string, unknown>) {
   ];
   const entityIds = entities.map((entity) => (typeof entity === 'string' ? entity : entity.entity));
   const states = Object.fromEntries(
-    entityIds.map((id) => [id, { entity_id: id, state: 'off', attributes: WRITABLE }]),
+    entityIds.map((id) => [
+      id,
+      { entity_id: id, state: 'off', attributes: { supported_features: features[id] ?? WRITABLE } },
+    ]),
   );
   const callApi = vi.fn((_method: string, _path: string) => Promise.resolve<unknown>([DENTIST]));
   card.hass = {
@@ -219,16 +231,30 @@ describe('telling the other cards on the page', () => {
     expect(ownRefresh).toHaveBeenCalledOnce();
   });
 
-  it('refreshes every card after a new event, whichever calendar it went to', async () => {
+  it('refreshes after a new event every card showing a calendar it could have gone to', async () => {
     const adding = await mount({ show_add_event: true });
+    // Home Assistant's create dialog can save to any calendar that accepts new events, not
+    // only the one the card preselected.
     const otherCalendar = await mount({ entities: ['calendar.ben'] });
+    // One calendar that accepts new events among read-only ones is enough.
+    const mixed = await mount(
+      { entities: ['calendar.holidays', 'calendar.cleo'] },
+      { 'calendar.holidays': 0 },
+    );
+    // Read-only calendars: a subscribed holiday feed, and one that can change and delete
+    // events but not create them. A new event cannot have landed in either.
+    const readOnly = await mount(
+      { entities: ['calendar.holidays', 'calendar.shared'] },
+      { 'calendar.holidays': 0, 'calendar.shared': 6 },
+    );
     await OPENERS.add(adding.card);
-    const calls = counter([adding, otherCalendar]);
+    const calls = counter([adding, otherCalendar, mixed, readOnly]);
 
     adding.dialogs[0].dialogParams.updated();
     await settle();
 
-    expect(calls()).toEqual([1, 1]);
+    // Calls, not requests: a request makes one call per calendar the card shows.
+    expect(calls()).toEqual([1, 1, 2, 0]);
   });
 
   it('leaves a card alone once it has left the page', async () => {

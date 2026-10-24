@@ -318,8 +318,10 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     the window's first day
 
 - **calendar-changes.ts**:
-  - Announces a saved change on `window`, naming the changed calendars, or `null` after a
-    create, because Home Assistant's create dialog can write to any writable calendar
+  - Announces a saved change on `window`. An edit or a delete names the event's calendar. A
+    create names the create feature bit instead, because Home Assistant's create dialog can
+    write to any calendar that accepts new events: a receiving card refreshes only if it
+    shows such a calendar, read from its own `hass.states`
   - Carries the write's generation, which the announcing card advanced once. Every
     connected card listens, from `connectedCallback` to `disconnectedCallback`, and calls
     `refreshEvents()` with that generation when it shows an affected calendar, skipping the

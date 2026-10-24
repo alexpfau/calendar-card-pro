@@ -528,16 +528,17 @@ class CalendarCardPro extends LitElement {
    * nothing, deliberately: Home Assistant awaits this callback before it closes the dialog;
    * see `DialogUpdated`.
    *
-   * @param calendarIds - Calendars the change touched, or `null` when it could be any
+   * @param changed - The calendars the change may have touched
    */
-  private _refreshAfterWrite(calendarIds: ReadonlyArray<string> | null): undefined {
+  private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
     const writeGeneration = EventUtils.advanceWriteGeneration();
     void this.refreshEvents(writeGeneration);
-    CalendarChanges.announceCalendarsChanged(this, calendarIds, writeGeneration);
+    CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
   }
 
   /**
-   * Refetch when another card announces a change to a calendar this card shows.
+   * Refetch when another card announces a change that may have touched a calendar this card
+   * shows: one it names, or after a new event, any this card shows that accepts new events.
    *
    * The announcing card is skipped: it refreshed before it announced. Refreshes for the
    * announced write's generation, as the announcer did, so they can share its request.
@@ -549,7 +550,7 @@ class CalendarCardPro extends LitElement {
     const shownIds = this.config.entities.map((entity) =>
       typeof entity === 'string' ? entity : entity.entity,
     );
-    if (CalendarChanges.concernsCalendars(detail, shownIds)) {
+    if (CalendarChanges.concernsCalendars(detail, shownIds, this.safeHass)) {
       void this.refreshEvents(detail.writeGeneration);
     }
   };
@@ -584,7 +585,7 @@ class CalendarCardPro extends LitElement {
         allowDelete: this.config.allow_event_delete !== false,
         failedEntities: this._failedEntities,
       }),
-      updated: () => this._refreshAfterWrite([calendarId]),
+      updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
     });
   };
 
@@ -3532,8 +3533,9 @@ class CalendarCardPro extends LitElement {
     void Dialogs.openCreateEventDialog(this, {
       calendarId,
       selectedDate: this._newEventDate(),
-      // Home Assistant's create dialog lets the user pick any writable calendar.
-      updated: () => this._refreshAfterWrite(null),
+      // Home Assistant's create dialog lets the user pick any calendar that accepts new
+      // events, so every card showing one refreshes, and no card showing only read-only ones.
+      updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
     });
   }
 }
