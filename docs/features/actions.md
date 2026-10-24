@@ -239,4 +239,8 @@ The event dialog and the new-event dialog are Home Assistant's own rather than c
 A future Home Assistant release may change the calendar code the card loads its dialogs through. If loading fails, or has not finished after ten seconds, the card falls back rather than doing nothing: a tap that should show an event's details opens its calendar's more-info dialog instead, and the add button opens the Calendar panel, which has an add button of its own.
 :::
 
+::: tip Nothing Opens While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, and events are not tap targets. Trying out a configuration or arranging a dashboard cannot open a dialog that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have.
+:::
+
 Card taps are set with `tap_action` and `hold_action`, and event taps with `event_tap_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `show_add_event`, under [Header](/reference/configuration#header).

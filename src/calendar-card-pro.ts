@@ -544,11 +544,20 @@ class CalendarCardPro extends LitElement {
   /**
    * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
    * dialog reports an edit or a delete.
+   *
+   * Refuses while the card is being edited. Events are not tap targets then, so nothing
+   * should reach here; this is the last guard for anything that does, since the dialog
+   * offers Edit and Delete.
    */
   private readonly _openEventDetails = (
     event: Types.CalendarEventData,
     color: string | undefined,
   ): void => {
+    if (this._isBeingEdited) {
+      Logger.debug('Not opening event details while the card is being edited');
+      return;
+    }
+
     const calendarId = event._entityId;
     const entry = EventDetails.buildDetailEntry(event);
     if (!calendarId || !entry) return;
@@ -574,6 +583,25 @@ class CalendarCardPro extends LitElement {
    */
   private get _hasEventTapAction(): boolean {
     return Boolean(this.config.event_tap_action && this.config.event_tap_action.action !== 'none');
+  }
+
+  /**
+   * Whether Home Assistant is drawing the card for someone editing a dashboard: in the card
+   * editor's live preview (`preview`), or on a dashboard in edit mode (`editMode`).
+   *
+   * Nothing drawn there may write to a calendar. A press meant to try the configuration or
+   * to arrange the dashboard would otherwise open a dialog whose Save writes a real event.
+   */
+  private get _isBeingEdited(): boolean {
+    return this.preview || this.editMode;
+  }
+
+  /**
+   * Whether events are tap targets: `event_tap_action` runs something, and the card is not
+   * being edited. While it is, events render and behave as they do with taps off.
+   */
+  private get _eventsActivatable(): boolean {
+    return this._hasEventTapAction && !this._isBeingEdited;
   }
 
   /**
@@ -604,7 +632,7 @@ class CalendarCardPro extends LitElement {
    * @returns The event's tap target, or undefined
    */
   private _eventTapAt(ev: Event): Activation.EventTapTarget | undefined {
-    if (!this._hasEventTapAction || typeof ev.composedPath !== 'function') return undefined;
+    if (!this._eventsActivatable || typeof ev.composedPath !== 'function') return undefined;
     return Activation.findEventTap(ev.composedPath(), ev.currentTarget)?.target;
   }
 
@@ -2784,7 +2812,7 @@ class CalendarCardPro extends LitElement {
    */
   private _handleEventKeyDown(ev: KeyboardEvent): boolean {
     if (ev.key !== 'Enter' && ev.key !== ' ') return false;
-    const target = this._hasEventTapAction ? Activation.tapTargetOn(ev.target) : undefined;
+    const target = this._eventsActivatable ? Activation.tapTargetOn(ev.target) : undefined;
     if (!target) return false;
 
     ev.preventDefault();
@@ -2809,7 +2837,7 @@ class CalendarCardPro extends LitElement {
     const armed = this._spaceArmedOn;
     this._spaceArmedOn = null;
 
-    const target = this._hasEventTapAction ? Activation.tapTargetOn(ev.target) : undefined;
+    const target = this._eventsActivatable ? Activation.tapTargetOn(ev.target) : undefined;
     if (!target || armed === null || armed !== ev.target) return;
 
     ev.preventDefault();
@@ -3294,7 +3322,7 @@ class CalendarCardPro extends LitElement {
           undefined,
           this._cascadeThresholdMin,
           this._overflowStripPct,
-          this._hasEventTapAction,
+          this._eventsActivatable,
         );
       }
 
@@ -3305,7 +3333,7 @@ class CalendarCardPro extends LitElement {
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
-            this._hasEventTapAction,
+            this._eventsActivatable,
           )
         : Render.renderGroupedEvents(
             days,
@@ -3313,7 +3341,7 @@ class CalendarCardPro extends LitElement {
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
-            this._hasEventTapAction,
+            this._eventsActivatable,
           );
     };
 
@@ -3363,7 +3391,7 @@ class CalendarCardPro extends LitElement {
    * @returns True while the card hosts at least one control
    */
   private _hostsControls(addEvent: Toolbar.AddEventButton | undefined): boolean {
-    return addEvent !== undefined || this._hasEventTapAction;
+    return addEvent !== undefined || this._eventsActivatable;
   }
 
   /**
@@ -3428,15 +3456,30 @@ class CalendarCardPro extends LitElement {
 
     return {
       label: AddEvent.addEventLabel(this.safeHass),
-      onActivate: () => {
-        void Dialogs.openCreateEventDialog(this, {
-          calendarId: writable[0],
-          selectedDate: this._newEventDate(),
-          // Home Assistant's create dialog lets the user pick any writable calendar.
-          updated: () => this._refreshAfterWrite(null),
-        });
-      },
+      onActivate: () => this._openCreateEventDialog(writable[0]),
     };
+  }
+
+  /**
+   * Opens Home Assistant's create-event dialog, and refetches once it reports a new event.
+   *
+   * Refuses while the card is being edited: the button is still drawn there, so the
+   * preview shows the layout the dashboard will have, but a press on it opens nothing.
+   *
+   * @param calendarId - The calendar the dialog preselects
+   */
+  private _openCreateEventDialog(calendarId: string): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not opening the new-event dialog while the card is being edited');
+      return;
+    }
+
+    void Dialogs.openCreateEventDialog(this, {
+      calendarId,
+      selectedDate: this._newEventDate(),
+      // Home Assistant's create dialog lets the user pick any writable calendar.
+      updated: () => this._refreshAfterWrite(null),
+    });
   }
 }
 

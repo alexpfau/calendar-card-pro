@@ -627,6 +627,10 @@ graph TD
      card's own Enter and Space handling is unchanged
    - Events stop no pointer event, so a hold, and Home Assistant's edit-mode drag, work on
      them as on the rest of the card
+   - While Home Assistant draws the card for editing (`preview` in the card editor,
+     `editMode` on a dashboard) events are not tap targets, and the functions that open
+     the create and detail dialogs refuse, so nothing in a preview can write to a calendar.
+     The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` handles tap, hold and event-tap actions
    - Expansion toggle, event details, navigation, and service calls
