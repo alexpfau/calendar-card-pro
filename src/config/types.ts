@@ -143,9 +143,9 @@ export interface Config {
   tap_action: ActionConfig;
   hold_action: ActionConfig;
   /**
-   * What a tap on an event does, instead of the card's `tap_action`. `details` opens Home
-   * Assistant's event dialog; any other action is Home Assistant's, run for the calendar the
-   * event came from. A hold on an event still runs `hold_action`.
+   * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
+   * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
+   * event to `tap_action`. A hold on an event runs `hold_action` either way.
    */
   event_tap_action: ActionConfig;
   /**
@@ -963,11 +963,6 @@ export interface CacheEntry {
 /** Action configuration for tap and hold actions. */
 export interface ActionConfig {
   action: string;
-  /**
-   * The entity the action acts on. For `event_tap_action` it defaults to the tapped event's
-   * calendar; naming one here overrides that.
-   */
-  entity?: string;
   navigation_path?: string;
   service?: string;
   service_data?: object;

@@ -487,10 +487,10 @@ class CalendarCardPro extends LitElement {
    * that does not retarget sends after it would otherwise open the event the hold or drag
    * deliberately did not.
    *
-   * The element rather than its event data, because a tap that expands the card regroups
-   * the events before the click arrives, which replaces every row's data and keeps the
-   * element. The deadline only bounds a gesture no click follows, such as a touch
-   * long-press, so the guard cannot swallow a later activation.
+   * The element rather than its event data, because a hold on an event whose `hold_action`
+   * expands the card regroups the events before the click arrives, which replaces every
+   * row's data and keeps the element. The deadline only bounds a gesture no click follows,
+   * such as a touch long-press, so the guard cannot swallow a later activation.
    */
   private _derivedClick: { element: EventTarget | null; deadline: number } | null = null;
   /** The event a Space keydown armed. A native button activates on Space's keyup. */
@@ -590,13 +590,15 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
-   * Whether a tap on an event runs an action of its own.
+   * Whether a tap on an event opens its details, the one thing `event_tap_action` does.
    *
-   * Both operands, for the reason `_handlePointerDown` gives about `hold_action`: a bare
-   * `event_tap_action:` in YAML means nothing on tap, not a tap target with nothing to run.
+   * Every other value, Home Assistant's actions and `expand` included, reads as `none`: the
+   * events stay what they are by default, and a tap on one is a tap on the card. A bare
+   * `event_tap_action:` in YAML is `null`, which reads the same way.
    */
-  private get _hasEventTapAction(): boolean {
-    return Boolean(this.config.event_tap_action && this.config.event_tap_action.action !== 'none');
+  private get _eventTapOpensDetails(): boolean {
+    const eventTapAction: Types.ActionConfig | null | undefined = this.config.event_tap_action;
+    return eventTapAction?.action === 'details';
   }
 
   /**
@@ -611,29 +613,21 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether events are tap targets: `event_tap_action` runs something, and the card is not
+   * Whether events are tap targets: a tap on one opens its details, and the card is not
    * being edited. While it is, events render and behave as they do with taps off.
    */
   private get _eventsActivatable(): boolean {
-    return this._hasEventTapAction && !this._isBeingEdited;
+    return this._eventTapOpensDetails && !this._isBeingEdited;
   }
 
   /**
-   * Runs `event_tap_action` for one tapped event.
-   *
-   * `details` opens the event; anything else goes to Home Assistant for the event's own
-   * calendar, which for a merged row is the calendar whose copy the card kept, unless the
-   * action names an `entity` of its own. `expand`, offered only to the card's own tap,
-   * still means the card's expand if written in YAML.
+   * Runs `event_tap_action` for one tapped event, which opens its details.
    *
    * @param target - The tapped event and the accent color it is drawn in
    */
   private _runEventTapAction({ event, color }: Activation.EventTapTarget): void {
     Logger.debug('Executing event tap action');
-    Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded(), {
-      entity: event._entityId,
-      details: () => this._openEventDetails(event, color),
-    });
+    this._openEventDetails(event, color);
   }
 
   /**
@@ -3420,8 +3414,8 @@ class CalendarCardPro extends LitElement {
    *
    * The one place that answers it, so every control that makes the card a host joins here:
    * the add-event button, and the events while they are tap targets. Answered from what
-   * this render draws rather than from the configuration: `event_tap_action` on a card
-   * showing only "No events", an error or the loading line hosts nothing, and stays a
+   * this render draws rather than from the configuration: `event_tap_action: details` on a
+   * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. Either way the card keeps its tab stop while it has a tap action; only the
    * button role goes.
    *

@@ -13,9 +13,8 @@ import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs'
 import type * as Activation from '../src/rendering/activation';
 
 /**
- * `event_tap_action`: a tap on an event runs an action of its own. `details` opens Home
- * Assistant's event-detail dialog; any other action goes to Home Assistant for the event's
- * own calendar.
+ * `event_tap_action`: with `details`, a tap on an event opens Home Assistant's event-detail
+ * dialog instead of running the card's tap. Every other value reads as `none`.
  *
  * Driven through the real card, from the fetch to the click, because the entry the dialog
  * receives is assembled across three stages — processing stamps `_source`, grouping copies
@@ -330,9 +329,10 @@ describe('event_tap_action details', () => {
       const { card, dialogs } = await mount({ view, ...DETAILS });
 
       // On the event's content rather than its root, where a real pointer lands. That the
-      // tap and its click run the action once, not twice, is pinned with `more-info` below:
-      // a second request for the dialog in the same tick supersedes the first, so a dialog
-      // count cannot tell.
+      // tap and its click open it once, not twice, is pinned under "the click a pointer
+      // gesture owes", which lets each request finish before the next: here the two share a
+      // tick, and a second request in the same tick supersedes the first, so this count
+      // cannot tell.
       tap(leafShowing(buttonsShowing(card, summary)[0], summary));
       await settle();
       expect(dialogs.map((dialog) => dialog.dialogParams.entry.summary)).toEqual([summary]);
@@ -761,102 +761,67 @@ describe('the card around events that are buttons', () => {
   });
 });
 
-describe("event_tap_action set to one of Home Assistant's actions", () => {
-  const MORE_INFO = { event_tap_action: { action: 'more-info' } } as const;
+describe('event_tap_action set to anything but details', () => {
+  const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
+  const CARD_TAP = { action: 'navigate', navigation_path: '/lovelace/family' };
 
-  it.each(['list', 'column', 'grid'])(
-    "runs it in %s view for the tapped event's own calendar",
-    async (view) => {
+  /**
+   * Home Assistant's actions, which the editor offered until it was cut down to two choices,
+   * `expand`, which YAML could name, and a bare key. Each reads as `none`.
+   */
+  const OTHERS = [
+    ['more-info', { action: 'more-info' }],
+    ['navigate', { action: 'navigate', navigation_path: '/lovelace/0' }],
+    ['toggle', { action: 'toggle' }],
+    ['expand', { action: 'expand' }],
+    ['a bare key', null],
+  ] as const;
+
+  it.each(['list', 'column', 'grid'].flatMap((view) => OTHERS.map((other) => [view, ...other])))(
+    "leaves %s events inert for %s, and runs the card's tap for a tap on one",
+    async (view, _name, eventTapAction) => {
+      // Swimming is Ben's and Ben is not the card's first calendar, so an action forwarded for
+      // the tapped event would name Ben where the card's own tap names Anna.
       const { card, dialogs, hassActions } = await mount(
-        { view, entities: ['calendar.anna', 'calendar.ben'], ...MORE_INFO },
+        {
+          view,
+          entities: ['calendar.anna', 'calendar.ben'],
+          tap_action: CARD_TAP,
+          event_tap_action: eventTapAction,
+        },
         { eventsFor: { 'calendar.ben': [SWIMMING] } },
       );
 
-      buttonsShowing(card, 'Swimming')[0].click();
+      const root = card.shadowRoot!;
+      expect(root.querySelectorAll('.event-interactive, .event-button')).toHaveLength(0);
+      expect(root.querySelectorAll('.content-container [role="button"]')).toHaveLength(0);
+      expect(
+        root.querySelectorAll('.content-container [tabindex]:not(.grid-container)'),
+      ).toHaveLength(0);
+      expect(haCard(card).getAttribute('role')).toBe('button');
+      expect(haCard(card).getAttribute('tabindex')).toBe('0');
+
+      tap(leafShowing(eventsShowing(card, 'Swimming')[0], 'Swimming'));
       await settle();
-      expect(dialogs).toEqual([]);
       expect(hassActions).toEqual([
-        { action: 'tap', config: { entity: 'calendar.ben', tap_action: { action: 'more-info' } } },
-      ]);
-
-      // The control: an event of the first calendar names the first.
-      buttonsShowing(card, 'Dentist')[0].click();
-      await settle();
-      expect(hassActions.map((detail) => detail.config.entity)).toEqual([
-        'calendar.ben',
-        'calendar.anna',
-      ]);
-    },
-  );
-
-  it.each(['list', 'column', 'grid'])(
-    'runs it once in %s view per activation, however the activation arrives',
-    async (view) => {
-      // Counted on `hass-action`, which is dispatched as the action runs. The details dialog
-      // cannot show a second run: a second request in the same tick supersedes the first,
-      // so it opens once whether the card asked once or twice.
-      const { card, hassActions } = await mount({ view, ...MORE_INFO });
-      const target = buttonsShowing(card, 'Dentist')[0];
-      const runs = () => hassActions.length;
-
-      tap(leafShowing(target, 'Dentist'));
-      expect(runs()).toBe(1);
-
-      click(target);
-      expect(runs()).toBe(2);
-
-      key(target, 'keydown', 'Enter');
-      key(target, 'keydown', 'Enter', true);
-      key(target, 'keyup', 'Enter');
-      expect(runs()).toBe(3);
-
-      key(target, 'keydown', ' ');
-      key(target, 'keydown', ' ', true);
-      expect(runs()).toBe(3);
-      key(target, 'keyup', ' ');
-      expect(runs()).toBe(4);
-    },
-  );
-
-  it('runs it for the calendar whose copy a merged row kept', async () => {
-    // Ben and Carl share the event and Anna, the card's first calendar, does not, so the
-    // first configured calendar and the kept copy's differ.
-    const { card, hassActions } = await mount(
-      {
-        entities: ['calendar.anna', 'calendar.ben', 'calendar.carl'],
-        filter_duplicates: true,
-        ...MORE_INFO,
-      },
-      {
-        eventsFor: {
-          'calendar.anna': [RAW_EVENTS[0]],
-          'calendar.ben': [SWIMMING],
-          'calendar.carl': [SWIMMING],
+        {
+          action: 'tap',
+          config: {
+            entity: 'calendar.anna',
+            tap_action: CARD_TAP,
+            hold_action: { action: 'none' },
+          },
         },
-      },
-    );
+      ]);
 
-    expect(buttonsShowing(card, 'Swimming')).toHaveLength(1);
-    buttonsShowing(card, 'Swimming')[0].click();
-    await settle();
-    expect(hassActions.map((detail) => detail.config.entity)).toEqual(['calendar.ben']);
-  });
-
-  it('expands the card for expand, written in YAML', async () => {
-    const { card, dialogs, hassActions } = await mount({
-      event_tap_action: { action: 'expand' },
-      list: { compact_events_to_show: 1 },
-    });
-    const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
-    expect(expanded()).toBe(false);
-
-    buttonsShowing(card, 'Dentist')[0].click();
-    await settle();
-    expect(expanded()).toBe(true);
-    expect(dialogs).toEqual([]);
-    expect(hassActions).toEqual([]);
-  });
+      // A bare click is not an activation of anything: the event is no button.
+      click(eventsShowing(card, 'Swimming')[0]);
+      await settle();
+      expect(hassActions).toHaveLength(1);
+      expect(dialogs).toEqual([]);
+    },
+  );
 });
 
 describe('the click a pointer gesture owes', () => {
@@ -865,13 +830,11 @@ describe('the click a pointer gesture owes', () => {
   // pointer went down on. That click must not act a second time; any other click is an
   // activation in its own right, which is what assistive technology sends.
   //
-  // Counted on `hass-action`, which names the calendar the action ran for: Dentist is Anna's
-  // and Swimming is Ben's, so every run says which event it was for.
+  // Counted on the dialogs opened, which name their event: Dentist is Anna's and Swimming is
+  // Ben's. Every step settles before the next, because two requests for the dialog in one
+  // tick open it once, so a click acting in the tick of its own tap would count once too.
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
-  const TWO_CALENDARS = {
-    entities: ['calendar.anna', 'calendar.ben'],
-    event_tap_action: { action: 'more-info' },
-  };
+  const TWO_CALENDARS = { entities: ['calendar.anna', 'calendar.ben'], ...DETAILS };
 
   async function mountTwo(config: Record<string, unknown> = {}) {
     const mounted = await mount(
@@ -879,7 +842,9 @@ describe('the click a pointer gesture owes', () => {
       { eventsFor: { 'calendar.ben': [SWIMMING] } },
     );
     const runs = () =>
-      mounted.hassActions.map((detail) => `${detail.action} ${detail.config.entity}`);
+      mounted.dialogs.map(
+        (dialog) => `${dialog.dialogParams.entry.summary} ${dialog.dialogParams.calendarId}`,
+      );
     const dentist = buttonsShowing(mounted.card, 'Dentist')[0];
     const swimming = buttonsShowing(mounted.card, 'Swimming')[0];
     const haCard = mounted.card.shadowRoot!.querySelector('ha-card')!;
@@ -887,19 +852,25 @@ describe('the click a pointer gesture owes', () => {
   }
 
   it('lets a click on another event through after a hold', async () => {
-    const { dentist, swimming, runs } = await mountTwo({ hold_action: { action: 'more-info' } });
+    const { dentist, swimming, runs, actions } = await mountTwo({
+      hold_action: { action: 'more-info' },
+    });
 
     pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
     pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
-    expect(runs()).toEqual(['hold calendar.anna']);
+    await settle();
+    expect(actions).toEqual(['hold']);
+    expect(runs()).toEqual([]);
 
     click(swimming);
-    expect(runs()).toEqual(['hold calendar.anna', 'tap calendar.ben']);
+    await settle();
+    expect(actions).toEqual(['hold']);
+    expect(runs()).toEqual(['Swimming calendar.ben']);
   });
 
   it('lets a click on an event through after a pointer that moved', async () => {
-    const { dentist, swimming, haCard, runs } = await mountTwo({
+    const { dentist, swimming, haCard, runs, actions } = await mountTwo({
       tap_action: { action: 'more-info' },
     });
     const far = Constants.UI.POINTER_MOVE_TOLERANCE * 4;
@@ -908,8 +879,10 @@ describe('the click a pointer gesture owes', () => {
     pointer(dentist, 'pointerdown');
     pointer(dentist, 'pointermove', 0, far);
     pointer(dentist, 'pointerup', 0, far);
+    await settle();
     click(swimming);
-    expect(runs()).toEqual(['tap calendar.ben']);
+    await settle();
+    expect(runs()).toEqual(['Swimming calendar.ben']);
 
     // Off the events: a drag that ran nothing owes no click, so even the event it would
     // otherwise have been mistaken for passes.
@@ -917,8 +890,11 @@ describe('the click a pointer gesture owes', () => {
     pointer(haCard, 'pointerdown');
     pointer(haCard, 'pointermove', 0, far);
     pointer(haCard, 'pointerup', 0, far);
+    await settle();
     click(dentist);
-    expect(runs()).toEqual(['tap calendar.ben', 'tap calendar.anna']);
+    await settle();
+    expect(runs()).toEqual(['Swimming calendar.ben', 'Dentist calendar.anna']);
+    expect(actions).toEqual([]);
   });
 
   it('runs a tap once when its click is retargeted to the card, and is then spent', async () => {
@@ -926,22 +902,30 @@ describe('the click a pointer gesture owes', () => {
 
     pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
     pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    await settle();
     click(haCard);
-    expect(runs()).toEqual(['tap calendar.anna']);
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna']);
 
     // That click was the one owed, so the next, from assistive technology, acts.
     click(dentist);
-    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.anna']);
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna', 'Dentist calendar.anna']);
   });
 
   it('runs a tap once when its click still names the event', async () => {
     const { dentist, runs } = await mountTwo();
 
-    tap(leafShowing(dentist, 'Dentist'));
-    expect(runs()).toEqual(['tap calendar.anna']);
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    await settle();
+    click(leafShowing(dentist, 'Dentist'));
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna']);
 
     click(dentist);
-    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.anna']);
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna', 'Dentist calendar.anna']);
   });
 
   it('opens another event clicked before the tap on the first has had its click', async () => {
@@ -949,21 +933,31 @@ describe('the click a pointer gesture owes', () => {
 
     pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
     pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
+    await settle();
     click(swimming);
-    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben']);
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna', 'Swimming calendar.ben']);
 
     // The click the tap owes is still owed, and spent by its arrival.
     click(dentist);
-    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben']);
+    await settle();
+    expect(runs()).toEqual(['Dentist calendar.anna', 'Swimming calendar.ben']);
     click(dentist);
-    expect(runs()).toEqual(['tap calendar.anna', 'tap calendar.ben', 'tap calendar.anna']);
+    await settle();
+    expect(runs()).toEqual([
+      'Dentist calendar.anna',
+      'Swimming calendar.ben',
+      'Dentist calendar.anna',
+    ]);
   });
 
-  it('knows the tapped event by its element, which a re-render keeps', async () => {
-    // `expand` regroups the events before the click arrives, which replaces each row's data;
-    // a guard comparing data would take the click for a new activation and collapse the card.
-    const { card } = await mount({
-      event_tap_action: { action: 'expand' },
+  it('knows the held event by its element, which a re-render keeps', async () => {
+    // A hold whose `hold_action` expands the card regroups the events before the click
+    // arrives, which replaces each row's data; a guard comparing data would take the click
+    // for a new activation and open the event the hold deliberately did not.
+    const { card, dialogs } = await mount({
+      ...DETAILS,
+      hold_action: { action: 'expand' },
       list: { compact_events_to_show: 1 },
     });
     const expanded = () => (card as unknown as { isExpanded: boolean }).isExpanded;
@@ -971,6 +965,7 @@ describe('the click a pointer gesture owes', () => {
     const before = (dentist as Activation.TappableEventElement).calendarCardEventTap;
 
     pointer(leafShowing(dentist, 'Dentist'), 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
     pointer(leafShowing(dentist, 'Dentist'), 'pointerup');
     await card.updateComplete;
     expect(expanded()).toBe(true);
@@ -981,6 +976,8 @@ describe('the click a pointer gesture owes', () => {
     );
 
     click(leafShowing(dentist, 'Dentist'));
+    await settle();
+    expect(dialogs).toEqual([]);
     expect(expanded()).toBe(true);
   });
 });
@@ -1191,6 +1188,31 @@ describe('what the card lets the dialog offer', () => {
     });
     // Its details still open.
     expect(merged.dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
+  });
+
+  it('opens a merged row for the calendar whose copy it kept', async () => {
+    // Ben and Carl share the event and Anna, the card's first calendar, does not, so the
+    // first configured calendar and the kept copy's differ.
+    const swimming = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
+    const { card, dialogs } = await mount(
+      {
+        entities: ['calendar.anna', 'calendar.ben', 'calendar.carl'],
+        filter_duplicates: true,
+        ...DETAILS,
+      },
+      {
+        eventsFor: {
+          'calendar.anna': [RAW_EVENTS[0]],
+          'calendar.ben': [swimming],
+          'calendar.carl': [swimming],
+        },
+      },
+    );
+
+    expect(buttonsShowing(card, 'Swimming')).toHaveLength(1);
+    buttonsShowing(card, 'Swimming')[0].click();
+    await settle();
+    expect(dialogs.map((dialog) => dialog.dialogParams.calendarId)).toEqual(['calendar.ben']);
   });
 
   it('withholds both while the calendar is failing and its events come from the cache', async () => {

@@ -150,10 +150,7 @@ describe.each<Flag>(['preview', 'editMode'])('while %s is set', (flag) => {
   it.each(['list', 'column', 'grid'])(
     'leaves %s events inert, with no role, no tab stop and no action',
     async (view) => {
-      const { card, opened } = await mount(
-        { view, event_tap_action: { action: 'more-info' } },
-        flag,
-      );
+      const { card, opened } = await mount({ view, event_tap_action: { action: 'details' } }, flag);
 
       const root = card.shadowRoot!;
       expect(root.querySelectorAll('.event-interactive, .event-button')).toHaveLength(0);
@@ -166,31 +163,16 @@ describe.each<Flag>(['preview', 'editMode'])('while %s is set', (flag) => {
       await settle();
       expect(opened).toEqual([]);
 
-      // The control: cleared, the same event is a button and every way of activating it
-      // runs the action.
+      // The control: cleared, the same event is a button and activating it opens it.
       card[flag] = false;
       await card.updateComplete;
       const button = root.querySelector<HTMLElement>('.content-container [role="button"]');
       expect(button?.textContent).toContain('Dentist');
       button!.click();
       await settle();
-      expect(opened).toEqual(['hass-action']);
+      expect(opened).toEqual(['show-dialog']);
     },
   );
-
-  it('opens no event dialog for details either', async () => {
-    const { card, opened } = await mount({ event_tap_action: { action: 'details' } }, flag);
-
-    activateEveryWay(leaf(eventRoots(card)[0]));
-    await settle();
-    expect(opened).toEqual([]);
-
-    card[flag] = false;
-    await card.updateComplete;
-    card.shadowRoot!.querySelector<HTMLElement>('[role="button"]')!.click();
-    await settle();
-    expect(opened).toEqual(['show-dialog']);
-  });
 
   it('refuses to open either dialog when asked directly', async () => {
     // The last guard, for anything that reaches the openers past the inert markup: a render

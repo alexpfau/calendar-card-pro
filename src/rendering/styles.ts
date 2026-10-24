@@ -2038,7 +2038,7 @@ export const cardStyles = css`
   }
 
   /* ===== TAPPABLE EVENTS =====
-   * With event_tap_action set, each event is a button that runs it; details opens Home
+   * With event_tap_action set to details, each event is a button that opens Home
    * Assistant's event-detail dialog. The event's own background is an inline style, so the
    * hover wash is an inset shadow drawn over it rather than a second background, and it
    * mixes the event's text color so it reads on light and dark themes alike. Hover
