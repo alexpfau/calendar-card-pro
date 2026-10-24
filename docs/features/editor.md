@@ -17,7 +17,7 @@ The editor is organized into nine panels, each named for what it configures rath
 | **Calendars**            | Which calendars the card shows, and how each one looks                                 |
 | **Layout**               | How the card arranges days, and how much room it takes up                              |
 | **Time Range & Content** | Which days the card covers, and what it puts in them                                   |
-| **Card & Title**         | The card itself, and its header: the title and the add-event button                    |
+| **Card & Header**        | The card itself, and its header: the title and the toolbar                             |
 | **Day Header**           | How each day announces itself, whichever layout it is announced in                     |
 | **Events**               | The events themselves, and the lines each one can carry                                |
 | **Separators**           | Every rule the card draws — between days in any view, and in grid across them too      |
@@ -25,6 +25,8 @@ The editor is organized into nine panels, each named for what it configures rath
 | **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars |
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
+
+**Card & Header** holds the one switch for the [header toolbar](/features/layout-appearance#header-toolbar), **Show Toolbar**, right after the title's options. While it is on, the panel offers each of the toolbar's controls in the order the toolbar draws them, **View Switcher** and then **Add Event Button**; turning the toolbar off again hides them and keeps what they were set to.
 
 The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
 

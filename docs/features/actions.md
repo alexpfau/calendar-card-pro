@@ -207,14 +207,16 @@ title: Family
 entities:
   - calendar.anna
   - calendar.holidays
-show_add_event: true
+toolbar:
+  show: true
+  view_switcher: false
 ```
 
-The button sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events. On a card at least 480px wide it carries Home Assistant's own "Add event" label, and narrower than that it is a plus icon, with the label as its tooltip.
+The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), always its last; `view_switcher: false` above leaves it alone there. It sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events. On a card at least 480px wide it carries Home Assistant's own "Add event" label, 640px with the view switcher beside it, and narrower than that it is a plus icon, with the label as its tooltip. If Home Assistant has no label to give, the button stays an icon at any width, and so does the view switcher beside it.
 
 The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above. Its calendar picker is Home Assistant's own, though, so it offers every calendar in Home Assistant that accepts new events, not only this card's, and the event is saved to whichever you pick. The new event is set for today when the card's date range includes today, and for the first day of the range otherwise, so a card looking at next week does not suggest today.
 
-The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars keeps its usual look even with `show_add_event: true`. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
+The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars draws no add button even with the toolbar shown. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
 
 ::: tip Pressing the Button Is Not a Tap on the Card
 The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users keep the card's own `tap_action` too: Tab to the card itself and press Enter, as [beside tappable events](#where-you-can-tap).
@@ -240,4 +242,4 @@ A future Home Assistant release may change the calendar code the card loads its 
 In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, and events are not tap targets. Trying out a configuration or arranging a dashboard cannot open a dialog that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have.
 :::
 
-Card taps are set with `tap_action` and `hold_action`, and event taps with `event_tap_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `show_add_event`, under [Header](/reference/configuration#header).
+Card taps are set with `tap_action` and `hold_action`, and event taps with `event_tap_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `toolbar → add_event`, under [Header](/reference/configuration#header).
