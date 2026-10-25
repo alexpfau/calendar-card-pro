@@ -411,13 +411,20 @@ function renderEventTitle(
   // `dir="auto"` gives the words the title's own direction. Inline-blocks are ordered by
   // the direction of the line around them, so on a right-to-left dashboard an English
   // title read "landlord with Call" until the wrapper said which way its words run.
+  //
+  // A run in a script written without spaces gets an inline element of its own. It breaks
+  // between characters exactly as bare text does, and the element is what lets the title
+  // cut hide it: a cut on the word before such a run has to take the run out too, or the
+  // run's text keeps the line going after the ellipsis. See cutGridTitleLines.
   const titleText =
     titleWords && !scrollTitles
       ? html`<span class="title-words" dir="auto"
           >${splitTitleWords(titleString ?? '').map((segment) =>
             segment.kind === 'word'
               ? html`<span class="title-word">${segment.text}</span>`
-              : segment.text,
+              : segment.kind === 'text'
+                ? html`<span class="title-run">${segment.text}</span>`
+                : segment.text,
           )}</span
         >`
       : titleString;

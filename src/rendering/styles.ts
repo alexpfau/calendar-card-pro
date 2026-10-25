@@ -3535,16 +3535,18 @@ export const cardStyles = css`
   /* A title running past its block stops at the last line that fits whole, and that line
      ends in an ellipsis. For a title split into words the host marks the word to end on:
      it draws the ellipsis inside its own clip, narrowed to the room left on its line, and
-     the words after it are taken out. So the cut is on a word boundary, or inside the one
-     word when even that is too wide, and there is exactly one ellipsis either way: a word
-     the clip shortens draws its own in place of this one.
+     everything after it is taken out: words, and the runs of Han, kana or Thai text that
+     sit among them, each in an element of its own so that it can be. So the cut is on a
+     word boundary, or inside the one word when even that is too wide, and there is exactly
+     one ellipsis either way: a word the clip shortens draws its own in place of this one.
 
      A line clamp is the obvious tool and does the wrong thing here, in Chromium and WebKit
      alike. It cannot shorten a word box, so to make room for its ellipsis it hides the last
      one, which left a picture label beside a bare ellipsis, or it draws the ellipsis past
-     the edge where the block clips it in half. It is kept for the case it handles well:
-     text the browser breaks itself, which it shortens character by character. See
-     cutGridTitleLines in grid-title-fit.ts.
+     the edge where the block clips it in half. It is kept for the case it handles well, a
+     line ending in text the browser breaks itself, which it shortens character by character,
+     and only where that text leaves it room for its ellipsis without touching the word box
+     before it. See cutGridTitleLines in grid-title-fit.ts.
 
      After the first-word rule and as specific, so a cut on the first word wins. */
   .grid-event:not(
@@ -3577,7 +3579,7 @@ export const cardStyles = css`
     .grid-event-disclosure
     .title-words
     > .title-word[data-grid-title-cut]
-    ~ .title-word {
+    ~ * {
     display: none;
   }
 

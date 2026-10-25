@@ -333,6 +333,21 @@ function px(value: string): number {
   return Number.parseFloat(value) || 0;
 }
 
+/** Whether the title row is shown at all; below the first rung it is display: none. */
+function titleRowEligible(target: GridTitleTarget): boolean {
+  return (
+    getComputedStyle(target.row).getPropertyValue('--calendar-card-grid-title-eligible').trim() ===
+    '1'
+  );
+}
+
+/** Whether every picture in the group has the natural size the layout was computed with. */
+function imagesReady(summary: HTMLElement): boolean {
+  return Array.from(summary.querySelectorAll('img')).every(
+    (image) => image.complete && image.naturalWidth > 0,
+  );
+}
+
 /**
  * Keeps a complete scrolling label run at natural width only when useful title text fits.
  *
@@ -400,13 +415,10 @@ export function reserveScrollingLabelWidths(titles: Iterable<HTMLElement>): void
         const rect = label.getBoundingClientRect();
         return rect.width > 0 && rect.left >= left - PRECISION && rect.right <= right + PRECISION;
       });
-      const imagesReady = Array.from(summary.querySelectorAll('img')).every(
-        (image) => image.complete && image.naturalWidth > 0,
-      );
       if (
         scale > 0 &&
         labelsFit &&
-        imagesReady &&
+        imagesReady(summary) &&
         gridTitleHasUsefulWidth(
           titleBox.width - titleInsets,
           runsWidth(runs),
@@ -453,34 +465,33 @@ function normalClip(target: GridTitleTarget): Bounds {
 }
 
 /**
+ * Where a normal title can be seen: the block's text area, narrowed to the title row and to
+ * the summary, whose box an authored clamp shortens.
+ */
+function titleWindow(target: GridTitleTarget): { visible: Bounds; summary: DOMRect } {
+  const clip = normalClip(target);
+  const row = target.row.getBoundingClientRect();
+  const summary = target.summary.getBoundingClientRect();
+  return {
+    summary,
+    visible: {
+      top: Math.max(clip.top, row.top, summary.top),
+      bottom: Math.min(clip.bottom, row.bottom, summary.bottom),
+    },
+  };
+}
+
+/**
  * Test the actual first title glyph row and all label fragments, not whole-event overflow.
  * Later wrapped lines are cutGridTitleLines's concern: by the time this runs, a title that
  * ran past its block has been cut back to the whole lines that fit.
  */
 export function normalGridTitleFits(target: GridTitleTarget): boolean {
-  if (
-    getComputedStyle(target.row).getPropertyValue('--calendar-card-grid-title-eligible').trim() !==
-    '1'
-  ) {
-    return false;
-  }
-  if (
-    Array.from(target.summary.querySelectorAll('img')).some(
-      (image) => !image.complete || image.naturalWidth <= 0,
-    )
-  ) {
-    return false;
-  }
+  if (!titleRowEligible(target) || !imagesReady(target.summary)) return false;
   const runs = textRuns(target.title);
   const first = runs[0]?.rects[0];
   if (!first || first.height <= 0) return false;
-  const clip = normalClip(target);
-  const row = target.row.getBoundingClientRect();
-  const summary = target.summary.getBoundingClientRect();
-  const visible = {
-    top: Math.max(clip.top, row.top, summary.top),
-    bottom: Math.min(clip.bottom, row.bottom, summary.bottom),
-  };
+  const { visible, summary } = titleWindow(target);
   const labels = labelRects(target);
   return (
     inside(first, visible) &&
@@ -490,21 +501,6 @@ export function normalGridTitleFits(target: GridTitleTarget): boolean {
         label.left >= summary.left - PRECISION &&
         label.right <= summary.right + PRECISION,
     )
-  );
-}
-
-/** Whether the title row is shown at all; below the first rung it is display: none. */
-function titleRowEligible(target: GridTitleTarget): boolean {
-  return (
-    getComputedStyle(target.row).getPropertyValue('--calendar-card-grid-title-eligible').trim() ===
-    '1'
-  );
-}
-
-/** Whether every picture in the group has the natural size the layout was computed with. */
-function imagesReady(summary: HTMLElement): boolean {
-  return Array.from(summary.querySelectorAll('img')).every(
-    (image) => image.complete && image.naturalWidth > 0,
   );
 }
 
@@ -689,13 +685,7 @@ function measureTitleCut(
   }
   const items = flowItems(target);
   const bands = lineBands(items.flatMap((item) => item.rects));
-  const clip = normalClip(target);
-  const row = target.row.getBoundingClientRect();
-  const summary = target.summary.getBoundingClientRect();
-  const visible = {
-    top: Math.max(clip.top, row.top, summary.top),
-    bottom: Math.min(clip.bottom, row.bottom, summary.bottom),
-  };
+  const { visible } = titleWindow(target);
   let lines = 0;
   while (lines < bands.length && inside(bands[lines], visible)) lines += 1;
   // No line fits: that is the compact fallback's case, decided after the detail rows.
@@ -710,38 +700,71 @@ function measureTitleCut(
   // Labels alone on the last whole line: the title itself never starts.
   if (end < 0) return null;
 
-  // Text the browser breaks itself is clamped, at a count that can only match or undercut an
-  // authored clamp. Matching one is not a no-op: the clamp rule also drops the title's bottom
-  // padding, through which an unlabeled title showed the top of the next line.
+  // A clamp, at a count that can only match or undercut an authored clamp. Matching one is not
+  // a no-op: the clamp rule also drops the title's bottom padding, through which an unlabeled
+  // title showed the top of the next line.
   const clamp = { target, lines, word: null, room: 0 };
-  if (title[end].kind !== 'word' || title.slice(end + 1).some((item) => item.kind === 'text')) {
-    return clamp;
-  }
-
-  // Free space on the last line, plus what each word after a candidate gives back once it
-  // is hidden: that candidate's room. The first word, from the end, with room for its first
-  // character and an ellipsis carries the cut.
   const scale = blockScale(target.block);
   const lineRects = items.flatMap((item) => item.rects.filter(onLast));
-  let room =
+  const free =
     contentWidth(target.summary) * scale -
     (Math.max(...lineRects.map((rect) => rect.right)) -
       Math.min(...lineRects.map((rect) => rect.left)));
-  for (let index = end; index >= 0 && title[index].kind === 'word'; index -= 1) {
-    const rect = title[index].rects[0];
-    if (!onLast(rect)) break;
-    const word = title[index].node as HTMLElement;
-    room += rect.width;
-    const prefix = prefixWidth(textRuns(word));
-    if (prefix > 0 && prefix + ellipsisWidth(canvas, word) * scale <= room + PRECISION) {
-      // A hair under the measured room, so rounding can never make the word one fraction
-      // too wide for its line and wrap it out of sight.
-      return { target, lines, word, room: room / scale - PRECISION };
+  const widthOnLast = (item: FlowItem): number =>
+    item.rects.filter(onLast).reduce((sum, rect) => sum + rect.width, 0);
+  const gapOnLast = (before: FlowItem | undefined, after: FlowItem): number => {
+    const left = before?.rects.filter(onLast) ?? [];
+    const right = after.rects.filter(onLast);
+    return left.length && right.length ? gapBetween(left[left.length - 1], right[0]) : 0;
+  };
+
+  // A line ending in text is the clamp's, which shortens text by the character, provided the
+  // text there, with the space before it and what is free, is wide enough for its ellipsis.
+  // Short of that the clamp hides the word box in front instead, and a picture was left
+  // beside a bare "…", so the cut goes back to that word below. A pixel to spare, because the
+  // ellipsis is measured on a canvas in the text's own font while the clamp lays its own out
+  // in the font of the box it clamps: a labeled title clamps on the summary, which is not
+  // its weight, and the two came out 8.03px and 8.50px at 12px.
+  if (title[end].kind === 'text') {
+    let tail = free;
+    let index = end;
+    for (; index >= 0 && title[index].kind === 'text' && title[index].rects.some(onLast); index--) {
+      tail += widthOnLast(title[index]) + gapOnLast(title[index - 1], title[index]);
     }
-    const previous = title[index - 1];
-    if (previous?.kind === 'word') room += gapBetween(previous.rects[0], rect);
+    const ellipsis = ellipsisWidth(canvas, title[end].node.parentElement ?? target.title);
+    if (index < 0 || !title[index].rects.some(onLast) || tail >= (ellipsis + 1) * scale) {
+      return clamp;
+    }
+  }
+
+  // Walking back along the last line, every piece hidden after a candidate word hands back
+  // its width and the space before it: that is the candidate's room. The first word with
+  // room for its first character and an ellipsis carries the cut, and the stylesheet hides
+  // every word and run after it. A run that began on an earlier line is never hidden: all
+  // that comes before it lies on earlier lines, so the walk leaves the line right after it.
+  let room = free;
+  for (let index = end; index >= 0 && title[index].rects.some(onLast); index -= 1) {
+    const item = title[index];
+    room += widthOnLast(item);
+    if (item.kind === 'word' && title.slice(index + 1).every(hiddenByCut)) {
+      const word = item.node as HTMLElement;
+      const prefix = prefixWidth(textRuns(word));
+      if (prefix > 0 && prefix + ellipsisWidth(canvas, word) * scale <= room + PRECISION) {
+        // A hair under the measured room, so rounding can never make the word one fraction
+        // too wide for its line and wrap it out of sight.
+        return { target, lines, word, room: room / scale - PRECISION };
+      }
+    }
+    room += gapOnLast(title[index - 1], item);
   }
   return clamp;
+}
+
+/** Whether the stylesheet hides a piece that follows a cut word: a word, or a wrapped run. */
+function hiddenByCut(item: FlowItem): boolean {
+  return item.kind === 'word'
+    ? (item.node as Element).matches('.title-words > .title-word')
+    : !!item.node.parentElement?.matches('.title-words > .title-run');
 }
 
 /**
@@ -752,14 +775,17 @@ function measureTitleCut(
  * nothing to say the title went on. Now the title shows only the line boxes that fit
  * whole, and the last of them ends in "…" when more title follows.
  *
- * A title split into words ends on a word: the words after it are hidden, and that word
- * draws the ellipsis inside its own clip, narrowed to the room left on its line, so it
- * reads "Pediatrician…" and never wraps out of sight. A line clamp cannot do this. Asked to
- * end on a line of word boxes, it hides the last one to make room for its ellipsis, which
- * left a picture label beside a bare "…", or draws the ellipsis past the edge and has it
- * clipped. Text the browser breaks itself, a Han or Thai run or a right-to-left title, ends
- * with a runtime line clamp instead, which shortens text character by character as it
- * should.
+ * A title split into words ends on a word: the words after it are hidden, and so are the
+ * runs of Han, kana or Thai among them, and that word draws the ellipsis inside its own
+ * clip, narrowed to the room left on its line, so it reads "Pediatrician…" and never wraps
+ * out of sight. A line clamp cannot do this. Asked to end on a line of word boxes, it hides
+ * the last one to make room for its ellipsis, which left a picture label beside a bare "…",
+ * or draws the ellipsis past the edge and has it clipped. A line ending in text the browser
+ * breaks itself, such a run or a right-to-left title, ends with a runtime line clamp
+ * instead, which shortens text character by character as it should, but only where that
+ * text is wide enough to give the clamp's ellipsis its room. Where it is not, as when
+ * "Conference 会議室で…" leaves a sliver of the run beside the word, the cut goes back to
+ * the word.
  *
  * This only ever shortens: the visible lines are measured inside any title_max_lines
  * clamp, so it never shows a line the configuration took away. It runs before the detail
@@ -867,9 +893,6 @@ function measureCompact(
       label.right <= summary.right + PRECISION &&
       label.width > 0,
   );
-  const imagesReady = Array.from(target.summary.querySelectorAll('img')).every(
-    (image) => image.complete && image.naturalWidth > 0,
-  );
   return {
     target,
     font: px(titleStyle.fontSize),
@@ -888,7 +911,7 @@ function measureCompact(
     textFits: glyphs.every((glyph) => inside(glyph, title)),
     readable:
       labelsFit &&
-      imagesReady &&
+      imagesReady(target.summary) &&
       gridTitleHasUsefulWidth(title.width, fullWidth, usefulWidth, ellipsis),
   };
 }

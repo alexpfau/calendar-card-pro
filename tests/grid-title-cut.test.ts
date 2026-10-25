@@ -6,6 +6,7 @@ import {
   cutGridTitleLines,
   gridTitleTarget,
   leadGridTitles,
+  normalGridTitleFits,
   resetGridTitle,
 } from '../src/utils/grid-title-fit';
 
@@ -44,6 +45,12 @@ interface Label {
   rects: DOMRect[];
 }
 
+/**
+ * One piece of a split title: a word box, a run of a script written without spaces in its own
+ * element (as the renderer draws one), or, for the guard, text left bare.
+ */
+type Piece = ['word', string, DOMRect] | ['run' | 'bare', string, DOMRect[]];
+
 interface Geometry {
   /** Border-box height of the block. */
   height: number;
@@ -53,16 +60,24 @@ interface Geometry {
   labels?: Label[];
   /** A title split into words, each with its box. */
   words?: Array<[string, DOMRect]>;
+  /** A split title mixing words and runs, in reading order. */
+  pieces?: Piece[];
   /** A title left to the browser's own line breaking, one rectangle per line. */
   text?: [string, DOMRect[]];
-  /** Text before the words, as a title in Han or Thai opens. */
+  /** A run before the words, as a title in Han or Thai opens. */
   leadingText?: [string, DOMRect[]];
   scroll?: boolean;
   imageReady?: boolean;
+  /** False below the first rung, where the stylesheet hides the title row. */
+  eligible?: boolean;
 }
 
 function block(geometry: Geometry): HTMLElement {
-  const { height, width = 100, summary, labels = [], words, text, leadingText } = geometry;
+  const { height, width = 100, summary, labels = [], words = [], text, leadingText } = geometry;
+  const pieces: Piece[] = geometry.pieces ?? [
+    ...(leadingText ? [['run', ...leadingText] as Piece] : []),
+    ...words.map(([word, box]): Piece => ['word', word, box]),
+  ];
   const element = document.createElement('div');
   element.className = 'grid-event';
   element.style.cssText = `height: ${height}px; padding: 2px 4px; box-sizing: border-box`;
@@ -75,17 +90,22 @@ function block(geometry: Geometry): HTMLElement {
           : `<span class="calendar-label${kind === 'emoji' ? ' label-emoji' : ''}" style="display: inline; margin-right: 4px">${kind === 'emoji' ? '🎉' : 'Anna'}</span>`,
     )
     .join('');
-  const titleMarkup = words
+  const titleMarkup = pieces.length
     ? '<span class="title-words" dir="auto"><!--?lit$1$-->' +
-      (leadingText ? leadingText[0] : '') +
-      words
-        .map(([word]) => `<span class="title-word" style="display: inline-block">${word}</span>`)
+      pieces
+        .map(([kind, value]) =>
+          kind === 'word'
+            ? `<span class="title-word" style="display: inline-block">${value}</span>`
+            : kind === 'run'
+              ? `<span class="title-run">${value}</span>`
+              : value,
+        )
         .join(' ') +
       '</span>'
     : text![0];
   element.innerHTML =
     '<div class="grid-event-disclosure"><div class="event-content">' +
-    '<div class="summary-row" style="--calendar-card-grid-title-eligible: 1">' +
+    `<div class="summary-row" style="--calendar-card-grid-title-eligible: ${geometry.eligible === false ? 0 : 1}">` +
     `<div class="summary${geometry.scroll ? ' summary-scroll' : ''}" style="width: ${width}px; ${FONT}">` +
     `${labelMarkup}<span class="event-title">${titleMarkup}</span></div></div>` +
     '<div class="location"><span>Main Street 5</span></div>' +
@@ -109,17 +129,22 @@ function block(geometry: Geometry): HTMLElement {
     }
     if (kind === 'prose' || kind === 'emoji') TEXT.set(label.firstChild!, rects);
   });
-  const wordElements = element.querySelectorAll<HTMLElement>('.title-word');
-  (words ?? []).forEach(([, box], index) => {
-    rect(wordElements[index], box);
-    TEXT.set(wordElements[index].firstChild!, [box]);
-  });
+  const wordElements = Array.from(element.querySelectorAll<HTMLElement>('.title-word'));
+  const runElements = Array.from(element.querySelectorAll<HTMLElement>('.title-run'));
   const titleWords = element.querySelector('.title-words');
-  if (leadingText) {
-    const node = Array.from(titleWords!.childNodes).find(
-      (child) => child.nodeType === Node.TEXT_NODE && child.textContent === leadingText[0],
-    )!;
-    TEXT.set(node, leadingText[1]);
+  for (const piece of pieces) {
+    if (piece[0] === 'word') {
+      const word = wordElements.shift()!;
+      rect(word, piece[2]);
+      TEXT.set(word.firstChild!, [piece[2]]);
+    } else if (piece[0] === 'run') {
+      TEXT.set(runElements.shift()!.firstChild!, piece[2]);
+    } else {
+      const node = Array.from(titleWords!.childNodes).find(
+        (child) => child.nodeType === Node.TEXT_NODE && child.textContent?.includes(piece[1]),
+      )!;
+      TEXT.set(node, piece[2]);
+    }
   }
   if (text) TEXT.set(element.querySelector('.event-title')!.firstChild!, text[1]);
   document.body.append(element);
@@ -296,6 +321,170 @@ describe('a grid title stops at the last whole line its block shows', () => {
   it('waits for a picture to know its size', () => {
     expect(cutWord(cut({ height: 20, ...PEDIATRICIAN, imageReady: false }))).toBeNull();
   });
+
+  it('leaves a title row the block is too short to show at all', () => {
+    // Below the first rung the row is display: none, so its stale rectangles say nothing.
+    const element = block({ height: 20, ...PEDIATRICIAN, eligible: false });
+    measurable();
+    const target = gridTitleTarget(element)!;
+    leadGridTitles([target]);
+    cutGridTitleLines([target]);
+
+    expect(labelRun(element)).toBeNull();
+    expect(cutWord(element)).toBeNull();
+    expect(fitLines(element)).toBeNull();
+    expect(normalGridTitleFits(target)).toBe(false);
+  });
+});
+
+describe('a title mixing words with a script written without spaces', () => {
+  // "Conference 会議室で打ち合わせ" in a lane the word fills: the run starts a line down. A
+  // line clamp asked to end on that word hid it for its ellipsis, and drew a bare "…" beside
+  // the picture, in Chromium and WebKit alike.
+  const RUN_BELOW: Piece = ['run', '会議室で打ち合わせ', [new DOMRect(4, line(1), 90, LINE)]];
+
+  it('ends on the word and hides the run after it, where a clamp hid the word', () => {
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [['word', 'Conference', new DOMRect(21, line(0), 70, LINE)], RUN_BELOW],
+    });
+
+    expect(cutWord(element)).toBe('Conference');
+    expect(fitLines(element)).toBeNull();
+    expect(room(element)).toBe(`${70 + (100 - (91 - 4)) - 1 / 64}px`);
+  });
+
+  it('still ends a word that fits whole in an ellipsis, since the run follows it', () => {
+    // "Zoom…" fits in its 83px with room to spare; the run is what makes it a cut at all.
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [['word', 'Zoom', new DOMRect(21, line(0), 30, LINE)], RUN_BELOW],
+    });
+
+    expect(cutWord(element)).toBe('Zoom');
+    expect(room(element)).toBe(`${30 + (100 - (51 - 4)) - 1 / 64}px`);
+  });
+
+  it('clamps a line that ends in the run, text it can shorten by the character', () => {
+    // The mirror order, "打ち合わせ Zoom": the run starts beside the picture and the word
+    // follows it a line down. No word shares the last line, so nothing can be hidden for
+    // the clamp's ellipsis but text.
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [
+        [
+          'run',
+          '打ち合わせ',
+          [new DOMRect(21, line(0), 79, LINE), new DOMRect(4, line(1), 20, LINE)],
+        ],
+        ['word', 'Zoom', new DOMRect(28, line(1), 30, LINE)],
+      ],
+    });
+
+    expect(fitLines(element)).toBe('1');
+    expect(cutWord(element)).toBeNull();
+  });
+
+  it('clamps a word followed by text on its line, where that text leaves room for "…"', () => {
+    // 4px free, 25px of run and the 4px space before it: the clamp shortens the run and the
+    // word stays, which keeps more of the title than ending on the word would.
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [
+        ['word', 'Conference', new DOMRect(21, line(0), 50, LINE)],
+        [
+          'run',
+          '会議室で',
+          [new DOMRect(75, line(0), 25, LINE), new DOMRect(4, line(1), 60, LINE)],
+        ],
+      ],
+    });
+
+    expect(fitLines(element)).toBe('1');
+    expect(cutWord(element)).toBeNull();
+  });
+
+  it('ends on the word instead where the text after it is too narrow for "…"', () => {
+    // 1px free, a 3px sliver of run and a 2px space: 6px, short of the 6px ellipsis plus a
+    // pixel of margin. The clamp would have to hide the word box to fit its ellipsis, so the
+    // word carries the cut and its room includes everything hidden after it.
+    const element = cut({
+      height: 20,
+      width: 93,
+      summary: new DOMRect(4, line(0), 93, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [
+        ['word', 'Conference', new DOMRect(21, line(0), 70, LINE)],
+        ['run', '会議室で', [new DOMRect(93, line(0), 3, LINE), new DOMRect(4, line(1), 60, LINE)]],
+      ],
+    });
+
+    expect(cutWord(element)).toBe('Conference');
+    expect(room(element)).toBe(`${70 + 2 + 3 + 1 - 1 / 64}px`);
+    expect(fitLines(element)).toBeNull();
+  });
+
+  it('ends on a word that follows a run begun on an earlier line', () => {
+    const element = cut({
+      height: 36,
+      summary: new DOMRect(4, line(0), 100, 3 * LINE),
+      pieces: [
+        [
+          'run',
+          '会議室で打ち合わせ',
+          [new DOMRect(4, line(0), 96, LINE), new DOMRect(4, line(1), 50, LINE)],
+        ],
+        ['word', 'Zoom', new DOMRect(58, line(1), 30, LINE)],
+        ['word', 'meeting', new DOMRect(4, line(2), 45, LINE)],
+      ],
+    });
+
+    expect(cutWord(element)).toBe('Zoom');
+  });
+
+  it('clamps when the last word is too narrow and a run from the line above precedes it', () => {
+    // "Z" has 11px and needs 13. Stepping back would mean hiding the run, which would take
+    // its first line with it and move every line above the cut, so the walk ends there.
+    const element = cut({
+      height: 36,
+      summary: new DOMRect(4, line(0), 100, 3 * LINE),
+      pieces: [
+        [
+          'run',
+          '会議室で打ち合わせ',
+          [new DOMRect(4, line(0), 96, LINE), new DOMRect(4, line(1), 50, LINE)],
+        ],
+        ['word', 'Z', new DOMRect(93, line(1), 5, LINE)],
+        ['word', 'meeting', new DOMRect(4, line(2), 45, LINE)],
+      ],
+    });
+
+    expect(cutWord(element)).toBeNull();
+    expect(fitLines(element)).toBe('2');
+  });
+
+  it('clamps where the text after the word has no element to hide it by', () => {
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [
+        ['word', 'Conference', new DOMRect(21, line(0), 70, LINE)],
+        ['bare', '会議室', [new DOMRect(4, line(1), 40, LINE)]],
+      ],
+    });
+
+    expect(cutWord(element)).toBeNull();
+    expect(fitLines(element)).toBe('1');
+  });
 });
 
 describe('a labeled grid title starts on its labels line', () => {
@@ -362,7 +551,7 @@ describe('a labeled grid title starts on its labels line', () => {
       height: 60,
       summary: new DOMRect(4, line(0), 100, 3 * LINE),
       labels: [PICTURE],
-      leadingText: ['会議 ', [new DOMRect(21, line(0), 28, LINE)]],
+      leadingText: ['会議', [new DOMRect(21, line(0), 28, LINE)]],
       words: [['Room', new DOMRect(53, line(0), 30, LINE)]],
     });
 
@@ -470,9 +659,9 @@ describe('the stylesheet half', () => {
     expect(
       rule(`${NORMAL} .title-words > .title-word[data-grid-title-cut]::after`).body.trim(),
     ).toBe("content: '\\2026';");
-    expect(
-      rule(`${NORMAL} .title-words > .title-word[data-grid-title-cut] ~ .title-word`).body.trim(),
-    ).toBe('display: none;');
+    expect(rule(`${NORMAL} .title-words > .title-word[data-grid-title-cut] ~ *`).body.trim()).toBe(
+      'display: none;',
+    );
   });
 
   it('clamps a text title to the measured lines on whichever box clamps it, padding and all', () => {

@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(139_000);
-    // Grid title fitting moved the ceiling last, from 136,000 to 139,000: the notes on why a grid
+    expect(saved).toBeLessThan(140_000);
+    // Two review fixes moved the ceiling last, from 139,000 to 140,000: the note on the
+    // zero-width space after a text label, which reads as an empty rule unless it says what
+    // removing the whitespace before a title had cost, and the cut rule's note on runs of a
+    // script written without spaces, which the cut now hides like words, and on when the
+    // clamp may end a line that ends in text. The reading went 138,129 to 139,133, taken
+    // with stripComments after the last comment was written and confirmed from an esbuild
+    // bundle of the same source.
+    //
+    // Grid title fitting moved the ceiling before that, from 136,000 to 139,000: the notes on why a grid
     // block has no hanging indent and why one rule clears it for every label shape; why a
     // labeled title's first word is narrowed to what its labels leave, and why that width is
     // measured rather than written in CSS; why a title stopped at its last whole line ends on

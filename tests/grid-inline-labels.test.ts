@@ -19,16 +19,20 @@ function declarations(selector: string): string {
   return rule![2];
 }
 
-function event(entity: string): Types.CalendarEventData {
+function event(entity: string, summary = 'Team lunch'): Types.CalendarEventData {
   return {
     _entityId: entity,
-    summary: 'Team lunch',
+    summary,
     start: { dateTime: '2026-06-17T11:00:00.000Z' },
     end: { dateTime: '2026-06-17T13:00:00.000Z' },
   };
 }
 
-function render(entities: Types.EntityConfig[], options: Partial<Types.Config> = {}): HTMLElement {
+function render(
+  entities: Types.EntityConfig[],
+  options: Partial<Types.Config> = {},
+  summary?: string,
+): HTMLElement {
   const config = buildConfig({
     view: 'grid',
     days_to_show: 1,
@@ -40,7 +44,7 @@ function render(entities: Types.EntityConfig[], options: Partial<Types.Config> =
   litRender(
     renderGridGroupedEvents(
       groupEventsByDay(
-        entities.map(({ entity: id }) => event(id)),
+        entities.map(({ entity: id }) => event(id, summary)),
         config,
         false,
         'en',
@@ -191,5 +195,22 @@ describe('timed Grid labels share the title line', () => {
     expect(summary.children).toHaveLength(1);
     expect(summary.matches(LABEL_FLOW)).toBe(false);
     expect(summary.children[0].classList).toContain('event-title');
+  });
+
+  it('gives each run in a script without spaces an element the title cut can hide', () => {
+    // The cut hides everything after the word it ends on through a sibling selector, which
+    // reaches elements and not bare text. A run left as text kept the line going after the
+    // ellipsis, so the cut fell back to a line clamp, and that hid the word instead.
+    const title = 'Zoom 打ち合わせ Room';
+    const host = render([{ entity: 'calendar.anna', label: '/local/anna.png' }], {}, title);
+    const words = host.querySelector('.grid-event .title-words')!;
+    expect(Array.from(words.children).map((child) => [child.className, child.textContent])).toEqual(
+      [
+        ['title-word', 'Zoom'],
+        ['title-run', '打ち合わせ'],
+        ['title-word', 'Room'],
+      ],
+    );
+    expect(words.textContent).toBe(title);
   });
 });
