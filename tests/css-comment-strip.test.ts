@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(124_700);
-    // The view switcher moved the ceiling last, from 122,700 to 124,000 and then to 124,700: the
+    expect(saved).toBeLessThan(126_700);
+    // The event gap moved the ceiling last, from 124,700 to 126,700: the notes on why a tinted
+    // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
+    // and a grid block alike) while an untinted stripe stays straight, why the position classes
+    // keep meaning the event's place in its day, why list view's gap is a row that must never
+    // zero its font size, and why column view's is a gap rather than a margin. The reading went
+    // 123,954 to 126,022, taken with stripComments after the last comment in the change was
+    // written.
+    //
+    // The view switcher moved the ceiling before that, from 122,700 to 124,000 and then to 124,700: the
     // notes on why every toolbar control shares one neutral look mixed into transparent rather
     // than a named gray, why the toolbar's custom properties live on the toolbar and not the
     // card, why the raised segment needs light-dark() behind @supports in a dark color scheme,

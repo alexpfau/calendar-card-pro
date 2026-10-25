@@ -47,6 +47,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'duplicate_accent_color',
   'vertical_line_width',
   'event_spacing',
+  'event_gap',
   'day_spacing',
   'additional_card_spacing',
   'height',
@@ -356,6 +357,12 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // Recorded at this length because the class match is genuinely convincing and cost one
   // wrong verdict in review before the cascade was checked.
   event_spacing: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // A grid block is already a block of its own, placed by its time; the gap it keeps from
+  // its neighbors belongs to the grid's own layout. Nothing in grid reads
+  // --calendar-card-event-gap, and the class that draws the gap is only emitted by the list
+  // and column renderers.
+  event_gap: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**
@@ -877,6 +884,28 @@ export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>
 export function isZeroLength(value: string): boolean {
   const match = /^([-+]?(?:\d*\.)?\d+)[a-z%]*$/i.exec(value.trim());
   return match !== null && Number.parseFloat(match[1]) === 0;
+}
+
+/**
+ * Whether a day's events are drawn apart from each other rather than as one block.
+ *
+ * `event_gap` is a CSS length, so zero in any spelling {@link isZeroLength} accepts means
+ * no gap, and the renderers then emit exactly the markup they did before the option
+ * existed. A negative gap means none as well. The two views would otherwise disagree about
+ * it: list view draws the gap as a row, which a negative height collapses to nothing, while
+ * column view draws it as a margin, which a negative value turns into events drawn over
+ * each other.
+ *
+ * Only a leading minus is detected, the bound {@link sanitizeGutter} accepts too. A length
+ * that only computes to zero, such as `calc(0px)`, counts as a gap: the events round their
+ * corners as separate blocks with nothing between them.
+ *
+ * @param config - Configuration, already resolved for the view being drawn
+ * @returns `true` when the events of a day are to be drawn with a gap between them
+ */
+export function hasEventGap(config: Types.Config): boolean {
+  const gap = config.event_gap;
+  return typeof gap === 'string' && !gap.trim().startsWith('-') && !isZeroLength(gap);
 }
 
 /**

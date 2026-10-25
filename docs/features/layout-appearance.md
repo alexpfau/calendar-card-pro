@@ -101,7 +101,7 @@ event_background_opacity: 15 # 0-100 scale for background color intensity
 vertical_line_width: '3px' # Width of the colored event indicator line
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, the accent line curving with the block at its top and bottom. Without one the accent line stays straight, with square ends, because a line bent into a rounded corner reads as a bracket.
 
 `title_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
@@ -195,6 +195,7 @@ Fine-tune the spacing and alignment of your calendar elements:
 ```yaml
 # Spacing between elements
 day_spacing: '8px' # Space between different calendar days
+event_gap: '6px' # Space between the events of one day
 event_spacing: '6px' # Internal padding within each event
 
 list:
@@ -212,6 +213,28 @@ The `date_vertical_alignment` option controls how dates align with their events,
 ::: warning Changed In v4
 This option defaulted to `middle` before v4. Rows wrap often enough — a long address, a description, or a time row carrying a [countdown](/features/column-view#progress-bar-countdown) in a narrow column — that centering left the icon level with neither line of text. Add `event_icon_vertical_alignment: 'middle'` to your card to keep the old behavior.
 :::
+
+### Gaps Between Events
+
+A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent lines run together into one long line:
+
+```yaml
+event_gap: 6px
+event_background_opacity: 15
+```
+
+Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, the accent line's side included, where the joined block rounds only the top of its first event and the bottom of its last. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the accent line stays straight here too, and simply breaks between the events. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
+
+```yaml
+column:
+  event_gap: 4px # Gaps in column view only; list view keeps the joined block
+```
+
+`event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`.
+
+In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; [Separate Events With a Rule Between Days](/reference/examples#separate-events-with-a-rule-between-days) shows the two together.
 
 ## 📅 Week Numbers & Visual Separators
 

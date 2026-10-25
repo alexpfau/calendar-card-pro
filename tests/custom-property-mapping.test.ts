@@ -41,6 +41,7 @@ const PASS_THROUGH: readonly Pair[] = [
   ['vertical_line_width', '--calendar-card-line-width-vertical', '108px'],
   ['day_spacing', '--calendar-card-day-spacing', '109px'],
   ['event_spacing', '--calendar-card-event-spacing', '110px'],
+  ['event_gap', '--calendar-card-event-gap', '119px'],
   ['additional_card_spacing', '--calendar-card-spacing-additional', '111px'],
   ['progress_bar_color', '--calendar-card-progress-bar-color', 'rgb(10, 0, 0)'],
   ['progress_bar_height', '--calendar-card-progress-bar-height', '112px'],
@@ -99,6 +100,41 @@ describe('custom property mapping', () => {
     expect(
       propsFor({ day_font_size: 'calc(1em + 2px)' })['--calendar-card-date-column-width'],
     ).toBe('calc(1.75 * (calc(1em + 2px)))');
+  });
+
+  it('passes the event gap through in the unit it was written in', () => {
+    // Every length default is written in px, so a px-only assertion agrees with a mapping
+    // that discards the unit. The gap is read in em against the card's font, and a calc()
+    // has to reach the stylesheet as written for the browser to resolve.
+    expect(propsFor({ event_gap: '0.5em' })['--calendar-card-event-gap']).toBe('0.5em');
+    expect(propsFor({ event_gap: 'calc(0.25rem + 2px)' })['--calendar-card-event-gap']).toBe(
+      'calc(0.25rem + 2px)',
+    );
+  });
+
+  it.each([undefined, '0px', '0', '-0px', '-4px'])(
+    'writes no event gap at all for %s, so a card without one keeps its inline style',
+    (gap) => {
+      // The property lands in ha-card's style attribute. A `0px` written there on every
+      // card changes the markup of every card that never set the option.
+      const props = propsFor(gap === undefined ? {} : { event_gap: gap });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-gap');
+    },
+  );
+
+  it('rounds the stripe side of an event only while events are tinted', () => {
+    // Untinted, a stripe bent into a rounded corner reads as a bracket, so the property that
+    // rounds that side is left unwritten and the stylesheet falls back to a square corner.
+    // Unwritten rather than written as 0, so an untinted card keeps its inline style.
+    for (const opacity of [undefined, 0]) {
+      const props = propsFor(opacity === undefined ? {} : { event_background_opacity: opacity });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-side-radius');
+    }
+    for (const opacity of [1, 20, 100]) {
+      expect(
+        propsFor({ event_background_opacity: opacity })['--calendar-card-event-accent-side-radius'],
+      ).toBe('var(--calendar-card-event-border-radius)');
+    }
   });
 
   it('dims the default empty day color and passes a configured one through', () => {

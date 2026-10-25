@@ -160,8 +160,15 @@ describe('Layout panel structure', () => {
     expect(EditorLocalize.lookup('de', 'time_grid.axis')).toBe('Zeitachse');
   });
 
-  it('leaves list and column on the order they always had', () => {
-    const expected = ['Day Spacing', 'Event Spacing', 'Additional Card Spacing', 'Card Height'];
+  it('leaves list and column on the order they always had, the event gap added in place', () => {
+    // Outer to inner: between days, between a day's events, inside each event.
+    const expected = [
+      'Day Spacing',
+      'Event Gap',
+      'Event Spacing',
+      'Additional Card Spacing',
+      'Card Height',
+    ];
     expect(layoutOutline('list')).toEqual(expected);
     // "Column Density", not "Grid Density" — the per-view panel-title mechanism resolving
     // the same group under the workspace being configured.

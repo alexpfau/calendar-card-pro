@@ -98,6 +98,37 @@ allday_badge: time
 allday_badge_style: subtle
 ```
 
+## ↕️ Separate Events With a Rule Between Days
+
+[`event_gap`](/features/layout-appearance#gaps-between-events) holds every event apart
+instead of drawing a day's events as one block. In list view that takes away the cue that
+told one day from the next: the gap between two events, `6px` here, is close to the `10px`
+of [`day_spacing`](/reference/configuration#layout-spacing) between two days, so the days run
+together. A one-pixel day rule puts the cue back. It sits in the middle of the day spacing,
+so two days end up 21px apart with a line between them, against 6px between two events.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.anna
+    accent_color: '#ff6c92'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+  - entity: calendar.leo
+    accent_color: '#43a047'
+days_to_show: 5
+event_background_opacity: 20
+event_gap: 6px
+list:
+  day_separator_width: 1px
+```
+
+The rule takes your theme's secondary text color; `day_separator_color` softens it if it
+reads too strong. It sits inside `list:` so that only the list draws it. Column view needs
+no rule, because its days are columns already, and a top-level `day_separator_width` would
+draw a line between the columns as well. `event_gap` stays at the top level, so the events
+stand apart in column view too.
+
 ## 🗓️ A Week Side by Side, in Column View
 
 The [column layout](/features/column-view) rotates the same agenda so each day gets its own

@@ -462,6 +462,7 @@ export function renderDay(
     (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
 
   const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+  const eventGap = ViewConfig.hasEventGap(config);
 
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
@@ -491,13 +492,14 @@ export function renderDay(
         tomorrow: isTomorrow,
         'future-day': !isToday,
         weekend: isWeekendDay,
+        'with-event-gap': eventGap,
       })}
     >
       ${repeat(
         day.events,
         (event, index) => `${event._entityId}-${event.summary}-${index}`,
-        (event, index) =>
-          renderEvent(
+        (event, index) => {
+          const row = renderEvent(
             event,
             day,
             index,
@@ -508,10 +510,30 @@ export function renderDay(
             hass,
             eventsTappable,
             dayLabelId,
-          ),
+          );
+
+          return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
+        },
       )}
     </table>
   `;
+}
+
+/**
+ * The row that holds two of a day's events apart while `event_gap` is set.
+ *
+ * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
+ * the first row and below the last, which moves the day itself and every separator whose
+ * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
+ * fills the event column only, because the day's date cell spans it, and it is hidden from
+ * assistive technology because it holds nothing to read.
+ *
+ * @returns The gap row
+ */
+function renderEventGapRow(): TemplateResult {
+  return html`<tr class="event-gap-row" aria-hidden="true">
+    <td class="event-gap-cell"></td>
+  </tr>`;
 }
 
 /**
@@ -654,6 +676,8 @@ function renderEvent(
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
   const isMiddle = !isFirst && !isLast;
+  // The day's date cell spans the gap rows between its events as well as the events.
+  const rowSpan = ViewConfig.hasEventGap(config) ? day.events.length * 2 - 1 : day.events.length;
 
   const eventClasses = {
     event: true,
@@ -675,7 +699,7 @@ function renderEvent(
         ? html`
             <td
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
-              rowspan="${day.events.length}"
+              rowspan="${rowSpan}"
               style="position: relative;"
               id=${dayLabelId ?? nothing}
             >
