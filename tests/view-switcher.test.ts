@@ -18,6 +18,7 @@ import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
   computeColumnThresholdPx,
+  computeColumnThresholdPxFor,
   resolveColumnFit,
   resolveColumnFitIfPicked,
 } from '../src/config/view';
@@ -408,6 +409,10 @@ describe('narrow cards', () => {
     await press(card, 'column');
     expect(drawnView(card)).toBe('column');
     expect(card._columnCount).toBe(7);
+
+    // The next settled measurement must agree with the press, not undo it.
+    await measure(card, inBand);
+    expect(drawnView(card)).toBe('column');
   });
 
   /**
@@ -427,6 +432,38 @@ describe('narrow cards', () => {
     await press(card, 'column');
     expect(drawnView(card)).toBe('column');
     expect(card._columnCount).toBe(7);
+
+    await measure(card, inBand);
+    expect(drawnView(card)).toBe('column');
+  });
+
+  /**
+   * A pick is fitted by the pick rule until a measurement confirms it. The first
+   * measurement of a fresh card has nothing to start from, so without that a reload at the
+   * width the pick was granted at drew the list, and so did a press made before the width
+   * settled.
+   */
+  it('keeps a pick made inside the band across a reload at the same width', async () => {
+    const inBand = computeColumnThresholdPx(configFor(), 'column') - 8;
+    const first = await mount();
+    await measure(first, WIDE);
+    await press(first, 'column');
+    await measure(first, inBand);
+    expect(drawnView(first)).toBe('column');
+    first.remove();
+
+    const second = await mount();
+    await measure(second, inBand);
+    expect(drawnView(second)).toBe('column');
+    expect(second._columnCount).toBe(7);
+  });
+
+  it('keeps a pick made before the first width settled', async () => {
+    const inBand = computeColumnThresholdPx(configFor(), 'column') - 8;
+    const card = await mount();
+    await press(card, 'column');
+    await measure(card, inBand);
+    expect(drawnView(card)).toBe('column');
   });
 
   it('draws no switcher when only one view fits', async () => {
@@ -548,6 +585,38 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
     await card.updateComplete;
     expect(drawnView(card)).toBe('column');
     expect(card._columnCount).toBe(7);
+  });
+
+  /**
+   * The configured view shown while editing is fitted for that display alone. A resize that
+   * changes its day columns, and nothing the dashboard draws, must still re-render it.
+   */
+  it('refits the configured view it shows when a resize changes only its day columns', async () => {
+    const overrides: Partial<Types.Config> = { view: 'column', column: { min_days_to_show: 1 } };
+    const config = configFor(overrides);
+    const six = computeColumnThresholdPxFor(config, 6, 'column') + 20;
+    const five = computeColumnThresholdPxFor(config, 5, 'column') + 20;
+    expect(resolveColumnFit('column', config, six, null).columns).toBe(6);
+    expect(resolveColumnFit('column', config, five, null).columns).toBe(5);
+    // Both on one side of every toolbar label threshold, so no label change re-renders.
+    for (const threshold of [
+      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
+      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
+    ]) {
+      expect(five >= threshold).toBe(six >= threshold);
+    }
+
+    const card = await mount(overrides);
+    await measure(card, WIDE);
+    await press(card, 'list');
+
+    card[flag] = true;
+    await card.updateComplete;
+    await measure(card, six);
+    expect(card.shadowRoot!.querySelectorAll('.day-column')).toHaveLength(6);
+
+    await measure(card, five);
+    expect(card.shadowRoot!.querySelectorAll('.day-column')).toHaveLength(5);
   });
 });
 

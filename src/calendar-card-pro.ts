@@ -1976,21 +1976,30 @@ class CalendarCardPro extends LitElement {
    * @param widthPx - Measured content width in CSS pixels
    */
   private _handleWidthMeasured(widthPx: number): void {
-    const next = ViewConfig.resolveColumnFitOnMeasurement(
-      this.requestedView,
-      this.config,
-      this._measuredWidthPx,
-      widthPx,
-      { view: this._effectiveView, columns: this._columnCount },
-    );
-    // Which views the switcher offers depends on the width too, and can change while the
-    // layout on screen does not: a card showing List widens until Columns would fit.
+    // A layout this device picked, or remembers picking, is fitted by the pick rule until a
+    // measurement has confirmed it, as `_chooseView` fitted it; the cold entry rule is the
+    // configured view's alone. Otherwise the first measurement undoes a pick the switcher
+    // granted: a reload at the width it was made at, or a press before the width settled.
+    const next =
+      this._measuredWidthPx === null && this._viewChoice !== null
+        ? ViewConfig.resolveColumnFitIfPicked(this.requestedView, this.config, widthPx)
+        : ViewConfig.resolveColumnFitOnMeasurement(
+            this.requestedView,
+            this.config,
+            this._measuredWidthPx,
+            widthPx,
+            { view: this._effectiveView, columns: this._columnCount },
+          );
+    // Two things on screen depend on the width without being the dashboard's layout: which
+    // views the switcher offers, which can change while the layout does not, and the day
+    // columns the configured view is fitted to while it is being edited.
     const offeredBefore = this._offeredViewsKey();
+    const shownBefore = this._shownColumnCount;
 
     this._measuredWidthPx = widthPx;
 
     if (next.view === this._effectiveView && next.columns === this._columnCount) {
-      if (this._offeredViewsKey() !== offeredBefore) {
+      if (this._offeredViewsKey() !== offeredBefore || this._shownColumnCount !== shownBefore) {
         this.requestUpdate();
       }
       return;

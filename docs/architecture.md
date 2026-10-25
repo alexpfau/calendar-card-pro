@@ -231,9 +231,12 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   gets the hysteresis margin a view on screen keeps; judged by the entry threshold instead,
   a layout the card had been drawing inside the band could not be switched back to. The
   configured view, fallen back to the list there, is judged the same way, and pressing it
-  draws it. A view that does not fit stays in place,
+  draws it. A picked or remembered view is fitted by the same rule at a card's first
+  measurement, when there is no layout yet to keep, so a reload at the width a pick was
+  made at draws what was picked. A view that does not fit stays in place,
   dimmed and `aria-disabled`; with fewer than two that fit there is no switcher. A settled
-  width that changes the offer without changing the layout still re-renders.
+  width that changes the offer without changing the layout still re-renders, and so does
+  one that changes only the day columns of the configured view shown while editing.
 - **Editing shows `view` and touches nothing.** In preview and edit mode `effectiveView` is
   the configured view, the switcher marks it and ignores presses, and when the device's
   choice differs the shown day count is fitted for display alone, so a width measured while

@@ -2230,7 +2230,9 @@ export function resolveColumnFit(
  * layout the card had been drawing a moment earlier: a card left inside the band by a
  * narrowing window kept its columns, and once switched away could not switch back. A pick
  * is the user asking for the view, so it is granted the same margin as keeping it, and the
- * fit after the next measurement agrees, because that starts from the same layout.
+ * fit after the next measurement agrees, because that starts from the same layout. Before
+ * any measurement there is no layout to start from, so the card fits a pick by this rule
+ * again at the first one.
  *
  * @param view - The view picked
  * @param config - Merged configuration, defaults already applied
