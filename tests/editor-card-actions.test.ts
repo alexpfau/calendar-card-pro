@@ -448,18 +448,59 @@ describe('the event tap dropdown in the editor', () => {
     },
   );
 
-  it('offers the add-event switch beside the title and stores it only while on', async () => {
-    const { reported, owner, names, change } = await mount({});
+  it('offers the toolbar switch beside the title, and its controls only while it is on', async () => {
+    const { reported, owner, names, shown, change } = await mount({});
 
-    const card = owner('show_add_event');
+    const card = owner('toolbar');
     expect(card).toBeDefined();
     expect(names(card!)).toContain('title');
     expect(names(card!)).not.toContain('tap_action');
+    expect(names(card!)).not.toContain('add_event');
+    expect(shown('toolbar')).toEqual({ show: false, view_switcher: true, add_event: true });
 
-    await change('show_add_event', true);
-    expect(last(reported)).toEqual({ entities: ['calendar.anna'], show_add_event: true });
+    // Both controls arrive switched on, as the card reads them, and nothing but the switch
+    // is written.
+    await change('toolbar', { ...(shown('toolbar') as object), show: true });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
+    expect(names(owner('toolbar')!)).toEqual(
+      expect.arrayContaining(['show', 'view_switcher', 'add_event']),
+    );
+    expect(shown('toolbar')).toEqual({ show: true, view_switcher: true, add_event: true });
 
-    await change('show_add_event', false);
-    expect(last(reported)).toEqual({ entities: ['calendar.anna'] });
+    await change('toolbar', { ...(shown('toolbar') as object), add_event: false });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, add_event: false },
+    });
+
+    // Hiding the bar keeps the choices made for it.
+    await change('toolbar', { ...(shown('toolbar') as object), show: false });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { add_event: false } });
+    expect(names(owner('toolbar')!)).not.toContain('add_event');
+
+    // One switch at a time, as the form allows: the button's switch is not drawn while the
+    // toolbar is hidden, so it cannot change in the same event that shows it.
+    await change('toolbar', { ...(shown('toolbar') as object), show: true });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, add_event: false },
+    });
+    await change('toolbar', { ...(shown('toolbar') as object), add_event: true });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
   });
+
+  it.each(['list', 'column', 'grid'])(
+    'writes the toolbar at the top level while editing the %s layout',
+    async (view) => {
+      const { reported, shown, change } = await mount({ view });
+
+      await change('toolbar', { ...(shown('toolbar') as object), show: true });
+      // `view: list` is the default, so it is not written either.
+      expect(last(reported)).toEqual({
+        entities: ['calendar.anna'],
+        ...(view === 'list' ? {} : { view }),
+        toolbar: { show: true },
+      });
+    },
+  );
 });

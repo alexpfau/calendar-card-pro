@@ -449,6 +449,10 @@ function probeConfigs(defaults, views) {
     // switches are built only while an event tap opens the event dialog, and without this
     // the checker reports both, and their helpers, as referenced by no panel.
     { event_tap_action: { action: 'details' } },
+    // A nested block, so the boolean sweep never reaches it. The toolbar's controls are
+    // built only while the toolbar itself is shown, and without this the checker reports
+    // their strings and helpers as referenced by no panel.
+    { toolbar: { ...defaults.toolbar, show: true } },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
       weather: {

@@ -132,7 +132,7 @@ afterEach(() => {
 
 describe.each<Flag>(['preview', 'editMode'])('while %s is set', (flag) => {
   it('draws the add button, and a press on it opens nothing', async () => {
-    const { card, opened } = await mount({ show_add_event: true }, flag);
+    const { card, opened } = await mount({ toolbar: { show: true, view_switcher: false } }, flag);
 
     expect(addButton(card)).not.toBeNull();
     addButton(card)!.click();

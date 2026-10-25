@@ -440,6 +440,9 @@ export function toStoredConfig(
   const weather = stripWeatherDefaults(config);
   delete draft.weather;
 
+  const toolbar = stripToolbarDefaults(config);
+  delete draft.toolbar;
+
   const stored = Helpers.filterDefaultValues(
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
@@ -466,6 +469,10 @@ export function toStoredConfig(
 
   if (weather !== undefined) {
     stored.weather = weather;
+  }
+
+  if (toolbar !== undefined) {
+    stored.toolbar = toolbar;
   }
 
   return stored;
@@ -693,6 +700,57 @@ export const VIEW_FORM_BLOCKS: Readonly<
   column: columnFormBlock,
   grid: timeGridFormBlock,
 };
+
+/**
+ * Builds the `toolbar:` block as the form should show it.
+ *
+ * The two controls default on inside a shown toolbar, so binding the block raw would show
+ * them unticked under a freshly switched-on toolbar while the card draws both. Read through
+ * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
+ * {@link stripToolbarDefaults} takes the defaults back out on write.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every option at its effective value
+ */
+export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  const toolbar = Config.resolveToolbar(config);
+
+  return {
+    show: toolbar.show,
+    view_switcher: toolbar.viewSwitcher,
+    add_event: toolbar.addEvent,
+  };
+}
+
+/**
+ * Strips redundant entries from a `toolbar:` block.
+ *
+ * The counterpart to {@link toolbarFormBlock}. A control switched off is kept while the
+ * toolbar itself is off: `show: false` hides the bar and keeps the choices made for it.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripToolbarDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.toolbar;
+
+  if (!Helpers.isConfigBlock(block)) {
+    return undefined;
+  }
+
+  const defaults = (Config.DEFAULT_CONFIG.toolbar ?? {}) as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (deepEqual(defaults[key], value)) continue;
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
 
 /**
  * Builds the `weather:` block as the form should show it.

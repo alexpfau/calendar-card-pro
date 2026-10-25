@@ -6,47 +6,27 @@ import { blockScope, bool, color, heading, row, text } from './common';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
+import { VIEW_PICTOGRAM_VIEWBOX, pictogramMarkup } from '../../view-pictograms';
 import type { HaFormSchema, SelectOption } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
 import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
 
-const VIEW_ARTWORK: Readonly<Record<Types.EffectiveView, string>> = {
-  list:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
-    '<rect x="2" y="3" width="10" height="7" rx="2"/>' +
-    '<rect x="15" y="3" width="31" height="7" rx="2" opacity=".4"/>' +
-    '<rect x="2" y="12.5" width="10" height="7" rx="2"/>' +
-    '<rect x="15" y="12.5" width="31" height="7" rx="2" opacity=".4"/>' +
-    '<rect x="2" y="22" width="10" height="7" rx="2"/>' +
-    '<rect x="15" y="22" width="31" height="7" rx="2" opacity=".4"/></g></svg>',
-  column:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
-    '<rect x="2" y="3" width="13" height="5" rx="2"/>' +
-    '<rect x="17.5" y="3" width="13" height="5" rx="2"/>' +
-    '<rect x="33" y="3" width="13" height="5" rx="2"/>' +
-    '<rect x="2" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/>' +
-    '<rect x="17.5" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/>' +
-    '<rect x="33" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/></g></svg>',
-  // Reads left to right as the grid's own structure: an hour axis, three day headers,
-  // an all-day banner spanning two of them, then blocks whose differing heights are the
-  // whole point of the view. Same 48x32 frame and palette as its two siblings, so the
-  // three picker tiles stay a set.
-  grid:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
-    '<rect x="9" y="3" width="11" height="4" rx="1.5"/>' +
-    '<rect x="22" y="3" width="11" height="4" rx="1.5"/>' +
-    '<rect x="35" y="3" width="11" height="4" rx="1.5"/>' +
-    '<rect x="9" y="9" width="24" height="3" rx="1.5" opacity=".55"/>' +
-    '<rect x="2" y="15.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
-    '<rect x="2" y="21" width="5" height="1.5" rx=".75" opacity=".5"/>' +
-    '<rect x="2" y="26.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
-    '<rect x="9" y="14.5" width="11" height="6" rx="1.5" opacity=".4"/>' +
-    '<rect x="9" y="23" width="11" height="5" rx="1.5" opacity=".4"/>' +
-    '<rect x="22" y="14.5" width="11" height="13.5" rx="1.5" opacity=".4"/>' +
-    '<rect x="35" y="19" width="11" height="7" rx="1.5" opacity=".4"/></g></svg>',
-};
+/**
+ * The picker's tile for a view: the card's shared pictogram in a fixed gray, which reads on
+ * both light and dark editor themes. The toolbar's view switcher draws the same shapes in
+ * the text color instead.
+ *
+ * @param view - The view to draw
+ * @returns Standalone SVG markup
+ */
+function viewArtwork(view: Types.EffectiveView): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEW_PICTOGRAM_VIEWBOX}">` +
+    `<g fill="#8b8b8b">${pictogramMarkup(view)}</g></svg>`
+  );
+}
 
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -63,7 +43,7 @@ function viewOptions(language: string): SelectOption[] {
     value: view,
     label: lookup(language, `view.option.${view}.label`) ?? humanize(view),
     description: lookup(language, `view.option.${view}.description`),
-    image: svgDataUri(VIEW_ARTWORK[view]),
+    image: svgDataUri(viewArtwork(view)),
   }));
 }
 

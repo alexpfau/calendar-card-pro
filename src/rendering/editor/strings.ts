@@ -259,6 +259,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_appearance: 'Label & Colors',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
+  heading_toolbar: 'Toolbar',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
@@ -521,20 +522,30 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_format.option.24.label': '24 Hour',
   'time_format.option.12.label': '12 Hour',
 
-  // --- Card & Title ---------------------------------------------------------
-  'panel.card': 'Card & Title',
-  'panel.card.helper': 'The card itself, and the heading above it.',
+  // --- Card & Header --------------------------------------------------------
+  'panel.card': 'Card & Header',
+  'panel.card.helper': 'The card itself, and the title and toolbar above its events.',
   title: 'Title',
   'title.helper':
     'Anything containing {{ or {% is rendered by Home Assistant as a template and ' +
     'keeps itself up to date.',
   title_font_size: 'Title Font Size',
   title_color: 'Title Color',
-  show_add_event: 'Show Add Event Button',
-  'show_add_event.helper':
-    "Opens Home Assistant's own new-event dialog. Shown only when at least one of the " +
-    "card's calendars accepts new events.",
   background_color: 'Background Color',
+  'toolbar.show': 'Show Toolbar',
+  'toolbar.show.helper':
+    "Turns the whole toolbar on or off: the card's own controls, at the end of the " +
+    "title's row, or in a slim row of their own without a title. While it is on, the " +
+    'options below choose what it shows.',
+  'toolbar.view_switcher': 'View Switcher',
+  'toolbar.view_switcher.helper':
+    'Buttons in the toolbar for switching between List, Columns and Grid on the ' +
+    'dashboard. Each device remembers its choice until this card is edited; the layout ' +
+    'chosen above stays the one it opens in.',
+  'toolbar.add_event': 'Add Event Button',
+  'toolbar.add_event.helper':
+    "A button in the toolbar that opens Home Assistant's own new-event dialog. Shown " +
+    "only when at least one of the card's calendars accepts new events.",
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',

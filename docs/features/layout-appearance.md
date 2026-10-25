@@ -107,9 +107,8 @@ The `event_background_opacity` option (ranging from 0-100) works together with e
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
 and the title keeps Home Assistant's card header size.
 
-The header can also hold the [add-event button](/features/actions#add-event-button), which
-`show_add_event` turns on. It sits at the end of the title's row, and on a card without a
-title it takes a slim row of its own above the events.
+The header can also hold a [toolbar](#header-toolbar) with a view switcher and an add-event
+button.
 
 When styling your calendar, you can use:
 
@@ -122,6 +121,72 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 `red` are unaffected and still mean the CSS color.
 
 **→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — how to set it, and what happens for calendars that have no color.
+
+## 🧰 Header Toolbar
+
+The card can carry a toolbar of its own controls in its header: a view switcher between the
+List, Columns and Grid layouts, and a button for adding events. One option turns the toolbar
+on, and both controls with it:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+```
+
+The controls sit at the end of the title's row, so the card grows no taller; a card without a
+title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
+toolbar never competes with the events for attention, and the theme's primary color only
+rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider.
+
+Either control can be turned off inside the block. `show: false` hides the whole toolbar and
+keeps those choices for when it is turned back on:
+
+```yaml
+toolbar:
+  show: true
+  add_event: false
+```
+
+### Switching Between Layouts
+
+The view switcher changes the layout on the dashboard without editing the card. The
+configured `view` stays the layout the card opens with, and each device remembers its own
+switch in the browser, so a wall tablet can show Grid while a phone keeps List. The choice is
+never written to the configuration, and editing the card resets every device to its `view`.
+The choice belongs to the configuration it was made for, though, so a card changed back to
+exactly what it was finds it again.
+
+Every layout covers the same dates. `days_to_show` and `start_date` are shared by all three,
+so a switch changes how the days are arranged rather than which dates they span, and the card
+does not reload its events to switch. List draws every day; Columns and Grid draw as many as
+fit the card's width, as close to today as the range allows. Settings made for one layout in its own `list:`,
+`column:` or `time_grid:` block come with it.
+
+Columns and Grid need room. A layout that cannot fit at the card's current width — Columns
+on a phone, by default — is dimmed in the switcher, and returns when the card is wide enough
+again, for example when a tablet is turned. If the layout a device remembers no longer fits,
+the card shows List and the switcher marks it; once there is room again the remembered
+layout comes back. When only one layout fits, there is no switcher at all. See
+[Column View](/features/column-view) and [Grid View](/features/grid-view) for how much room
+each needs.
+
+The card's height follows its layout, so other cards on the dashboard may move when it
+switches.
+
+::: tip Nothing Switches While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
+`view` and a press on the switcher does nothing. To try another layout there, use the
+editor's own view picker.
+:::
+
+The add button is described under [Add Event Button](/features/actions#add-event-button).
+The toolbar's options are listed under [Header](/reference/configuration#header) in the
+configuration reference.
 
 ## 📏 Spacing & Alignment
 

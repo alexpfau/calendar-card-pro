@@ -866,6 +866,25 @@ describe('editor filter: section headings', () => {
     expect(headingNames(filtered)).toEqual(['heading_appearance']);
   });
 
+  it("captions only the toolbar's switches with the Card & Header panel's toolbar heading", () => {
+    // The heading closes the panel, so a search reaching only the card's own options must
+    // not leave it standing over nothing, and one reaching the toolbar must keep it.
+    const config = buildConfig({ toolbar: { show: true } });
+    const built = PANELS.find((entry) => entry.id === 'card')!.build({
+      view: config.view,
+      config,
+      language: 'en',
+    });
+
+    const background = filterSchema(built, ctxFor(config, { query: 'background' }));
+    expect(fieldNames(background)).toEqual(['background_color']);
+    expect(headingNames(background)).toEqual([]);
+
+    const toolbar = filterSchema(built, ctxFor(config, { query: 'toolbar' }));
+    expect(fieldNames(toolbar)).toEqual(['show', 'view_switcher', 'add_event']);
+    expect(headingNames(toolbar)).toEqual(['heading_toolbar']);
+  });
+
   it('does not count a heading as a field when deciding a panel is empty', () => {
     // `hasFields` gates whether a panel renders at all. Counting a heading as content
     // would show a panel containing nothing but section labels.

@@ -38,7 +38,7 @@ import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
-import type * as Toolbar from './rendering/toolbar';
+import * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
@@ -57,6 +57,7 @@ import {
   type TitleScrollMeasurement,
   supportsTitleMotion,
 } from './utils/title-motion-controller';
+import * as ViewChoice from './utils/view-choice';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
 
@@ -651,16 +652,34 @@ class CalendarCardPro extends LitElement {
   private _measuredWidthPx: number | null = null;
 
   /**
-   * Whether the card is wide enough for its toolbar controls to carry text labels.
+   * Card width as the observer last reported it, which is what the toolbar's labels follow.
    *
    * Set from the observer's own callback rather than after the settle delay the view fit
    * waits for: the browser delivers that callback after layout and before paint, and the
    * update it requests runs in the microtask straight after, so the first frame painted
-   * already has the right button. The settle delay would paint the wrong one first.
-   * `false` until a width arrives, so a card that is never measured draws the icon, which
-   * fits at any width.
+   * already has the right controls. The settle delay would paint the wrong ones first.
+   * Null until a width arrives, so a card that is never measured draws icons, which fit at
+   * any width.
    */
-  private _toolbarLabeled = false;
+  private _toolbarWidthPx: number | null = null;
+
+  /**
+   * The width at which the labeled toolbar last overflowed the header, and what it was
+   * drawn beside. See `_syncToolbarLabelFit`.
+   */
+  private _toolbarLabelsOverflowed: { widthPx: number; signature: string } | null = null;
+
+  /**
+   * Fingerprint of the configuration last set, which keys this device's remembered view.
+   * See `utils/view-choice.ts`.
+   */
+  private _configFingerprint: string | null = null;
+
+  /**
+   * The view this device picked with the toolbar's switcher, or null to follow `view`.
+   * Never the configured view itself: choosing that clears the choice.
+   */
+  private _viewChoice: Types.EffectiveView | null = null;
 
   private _effectiveView: Types.EffectiveView = 'list';
 
@@ -831,21 +850,42 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The view the user asked for, before any width-based fallback.
+   * The view the dashboard asks for, before any width-based fallback: this device's
+   * switcher choice, or the configured `view`.
+   *
+   * Editing never changes it. The card shows `view` while it is being edited (see
+   * `effectiveView`), but the fit this drives is the dashboard's, and it must still be
+   * there when editing ends; a width measured in edit mode keeps fitting this view.
    */
   get requestedView(): Types.EffectiveView {
-    return this.config.view;
+    return this._viewChoice ?? this.config.view;
   }
 
   /**
    * The view that will actually render.
    */
   get effectiveView(): Types.EffectiveView {
-    if (this.preview || this.editMode) {
-      return this.requestedView;
+    if (this._isBeingEdited) {
+      return this.config.view;
     }
 
     return this._effectiveView;
+  }
+
+  /**
+   * Day columns this render draws, `0` for as many as there are days.
+   *
+   * While the card is being edited it shows `view` rather than the view the dashboard asks
+   * for. When the two differ, the count is fitted for that display alone, without
+   * hysteresis, and the dashboard's own fit is left untouched for when editing ends.
+   */
+  private get _shownColumnCount(): number {
+    if (!this._isBeingEdited || this.requestedView === this.config.view) {
+      return this._columnCount;
+    }
+
+    return ViewConfig.resolveColumnFit(this.config.view, this.config, this._measuredWidthPx, null)
+      .columns;
   }
 
   /**
@@ -1067,20 +1107,34 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Labels the toolbar's controls when the card is wide enough, at once.
+   * Records the card's width for the toolbar's labels, and re-renders at once if that moves
+   * it across a label threshold.
    *
    * No hysteresis: a dashboard sizes the card, not the card's content, so the label cannot
    * feed back into the width it was chosen from, and there is no loop for a band to damp.
-   * Re-renders only when the answer changes and the card asks for a toolbar control.
+   * Whether the bar is actually labeled also depends on which controls it draws, so that is
+   * decided at render (`_toolbarLabeledFor`); this only notices a threshold being crossed.
    *
    * @param widthPx - Measured card width in CSS pixels
    */
   private _syncToolbarLabels(widthPx: number): void {
-    const labeled = widthPx >= Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
-    if (labeled === this._toolbarLabeled) return;
+    const band = (width: number | null): number =>
+      width === null
+        ? 0
+        : [
+            Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
+            Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
+          ].filter((threshold) => width >= threshold).length;
+    const crossed = band(widthPx) !== band(this._toolbarWidthPx);
+    // Labels that overflowed at some width are tried again once the card grows past it.
+    const overflowed = this._toolbarLabelsOverflowed;
+    const outgrew =
+      overflowed !== null &&
+      widthPx > overflowed.widthPx &&
+      (this._toolbarWidthPx ?? 0) <= overflowed.widthPx;
 
-    this._toolbarLabeled = labeled;
-    if (this.config.show_add_event === true) {
+    this._toolbarWidthPx = widthPx;
+    if ((crossed || outgrew) && Config.resolveToolbar(this.config).show) {
       this.requestUpdate();
     }
   }
@@ -1178,8 +1232,8 @@ class CalendarCardPro extends LitElement {
     const shedding =
       this.isConnected &&
       (this.effectiveView === 'grid' || this.effectiveView === 'column') &&
-      this._columnCount > 0 &&
-      this._columnCount < this.effectiveConfig.days_to_show;
+      this._shownColumnCount > 0 &&
+      this._shownColumnCount < this.effectiveConfig.days_to_show;
 
     if (!shedding) {
       this._stopMidnightTimer();
@@ -1922,17 +1976,32 @@ class CalendarCardPro extends LitElement {
    * @param widthPx - Measured content width in CSS pixels
    */
   private _handleWidthMeasured(widthPx: number): void {
-    const next = ViewConfig.resolveColumnFitOnMeasurement(
-      this.requestedView,
-      this.config,
-      this._measuredWidthPx,
-      widthPx,
-      { view: this._effectiveView, columns: this._columnCount },
-    );
+    // A layout this device picked, or remembers picking, is fitted by the pick rule until a
+    // measurement has confirmed it, as `_chooseView` fitted it; the cold entry rule is the
+    // configured view's alone. Otherwise the first measurement undoes a pick the switcher
+    // granted: a reload at the width it was made at, or a press before the width settled.
+    const next =
+      this._measuredWidthPx === null && this._viewChoice !== null
+        ? ViewConfig.resolveColumnFitIfPicked(this.requestedView, this.config, widthPx)
+        : ViewConfig.resolveColumnFitOnMeasurement(
+            this.requestedView,
+            this.config,
+            this._measuredWidthPx,
+            widthPx,
+            { view: this._effectiveView, columns: this._columnCount },
+          );
+    // Two things on screen depend on the width without being the dashboard's layout: which
+    // views the switcher offers, which can change while the layout does not, and the day
+    // columns the configured view is fitted to while it is being edited.
+    const offeredBefore = this._offeredViewsKey();
+    const shownBefore = this._shownColumnCount;
 
     this._measuredWidthPx = widthPx;
 
     if (next.view === this._effectiveView && next.columns === this._columnCount) {
+      if (this._offeredViewsKey() !== offeredBefore || this._shownColumnCount !== shownBefore) {
+        this.requestUpdate();
+      }
       return;
     }
 
@@ -2029,6 +2098,7 @@ class CalendarCardPro extends LitElement {
 
     this._applyVisibility();
     this._syncTitleScroll();
+    this._syncToolbarLabelFit();
   }
 
   //-----------------------------------------------------------------------------
@@ -3029,8 +3099,9 @@ class CalendarCardPro extends LitElement {
     // measured column card back to the list view at an unchanged width and leave
     // it there until the next resize. Only seed from a fit that a real
     // measurement produced — the optimistic pre-measurement answer must not.
+    this._syncViewChoice(config);
     const seededFit = ViewConfig.resolveColumnFit(
-      this.config.view,
+      this.requestedView,
       this.config,
       this._measuredWidthPx,
       this._measuredWidthPx === null
@@ -3072,6 +3143,27 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Per-calendar configuration changed, reprocessing cached data');
       this.updateEvents('reprocess');
     }
+  }
+
+  /**
+   * Adopts this device's remembered view for a newly set configuration.
+   *
+   * A different fingerprint is a different configuration, which is what resets every device
+   * to `view` after an edit. Nothing is deleted here: Home Assistant builds a fresh card for
+   * a changed configuration rather than handing it to the old one, so a card almost never
+   * learns which configuration it replaced. The cost is narrow and stated in the docs: a
+   * configuration changed back to exactly what it was finds the choice made for it again.
+   *
+   * @param rawConfig - Configuration exactly as Home Assistant passed it
+   */
+  private _syncViewChoice(rawConfig: unknown): void {
+    const fingerprint = ViewChoice.configFingerprint(rawConfig);
+    if (fingerprint === this._configFingerprint) return;
+
+    this._configFingerprint = fingerprint;
+    const remembered = this._wantsViewSwitcher ? ViewChoice.readViewChoice(fingerprint) : undefined;
+    this._viewChoice =
+      remembered !== undefined && remembered !== this.config.view ? remembered : null;
   }
 
   /**
@@ -3416,11 +3508,12 @@ class CalendarCardPro extends LitElement {
 
     // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
-      if (this._columnCount <= 0 || this._columnCount >= days.length) {
+      const count = this._shownColumnCount;
+      if (count <= 0 || count >= days.length) {
         return days;
       }
-      const start = ViewConfig.visibleDayWindowStart(days, this._columnCount, new Date());
-      return days.slice(start, start + this._columnCount);
+      const start = ViewConfig.visibleDayWindowStart(days, count, new Date());
+      return days.slice(start, start + count);
     };
 
     // The days a view draws: column and grid shed days to fit the width, list never does.
@@ -3482,7 +3575,7 @@ class CalendarCardPro extends LitElement {
         Render.drawsEvent(this.effectiveView, days, this.effectiveConfig);
     }
 
-    const addEvent = this._addEventButton();
+    const toolbar = this._headerToolbar();
 
     return Render.renderMainCardStructure(
       customStyles,
@@ -3495,9 +3588,110 @@ class CalendarCardPro extends LitElement {
       this._hasTapAction,
       this._hasHoldAction,
       this._renderFetchErrorNotice(),
-      { labeled: this._toolbarLabeled, addEvent },
-      this._hostsControls(addEvent, drawsEventTarget),
+      toolbar,
+      this._hostsControls(toolbar, drawsEventTarget),
     );
+  }
+
+  /**
+   * The controls this render draws in the header toolbar, and whether they carry labels.
+   *
+   * @returns The toolbar; with no control in it, no toolbar is drawn
+   */
+  private _headerToolbar(): Toolbar.HeaderToolbar {
+    const addEvent = this._addEventButton();
+    const viewSwitcher = this._viewSwitcher();
+
+    return { labeled: this._toolbarLabeledFor(addEvent, viewSwitcher), addEvent, viewSwitcher };
+  }
+
+  /**
+   * Whether the toolbar's controls carry text labels beside their icons.
+   *
+   * All or nothing, so the controls stay one family: the bar is labeled only when it is wide
+   * enough for every control it draws, and only when every one of them has a label to show.
+   * Home Assistant may have no words for the add button, which then stays an icon, and so
+   * does the switcher beside it.
+   *
+   * @param addEvent - The add button this render draws, if any
+   * @param viewSwitcher - The view switcher this render draws, if any
+   * @returns True to draw labels
+   */
+  private _toolbarLabeledFor(
+    addEvent: Toolbar.AddEventButton | undefined,
+    viewSwitcher: Toolbar.ViewSwitcher | undefined,
+  ): boolean {
+    if (this._toolbarWidthPx === null) return false;
+    if (addEvent && addEvent.label === undefined) return false;
+
+    const overflowed = this._toolbarLabelsOverflowed;
+    const signature = this._toolbarLabelSignature(addEvent, viewSwitcher);
+    if (
+      overflowed &&
+      overflowed.signature === signature &&
+      this._toolbarWidthPx <= overflowed.widthPx
+    ) {
+      return false;
+    }
+
+    const minWidth = viewSwitcher
+      ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
+      : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+    return this._toolbarWidthPx >= minWidth;
+  }
+
+  /**
+   * What the labeled toolbar's fit beside the title depends on, other than the width.
+   *
+   * @param addEvent - The add button this render draws, if any
+   * @param viewSwitcher - The view switcher this render draws, if any
+   * @returns A string that changes whenever the labeled bar or the title beside it would
+   */
+  private _toolbarLabelSignature(
+    addEvent: Toolbar.AddEventButton | undefined,
+    viewSwitcher: Toolbar.ViewSwitcher | undefined,
+  ): string {
+    return [
+      this.effectiveTitle ?? '',
+      this.effectiveLanguage,
+      addEvent?.label ?? '',
+      viewSwitcher ? 'views' : '',
+    ].join('\u0000');
+  }
+
+  /**
+   * Drops the toolbar's labels when the title leaves them no room.
+   *
+   * The width thresholds assume a title of a word or two. A longer single word cannot wrap,
+   * so beside the labeled controls it pushes them past the card's edge, where the card
+   * clips them. Read after the render that drew them: if the labeled bar overflows the
+   * header, the card remembers the width, and draws icons until it is wider than that, or
+   * the title, the language or the controls change. Never the other way round, so a
+   * measurement cannot set the card flipping between the two.
+   *
+   * Only ever reads layout that exists. Without it — a card not laid out yet, or a test
+   * environment with no layout engine — every box is empty, and nothing is concluded.
+   */
+  private _syncToolbarLabelFit(): void {
+    const header = this.renderRoot.querySelector<HTMLElement>('.header-container.has-toolbar');
+    const toolbar = header?.querySelector<HTMLElement>('.card-toolbar');
+    if (!header || !toolbar || !toolbar.querySelector('.toolbar-button-label')) return;
+
+    const headerRect = header.getBoundingClientRect();
+    const toolbarRect = toolbar.getBoundingClientRect();
+    if (headerRect.width === 0 || toolbarRect.width === 0) return;
+
+    const overflows =
+      toolbarRect.right > headerRect.right + 0.5 || toolbarRect.left < headerRect.left - 0.5;
+    if (!overflows) return;
+
+    const { addEvent, viewSwitcher } = this._headerToolbar();
+    Logger.debug(`Toolbar labels do not fit beside the title at ${this._toolbarWidthPx}px`);
+    this._toolbarLabelsOverflowed = {
+      widthPx: this._toolbarWidthPx ?? 0,
+      signature: this._toolbarLabelSignature(addEvent, viewSwitcher),
+    };
+    this.requestUpdate();
   }
 
   /**
@@ -3505,21 +3699,18 @@ class CalendarCardPro extends LitElement {
    * present itself as a button around them.
    *
    * The one place that answers it, so every control that makes the card a host joins here:
-   * the add-event button, and the events while they are tap targets. Answered from what
+   * the toolbar's controls, and the events while they are tap targets. Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. Either way the card keeps its tab stop while it has a tap action; only the
    * button role goes.
    *
-   * @param addEvent - The add-event button this render draws, if any
+   * @param toolbar - The header toolbar this render draws
    * @param drawsEventTarget - Whether this render draws at least one event as a tap target
    * @returns True while the card hosts at least one control
    */
-  private _hostsControls(
-    addEvent: Toolbar.AddEventButton | undefined,
-    drawsEventTarget: boolean,
-  ): boolean {
-    return addEvent !== undefined || drawsEventTarget;
+  private _hostsControls(toolbar: Toolbar.HeaderToolbar, drawsEventTarget: boolean): boolean {
+    return toolbar.addEvent !== undefined || toolbar.viewSwitcher !== undefined || drawsEventTarget;
   }
 
   /**
@@ -3573,7 +3764,8 @@ class CalendarCardPro extends LitElement {
    * @returns Button description for the wrapper, or undefined for no button
    */
   private _addEventButton(): Toolbar.AddEventButton | undefined {
-    if (this.config.show_add_event !== true) return undefined;
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.addEvent) return undefined;
 
     const writable = AddEvent.writableCalendarIds(
       this.safeHass,
@@ -3609,6 +3801,118 @@ class CalendarCardPro extends LitElement {
       // events, so every card showing one refreshes, and no card showing only read-only ones.
       updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
     });
+  }
+
+  //-----------------------------------------------------------------------------
+  // VIEW SWITCHER
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Whether the configuration asks for the view switcher. Not whether it is drawn: that also
+   * takes at least two views that fit (`_viewSwitcher`).
+   */
+  private get _wantsViewSwitcher(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    return toolbar.show && toolbar.viewSwitcher;
+  }
+
+  /**
+   * Whether picking a view would draw it at the card's current width, rather than the list
+   * a narrow card falls back to.
+   *
+   * The view on screen fits by definition. Every other one is fitted as `_chooseView` fits
+   * a pick, through `resolveColumnFitIfPicked`, so a segment offered is a segment that
+   * works and the rule is the same for each: a layout the card was just drawing stays on
+   * offer after switching away from it, and the configured view, fallen back to the list
+   * at a width it could have kept, is offered exactly as it would be after a detour through
+   * another. List has no width requirement; before the first measurement every view fits,
+   * as `resolveColumnFit` itself assumes.
+   *
+   * @param view - View to test
+   * @returns True when the view can be drawn now
+   */
+  private _viewFits(view: Types.EffectiveView): boolean {
+    if (!ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) return true;
+    if (view === this._effectiveView) return true;
+
+    return (
+      ViewConfig.resolveColumnFitIfPicked(view, this.config, this._measuredWidthPx).view === view
+    );
+  }
+
+  /**
+   * The views the switcher would offer now, as a comparable string; empty without one.
+   *
+   * @returns One letter per view that fits
+   */
+  private _offeredViewsKey(): string {
+    if (!this._wantsViewSwitcher) return '';
+    return ViewConfig.VIEWS.filter((view) => this._viewFits(view)).join(',');
+  }
+
+  /**
+   * The view switcher, when the card asks for one and more than one view fits.
+   *
+   * While the card is being edited it marks `view`, the layout the dashboard opens with, and
+   * offers every view; pressing one does nothing. Otherwise it marks the view on screen,
+   * which for a remembered view too wide for this card is the list it fell back to.
+   *
+   * @returns Switcher description for the wrapper, or undefined for none
+   */
+  private _viewSwitcher(): Toolbar.ViewSwitcher | undefined {
+    if (!this._wantsViewSwitcher) return undefined;
+
+    const editing = this._isBeingEdited;
+    const translations = Localize.getTranslations(this.effectiveLanguage);
+    const views = ViewConfig.VIEWS.map((view) => ({
+      view,
+      label: translations[Toolbar.VIEW_LABEL_KEYS[view]],
+      available: editing || this._viewFits(view),
+    }));
+
+    if (views.filter((option) => option.available).length < 2) return undefined;
+
+    return {
+      views,
+      selected: this.effectiveView,
+      onSelect: (view) => this._chooseView(view),
+    };
+  }
+
+  /**
+   * Shows another view on this device, and remembers it there.
+   *
+   * Pressing the view already on screen still counts. On a narrow card it may be the list
+   * standing in for a remembered view that does not fit, and the press makes the list the
+   * choice. Pressing the view already asked for while the list stands in for it draws it,
+   * when it is offered at all: the choice is unchanged, the layout is not. Nothing is
+   * fetched: every view draws the same days from the same events.
+   *
+   * @param view - The view picked
+   */
+  private _chooseView(view: Types.EffectiveView): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not switching views while the card is being edited');
+      return;
+    }
+    if (!this._wantsViewSwitcher || !this._viewFits(view)) return;
+
+    const choice = view === this.config.view ? null : view;
+    if (this._configFingerprint !== null) {
+      ViewChoice.writeViewChoice(this._configFingerprint, choice ?? undefined);
+    }
+    if (choice === this._viewChoice && view === this._effectiveView) return;
+
+    this._viewChoice = choice;
+    const fit = ViewConfig.resolveColumnFitIfPicked(
+      this.requestedView,
+      this.config,
+      this._measuredWidthPx,
+    );
+    Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
+    this._effectiveView = fit.view;
+    this._columnCount = fit.columns;
+    this.requestUpdate();
   }
 }
 

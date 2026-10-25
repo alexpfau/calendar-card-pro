@@ -2252,6 +2252,36 @@ export function resolveColumnFit(
 }
 
 /**
+ * The layout a view gets when it is picked in the view switcher at this width.
+ *
+ * Judged as though the view were already on screen, with the hysteresis band a view on
+ * screen keeps. Judging a pick by the entry threshold instead made the switcher refuse a
+ * layout the card had been drawing a moment earlier: a card left inside the band by a
+ * narrowing window kept its columns, and once switched away could not switch back. A pick
+ * is the user asking for the view, so it is granted the same margin as keeping it, and the
+ * fit after the next measurement agrees, because that starts from the same layout. Before
+ * any measurement there is no layout to start from, so the card fits a pick by this rule
+ * again at the first one.
+ *
+ * @param view - The view picked
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, `null` before the first measurement
+ * @returns The layout to render
+ */
+export function resolveColumnFitIfPicked(
+  view: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number | null,
+): ColumnFit {
+  return resolveColumnFit(
+    view,
+    config,
+    measuredWidthPx,
+    measuredWidthPx === null ? null : { view, columns: configuredDays(config) },
+  );
+}
+
+/**
  * Resolves the layout for a freshly measured width, given the previous measurement.
  *
  * Mirrors `resolveViewOnMeasurement`: the optimistic pre-measurement answer must not

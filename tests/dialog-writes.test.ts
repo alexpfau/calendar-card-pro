@@ -149,7 +149,7 @@ const OPENERS = {
 } as const;
 
 const DIALOG_CONFIG = {
-  add: { show_add_event: true },
+  add: { toolbar: { show: true, view_switcher: false } },
   details: { event_tap_action: { action: 'details' } },
 } as const;
 
@@ -232,7 +232,7 @@ describe('telling the other cards on the page', () => {
   });
 
   it('refreshes after a new event every card showing a calendar it could have gone to', async () => {
-    const adding = await mount({ show_add_event: true });
+    const adding = await mount({ toolbar: { show: true, view_switcher: false } });
     // Home Assistant's create dialog can save to any calendar that accepts new events, not
     // only the one the card preselected.
     const otherCalendar = await mount({ entities: ['calendar.ben'] });

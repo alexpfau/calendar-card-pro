@@ -46,6 +46,7 @@ src/
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
 │   ├── toolbar.ts                # Header toolbar and its controls
+│   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
@@ -71,6 +72,7 @@ src/
     ├── templates.ts              # Jinja2 title templates over the HA websocket
     ├── title-motion.ts           # Pure per-title timing and cohort admission state
     ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
+    ├── view-choice.ts            # The view switcher's choice, remembered per device
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── weather.ts                # Weather data fetching and processing
     └── weather-i18n.ts           # Condition text in the card's language
@@ -160,10 +162,18 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a toolbar between the title and the events. Only the
-add-event button exists so far, but the layout rule is fixed now, so the controls still to
-come slot in without moving the ones already there. `renderHeaderToolbar` in
-`rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
+The card's own controls live in a toolbar between the title and the events. The view
+switcher and the add-event button exist so far, but the layout rule is fixed, so the
+controls still to come slot in without moving the ones already there. `renderHeaderToolbar`
+in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
+
+- **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, and a
+  boolean per control. `resolveToolbar` in `config/config.ts` reads it member by member and
+  is the only reader, so a malformed value reads as that member's default. `show` defaults
+  off; the v5 controls default on inside a shown bar, and a control added later defaults
+  off, so a release never adds a control to a toolbar someone already set up. Every new
+  control needs a `toolbar → key` row in the reference: `check:docs` reconciles the block's
+  defaults against those rows in both directions.
 
 - **It is conditional.** With no control enabled or available there is no toolbar and no
   new DOM: the header renders byte for byte as it did before the toolbar existed. That is
@@ -178,7 +188,7 @@ come slot in without moving the ones already there. `renderHeaderToolbar` in
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
   beside them rather than pushing them below it, and the card gains no height. Without a
-  title they get a slim row of about 40px. A leading group, once there is one, takes a row
+  title they get a slim row of 48px, the bar and a 12px gap under it. A leading group, once there is one, takes a row
   of its own between the title and the events.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
@@ -195,11 +205,45 @@ come slot in without moving the ones already there. `renderHeaderToolbar` in
   already right. A container query was rejected: it needs a `container-type` ancestor,
   which could capture the `cqh` units grid view sizes against, and happy-dom cannot
   evaluate one, so it could not be tested.
-- **Controls are native.** The add button is a `<button>` styled from theme variables
-  rather than `ha-button`, so the card names no new Home Assistant element.
+- **Controls are native, and share one look.** Every control is a `<button>` styled from
+  theme variables rather than an `ha-*` element, so the card names no new Home Assistant
+  element: a neutral pill on a gray track, the text color washed into the card, with the
+  selected view raised out of it and the theme's primary color kept for the focus ring.
+  Labels are all or nothing across the bar: from `UI.TOOLBAR_LABEL_MIN_WIDTH` with the add
+  button alone, from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) with the switcher, and
+  never while Home Assistant offers no words for the add button. The thresholds assume a
+  short title; `_syncToolbarLabelFit` reads the render, and if the labeled bar overflows the
+  header it draws icons until the card is wider than that or the title, language or controls
+  change. It only ever drops labels, so it cannot oscillate.
+- **The view switcher changes the requested view, never the configuration.** `requestedView`
+  is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
+  always follows it, so nothing about a switch is new to the fitting code. A switch draws
+  without fetching, because `FETCH_TIME_KEYS` keep the window identical across views.
+  `utils/view-choice.ts` keeps the choice in one `localStorage` entry keyed by a fingerprint
+  of the raw configuration, so any edit resets every device. Nothing deletes the old entry:
+  Home Assistant builds a fresh card for a changed configuration, in edit mode and when a
+  dashboard reloads alike, so no card learns which configuration it replaced. A
+  configuration changed back to exactly what it was therefore finds its old choice, which
+  the docs state; the oldest entries are pruned past `MAX_VIEW_CHOICES`.
+- **Which views it offers is decided at render.** A view is offered when picking it would
+  draw it at the settled width: the view on screen always, every other one by
+  `resolveColumnFitIfPicked`, which judges it as though it were already on screen. A pick
+  gets the hysteresis margin a view on screen keeps; judged by the entry threshold instead,
+  a layout the card had been drawing inside the band could not be switched back to. The
+  configured view, fallen back to the list there, is judged the same way, and pressing it
+  draws it. A picked or remembered view is fitted by the same rule at a card's first
+  measurement, when there is no layout yet to keep, so a reload at the width a pick was
+  made at draws what was picked. A view that does not fit stays in place,
+  dimmed and `aria-disabled`; with fewer than two that fit there is no switcher. A settled
+  width that changes the offer without changing the layout still re-renders, and so does
+  one that changes only the day columns of the configured view shown while editing.
+- **Editing shows `view` and touches nothing.** In preview and edit mode `effectiveView` is
+  the configured view, the switcher marks it and ignores presses, and when the device's
+  choice differs the shown day count is fitted for display alone, so a width measured while
+  editing cannot overwrite the dashboard's fit.
 - **The card stops being a button while it hosts controls, and stays focusable.**
   `_hostsControls` answers this once, for toolbar controls and tappable events alike, from
-  what the render draws: the add button, or at least one event that is a tap target, which
+  what the render draws: a toolbar control, or at least one event that is a tap target, which
   the loading line, an error and days holding only empty-day placeholders are not
   (`drawsEvent` in `rendering/render.ts`, with `gridDrawsEvent` for grid view). `ha-card`
   then drops `role="button"`, because a button may not contain another, but keeps
@@ -368,7 +412,8 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     accessibility tree to avoid duplicate announcements
 
 - **toolbar.ts**:
-  - Renders the header toolbar and its controls, following the rule in _Header Toolbar_
+  - Renders the header toolbar and its controls — the view switcher and the add button —
+    following the rule in _Header Toolbar_
 
 - **activation.ts**:
   - Marks a rendered event as a tap target with a Lit property, `calendarCardEventTap`,

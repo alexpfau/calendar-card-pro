@@ -4,12 +4,19 @@
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. Its markup is built for the controls still to come:
  * a leading group for navigation (previous, Today, next) and the visible range, and a
- * trailing group for actions (refresh, the view switch, and add, always last). Only add
- * exists so far, so only the trailing group is ever drawn.
+ * trailing group for actions (refresh, the view switcher, and add, always last). The view
+ * switcher and add exist so far, so only the trailing group is ever drawn.
+ *
+ * Every control shares one look: a neutral pill on a gray track, the selected view raised
+ * out of it. The theme's primary color is kept for the keyboard focus ring, so the bar never
+ * competes with the events for attention.
  */
 
 import { mdiPlus } from '@mdi/js';
-import { TemplateResult, html, nothing } from 'lit';
+import { TemplateResult, html, nothing, svg } from 'lit';
+
+import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
+import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -22,6 +29,24 @@ export interface AddEventButton {
   onActivate: () => void;
 }
 
+/** One view the switcher offers. */
+export interface ViewOption {
+  view: Types.EffectiveView;
+  /** The view's name in the card's language. */
+  label: string;
+  /** False when the card is too narrow to draw it; the segment is shown but inert. */
+  available: boolean;
+}
+
+/** What the card hands the wrapper when it should draw the view switcher. */
+export interface ViewSwitcher {
+  /** Every view, in the switcher's order. */
+  views: ReadonlyArray<ViewOption>;
+  /** The view marked as current. */
+  selected: Types.EffectiveView;
+  onSelect: (view: Types.EffectiveView) => void;
+}
+
 /** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
   /**
@@ -29,6 +54,8 @@ export interface HeaderToolbar {
    * icon. Icon-only otherwise, with the label as the control's accessible name.
    */
   labeled?: boolean;
+  /** The view switcher, just before add. */
+  viewSwitcher?: ViewSwitcher;
   /** The add-event button, always the last control in the trailing group. */
   addEvent?: AddEventButton;
 }
@@ -40,10 +67,17 @@ export interface HeaderToolbar {
 /**
  * The add button's accessible name when Home Assistant has no string for it.
  *
- * Only ever an `aria-label`: the card has no strings of its own for its controls, and an
- * English word drawn on a card set to another language would be worse than an icon.
+ * Only ever an `aria-label`: an English word drawn on a card set to another language would
+ * be worse than an icon.
  */
 const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
+
+/** The card string naming each view in the switcher. */
+export const VIEW_LABEL_KEYS = {
+  list: 'viewList',
+  column: 'viewColumns',
+  grid: 'viewGrid',
+} as const satisfies Record<Types.EffectiveView, keyof Types.Translations>;
 
 //-----------------------------------------------------------------------------
 // RENDERING
@@ -107,6 +141,78 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
 }
 
 /**
+ * Render a view's pictogram, in the current text color.
+ *
+ * @param view - The view to draw
+ * @returns The icon
+ */
+function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
+  return html`<svg
+    class="view-switcher-icon"
+    viewBox=${VIEW_PICTOGRAM_VIEWBOX}
+    aria-hidden="true"
+    focusable="false"
+  >
+    <g fill="currentColor">
+      ${VIEW_PICTOGRAMS[view].map(
+        ([x, y, width, height, rx, opacity]) =>
+          svg`<rect x=${x} y=${y} width=${width} height=${height} rx=${rx} opacity=${opacity ?? nothing}></rect>`,
+      )}
+    </g>
+  </svg>`;
+}
+
+/**
+ * Render the view switcher: one segment per view, the current one raised.
+ *
+ * Native buttons in a group, each a toggle with `aria-pressed`, so every segment is its own
+ * tab stop and Enter and Space work without any key handling of ours. A view the card is
+ * too narrow to draw stays in place, dimmed and `aria-disabled`, rather than disappearing:
+ * the bar keeps its shape as a tablet turns, and a screen reader still learns the view
+ * exists. Pressing it does nothing.
+ *
+ * Icon-only, each segment is named by its label, which also shows as its tooltip.
+ *
+ * @param switcher - Switcher description from the card
+ * @param labeled - Whether the card is wide enough to draw the labels
+ * @returns The switcher
+ */
+function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateResult {
+  return html`<div class="view-switcher" role="group">
+    ${switcher.views.map((option) => {
+      const pressed = option.view === switcher.selected;
+      const className = [
+        'view-switcher-segment',
+        pressed ? 'selected' : '',
+        option.available ? '' : 'unavailable',
+        labeled ? '' : 'icon-only',
+      ]
+        .filter((cls) => cls !== '')
+        .join(' ');
+      const onClick = (ev: Event) => {
+        ev.stopPropagation();
+        if (option.available) switcher.onSelect(option.view);
+      };
+
+      return html`<button
+        type="button"
+        class=${className}
+        data-view=${option.view}
+        aria-pressed=${pressed ? 'true' : 'false'}
+        aria-disabled=${option.available ? nothing : 'true'}
+        aria-label=${labeled ? nothing : option.label}
+        title=${labeled ? nothing : option.label}
+        @pointerdown=${stopCardGesture}
+        @click=${onClick}
+      >
+        ${renderViewPictogram(option.view)}
+        ${labeled ? html`<span class="toolbar-button-label">${option.label}</span>` : nothing}
+      </button>`;
+    })}
+  </div>`;
+}
+
+/**
  * Render the header toolbar, or nothing when it would hold no control.
  *
  * Where it sits is the layout rule. With only trailing actions and a title — a pending
@@ -123,13 +229,21 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   hasTitle: boolean,
 ): TemplateResult | undefined {
-  if (!toolbar.addEvent) return undefined;
+  if (!toolbar.addEvent && !toolbar.viewSwitcher) return undefined;
 
+  const labeled = toolbar.labeled === true;
+
+  // The press guard sits on the toolbar's own box as well as on each control, because the
+  // switcher's gray track and the gaps between controls are part of the bar but no button:
+  // a near miss there must do nothing, not run the card's tap or hold action.
   return html`<div
     class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
   >
     <div class="toolbar-trailing">
-      ${renderAddEventButton(toolbar.addEvent, toolbar.labeled === true)}
+      ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
     </div>
   </div>`;
 }
