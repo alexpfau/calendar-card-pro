@@ -21,6 +21,11 @@ export const CARD_ICON = mdiCardText;
  * toolbar's own order. Nothing may follow the toolbar's fields, because a heading claims
  * whatever comes after it; that is why the background sits above it rather than last.
  *
+ * The heading stays while the toolbar is off, with Show Toolbar as the only field under it.
+ * That reads close to the stutter a heading repeating its only field makes, and it is kept
+ * on purpose: the maintainer chose it, so the section says where the toolbar lives before
+ * anyone turns it on. Do not make the heading conditional on the switch.
+ *
  * @param ctx - Schema context
  * @returns The panel's schema
  */
