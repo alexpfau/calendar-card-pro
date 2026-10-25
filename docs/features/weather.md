@@ -3,7 +3,7 @@
 Calendar Card Pro can display weather forecasts alongside your calendar events, providing a complete view of both your schedule and the expected weather conditions.
 
 ::: tip Visual Editor
-Access all weather settings in the "Weather Integration" section of the editor, where you can select your weather entity and configure display options for both date and event positions.
+In the editor's **Weather** panel, choose a **Weather Entity** and **Show The Forecast** appears. Where you send the forecast decides which groups follow: **In the Day Header**, **Beside Each Event**, or both, each holding the options for its position.
 :::
 
 ```yaml
@@ -66,7 +66,7 @@ These sit under the card's `weather` option — see [Weather in the configuratio
 You can choose where weather information appears in your calendar:
 
 - `none`: Hides weather everywhere, without clearing the entity — the card subscribes to no forecast at all
-- `date`: Shows daily forecasts in the day header — the date column in list view, the column heading in column view
+- `date`: Shows daily forecasts in the day header — the date column in list view, the column heading in column view, and the date row above each column in grid view
 - `event`: Shows hourly forecasts beside each event
 - `both`: Displays weather in both positions simultaneously
 

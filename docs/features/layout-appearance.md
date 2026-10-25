@@ -80,7 +80,9 @@ usually wrong for columns.
 
 ```yaml
 view: grid
-height: 400px
+height: 400px # List and column view
+time_grid:
+  height: 600px # Grid view only
 ```
 
 **→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
@@ -101,7 +103,7 @@ event_background_opacity: 15 # 0-100 scale for background color intensity
 vertical_line_width: '3px' # Width of the accent bar beside each event
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and every event has its own accent bar inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the day's edge: the bars of touching events join into one line, changing color where one calendar's event meets another's, and only the day's top and bottom ends are rounded. To give each event a bar of its own without a background, set [`event_gap`](#gaps-between-events); even `1px` does it.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0, the default in list and column view, events have no background color; grid view [starts at 20](/features/grid-view#options-that-start-from-a-different-default). Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and every event has its own accent bar inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the day's edge: the bars of touching events join into one line, changing color where one calendar's event meets another's, and only the day's top and bottom ends are rounded. To give each event a bar of its own without a background, set [`event_gap`](#gaps-between-events); even `1px` does it.
 
 `vertical_line_width` sets how wide the bar is, and `0px` hides it. It takes a CSS length, and `thin`, `medium` and `thick`, which mean `1px`, `3px` and `5px`; anything else falls back to `2px`. The bar's ends are rounded at any width and in every view, and grid view draws it 3px inside each block.
 
@@ -117,6 +119,17 @@ When styling your calendar, you can use:
 - CSS color values (`#ff6c92`, `rgba(255,0,0,0.5)`)
 - Home Assistant theme variables (`var(--primary-color)`)
 - Named colors (`red`, `blue`)
+
+`accent_color` follows your theme's primary color by default, `var(--primary-color, #03a9f4)`,
+so a calendar you have not colored takes a custom theme's accent. Set it card-wide, or for one
+calendar in its `entities` entry, to choose a color yourself.
+
+::: warning Changed In v5
+Before v5, `accent_color` and `today_indicator_color` were a fixed `#03a9f4`, and the
+week-number pill and week separator a fixed `#03a9f450`. To keep the old blue, add
+`accent_color: '#03a9f4'` to your card or to a calendar's entry, `today_indicator_color: '#03a9f4'`,
+and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`.
+:::
 
 `accent_color` accepts one more value: `home-assistant`, which follows the color Home
 Assistant holds for each calendar instead of a color you pick here. Named colors such as
@@ -163,10 +176,16 @@ never written to the configuration, and editing the card resets every device to 
 The choice belongs to the configuration it was made for, though, so a card changed back to
 exactly what it was finds it again.
 
+That means the whole configuration, including the layout keys a dashboard stores with the
+card, so resizing the card in a sections dashboard also starts it at `view` again. Two cards
+with identical configurations share one choice. A browser keeps at most 50 choices and drops
+the oldest first, and a browser that refuses storage keeps the choice only while the page
+stays open.
+
 Every layout covers the same dates. `days_to_show` and `start_date` are shared by all three,
 so a switch changes how the days are arranged rather than which dates they span, and the card
 does not reload its events to switch. List draws every day; Columns and Grid draw as many as
-fit the card's width, as close to today as the range allows. Settings made for one layout in its own `list:`,
+fit the card's width, as close to today as the range allows. Options set for one layout in its own `list:`,
 `column:` or `time_grid:` block come with it.
 
 Columns and Grid need room. A layout that cannot fit at the card's current width — Columns
@@ -182,8 +201,8 @@ switches.
 
 ::: tip Nothing Switches While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
-`view` and a press on the switcher does nothing. To try another layout there, use the
-editor's own view picker.
+`view` and a press on the switcher does nothing. To try another layout there, change
+**Card Displays** in the editor.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).
@@ -236,7 +255,7 @@ column:
   event_gap: 4px # Gaps in column view only; list view keeps the joined block
 ```
 
-`event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`.
+`event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`. In the editor, **Event Gap** sits in the **Layout** panel between **Day Spacing** and **Event Spacing**, in every workspace except Grid.
 
 In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; [Separate Events With a Rule Between Days](/reference/examples#separate-events-with-a-rule-between-days) shows the two together.
 
@@ -253,7 +272,7 @@ first_day_of_week: 'monday' # 'monday', 'sunday', or 'system'
 # Week number styling
 week_number_font_size: '12px'
 week_number_color: 'var(--primary-text-color)'
-week_number_background_color: '#03a9f450'
+week_number_background_color: '#e67c7350'
 
 # Separator configuration
 day_separator_width: '1px' # Line between days
@@ -270,6 +289,10 @@ month_separator_color: '#03a9f4'
 [date column's font sizes](#date-column-customization) do, and the pill is sized from it: 2.5
 times as wide and 1.5 times as tall as its font size. A value that is not a font size falls
 back to `12px`.
+
+Left unset, the pill and the week separator are both your theme's primary color at 31%
+opacity, so they follow a custom theme the way [`accent_color`](#visual-styling-colors)
+does.
 
 This feature creates a sophisticated visual hierarchy with:
 
@@ -383,7 +406,7 @@ weekend_month_color: '#e67c73' # Weekend month names
 
 # Special styling for today (inherits from base/weekend when not specified)
 today_weekday_color: '#03a9f4' # Today's weekday name
-today_day_color: '#03a9f4' # Today's day number
+today_day_color: '#03a9f4' # Today's day number (on the date tile, the tile's shade when unset)
 today_month_color: '#03a9f4' # Today's month name
 ```
 
@@ -392,7 +415,7 @@ The date column appears on the left side of each day's events and helps users qu
 - **Weekend days** using the `weekend_*` options — which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set
 - **Today's date** using the `today_*` options
 
-When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling. The one exception is today's day number on the default [date tile](#the-date-tile): it takes a deeper shade of the tile's color rather than `day_color`, unless you set `today_day_color` or, on a weekend, `weekend_day_color`.
 
 `weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
 such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or
@@ -407,17 +430,28 @@ length, but not a percentage or a keyword.
 
 ## 🌟 Today Indicator
 
-Calendar Card Pro marks today out of the box: today's day number sits on a filled tile in
-your theme's primary color, in list, column and grid view. You can restyle it, swap it for a
-dot, an icon, an emoji or an image, or turn it off:
+Calendar Card Pro marks today out of the box: today's day number sits on a soft tile tinted
+with your theme's primary color, in list, column and grid view. You can restyle it, swap it
+for a dot, an icon, an emoji or an image, or turn it off:
 
 ::: tip Visual Editor
-Configure today indicators in the "Date Display" section, where you can choose the date tile, dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
+**Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
+**An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
+an **Indicator Size**, and in the List workspace an **Indicator Position**.
+:::
+
+::: warning Changed In v5
+Before v5 a card showed no indicator unless one was configured, and choosing **None** in the
+editor stored nothing. v5 defaults to `tile`, so such a card now shows the tile. Add
+`today_indicator: false` to your card to keep the old behavior. While the tile is on, column
+and grid view give every day's number the tile's height, so their day headers are taller
+than they were in v4.
 :::
 
 ```yaml
 # Choose the indicator type
-today_indicator: tile # A filled tile behind today's day number (default)
+today_indicator: tile # A soft tinted tile behind today's day number (default)
 today_indicator: false # No indicator
 today_indicator: true # Basic dot
 today_indicator: pulse # Animated pulsing dot
@@ -446,6 +480,7 @@ The indicator is precisely positioned and always properly centered on the coordi
 Available indicator types:
 
 - `tile`: A softly tinted tile behind today's day number (the default)
+- `false`: No indicator
 - `true` or `dot`: Simple dot indicator
 - `pulse`: Animated pulsing dot
 - `glow`: Glowing dot with subtle light effect
@@ -454,7 +489,7 @@ Available indicator types:
 - Image path: Any image URL or local path
 - Any other text: Drawn as the characters themselves — a week number, a quarter, a sprint name
 
-Anything the card does not recognize as one of the first five is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+Anything the card does not recognize as one of the first six is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
 
 ### The Date Tile
 

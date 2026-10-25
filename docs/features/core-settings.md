@@ -26,7 +26,7 @@ entities:
 | `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images — any address, whether a file you saved (`/local/image.jpg`) or one Home Assistant serves (`/api/image/serve/…`). Accepts a person entity ID (`person.anna`) to show that person's picture, and `home-assistant` to follow this calendar's Home Assistant icon |
 | `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                                                                                          |
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
-| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                 |
+| `accent_color`           | string  | `accent_color`           | Custom color for the accent bar and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                    |
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                              |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                      |
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                                                                                                                                                                              |
@@ -322,7 +322,7 @@ entities:
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
 ::: tip Visual Editor
-Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+Each calendar's own filters are under **Calendars**, in that calendar's panel, under **Event Filtering** — **Blocklist** and **Allowlist** among them, with **Match Against** choosing the field they read. **Filter Duplicates** works across calendars, so it is card-wide: find it under **Time Range & Content** → **Event Filtering**.
 :::
 
 ### Filtering by Event Name
@@ -1102,6 +1102,11 @@ Each block also holds the options only that layout has — the compact caps and 
 settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those
 have no shared meaning and are not offered in All Layouts. Legacy List-only root values
 remain supported as described below.
+
+Options that act on the card as a whole stay at the top level, and a view block ignores
+them: the ones that decide which events are loaded, such as `entities` and `days_to_show`,
+and `toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete`. See
+[Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
 
 ::: tip Older Configurations Keep Working
 Before v5 there was no `list:` block, so list options were written at the top level. They
