@@ -2753,7 +2753,7 @@ describe('editor: the Time Range & Content panel', () => {
   });
 });
 
-describe('editor: the Card & Title panel', () => {
+describe('editor: the Card & Header panel', () => {
   function namesIn(config: Types.Config): string[] {
     const panel = PANELS.find((entry) => entry.id === 'card')!;
     return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
@@ -2762,21 +2762,24 @@ describe('editor: the Card & Title panel', () => {
   }
 
   /**
-   * Pinned by value and in order, because the position is the decision. The add-event
-   * button sits in the card's header, so it follows the title's own options and comes
-   * before the background, which belongs to the card as a whole; a `toContain` would pass
-   * with it appended after the background or stranded in another panel's run.
+   * Pinned by value and in order, because the position is the decision. The toolbar's
+   * switches close the panel under a sub-heading of their own, and a heading claims every
+   * field that follows it, so the background has to come before that heading rather than
+   * after the switches; a `toContain` would pass with it stranded under "Toolbar".
    */
-  it('puts the add-event switch with the title, ahead of the background', () => {
+  it('closes the panel with the toolbar under its own heading', () => {
+    const head = ['title', '', 'title_font_size', 'title_color', 'background_color'];
     for (const view of VIEWS) {
       expect(namesIn(buildConfig({ view })), `${view} view`).toEqual([
-        'title',
-        '',
-        'title_font_size',
-        'title_color',
-        'show_add_event',
-        'background_color',
+        ...head,
+        'heading_toolbar',
+        'toolbar',
+        'show',
       ]);
+      expect(
+        namesIn(buildConfig({ view, toolbar: { show: true } })),
+        `${view} view, toolbar on`,
+      ).toEqual([...head, 'heading_toolbar', 'toolbar', 'show', 'view_switcher', 'add_event']);
     }
   });
 });
@@ -3009,6 +3012,8 @@ describe('editor: the write path over the whole configuration', () => {
       if (key === 'entities') custom[key] = ['calendar.a'];
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
+      else if (key === 'toolbar')
+        custom[key] = { ...(value as object), show: true, view_switcher: false };
       else if (VIEW_BLOCK_KEYS.has(key)) custom[key] = blockThatSurvivesTheStrip(key);
       else if (key === 'tap_action' || key === 'hold_action' || key === 'event_tap_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };

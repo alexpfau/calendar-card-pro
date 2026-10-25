@@ -159,8 +159,8 @@ export interface Config {
   /** Whether the event-detail dialog may offer Delete. Narrows only, like `allow_event_edit`. */
   allow_event_delete: boolean;
 
-  // Add event button
-  show_add_event: boolean;
+  // Header toolbar
+  toolbar?: ToolbarConfig;
 
   // Cache and refresh settings
   refresh_interval: number;
@@ -707,6 +707,23 @@ export interface WeatherPositionConfig {
   color?: string;
 }
 
+/**
+ * The header toolbar, as written in the configuration: one switch for the bar, and one per
+ * control in it.
+ *
+ * Every member is optional because a block is written partly — `toolbar: { show: true }` is
+ * the whole of the common case — and `Partial<Config>` does not reach inside a nested block.
+ * Read it through `resolveToolbar` in `config/config.ts`, which answers every member.
+ */
+export interface ToolbarConfig {
+  /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
+  show?: boolean;
+  /** The add-event button, always the last control. */
+  add_event?: boolean;
+  /** The List / Columns / Grid switcher, just before the add button. */
+  view_switcher?: boolean;
+}
+
 /** Weather configuration. */
 export interface WeatherConfig {
   entity?: string;
@@ -1182,4 +1199,8 @@ export interface Translations {
   fullDaysOfWeek: string[];
   endsToday: string;
   endsTomorrow: string;
+  /** The header toolbar's view switcher, one name per view. */
+  viewList: string;
+  viewColumns: string;
+  viewGrid: string;
 }

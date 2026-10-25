@@ -199,6 +199,7 @@ export function workspaceFormData(
     ...projected,
     ...blocks,
     weather: Value.weatherFormBlock(projected),
+    toolbar: Value.toolbarFormBlock(projected),
     ...Synthetic.deriveSyntheticData(projected, held),
   };
   for (const [key, text] of Object.entries(pending)) {

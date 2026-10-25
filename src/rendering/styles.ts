@@ -319,35 +319,76 @@ export const cardStyles = css`
     height: 1.33em;
   }
 
-  /* About 40px with its gap, so an untitled card does not gain a title's worth of height
-     for one button. */
+  /* 48px with its gap: less than a title's worth of height for one row of controls, and
+     enough room under them that the day headers of the column and grid layouts, which start
+     right below, do not crowd the bar. The bar already sits about 17px below the card's top
+     edge, so less than this left it visibly closer to the dates than to the edge. */
   .card-toolbar.toolbar-own-row {
-    margin-bottom: 4px;
+    margin-bottom: 12px;
   }
 
   .toolbar-trailing {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
   }
 
-  /* A native button dressed from Home Assistant's theme: primary-colored text and icon in
-     a pill outlined with the same color, the shape of Home Assistant's own outlined
-     buttons. 36px tall, which is the hit target and leaves the slim row at 40px. */
-  .toolbar-button {
+  /* Every control in the bar shares one look, so they read as one family and none of them
+     competes with the events: a neutral pill, the text color washed into the card at 8%,
+     36px tall, which is the hit target and leaves the slim row at 40px. The theme's primary
+     color is kept for the keyboard focus ring alone. The wash is mixed into transparent
+     rather than named, so it follows any card background a theme sets.
+
+     The toolbar's own custom properties are set here rather than on the card, and only
+     while there is a toolbar: none of this costs a card without one anything. */
+  .card-toolbar {
+    --calendar-card-toolbar-fill: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
+    --calendar-card-toolbar-fill-hover: color-mix(
+      in srgb,
+      var(--primary-text-color) 12%,
+      transparent
+    );
+    --calendar-card-toolbar-fill-pressed: color-mix(
+      in srgb,
+      var(--primary-text-color) 16%,
+      transparent
+    );
+    --calendar-card-toolbar-selected: var(
+      --calendar-card-background-color,
+      var(--card-background-color)
+    );
+  }
+
+  /* The selected segment is raised out of the track, so it must be lighter than the track in
+     both color schemes. The card's own background is, in a light one. In a dark one it is
+     darker than a track washed with light text, which reads as pressed in rather than
+     raised, so there the segment takes more of the text color instead. Home Assistant sets
+     the page's color-scheme from its dark mode, which is what light-dark() follows. Behind
+     @supports because a var() inside a function the browser does not know invalidates the
+     whole declaration instead of falling back to the one above it. */
+  @supports (color: light-dark(#000, #fff)) {
+    .card-toolbar {
+      --calendar-card-toolbar-selected: light-dark(
+        var(--calendar-card-background-color, var(--card-background-color)),
+        color-mix(
+          in srgb,
+          var(--primary-text-color) 22%,
+          var(--calendar-card-background-color, var(--card-background-color))
+        )
+      );
+    }
+  }
+
+  .toolbar-button,
+  .view-switcher-segment {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     box-sizing: border-box;
-    height: 36px;
-    min-width: 36px;
     margin: 0;
-    padding: 0 14px 0 10px;
-    border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
-    border-radius: 18px;
-    background: transparent;
-    color: var(--primary-color);
+    border: none;
+    color: var(--primary-text-color);
     font-family: inherit;
     font-size: var(--ha-font-size-m, 14px);
     font-weight: var(--ha-font-weight-medium, 500);
@@ -355,6 +396,14 @@ export const cardStyles = css`
     white-space: nowrap;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .toolbar-button {
+    height: 36px;
+    min-width: 36px;
+    padding: 0 14px 0 10px;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
   }
 
   .toolbar-button.icon-only {
@@ -369,23 +418,72 @@ export const cardStyles = css`
     fill: currentColor;
   }
 
+  /* The view switcher: segments on one track, the selected one raised out of it. The track
+     is the same wash as a button, so the switcher and the add button beside it are the same
+     height and the same gray. */
+  .view-switcher {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 3px;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
+  }
+
+  .view-switcher-segment {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 15px;
+    background: transparent;
+    color: var(--secondary-text-color);
+  }
+
+  .view-switcher-segment.icon-only {
+    width: 34px;
+    padding: 0;
+  }
+
+  .view-switcher-segment.selected {
+    background: var(--calendar-card-toolbar-selected);
+    color: var(--primary-text-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Too narrow to draw: still there, so the bar keeps its shape, but plainly not on offer. */
+  .view-switcher-segment.unavailable {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  /* The pictogram is drawn in a 48 by 32 frame; this keeps its proportions at icon size. */
+  .view-switcher-icon {
+    flex: none;
+    width: 24px;
+    height: 16px;
+  }
+
   /* Hover only where there is a real pointer: on touch a hover state sticks after the
      tap. Pressed applies everywhere, and only for as long as the press lasts. */
   @media (hover: hover) {
-    .toolbar-button:hover {
-      background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    .toolbar-button:hover,
+    .view-switcher-segment:not(.selected):not(.unavailable):hover {
+      background: var(--calendar-card-toolbar-fill-hover);
     }
   }
 
-  .toolbar-button:active {
-    background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  .toolbar-button:active,
+  .view-switcher-segment:not(.selected):not(.unavailable):active {
+    background: var(--calendar-card-toolbar-fill-pressed);
   }
 
-  .toolbar-button:focus {
+  .toolbar-button:focus,
+  .view-switcher-segment:focus {
     outline: none;
   }
 
-  .toolbar-button:focus-visible {
+  .toolbar-button:focus-visible,
+  .view-switcher-segment:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -2342,10 +2440,19 @@ export const cardStyles = css`
   }
 
   /* ===== CORNER LOADING INDICATOR ===== */
+
+  /* Midway between the card's rounded corner and the header toolbar's last control, which
+     sits in that corner: beside a title the ring keeps about 5.5px to each at the default
+     12px radius. Until 12px the corner's curve does not reach the ring, so its place is
+     fixed; beyond that the curve comes inward, and the ring moves in with it at 0.15 of
+     every extra pixel, keeping the two gaps about equal, some 3px each at 24px. The ring's
+     center is this offset plus 8px from the padding edge. The earlier half-the-radius rule
+     drifted outward as the radius grew: it touched the last control at the default radius
+     and overlapped it at larger ones. */
   .loading-indicator {
     position: absolute;
-    top: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
-    right: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    top: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
+    right: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
     width: 16px;
     height: 16px;
     display: inline-flex;

@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(122_700);
-    // The today tile and the now indicator moved the ceiling last, from 116,600: the notes on why
+    expect(saved).toBeLessThan(124_700);
+    // The view switcher moved the ceiling last, from 122,700 to 124,000 and then to 124,700: the
+    // notes on why every toolbar control shares one neutral look mixed into transparent rather
+    // than a named gray, why the toolbar's custom properties live on the toolbar and not the
+    // card, why the raised segment needs light-dark() behind @supports in a dark color scheme,
+    // why the slim toolbar row keeps 12px under it, and how the corner loading spinner is placed
+    // midway between the card's corner and the toolbar's last control. The reading went 121,650
+    // to 123,954, taken with stripComments after the last comment in the change was written.
+    //
+    // The today tile and the now indicator moved the ceiling before that, from 116,600: the notes on why
     // the tile takes layout space rather than being painted behind the digits, how its shape was
     // scored against an iOS icon mask, why it is a wash in the all-day pill's recipe rather than
     // a fill, why the "now" green is mixed toward the text color instead of drawn raw, how the

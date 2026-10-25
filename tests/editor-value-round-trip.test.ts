@@ -38,6 +38,17 @@ function asSetConfigWould(raw: Record<string, unknown>): Types.Config {
 }
 
 describe('setConfig and toStoredConfig round trip', () => {
+  it.each([
+    ['the switch alone', { show: true }, { show: true }],
+    ['a control turned off', { show: true, add_event: false }, { show: true, add_event: false }],
+    ['the choices of a hidden bar', { view_switcher: false }, { view_switcher: false }],
+    ['nothing but defaults', { show: false, add_event: true, view_switcher: true }, undefined],
+  ])('keeps a toolbar block minimal: %s', (_name, toolbar, stored) => {
+    expect(toStoredConfig(asSetConfigWould({ entities: ['calendar.a'], toolbar }))).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      ...(stored === undefined ? {} : { toolbar: stored }),
+    });
+  });
   it('gives back only the calendars for a minimal config', () => {
     expect(toStoredConfig(asSetConfigWould({ entities: ['calendar.a'] }))).toEqual({
       entities: [{ entity: 'calendar.a' }],

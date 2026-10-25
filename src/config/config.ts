@@ -168,7 +168,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_edit: true,
   allow_event_delete: true,
 
-  show_add_event: false,
+  toolbar: {
+    show: false,
+    add_event: true,
+    view_switcher: true,
+  },
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
@@ -316,6 +320,42 @@ export function mergeConfig(
   }
 
   return merged;
+}
+
+/**
+ * The header toolbar with every member answered, which is how everything outside the
+ * configuration layer reads it.
+ */
+export interface ResolvedToolbar {
+  show: boolean;
+  addEvent: boolean;
+  viewSwitcher: boolean;
+}
+
+/**
+ * Reads the `toolbar:` block, member by member, falling back to the shipped default.
+ *
+ * Defensive rather than trusting `mergeConfig`: a user may write `toolbar: null`, which
+ * replaces the default block, or a non-boolean such as `show: "yes"`. Either reads as the
+ * default for that member, so a typo never draws a control the user did not ask for and
+ * never removes one they did.
+ *
+ * @param config - Configuration, merged or raw
+ * @returns Every member of the toolbar, resolved
+ */
+export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>): ResolvedToolbar {
+  const defaults = DEFAULT_CONFIG.toolbar as Required<Types.ToolbarConfig>;
+  const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
+    ? config.toolbar
+    : {};
+  const read = (key: keyof Types.ToolbarConfig): boolean =>
+    typeof block[key] === 'boolean' ? (block[key] as boolean) : defaults[key];
+
+  return {
+    show: read('show'),
+    addEvent: read('add_event'),
+    viewSwitcher: read('view_switcher'),
+  };
 }
 
 /**

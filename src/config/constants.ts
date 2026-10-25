@@ -124,8 +124,16 @@ export const UI = {
   /**
    * Card width, in CSS pixels, from which the header toolbar's controls carry a text label
    * beside their icon. Narrower cards draw the icon alone, named for assistive technology.
+   * This one holds while the add button is the only control.
    */
   TOOLBAR_LABEL_MIN_WIDTH: 480,
+
+  /**
+   * The same, once the view switcher shares the bar. Its three labeled segments and a
+   * labeled add button take about 400px in English and more in German, so the title keeps
+   * room for a word or two only from here up. Labels are all or nothing across the bar.
+   */
+  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 640,
 
   SEPARATOR_SPACING: {
     WEEK: 1,
