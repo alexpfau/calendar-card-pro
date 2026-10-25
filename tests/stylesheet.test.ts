@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
-import { cardStyles } from '../src/rendering/styles';
+import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
 
 /**
@@ -2648,32 +2650,250 @@ describe('card stylesheet', () => {
   });
 });
 
-describe('a pressed tappable event', () => {
-  /** The wash percentage a rule mixes into `currentColor`, read from the raw text. */
+/** One line of CSS with its whitespace collapsed, so a wrapped value compares as written. */
+function flat(value: string): string {
+  return value.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').trim();
+}
+
+/**
+ * The text of every top-level at-rule block whose prelude is exactly `prelude`, joined.
+ *
+ * `rulesFor` reads top-level rules only, which is what lets the tests above prove a rule is
+ * not inside a media query. A rule that is meant to be inside an `@supports` or a
+ * `(hover: hover)` query needs the opposite question asked, so this finds the blocks.
+ */
+function atRuleBlock(prelude: string): string {
+  const blocks: string[] = [];
+  let start = CSS.indexOf(`${prelude} {`);
+  while (start !== -1) {
+    const open = CSS.indexOf('{', start);
+    let depth = 0;
+    let end = open;
+    for (; end < CSS.length; end++) {
+      if (CSS[end] === '{') depth++;
+      else if (CSS[end] === '}' && --depth === 0) break;
+    }
+    blocks.push(CSS.slice(open + 1, end));
+    start = CSS.indexOf(`${prelude} {`, end);
+  }
+  expect(blocks.length, `no ${prelude} block`).toBeGreaterThan(0);
+  return blocks.join('\n');
+}
+
+/** The body of `selector`'s rule inside a block of CSS text, flattened. */
+function bodyIn(block: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`(?:^|[\\s,}])${escaped}\\s*\\{([^}]*)\\}`).exec(block);
+  expect(match, `no ${selector} rule`).not.toBeNull();
+  return flat(match![1]);
+}
+
+describe('a tappable event', () => {
+  /**
+   * The wash percentage a rule mixes the card's hover color at, read from the raw text,
+   * where the hover rules sit inside the `(hover: hover)` query that `rulesFor` skips.
+   */
   function washPercent(selector: string): number {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = CSS.match(new RegExp(`${escaped}\\s*\\{[^}]*currentColor (\\d+)%`));
-    return Number(match?.[1]);
+    const match = CSS.match(
+      new RegExp(
+        `(?:^|[\\s,}])${escaped}\\s*\\{[^}]*var\\(--ha-ripple-(?:hover|pressed)-color\\) (\\d+)%`,
+      ),
+    );
+    expect(match, `no wash in ${selector}`).not.toBeNull();
+    return Number(match![1]);
+  }
+
+  /** A tinted card's wash property, as a percentage of `currentColor`. */
+  function tintedPercent(property: string): number {
+    const value = generateCustomPropertiesObject(buildConfig({ event_background_opacity: 25 }))[
+      property
+    ];
+    const match = /^color-mix\(in srgb, currentColor (\d+)%, transparent\)$/.exec(value ?? '');
+    expect(match, `${property} is ${value}`).not.toBeNull();
+    return Number(match![1]);
   }
 
   // The hover wash is gated on `(hover: hover)`, and the card's ripple is muted over events,
-  // so on touch the pressed wash is the only thing a tap on an event shows. `rulesFor` sees
+  // so on touch the pressed wash is the only thing a tap on an event shows. `declared` sees
   // top-level rules only, so finding these there also proves they are not inside that
   // media query.
-  it('washes on any input, more strongly than on hover', () => {
-    expect(declared('.event-interactive:active', 'box-shadow')).toMatch(/currentColor 10%/);
-    expect(washPercent('.event-interactive:active')).toBeGreaterThan(
+  it('washes untinted in the card hover color, 8% on hover and 16% pressed', () => {
+    expect(flat(declared('.event-interactive:active', 'box-shadow'))).toBe(
+      'inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
+        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent))',
+    );
+    expect(bodyIn(atRuleBlock('@media (hover: hover)'), '.event-interactive:hover')).toBe(
+      'box-shadow: inset 0 0 0 100vmax var(--calendar-card-event-wash-hover, ' +
+        'color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent));',
+    );
+    expect(washPercent('.event-interactive:hover')).toBe(8);
+    expect(washPercent('.event-interactive:active')).toBe(16);
+  });
+
+  it("washes the list button's whole cell, not the button itself, in the same colors", () => {
+    expect(flat(declared('.event-button:active::before', 'background-color'))).toBe(
+      'var(--calendar-card-event-wash-pressed, ' +
+        'color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent))',
+    );
+    expect(declared('.event-button.event-interactive:active', 'box-shadow')).toBe('none');
+    expect(washPercent('.event-button:hover::before')).toBe(
       washPercent('.event-interactive:hover'),
+    );
+    expect(washPercent('.event-button:active::before')).toBe(
+      washPercent('.event-interactive:active'),
     );
   });
 
-  it("washes the list button's whole cell, not the button itself", () => {
-    expect(declared('.event-button:active::before', 'background-color')).toMatch(
-      /currentColor 10%/,
+  it('washes a tinted event in its own text color instead, 6% on hover and 10% pressed', () => {
+    // The card writes both only while events are tinted; unwritten, the stylesheet's accent
+    // fallbacks above stand. Both directions, so neither a wash dropped from tinted cards nor
+    // one leaking onto untinted cards passes.
+    for (const opacity of [undefined, 0]) {
+      const props = generateCustomPropertiesObject(
+        buildConfig(opacity === undefined ? {} : { event_background_opacity: opacity }),
+      );
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-wash-hover');
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-wash-pressed');
+    }
+    for (const opacity of [1, 25, 100]) {
+      const props = generateCustomPropertiesObject(
+        buildConfig({ event_background_opacity: opacity }),
+      );
+      expect(props['--calendar-card-event-wash-hover']).toBe(
+        'color-mix(in srgb, currentColor 6%, transparent)',
+      );
+      expect(props['--calendar-card-event-wash-pressed']).toBe(
+        'color-mix(in srgb, currentColor 10%, transparent)',
+      );
+    }
+    expect(tintedPercent('--calendar-card-event-wash-pressed')).toBeGreaterThan(
+      tintedPercent('--calendar-card-event-wash-hover'),
     );
-    expect(declared('.event-button.event-interactive:active', 'box-shadow')).toBe('none');
-    expect(washPercent('.event-button:active::before')).toBeGreaterThan(
-      washPercent('.event-button:hover::before'),
+  });
+});
+
+describe("the card's hover color", () => {
+  const hoverColors = (accent: string) => {
+    const props = generateCustomPropertiesObject(buildConfig({ accent_color: accent }));
+    return [props['--ha-ripple-hover-color'], props['--ha-ripple-pressed-color']];
+  };
+
+  it('is accent_color', () => {
+    expect(hoverColors('rgb(1, 2, 3)')).toEqual(['rgb(1, 2, 3)', 'rgb(1, 2, 3)']);
+  });
+
+  it('is the shipped accent where accent_color is the home-assistant sentinel, or empty', () => {
+    // The sentinel asks each calendar for its color and is no color itself. Written through,
+    // it voids every rule that mixes the property: the ripple, an untinted event's wash, and
+    // a toolbar control's hover fill, which would then lose its fill instead of gaining one.
+    const shipped = String(Config.DEFAULT_CONFIG.accent_color);
+    expect(shipped).toBe('var(--primary-color, #03a9f4)');
+    expect(hoverColors('home-assistant')).toEqual([shipped, shipped]);
+    expect(hoverColors('')).toEqual([shipped, shipped]);
+  });
+});
+
+describe('the toolbar controls', () => {
+  it('rest in a neutral gray and take the card hover color over it on hover and press', () => {
+    expect(flat(declared('.card-toolbar', '--calendar-card-toolbar-fill'))).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 8%, transparent)',
     );
+    expect(flat(declared('.card-toolbar', '--calendar-card-toolbar-fill-hover'))).toBe(
+      'color-mix(in srgb, var(--ha-ripple-hover-color) 12%, var(--calendar-card-toolbar-fill))',
+    );
+    expect(flat(declared('.card-toolbar', '--calendar-card-toolbar-fill-pressed'))).toBe(
+      'color-mix(in srgb, var(--ha-ripple-pressed-color) 20%, var(--calendar-card-toolbar-fill))',
+    );
+  });
+
+  it('paint hover and press from those properties, and never tint the selected view', () => {
+    const hover = atRuleBlock('@media (hover: hover)');
+    expect(hover).toMatch(/\.view-switcher-segment:not\(\.selected\):not\(\.unavailable\):hover/);
+    expect(bodyIn(hover, '.toolbar-range:hover')).toBe(
+      'background: var(--calendar-card-toolbar-fill-hover);',
+    );
+    expect(declared('.toolbar-button:active', 'background')).toBe(
+      'var(--calendar-card-toolbar-fill-pressed)',
+    );
+    expect(declared('.view-switcher-segment.selected', 'background')).toBe(
+      'var(--calendar-card-toolbar-selected)',
+    );
+  });
+});
+
+describe('the today tile', () => {
+  const em = (value: string) => {
+    const match = /^(\d*\.?\d+)em$/.exec(value);
+    expect(match, `${value} is not in em`).not.toBeNull();
+    return Number(match![1]);
+  };
+  const height = () => em(declared('.day.today-tile', 'height'));
+
+  it('fills exactly the 1.5em footprint the column and grid headers reserve on other days', () => {
+    // The tile and its margin above and below are the footprint; a header day without the
+    // tile is given the same height, so the date row stays level across the columns.
+    const [block, inline] = declared('.day.today-tile', 'margin').split(/\s+/);
+    expect(inline).toBe('auto');
+    const reserved = em(
+      declared('.column-date-content.with-today-tile .day:not(.today-tile)', 'min-height'),
+    );
+    expect(reserved).toBe(1.5);
+    expect(height() + 2 * em(block)).toBeCloseTo(reserved, 10);
+  });
+
+  it('is wider than tall, and narrower than the list date cell it sits in', () => {
+    const width = em(declared('.day.today-tile', 'width'));
+    expect(width).toBe(1.45);
+    expect(height()).toBe(1.2);
+    // The list cell is 1.75 times day_font_size wide (`--calendar-card-date-column-width`).
+    expect(
+      generateCustomPropertiesObject(buildConfig({ day_font_size: '20px' }))[
+        '--calendar-card-date-column-width'
+      ],
+    ).toBe('35px');
+    expect(width).toBeLessThan(1.75);
+  });
+
+  it('rounds its corners in em, as a share of its height, so they stay round, not oval', () => {
+    // A percentage radius on a tile that is not square is a share of the width across and
+    // of the height down, which draws every corner as an ellipse.
+    expect(em(declared('.day.today-tile', 'border-radius')) / height()).toBeCloseTo(0.225, 3);
+    const squircle = bodyIn(atRuleBlock('@supports (corner-shape: squircle)'), '.day.today-tile');
+    expect(squircle).toContain('corner-shape: squircle;');
+    const radius = /border-radius: ([^;]+);/.exec(squircle)![1];
+    expect(em(radius) / height()).toBeCloseTo(0.38, 3);
+  });
+
+  it('draws proportional figures, so a 1 does not hang in a slot as wide as a 0', () => {
+    expect(declared('.day.today-tile', 'font-variant-numeric')).toBe('proportional-nums');
+  });
+
+  it('centers the digits on their cap height where text-box is supported', () => {
+    expect(declared('.day.today-tile', 'display')).toBe('flex');
+    expect(
+      bodyIn(atRuleBlock('@supports (text-box: trim-both cap alphabetic)'), '.day.today-tile'),
+    ).toBe(
+      'display: block; text-align: center; align-content: center; ' +
+        'text-box: trim-both cap alphabetic;',
+    );
+  });
+
+  it('keeps its own layout in the column and grid headers', () => {
+    // The header lays out every other day's number as a flex box at a specificity the tile's
+    // own rules cannot outrank. Matching the tile too would undo the cap-height centering.
+    expect(rulesFor('.column-date-content.with-today-tile .day')).toEqual([]);
+    expect(declared('.column-date-content.with-today-tile .day:not(.today-tile)', 'display')).toBe(
+      'flex',
+    );
+    expect(declared('.column-date-content .day.today-tile', 'margin-inline')).toBe('0');
+    expect(
+      RULES.filter((rule) => rule.selectors.some((s) => /today-tile/.test(s)))
+        .flatMap((rule) => rule.selectors)
+        .filter((s) => /column-date-content/.test(s)),
+    ).toEqual([
+      '.column-date-content.with-today-tile .day:not(.today-tile)',
+      '.column-date-content .day.today-tile',
+    ]);
   });
 });

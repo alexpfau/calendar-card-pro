@@ -74,7 +74,7 @@ See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appe
 
 ### 📍 Today & Now at a Glance
 
-- **The date tile** - Today's day number sits on a soft tile in your theme's color, shaped like an app icon, so on a two-day card today's events are the ones under the tile. It is the new default, `today_indicator: tile`, and `today_indicator_color` tints it (#615)
+- **The date tile** - Today's day number sits on a soft tile in your theme's color, a little wider than tall with the rounded corners of an app icon and the digits centered on it, so on a two-day card today's events are the ones under the tile. It is the new default, `today_indicator: tile`, and `today_indicator_color` tints it (#615)
 - **The Now indicator** - An event under way gets a filled clock and "Now ·" in front of its time, in green, in list and column view, and the mark comes and goes on time without waiting for Home Assistant. `now_color` changes the green, here and on grid view's now line, and `show_now_indicator: false` turns it off. "Now" comes from your browser, in the card's language
 - **Today, even when it is empty** - `show_empty_today` keeps today's row, reading "No events", while the other empty days stay hidden, so a glance tells you today is free (#670, Thanks @vincentullmann, #669)
 
@@ -82,7 +82,7 @@ See [Today Indicator](https://calendar-card-pro.alexpfau.com/features/layout-app
 
 ### 🎨 Your Theme's Accent, Drawn Like macOS Calendar
 
-- **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for
+- **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for. So do the washes on an event and on a toolbar control under the pointer or pressed, as the card's own hover always has; an event with a background tint keeps its faint wash of its text color
 - **A rounded accent bar beside every event** - The colored bar beside an event has rounded ends in every view. Untinted, a day's touching events share one line that changes color where one calendar's event meets another's, so a busy day in one calendar still reads as one block. With `event_background_opacity` above 0, each event's bar sits inside its own tinted box, clear of the rounded corners. `vertical_line_width` sets how wide it is
 
 See [Visual Styling & Colors](https://calendar-card-pro.alexpfau.com/features/layout-appearance#visual-styling-colors).

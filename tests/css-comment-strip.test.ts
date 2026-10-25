@@ -279,8 +279,18 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(145_000);
-    // The date navigation moved the ceiling last, from 141,500 to 145,000: the notes on why the
+    expect(saved).toBeLessThan(148_000);
+    // The today tile's new shape and the card's hover color moved the ceiling last, from 145,000
+    // to 148,000: the notes on why the tile's corners are written in em rather than percent, why
+    // its figures are proportional and the last pixel was left unmeasured, why centering its one
+    // line trimmed to the cap height centers the digits and why that makes the tile a block, why
+    // the column headers leave the tile out of their flex rule, why an untinted event washes in
+    // the card's hover color at twice the ripple's strength while a tinted one keeps its text
+    // color, and why the toolbar lays that color over its gray rather than in place of it. The
+    // reading went 143,588 to 146,119, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // The date navigation moved the ceiling before that, from 141,500 to 145,000: the notes on why the
     // band takes a row of its own and wraps its trailing group by the card's width rather than
     // by the dates, why its 8px start is padding and not a margin, and why column and grid drop
     // it, why the range button is only as wide as its dates while an invisible copy of its

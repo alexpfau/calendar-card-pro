@@ -28,6 +28,19 @@ function gridTitleLineRung(configured: number, ladderMaximum: number): string {
 }
 
 /**
+ * The color the card answers a pointer in: its accent, resolved to a color.
+ *
+ * @param config Card configuration.
+ * @returns `accent_color`, or the shipped accent where that is the `home-assistant`
+ *   sentinel or empty.
+ */
+function cardHoverColor(config: Types.Config): string {
+  return config.accent_color && !EntityColors.isEntityColorSentinel(config.accent_color)
+    ? config.accent_color
+    : String(Config.DEFAULT_CONFIG.accent_color);
+}
+
+/**
  * Generate CSS custom properties from card configuration.
  * @param config Card configuration.
  * @returns CSS custom property names mapped to values.
@@ -94,10 +107,16 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
           ? 'flex-end'
           : 'center',
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
+    // The card's own hover color, which the ripple, the wash on an untinted event and the
+    // toolbar's hover and press all draw in. `home-assistant` is not a color: it asks each
+    // calendar for the color Home Assistant holds for it, and the card itself is no calendar,
+    // so the shipped accent stands in, as it does for a calendar without a color. Written
+    // through, the word would void every rule that mixes it, and a toolbar control would
+    // lose its fill on hover rather than gain one.
     '--ha-ripple-hover-opacity': '0.04',
-    '--ha-ripple-hover-color': config.accent_color,
+    '--ha-ripple-hover-color': cardHoverColor(config),
     '--ha-ripple-pressed-opacity': '0.12',
-    '--ha-ripple-pressed-color': config.accent_color,
+    '--ha-ripple-pressed-color': cardHoverColor(config),
 
     '--calendar-card-today-indicator-color': config.today_indicator_color,
     '--calendar-card-today-indicator-size': config.today_indicator_size,
@@ -173,9 +192,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   // events fall back to joining into one line. See .event-accent-bar and .event-first in the
   // stylesheet. Unwritten, every rule falls back to its untinted value, so an untinted card
   // keeps exactly the inline style it carried before either existed.
+  //
+  // The two washes follow the same switch: a tinted event under the pointer or pressed takes
+  // its own text color over the tint, where an untinted one takes the card's accent, as the
+  // card's ripple does (see TAPPABLE EVENTS in the stylesheet). currentColor is left for the
+  // event to resolve, since a custom property substitutes tokens rather than a color.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
     props['--calendar-card-event-accent-bar-inset'] = '4px';
+    props['--calendar-card-event-wash-hover'] = 'color-mix(in srgb, currentColor 6%, transparent)';
+    props['--calendar-card-event-wash-pressed'] =
+      'color-mix(in srgb, currentColor 10%, transparent)';
   }
 
   // Weather event color has no default. If absent, both placements use their
@@ -514,9 +541,14 @@ export const cardStyles = css`
 
   /* Every control in the bar shares one look, so they read as one family and none of them
      competes with the events: a neutral pill, the text color washed into the card at 8%,
-     36px tall, which is the hit target and leaves the slim row at 48px. The theme's primary
-     color is kept for the keyboard focus ring alone. The wash is mixed into transparent
-     rather than named, so it follows any card background a theme sets.
+     36px tall, which is the hit target and leaves the slim row at 48px. The wash is mixed
+     into transparent rather than named, so it follows any card background a theme sets.
+
+     A control under the pointer or pressed takes the card's own hover color, the accent
+     its ripple and an untinted event wash in, laid over the gray at 12% and 20% so the
+     control stays at least as solid as its neighbors. Mixed into transparent instead, the
+     add button would turn paler than the bar on hover in a light theme. Resting, the bar
+     stays neutral, and the selected view stays raised rather than tinted.
 
      The toolbar's own custom properties are set here rather than on the card, and only
      while there is a toolbar: none of this costs a card without one anything. */
@@ -524,13 +556,13 @@ export const cardStyles = css`
     --calendar-card-toolbar-fill: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
     --calendar-card-toolbar-fill-hover: color-mix(
       in srgb,
-      var(--primary-text-color) 12%,
-      transparent
+      var(--ha-ripple-hover-color) 12%,
+      var(--calendar-card-toolbar-fill)
     );
     --calendar-card-toolbar-fill-pressed: color-mix(
       in srgb,
-      var(--primary-text-color) 16%,
-      transparent
+      var(--ha-ripple-pressed-color) 20%,
+      var(--calendar-card-toolbar-fill)
     );
     --calendar-card-toolbar-selected: var(
       --calendar-card-background-color,
@@ -850,28 +882,40 @@ export const cardStyles = css`
     color: var(--calendar-card-color-month);
   }
 
-  /* ===== The today tile: a tinted rounded square behind today's day number =====
-     Shaped after an iOS app icon, which Apple draws with continuous ("squircle") corners
-     and publishes no number for. The community fit for that mask is a 22.37% radius with
-     60% corner smoothing; scored against it pixel by pixel in Chromium, a plain 22.5% radius
-     had the smallest area error and corner-shape: squircle at 38% the closest curvature
-     where the corner begins, so the first is the floor and the second the upgrade below.
+  /* ===== The today tile: a tinted rounded rectangle behind today's day number =====
+     A little wider than tall, so two digits have room at their sides, with the corners of
+     an iOS app icon, which Apple draws continuous ("squircle") and publishes no number for.
+     The community fit for that mask is a 22.37% radius with 60% corner smoothing; scored
+     against it pixel by pixel in Chromium, a plain 22.5% radius had the smallest area error
+     and corner-shape: squircle at 38% the closest curvature where the corner begins, so the
+     first is the floor and the second the upgrade below. Both are written in em, as those
+     shares of the tile's height: on a tile that is not square a percentage radius is a share
+     of the width across and of the height down, which would make every corner an ellipse.
+
      The tile takes layout space rather than being painted behind the digits, so it cannot
      overlap the weekday above it (no gap in the list cell) or stick out past a column's
-     left edge, where the date is flush left. Its footprint is 1.5em of day_font_size and
-     the tile itself 1.35em, centered in it by the margin: that leaves a hair of air to the
-     weekday and month, and the footprint is what the column and grid headers reserve on
-     every day (below), so changing the tile's size does not move anything around it. It
-     stays inside the list view's date cell, which is 1.75 times the same font size. */
+     left edge, where the date is flush left. Its footprint is 1.5em of day_font_size: the
+     tile is 1.2em tall, with 0.15em of air to the weekday above and the month below. The
+     footprint is what the column and grid headers reserve on every day (below), so changing
+     the tile's size does not move anything around it, and the tile's 1.45em width stays
+     inside the list view's date cell, which is 1.75 times the same font size.
+
+     The digits are centered on their ink rather than on their boxes, as far as CSS reaches.
+     Home Assistant's Roboto draws tabular figures, every digit as wide as a 0, so a 1 sits in
+     a slot wider than itself, and a 21 or a 31 hung about 2px left of center at the default
+     size. Proportional figures halve that. Measuring each number's ink on a canvas would
+     close the last pixel, and was weighed against its cost and declined. The vertical half
+     is the text-box rule below. */
   .day.today-tile {
     display: flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 1.35em;
-    height: 1.35em;
-    margin: 0.075em auto;
-    border-radius: 22.5%;
+    width: 1.45em;
+    height: 1.2em;
+    margin: 0.15em auto;
+    border-radius: 0.27em;
+    font-variant-numeric: proportional-nums;
     background: var(--calendar-card-today-indicator-color);
     /* Home Assistant's own "text on the primary color" token, for the solid floor. */
     --calendar-card-today-indicator-ink: var(--text-primary-color, #fff);
@@ -879,8 +923,24 @@ export const cardStyles = css`
 
   @supports (corner-shape: squircle) {
     .day.today-tile {
-      border-radius: 38%;
+      border-radius: 0.456em;
       corner-shape: squircle;
+    }
+  }
+
+  /* Centered as a line, the digits sat about a pixel high: a line box spans the font's
+     ascent and descent, which sit unevenly around the digits, so its middle is not theirs.
+     Trimmed to the cap height above and the baseline below, the line is as tall as the
+     digits themselves (lining figures are cap height), and centering the line centers them.
+     Only a block container can be trimmed, and the flex item holding the digits is
+     anonymous, so here the tile is a block that centers its one line with align-content. A
+     browser without text-box keeps the flex centering above. */
+  @supports (text-box: trim-both cap alphabetic) {
+    .day.today-tile {
+      display: block;
+      text-align: center;
+      align-content: center;
+      text-box: trim-both cap alphabetic;
     }
   }
 
@@ -2717,24 +2777,40 @@ export const cardStyles = css`
   /* ===== TAPPABLE EVENTS =====
    * With event_tap_action set to details, each event is a button that opens Home
    * Assistant's event-detail dialog. The event's own background is an inline style, so the
-   * hover wash is an inset shadow drawn over it rather than a second background, and it
-   * mixes the event's text color so it reads on light and dark themes alike. Hover
+   * hover wash is an inset shadow drawn over it rather than a second background. Hover
    * only where there is a real pointer: on touch, a hover state sticks after the tap.
-   * The pressed wash is not gated, and is a little stronger so it reads over the hover one:
-   * on touch it is the only feedback a tap on an event gets, the card's ripple being muted
-   * over events (below). */
+   * The pressed wash is not gated, and is stronger so it reads over the hover one: on touch
+   * it is the only feedback a tap on an event gets, the card's ripple being muted over
+   * events (below).
+   *
+   * An untinted event washes in the card's own hover color, the ripple's accent, so an
+   * event under the pointer answers as the card does. Its 8% is twice the ripple's 4%, which
+   * a whole card carries and a single row does not, and its 16% pressed is what the card's
+   * press adds up to, the ripple's 12% over its 4% hover. A tinted event already has a
+   * color of its own, which an accent laid over it would muddy, so there the wash is the
+   * event's text color, lightening the tint on a dark theme and deepening it on a light one:
+   * the card writes the two properties below only while events are tinted, and unwritten
+   * they fall back to the accent. */
   .event-interactive {
     cursor: pointer;
   }
 
   @media (hover: hover) {
     .event-interactive:hover {
-      box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 6%, transparent);
+      box-shadow: inset 0 0 0 100vmax
+        var(
+          --calendar-card-event-wash-hover,
+          color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
+        );
     }
   }
 
   .event-interactive:active {
-    box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 10%, transparent);
+    box-shadow: inset 0 0 0 100vmax
+      var(
+        --calendar-card-event-wash-pressed,
+        color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
+      );
   }
 
   .event-interactive:focus {
@@ -2830,7 +2906,10 @@ export const cardStyles = css`
     }
 
     .event-button:hover::before {
-      background-color: color-mix(in srgb, currentColor 6%, transparent);
+      background-color: var(
+        --calendar-card-event-wash-hover,
+        color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent)
+      );
     }
   }
 
@@ -2839,7 +2918,10 @@ export const cardStyles = css`
   }
 
   .event-button:active::before {
-    background-color: color-mix(in srgb, currentColor 10%, transparent);
+    background-color: var(
+      --calendar-card-event-wash-pressed,
+      color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent)
+    );
   }
 
   .event-button.event-interactive:focus-visible {
@@ -2970,18 +3052,19 @@ export const cardStyles = css`
     grid-area: day;
   }
 
-  /* With the tile configured, every day's number sits in a box as tall as the tile's
+  /* With the tile configured, every other day's number sits in a box as tall as the tile's
      footprint, so the date row stays level and every column's first event starts on the
      same line. Without it, today's header alone grew by the tile and pushed its column (and
-     in grid, the shared header row) down. */
-  .column-date-content.with-today-tile .day {
+     in grid, the shared header row) down. The tile itself is left out, so it keeps its own
+     layout, which centers the digits (above), and only loses the margin that centers it in
+     the list's date cell: a column's date is flush left. */
+  .column-date-content.with-today-tile .day:not(.today-tile) {
     display: flex;
     align-items: center;
     min-height: 1.5em;
   }
 
-  .column-date-content.with-today-tile .day.today-tile {
-    min-height: 0;
+  .column-date-content .day.today-tile {
     margin-inline: 0;
   }
 
