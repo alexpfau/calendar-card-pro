@@ -53,7 +53,6 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
-    '--calendar-card-event-gap': config.event_gap,
     '--calendar-card-past-event-opacity': String(config.past_event_opacity / 100),
     '--calendar-card-spacing-additional': config.additional_card_spacing,
     '--calendar-card-height': config.height || 'auto',
@@ -159,6 +158,13 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   if (config.title_color) {
     props['--calendar-card-color-title'] = config.title_color;
+  }
+
+  // Only while there is a gap to draw. The two rules that read it select the gap row and the
+  // gapped column stack, which exist only then, so a card without a gap keeps exactly the
+  // inline style it carried before the option existed.
+  if (ViewConfig.hasEventGap(config)) {
+    props['--calendar-card-event-gap'] = config.event_gap;
   }
 
   // Weather event color has no default. If absent, both placements use their

@@ -112,6 +112,16 @@ describe('custom property mapping', () => {
     );
   });
 
+  it.each([undefined, '0px', '0', '-0px', '-4px'])(
+    'writes no event gap at all for %s, so a card without one keeps its inline style',
+    (gap) => {
+      // The property lands in ha-card's style attribute. A `0px` written there on every
+      // card changes the markup of every card that never set the option.
+      const props = propsFor(gap === undefined ? {} : { event_gap: gap });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-gap');
+    },
+  );
+
   it('dims the default empty day color and passes a configured one through', () => {
     const fallback = propsFor({ empty_day_color: Config.DEFAULT_CONFIG.empty_day_color });
     const custom = propsFor({ empty_day_color: 'rgb(14, 0, 0)' });
