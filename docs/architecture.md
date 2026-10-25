@@ -196,11 +196,17 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   `.card-toolbar.toolbar-band`, and `.header-container` gains `.has-band` and wraps, so the
   band takes the row under the title, or is the whole header without one. The dates lead and
   the trailing group keeps to the inline end; where both do not fit, the trailing group wraps
-  onto a second row. The range shares a grid cell with an invisible copy of the widest label a
-  page of its length can have (`widestRangeLabel`), so the band wraps by the card's width and
-  its controls, never by the dates on screen, and a press never moves a control. That holds
+  onto a second row. The range button is as wide as its dates; behind it, in the same grid
+  cell, an invisible copy of the widest label a page of its length can have
+  (`widestRangeLabel`) keeps that much room, so the band wraps by the card's width and its
+  controls, never by the dates on screen, and a press never moves a control. That holds
   because a label names its year at most once, and only where it is not the one assumed. The range can still shrink below that, so on a card too narrow for the dates it is
-  cut short rather than pushed past the edge. Layout is logical throughout, and the arrows are
+  cut short rather than pushed past the edge. A press on the range while the picker it opened
+  is showing closes it: a browser hands the page the very press that closed its picker, and
+  says nothing else, so the card follows `:open` once a frame from the moment it opens one,
+  and where a browser cannot report `:open` every press opens the picker. The band's 8px
+  inline start is the title's margin, so column and grid, which drop that margin, drop it
+  too. Layout is logical throughout, and the arrows are
   mirrored under `:dir(rtl)`, where previous points right.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them

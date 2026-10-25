@@ -279,13 +279,15 @@ describe('the date navigation', () => {
     expect(home.getAttribute('title')).toBe('Today');
     expect(home.textContent!.trim()).toBe('');
     expect(range(card)).toBe(`Jun 15${TO}21`);
-    // Announced when it changes, and as wide as the widest a week can be named.
+    // Announced when it changes. The button holds the dates alone, so its pill is as wide as
+    // they are; an invisible copy of the widest label a week can have keeps the room beside it.
     expect(root(card).querySelector('.toolbar-range-text')!.getAttribute('aria-live')).toBe(
       'polite',
     );
-    expect(root(card).querySelector('.toolbar-range-reserve')!.textContent).toBe(
-      `Jan 26${TO}Feb 1, 2000`,
-    );
+    const reserve = root(card).querySelector('.toolbar-range-reserve')!;
+    expect(reserve.textContent).toBe(`Jan 26${TO}Feb 1, 2000`);
+    expect(reserve.closest('.toolbar-range')).toBeNull();
+    expect(reserve.parentElement!.classList.contains('toolbar-range-anchor')).toBe(true);
     for (const button of [...segments(card), root(card).querySelector('.toolbar-range')!]) {
       expect(button.tagName).toBe('BUTTON');
       expect(button.getAttribute('type')).toBe('button');
@@ -644,6 +646,113 @@ describe('the date navigation', () => {
     expect(click).toHaveBeenCalledOnce();
 
     delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;
+  });
+
+  describe('a second press on the dates closes the picker', () => {
+    // What a browser does, measured in Chromium: a press outside an open picker closes it
+    // before the page sees the press, then hands the press to the page anyway, and tells the
+    // page nothing else. So `:open` is already false when the button hears about it.
+    let open: boolean | 'unknown';
+    let frames: FrameRequestCallback[];
+    let showPicker: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      open = false;
+      frames = [];
+      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+      showPicker = vi.fn(() => {
+        if (open !== 'unknown') open = true;
+      });
+      Object.defineProperty(HTMLInputElement.prototype, 'showPicker', {
+        value: showPicker,
+        configurable: true,
+      });
+      const matches = Element.prototype.matches;
+      Object.defineProperty(HTMLInputElement.prototype, 'matches', {
+        value(this: HTMLInputElement, selector: string) {
+          if (selector !== ':open') return matches.call(this, selector);
+          if (open === 'unknown') throw new SyntaxError(`'${selector}' is not a valid selector`);
+          return open;
+        },
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;
+      delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).matches;
+    });
+
+    /** A pointer's press on the dates: the browser closes an open picker, then the page hears it. */
+    function pressDates(card: CardUnderTest): void {
+      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+      if (open === true) open = false;
+      button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
+    }
+
+    function runFrames(): void {
+      const due = frames;
+      frames = [];
+      for (const frame of due) frame(0);
+    }
+
+    it('and the press after that opens it again', async () => {
+      const card = await mount();
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledOnce();
+      runFrames();
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledOnce();
+      expect(open).toBe(false);
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it('but not once the picker closed some other way', async () => {
+      const card = await mount();
+
+      pressDates(card);
+      runFrames();
+      // Escape, or the day already shown picked: no change event, the picker simply goes.
+      open = false;
+      runFrames();
+      expect(frames).toEqual([]);
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it('nor from a key after a press that was dragged off the dates', async () => {
+      const card = await mount();
+      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+
+      pressDates(card);
+      runFrames();
+      // The press closes the picker, then leaves the button: no click follows it.
+      open = false;
+      button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+      // A key's click comes without a pointer press, and opens the picker.
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 0 }));
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it('only where the browser can say the picker is open', async () => {
+      open = 'unknown';
+      const card = await mount();
+
+      pressDates(card);
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+      expect(frames).toEqual([]);
+    });
   });
 
   it('preselects a day of the page on screen for a new event', async () => {

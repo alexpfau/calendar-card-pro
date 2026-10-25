@@ -134,6 +134,53 @@ function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
 }
 
+/** Date inputs whose picker the card opened and has not seen close yet. */
+const openDatePickers = new WeakSet<HTMLInputElement>();
+
+/** Date inputs whose open picker the press under way closed. */
+const pickersClosedByPress = new WeakSet<HTMLInputElement>();
+
+/**
+ * Whether the input's picker is showing, or undefined where the browser cannot say.
+ *
+ * @param input - A date input
+ * @returns The `:open` state, if the browser knows the selector
+ */
+function datePickerOpen(input: HTMLInputElement): boolean | undefined {
+  try {
+    return input.matches(':open');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Follows a picker the card just opened until it closes.
+ *
+ * A browser closes its picker when the page is pressed outside it, and then hands that press
+ * to the page, so a second press on the range would close the picker and open it again at
+ * once. Nothing tells the page that a picker closed, so this watches `:open` once a frame.
+ * Then a press that finds the picker still marked open is the press that closed it, and
+ * opens nothing. The watch ends as soon as the picker closes some other way, a day picked or
+ * Escape, so the next press opens it again. Where the browser cannot report `:open`, nothing
+ * is followed and every press opens the picker, as before.
+ *
+ * @param input - The input whose picker was asked for
+ */
+function followDatePicker(input: HTMLInputElement): void {
+  if (datePickerOpen(input) !== true) return;
+  openDatePickers.add(input);
+  const check = (): void => {
+    if (!openDatePickers.has(input)) return;
+    if (!input.isConnected || datePickerOpen(input) !== true) {
+      openDatePickers.delete(input);
+      return;
+    }
+    requestAnimationFrame(check);
+  };
+  requestAnimationFrame(check);
+}
+
 /**
  * Render the add-event button.
  *
@@ -258,13 +305,14 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
  * right-to-left one, where "previous" points right.
  *
  * The range is a button over a hidden native date input. Pressing it asks the input to show
- * its picker; a browser that cannot gets the input focused and clicked instead. The input
- * stays out of the tab order and away from assistive technology: the button is the control,
- * and the input only lends it the browser's picker. Inside the button, the label and the
- * caret after it share one grid cell with an invisible copy of the widest label this page
- * length can have, so the button is as wide as that one, whatever it says now, and a press
- * never moves the controls after it. The label is a polite live region, so the new dates are
- * read out after a press.
+ * its picker; a browser that cannot gets the input focused and clicked instead. Pressed
+ * while the picker it opened is showing, it closes it (`followDatePicker`). The input stays
+ * out of the tab order and away from assistive technology: the button is the control, and
+ * the input only lends it the browser's picker. The button is as wide as the dates it names.
+ * Behind it, in the same grid cell, an invisible copy of the widest label this page length
+ * can have keeps that much room, so the band wraps by the card's width and never by the
+ * dates, and a press never moves the controls after it. The label is a polite live region,
+ * so the new dates are read out after a press.
  *
  * @param nav - Navigation description from the card
  * @returns The leading group
@@ -274,15 +322,28 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     ev.stopPropagation();
     handler();
   };
-  const openPicker = (ev: Event) => {
-    ev.stopPropagation();
-    if (nav.inert) return;
-    const anchor = (ev.currentTarget as HTMLElement).parentElement;
-    const input = anchor?.querySelector<HTMLInputElement>('input.toolbar-date-input');
+  const inputBeside = (button: EventTarget | null): HTMLInputElement | null =>
+    (button as HTMLElement | null)?.parentElement?.querySelector<HTMLInputElement>(
+      'input.toolbar-date-input',
+    ) ?? null;
+  const pressRange = (ev: Event) => {
+    stopCardGesture(ev);
+    const input = inputBeside(ev.currentTarget);
     if (!input) return;
+    pickersClosedByPress.delete(input);
+    if (openDatePickers.delete(input)) pickersClosedByPress.add(input);
+  };
+  const openPicker = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const input = inputBeside(ev.currentTarget);
+    if (!input) return;
+    // Only a pointer's click: a key press arrives without a pointerdown of its own.
+    if (pickersClosedByPress.delete(input) && ev.detail > 0) return;
+    if (nav.inert) return;
     input.value = nav.pickerValue;
     try {
       input.showPicker();
+      followDatePicker(input);
     } catch {
       input.focus();
       input.click();
@@ -326,27 +387,29 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
       ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
     </div>
     <div class="toolbar-range-anchor">
-      <button
-        type="button"
-        class="toolbar-range"
-        @pointerdown=${stopCardGesture}
-        @click=${openPicker}
-      >
-        <span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
-          ><bdi>${nav.range}</bdi
-          ><svg class="toolbar-range-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d=${mdiMenuDown}></path></svg
-        ></span>
-        <span class="toolbar-range-reserve" aria-hidden="true">${nav.widestRange}</span>
-      </button>
-      <input
-        type="date"
-        class="toolbar-date-input"
-        tabindex="-1"
-        aria-hidden="true"
-        .value=${nav.pickerValue}
-        @change=${onChange}
-      />
+      <span class="toolbar-range-reserve" aria-hidden="true">${nav.widestRange}</span>
+      <span class="toolbar-range-slot">
+        <button type="button" class="toolbar-range" @pointerdown=${pressRange} @click=${openPicker}>
+          <span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
+            ><bdi>${nav.range}</bdi
+            ><svg
+              class="toolbar-range-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d=${mdiMenuDown}></path></svg
+          ></span>
+        </button>
+        <input
+          type="date"
+          class="toolbar-date-input"
+          tabindex="-1"
+          aria-hidden="true"
+          .value=${nav.pickerValue}
+          @change=${onChange}
+        />
+      </span>
     </div>
   </div>`;
 }

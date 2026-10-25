@@ -930,8 +930,8 @@ describe('every piece of text is sized by its own option', () => {
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
       // The date navigation's range, a control as well, and the invisible copy of its widest
-      // label that reserves the room: both at Home Assistant's control size, so the reserve is
-      // exactly as wide as the label it stands for.
+      // label that reserves the room beside the button rather than inside it: both at Home
+      // Assistant's control size, so the reserve is exactly as wide as the label it stands for.
       'bdi in toolbar-range-text': ['--ha-font-size-m'],
       'calendar-label in summary': ['event_font_size'],
       'card-header in header-container': ['title_font_size'],
@@ -962,7 +962,7 @@ describe('every piece of text is sized by its own option', () => {
       // the same as the buttons around the card whatever the card's own sizes are.
       'toolbar-button-label in toolbar-button': ['--ha-font-size-m'],
       'toolbar-button-label in view-switcher-segment': ['--ha-font-size-m'],
-      'toolbar-range-reserve in toolbar-range': ['--ha-font-size-m'],
+      'toolbar-range-reserve in toolbar-range-anchor': ['--ha-font-size-m'],
       'weather-temp-high in weather': ['weather.date.font_size'],
       'week-number in column-week-number': ['week_number_font_size'],
       'week-number in week-number-cell': ['week_number_font_size'],

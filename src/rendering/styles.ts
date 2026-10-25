@@ -357,9 +357,10 @@ export const cardStyles = css`
      for both, the trailing group wraps onto a second row and stays at the end. The range
      reserves the width of its widest label, so which row each group sits on follows the
      card's width and never the dates on screen. The 8px inline start lines the dates up with
-     the title, whose own margin it is. It is padding inside the full basis, not a margin
-     beside it: a margin would make the band 8px wider than the header, push its end past
-     the content box, and read as labels that do not fit at any width. */
+     the title, whose own margin it is; column and grid drop both. It is padding inside the
+     full basis, not a margin beside it: a margin would make the band 8px wider than the
+     header, push its end past the content box, and read as labels that do not fit at any
+     width. */
   .header-container.has-band {
     flex-wrap: wrap;
   }
@@ -412,23 +413,46 @@ export const cardStyles = css`
     transform: scaleX(-1);
   }
 
-  /* The range on screen, a button that opens the date picker. Its label shares one grid cell
-     with an invisible copy of the widest label this page length can have, so it is always that
-     wide and a press never moves the controls after it. That width is what the band wraps by,
-     but the button can still shrink below it, so on a card narrower than the dates and the
+  /* The range on screen, a button that opens the date picker, as wide as the dates it names.
+     Behind it, in the same grid cell, an invisible copy of the widest label this page length
+     can have keeps that much room, so the band wraps by the card's width and never by the
+     dates, and a press never moves the controls after it. The cell can still shrink below
+     the copy, and the button below its label, so on a card narrower than the dates and the
      arrows together the label is cut short rather than pushed past the card's edge. */
   .toolbar-range-anchor {
-    position: relative;
-    display: flex;
+    display: grid;
     flex: 0 1 auto;
+    grid-template-columns: minmax(0, max-content);
+    align-items: center;
     min-width: 0;
   }
 
-  /* Through its anchor, so the grid outranks the inline flex every control shares below. */
-  .toolbar-range-anchor > .toolbar-range {
-    display: inline-grid;
-    grid-template-columns: minmax(0, max-content);
-    align-items: center;
+  /* The button's own font, padding and caret, so it is as wide as the button would be
+     holding the widest label. */
+  .toolbar-range-reserve {
+    grid-area: 1 / 1;
+    overflow: hidden;
+    padding-inline: 10px 24px;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1;
+    white-space: nowrap;
+    visibility: hidden;
+  }
+
+  /* Holds the button and the input that lends it the picker, so the input covers the button
+     alone and the picker opens under the dates. */
+  .toolbar-range-slot {
+    position: relative;
+    display: flex;
+    grid-area: 1 / 1;
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Through its slot, so these outrank the rule every control shares below. */
+  .toolbar-range-slot > .toolbar-range {
     height: 36px;
     min-width: 0;
     max-width: 100%;
@@ -438,11 +462,9 @@ export const cardStyles = css`
   }
 
   /* The caret follows the label, so it marks the dates rather than the far end of the room
-     kept for them; the copy keeps the caret's width as well. */
-  .toolbar-range-text,
-  .toolbar-range-reserve {
+     kept for them. */
+  .toolbar-range-text {
     display: flex;
-    grid-area: 1 / 1;
     align-items: center;
     min-width: 0;
     white-space: nowrap;
@@ -451,12 +473,6 @@ export const cardStyles = css`
   .toolbar-range-text bdi {
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .toolbar-range-reserve {
-    overflow: hidden;
-    padding-inline-end: 20px;
-    visibility: hidden;
   }
 
   .toolbar-range-icon {
@@ -2876,9 +2892,14 @@ export const cardStyles = css`
 
   /* The title's 8px margin exists to add to the list view's 8px card padding.
      Column view already supplies the full 16px, so the margin would push the
-     title 8px past the first column's edge. */
+     title 8px past the first column's edge. The date band's 8px lines its dates
+     up with that margin, so it goes too. */
   .calendar-card-pro.column-view .card-header {
     margin-inline-start: 0;
+  }
+
+  .calendar-card-pro.column-view .card-toolbar.toolbar-band {
+    padding-inline-start: 0;
   }
 
   /* ===== COLUMN VIEW STYLES ===== */
@@ -3115,6 +3136,11 @@ export const cardStyles = css`
 
   .calendar-card-pro.grid-view .card-header {
     margin-inline-start: 0;
+  }
+
+  /* As in column view: the band's 8px stands for the title's margin, gone here. */
+  .calendar-card-pro.grid-view .card-toolbar.toolbar-band {
+    padding-inline-start: 0;
   }
 
   /* One grid for the whole view. The four rows -- week numbers, day headers, the
