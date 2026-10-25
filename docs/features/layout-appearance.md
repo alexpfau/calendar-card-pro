@@ -553,8 +553,9 @@ The tile is a rounded rectangle a little wider than it is tall, with the continu
 an iOS app icon, and replaces nothing: the weekday and month stay where they are, and the tile
 sits behind the day number itself. It sizes itself from `day_font_size`, so
 `today_indicator_size` and `today_indicator_position` do not apply to it. The digits are
-centered on their own height rather than on the font's line, and drawn as proportional
-figures, so a 1 does not sit in a slot as wide as a 0 and a 21 no longer hangs to the left.
+drawn as proportional figures, so a 1 no longer sits in a slot as wide as a 0, which halves
+how far a 21 or a 31 leans left. Where the browser supports CSS `text-box`, the digits are
+also centered on their own height rather than on the font's line.
 
 The tile is a light wash of `today_indicator_color`, which follows your theme's primary color
 unless you set one, over the card's background, with the day number in a deeper shade of the

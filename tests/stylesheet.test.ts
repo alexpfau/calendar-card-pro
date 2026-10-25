@@ -2887,13 +2887,23 @@ describe('the today tile', () => {
       'flex',
     );
     expect(declared('.column-date-content .day.today-tile', 'margin-inline')).toBe('0');
-    expect(
-      RULES.filter((rule) => rule.selectors.some((s) => /today-tile/.test(s)))
-        .flatMap((rule) => rule.selectors)
-        .filter((s) => /column-date-content/.test(s)),
-    ).toEqual([
-      '.column-date-content.with-today-tile .day:not(.today-tile)',
-      '.column-date-content .day.today-tile',
-    ]);
+
+    // And no other rule, at any depth, may set the display of an element the tile could be:
+    // any selector whose subject is a `.day` and does not leave the tile out. A rule written
+    // later at the tile's own specificity would win the cascade just as the old one did.
+    const innermost = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, prelude, body]) => ({
+      selectors: prelude.split(',').map((s) => s.replace(/\s+/g, ' ').trim()),
+      body,
+    }));
+    expect(innermost.length).toBeGreaterThan(RULES.length);
+    const couldBeTile = (selector: string) => {
+      const subject = selector.split(/[\s>+~]+/).pop() ?? '';
+      return /\.day(?![\w-])/.test(subject) && !subject.includes(':not(.today-tile)');
+    };
+    const setters = innermost
+      .filter((rule) => /(^|;)\s*display\s*:/.test(rule.body))
+      .flatMap((rule) => rule.selectors.filter(couldBeTile));
+    // The base rule's flex and the text-box branch's block: the tile's own two.
+    expect(setters).toEqual(['.day.today-tile', '.day.today-tile']);
   });
 });
