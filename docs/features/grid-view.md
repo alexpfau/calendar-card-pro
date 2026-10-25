@@ -307,17 +307,18 @@ like a strikethrough. A dot at the column's edge stays on top and marks where it
 an event covers most of the line.
 
 ```yaml
-now_color: '#34d399' # The card's color for now, which the line follows (default)
+now_color: '#34d399' # The card's color for now, which the line takes (default)
 time_grid:
   show_now_line: true
-  now_line_color: 'var(--error-color)' # Or give the line a color of its own
+  now_color: 'var(--error-color)' # Or a color for grid view alone
 ```
 
 The line takes the card's `now_color`, emerald green by default, so it matches the way list
 and column view mark an event that is under way. Emerald reads as a quiet line on a white
-card; `var(--error-color)` in `now_line_color` gives you your theme's red if you want the line
-to stand out. Any CSS color works in either option. Quote a hex value, as above: YAML reads an
-unquoted `#` as the start of a comment, and the color would be lost.
+card; `var(--error-color)` gives you your theme's red if you want the line to stand out. Set
+in the `time_grid` block, as above, it colors the line and leaves list and column view as
+they are. Any CSS color works. Quote a hex value, as above: YAML reads an unquoted `#` as the
+start of a comment, and the color would be lost.
 
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.

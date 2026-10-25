@@ -232,7 +232,6 @@
   "time_grid.axis_label_minutes.option.180.label": "3 tundi",
   "time_grid.show_now_line": "Praeguse aja joon",
   "time_grid.show_now_line.helper": "Märgib praeguse aja tänase päeva veerus. Peidetakse, kui praegune aeg jääb ülal olevatest tundidest välja, mitte ei kinnitata serva külge.",
-  "time_grid.now_line_color": "Praeguse aja joone värv",
   "time_grid.allday_band_max_rows": "Kõige rohkem terve päeva ridu",
   "time_grid.allday_band_max_rows.helper": "Kui kõrgeks see terve päeva riba võib kasvada. Sellest üle jäävad ribad jäetakse välja — ilma piiranguta lükkaks nädal pikki sündmusi telje kaardilt välja.",
   "time_grid.overlap_layout": "Kattuvad sündmused",

@@ -1258,7 +1258,6 @@ export function renderGridGroupedEvents(
   const axisWidth = ViewConfig.resolveTimeGridOption(config, 'axis_width');
   const maxLanes = ViewConfig.resolveTimeGridOption(config, 'max_simultaneous_events');
   const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
-  const nowLineColor = ViewConfig.resolveTimeGridOption(config, 'now_line_color');
   const showAxisLabels = ViewConfig.resolveTimeGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
   const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
@@ -1403,7 +1402,6 @@ export function renderGridGroupedEvents(
         ...(fixedHeight
           ? { height: '100%', '--calendar-card-grid-allday-height': 'minmax(0, auto)' }
           : {}),
-        '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
         // The band's padding is sized from the two rules it has to clear, one per edge, so
         // the banners keep the same clear space under the upper rule as above the lower one

@@ -232,7 +232,6 @@
   "time_grid.axis_label_minutes.option.180.label": "3 hodiny",
   "time_grid.show_now_line": "Čiara aktuálneho času",
   "time_grid.show_now_line.helper": "Označuje aktuálny čas v dnešnom stĺpci. Skryje sa, keď aktuálny čas spadá mimo hodín vyššie, namiesto toho, aby sa pripla k okraju.",
-  "time_grid.now_line_color": "Farba čiary aktuálneho času",
   "time_grid.allday_band_max_rows": "Najviac celodenných riadkov",
   "time_grid.allday_band_max_rows.helper": "Ako vysoko môže tento celodenný pás narásť. Bannery nad tento limit sa zahodia — bez obmedzenia by týždeň dlhých udalostí vytlačil os z karty.",
   "time_grid.overlap_layout": "Prekrývajúce sa udalosti",

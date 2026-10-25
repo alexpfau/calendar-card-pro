@@ -95,8 +95,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_progress_bar: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
-  // grid's now line, which follows it unless time_grid.now_line_color is set. Emerald, to sit
-  // with the card's own colors rather than with the theme's error red.
+  // grid's now line, so the two always agree; a view block's own now_color sets it for that
+  // view alone. Emerald, to sit with the card's own colors rather than with the theme's error
+  // red. It is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
+  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
   now_color: '#34d399',
   progress_bar_color: 'var(--secondary-text-color)',
   // Three quarters of the time text: every bar carries the time font size, so `em` follows

@@ -4271,12 +4271,15 @@ export const cardStyles = css`
      paints after it. That leaves it above the weekend tint and the hour rules, which are
      not positioned, and below the vertical day rules at z-index 1, which only meet it at
      the column's edges. A block drawn on top of another repaints its own ground and hides
-     the line along its width, just as it hides the block beneath. */
+     the line along its width, just as it hides the block beneath.
+
+     Its color is now_color, the same property a running event's time reads in list and
+     column view, so the card has one color for "now" in every view. */
   .grid-now-line {
     position: absolute;
     inset-inline: 0;
     height: 2px;
-    background: var(--calendar-card-grid-now-color, #34d399);
+    background: var(--calendar-card-now-color, #34d399);
     pointer-events: none;
   }
 
@@ -4290,7 +4293,7 @@ export const cardStyles = css`
     height: 8px;
     margin-top: -3px;
     border-radius: 50%;
-    background: var(--calendar-card-grid-now-color, #34d399);
+    background: var(--calendar-card-now-color, #34d399);
     pointer-events: none;
     z-index: 2;
   }

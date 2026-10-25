@@ -509,11 +509,8 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    */
   hour_height?: string;
 
-  /** Draw a line across today's column at the current time. */
+  /** Draw a line across today's column at the current time, in `now_color`. */
   show_now_line?: boolean;
-
-  /** Color of that line. */
-  now_line_color?: string;
 
   /**
    * Most events drawn side by side before the rest collapse into one "+N" block.
