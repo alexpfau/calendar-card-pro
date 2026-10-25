@@ -134,8 +134,8 @@ function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
 }
 
-/** Date inputs whose picker the card opened and has not seen close yet. */
-const openDatePickers = new WeakSet<HTMLInputElement>();
+/** Date pickers the card opened and has not seen close yet, each with how to stop following. */
+const openDatePickers = new WeakMap<HTMLInputElement, () => void>();
 
 /** Date inputs whose open picker the press under way closed. */
 const pickersClosedByPress = new WeakSet<HTMLInputElement>();
@@ -155,25 +155,67 @@ function datePickerOpen(input: HTMLInputElement): boolean | undefined {
 }
 
 /**
- * Follows a picker the card just opened until it closes.
+ * Whether the input holds focus in its own tree.
  *
- * A browser closes its picker when the page is pressed outside it, and then hands that press
- * to the page, so a second press on the range would close the picker and open it again at
- * once. Nothing tells the page that a picker closed, so this watches `:open` once a frame.
- * Then a press that finds the picker still marked open is the press that closed it, and
- * opens nothing. The watch ends as soon as the picker closes some other way, a day picked or
- * Escape, so the next press opens it again. Where the browser cannot report `:open`, nothing
- * is followed and every press opens the picker, as before.
- *
- * @param input - The input whose picker was asked for
+ * @param input - A date input
+ * @returns True while it is the focused element
  */
-function followDatePicker(input: HTMLInputElement): void {
+function hasFocus(input: HTMLInputElement): boolean {
+  return (input.getRootNode() as Document | ShadowRoot).activeElement === input;
+}
+
+/**
+ * Follows a picker the card just opened, focused, until it closes.
+ *
+ * Browsers close their pickers in two ways a press on the range has to fit. Chrome closes its
+ * picker on any press outside it and then hands that press to the page, so the press that
+ * closes it would open it again at once. Safari closes its picker when the input loses focus,
+ * and otherwise only on a scroll, which is why the input is focused to open it. So a press on
+ * the range that finds the picker followed here closes it, by taking focus from the input,
+ * and opens nothing.
+ *
+ * The picker counts as closed when the input loses focus, a day is picked or Escape is
+ * pressed, and, where the browser reports `:open`, once that turns false: Chrome keeps the
+ * input focused when its picker closes, and nothing else tells the page, so that is checked
+ * once a frame. If the input still has focus then, it goes back to the range button where
+ * the button had it, so a keyboard is where it started, or else nowhere. While it is followed
+ * the input is exposed to assistive technology, named by the dates, because it holds focus.
+ *
+ * @param input - The input whose picker was just shown
+ * @param returnFocus - The range button, if it had focus when it was pressed
+ */
+function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | null): void {
+  openDatePickers.get(input)?.();
+  const listeners: Array<[string, (ev: Event) => void]> = [];
+  const stop = (): void => {
+    openDatePickers.delete(input);
+    for (const [type, listener] of listeners) input.removeEventListener(type, listener);
+    input.setAttribute('aria-hidden', 'true');
+  };
+  const closed = (): void => {
+    if (!openDatePickers.has(input)) return;
+    stop();
+    if (!hasFocus(input)) return;
+    if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+    else input.blur();
+  };
+  const listen = (type: string, listener: (ev: Event) => void): void => {
+    input.addEventListener(type, listener);
+    listeners.push([type, listener]);
+  };
+  listen('blur', stop);
+  listen('change', closed);
+  listen('keydown', (ev) => {
+    if ((ev as KeyboardEvent).key === 'Escape') closed();
+  });
+  openDatePickers.set(input, stop);
+  input.removeAttribute('aria-hidden');
+
   if (datePickerOpen(input) !== true) return;
-  openDatePickers.add(input);
   const check = (): void => {
     if (!openDatePickers.has(input)) return;
     if (!input.isConnected || datePickerOpen(input) !== true) {
-      openDatePickers.delete(input);
+      closed();
       return;
     }
     requestAnimationFrame(check);
@@ -304,11 +346,12 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
  * every card width. The arrows are drawn for left-to-right reading and mirrored in a
  * right-to-left one, where "previous" points right.
  *
- * The range is a button over a hidden native date input. Pressing it asks the input to show
- * its picker; a browser that cannot gets the input focused and clicked instead. Pressed
+ * The range is a button over a hidden native date input. Pressing it focuses the input and
+ * asks it to show its picker; a browser that cannot gets the input clicked instead. Pressed
  * while the picker it opened is showing, it closes it (`followDatePicker`). The input stays
- * out of the tab order and away from assistive technology: the button is the control, and
- * the input only lends it the browser's picker. The button is as wide as the dates it names.
+ * out of the tab order and, unless it holds focus for its picker, away from assistive
+ * technology: the button is the control, and the input only lends it the browser's picker.
+ * The button is as wide as the dates it names.
  * Behind it, in the same grid cell, an invisible copy of the widest label this page length
  * can have keeps that much room, so the band wraps by the card's width and never by the
  * dates, and a press never moves the controls after it. The label is a polite live region,
@@ -331,21 +374,28 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     const input = inputBeside(ev.currentTarget);
     if (!input) return;
     pickersClosedByPress.delete(input);
-    if (openDatePickers.delete(input)) pickersClosedByPress.add(input);
+    const stop = openDatePickers.get(input);
+    if (!stop) return;
+    stop();
+    pickersClosedByPress.add(input);
+    input.blur();
   };
   const openPicker = (ev: MouseEvent) => {
     ev.stopPropagation();
-    const input = inputBeside(ev.currentTarget);
+    const button = ev.currentTarget as HTMLElement;
+    const input = inputBeside(button);
     if (!input) return;
     // Only a pointer's click: a key press arrives without a pointerdown of its own.
     if (pickersClosedByPress.delete(input) && ev.detail > 0) return;
     if (nav.inert) return;
+    const returnFocus =
+      (button.getRootNode() as Document | ShadowRoot).activeElement === button ? button : null;
     input.value = nav.pickerValue;
+    input.focus({ preventScroll: true });
     try {
       input.showPicker();
-      followDatePicker(input);
+      followDatePicker(input, returnFocus);
     } catch {
-      input.focus();
       input.click();
     }
   };
@@ -406,6 +456,7 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
           class="toolbar-date-input"
           tabindex="-1"
           aria-hidden="true"
+          aria-labelledby="toolbar-range-text"
           .value=${nav.pickerValue}
           @change=${onChange}
         />

@@ -201,12 +201,18 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   (`widestRangeLabel`) keeps that much room, so the band wraps by the card's width and its
   controls, never by the dates on screen, and a press never moves a control. That holds
   because a label names its year at most once, and only where it is not the one assumed. The range can still shrink below that, so on a card too narrow for the dates it is
-  cut short rather than pushed past the edge. A press on the range while the picker it opened
-  is showing closes it: a browser hands the page the very press that closed its picker, and
-  says nothing else, so the card follows `:open` once a frame from the moment it opens one,
-  and where a browser cannot report `:open` every press opens the picker. The band's 8px
+  cut short rather than pushed past the edge. The range focuses the hidden date input to open
+  its picker, because Safari closes a picker only when its input loses focus. A press on the
+  range while that picker is showing closes it by taking the focus away, and opens nothing:
+  Chrome closes its picker itself and then hands the page the very press that closed it, so
+  the card follows the picker from the moment it opens one, until focus leaves the input, a
+  day is picked, Escape is pressed, or `:open` turns false, which it checks once a frame. The
+  input is exposed to assistive technology only while it holds that focus, and focus goes
+  back to the range button when the button had it. The band's 8px
   inline start is the title's margin, so column and grid, which drop that margin, drop it
-  too. Layout is logical throughout, and the arrows are
+  too. A view switch is drawn at once: Home Assistant's `ha-card` transitions every
+  property, the padding each view sets included, so the card limits it to colors and the
+  shadow. Layout is logical throughout, and the arrows are
   mirrored under `:dir(rtl)`, where previous points right.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them

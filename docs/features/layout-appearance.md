@@ -179,7 +179,7 @@ The button between them returns to the days the card opens with, the window its
 tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
 the day it starts on.
 
-The dates on screen open the browser's own date picker. Picking a day shows the page that holds
+The dates on screen open the browser's own date picker, and pressing them again closes it. Picking a day shows the page that holds
 it, lined up with the card's own pages, so a week card still starts its week on the usual day.
 The picker is the browser's, so it speaks the browser's language rather than the card's.
 

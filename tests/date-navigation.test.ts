@@ -613,13 +613,14 @@ describe('the date navigation', () => {
     const input = root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!;
     expect(input.value).toBe('2026-06-15');
     expect(input.getAttribute('tabindex')).toBe('-1');
-    expect(input.getAttribute('aria-hidden')).toBe('true');
 
     input.value = '2026-07-09';
     input.dispatchEvent(new Event('change'));
     await settle(card);
     expect(range(card)).toBe(`Jul 6${TO}12`);
     expect(lastFetchedStart()).toBe('2026-07-06');
+    // Hidden from assistive technology again once the picker has closed.
+    expect(input.getAttribute('aria-hidden')).toBe('true');
 
     // A day of home's own is home.
     input.value = '2026-06-20';
@@ -649,9 +650,12 @@ describe('the date navigation', () => {
   });
 
   describe('a second press on the dates closes the picker', () => {
-    // What a browser does, measured in Chromium: a press outside an open picker closes it
-    // before the page sees the press, then hands the press to the page anyway, and tells the
-    // page nothing else. So `:open` is already false when the button hears about it.
+    // Two browsers, two ways to close a picker. Chrome, measured: a press outside an open
+    // picker closes it before the page sees the press, then hands the press to the page
+    // anyway, and tells the page nothing else, so `:open` is already false when the button
+    // hears about it. Safari, reported: the picker stays until the input loses focus, so no
+    // press closes it unless the input had focus to lose. `open: 'unknown'` stands for a
+    // browser that cannot report `:open`, which is the case the Safari tests take.
     let open: boolean | 'unknown';
     let frames: FrameRequestCallback[];
     let showPicker: ReturnType<typeof vi.fn>;
@@ -744,14 +748,74 @@ describe('the date navigation', () => {
       expect(showPicker).toHaveBeenCalledTimes(2);
     });
 
-    it('only where the browser can say the picker is open', async () => {
+    /** The input that lends the picker, and whether it holds focus, Safari's sign of an open picker. */
+    const input = (card: CardUnderTest): HTMLInputElement =>
+      root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!;
+    const focused = (card: CardUnderTest): Element | null => root(card).activeElement;
+
+    it('in a browser that ties the picker to focus, and that cannot report it', async () => {
       open = 'unknown';
       const card = await mount();
 
       pressDates(card);
+      expect(showPicker).toHaveBeenCalledOnce();
+      expect(focused(card)).toBe(input(card));
+      // Exposed while it holds focus, and named by the dates it opens on.
+      expect(input(card).hasAttribute('aria-hidden')).toBe(false);
+      expect(input(card).getAttribute('aria-labelledby')).toBe('toolbar-range-text');
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledOnce();
+      expect(focused(card)).toBeNull();
+      expect(input(card).getAttribute('aria-hidden')).toBe('true');
+
       pressDates(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
       expect(frames).toEqual([]);
+    });
+
+    it('and a press anywhere else, which takes focus from the input, closes it too', async () => {
+      open = 'unknown';
+      const card = await mount();
+
+      pressDates(card);
+      // What Safari does with a press outside: focus leaves the input, and the picker goes.
+      input(card).blur();
+      expect(input(card).getAttribute('aria-hidden')).toBe('true');
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledTimes(2);
+    });
+
+    it('picking a day closes it, and a keyboard gets its focus back on the dates', async () => {
+      open = 'unknown';
+      const card = await mount();
+      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+
+      button.focus();
+      // Enter or Space on the button: a click with no pointer press before it.
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 0 }));
+      expect(focused(card)).toBe(input(card));
+
+      input(card).value = '2026-07-09';
+      input(card).dispatchEvent(new Event('change'));
+      await settle(card);
+      expect(range(card)).toBe(`Jul 6${TO}12`);
+      expect(focused(card)).toBe(button);
+      expect(input(card).getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('as does Escape, and a pointer leaves focus nowhere', async () => {
+      open = 'unknown';
+      const card = await mount();
+
+      pressDates(card);
+      input(card).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(focused(card)).toBeNull();
+      expect(input(card).getAttribute('aria-hidden')).toBe('true');
+
+      pressDates(card);
+      expect(showPicker).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -248,6 +248,13 @@ export const cardStyles = css`
 
     background: var(--calendar-card-background-color, var(--card-background-color));
     cursor: default;
+
+    /* Home Assistant's card transitions all of its properties, the padding included, and the
+       padding is what the view sets: list starts 8px in, column and grid 16px. So a switch
+       between list and either of the others slid everything 8px over 300ms, and one between
+       column and grid did not. A switch is a change of layout and is drawn at once; the
+       card's colors and shadow keep their transition. */
+    transition-property: background-color, border-color, box-shadow, color;
   }
 
   ha-card.card-interactive {

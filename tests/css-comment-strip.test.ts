@@ -279,13 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(143_500);
-    // The date navigation moved the ceiling last, from 141,500 to 143,500: the notes on why the
+    expect(saved).toBeLessThan(145_000);
+    // The date navigation moved the ceiling last, from 141,500 to 145,000: the notes on why the
     // band takes a row of its own and wraps its trailing group by the card's width rather than
-    // by the dates, why the range shares a grid cell with an invisible copy of its widest label
-    // and may still shrink below it, why the caret follows the label, why the arrows mirror
-    // under :dir(rtl), why the date input is laid over the range yet never pressed, and why a
-    // page that is loading dims only after a delay. The reading went 140,596 to 142,457, taken
+    // by the dates, why its 8px start is padding and not a margin, and why column and grid drop
+    // it, why the range button is only as wide as its dates while an invisible copy of its
+    // widest label keeps the room beside it, why the caret follows the label, why the arrows
+    // mirror under :dir(rtl), why the date input is laid over the range yet never pressed, why
+    // a page that is loading dims only after a delay, and why the card limits ha-card's
+    // transition so a view switch does not slide. The reading went 140,596 to 143,588, taken
     // with stripComments after the last comment in the change was written.
     //
     // Centering an event's text on its accent bar moved the ceiling before that, from 140,000 to
