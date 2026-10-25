@@ -473,6 +473,11 @@ function renderEventTitle(
     : entityLabel
       ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
       : nothing;
+  // Asked of what renders rather than of the configuration: a label whose type resolves to
+  // `none` draws nothing, and its title takes the unlabeled markup below.
+  const hasLabel = Array.isArray(labels)
+    ? labels.some((label) => label !== nothing)
+    : labels !== nothing;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
   // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —
@@ -489,18 +494,43 @@ function renderEventTitle(
     ? html`<span class="event-title-scroll">${titleContent}</span>`
     : titleContent;
 
+  const titleClass = `event-title ${isEmptyDay ? 'empty-day-title' : ''}${
+    scrollTitles ? ' title-scrollable' : ''
+  }`;
+  const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
+
+  // 🚨 No whitespace between the last label and the title, and none inside the title before
+  // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
+  // collapses them into one visible word space after the label: about 3px on top of the
+  // label's own 4px margin, so the title sat 7px from a picture or icon while the time sat
+  // 4px from its clock. The list and column hanging indent budgets the label plus exactly
+  // that 4px, so the same space also left every wrapped line 3px short of the first glyph.
+  //
+  // An unlabeled title keeps the historical shape, byte for byte. Nothing sits before it,
+  // so its leading space starts a line and collapses to nothing, and the list and column
+  // DOM snapshots pin the whitespace inside the title as text.
+  //
+  // The directive guards that second branch. Without it Prettier folds the template onto
+  // one line, turning its whitespace into single spaces that the snapshots then disagree
+  // with; delete it, run npm run format and then npm test to see it.
+  // prettier-ignore
+  const title = hasLabel
+    ? html`${labels}<span class=${titleClass} style=${titleStyle}>${titleInner}</span>`
+    : html`<span
+          class=${titleClass}
+          style=${titleStyle}
+        >
+          ${titleInner}
+        </span>`;
+
+  // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
+  // snapshots record the whitespace that separates the summary from its title. The same
+  // experiment as above shows it.
+  // prettier-ignore
   return html`
     <div class="summary-row">
       <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
-        ${labels}
-        <span
-          class="event-title ${isEmptyDay ? 'empty-day-title' : ''}${
-            scrollTitles ? ' title-scrollable' : ''
-          }"
-          style=${entityColor === undefined ? nothing : `color: ${entityColor}`}
-        >
-          ${titleInner}
-        </span>
+        ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
     </div>

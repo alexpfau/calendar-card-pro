@@ -148,6 +148,30 @@ describe('timed Grid labels share the title line', () => {
     expect(body).toMatch(/margin-right:\s*0;/);
     expect(body).toMatch(/margin-inline-end:\s*4px;/);
     expect(body).toMatch(/unicode-bidi:\s*isolate;/);
+
+    // The margin is the whole gap only if nothing else is laid out after the label. A text
+    // node between the last label and the title, or whitespace opening the title, collapses
+    // into one more word space. Every view; see label-title-gap.test.ts.
+    const content = (node: Node | null, step: 'previousSibling' | 'nextSibling'): Node | null => {
+      while (node?.nodeType === Node.COMMENT_NODE) node = node[step];
+      return node;
+    };
+    for (const entities of [
+      ...['/local/anna.png', 'mdi:calendar', '🎉', 'Anna'].map((label) => [
+        { entity: 'calendar.anna', label },
+      ]),
+      [
+        { entity: 'calendar.anna', label: 'Anna' },
+        { entity: 'calendar.ben', label: '/local/ben.png' },
+      ],
+    ]) {
+      const title = render(entities).querySelector('.grid-event .summary > .event-title')!;
+      expect(content(title.previousSibling, 'previousSibling')?.nodeType).toBe(Node.ELEMENT_NODE);
+      const opening = content(title.firstChild, 'nextSibling');
+      expect(opening?.nodeType === Node.TEXT_NODE && /^\s/u.test(opening.textContent ?? '')).toBe(
+        false,
+      );
+    }
   });
 
   it('leaves scrolling titles in their separate flex-row mode', () => {
