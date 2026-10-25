@@ -3399,9 +3399,20 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
+  /* No hanging indent in a grid block: a wrapped line starts at the block's text edge, as
+     an unlabeled title's does. List and column view hang wrapped lines under the first
+     glyph, which reads as a column of text beside the label. A grid lane is a few words
+     wide, so there the indent spends a label's width on every line and leaves the block's
+     left edge ragged under the picture.
+
+     Here rather than on the label rules, so it covers every label shape, a merged run of
+     several included, without naming them: the hanging indent rules are each one class and
+     one :has() argument, the same weight as this, and come earlier. */
   .grid-event-disclosure .summary {
     min-height: 0;
     padding-block: 0;
+    padding-inline-start: 0;
+    text-indent: 0;
   }
 
   .grid-event-disclosure .summary,
@@ -3489,6 +3500,98 @@ export const cardStyles = css`
     .summary:not(.summary-scroll):has(> .label-icon, > .label-image)
     .title-word {
     vertical-align: middle;
+  }
+
+  /* The first word of a labeled title fits the rest of the label's line, and is cut with its
+     own ellipsis when it is wider: "Birth… / lunch" beside a picture. Without this a word
+     too wide for what the labels leave wraps below them, and the label sits alone on the
+     first line. The host measures the label run, whatever shapes it holds, and publishes it
+     only where the word's first character and an ellipsis fit beside it; see leadGridTitles
+     in grid-title-fit.ts. Unset, this is the max-width every word has. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word:first-child {
+    max-width: calc(100% - var(--calendar-card-grid-title-label-run, 0px));
+  }
+
+  /* A title running past its block stops at the last line that fits whole, and that line
+     ends in an ellipsis. For a title split into words the host marks the word to end on:
+     it draws the ellipsis inside its own clip, narrowed to the room left on its line, and
+     the words after it are taken out. So the cut is on a word boundary, or inside the one
+     word when even that is too wide, and there is exactly one ellipsis either way: a word
+     the clip shortens draws its own in place of this one.
+
+     A line clamp is the obvious tool and does the wrong thing here, in Chromium and WebKit
+     alike. It cannot shorten a word box, so to make room for its ellipsis it hides the last
+     one, which left a picture label beside a bare ellipsis, or it draws the ellipsis past
+     the edge where the block clips it in half. It is kept for the case it handles well:
+     text the browser breaks itself, which it shortens character by character. See
+     cutGridTitleLines in grid-title-fit.ts.
+
+     After the first-word rule and as specific, so a cut on the first word wins. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut] {
+    max-width: var(--calendar-card-grid-title-cut-room);
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut]::after {
+    content: '\\2026';
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut]
+    ~ .title-word {
+    display: none;
+  }
+
+  /* The clamp half of the cut, for a title ending in text rather than in a word. Outranks
+     every rung, container queries included, and only ever matches or tightens one: the host
+     counts the lines inside whatever clamp the rung already set.
+
+     The padding goes too. An unlabeled title is its own clamping box, and its 2px of bottom
+     padding sits inside the clip, so the top of the first hidden line showed through it as a
+     sliver under the title. A labeled title clamps on the summary, which has none here. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary[data-grid-title-lines],
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary[data-grid-title-lines]
+    > .event-title {
+    -webkit-line-clamp: var(--calendar-card-grid-title-fit-lines);
+    padding-bottom: 0;
   }
 
   /* Clamp the whole title line. */

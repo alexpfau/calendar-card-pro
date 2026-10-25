@@ -530,9 +530,10 @@ the block; a tall narrow one keeps it at the top, where a block wide enough for 
 already puts it, rather than stranding it in
 mid-air with empty space above and below. If your theme or
 `event_font_size` makes a disclosed detail row taller than its block, the card hides the
-optional detail rows rather than showing one partly clipped. With the default unlimited title
-lines, long titles wrap until the block clips at the bottom. Set
-`title_max_lines` above `0` when you want the title itself to stop after a fixed number of
+optional detail rows rather than showing one partly clipped. A title that runs past its block
+stops at the last line that fits whole, and that line ends in "…" when more of the title
+follows, so no line is ever cut through the middle at the block's edge. Set
+`title_max_lines` above `0` when you want the title to stop sooner, after a fixed number of
 lines.
 
 Titles wrap only between words. Where overlapping events share a narrow column, a word can
@@ -550,9 +551,15 @@ its own row under the title, while countdowns trail the time text.
 
 Calendar labels sit inline before the timed event's title, with the same small gap as in
 List and Column. Text, emoji, icon, image, and merged-calendar labels share that first
-line rather than taking a row above it. Title line limits include the labeled line;
-scrolling keeps the labels stationary while the title moves. All-day banners remain
-title-only.
+line rather than taking a row above it. The title starts on that line too: a first word
+wider than the room the labels leave is cut short there, so in a narrow lane "Birthday
+lunch" beside a picture reads "Birth…" with "lunch" below it, rather than leaving the picture
+on a line of its own. Titles in Thai or a right-to-left script wrap as the browser decides,
+so in a narrow lane their first word can still start below a label. Wrapped lines start at
+the block's edge, under the labels, rather than indented to line up with the title as they
+do in List and Column, where a row has the width to spare. Title line limits include the
+labeled line; scrolling keeps the labels stationary while the title moves. All-day banners
+remain title-only.
 
 ### Short Timed Titles
 
@@ -584,8 +591,9 @@ time_grid:
 ```
 
 The usual presentation always wins when its first line fits. Normal wrapping, line limits,
-detail rows, and scrolling remain unchanged; clipping a later line does not make the font
-shrink. When height removes all otherwise-present details but the normal title fits, Grid
+detail rows, and scrolling remain unchanged; a later line that does not fit is left out, with
+the line before it ending in "…", and never makes the font shrink. When height removes all
+otherwise-present details but the normal title fits, Grid
 centers that title without reducing its font or forcing two fitting lines onto one. A tall
 title-only event whose details were disabled or absent keeps its normal alignment.
 

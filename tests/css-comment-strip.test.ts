@@ -279,8 +279,19 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(136_000);
-    // The accent bar moved the ceiling last, from 126,700 to 136,000: the notes on why the bar
+    expect(saved).toBeLessThan(139_000);
+    // Grid title fitting moved the ceiling last, from 136,000 to 139,000: the notes on why a grid
+    // block has no hanging indent and why one rule clears it for every label shape; why a
+    // labeled title's first word is narrowed to what its labels leave, and why that width is
+    // measured rather than written in CSS; why a title stopped at its last whole line ends on
+    // a word that draws its own ellipsis, because a line clamp asked to end on word boxes hides
+    // the last one or clips its ellipsis in half, in Chromium and WebKit alike; and why the
+    // clamp kept for text also drops an unlabeled title's bottom padding, through which the
+    // next line showed. The reading went 135,312 to 138,129, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
+    //
+    // The accent bar moved the ceiling before that, from 126,700 to 136,000: the notes on why the bar
     // is an element of its own rather than a border, when a day's bars join into one line and
     // when each event has its own, why a joined bar reaches 1px into the next event, how the
     // insets switch on the tint and keep a bar end clear of a rounded corner only where the
