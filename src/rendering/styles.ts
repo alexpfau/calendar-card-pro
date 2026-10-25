@@ -1032,14 +1032,16 @@ export const cardStyles = css`
   }
 
   /* With event_gap set, a day's events stop being one block: each event is a block of its
-     own and rounds both of its end-side corners. The start side carries the accent stripe
-     and stays square, as it does on the joined block. event-first and event-last go on
-     meaning the first and last event of the day, which is what theming.md documents, so the
-     separated look hangs on the container's class rather than on them. The list view's
-     tap target and focus ring inherit these radii from the cell. */
+     own and rounds all four corners, the accent stripe's side included. That is how grid
+     view already draws a block (.grid-event: a radius on every corner and the stripe as the
+     inline-start border, following the curve), so a card switched between views draws a
+     separate event the same way in all three. Only the joined block keeps the stripe's side
+     square, because there the stripe runs on from one event into the next. event-first and
+     event-last go on meaning the first and last event of the day, which is what theming.md
+     documents, so the separated look hangs on the container's class rather than on them.
+     The list view's tap target and focus ring inherit these radii from the cell. */
   .with-event-gap .event {
-    border-start-end-radius: var(--calendar-card-event-border-radius);
-    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-radius: var(--calendar-card-event-border-radius);
   }
 
   .past-event .event-content {

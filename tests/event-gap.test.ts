@@ -7,7 +7,7 @@
  * a gap, list view holds the events apart with a row of its own between each pair (a table
  * row takes no margin, and `border-spacing` would also pad above the first and below the
  * last event), and column view sets a gap on the flex stack. Both mark their container with
- * `with-event-gap`, which is what rounds every event's end-side corners.
+ * `with-event-gap`, which is what rounds all four corners of every event, as grid rounds a block.
  *
  * Rendered through `resolveEffectiveConfig`, as the card does, so a `list:` or `column:`
  * override is exercised by the same path that applies it in production.
@@ -272,14 +272,12 @@ describe('the stylesheet', () => {
     return match![1];
   }
 
-  it('rounds both end-side corners of every event while a gap is set, and only those', () => {
+  it('rounds all four corners of every event while a gap is set, as grid rounds its blocks', () => {
     const body = ruleBody('.with-event-gap .event');
 
-    expect(body).toContain('border-start-end-radius: var(--calendar-card-event-border-radius)');
-    expect(body).toContain('border-end-end-radius: var(--calendar-card-event-border-radius)');
-    // The start side carries the accent stripe and stays square, from `.event` itself.
-    expect(body).not.toContain('start-start');
-    expect(body).not.toContain('end-start');
+    expect(body).toContain('border-radius: var(--calendar-card-event-border-radius)');
+    // The shorthand, not two end-side longhands: the accent stripe's side rounds too.
+    expect(body).not.toMatch(/border-(start|end)-(start|end)-radius/);
   });
 
   it('places the corner rule after the day-position corner rules it has to win against', () => {
