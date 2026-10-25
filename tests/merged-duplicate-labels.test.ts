@@ -368,10 +368,18 @@ describe('the accent color of a merged duplicate', () => {
       ...extra,
     });
 
-  /** The inline `border-inline-start` color the row draws its accent bar with. */
+  /** The inline color the row hands its accent bar, which the bar is painted in. */
   function accentOf(container: HTMLElement, index = 0): string {
-    const cell = [...container.querySelectorAll('[style*="border-inline-start"]')][index];
-    return (cell?.getAttribute('style') ?? '').match(/border-inline-start:[^;]*/)?.[0] ?? '';
+    const cell = [
+      ...container.querySelectorAll('[style*="--calendar-card-event-accent-bar-color"]'),
+    ][index];
+    // The bar is there to read it, as the cell's first child.
+    expect(cell?.firstElementChild?.className).toBe('event-accent-bar');
+    return (
+      (cell?.getAttribute('style') ?? '').match(
+        /--calendar-card-event-accent-bar-color:[^;]*/,
+      )?.[0] ?? ''
+    );
   }
 
   it('recolors a row merged across two calendars, and still draws both labels', () => {

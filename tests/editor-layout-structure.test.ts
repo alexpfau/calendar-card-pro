@@ -138,7 +138,6 @@ describe('Layout panel structure', () => {
       '— On the Grid —',
       'Weekend Shading',
       'Now Line',
-      'Now Line Color',
       'Most All-Day Rows',
       // Directly above the cap it decides the meaning of: how many events may sit side by
       // side only reads once the reader has been shown how overlaps are drawn.

@@ -411,13 +411,20 @@ function renderEventTitle(
   // `dir="auto"` gives the words the title's own direction. Inline-blocks are ordered by
   // the direction of the line around them, so on a right-to-left dashboard an English
   // title read "landlord with Call" until the wrapper said which way its words run.
+  //
+  // A run in a script written without spaces gets an inline element of its own. It breaks
+  // between characters exactly as bare text does, and the element is what lets the title
+  // cut hide it: a cut on the word before such a run has to take the run out too, or the
+  // run's text keeps the line going after the ellipsis. See cutGridTitleLines.
   const titleText =
     titleWords && !scrollTitles
       ? html`<span class="title-words" dir="auto"
           >${splitTitleWords(titleString ?? '').map((segment) =>
             segment.kind === 'word'
               ? html`<span class="title-word">${segment.text}</span>`
-              : segment.text,
+              : segment.kind === 'text'
+                ? html`<span class="title-run">${segment.text}</span>`
+                : segment.text,
           )}</span
         >`
       : titleString;
@@ -473,6 +480,11 @@ function renderEventTitle(
     : entityLabel
       ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
       : nothing;
+  // Asked of what renders rather than of the configuration: a label whose type resolves to
+  // `none` draws nothing, and its title takes the unlabeled markup below.
+  const hasLabel = Array.isArray(labels)
+    ? labels.some((label) => label !== nothing)
+    : labels !== nothing;
 
   // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
   // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —
@@ -489,18 +501,43 @@ function renderEventTitle(
     ? html`<span class="event-title-scroll">${titleContent}</span>`
     : titleContent;
 
+  const titleClass = `event-title ${isEmptyDay ? 'empty-day-title' : ''}${
+    scrollTitles ? ' title-scrollable' : ''
+  }`;
+  const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
+
+  // 🚨 No whitespace between the last label and the title, and none inside the title before
+  // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
+  // collapses them into one visible word space after the label: about 3px on top of the
+  // label's own 4px margin, so the title sat 7px from a picture or icon while the time sat
+  // 4px from its clock. The list and column hanging indent budgets the label plus exactly
+  // that 4px, so the same space also left every wrapped line 3px short of the first glyph.
+  //
+  // An unlabeled title keeps the historical shape, byte for byte. Nothing sits before it,
+  // so its leading space starts a line and collapses to nothing, and the list and column
+  // DOM snapshots pin the whitespace inside the title as text.
+  //
+  // The directive guards that second branch. Without it Prettier folds the template onto
+  // one line, turning its whitespace into single spaces that the snapshots then disagree
+  // with; delete it, run npm run format and then npm test to see it.
+  // prettier-ignore
+  const title = hasLabel
+    ? html`${labels}<span class=${titleClass} style=${titleStyle}>${titleInner}</span>`
+    : html`<span
+          class=${titleClass}
+          style=${titleStyle}
+        >
+          ${titleInner}
+        </span>`;
+
+  // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
+  // snapshots record the whitespace that separates the summary from its title. The same
+  // experiment as above shows it.
+  // prettier-ignore
   return html`
     <div class="summary-row">
       <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
-        ${labels}
-        <span
-          class="event-title ${isEmptyDay ? 'empty-day-title' : ''}${
-            scrollTitles ? ' title-scrollable' : ''
-          }"
-          style=${entityColor === undefined ? nothing : `color: ${entityColor}`}
-        >
-          ${titleInner}
-        </span>
+        ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
     </div>
@@ -632,10 +669,12 @@ export interface EventContentParts {
    * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
    * gets that right — Greek must lose its tonos in capitals.
    *
-   * Carries its own `accent` because this calendar's color reaches the row as an inline
-   * border value, which no descendant can read. The badge republishes it as a custom
-   * property on itself and the stylesheet derives every color from it, so the derivation
-   * stays themeable and no event that has no badge pays for the property.
+   * Carries its own `accent` because the badge's accent is not always the calendar's: a
+   * custom `allday_badge_color` stands in for it. The row does hand the calendar's color down,
+   * as `--calendar-card-event-accent-bar-color` for its accent bar, but that would be the
+   * wrong color then. The badge republishes its own as a custom property on itself and the
+   * stylesheet derives every color from it, so the derivation stays themeable and no event
+   * that has no badge pays for the property.
    *
    * `inheritsText` is `allday_badge_color: text` — the one source whose color this side of
    * the render cannot name, because it differs per position. A custom color needs no flag:
@@ -657,8 +696,8 @@ export interface EventContentParts {
    * the time-row badge there is no text to hand it and no language to declare — the title is
    * the user's own words and is never uppercased.
    *
-   * Carries its own `accent` for the same reason the time badge does: this calendar's color
-   * reaches the row as an inline border value, which no descendant can read.
+   * Carries its own `accent` for the same reason the time badge does: a custom
+   * `allday_badge_color` stands in for the calendar's color, which the row hands its bar.
    */
   titlePill?: {
     accent: string;
@@ -973,6 +1012,20 @@ export function renderEventContent(
       </div>
     </div>
   `;
+}
+
+/**
+ * The accent bar beside an event, in every view that draws one.
+ *
+ * An element of its own rather than a border on the event, because a border can neither have
+ * rounded ends nor sit inside the event's tinted box. It carries no color: the event element
+ * writes `--calendar-card-event-accent-bar-color`, and the stylesheet places and paints the
+ * bar (see `.event-accent-bar`). Grid all-day banners and the `+N` block draw none.
+ *
+ * @returns The bar
+ */
+export function renderAccentBar(): TemplateResult {
+  return html`<span class="event-accent-bar"></span>`;
 }
 
 //-----------------------------------------------------------------------------

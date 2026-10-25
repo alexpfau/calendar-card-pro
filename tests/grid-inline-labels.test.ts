@@ -19,16 +19,20 @@ function declarations(selector: string): string {
   return rule![2];
 }
 
-function event(entity: string): Types.CalendarEventData {
+function event(entity: string, summary = 'Team lunch'): Types.CalendarEventData {
   return {
     _entityId: entity,
-    summary: 'Team lunch',
+    summary,
     start: { dateTime: '2026-06-17T11:00:00.000Z' },
     end: { dateTime: '2026-06-17T13:00:00.000Z' },
   };
 }
 
-function render(entities: Types.EntityConfig[], options: Partial<Types.Config> = {}): HTMLElement {
+function render(
+  entities: Types.EntityConfig[],
+  options: Partial<Types.Config> = {},
+  summary?: string,
+): HTMLElement {
   const config = buildConfig({
     view: 'grid',
     days_to_show: 1,
@@ -40,7 +44,7 @@ function render(entities: Types.EntityConfig[], options: Partial<Types.Config> =
   litRender(
     renderGridGroupedEvents(
       groupEventsByDay(
-        entities.map(({ entity: id }) => event(id)),
+        entities.map(({ entity: id }) => event(id, summary)),
         config,
         false,
         'en',
@@ -148,6 +152,30 @@ describe('timed Grid labels share the title line', () => {
     expect(body).toMatch(/margin-right:\s*0;/);
     expect(body).toMatch(/margin-inline-end:\s*4px;/);
     expect(body).toMatch(/unicode-bidi:\s*isolate;/);
+
+    // The margin is the whole gap only if nothing else is laid out after the label. A text
+    // node between the last label and the title, or whitespace opening the title, collapses
+    // into one more word space. Every view; see label-title-gap.test.ts.
+    const content = (node: Node | null, step: 'previousSibling' | 'nextSibling'): Node | null => {
+      while (node?.nodeType === Node.COMMENT_NODE) node = node[step];
+      return node;
+    };
+    for (const entities of [
+      ...['/local/anna.png', 'mdi:calendar', '🎉', 'Anna'].map((label) => [
+        { entity: 'calendar.anna', label },
+      ]),
+      [
+        { entity: 'calendar.anna', label: 'Anna' },
+        { entity: 'calendar.ben', label: '/local/ben.png' },
+      ],
+    ]) {
+      const title = render(entities).querySelector('.grid-event .summary > .event-title')!;
+      expect(content(title.previousSibling, 'previousSibling')?.nodeType).toBe(Node.ELEMENT_NODE);
+      const opening = content(title.firstChild, 'nextSibling');
+      expect(opening?.nodeType === Node.TEXT_NODE && /^\s/u.test(opening.textContent ?? '')).toBe(
+        false,
+      );
+    }
   });
 
   it('leaves scrolling titles in their separate flex-row mode', () => {
@@ -167,5 +195,22 @@ describe('timed Grid labels share the title line', () => {
     expect(summary.children).toHaveLength(1);
     expect(summary.matches(LABEL_FLOW)).toBe(false);
     expect(summary.children[0].classList).toContain('event-title');
+  });
+
+  it('gives each run in a script without spaces an element the title cut can hide', () => {
+    // The cut hides everything after the word it ends on through a sibling selector, which
+    // reaches elements and not bare text. A run left as text kept the line going after the
+    // ellipsis, so the cut fell back to a line clamp, and that hid the word instead.
+    const title = 'Zoom 打ち合わせ Room';
+    const host = render([{ entity: 'calendar.anna', label: '/local/anna.png' }], {}, title);
+    const words = host.querySelector('.grid-event .title-words')!;
+    expect(Array.from(words.children).map((child) => [child.className, child.textContent])).toEqual(
+      [
+        ['title-word', 'Zoom'],
+        ['title-run', '打ち合わせ'],
+        ['title-word', 'Room'],
+      ],
+    );
+    expect(words.textContent).toBe(title);
   });
 });

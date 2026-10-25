@@ -217,7 +217,7 @@ function timeAxisFields(blockKey: string, language: string): HaFormSchema[] {
     heading('heading_on_the_grid'),
     blockScope(blockKey, [
       color('weekend_background_color'),
-      row(bool('show_now_line'), color('now_line_color')),
+      bool('show_now_line'),
       {
         name: 'allday_band_max_rows',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },

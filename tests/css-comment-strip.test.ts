@@ -279,8 +279,49 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(126_700);
-    // The event gap moved the ceiling last, from 124,700 to 126,700: the notes on why a tinted
+    expect(saved).toBeLessThan(141_500);
+    // Centering an event's text on its accent bar moved the ceiling last, from 140,000 to
+    // 141,500: the note on why the box was centered and the ink was not, why part of the
+    // title's top padding moves to a spacer sized in the title's own font, what remainder
+    // unequal title and row sizes keep, and why grid view is left out. The reading went
+    // 139,133 to 140,596, taken with stripComments after the last comment was written and
+    // confirmed from an esbuild bundle of the same source.
+    //
+    // Two review fixes moved the ceiling before that, from 139,000 to 140,000: the note on the
+    // zero-width space after a text label, which reads as an empty rule unless it says what
+    // removing the whitespace before a title had cost, and the cut rule's note on runs of a
+    // script written without spaces, which the cut now hides like words, and on when the
+    // clamp may end a line that ends in text. The reading went 138,129 to 139,133, taken
+    // with stripComments after the last comment was written and confirmed from an esbuild
+    // bundle of the same source.
+    //
+    // Grid title fitting moved the ceiling before that, from 136,000 to 139,000: the notes on why a grid
+    // block has no hanging indent and why one rule clears it for every label shape; why a
+    // labeled title's first word is narrowed to what its labels leave, and why that width is
+    // measured rather than written in CSS; why a title stopped at its last whole line ends on
+    // a word that draws its own ellipsis, because a line clamp asked to end on word boxes hides
+    // the last one or clips its ellipsis in half, in Chromium and WebKit alike; and why the
+    // clamp kept for text also drops an unlabeled title's bottom padding, through which the
+    // next line showed. The reading went 135,312 to 138,129, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
+    //
+    // The accent bar moved the ceiling before that, from 126,700 to 136,000: the notes on why the bar
+    // is an element of its own rather than a border, when a day's bars join into one line and
+    // when each event has its own, why a joined bar reaches 1px into the next event, how the
+    // insets switch on the tint and keep a bar end clear of a rounded corner only where the
+    // block has one, why it is painted as a border (forced colors and print keep it) and takes
+    // no z-index and no pointer, why a column event's focus ring moved to a pseudo-element,
+    // where grid text starts and why three rules share that one expression, and why a raised
+    // block's outline now closes on all four sides. The same change also explains why a
+    // running event's time run sits on the baseline, why the first row under a title has no
+    // margin of its own and how grid's hidden progress row hands that on, why a grid title's
+    // words align middle beside a label, and what the progress row's rung was measured
+    // against. The reading went 126,022 on dev to 135,312, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
+    //
+    // The event gap moved the ceiling before that, from 124,700 to 126,700: the notes on why a tinted
     // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
     // and a grid block alike) while an untinted stripe stays straight, why the position classes
     // keep meaning the event's place in its day, why list view's gap is a row that must never

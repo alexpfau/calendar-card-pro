@@ -187,7 +187,7 @@ function renderColumnEvent(
   return html`
     <div
       class=${classMap(eventClasses)}
-      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+      style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
         presentation.accentTextProperties,
       )}"
       role=${tap ? 'button' : nothing}
@@ -195,6 +195,7 @@ function renderColumnEvent(
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
     >
+      ${Leaves.renderAccentBar()}
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
         weatherForecasts,
         weatherPlacement: 'row',

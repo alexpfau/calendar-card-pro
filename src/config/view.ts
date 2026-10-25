@@ -159,7 +159,6 @@ export const TIME_GRID_ONLY_KEYS = [
   'weekend_background_color',
   'hour_height',
   'show_now_line',
-  'now_line_color',
   'max_simultaneous_events',
   'overlap_layout',
   'allday_band_max_rows',
@@ -600,12 +599,6 @@ export const TIME_GRID_DEFAULTS = {
   weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   hour_height: '48px',
   show_now_line: true,
-
-  // The card's now color (now_color, emerald by default), so the line and a running event's
-  // time in list and column agree. It is a quiet line on a white card, about 1.9:1, and a
-  // bright one on a dark card; `var(--error-color)` brings the red back for anyone who wants
-  // the line to stand out.
-  now_line_color: 'var(--calendar-card-now-color, #34d399)',
   max_simultaneous_events: 3,
   overlap_layout: 'cascade',
   allday_band_max_rows: 3,

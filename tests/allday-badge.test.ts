@@ -232,9 +232,10 @@ describe('allday_badge', () => {
       expect(badge?.textContent).toBe('Ολοήμερο');
     });
 
-    it('republishes the calendar accent color, which no descendant could otherwise read', () => {
-      // The accent reaches the row as an inline `border-inline-start` value. The badge
-      // carries its own copy so the stylesheet can blend it.
+    it('republishes the calendar accent color on the badge itself', () => {
+      // The row hands its accent to the bar as an inherited property, but the badge's accent
+      // is not always the calendar's (a custom allday_badge_color stands in for it), so the
+      // badge carries its own copy for the stylesheet to blend.
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         buildConfig({

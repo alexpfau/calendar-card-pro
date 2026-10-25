@@ -98,10 +98,12 @@ background_color: 'var(--ha-card-background)'
 
 # Event appearance
 event_background_opacity: 15 # 0-100 scale for background color intensity
-vertical_line_width: '3px' # Width of the colored event indicator line
+vertical_line_width: '3px' # Width of the accent bar beside each event
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, the accent line curving with the block at its top and bottom. Without one the accent line stays straight, with square ends, because a line bent into a rounded corner reads as a bracket.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and every event has its own accent bar inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the day's edge: the bars of touching events join into one line, changing color where one calendar's event meets another's, and only the day's top and bottom ends are rounded. To give each event a bar of its own without a background, set [`event_gap`](#gaps-between-events); even `1px` does it.
+
+`vertical_line_width` sets how wide the bar is, and `0px` hides it. It takes a CSS length, and `thin`, `medium` and `thick`, which mean `1px`, `3px` and `5px`; anything else falls back to `2px`. The bar's ends are rounded at any width and in every view, and grid view draws it 3px inside each block.
 
 `title_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
@@ -216,14 +218,16 @@ This option defaulted to `middle` before v4. Rows wrap often enough — a long a
 
 ### Gaps Between Events
 
-A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent lines run together into one long line:
+A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent bars run together into one line:
 
 ```yaml
 event_gap: 6px
 event_background_opacity: 15
 ```
 
-Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, the accent line's side included, where the joined block rounds only the top of its first event and the bottom of its last. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the accent line stays straight here too, and simply breaks between the events. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+Each event then becomes a block of its own, with an accent bar of its own. With [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, where the joined block rounds only the top of its first event and the bottom of its last, and its bar keeps clear of all four. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the bars that joined into one line now break between the events, each stopping just short of its event's top and bottom.
+
+`event_gap: 1px` is the smallest way to have that: the events stand 1px apart, which you will hardly see without a background, and each has its own bar. It is a real gap all the same, so each event also becomes a tap and hover target of its own, with nothing to tap in between. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
 
 `event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
 

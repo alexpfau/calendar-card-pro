@@ -307,17 +307,18 @@ like a strikethrough. A dot at the column's edge stays on top and marks where it
 an event covers most of the line.
 
 ```yaml
-now_color: '#34d399' # The card's color for now, which the line follows (default)
+now_color: '#34d399' # The card's color for now, which the line takes (default)
 time_grid:
   show_now_line: true
-  now_line_color: 'var(--error-color)' # Or give the line a color of its own
+  now_color: 'var(--error-color)' # Or a color for grid view alone
 ```
 
 The line takes the card's `now_color`, emerald green by default, so it matches the way list
 and column view mark an event that is under way. Emerald reads as a quiet line on a white
-card; `var(--error-color)` in `now_line_color` gives you your theme's red if you want the line
-to stand out. Any CSS color works in either option. Quote a hex value, as above: YAML reads an
-unquoted `#` as the start of a comment, and the color would be lost.
+card; `var(--error-color)` gives you your theme's red if you want the line to stand out. Set
+in the `time_grid` block, as above, it colors the line and leaves list and column view as
+they are. Any CSS color works. Quote a hex value, as above: YAML reads an unquoted `#` as the
+start of a comment, and the color would be lost.
 
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.
@@ -395,9 +396,10 @@ those contributors change, the banner separates into runs so a shared-event colo
 extend into dates where only one calendar qualifies.
 
 All-day banners are title-only. They carry the calendar's color as their whole fill, with
-no accent edge — a bar on top of a fill that is already that color names nothing, and
-against a rounded end it curves into a shape of its own. Timed blocks keep their edge,
-because they are only lightly tinted. Banners still follow background opacity and
+no accent bar — a bar on top of a fill that is already that color names nothing. Timed
+blocks keep theirs, because they are only lightly tinted: it sits 3px inside the block with
+rounded ends, and runs on square to the block's edge where the event carries on past the
+visible hours. Banners still follow background opacity and
 past-event dimming, but they do not draw event detail rows: time badges, location,
 description, event weather, countdowns, progress bars and label icons stay out of the band.
 Those rows would make one all-day item taller than its neighbors and break the band into a
@@ -454,10 +456,8 @@ happens on your card.
 A block drawn on top hides the event underneath it but not the grid: the hour lines and the
 weekend shading run through it exactly as they run through a block standing alone, and its color
 is the same as that block's rather than a mix with the one beneath. A faint outline in its own
-calendar's color marks its top, bottom and trailing edges, so two events from the same calendar
-stay apart where one is drawn over the other. The leading edge is left to the accent bar, so the
-bar is as wide as on every other block; set `vertical_line_width: 0px` and the outline closes
-on that side too. If your theme makes the card background translucent, the event underneath
+calendar's color runs around its edge, so two events from the same calendar stay apart where one
+is drawn over the other. If your theme makes the card background translucent, the event underneath
 shows through faintly, just as the dashboard shows through the rest of the card. Text never
 does, because none is ever placed there.
 
@@ -530,9 +530,10 @@ the block; a tall narrow one keeps it at the top, where a block wide enough for 
 already puts it, rather than stranding it in
 mid-air with empty space above and below. If your theme or
 `event_font_size` makes a disclosed detail row taller than its block, the card hides the
-optional detail rows rather than showing one partly clipped. With the default unlimited title
-lines, long titles wrap until the block clips at the bottom. Set
-`title_max_lines` above `0` when you want the title itself to stop after a fixed number of
+optional detail rows rather than showing one partly clipped. A title that runs past its block
+stops at the last line that fits whole, and that line ends in "…" when more of the title
+follows, so no line is ever cut through the middle at the block's edge. Set
+`title_max_lines` above `0` when you want the title to stop sooner, after a fixed number of
 lines.
 
 Titles wrap only between words. Where overlapping events share a narrow column, a word can
@@ -550,9 +551,15 @@ its own row under the title, while countdowns trail the time text.
 
 Calendar labels sit inline before the timed event's title, with the same small gap as in
 List and Column. Text, emoji, icon, image, and merged-calendar labels share that first
-line rather than taking a row above it. Title line limits include the labeled line;
-scrolling keeps the labels stationary while the title moves. All-day banners remain
-title-only.
+line rather than taking a row above it. The title starts on that line too: a first word
+wider than the room the labels leave is cut short there, so in a narrow lane "Birthday
+lunch" beside a picture reads "Birth…" with "lunch" below it, rather than leaving the picture
+on a line of its own. Titles in Thai or a right-to-left script wrap as the browser decides,
+so in a narrow lane their first word can still start below a label. Wrapped lines start at
+the block's edge, under the labels, rather than indented to line up with the title as they
+do in List and Column, where a row has the width to spare. Title line limits include the
+labeled line; scrolling keeps the labels stationary while the title moves. All-day banners
+remain title-only.
 
 ### Short Timed Titles
 
@@ -584,8 +591,9 @@ time_grid:
 ```
 
 The usual presentation always wins when its first line fits. Normal wrapping, line limits,
-detail rows, and scrolling remain unchanged; clipping a later line does not make the font
-shrink. When height removes all otherwise-present details but the normal title fits, Grid
+detail rows, and scrolling remain unchanged; a later line that does not fit is left out, with
+the line before it ending in "…", and never makes the font shrink. When height removes all
+otherwise-present details but the normal title fits, Grid
 centers that title without reducing its font or forcing two fitting lines onto one. A tall
 title-only event whose details were disabled or absent keeps its normal alignment.
 

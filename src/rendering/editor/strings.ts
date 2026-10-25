@@ -410,7 +410,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.show_now_line.helper':
     "Marks the current time on today's column. Hidden when now falls outside the hours " +
     'above, rather than pinned to an edge.',
-  'time_grid.now_line_color': 'Now Line Color',
   'time_grid.allday_band_max_rows': 'Most All-Day Rows',
   'time_grid.allday_band_max_rows.helper':
     'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +

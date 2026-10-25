@@ -710,10 +710,11 @@ function renderEvent(
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+        style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
           presentation.accentTextProperties,
         )}"
       >
+        ${Leaves.renderAccentBar()}
         ${renderEventButton(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
