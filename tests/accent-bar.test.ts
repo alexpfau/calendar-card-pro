@@ -1,5 +1,5 @@
 /**
- * The accent bar: its own element beside every event, in every view that draws one (#47).
+ * The accent bar: its own element beside every event, in every view that draws one.
  *
  * It replaced a border on the event box, which could neither have rounded ends nor sit inside
  * the event's tint. Three things are pinned here. The element is drawn exactly where an event
@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { stripComments } from '../rollup.config.mjs';
 import { buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
@@ -250,36 +251,50 @@ describe('the stylesheet', () => {
         'max(var(--calendar-card-event-accent-bar-inset, 2px), calc(var(--calendar-card-event-accent-side-radius, 0px) - 4px))',
       position: 'absolute',
       'inset-inline-start': 'var(--calendar-card-event-accent-bar-inset, 0px)',
-      'inset-block': 'var(--calendar-card-event-accent-bar-inset, 2px)',
+      // Where two events touch: 4px apart when tinted, joined when not, the upper bar
+      // reaching 1px into the lower event so the join has no lighter row.
+      'inset-block-start': 'var(--calendar-card-event-accent-bar-inset, 0px)',
+      'inset-block-end': 'var(--calendar-card-event-accent-bar-inset, -1px)',
       width: '0',
       // A border, not a background: forced colors and a printout without backgrounds both
       // drop a background and keep a border.
       'border-inline-start':
         'var(--calendar-card-line-width-vertical) solid var(--calendar-card-event-accent-bar-color)',
-      'border-radius': '999px',
+      // Round where it is inset, square where it joins its neighbor, so the line has no notch.
+      'border-radius': 'calc(var(--calendar-card-event-accent-bar-inset, 0px) * 999)',
       // No z-index: a positive one would show through a raised grid block drawn over it.
       'pointer-events': 'none',
     });
   });
 
-  it('keeps a bar end clear of a rounded corner only where the block has one', () => {
+  it('rounds a bar end, clear of a rounded corner, only where the block has one', () => {
+    // The day's two ends, and both ends of every event once a gap separates them. Untinted
+    // the corner inset is 2px; tinted it is 4px, or more under a rounded theme.
     const CORNER = 'var(--calendar-card-event-accent-bar-corner-inset)';
 
     expect(declarations('.event-first > .event-accent-bar')).toEqual({
       'inset-block-start': CORNER,
+      'border-start-start-radius': '999px',
+      'border-start-end-radius': '999px',
     });
     expect(declarations('.event-last > .event-accent-bar')).toEqual({
       'inset-block-end': CORNER,
+      'border-end-start-radius': '999px',
+      'border-end-end-radius': '999px',
     });
     expect(declarations('.with-event-gap .event > .event-accent-bar')).toEqual({
       'inset-block': CORNER,
+      'border-radius': '999px',
     });
   });
 
   it('insets a grid bar 3px whatever the tint, and runs it square to a clipped edge', () => {
+    // Round at both ends whatever the tint: grid blocks never join, so the touching-end rule
+    // the list and column bars follow must not reach them.
     expect(declarations('.grid-event > .event-accent-bar')).toEqual({
       'inset-inline-start': '3px',
       'inset-block': '3px',
+      'border-radius': '999px',
     });
     expect(declarations('.grid-event.clipped-top > .event-accent-bar')).toEqual({
       'inset-block-start': '0',
@@ -356,6 +371,24 @@ describe('the stylesheet', () => {
     ]);
   });
 
+  it("draws a column event's focus ring after its bar, as list view does", () => {
+    // An outline paints under the element's positioned children, and an untinted bar sits
+    // flush on the edge the ring runs along, so the ring moves to a pseudo-element that comes
+    // after the bar.
+    expect(declarations('.column-events > .event-interactive:focus-visible')).toEqual({
+      outline: 'none',
+    });
+    expect(declarations('.column-events > .event-interactive:focus-visible::after')).toEqual({
+      content: "''",
+      position: 'absolute',
+      inset: '0',
+      'border-radius': 'inherit',
+      outline: '2px solid var(--calendar-card-line-color-vertical)',
+      'outline-offset': '-2px',
+      'pointer-events': 'none',
+    });
+  });
+
   it('keeps the list tap target over the whole cell, the bar included', () => {
     // The button's pseudo-elements used to reach back over the border; with no border the
     // cell's padding box is the whole cell, so they no longer need to.
@@ -367,8 +400,8 @@ describe('the stylesheet', () => {
   });
 });
 
-describe('a width that is not in px', () => {
-  it('passes through to the property unparsed', () => {
+describe('the bar width', () => {
+  it('passes a width that is not in px through unparsed', () => {
     // The bar width, the list text start and the grid text start all read the property in
     // the stylesheet, where an em resolves against the event's own font as the border's did.
     expect(
@@ -376,5 +409,36 @@ describe('a width that is not in px', () => {
         '--calendar-card-line-width-vertical'
       ],
     ).toBe('0.3em');
+  });
+
+  it.each([
+    ['thin', '1px'],
+    ['medium', '3px'],
+    ['thick', '5px'],
+    ['THICK ', '5px'],
+    ['none', '0px'],
+    ['0', '0px'],
+    ['3', '3px'],
+    ['2 px', '2px'],
+    ['0.2em', '0.2em'],
+    ['calc(1px + 0.1em)', 'calc(1px + 0.1em)'],
+  ])('reads %j as %j', (written, read) => {
+    // The width sits inside the calc() that places the text, where a keyword cannot be added
+    // and a typo takes the whole declaration with it, so it is rewritten when it is read.
+    expect(Config.coercePixelLength('vertical_line_width', written)).toBe(read);
+  });
+
+  it.each(['2 pz', 'wide', '-1px', '50%', 'auto'])(
+    'folds the unusable %j to the shipped 2px, and says so',
+    (written) => {
+      expect(Config.coercePixelLength('vertical_line_width', written)).toBe('2px');
+      expect(Config.foldsToDefault('vertical_line_width', written)).toBe(true);
+    },
+  );
+
+  it('folds a view override the same way', () => {
+    const config = buildConfig({ column: { vertical_line_width: 'thick' } } as never);
+    expect(ViewConfig.resolveEffectiveConfig(config, 'column').vertical_line_width).toBe('5px');
+    expect(ViewConfig.resolveEffectiveConfig(config, 'list').vertical_line_width).toBe('2px');
   });
 });

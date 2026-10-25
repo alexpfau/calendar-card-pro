@@ -359,12 +359,11 @@ describe('Y21b — a bare number typed into an editor text field', () => {
   it.each(TYPED_LENGTH_FIELDS)('coerces a number typed into %s', (key) => {
     expect(Config.coercePixelLength(key, '10')).toBe('10px');
     expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
-    // An icon cannot be drawn at a negative size and no font size is negative, so an option
-    // that folds takes its default instead of `-2px` — see `icon-size-fold.test.ts` and
-    // `font-size-fold.test.ts`.
+    // An icon cannot be drawn at a negative size, no font size is negative and neither is a
+    // bar's width, so an option that folds takes its default instead of `-2px` — see
+    // `icon-size-fold.test.ts`, `font-size-fold.test.ts` and `accent-bar.test.ts`.
     expect(Config.coercePixelLength(key, '-2')).toBe(
-      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ||
-        Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+      Config.FOLDED_OPTIONS.includes(key)
         ? (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[key]
         : '-2px',
     );

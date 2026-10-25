@@ -106,18 +106,18 @@ describe('the font-size table', () => {
     );
   });
 
-  it('keeps font sizes out of the icon-size table, and the other way round', () => {
-    // The two accept different things, so an option in both would be judged twice and by
+  it('keeps the font-size, icon-size and bar-width tables apart', () => {
+    // The three accept different things, so an option in two would be judged twice and by
     // whichever rule happened to be asked first.
-    const shared = [...Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE].filter((path) =>
-      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(path),
-    );
+    const tables = [
+      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+      Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
+      Config.BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
+    ];
+    const all = tables.flatMap((table) => [...table]);
 
-    expect(shared).toEqual([]);
-    expect(Config.FOLDED_OPTIONS).toEqual([
-      ...Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
-      ...Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
-    ]);
+    expect(new Set(all).size).toBe(all.length);
+    expect(Config.FOLDED_OPTIONS).toEqual(all);
   });
 });
 

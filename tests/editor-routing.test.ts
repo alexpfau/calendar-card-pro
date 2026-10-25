@@ -220,9 +220,7 @@ describe('typed lengths keep their raw text in the form', () => {
     // can be drawn at nor a font size, so it is held like any value invalid only while being
     // typed, and the stored size stays the last one that parsed (#620). The form still shows
     // what was typed, which is the behavior this test is about.
-    const folded =
-      Config.LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ||
-      Config.FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key);
+    const folded = Config.FOLDED_OPTIONS.includes(key);
     for (const workspace of ['column', 'grid'] as const) {
       let config = buildConfig({ [key]: '4px' });
       let pending: Record<string, string> = {};

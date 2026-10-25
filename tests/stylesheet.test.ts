@@ -2040,7 +2040,11 @@ describe('card stylesheet', () => {
       );
       expect(declared('.grid-event', 'border-inline-start')).toBe('');
       expect(declared('.grid-banner', 'border-inline-start')).toBe('');
-      expect(declared('.grid-banner', 'padding-inline-start')).toBe('');
+      // A banner carries .event too, so it is kept out of the bar's room only by its own
+      // padding shorthand, which comes later at the same specificity and resets the start
+      // side. Pinned by value, so deleting it fails here; the source order is pinned by
+      // "is overridden by rules that come later" in view-scope-inert.test.ts.
+      expect(declared('.grid-banner', 'padding')).toBe('1px 6px');
     });
 
     it('rounds a banner end only where the event genuinely starts or ends', () => {

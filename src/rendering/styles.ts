@@ -168,11 +168,11 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   }
 
   // Only while events are tinted. The box rounds the accent bar's side then, and keeps it
-  // square otherwise, where the bar sits flush on that edge; and the bar moves inside the
-  // tint, 4px from the edge, where untinted it falls back to 0 inline and 2px at its ends.
-  // See .event-accent-bar and .event-first in the stylesheet. Unwritten, every rule falls back
-  // to its untinted value, so an untinted card keeps exactly the inline style it carried
-  // before either existed.
+  // square otherwise, where the bar sits flush on that edge; and each event's bar moves
+  // inside the tint, 4px from the edge and from its ends, where untinted the bars of touching
+  // events fall back to joining into one line. See .event-accent-bar and .event-first in the
+  // stylesheet. Unwritten, every rule falls back to its untinted value, so an untinted card
+  // keeps exactly the inline style it carried before either existed.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
     props['--calendar-card-event-accent-bar-inset'] = '4px';
@@ -1080,18 +1080,40 @@ export const cardStyles = css`
    * rounded ends that names the calendar. It used to be a border on the event, which can have
    * neither rounded ends nor sit inside the event's tint.
    *
-   * Tinted, the bar sits inside the box, 4px from its start edge and 4px from its top and
-   * bottom; untinted, there is no box to sit inside, so it is the event's edge, flush, and
-   * stops 2px short at each end so the bars of two events that touch still break between
-   * them. Both come from one property the card writes only while events are tinted,
-   * --calendar-card-event-accent-bar-inset, read with the untinted values as fallbacks.
+   * Whether a day's bars join into one line or each event has its own is decided by the two
+   * options that already decide whether a day's events read as one thing:
+   *
+   * - No tint and no event_gap: the bars of touching events join. Untinted, the bar is all
+   *   there is of the day's block, so it stays one line, as the border always was, and a
+   *   single calendar's busy day does not break into short dashes. Several calendars change
+   *   color where their events meet. Only the day's two ends are round, each 2px short of
+   *   the block's top and bottom.
+   * - A tint: the bar sits inside the box, 4px from its start edge, and each event has its
+   *   own, 4px short of its top and bottom. Here the tint draws the block, and the bar names
+   *   the event.
+   * - Any event_gap: each event is a block of its own, and so has a bar of its own, 2px short
+   *   at each end untinted. Even 1px separates them, which is the way to have separate bars
+   *   without a tint.
+   *
+   * The insets come from one property the card writes only while events are tinted,
+   * --calendar-card-event-accent-bar-inset, read with the untinted values as fallbacks, so an
+   * untinted card keeps its inline style. An end where two events touch is round exactly when
+   * it is inset, which is when the card is tinted: the radius there is that inset scaled up,
+   * which makes 4px fully round and leaves 0 square, so the joined line has no notches.
+   *
+   * Joined, each bar also reaches 1px past its event's bottom into the next one. Two bars that
+   * only meet leave a lighter row at the join wherever the boundary falls inside a device
+   * pixel, as it does at a 1.5 device pixel ratio, because each covers the row only partly
+   * and their edges blend with what is behind. Reaching past it covers that row solid, and
+   * the next bar, painted later, lies over the overlap. Only downward, so it stays under the
+   * next event's focus ring, which is painted after both.
    *
    * An end that sits in one of the block's rounded corners keeps clear of the curve: it is
    * inset by the corner's radius less 4px when that is more, which only a rounded theme
    * reaches. That is the top of a day's first event, the bottom of its last, and both ends of
    * every event once event_gap separates them, which are exactly the corners the rules above
-   * round; where two events touch, the bars break at the plain inset. Untinted the corner
-   * radius on the bar's side is 0, so the same expression gives the plain 2px.
+   * round. Untinted the corner radius on the bar's side is 0, so the same expression gives
+   * the plain 2px.
    *
    * Painted as a border on an element of no width rather than as a background, so it still
    * shows where backgrounds are dropped: in forced-colors mode, which draws it in the system
@@ -1099,9 +1121,11 @@ export const cardStyles = css`
    * border-radius 999px is clamped to half the bar's width, which is what makes the ends
    * round at any vertical_line_width, and a width of 0px draws nothing.
    *
-   * No z-index: as ordinary positioned content it paints over the event's tint and hover wash
-   * and under the list view's focus ring, and a positive one would escape a grid block, which
-   * is no stacking context unless raised, and show through a raised block drawn over it.
+   * No z-index: as ordinary positioned content it paints over the event's tint and hover wash,
+   * and a positive one would escape a grid block, which is no stacking context unless raised,
+   * and show through a raised block drawn over it. That also puts it over the event's own
+   * outline, so the keyboard focus ring is drawn on a pseudo-element after it instead (see
+   * .event-button::after in list view and .column-events > .event-interactive below).
    * pointer-events none, because in list view the bar is a sibling of the button that makes
    * the event a tap target, and would otherwise be a strip of the event that ignores a tap. */
   .event-accent-bar {
@@ -1111,24 +1135,30 @@ export const cardStyles = css`
     );
     position: absolute;
     inset-inline-start: var(--calendar-card-event-accent-bar-inset, 0px);
-    inset-block: var(--calendar-card-event-accent-bar-inset, 2px);
+    inset-block-start: var(--calendar-card-event-accent-bar-inset, 0px);
+    inset-block-end: var(--calendar-card-event-accent-bar-inset, -1px);
     width: 0;
     border-inline-start: var(--calendar-card-line-width-vertical) solid
       var(--calendar-card-event-accent-bar-color);
-    border-radius: 999px;
+    border-radius: calc(var(--calendar-card-event-accent-bar-inset, 0px) * 999);
     pointer-events: none;
   }
 
   .event-first > .event-accent-bar {
     inset-block-start: var(--calendar-card-event-accent-bar-corner-inset);
+    border-start-start-radius: 999px;
+    border-start-end-radius: 999px;
   }
 
   .event-last > .event-accent-bar {
     inset-block-end: var(--calendar-card-event-accent-bar-corner-inset);
+    border-end-start-radius: 999px;
+    border-end-end-radius: 999px;
   }
 
   .with-event-gap .event > .event-accent-bar {
     inset-block: var(--calendar-card-event-accent-bar-corner-inset);
+    border-radius: 999px;
   }
 
   .past-event .event-content {
@@ -2471,6 +2501,27 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* A column event's ring, drawn on a pseudo-element after the accent bar rather than as the
+     event's own outline. An element's outline paints under its positioned children, and an
+     untinted bar is a positioned child flush on the edge the ring runs along, so the bar
+     covered that side of the ring in the calendar's color. List view already draws its ring
+     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides and crosses
+     it only at an edge where the event is cut off, for the bar's own width, so grid keeps the
+     outline. The event is the pseudo-element's containing block (see td.event above). */
+  .column-events > .event-interactive:focus-visible {
+    outline: none;
+  }
+
+  .column-events > .event-interactive:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+    pointer-events: none;
+  }
+
   /* A tap on an event is the event's, so the card's ripple must not flash as though the card
    * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
    * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than
@@ -3538,13 +3589,15 @@ export const cardStyles = css`
 
   /* A grid block is always a box, tinted or not: it has corners, a hover wash, and an
      outline when raised. So its accent bar always sits inside it, 3px from the start edge and
-     from the top and bottom, whatever event_background_opacity says, and the tint switch
-     the list and column bars read does not apply here. Where the event runs past the
+     from the top and bottom, round at both ends, whatever event_background_opacity says:
+     the tint switch the list and column bars read does not apply here, and grid blocks never
+     join. Where the event runs past the
      visible hours the bar runs on to that edge with a square end, as the block's own corners
      square off there: the event does not end, so neither does its bar. */
   .grid-event > .event-accent-bar {
     inset-inline-start: 3px;
     inset-block: 3px;
+    border-radius: 999px;
   }
 
   .grid-event.clipped-top > .event-accent-bar {
