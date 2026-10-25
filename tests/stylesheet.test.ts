@@ -346,6 +346,44 @@ describe('card stylesheet', () => {
       expect(declared('.time .now-time > span', 'vertical-align')).toBe('baseline');
     });
 
+    it('centers the text block on the accent bar by its ink, in list and column view', () => {
+      // The box was centered and the ink was not: the title's padding, half-leading and the
+      // room above its capitals outweighed the last row's descent, so the text read low. When
+      // detail rows follow, part of the title's top padding moves to a box at the end of the
+      // content, sized in the title's font, so the event keeps its height. Measured in
+      // Chromium and WebKit: the ink's center now sits within about a quarter pixel of the
+      // bar's at the default sizes, where it was 1.7px and 2.1px low.
+      const contents = [
+        'td.event > .event-content:has(> .time-location > *)',
+        '.column-events > .event > .event-content:has(> .time-location > *)',
+      ];
+      for (const content of contents) {
+        expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
+        expect(declared(`${content} > .summary-row > .summary`, 'padding-top'), content).toBe(
+          'calc(0.2em - var(--calendar-card-event-ink-shift))',
+        );
+        expect(declared(`${content}::after`, 'content'), content).toBe("''");
+        expect(declared(`${content}::after`, 'flex'), content).toBe('none');
+        expect(declared(`${content}::after`, 'height'), content).toBe(
+          'var(--calendar-card-event-ink-shift)',
+        );
+        // The same em as the padding it replaces: the title's own font size.
+        expect(declared(`${content}::after`, 'font-size'), content).toBe(
+          'var(--calendar-card-font-size-event)',
+        );
+      }
+      expect(declared('.summary', 'padding-block')).toBe('0.2em');
+
+      // Grid view keeps its own summary padding and gets no spacer: its text sits at the top
+      // of a block as tall as the event. Pinned as the whole set of selectors that take part.
+      const shiftRules = RULES.filter((r) =>
+        r.selectors.some((s) => s.includes('.event-content:has(> .time-location > *)')),
+      );
+      expect(shiftRules.flatMap((r) => r.selectors).sort()).toEqual(
+        contents.flatMap((c) => [c, `${c} > .summary-row > .summary`, `${c}::after`]).sort(),
+      );
+    });
+
     it('sets the first row under a title directly under it, in every view', () => {
       // The rows keep 2px between each other; the first one has no margin of its own.
       expect(declared('.time', 'margin-top')).toBe('2px');

@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(140_000);
-    // Two review fixes moved the ceiling last, from 139,000 to 140,000: the note on the
+    expect(saved).toBeLessThan(141_500);
+    // Centering an event's text on its accent bar moved the ceiling last, from 140,000 to
+    // 141,500: the note on why the box was centered and the ink was not, why part of the
+    // title's top padding moves to a spacer sized in the title's own font, what remainder
+    // unequal title and row sizes keep, and why grid view is left out. The reading went
+    // 139,133 to 140,596, taken with stripComments after the last comment was written and
+    // confirmed from an esbuild bundle of the same source.
+    //
+    // Two review fixes moved the ceiling before that, from 139,000 to 140,000: the note on the
     // zero-width space after a text label, which reads as an empty rule unless it says what
     // removing the whitespace before a title had cost, and the cut rule's note on runs of a
     // script written without spaces, which the cut now hides like words, and on when the

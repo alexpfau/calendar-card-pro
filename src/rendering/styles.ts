@@ -1191,6 +1191,43 @@ export const cardStyles = css`
     flex-direction: column;
   }
 
+  /* The text block is centered on the accent bar by its ink: from the top of the title's
+     capitals to the baseline of its last row. The box alone is centered already, but the
+     space inside it is not even. Above the capitals sit the title's 0.2em of padding, its
+     half-leading and the font's room above cap height; below the last baseline sit only
+     that row's descent and half-leading, at a smaller size. So the text read about 1.7px
+     low in Chromium and 2.1px low in WebKit at the default sizes, before the bar was
+     shortened as well, where the full-height stripe hid it.
+
+     When detail rows follow the title, 0.13em of its top padding moves below the content:
+     a box of that height at the end of the column, sized in the title's font, the same em
+     the padding is measured in. The event keeps its height, the gap between the title and
+     its first row does not change, and the ink then sits within about a quarter pixel of
+     the bar's center in both engines at the default sizes, closer at any equal title and
+     row size. The excess above scales with the title and the room below with the row, so
+     unequal sizes keep a small remainder: about 1.2px with a 20px title over 12px rows,
+     where it was 3.6px. A title on its own is centered without this, so it is left alone.
+
+     List and column view only. A grid block's text sits at the top of a block as tall as
+     the event, which no padding can center. */
+  td.event > .event-content:has(> .time-location > *),
+  .column-events > .event > .event-content:has(> .time-location > *) {
+    --calendar-card-event-ink-shift: 0.13em;
+  }
+
+  td.event > .event-content:has(> .time-location > *) > .summary-row > .summary,
+  .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary {
+    padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
+  }
+
+  td.event > .event-content:has(> .time-location > *)::after,
+  .column-events > .event > .event-content:has(> .time-location > *)::after {
+    content: '';
+    flex: none;
+    height: var(--calendar-card-event-ink-shift);
+    font-size: var(--calendar-card-font-size-event);
+  }
+
   .summary-row {
     display: flex;
     justify-content: space-between;
