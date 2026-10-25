@@ -2440,10 +2440,19 @@ export const cardStyles = css`
   }
 
   /* ===== CORNER LOADING INDICATOR ===== */
+
+  /* Midway between the card's rounded corner and the header toolbar's last control, which
+     sits in that corner: beside a title the ring keeps about 5.5px to each at the default
+     12px radius. Until 12px the corner's curve does not reach the ring, so its place is
+     fixed; beyond that the curve comes inward, and the ring moves in with it at 0.15 of
+     every extra pixel, keeping the two gaps about equal, some 3px each at 24px. The ring's
+     center is this offset plus 8px from the padding edge. The earlier half-the-radius rule
+     drifted outward as the radius grew: it touched the last control at the default radius
+     and overlapped it at larger ones. */
   .loading-indicator {
     position: absolute;
-    top: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
-    right: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    top: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
+    right: calc(3.5px + max(0px, (var(--ha-card-border-radius, 12px) - 12px) * 0.15));
     width: 16px;
     height: 16px;
     display: inline-flex;
