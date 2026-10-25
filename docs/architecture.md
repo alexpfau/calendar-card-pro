@@ -17,11 +17,11 @@ src/
 │   ├── types.ts                  # TypeScript interface definitions
 │   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
 ├── interaction/                  # User interaction handling
-│   ├── actions.ts                # Action execution (tap, hold, event tap)
+│   ├── actions.ts                # Runs the card's tap and hold actions
 │   ├── add-event.ts              # Add button: writable calendars, label, start date
 │   ├── calendar-changes.ts       # Page-wide announcement after a dialog saves
 │   ├── event-details.ts          # Event dialog entry, Edit and Delete permissions
-│   ├── feedback.ts               # Visual feedback (ripple, hold indicators)
+│   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
 │   └── ha-calendar-dialogs.ts    # Loads and opens Home Assistant's calendar dialogs
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
@@ -35,11 +35,12 @@ src/
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
-│   │   ├── workspace.ts          # Editor-only All Layouts/List/Column/Grid selection
+│   │   ├── workspace.ts          # Editor-only All Layouts/List/Columns/Grid selection
 │   │   ├── routing.ts            # Workspace projections and scope-captured writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
+│   │   ├── hass-localize.ts      # Wraps hass.localize to name `expand` in HA's action editor
 │   │   ├── strings.ts            # English editor strings
 │   │   ├── version.ts            # Build-stamped version the editor reports
 │   │   ├── translations/         # The same keys per language, partial by design
@@ -53,6 +54,7 @@ src/
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
 │   ├── leaves.ts                 # Leaf renderers shared across the three views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
+│   ├── accent-text.ts            # The `accent` text sentinel's fields and properties; CSS-free
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
 │   ├── dayjs.ts                  # Relative-time localization
@@ -65,13 +67,22 @@ src/
     ├── events.ts                 # Calendar event fetching and processing
     ├── grid.ts                   # Pure time-grid geometry, overlap lanes, banner spans
     ├── grid-title-fit.ts         # Browser-measured label/title fitting, separate from geometry
+    ├── grid-time-fit.ts          # Measures each grid time row and picks its degradation step
+    ├── grid-cascade-threshold.ts # Measured cascade threshold, in minutes, for `utils/grid.ts`
+    ├── grid-overflow-strip.ts    # Measured `+N` strip width, as a share of the day column
     ├── format.ts                 # Date and text formatting
+    ├── event-age.ts              # The `YEAR=` marker: ages and anniversary counts
+    ├── text-replace.ts           # Per-calendar `replace_pattern` / `replace_with`
     ├── start-date.ts             # The `start_date` relative-date grammar
     ├── helpers.ts                # Generic utilities (color, ID generation)
+    ├── entity-colors.ts          # Calendar colors from HA's entity registry, over WebSocket
+    ├── entity-icons.ts           # Calendar icons from entity state, for `label: home-assistant`
+    ├── person-pictures.ts        # Person pictures from entity state, for `label: person.*`
     ├── logger.ts                 # Logging system
     ├── templates.ts              # Jinja2 title templates over the HA websocket
     ├── title-motion.ts           # Pure per-title timing and cohort admission state
     ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
+    ├── title-words.ts            # Splits grid titles so they wrap only at spaces
     ├── view-choice.ts            # The view switcher's choice, remembered per device
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── weather.ts                # Weather data fetching and processing
@@ -100,9 +111,15 @@ drawn on top, converted to minutes in `utils/grid-cascade-threshold.ts`, and how
 `+N` strip must be to hold its count, converted to a share of the day column in
 `utils/grid-overflow-strip.ts`. The geometry module itself still knows no pixels.
 
-The effective view can change with available width. Column and Grid can fall back to List
-or retain their side-by-side layout with horizontal scrolling, according to their density
-options. Grid's width calculation also reserves the hour gutter. `config/view.ts` owns
+The effective view can change with available width. A narrower Column or Grid card first
+draws fewer days, down to `min_days_to_show`, in a window kept as close to today as the
+configured range allows (`visibleDayWindowStart` in `config/view.ts`): it starts at today and
+moves back only as far as it must to stay full, and a range wholly in the future or the past
+keeps its first or its last days.
+Below that floor `min_days_fallback` decides: `list` falls back to List, and `cramp` holds
+the floor with days narrower than `min_day_width`. Column simply narrows its columns; Grid
+keeps each day at least `2rem` wide and scrolls horizontally. Grid's width calculation also
+reserves the hour gutter. `config/view.ts` owns
 this resolution and its hysteresis, so resizing does not repeatedly flip layouts at a
 boundary. The editor workspace is separate: choosing List exposes its controls without
 changing the displayed layout.
@@ -117,7 +134,7 @@ view default, shared value. List has no divergent defaults. View-only options us
 own block defaults, with permanent root fallback for the legacy List-only options.
 
 The editor exposes four destinations: **All Layouts** writes roots, and **List**,
-**Column**, and **Grid** write their blocks. `workspace.ts` distinguishes the destination
+**Columns**, and **Grid** write their blocks. `workspace.ts` distinguishes the destination
 from the view used to build panel structure. All Layouts uses List-shaped panels, but
 conditional controls resolve shared values, never `list:` overrides. `routing.ts`
 captures the destination with each rendered form so a delayed event cannot write into a
@@ -188,33 +205,35 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
   beside them rather than pushing them below it, and the card gains no height. Without a
-  title they get a slim row of 48px, the bar and a 12px gap under it. A leading group, once there is one, takes a row
-  of its own between the title and the events.
+  title they get a slim row of 48px, the bar and a 12px gap under it. A leading group, once
+  there is one, takes a row of its own between the title and the events.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
   inside `.header-container`, so the card's children and the `.header-container` +
   `.content-container` adjacency are unchanged.
 - **A control never starts the card's gesture.** Each stops `pointerdown`, which arms the
-  card's tap and hold and captures the pointer, and `click`. None stops `keydown`: the card
-  already ignores keys aimed at anything but itself, and stopping them would hide them from
-  Home Assistant's own shortcuts.
-- **Labels follow the card's width, not the viewport's.** From
-  `UI.TOOLBAR_LABEL_MIN_WIDTH` (480px) up, a control carries its label beside its icon;
-  below it, the icon alone, named by `aria-label`. The width is the card's own
-  `ResizeObserver` reading, acted on inside the callback so the first painted frame is
-  already right. A container query was rejected: it needs a `container-type` ancestor,
-  which could capture the `cqh` units grid view sizes against, and happy-dom cannot
-  evaluate one, so it could not be tested.
+  card's tap and hold and captures the pointer, and `click`. So does the `.card-toolbar` box
+  itself (`renderHeaderToolbar`), because the switcher's gray track and the gaps between
+  controls are part of the bar but no button: a near miss there must not run `tap_action`
+  or `hold_action`. None stops `keydown`: the card already ignores keys aimed at anything
+  but itself, and stopping them would hide them from Home Assistant's own shortcuts.
+- **Labels follow the card's width, not the viewport's.** `_toolbarLabeledFor` decides, all
+  or nothing across the bar: every control carries its label beside its icon from
+  `UI.TOOLBAR_LABEL_MIN_WIDTH` (480px) up with the add button alone, and from
+  `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) up with the switcher; below that, each shows
+  its icon alone, named by `aria-label`. Labels are never drawn while Home Assistant offers no
+  words for the add button. The thresholds assume a short title; `_syncToolbarLabelFit`
+  reads the render, and if the labeled bar overflows the header it draws icons until the
+  card is wider than that or the title, language or controls change. It only ever drops
+  labels, so it cannot oscillate. The width is the card's own `ResizeObserver` reading,
+  acted on inside the callback so the first painted frame is already right. A container
+  query was rejected: it needs a `container-type` ancestor, which could capture the `cqh`
+  units grid view sizes against, and happy-dom cannot evaluate one, so it could not be
+  tested.
 - **Controls are native, and share one look.** Every control is a `<button>` styled from
   theme variables rather than an `ha-*` element, so the card names no new Home Assistant
   element: a neutral pill on a gray track, the text color washed into the card, with the
   selected view raised out of it and the theme's primary color kept for the focus ring.
-  Labels are all or nothing across the bar: from `UI.TOOLBAR_LABEL_MIN_WIDTH` with the add
-  button alone, from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) with the switcher, and
-  never while Home Assistant offers no words for the add button. The thresholds assume a
-  short title; `_syncToolbarLabelFit` reads the render, and if the labeled bar overflows the
-  header it draws icons until the card is wider than that or the title, language or controls
-  change. It only ever drops labels, so it cannot oscillate.
 - **The view switcher changes the requested view, never the configuration.** `requestedView`
   is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
   always follows it, so nothing about a switch is new to the fitting code. A switch draws
@@ -271,8 +290,11 @@ The main entry point serves as the orchestrator for the entire card:
   and listens for other cards' change announcements
 - **Configuration Processing**: Handles config updates from Home Assistant
 - **Rendering Coordination**: Builds the component's DOM structure
-
-Key design patterns:
+- **Timers**: Arms the refresh timer for the deadline of the data on screen, and reconciles
+  three display timers in `updated()` against what the render draws — the grid now line,
+  local midnight, and the next event boundary (see _Refresh Mechanisms_).
+  `disconnectedCallback` stops all four
+  Key design patterns:
 
 - Uses [LitElement](https://lit.dev/) for efficient DOM updates and property management
 - Follows Home Assistant's component conventions for seamless integration
@@ -287,6 +309,12 @@ Manages all configuration aspects of the card:
   - Classifies configuration-format markers for safe editor adoption
   - Provides helper functions for normalizing entity configurations
   - Detects configuration changes that require data refresh
+  - Lists the options read at processing time (`PROCESSING_TIME_KEYS`), so a card-level
+    change to one reprocesses the cached events through `hasEntityProcessingChanged`
+  - Reads the `toolbar:` block member by member (`resolveToolbar`), its only reader
+  - Folds an unusable icon size, font size or accent bar width to its shipped default
+    (`FOLDED_OPTIONS`, judged by `toValidSize`, `toValidFontSize` and `toValidBarWidth`)
+  - Reports keys removed in v3.0.0 from the raw configuration (`findDeprecatedKeys`)
   - Generates stub configurations for the card editor
 
 - **constants.ts**:
@@ -307,6 +335,10 @@ Manages all configuration aspects of the card:
     switches between them as the dashboard resizes
   - Computes the width thresholds at which side-by-side layouts engage, and the hysteresis
     that stops it oscillating at the boundary
+  - Picks which days stay when fewer fit (`visibleDayWindowStart`): from today, reaching
+    back only to keep the window full, or the range's first or last days when today lies
+    outside it
+  - Decides whether `event_gap` draws a gap at all (`hasEventGap`)
   - Validates all three view blocks and reports unusable keys
 
 ### Interaction (`interaction/`)
@@ -319,8 +351,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **actions.ts**:
   - Runs `tap_action` and `hold_action`, for the card
-  - Handles the card's own `expand`, and forwards everything else to Home Assistant as a
-    `hass-action` event naming the card's first calendar as the entity
+  - Does nothing for a missing action or `none`, handles the card's own `expand`, and
+    forwards everything else to Home Assistant as a `hass-action` event naming the card's
+    first calendar as the entity
   - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
     event's details itself. It reads any other value as `none`, so it forwards nothing
     for an event
@@ -378,9 +411,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     contain `calendar-card-pro-dev`, which the production build rewrites
 
 - **feedback.ts**:
-  - Creates visual feedback for user interactions
-  - Manages hold indicators with proper timing
-  - Handles cleanup of temporary DOM elements
+  - Creates the hold indicator at the pointer, and fades it out and removes it
+  - Draws no ripple: that is an `<ha-ripple>` which `renderMainCardStructure` in
+    `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`
 
 ### Rendering (`rendering/`)
 
@@ -389,13 +422,18 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 
 - **render.ts**:
   - Renders the card shell — title, header toolbar, states, error and empty output
-  - Renders the **list** view: days stacked vertically, each event a table row
+  - Renders the **list** view: days stacked vertically, each event a table row. While
+    `event_gap` is set (`hasEventGap`), an `aria-hidden` `tr.event-gap-row` sits between two
+    events, the date cell's `rowspan` covers those rows too, and `.day-table` gets
+    `with-event-gap`; grid view ignores the option
   - Exposes Column and Grid renderers for the main component's view dispatch
 
 - **column.ts**:
   - Renders the **column** view: each day a vertical track, laid out side by side
   - Arranges the same leaves as the list view along the other axis, and adds the
     column-only furniture — per-column headers, vertical separators in the gutter
+  - Spaces a day's events by `event_gap` with `row-gap`, marking `.column-events` with
+    `with-event-gap`
 
 - **grid.ts**:
   - Renders the hour gutter, timed-event columns, spanning all-day band, and now line
@@ -415,6 +453,10 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
   - Renders the header toolbar and its controls — the view switcher and the add button —
     following the rule in _Header Toolbar_
 
+- **view-pictograms.ts**:
+  - Draws the picture of each view once, for the editor's view picker and the toolbar's
+    switcher, so both bundles show the same picture
+
 - **activation.ts**:
   - Marks a rendered event as a tap target with a Lit property, `calendarCardEventTap`,
     which leaves no trace in the markup; the gesture recognizer reads it from the
@@ -433,13 +475,23 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
-    today indicator
+    today indicator, and the accent bar (`renderAccentBar`) — an `.event-accent-bar` element
+    of its own, the first child of every list, column and grid timed event, painted from
+    `--calendar-card-event-accent-bar-color`
   - Receives resolved values and presentation hints from the containers, keeping shared
     content consistent across views
 
 - **presentation.ts**:
   - Computes everything about an event that does not depend on layout: whether it has
-    already ended, its accent colors, and the pre-computed parts its body renders
+    already ended, whether it is running (`isEventCurrentlyRunning`) and, with
+    `show_now_indicator`, its localized "Now" label (`getNowString`), its accent colors, and
+    the pre-computed parts its body renders
+
+- **accent-text.ts**:
+  - Pairs each text color the `accent` sentinel governs with the custom property it renders
+    through, read by both `styles.ts` and `presentation.ts`
+  - Imports no stylesheet, renderer or Lit, so the editor can read the table without
+    pulling the card's CSS into its bundle
 
 - **styles.ts**:
   - Defines CSS styles as LitElement templates
@@ -460,6 +512,9 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     matters after reopening. A transition to Grid copies only authored choices, never
     implicit view defaults; Reset removes selected view values without an exception picker
   - Gates legacy adoption through `config_version` and a one-time choice where necessary
+  - Hands `ha-form` a `hass` whose `localize` is wrapped (`hass-localize.ts`), so Home
+    Assistant's action editor names the card's own `expand` action instead of printing its
+    raw key
 
 ### Translations (`translations/`)
 
@@ -469,6 +524,8 @@ Provides internationalization support:
   - Shares locale mapping between Day.js's natural relative-time wording and native relative-unit formatting
   - Formats later-date countdowns through Day.js with both reference and target anchored to their local calendar dates, retaining its natural day/month/year selection
   - Uses cached `Intl.RelativeTimeFormat` instances for "tomorrow" and explicit same-day hour counts, while Day.js retains its short clock phrases
+  - Words the running event's "Now" label (`getNowString`): `Intl.RelativeTimeFormat` for
+    zero seconds, capitalized and cached per locale
 
 - **localize.ts**:
   - Manages language detection and selection
@@ -511,6 +568,9 @@ Provides core functionality across the card:
     and ellipsis criterion still fits; otherwise keeps the labels' normal wrapping.
     The same batched measurement runs before Grid disclosure and List/Column title scrolling
   - Measures complete timed label/title groups after the normal Grid disclosure transaction
+  - Lets a labeled title's first word start on the labels' line, narrowing it to the room
+    they leave (`leadGridTitles`), and stops a title running past its block at the last
+    whole line it shows, ending that line in an ellipsis (`cutGridTitleLines`)
   - Compares text by its line boxes, not its font's content area, which overhangs a line
     whose line-height is below ascent plus descent (12px Roboto in Firefox, Noto Sans anywhere)
   - Tries symmetric compact insets before scaling, protecting every text part's font floor
@@ -519,6 +579,21 @@ Provides core functionality across the card:
   - Reuses one parked measurement range per document, returning rectangle snapshots instead
     of leaving per-event live ranges to burden later DOM mutations
   - Leaves time geometry, all-day banners, and ordinary List/Column rendering unchanged
+
+- **grid-time-fit.ts**:
+  - Measures each grid block's time row and picks its step on a fixed ladder: clock icon
+    with start and end, start and end, the same across two lines, start, nothing. It never
+    truncates a clock reading
+
+- **grid-cascade-threshold.ts / grid-overflow-strip.ts**:
+  - Turn what the card measures after a render into the two inputs `utils/grid.ts` takes
+    without knowing pixels: the cascade threshold in minutes, and the `+N` strip's width as
+    a share of the day column
+
+- **title-words.ts**:
+  - Splits a grid title into words, so it wraps only at spaces and a word too wide for its
+    lane ends in "…". Runs in scripts written without spaces are left to the browser, and a
+    right-to-left title is not split
 
 - **events.ts**:
   - Fetches calendar events from Home Assistant API
@@ -558,6 +633,22 @@ Provides core functionality across the card:
   - Parses the relative-date grammar accepted by `start_date`, such as `today+7`
     and `start_of_week`
 
+- **event-age.ts**:
+  - Reads the `YEAR=` marker from a description and turns it into the bracketed age or
+    anniversary count appended to the title
+
+- **text-replace.ts**:
+  - Applies a calendar's `replace_pattern` and `replace_with` to one field of an event, for
+    display only
+
+- **entity-colors.ts / entity-icons.ts / person-pictures.ts**:
+  - Inherit a calendar's look from Home Assistant. `entity-colors.ts` defines the two color
+    sentinels, `home-assistant` and `accent`, and fetches the colors the first one names
+    from the entity registry: once per page over the WebSocket, refreshed when the registry
+    changes, and only for a card that uses it. Icons, for `label: home-assistant`, and
+    person pictures, for `label: person.*`, are read from entity state attributes on
+    `hass`, with no fetch
+
 - **helpers.ts**:
   - Provides color manipulation utilities
   - Generates deterministic IDs for caching
@@ -577,6 +668,10 @@ Provides core functionality across the card:
 - **editor-url.ts**:
   - Computes where `editor.js` sits relative to the card, and carries the card's own
     cache-busting query onto it (see _Two Files, One Card_)
+
+- **view-choice.ts**:
+  - Remembers the view switcher's choice per device, in one `localStorage` entry keyed by a
+    fingerprint of the raw configuration (see _Header Toolbar_)
 
 - **weather.ts**:
   - Fetches and processes forecast data, and matches forecasts to events
@@ -616,11 +711,11 @@ graph TD
     Leaves --> Present[Presentation Models]
     Render --> Styles[CSS Generation]
     Render --> Localize[Translations]
+    Render --> Ripple[Ripple Effects]
 
     %% Interaction flow
     Inter --> Actions[Action Handling]
-    Inter --> Ripple[Ripple Effects]
-    Inter --> Feedback[Visual Feedback]
+    Inter --> Feedback[Hold Indicator]
     Inter --> Dialogs[Home Assistant Calendar Dialogs]
     Dialogs --> Changes[Page-Wide Change Announcement]
 
@@ -652,7 +747,9 @@ graph TD
 2. **Data Processing**:
    - Raw calendar events are filtered for relevant dates
    - Events are grouped by day using `groupEventsByDay()` with the effective view's options
-   - Each event is enhanced with formatted time and location strings
+   - `processEvents` stamps each event with `_source`, `_matchedConfig` and `_entityLabel`;
+     `groupEventsByDay` formats the location on the display copy it projects, and
+     `buildEventPresentation` builds the time text at render
    - Entity-specific styling is applied to each event
    - Grid keeps source event types intact for its separate timed-segment and all-day-band
      placement, rather than using the List/Column multi-day splitter
@@ -666,12 +763,37 @@ graph TD
 4. **Refresh Mechanisms**:
    - The refresh timer is armed for the deadline of the data on screen: one
      `refresh_interval` after it was fetched, or the retry deadline while a calendar fails
-   - A tab returning after five minutes reads the cache, and refetches only if it is due
+   - A tab returning more than five minutes after the card last loaded every calendar
+     (`_lastUpdateTime`, set in `_commitEvents`) runs a `cache` load, which refetches only
+     if the cache is due
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
-   - Grid view refetches when the local day rolls over
+   - While grid view draws its now line, a timer repaints it once a minute
+     (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
+     including a rollover that passed while the timer was stopped
+   - While column or grid view draws fewer day columns than `days_to_show`, a timer fires
+     just after local midnight (`_syncMidnightTimer`). It re-renders, so the visible window
+     moves to the new today, and runs a `cache` load, which fetches only if the window it
+     asks for moved, as a relative `start_date` can at midnight, or the cache is due
+   - List, column, and grid without its now line repaint at the next start or end of a
+     timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
+     then past on time. That timer only repaints; it never fetches
+   - The now-line and event-boundary timers stop while the tab is hidden, and a returning
+     tab repaints at once
    - `refreshEvents()` refetches without joining a request that may have started before a
      calendar changed. Given a write's generation, it joins a request started since that
      write; given none, it joins nothing
+
+Every load above names one of the five modes `updateEvents` takes (`LoadMode`); its
+docblock holds the last two columns of this table. Every mode but `reload` joins a matching
+request already in flight rather than stopping at the cache.
+
+| Mode        | Used by                                                  | Draws the cache                | Asks Home Assistant when                                                                  |
+| ----------- | -------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `navigate`  | the card appearing, or configured before it first loaded | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
+| `cache`     | the refresh timer, a returning tab, the midnight timer   | only if not due                | nothing fresh is cached                                                                   |
+| `reprocess` | a per-calendar edit                                      | anything up to 24 h old        | nothing is cached at all                                                                  |
+| `network`   | a later configuration change, the grid day rollover      | no                             | always, joining a matching request under way                                              |
+| `reload`    | `refreshEvents()`, after a write                         | no                             | always, never joining a request from before the write                                     |
 
 ### Interaction Flow
 
@@ -702,9 +824,12 @@ graph TD
      the create and detail dialogs refuse, so nothing in a preview can write to a calendar.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
-   - `actions.ts` handles tap, hold and event-tap actions
-   - Expansion toggle, event details, navigation, and service calls
-   - Home Assistant service integration
+   - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
+     action or `none`, handles the card's own `expand`, and forwards everything else to Home
+     Assistant through `fireHassAction`, so
+     navigation, service calls and the rest run as they do for Home Assistant's own cards
+   - An event tap never reaches `actions.ts`: `_runEventTapAction` in `calendar-card-pro.ts`
+     opens the event's details through `openEventDetailDialog` in `ha-calendar-dialogs.ts`
 3. **After a Write**:
    - A dialog's `updated` callback advances the page's write generation once
      (`advanceWriteGeneration` in `events.ts`), calls `refreshEvents()` with it, and
@@ -774,8 +899,9 @@ The card supports a `start_date` configuration option that allows viewing calend
 2. **Date Parsing**: Falls back to ISO format and YYYY-MM-DD when the input is not a relative
    expression
 3. **Week Awareness**: `start_of_week` and weekday operators receive the resolved
-   `first_day_of_week` (threaded from `fetchEventData` as a required parameter, so every call
-   site is forced to supply it)
+   `first_day_of_week`, resolved once per request in `resolveRequest`, which both
+   `fetchEventData` and `readEventSnapshot` call, and passed to `getTimeWindow` as a required
+   parameter, so no call site can leave it out
 4. **API Integration**: Uses the start date to fetch the appropriate time window from the API
 5. **Cache Integration**: Includes the raw start date string in cache keys to ensure proper data refresh when changed
 
@@ -784,7 +910,8 @@ The card supports a `start_date` configuration option that allows viewing calend
 Each calendar entity can have custom styling:
 
 1. **Per-Entity Colors**: Customize text color by calendar source
-2. **Accent Colors**: Vertical line colors for visual separation
+2. **Accent Colors**: An `.event-accent-bar` element beside each event, painted from
+   `--calendar-card-event-accent-bar-color`, for visual separation
 3. **Background Colors**: Optional semi-transparent backgrounds
 4. **Labels**: Entity-specific labels or emoji for visual differentiation
 
@@ -802,31 +929,42 @@ Event display adapts based on event type:
 The calendar card implements efficient rendering to maintain responsiveness even with many events:
 
 1. **Pure Function Pattern**: Render functions are implemented as pure functions that generate TemplateResults
-2. **Stable DOM Structure**: The card maintains a consistent DOM structure for compatibility with card-mod
+2. **Stable DOM Structure**: The card maintains a consistent DOM structure for compatibility
+   with card-mod. The accent stripe is the exception v5 made: it is an `.event-accent-bar`
+   child of the event rather than a border on `.event`, so a rule styling that border no
+   longer reaches it (see [Card & event classes](/features/theming#card-event-classes))
 3. **Efficient Updates**: Uses lit-html's efficient diffing algorithm to minimize DOM operations
 
 ```typescript
-// Example of pure function rendering approach
-export function renderEvent(
+// Simplified sketch of the pure-function approach. The real `renderEvent` in
+// `rendering/render.ts` is module-private, takes more parameters (today, forecasts, hass,
+// tap state), and gets its classes and colors from `buildEventPresentation`.
+function renderEvent(
   event: Types.CalendarEventData,
   day: Types.EventsByDay,
   index: number,
   config: Types.Config,
   language: string,
 ): TemplateResult {
-  // Determine styles and classes based on event properties
+  const presentation = buildEventPresentation(event, config, language);
+
+  // Determine classes based on event properties
   const eventClasses = {
     event: true,
     'event-first': index === 0,
     'event-last': index === day.events.length - 1,
-    'past-event': isPastEvent(event),
+    'past-event': presentation.isPastEvent,
   };
 
   // Return immutable template
   return html`
     <tr>
       ${index === 0 ? html`<td class="date-column" rowspan="${day.events.length}">...</td>` : ''}
-      <td class=${classMap(eventClasses)} style=${styleMap(eventStyles)}>
+      <td
+        class=${classMap(eventClasses)}
+        style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}"
+      >
+        ${renderAccentBar()}
         <!-- Event content -->
       </td>
     </tr>
@@ -846,6 +984,8 @@ The card implements a multi-level caching strategy:
      such as `show_past_events` and `filter_duplicates` are reapplied on every read,
      so toggling one re-renders from cache instead of refetching
    - Cache duration is configurable through refresh_interval setting
+   - A response that loaded every calendar and returned no events is due again after
+     15 seconds (`EMPTY_RESULTS_CACHE_DURATION_SECONDS`) rather than a full interval
    - An entry past its lifetime is kept for drawing until it is 24 hours old
    - Each entry records which calendars failed, when each last loaded, and when to
      retry, so every card sharing the key follows one backoff. A failed calendar keeps
@@ -858,8 +998,9 @@ The card implements a multi-level caching strategy:
 
 3. **Intelligent Cache Refresh**:
    - Cache is refreshed automatically based on configured interval
-   - A card that appears refetches in the background only when its data is at least
-     5 seconds old, so a reload right after a fetch does not repeat it
+   - A card that appears refetches in the background only with `refresh_on_navigate` on,
+     no calendar failing — a failing one waits for its retry deadline — and its data at
+     least 5 seconds old, so a reload right after a fetch does not repeat it
    - A failing calendar is retried after 1 minute, doubling up to the refresh interval
    - Reactive to page visibility changes
 

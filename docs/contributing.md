@@ -97,6 +97,9 @@ For those interested in contributing code, I maintain detailed **[architecture d
 
 - **Bulgarian** (`bg`)
 - **Catalan** (`ca`)
+- **Chinese (Simplified)** (`zh-cn`)
+- **Chinese (Traditional)** (`zh-tw`)
+- **Croatian** (`hr`)
 - **Czech** (`cs`)
 - **Danish** (`da`)
 - **Dutch** (`nl`)
@@ -108,7 +111,6 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **German** (`de`)
 - **Greek** (`el`)
 - **Hebrew** (`he`)
-- **Croatian** (`hr`)
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
@@ -129,8 +131,6 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Turkish** (`tr`)
 - **Ukrainian** (`uk`)
 - **Vietnamese** (`vi`)
-- **Chinese (Simplified)** (`zh-cn`)
-- **Chinese (Traditional)** (`zh-tw`)
 
 To add a new language:
 
@@ -160,7 +160,7 @@ To add a new language:
 2. Copy the structure from `en.json` and translate all values (not keys)
 3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`
 4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
-5. Add a `- **German** (de)` entry to the list above
+5. Add a ``- **German** (`de`)`` entry to the list above
 
 ### Translating the Editor
 
