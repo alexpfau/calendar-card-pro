@@ -704,8 +704,8 @@ export const VIEW_FORM_BLOCKS: Readonly<
 /**
  * Builds the `toolbar:` block as the form should show it.
  *
- * The two controls default on inside a shown toolbar, so binding the block raw would show
- * them unticked under a freshly switched-on toolbar while the card draws both. Read through
+ * The v5 controls and the labels default on inside a shown toolbar, so binding the block raw
+ * would show them unticked under a freshly switched-on toolbar while the card draws them. Read through
  * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
  * {@link stripToolbarDefaults} takes the defaults back out on write.
  *
@@ -717,6 +717,8 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
 
   return {
     show: toolbar.show,
+    labels: toolbar.labels,
+    navigation: toolbar.navigation,
     view_switcher: toolbar.viewSwitcher,
     add_event: toolbar.addEvent,
   };

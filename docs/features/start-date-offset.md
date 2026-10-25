@@ -137,4 +137,8 @@ Anchoring each card to `start_of_week` is what keeps the row in calendar order: 
 - **Fixed date range**: Using a specific date for `start_date` creates a static calendar view that always shows the same range
 - **Dynamic date range**: Using relative offsets creates a "floating" window that automatically adjusts as time passes
 
+Either way, `start_date` sets the days the card opens with. The toolbar's
+[date navigation](/features/layout-appearance#paging-through-dates) can page away from them,
+and its home button always returns to them, today or not.
+
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

@@ -67,6 +67,7 @@ export function drawsEvent(
  * @param notice The fetch-failure notice, drawn after the content
  * @param toolbar The controls for the header toolbar; none draws no toolbar
  * @param hostsControls Whether the card draws interactive children of its own
+ * @param contentPending Whether the days drawn are about to be replaced by another page's
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -92,6 +93,7 @@ export function renderMainCardStructure(
   notice: TemplateResult | typeof nothing = nothing,
   toolbar: Toolbar.HeaderToolbar = {},
   hostsControls: boolean = false,
+  contentPending: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -110,11 +112,20 @@ export function renderMainCardStructure(
   //   text node to the header.
   // - trailing actions only (refresh and the view switch later, add always last): in the
   //   title's row at its inline end, or in a slim row of their own when there is no title.
-  // - a leading group (previous / Today / next and the visible range, later): a row of its
-  //   own between the title and the events, with the legend lane below it.
+  // - with the date navigation: a band of its own between the title and the events, the
+  //   dates leading and the trailing actions at its end, wrapping onto a second row where the
+  //   card is too narrow for both; a legend lane, later, below it.
   // The toolbar stays inside `.header-container`, after the h1 or the
   // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
   const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
+  const headerClass = !toolbarBlock
+    ? 'header-container'
+    : toolbar.navigation
+      ? 'header-container has-toolbar has-band'
+      : 'header-container has-toolbar';
+  // Days about to give way to another page's are dimmed until its events arrive. A class
+  // only while that is so, so the container reads as it always has otherwise.
+  const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
   const cardClasses = [
@@ -161,12 +172,12 @@ export function renderMainCardStructure(
            text, so a template resolving to an empty string collapses back to
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
-      <div class=${toolbarBlock ? 'header-container has-toolbar' : 'header-container'}>
+      <div class=${headerClass}>
         ${toolbarBlock ? html`${titleBlock}${toolbarBlock}` : titleBlock}
       </div>
 
       <!-- Content container is always present -->
-      <div class="content-container">${content}</div>
+      <div class=${contentClass}>${content}</div>
       ${notice}
     </ha-card>
   `;

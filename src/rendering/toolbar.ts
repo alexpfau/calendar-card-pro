@@ -2,17 +2,18 @@
  * The header toolbar: the card's own controls, between the title and the events.
  *
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
- * it did before there was a toolbar. Its markup is built for the controls still to come:
- * a leading group for navigation (previous, Today, next) and the visible range, and a
- * trailing group for actions (refresh, the view switcher, and add, always last). The view
- * switcher and add exist so far, so only the trailing group is ever drawn.
+ * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
+ * leading group for the dates (previous, home and next on one track, then the range on
+ * screen, which opens a date picker), and a trailing group for the view switcher and the
+ * commands (refresh, still to come, then add, always last). A calendar legend, when it
+ * comes, gets a lane of its own below.
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
  * out of it. The theme's primary color is kept for the keyboard focus ring, so the bar never
  * competes with the events for attention.
  */
 
-import { mdiPlus } from '@mdi/js';
+import { mdiCalendarToday, mdiChevronLeft, mdiChevronRight, mdiMenuDown, mdiPlus } from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
@@ -47,6 +48,34 @@ export interface ViewSwitcher {
   onSelect: (view: Types.EffectiveView) => void;
 }
 
+/** What the card hands the wrapper when it should draw the date navigation. */
+export interface DateNavigation {
+  /** The dates on screen, in the card's language. */
+  range: string;
+  /**
+   * The widest name a page of this length can have in this language. The range reserves
+   * room for it, so paging changes the words and never moves a control.
+   */
+  widestRange: string;
+  /** The home button's name: "Today", or the day the card's own window starts on. */
+  homeName: string;
+  /**
+   * Home Assistant's names for the arrows, shown as their tooltips, or undefined when it has
+   * none; the arrows are then named in English for assistive technology alone.
+   */
+  previousName: string | undefined;
+  nextName: string | undefined;
+  /** True while the card is being edited: everything is drawn, and nothing opens or moves. */
+  inert: boolean;
+  /** The first day on screen, as `YYYY-MM-DD`, which the date picker opens on. */
+  pickerValue: string;
+  onPrevious: () => void;
+  onHome: () => void;
+  onNext: () => void;
+  /** A day picked in the date picker, as `YYYY-MM-DD`. */
+  onPick: (date: string) => void;
+}
+
 /** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
   /**
@@ -54,6 +83,8 @@ export interface HeaderToolbar {
    * icon. Icon-only otherwise, with the label as the control's accessible name.
    */
   labeled?: boolean;
+  /** The date navigation, which leads the bar and gives it a row of its own. */
+  navigation?: DateNavigation;
   /** The view switcher, just before add. */
   viewSwitcher?: ViewSwitcher;
   /** The add-event button, always the last control in the trailing group. */
@@ -71,6 +102,10 @@ export interface HeaderToolbar {
  * be worse than an icon.
  */
 const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
+
+/** The arrows' accessible names when Home Assistant has none, under the same rule. */
+const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
+const UNLOCALIZED_NEXT_NAME = 'Next';
 
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
@@ -97,6 +132,95 @@ export const VIEW_LABEL_KEYS = {
  */
 function stopCardGesture(ev: Event): void {
   ev.stopPropagation();
+}
+
+/** Date pickers the card opened and has not seen close yet, each with how to stop following. */
+const openDatePickers = new WeakMap<HTMLInputElement, () => void>();
+
+/** Date inputs whose open picker the press under way closed. */
+const pickersClosedByPress = new WeakSet<HTMLInputElement>();
+
+/**
+ * Whether the input's picker is showing, or undefined where the browser cannot say.
+ *
+ * @param input - A date input
+ * @returns The `:open` state, if the browser knows the selector
+ */
+function datePickerOpen(input: HTMLInputElement): boolean | undefined {
+  try {
+    return input.matches(':open');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether the input holds focus in its own tree.
+ *
+ * @param input - A date input
+ * @returns True while it is the focused element
+ */
+function hasFocus(input: HTMLInputElement): boolean {
+  return (input.getRootNode() as Document | ShadowRoot).activeElement === input;
+}
+
+/**
+ * Follows a picker the card just opened, focused, until it closes.
+ *
+ * Browsers close their pickers in two ways a press on the range has to fit. Chrome closes its
+ * picker on any press outside it and then hands that press to the page, so the press that
+ * closes it would open it again at once. Safari closes its picker when the input loses focus,
+ * and otherwise only on a scroll, which is why the input is focused to open it. So a press on
+ * the range that finds the picker followed here closes it, by taking focus from the input,
+ * and opens nothing.
+ *
+ * The picker counts as closed when the input loses focus, a day is picked or Escape is
+ * pressed, and, where the browser reports `:open`, once that turns false: Chrome keeps the
+ * input focused when its picker closes, and nothing else tells the page, so that is checked
+ * once a frame. If the input still has focus then, it goes back to the range button where
+ * the button had it, so a keyboard is where it started, or else nowhere. While it is followed
+ * the input is exposed to assistive technology, named by the dates, because it holds focus.
+ *
+ * @param input - The input whose picker was just shown
+ * @param returnFocus - The range button, if it had focus when it was pressed
+ */
+function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | null): void {
+  openDatePickers.get(input)?.();
+  const listeners: Array<[string, (ev: Event) => void]> = [];
+  const stop = (): void => {
+    openDatePickers.delete(input);
+    for (const [type, listener] of listeners) input.removeEventListener(type, listener);
+    input.setAttribute('aria-hidden', 'true');
+  };
+  const closed = (): void => {
+    if (!openDatePickers.has(input)) return;
+    stop();
+    if (!hasFocus(input)) return;
+    if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+    else input.blur();
+  };
+  const listen = (type: string, listener: (ev: Event) => void): void => {
+    input.addEventListener(type, listener);
+    listeners.push([type, listener]);
+  };
+  listen('blur', stop);
+  listen('change', closed);
+  listen('keydown', (ev) => {
+    if ((ev as KeyboardEvent).key === 'Escape') closed();
+  });
+  openDatePickers.set(input, stop);
+  input.removeAttribute('aria-hidden');
+
+  if (datePickerOpen(input) !== true) return;
+  const check = (): void => {
+    if (!openDatePickers.has(input)) return;
+    if (!input.isConnected || datePickerOpen(input) !== true) {
+      closed();
+      return;
+    }
+    requestAnimationFrame(check);
+  };
+  requestAnimationFrame(check);
 }
 
 /**
@@ -213,13 +337,161 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
 }
 
 /**
+ * Render the date navigation: previous, home and next on one track, then the range on
+ * screen, which opens the browser's own date picker.
+ *
+ * The three buttons share a track, styled like the view switcher's but with nothing raised,
+ * because they are one control: a step back, a way home and a step forward. Home is always
+ * an icon, named by its tooltip, so the track is the same width in every language and at
+ * every card width. The arrows are drawn for left-to-right reading and mirrored in a
+ * right-to-left one, where "previous" points right.
+ *
+ * The range is a button over a hidden native date input. Pressing it focuses the input and
+ * asks it to show its picker; a browser that cannot gets the input clicked instead. Pressed
+ * while the picker it opened is showing, it closes it (`followDatePicker`). The input stays
+ * out of the tab order and, unless it holds focus for its picker, away from assistive
+ * technology: the button is the control, and the input only lends it the browser's picker.
+ * The button is as wide as the dates it names.
+ * Behind it, in the same grid cell, an invisible copy of the widest label this page length
+ * can have keeps that much room, so the band wraps by the card's width and never by the
+ * dates, and a press never moves the controls after it. The label is a polite live region,
+ * so the new dates are read out after a press.
+ *
+ * @param nav - Navigation description from the card
+ * @returns The leading group
+ */
+function renderDateNavigation(nav: DateNavigation): TemplateResult {
+  const press = (handler: () => void) => (ev: Event) => {
+    ev.stopPropagation();
+    handler();
+  };
+  const inputBeside = (button: EventTarget | null): HTMLInputElement | null =>
+    (button as HTMLElement | null)?.parentElement?.querySelector<HTMLInputElement>(
+      'input.toolbar-date-input',
+    ) ?? null;
+  const pressRange = (ev: Event) => {
+    stopCardGesture(ev);
+    const input = inputBeside(ev.currentTarget);
+    if (!input) return;
+    pickersClosedByPress.delete(input);
+    const stop = openDatePickers.get(input);
+    if (!stop) return;
+    stop();
+    pickersClosedByPress.add(input);
+    input.blur();
+  };
+  const openPicker = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const button = ev.currentTarget as HTMLElement;
+    const input = inputBeside(button);
+    if (!input) return;
+    // Only a pointer's click: a key press arrives without a pointerdown of its own.
+    if (pickersClosedByPress.delete(input) && ev.detail > 0) return;
+    if (nav.inert) return;
+    const returnFocus =
+      (button.getRootNode() as Document | ShadowRoot).activeElement === button ? button : null;
+    input.value = nav.pickerValue;
+    input.focus({ preventScroll: true });
+    try {
+      input.showPicker();
+      followDatePicker(input, returnFocus);
+    } catch {
+      input.click();
+    }
+  };
+  const onChange = (ev: Event) => {
+    const value = (ev.target as HTMLInputElement).value;
+    if (value) nav.onPick(value);
+  };
+  const segment = (
+    name: string | undefined,
+    fallback: string,
+    path: string,
+    handler: () => void,
+    direction: boolean,
+  ) =>
+    html`<button
+      type="button"
+      class="date-navigation-segment"
+      aria-label=${name ?? fallback}
+      title=${name ?? nothing}
+      @pointerdown=${stopCardGesture}
+      @click=${press(handler)}
+    >
+      <svg
+        class=${direction ? 'toolbar-button-icon date-navigation-direction' : 'toolbar-button-icon'}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d=${path}></path>
+      </svg>
+    </button>`;
+
+  // The group is named by the dates it moves through, so a screen reader entering it hears
+  // where it is before which way it can go.
+  return html`<div class="toolbar-leading" role="group" aria-labelledby="toolbar-range-text">
+    <div class="date-navigation">
+      ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
+      ${segment(nav.homeName, nav.homeName, mdiCalendarToday, nav.onHome, false)}
+      ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
+    </div>
+    <div class="toolbar-range-anchor">
+      <span class="toolbar-range-reserve" aria-hidden="true">${nav.widestRange}</span>
+      <span class="toolbar-range-slot">
+        <button type="button" class="toolbar-range" @pointerdown=${pressRange} @click=${openPicker}>
+          <span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
+            ><bdi>${nav.range}</bdi
+            ><svg
+              class="toolbar-range-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d=${mdiMenuDown}></path></svg
+          ></span>
+        </button>
+        <input
+          type="date"
+          class="toolbar-date-input"
+          tabindex="-1"
+          aria-hidden="true"
+          aria-labelledby="toolbar-range-text"
+          .value=${nav.pickerValue}
+          @change=${onChange}
+        />
+      </span>
+    </div>
+  </div>`;
+}
+
+/**
+ * Render the trailing group: the view switcher, then add, always last.
+ *
+ * @param toolbar - The controls the card wants
+ * @param labeled - Whether the controls carry their labels
+ * @returns The group, or nothing when it holds no control
+ */
+function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResult | typeof nothing {
+  if (!toolbar.addEvent && !toolbar.viewSwitcher) return nothing;
+
+  return html`<div class="toolbar-trailing">
+    ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+    ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
+  </div>`;
+}
+
+/**
  * Render the header toolbar, or nothing when it would hold no control.
  *
  * Where it sits is the layout rule. With only trailing actions and a title — a pending
  * templated title included — the actions share the title's row, at its inline end, so
  * the title keeps its markup and the card gains no height. With only trailing actions
- * and no title they get a slim row of their own. A leading group, once there is one,
- * always takes a row of its own between the title and the events.
+ * and no title they get a slim row of their own. With the date navigation the toolbar is
+ * a band of its own between the title and the events, the dates at its start and the
+ * trailing group at its end; where the card is too narrow for both on one row, the
+ * trailing group wraps onto a second one. Which row each group is on depends on the card's
+ * width and the controls it holds, never on the dates it shows.
  *
  * @param toolbar - The controls the card wants
  * @param hasTitle - Whether the header draws a title, pending or not
@@ -229,9 +501,19 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   hasTitle: boolean,
 ): TemplateResult | undefined {
-  if (!toolbar.addEvent && !toolbar.viewSwitcher) return undefined;
+  if (!toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.navigation) return undefined;
 
   const labeled = toolbar.labeled === true;
+
+  if (toolbar.navigation) {
+    return html`<div
+      class="card-toolbar toolbar-band"
+      @pointerdown=${stopCardGesture}
+      @click=${stopCardGesture}
+    >
+      ${renderDateNavigation(toolbar.navigation)} ${renderTrailing(toolbar, labeled)}
+    </div>`;
+  }
 
   // The press guard sits on the toolbar's own box as well as on each control, because the
   // switcher's gray track and the gaps between controls are part of the bar but no button:

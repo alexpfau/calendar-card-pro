@@ -111,8 +111,8 @@ The `event_background_opacity` option (ranging from 0-100) works together with e
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
 and the title keeps Home Assistant's card header size.
 
-The header can also hold a [toolbar](#header-toolbar) with a view switcher and an add-event
-button.
+The header can also hold a [toolbar](#header-toolbar) with arrows to page through the dates,
+a view switcher and an add-event button.
 
 When styling your calendar, you can use:
 
@@ -139,9 +139,10 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 
 ## 🧰 Header Toolbar
 
-The card can carry a toolbar of its own controls in its header: a view switcher between the
-List, Columns and Grid layouts, and a button for adding events. One option turns the toolbar
-on, and both controls with it:
+The card can carry a toolbar of its own controls in its header: arrows to
+[page through the dates](#paging-through-dates), a view switcher between the List, Columns and
+Grid layouts, and a button for adding events. One option turns the toolbar on, and the view
+switcher and the add button with it:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -156,7 +157,7 @@ toolbar:
 The controls sit at the end of the title's row, so the card grows no taller; a card without a
 title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
 toolbar never competes with the events for attention, and the theme's primary color only
-rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider.
+rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width.
 
 Either control can be turned off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
@@ -166,6 +167,58 @@ toolbar:
   show: true
   add_event: false
 ```
+
+### Paging Through Dates
+
+`navigation: true` adds the date navigation, which leads the toolbar: arrows back and forward
+on either side of a button home, then the dates on screen.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.ben
+days_to_show: 7
+start_date: start_of_week
+toolbar:
+  show: true
+  navigation: true
+```
+
+The arrows move by as many days as the card shows, a week here. Columns and Grid draw fewer
+days on a narrow card, and the arrows then move by the days drawn, so no day is ever skipped.
+The button between them returns to the days the card opens with, the window its
+[`start_date`](/features/start-date-offset) sets. It is a calendar icon, named "Today" in its
+tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
+the day it starts on.
+
+The dates on screen open the browser's own date picker, and pressing them again closes it. Picking a day shows the page that holds
+it, lined up with the card's own pages, so a week card still starts its week on the usual day.
+The picker is the browser's, so it speaks the browser's language rather than the card's.
+
+With the date navigation the toolbar takes a band of its own between the title and the events:
+the dates at its start, the other controls at its end. On a card too narrow for both, the other
+controls move to a second row. Which row a control sits on depends on the card's width, never
+on the dates shown, so paging never moves one.
+
+A few things work differently away from the days the card opens with:
+
+- **Events that have ended are shown,** dimmed as usual, even with `show_past_events: false`.
+  Looking back at last week is the point of paging there.
+- **`hide_when_empty` does not hide the card,** so a card paged to an empty week keeps its
+  arrows. It hides the card on its own days, as it always has.
+- **The add button suggests the first day on screen,** unless the page includes today.
+
+Where you are is never saved. A reload, a change to the card's configuration and a dashboard
+entering edit mode all bring the card back to its own days, and a page stays on its dates at
+midnight while those move on. Switching layouts keeps the page, and loads nothing. Each page's
+events are fetched the first time it is shown and kept in memory while the dashboard is open,
+never in the browser's storage, so paging back over them is instant and leaves nothing behind.
+
+::: tip Nothing Pages While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the date navigation is drawn but
+does nothing, and the card shows the days it opens with.
+:::
 
 ### Switching Between Layouts
 

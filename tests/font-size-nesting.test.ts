@@ -548,6 +548,9 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // The header toolbar shares the title's row and sizes itself from the title's option, so
   // it is drawn here beside the title it must not be nested in.
   ['header toolbar', { toolbar: { show: true } }],
+  // The date navigation gives the toolbar a band of its own under the title, with the range
+  // as a button of its own text.
+  ['date navigation', { toolbar: { show: true, navigation: true } }],
 ];
 
 /**
@@ -657,6 +660,21 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       config.toolbar?.show
         ? {
             labeled: true,
+            navigation: config.toolbar.navigation
+              ? {
+                  range: 'Jun 17 – Jun 23',
+                  widestRange: 'Jan 26 – Feb 1, 2000',
+                  homeName: 'Today',
+                  previousName: 'Previous',
+                  nextName: 'Next',
+                  pickerValue: '2026-06-17',
+                  inert: false,
+                  onPrevious: () => undefined,
+                  onHome: () => undefined,
+                  onNext: () => undefined,
+                  onPick: () => undefined,
+                }
+              : undefined,
             viewSwitcher: {
               views: VIEWS.map((option) => ({ view: option, label: option, available: true })),
               selected: view,
@@ -911,6 +929,10 @@ describe('every piece of text is sized by its own option', () => {
     expect(sizedText(analyzeAll().runs)).toEqual({
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
+      // The date navigation's range, a control as well, and the invisible copy of its widest
+      // label that reserves the room beside the button rather than inside it: both at Home
+      // Assistant's control size, so the reserve is exactly as wide as the label it stands for.
+      'bdi in toolbar-range-text': ['--ha-font-size-m'],
       'calendar-label in summary': ['event_font_size'],
       'card-header in header-container': ['title_font_size'],
       'day in column-date-content': ['day_font_size'],
@@ -940,6 +962,7 @@ describe('every piece of text is sized by its own option', () => {
       // the same as the buttons around the card whatever the card's own sizes are.
       'toolbar-button-label in toolbar-button': ['--ha-font-size-m'],
       'toolbar-button-label in view-switcher-segment': ['--ha-font-size-m'],
+      'toolbar-range-reserve in toolbar-range-anchor': ['--ha-font-size-m'],
       'weather-temp-high in weather': ['weather.date.font_size'],
       'week-number in column-week-number': ['week_number_font_size'],
       'week-number in week-number-cell': ['week_number_font_size'],

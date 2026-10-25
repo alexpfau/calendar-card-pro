@@ -717,6 +717,13 @@ export interface WeatherPositionConfig {
 export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
+  /**
+   * Whether controls carry a text label beside their icon when the card has room for it.
+   * Off keeps every control an icon, named by its tooltip.
+   */
+  labels?: boolean;
+  /** Previous, home and next, and the range on screen, which opens a date picker. First. */
+  navigation?: boolean;
   /** The add-event button, always the last control. */
   add_event?: boolean;
   /** The List / Columns / Grid switcher, just before the add button. */
