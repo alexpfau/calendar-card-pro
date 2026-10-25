@@ -157,7 +157,7 @@ toolbar:
 The controls sit at the end of the title's row, so the card grows no taller; a card without a
 title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
 toolbar never competes with the events for attention, and the theme's primary color only
-rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width.
+rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps the view switcher and the add button icons at any width. The date navigation is unaffected: its home button is always an icon, and the dates on screen are always words.
 
 Either control can be turned off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
@@ -213,7 +213,8 @@ Where you are is never saved. A reload, a change to the card's configuration and
 entering edit mode all bring the card back to its own days, and a page stays on its dates at
 midnight while those move on. Switching layouts keeps the page, and loads nothing. Each page's
 events are fetched the first time it is shown and kept in memory while the dashboard is open,
-never in the browser's storage, so paging back over them is instant and leaves nothing behind.
+the 16 most recent pages, never in the browser's storage. Paging back over a recent page is
+instant and leaves nothing behind; an older one is fetched again.
 
 ::: tip Nothing Pages While You Edit
 In the card editor's preview, and on a dashboard in edit mode, the date navigation is drawn but
@@ -235,10 +236,11 @@ with identical configurations share one choice. A browser keeps at most 50 choic
 the oldest first, and a browser that refuses storage keeps the choice only while the page
 stays open.
 
-Every layout covers the same dates. `days_to_show` and `start_date` are shared by all three,
+Every layout draws from the same dates. `days_to_show` and `start_date` are shared by all three,
 so a switch changes how the days are arranged rather than which dates they span, and the card
 does not reload its events to switch. List draws every day; Columns and Grid draw as many as
-fit the card's width, as close to today as the range allows. Options set for one layout in its own `list:`,
+fit the card's width, as close to today as the range allows, or from the first day of a page
+the date navigation has moved to. Options set for one layout in its own `list:`,
 `column:` or `time_grid:` block come with it.
 
 Columns and Grid need room. A layout that cannot fit at the card's current width — Columns
