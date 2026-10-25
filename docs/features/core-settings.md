@@ -731,7 +731,7 @@ is what a shared event shows. Labels that resolve to the same value are drawn **
 calendars sharing one label — the same emoji, the same `mdi:` icon — do not stamp it twice.
 
 **The color is the one line you switch on.** `duplicate_accent_color` replaces the accent of a
-merged row — the accent line, the row's background tint when
+merged row — the accent bar, the row's background tint when
 [`event_background_opacity`](/features/layout-appearance) is on, and the
 [all-day badge](/features/event-content#the-all-day-badge), since all three derive from the same
 accent. Any CSS color works, including a theme variable such as `var(--success-color)`. Leave it

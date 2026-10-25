@@ -1314,15 +1314,17 @@ describe('by default, a later event is drawn over a longer one it starts inside'
       new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(styleOf(block))?.[1].trim();
 
     expect(blocks[1].classList.contains('grid-event-raised')).toBe(true);
-    expect(value(blocks[1], 'border-inline-start-color')).toBe('#ff6c92');
-    expect(value(blocks[1], '--calendar-card-grid-raised-accent')).toBe('#ff6c92');
-    expect(styleOf(blocks[0])).not.toContain('--calendar-card-grid-raised-accent');
+    // Each block carries its own accent, which its bar and, when raised, its outline read.
+    expect(value(blocks[1], '--calendar-card-event-accent-bar-color')).toBe('#ff6c92');
+    expect(value(blocks[0], '--calendar-card-event-accent-bar-color')).toBe('#03a9f4');
+    // Only the raised block draws the outline: the rule is scoped to it.
+    expect(blocks[0].classList.contains('grid-event-raised')).toBe(false);
 
     // A hairline at 20% strength, drawn inside the block so it takes no room from the text.
     // Quiet on purpose: enough to show where the block ends, too little to frame it.
     const outline = ruleBody('.grid-event-raised > .grid-event-accessible::before');
     expect(outline).toContain(
-      'border: 1px solid color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent)',
+      'border: 1px solid color-mix(in srgb, var(--calendar-card-event-accent-bar-color, transparent) 20%, transparent)',
     );
     // Under the text and over the fill, as the inset shadow it replaced was, which needs the
     // block to be a stacking context of its own.
@@ -1331,21 +1333,15 @@ describe('by default, a later event is drawn over a longer one it starts inside'
     expect(ruleBody('.grid-event-raised')).not.toContain('box-shadow');
   });
 
-  it('leaves the leading edge to the accent bar, and closes it only when there is none', () => {
+  it('closes the outline on all four sides, now the accent bar sits inside the block', () => {
     const outline = ruleBody('.grid-event-raised > .grid-event-accessible::before');
 
-    // One pixel at a bar width of zero, none at any width above it: an outline beside the
-    // bar read as a bar thicker than every unstacked block's.
-    expect(outline).toContain(
-      'border-inline-start-width: clamp(0px, calc((1px - var(--calendar-card-line-width-vertical)) * 10000), 1px)',
-    );
-    // The leading corners follow the bar's inner curve, so the outline runs into the bar.
-    expect(outline).toContain(
-      'border-start-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px',
-    );
-    expect(outline).toContain(
-      'border-end-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px',
-    );
+    // The bar used to be a border on the leading edge, and the outline left that side to
+    // it. It is 3px inside the block now, so the outline is the block's edge all around,
+    // with the block's own corners, whatever vertical_line_width says.
+    expect(outline).toContain('border-radius: 4px');
+    expect(outline).not.toContain('border-inline-start');
+    expect(outline).not.toContain('line-width-vertical');
     // ...and square off where the block itself does.
     expect(ruleBody('.grid-event-raised.clipped-top > .grid-event-accessible::before')).toContain(
       'border-start-start-radius: 0',
@@ -3352,12 +3348,12 @@ describe('the grid reuses the shared leaves', () => {
     expect(columnHeader.style.borderTopWidth).toBe('2px');
   });
 
-  it('gives a block an accent edge and a banner none', () => {
+  it('gives a block an accent bar and a banner none', () => {
     // One test, both arms, because either alone is satisfiable by an accident: a banner
     // assertion on its own would pass if the accent stopped reaching the grid at all, and
     // a block assertion on its own says nothing about the banner. A banner is already
-    // filled with its calendar's color, so an edge on top of it named nothing — and
-    // against the rounded cap it curved into a crescent that read as a separate shape.
+    // filled with its calendar's color, so a bar on top of it named nothing — and as a
+    // border against the rounded cap it curved into a crescent that read as a separate shape.
     const container = renderGrid([
       timed(17, '09:00', '10:00', 'Standup'),
       allDay('2026-06-17', '2026-06-18', 'Holiday'),
@@ -3365,9 +3361,13 @@ describe('the grid reuses the shared leaves', () => {
     const block = requireElement(container, '.grid-event').getAttribute('style') ?? '';
     const banner = requireElement(container, '.grid-banner').getAttribute('style') ?? '';
 
-    expect(block).toContain('border-inline-start-color');
-    expect(banner).not.toContain('border-inline-start');
-    // ...and the fill is still there, so "no edge" is not "no accent".
+    expect(block).toContain('--calendar-card-event-accent-bar-color');
+    expect(banner).not.toContain('--calendar-card-event-accent-bar-color');
+    expect(requireElement(container, '.grid-event').firstElementChild?.className).toBe(
+      'event-accent-bar',
+    );
+    expect(requireElement(container, '.grid-banner').querySelector('.event-accent-bar')).toBeNull();
+    // ...and the fill is still there, so "no bar" is not "no accent".
     expect(banner).toMatch(/background-color:\s*\S/);
   });
 
@@ -3375,7 +3375,7 @@ describe('the grid reuses the shared leaves', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const style = container.querySelector('.grid-event')!.getAttribute('style') ?? '';
 
-    expect(style).toContain('border-inline-start-color');
+    expect(style).toContain('--calendar-card-event-accent-bar-color');
 
     // Grid ships a tinted background by default where the list ships none, so the mere
     // presence of a non-empty `background-color` is the assertion: it can only be there

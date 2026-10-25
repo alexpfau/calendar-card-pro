@@ -632,10 +632,12 @@ export interface EventContentParts {
    * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
    * gets that right — Greek must lose its tonos in capitals.
    *
-   * Carries its own `accent` because this calendar's color reaches the row as an inline
-   * border value, which no descendant can read. The badge republishes it as a custom
-   * property on itself and the stylesheet derives every color from it, so the derivation
-   * stays themeable and no event that has no badge pays for the property.
+   * Carries its own `accent` because the badge's accent is not always the calendar's: a
+   * custom `allday_badge_color` stands in for it. The row does hand the calendar's color down,
+   * as `--calendar-card-event-accent-bar-color` for its accent bar, but that would be the
+   * wrong color then. The badge republishes its own as a custom property on itself and the
+   * stylesheet derives every color from it, so the derivation stays themeable and no event
+   * that has no badge pays for the property.
    *
    * `inheritsText` is `allday_badge_color: text` — the one source whose color this side of
    * the render cannot name, because it differs per position. A custom color needs no flag:
@@ -657,8 +659,8 @@ export interface EventContentParts {
    * the time-row badge there is no text to hand it and no language to declare — the title is
    * the user's own words and is never uppercased.
    *
-   * Carries its own `accent` for the same reason the time badge does: this calendar's color
-   * reaches the row as an inline border value, which no descendant can read.
+   * Carries its own `accent` for the same reason the time badge does: a custom
+   * `allday_badge_color` stands in for the calendar's color, which the row hands its bar.
    */
   titlePill?: {
     accent: string;
@@ -973,6 +975,20 @@ export function renderEventContent(
       </div>
     </div>
   `;
+}
+
+/**
+ * The accent bar beside an event, in every view that draws one.
+ *
+ * An element of its own rather than a border on the event, because a border can neither have
+ * rounded ends nor sit inside the event's tinted box. It carries no color: the event element
+ * writes `--calendar-card-event-accent-bar-color`, and the stylesheet places and paints the
+ * bar (see `.event-accent-bar`). Grid all-day banners and the `+N` block draw none.
+ *
+ * @returns The bar
+ */
+export function renderAccentBar(): TemplateResult {
+  return html`<span class="event-accent-bar"></span>`;
 }
 
 //-----------------------------------------------------------------------------

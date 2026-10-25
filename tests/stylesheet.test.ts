@@ -2026,15 +2026,21 @@ describe('card stylesheet', () => {
       ).toEqual([]);
     });
 
-    it('reserves the accent edge for timed blocks, not for all-day banners', () => {
-      // The transparent placeholder edge is what the renderer colors in. A banner has
-      // none at all now: its whole fill is the calendar's color, so an edge added
-      // nothing, and at a pill end it curved into a crescent. Asserted as a pair so the
-      // rule cannot pass by the accent disappearing from the grid altogether.
-      expect(declared('.grid-event', 'border-inline-start')).toBe(
-        'var(--calendar-card-line-width-vertical) solid transparent',
+    it('makes room for the accent bar in timed blocks, not in all-day banners', () => {
+      // The bar is an element of its own now, so a block reserves its room with padding
+      // rather than with a transparent border the renderer colored in: 3px inset, the bar,
+      // 3px clear of it. A banner has no bar: its whole fill is the calendar's color, so a
+      // bar added nothing, and as a border at a pill end it curved into a crescent. Asserted
+      // as a pair so the rule cannot pass by the room disappearing from the grid altogether.
+      expect(declared('.grid-event', '--calendar-card-grid-text-start')).toBe(
+        'calc(6px + var(--calendar-card-line-width-vertical))',
       );
+      expect(declared('.grid-event', 'padding-inline-start')).toBe(
+        'var(--calendar-card-grid-text-start)',
+      );
+      expect(declared('.grid-event', 'border-inline-start')).toBe('');
       expect(declared('.grid-banner', 'border-inline-start')).toBe('');
+      expect(declared('.grid-banner', 'padding-inline-start')).toBe('');
     });
 
     it('rounds a banner end only where the event genuinely starts or ends', () => {

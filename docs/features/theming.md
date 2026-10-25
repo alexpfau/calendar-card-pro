@@ -144,6 +144,19 @@ place in its day, so this class is how to style events that stand apart:
 | `with-event-gap` | `.day-table` in list view, `.column-events` in column view                   | `event_gap` is not zero |
 | `event-gap-row`  | the empty row list view draws between two events, hidden from screen readers | `event_gap` is not zero |
 
+Every event's accent bar is an element of its own, `.event-accent-bar`, the first child of
+the event in list, column and grid view. Grid all-day banners have none. It is painted from
+two custom properties: `--calendar-card-event-accent-bar-color`, which each event sets to its
+calendar's color, and `--calendar-card-line-width-vertical`, which
+[`vertical_line_width`](/features/layout-appearance#visual-styling-colors) sets for the card
+and which also decides how far the text keeps from the bar.
+
+::: warning The Bar Is No Longer a Border
+Until v5 the bar was the left border of `.event`. A rule that sets `border-left` or
+`border-inline-start` on `.event` no longer reaches it, and `border-left: none` no longer hides
+it. Style `.event-accent-bar` instead, or hide it with `vertical_line_width: 0px`.
+:::
+
 The remaining event-level classes — `.event-title`, `.time`, `.location` — are plain
 element classes with no state attached.
 
@@ -181,17 +194,21 @@ card_mod:
       color: var(--accent-color) !important; /* Use theme accent color */
     }
 
-    /* Add subtle left border pulse animation */
+    /* Widen today's accent bars; the text keeps its distance from them */
     .day-table.today .event,
     .day-column.today .event {
-      border-left-width: 4px !important;
-      transition: border-left-color 1s ease-in-out;
+      --calendar-card-line-width-vertical: 4px;
+    }
+
+    /* ...and pulse their color */
+    .day-table.today .event-accent-bar,
+    .day-column.today .event-accent-bar {
       animation: todayPulse 3s infinite alternate;
     }
 
     @keyframes todayPulse {
-      from { border-left-color: var(--accent-color); }
-      to { border-left-color: var(--primary-color); }
+      from { border-inline-start-color: var(--accent-color); }
+      to { border-inline-start-color: var(--primary-color); }
     }
 ```
 

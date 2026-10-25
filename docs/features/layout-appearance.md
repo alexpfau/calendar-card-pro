@@ -98,10 +98,12 @@ background_color: 'var(--ha-card-background)'
 
 # Event appearance
 event_background_opacity: 15 # 0-100 scale for background color intensity
-vertical_line_width: '3px' # Width of the colored event indicator line
+vertical_line_width: '3px' # Width of the accent bar beside each event
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, the accent line curving with the block at its top and bottom. Without one the accent line stays straight, with square ends, because a line bent into a rounded corner reads as a bracket.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and each event's accent bar sits inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the event's edge, and it stops just short at each end, so the bars of two events that touch still break between them.
+
+`vertical_line_width` sets how wide the bar is, and `0px` hides it. The bar has rounded ends at any width and in every view, and grid view draws it 3px inside each block.
 
 `title_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
@@ -216,14 +218,14 @@ This option defaulted to `middle` before v4. Rows wrap often enough — a long a
 
 ### Gaps Between Events
 
-A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent lines run together into one long line:
+A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and run together into one block of that color:
 
 ```yaml
 event_gap: 6px
 event_background_opacity: 15
 ```
 
-Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, the accent line's side included, where the joined block rounds only the top of its first event and the bottom of its last. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the accent line stays straight here too, and simply breaks between the events. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+Each event then becomes a block of its own. With [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, where the joined block rounds only the top of its first event and the bottom of its last, and its accent bar keeps clear of all four. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the bars simply break wider, where the gap is. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
 
 `event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
 

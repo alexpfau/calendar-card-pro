@@ -122,18 +122,21 @@ describe('custom property mapping', () => {
     },
   );
 
-  it('rounds the stripe side of an event only while events are tinted', () => {
-    // Untinted, a stripe bent into a rounded corner reads as a bracket, so the property that
-    // rounds that side is left unwritten and the stylesheet falls back to a square corner.
-    // Unwritten rather than written as 0, so an untinted card keeps its inline style.
+  it('rounds the accent bar side of an event, and insets the bar, only while events are tinted', () => {
+    // Untinted, the bar sits flush on the event's start edge, so that side stays square and
+    // the bar takes its untinted insets, all from the stylesheet's fallbacks. Both properties
+    // are left unwritten rather than written as 0, so an untinted card keeps its inline style.
     for (const opacity of [undefined, 0]) {
       const props = propsFor(opacity === undefined ? {} : { event_background_opacity: opacity });
       expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-side-radius');
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-bar-inset');
     }
     for (const opacity of [1, 20, 100]) {
-      expect(
-        propsFor({ event_background_opacity: opacity })['--calendar-card-event-accent-side-radius'],
-      ).toBe('var(--calendar-card-event-border-radius)');
+      const props = propsFor({ event_background_opacity: opacity });
+      expect(props['--calendar-card-event-accent-side-radius']).toBe(
+        'var(--calendar-card-event-border-radius)',
+      );
+      expect(props['--calendar-card-event-accent-bar-inset']).toBe('4px');
     }
   });
 

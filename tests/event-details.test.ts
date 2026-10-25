@@ -631,9 +631,15 @@ describe("the list view's event button", () => {
       expect(button.classList.contains('event-button')).toBe(true);
       expect(button.classList.contains('event-interactive')).toBe(true);
       expect(button.getAttribute('tabindex')).toBe('0');
-      // Everything the cell draws is inside the button, so all of it is the button's to tap.
+      // Everything the cell draws is inside the button, so all of it is the button's to tap,
+      // except the accent bar beside it, which ignores the pointer (.event-accent-bar), so a
+      // tap on the bar lands on the button's hit area beneath it.
       expect(button.querySelector('.event-content')).not.toBeNull();
-      expect(Array.from(cell.children)).toEqual([button]);
+      expect(Array.from(cell.children).map((child) => child.className)).toEqual([
+        'event-accent-bar',
+        button.className,
+      ]);
+      expect(cell.lastElementChild).toBe(button);
 
       expect(cell.classList.contains('event-tappable')).toBe(true);
       expect(cell.classList.contains('event-interactive')).toBe(false);

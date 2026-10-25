@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(126_700);
-    // The event gap moved the ceiling last, from 124,700 to 126,700: the notes on why a tinted
+    expect(saved).toBeLessThan(131_000);
+    // The accent bar moved the ceiling last, from 126,700 to 131,000: the notes on why the bar
+    // is an element of its own rather than a border, how its insets switch on the tint and keep
+    // a bar end clear of a rounded corner only where the block has one, why it is painted as a
+    // border (forced colors and print keep it) and takes no z-index and no pointer, where grid
+    // text starts and why three rules share that one expression, and why a raised block's
+    // outline now closes on all four sides. The reading went 126,022 on dev to 130,215, taken
+    // with stripComments after the last comment in the change was written.
+    //
+    // The event gap moved the ceiling before that, from 124,700 to 126,700: the notes on why a tinted
     // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
     // and a grid block alike) while an untinted stripe stays straight, why the position classes
     // keep meaning the event's place in its day, why list view's gap is a row that must never

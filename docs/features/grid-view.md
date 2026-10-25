@@ -395,9 +395,10 @@ those contributors change, the banner separates into runs so a shared-event colo
 extend into dates where only one calendar qualifies.
 
 All-day banners are title-only. They carry the calendar's color as their whole fill, with
-no accent edge — a bar on top of a fill that is already that color names nothing, and
-against a rounded end it curves into a shape of its own. Timed blocks keep their edge,
-because they are only lightly tinted. Banners still follow background opacity and
+no accent bar — a bar on top of a fill that is already that color names nothing. Timed
+blocks keep theirs, because they are only lightly tinted: it sits 3px inside the block with
+rounded ends, and runs on square to the block's edge where the event carries on past the
+visible hours. Banners still follow background opacity and
 past-event dimming, but they do not draw event detail rows: time badges, location,
 description, event weather, countdowns, progress bars and label icons stay out of the band.
 Those rows would make one all-day item taller than its neighbors and break the band into a
@@ -454,10 +455,8 @@ happens on your card.
 A block drawn on top hides the event underneath it but not the grid: the hour lines and the
 weekend shading run through it exactly as they run through a block standing alone, and its color
 is the same as that block's rather than a mix with the one beneath. A faint outline in its own
-calendar's color marks its top, bottom and trailing edges, so two events from the same calendar
-stay apart where one is drawn over the other. The leading edge is left to the accent bar, so the
-bar is as wide as on every other block; set `vertical_line_width: 0px` and the outline closes
-on that side too. If your theme makes the card background translucent, the event underneath
+calendar's color runs around its edge, so two events from the same calendar stay apart where one
+is drawn over the other. If your theme makes the card background translucent, the event underneath
 shows through faintly, just as the dashboard shows through the rest of the card. Text never
 does, because none is ever placed there.
 

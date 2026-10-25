@@ -17,7 +17,8 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -37,7 +38,8 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -57,7 +59,8 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -77,7 +80,8 @@ exports[`column view DOM > renders a single day 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -123,7 +127,8 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -160,7 +165,8 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -191,7 +197,8 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -227,7 +234,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -247,7 +255,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -267,7 +276,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -287,7 +297,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -328,7 +339,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -365,7 +377,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -385,7 +398,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -422,7 +436,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -453,7 +468,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -484,7 +500,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -515,7 +532,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -546,7 +564,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -577,7 +596,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -608,7 +628,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -639,7 +660,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -670,7 +692,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -701,7 +724,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -732,7 +756,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -763,7 +788,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -794,7 +820,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -825,7 +852,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -856,7 +884,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -887,7 +916,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -918,7 +948,8 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -973,7 +1004,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -993,7 +1025,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle past-event " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1013,7 +1046,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1033,7 +1067,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1053,7 +1088,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1094,7 +1130,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1131,7 +1168,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1151,7 +1189,8 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1193,7 +1232,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1213,7 +1253,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1233,7 +1274,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1253,7 +1295,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1294,7 +1337,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1331,7 +1375,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1351,7 +1396,8 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1402,7 +1448,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1422,7 +1469,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1445,7 +1493,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1465,7 +1514,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1506,7 +1556,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1543,7 +1594,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1563,7 +1615,8 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1605,7 +1658,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1625,7 +1679,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1645,7 +1700,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1665,7 +1721,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1706,7 +1763,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1743,7 +1801,8 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1786,7 +1845,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1807,7 +1867,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle event-now " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1828,7 +1889,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-middle " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1849,7 +1911,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1892,7 +1955,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1931,7 +1995,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1952,7 +2017,8 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1995,7 +2061,8 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2026,7 +2093,8 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2057,7 +2125,8 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2093,7 +2162,8 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 </div>
 </div>
 <div class="column-events">
-<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
+<div class=" event event-first event-last " style="--calendar-card-event-accent-bar-color: var(--primary-color, #03a9f4); background-color: ;">
+<span class="event-accent-bar"></span>
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
