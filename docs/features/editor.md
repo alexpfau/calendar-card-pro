@@ -12,26 +12,36 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
 
-| Panel                    | What it covers                                                                         |
-| ------------------------ | -------------------------------------------------------------------------------------- |
-| **Calendars**            | Which calendars the card shows, and how each one looks                                 |
-| **Layout**               | How the card arranges days, and how much room it takes up                              |
-| **Time Range & Content** | Which days the card covers, and what it puts in them                                   |
-| **Card & Header**        | The card itself, and its header: the title and the toolbar                             |
-| **Day Header**           | How each day announces itself, whichever layout it is announced in                     |
-| **Events**               | The events themselves, and the lines each one can carry                                |
-| **Separators**           | Every rule the card draws — between days in any view, and in grid across them too      |
-| **Weather**              | A forecast beside the day, beside the event, or both                                   |
-| **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars |
+| Panel                    | What it covers                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| **Calendars**            | Which calendars the card shows, and how each one looks                                      |
+| **Layout**               | How the card arranges days, and how much room it takes up                                   |
+| **Time Range & Content** | Which days the card covers, and what it puts in them                                        |
+| **Card & Header**        | The card itself, and its header: the title and the toolbar                                  |
+| **Day Header**           | How each day announces itself, and in Columns and Grid the rule drawn under it              |
+| **Events**               | The events themselves, and the lines each one can carry                                     |
+| **Separators**           | The rules between days, weeks and months; in Grid also those across it, and **Day Spacing** |
+| **Weather**              | A forecast beside the day, beside the event, or both                                        |
+| **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars      |
 
-Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
+Each panel opens and closes on its own, so several can be open at once, and while you search every panel holding a match opens for you. Options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
-**Card & Header** closes with a **Toolbar** sub-heading over everything the [header toolbar](/features/layout-appearance#header-toolbar) offers. Its first switch, **Show Toolbar**, turns the whole toolbar on or off. While it is on, the panel offers **Text Labels**, which applies to every control, then each of the toolbar's controls in the order the toolbar draws them: **Date Navigation**, **View Switcher** and **Add Event Button**. Turning the toolbar off again hides them and keeps what they were set to.
+**Card & Header** closes with a **Toolbar** sub-heading over everything the [header toolbar](/features/layout-appearance#header-toolbar) offers. Its first switch, **Show Toolbar**, turns the whole toolbar on or off. While it is on, the panel offers **Text Labels**, which names the view switcher's layouts and the add button, then each of the toolbar's controls in the order the toolbar draws them: **Date Navigation**, **View Switcher** and **Add Event Button**. Turning the toolbar off again hides them and keeps what they were set to.
 
-The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
+The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Time Range & Content** opens with **Time Range**, the days the card covers. After that, **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below. The card-level panel follows the spine with **Empty Days**, then two collapsible groups, **Compact Mode** (List only) and **Language & Time Format**. Grid arranges multi-day events itself, so in the Grid workspace both panels drop **Multi-Day Events**. Reading either panel therefore answers the same questions in the same order.
+
+**Layout** opens with spacing, ordered from the outside in: between days (**Day Spacing**), between a day's events (**Event Gap**), then inside each event (**Event Spacing**), followed by **Additional Card Spacing** and **Card Height**. In the Columns workspace the fields end with a collapsible **Column Density** group, which decides how narrow a column may get before the card gives one up. Grid has far more to say here and captions it — **Time Axis**, **Hour Labels**, **On the Grid**, then **Card Size & Spacing** — before its own **Grid Density** group; its **Day Spacing** sits in the **Rules** panel instead, beside the rules drawn inside it. In Columns and Grid a table under the fields shows which layout the card renders at each width.
+
+**Day Header** changes with the workspace and with your choices. **Vertical Alignment** appears only in List, and the **Gap & Rule** heading — the space under a day header and the rule drawn inside it — only in Columns and Grid. Under **Today Indicator**, the **Style** decides what follows: the **Date Tile** offers only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling options appear once **Numbering** is anything but **None**.
 
 In **Events**, **Event State** follows the Event Details switches and precedes Accent.
-Its **Past Event Opacity** control accepts 0-100%, including fractions: 60% preserves the
+It opens with **Show Now Indicator**, which puts "Now" before the time of an event that is
+happening, and **Now Color**, the color of that event. **Now Color** is offered whether or
+not the switch is on, and it colors grid view's now line too, which is switched by
+**Now Line** under **Layout → On the Grid**. The Grid workspace hides **Show Now Indicator**,
+because grid marks the present with its now line rather than a label; there, **Now Color**
+writes `time_grid.now_color`, which colors grid alone.
+**Past Event Opacity** accepts 0-100%, including fractions: 60% preserves the
 default appearance, 100% removes dimming, and 0% makes contents transparent without hiding
 events. It stays available in every workspace even when All Layouts has Show Past Events
 off, because Grid can show past events independently. Clear the number to restore 60 at
@@ -39,16 +49,18 @@ the shared level or inheritance in a view; a view's Reset control does the same.
 See [Past Events Display](/features/event-content#past-events-display) and the
 [configuration reference](/reference/configuration#event-column).
 
-**Events → Title → Scroll Long Titles** remains the only motion control. In supported
+**Events → Title → Scroll Long Titles** is the only motion setting with a switch of its
+own. In supported
 browsers, visible titles share forward starts, return individually, and wait at their
 beginnings. It can be set separately in each workspace; reduced motion always keeps titles
-static. See [Scrolling Long Titles](/features/event-content#scrolling-long-titles).
+static. The **Pulsing Dot** style under **Day Header → Today Indicator** animates too.
+See [Scrolling Long Titles](/features/event-content#scrolling-long-titles).
 
 ## 🧭 Options for the Selected View
 
 Two controls sit together above search. **Card Displays** chooses the card's starting
 layout and writes the existing `view` option. **Editing Settings For** selects an
-editor workspace: **All Layouts**, **List**, **Column**, or **Grid**. It starts by
+editor workspace: **All Layouts**, **List**, **Columns**, or **Grid**. It starts by
 following Card Displays, then stays independent once you choose a workspace. The workspace
 is never saved to YAML; opening the editor again starts from the card's displayed view.
 
@@ -131,8 +143,16 @@ A versionless configuration already containing `list:` or `time_grid:` is treate
 layered. It opens normally and adopts the marker on its first actual edit without
 reinterpreting shared values.
 
-Once the choice or automatic adoption is saved, it is not asked again. The marker is
-maintained by the editor; ordinary users do not need to add it by hand.
+Once the choice or automatic adoption is saved, it is not asked again. The marker is the
+`config_version` option, which the editor writes for you:
+
+```yaml
+# Written by the visual editor
+config_version: 5
+```
+
+You do not need to add it by hand — see
+[Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ### Switching an Existing Card to Grid
 
@@ -235,11 +255,11 @@ If your language is not among the 12 the editor is entirely in English. Either w
 
 ## 🔎 Search & Customized Only
 
-The editor holds several hundred options, so it opens with a search box above the panels.
+The editor holds nearly two hundred options, so it opens with a search box above the panels.
 
 Typing filters every panel down to what matches and drops the panels — and the groups inside them — that have nothing left, so a match is never hidden behind a collapsed heading. What survives is expanded for you. A sub-heading is never itself a match: it survives only to caption a result beneath it, so searching a word that appears in a heading and nowhere else returns nothing rather than a heading with an empty section under it.
 
-Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `width` finds **Minimum Day Width**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control.
+Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `opacity` finds **Past Event Opacity** and **Event Background Opacity**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name for most options, so a key copied out of the [Configuration Options reference](/reference/configuration) usually leads straight to its control. The exception is a control the editor names differently from the option it writes: `time_24h` (**Time Format**), `show_week_numbers` (**Numbering**), `remove_location_country` (**Country Names**) and `entities` (the **Calendars** picker) do not find their controls, so search for those by their label.
 
 Searching a panel's displayed title or helper shows its relevant controls, including a
 workspace-specific title such as Grid's **Rules** in your editor language.
@@ -305,10 +325,11 @@ choosing one. In those cases `label_type` is stored alongside `label` and takes
 precedence over the value, so the card draws what you chose rather than what the value
 looks like.
 
-Choosing **An Icon** gives you Home Assistant's icon picker rather than a box you have to
-know `mdi:` to use, and it is the only type for which **Label Icon Color** appears — that
-color does nothing unless the label is an icon, so it is no longer shown under every
-calendar.
+Choosing **An Icon** or **An Image** first shows an **Icon Source** or **Image Source**
+dropdown, which says where the label comes from. With **Custom icon** as the source you get
+Home Assistant's icon picker rather than a box you have to know `mdi:` to use. **An Icon**
+is also the only type for which **Label Icon Color** appears — that color does nothing unless
+the label is an icon, so it is no longer shown under every calendar.
 
 ::: tip Your Choice Wins Over the Value
 Type `mdi:calendar` into the text box and the card renders it as the literal text
@@ -321,7 +342,7 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-View-specific values no longer need an exception picker. Select List, Column, or Grid under
+View-specific values no longer need an exception picker. Select **List**, **Columns**, or **Grid** under
 **Editing Settings For**, then use the ordinary controls. Their helper text says whether
 the value comes from the shared card settings, from that layout's own default, or from a
 value set for the layout.
@@ -335,7 +356,7 @@ time_grid:
   event_font_size: '16px'
 ```
 
-**Reset** buttons below each panel remove individual view values and restore what the
+**Reset** buttons at the foot of each panel remove individual view values and restore what the
 layout would use without them. They do not remove the input or clear other layouts.
 Where one mode control governs several options, its reset clears those options together.
 

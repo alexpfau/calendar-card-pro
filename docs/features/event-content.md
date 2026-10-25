@@ -38,7 +38,9 @@ show_empty_days: false
 show_empty_today: true
 ```
 
-Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full. The row uses the same "No events" message as any other empty day, including a custom `empty_day_text`.
+Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full, and on a collapsed card it takes no `compact_days_to_show` slot either. The row uses the same "No events" message as any other empty day, including a custom `empty_day_text`.
+
+Whether today is empty is decided after finished events are dropped and before the compact limits run. With `show_past_events: false`, a today whose events have all ended therefore gets the "No events" row. On a collapsed card whose compact limits cut today's events off, today gets no row at all rather than being called free, because expanding the card shows those events.
 
 Today has to fall inside the card's date window: a card that starts next week does not gain a row for a day it was not asked to cover. While `show_empty_days` is on, this option changes nothing, because today is already one of the days being shown — which is why the editor only offers it while empty days are hidden.
 
@@ -82,14 +84,19 @@ qualifying events fall outside Grid's drawn hours, on days dropped by responsive
 or beyond a compact limit. Those limits change what is drawn, not whether the date range
 has events.
 
-When past events are hidden, the card disappears on its first repaint after the last event
-expires, without waiting for another calendar fetch. This does not add an event-expiry
-timer; Home Assistant updates and the card's existing refreshes still drive repaints.
+When past events are hidden, the card disappears once its last event has finished, without
+waiting for another calendar fetch. In list and column view, and in grid view while its now
+line is off, the card repaints at the moment a timed event starts or ends, so it goes as the
+last timed event ends; grid's now line repaints it every minute instead. An all-day event has
+no such moment: once it expires at midnight, or at its
+[`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) time,
+the card leaves on its next repaint, which Home Assistant updates and the card's own
+refreshes drive.
 
 ::: info What Never Triggers Hiding
 Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
 
-The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. If events are already on screen they stay there until a refresh succeeds, and if there is nothing to fall back on the card reports the problem instead of claiming there are no upcoming events.
+The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. It names the calendar in a "Couldn't load: …" line and keeps showing that calendar's last loaded events for up to 24 hours; if there is nothing to fall back on, the card shows that line instead of an empty calendar. See [When a Calendar Fails to Load](/features/performance#when-a-calendar-fails-to-load).
 :::
 
 ## 🏷️ The All-Day Badge
@@ -161,9 +168,9 @@ title's color. That makes it the quietest option at either position — the pill
 text that was already there, in a capsule.
 
 ::: warning `color` And `accent_color` Are Separate
-`color` sets an event's **title**. `accent_color` sets its **pill**, its vertical bar and
-its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
-its pill can end up in a color that relates to nothing else on the row. Set both to the
+`color` sets an event's **title**. `accent_color` sets its **pill**, its accent bar and
+its row tint. A calendar that sets only `color` therefore keeps the default accent, your
+theme's primary color, and its pill can end up in a color that relates to nothing else on the row. Set both to the
 same value when you are coloring calendars apart, or use `allday_badge_color: text`, which
 takes no accent at all.
 :::
@@ -480,7 +487,7 @@ description_max_lines: 3 # Allow descriptions up to three lines
 A calendar label stays inline before the title and shares its line limit, rather than
 taking a separate row above the clamped text. This also applies to merged-calendar labels.
 
-Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in both list and column view, and each can be overridden inside a `column:` block to clamp differently per view:
+Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in list and column view. Grid follows the title, location and description limits too, but fits its time row to each block itself, as [What a Block Shows](/features/grid-view#what-a-block-shows) describes. Each option can be overridden inside a `list:`, `column:` or `time_grid:` block to clamp differently per view:
 
 ```yaml
 title_max_lines: 0 # Unlimited in list view
@@ -488,10 +495,12 @@ column:
   title_max_lines: 1 # But single-line in the denser column view
 ```
 
-Grid keeps those normal line limits whenever a complete first label/title line fits.
+Grid keeps those normal line limits whenever a complete first label/title line fits, and in
+any case stops a title at the last line its block shows whole, ending it in "…" when more
+follows.
 Its [short timed title fallback](/features/grid-view#short-timed-titles) is the exception:
 it keeps every label but uses one static line, reducing vertical padding before reducing
-the whole group's font size. Clipping a later normal line does not activate that fallback.
+the whole group's font size. A later line that does not fit does not activate that fallback.
 
 ## ↔️ Scrolling Long Titles
 
@@ -564,7 +573,7 @@ Show how much time remains until an event starts with the countdown display feat
 show_countdown: true
 ```
 
-When enabled, a subtle countdown string appears next to each upcoming event. It follows the same local calendar dates as the day headers, in both list and column view:
+When enabled, a subtle countdown string appears next to each upcoming event, in every view; in grid view it trails the time on a timed block tall enough to show one, and all-day banners carry none. It follows the same local calendar dates as the day headers:
 
 | When the Event Starts | Countdown                                                     |
 | --------------------- | ------------------------------------------------------------- |
@@ -617,7 +626,7 @@ level. Invalid values are ignored rather than clamped or treated as zero.
 
 Only the contents dim: titles, labels, pictures, icons, and the detail rows that are still
 eligible to appear. Grid all-day banners dim their titles, including continuation marks.
-Outer background fills and accent stripes stay unchanged, as do ordinary title and label
+Outer background fills and accent bars stay unchanged, as do ordinary title and label
 colors underneath the opacity layer. The [theming hook](/features/theming#past-event-opacity)
 retains the existing `.past-event` selectors.
 
@@ -660,19 +669,28 @@ State**, in any workspace.
 ## 🟢 The Now Indicator
 
 An event that is happening right now has its clock filled in and "Now ·" in front of its
-time, and that whole row turns green, in list and column view. The clock stays where every
+time, and its time line turns green, in list and column view. The clock stays where every
 other row has its icons, so the column of icons stays straight. It is on by default, needs no
-configuration, and takes nothing away: the event keeps its color and its stripe.
+configuration, and takes nothing away: the event keeps its color and its accent bar, and its
+title, location and description keep theirs.
 
 ```yaml
 show_now_indicator: false # Turn it off
 now_color: '#ef4444' # Mark it in red instead
 ```
 
+::: warning Changed In v5
+v4 had no Now mark. v5 turns it on by default, so a running event is marked on a card whose
+configuration has not changed. Add `show_now_indicator: false` to your card to keep the old
+behavior.
+:::
+
 Only timed events are marked. An all-day event is not "now" in this sense, or a day of them
 would read "Now" from morning to night. A multi-day timed event is marked while it runs. Split
 across days, as column view does by default, it is marked on its first and last day; the days
-in between show it as an all-day event, and those are not marked.
+in between show it as an all-day event, and those are not marked. The mark lives on the time
+line, so nothing is marked while that line is hidden: with `show_time: false`, card-wide or
+on that calendar, a running event looks like any other.
 
 The word comes from your browser in the card's language, "Jetzt" in German or "Maintenant" in
 French, so it needs no translation. A browser that carries no such word for a language shows "Now" in English instead; Chromium, as tested, does that for Icelandic and Norwegian Nynorsk.
@@ -686,7 +704,16 @@ without waiting for Home Assistant to send anything. With `show_past_events` off
 
 Grid view draws no mark. Its now line already runs through the block that is under way.
 
-Like the other options on this page, `show_now_indicator` can differ per view; see
+`show_now_indicator` can differ per view, like any other
+[per-view option](/features/core-settings#per-view-options). To keep the mark in list view and
+drop it from columns:
+
+```yaml
+column:
+  show_now_indicator: false
+```
+
+`show_now_indicator` and `now_color` are listed under
 [Event Column in the configuration reference](/reference/configuration#event-column).
 
 ## 🎨 Event Text in Calendar Colors
@@ -697,7 +724,6 @@ macOS Calendar tints a block's text to match its calendar:
 
 ```yaml
 type: custom:calendar-card-pro
-view: grid
 entities:
   - entity: calendar.work
     accent_color: '#E8A33D'
@@ -707,7 +733,7 @@ time_color: accent
 ```
 
 ::: tip Visual Editor
-The **Event Content** section opens with **Use Calendar Colors For Event Text**, which sets
+**Events → Accent** opens with **Use Calendar Colors For Event Text**, which sets
 all five at once. Its state is read back from the five options rather than stored, so
 editing one of them by hand can never leave the switch claiming something else. Switching
 it off returns all five to their standard colors rather than to anything set before.
@@ -716,13 +742,14 @@ it off returns all five to their standard colors rather than to anything set bef
 `accent` is a value, not a mode, so the five options it is accepted by stay real and stay
 independent. Setting it on one of them tints one thing and leaves the rest alone, which is
 what the example above does — only the time follows the calendar; the title keeps
-`event_color`.
+`event_color`. Grid view is the exception, because it starts all five at `accent`; see the
+tip below.
 
 The five it is accepted by are `event_color` (the title), `time_color`, `location_color`,
 `description_color`, and `progress_bar_color` (the bar and its track) — everything inside
 the event box. Four of them are text and take the mixed color described below;
 `progress_bar_color` is the exception and takes the accent at full strength, because a
-filled bar has nothing written on it and belongs with the block's own accent stripe. The **event weather badge** follows too, and it works a little differently
+filled bar has nothing written on it and belongs with the block's own accent bar. The **event weather badge** follows too, and it works a little differently
 because it has no color of its own to replace: `weather.event.color` ships unset, so an
 unset badge on an event whose title is already taking the accent takes it as well. Give
 `weather.event.color` a color and that color wins; write `accent` into it and the badge
@@ -742,11 +769,11 @@ Nothing else changes about the text. The secondary rows have no additional dimmi
 title carries the weight, at `font-weight: 500` against normal. Finished events still use
 the shared [past-content opacity](#past-events-display), applied after their colors resolve.
 
-Two things are deliberately left out. An **empty day** belongs to no calendar, so its _No
-upcoming events_ notice keeps `empty_day_color`; so does the grid's **`+N` overflow block**,
-which stands for several events at once. The badge in the **day header** is left out for the
-same reason — it belongs to the day rather than to any calendar on it, and it is unaffected
-by all of this.
+Three things are deliberately left out. An **empty day** belongs to no calendar, so its _No
+events_ notice keeps `empty_day_color`. The grid's **`+N` overflow block** stands for several
+events at once, so it stays in the theme's secondary text color. The badge in the **day header** is
+left out for the same reason — it belongs to the day rather than to any calendar on it, and
+it is unaffected by all of this.
 
 ::: tip The Text Is a Mix, Not the Raw Accent
 macOS Calendar spends a calendar's color three ways and only one of them is undiluted: the
@@ -807,7 +834,7 @@ progress_bar_height: '10px'
 progress_bar_width: '80px'
 ```
 
-`progress_bar_width` has no shipped default. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to every view — and a [column exception](/features/column-view#overriding-options-in-column-view) gives the two views different widths.
+`progress_bar_width` has no shipped default in list and column view. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to the two views — and a [column exception](/features/column-view#overriding-options-in-column-view) gives them different widths. Grid view is the exception: it draws the bar at `100%` of the block, in the block's accent color, whatever the top-level `progress_bar_width` and `progress_bar_color` say, until a `time_grid:` block sets its own. See [Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 
 `progress_bar_height` ships as `0.75em`, three quarters of the time text, so the bar follows
 `time_font_size` whichever form that takes. A height you set in `em` is measured against the

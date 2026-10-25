@@ -40,7 +40,7 @@ Six calendars go in, and each is listed once:
 
 Nothing is filtered, because on this card each calendar means one thing. A plan that two or three of them share sits on each of their calendars, which is what lets the card draw it once with every face on it. If one of your calendars mixes several kinds of event, it can still feed this card, as [A Mixed Calendar in the Weekly Grid](#a-mixed-calendar-in-the-weekly-grid) shows.
 
-Nothing in the card is specific to one kind of calendar. Local Calendars, Google calendars and CalDAV calendars all work the same way, so use whichever ones your family already keeps.
+Nothing in the card is specific to one kind of calendar. Local Calendars, Google calendars and CalDAV calendars all display the same way, so use whichever ones your family already keeps. Adding, editing and deleting events from the card is another matter: whether a calendar allows each is up to its integration, as [What Each Integration Allows](/features/actions#what-each-integration-allows) shows.
 
 ## 🧾 The Whole Card
 
@@ -129,6 +129,10 @@ The gray is quieter than his own blue on purpose. His own events, such as soccer
 
 The two `show_*` lines on the work calendar keep its locations and descriptions off the screen whatever the rest of the card says. Today they change nothing you can see: descriptions are hidden by default, and `show_location: false` under `time_grid` already takes the location off every block. They are there for the day someone turns either one on for the whole card, because a meeting room or an agenda gives away what the title no longer does, and a setting on the calendar outranks the card's. If a work calendar needs to share some of its events and hide the rest, split it in two, as [A Mixed Calendar in the Weekly Grid](#a-mixed-calendar-in-the-weekly-grid) does.
 
+::: warning A Tap Shows the Real Event
+[`event_tap_action: details`](/features/actions#tapping-an-event) opens a tapped event in Home Assistant's own dialog, which shows the event as the calendar stores it. A tap on a _Work_ block would show the meeting's real title, location and description. `event_tap_action` is set for the whole card, not per calendar, so leave it off this card, or show the work calendar on a card without it.
+:::
+
 ## 🏷️ How the Display Reads
 
 ### The All-Day Band
@@ -168,6 +172,18 @@ The picture is a 1280 × 800 tablet screen, captured at twice that resolution, a
 Two smaller choices help at a distance. `event_font_size: 13px` is one pixel larger than grid view's default. `min_days_to_show: 7` tells the card never to show fewer than all seven days. On a screen too narrow for them it switches to the list layout instead, as [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards) explains.
 
 The screenshot uses the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative), set on the view.
+
+### Adding a Plan From the Kitchen
+
+The card in the picture only shows the week, but the tablet can take a new plan too. This is an addition, not the card in the picture:
+
+```yaml
+toolbar:
+  show: true
+  view_switcher: false # this tablet is always a week on the hour axis
+```
+
+That puts an add button at the end of the title's row, so the card grows no taller and the axis still fits the screen. It opens Home Assistant's own new-event dialog with the first calendar that accepts new events preselected, which is Anna's if hers does, because it is listed first. The dialog's picker offers the others, so a visit or a birthday goes on the Family calendar from there. See [Add Event Button](/features/actions#add-event-button).
 
 ## 🔀 Combining the Techniques
 

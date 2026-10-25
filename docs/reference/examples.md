@@ -50,7 +50,7 @@ tap_action:
 
 ## 🌈 Multiple Calendars with Custom Styling
 
-This example demonstrates how to use **accent colors** and **background opacity** to create visual distinction between different calendars. The accent colors are used for both the vertical line and a semi-transparent background.
+This example demonstrates how to use **accent colors** and **background opacity** to create visual distinction between different calendars. The accent colors are used for both the accent bar and a semi-transparent background.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_3_custom_styling.png" alt="Custom Styling" width="600">
 
@@ -151,8 +151,9 @@ inside flips to black or white to suit whichever color the pill carries, decided
 the browser. See [The All-Day Badge](/features/event-content#the-all-day-badge).
 
 Each calendar sets `color` and `accent_color` to the same value, which is what keeps a
-column reading as one calendar: the title, the vertical line and the badge all agree. Set
-only `color` and the badge would keep the default blue while the title went red.
+column reading as one calendar: the title, the accent bar and the badge all agree. Set
+only `color` and the badge would keep the theme's primary color while the title went red.
+`today_indicator: dot` swaps the default date tile for the small dot before today's weekday.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
 
@@ -168,7 +169,7 @@ entities:
 view: column
 days_to_show: 7
 show_week_numbers: iso
-today_indicator: true
+today_indicator: dot
 empty_day_text: '✔ All done'
 allday_badge: time
 allday_badge_style: filled
@@ -214,7 +215,8 @@ time_grid:
   end_time: '23:30'
 ```
 
-`end_time: '23:30'` trims the empty last half hour so the drawn band carries more of the day.
+`end_time: '23:30'` runs the axis an hour and a half past the default `22:00`, so a late
+evening is drawn in full rather than cut off at ten.
 `max_simultaneous_events: 2` keeps side-by-side blocks wide enough to read: events that start
 together share the width two at a time, and a third collapses into a counted `+1` block rather
 than squeezing all three. An event that starts well inside a longer one is drawn over it
@@ -277,6 +279,37 @@ the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_week.png" alt="A wall tablet showing one family's week in grid view, with faces on the timed events, shared plans in gold and a now line on Wednesday"><br>
 
+## 📲 Reading & Adding Events on a Shared Tablet
+
+A tablet the whole household walks past should take a new plan and show any event in full,
+without a stray tap changing one. `toolbar` adds a layout switcher and an add button to the
+header, `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, and
+the two `allow_event_*` options take Edit and Delete out of that dialog, so reading an event
+can never change it.
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - entity: calendar.family # listed first, so the add button preselects it
+    accent_color: '#ffb74d'
+  - entity: calendar.anna
+    accent_color: '#ff6c92'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+days_to_show: 5
+toolbar:
+  show: true
+event_tap_action:
+  action: details
+allow_event_edit: false
+allow_event_delete: false
+```
+
+New events still go in through the add button, which preselects the first calendar that
+accepts them. See [Header Toolbar](/features/layout-appearance#header-toolbar) and [Tapping an
+Event](/features/actions#tapping-an-event).
+
 ## 🎨 Full Configuration
 
 A heavily **customized** configuration covering **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
@@ -316,6 +349,9 @@ additional_card_spacing: 0px
 # Week Numbers and Horizontal Separators
 day_separator_width: 2px
 day_separator_color: '#baf1ff80'
+
+# Today Indicator
+today_indicator_color: '#baf1ff' # Tints the default tile, whose day number ignores day_color
 
 # Date Column
 weekday_font_size: 14px

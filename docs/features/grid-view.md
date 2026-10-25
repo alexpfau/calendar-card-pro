@@ -13,9 +13,10 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor), **Card Displays** chooses the visible layout above
-the search controls. Select **Grid** under **Editing Settings For** to configure its time
-axis in **Layout** and its line styles in **Rules**, without changing the displayed layout.
+In the [visual editor](/features/editor), **Card Displays**, above the search controls,
+chooses the layout the card opens with. Select **Grid** under **Editing Settings For** to
+configure its time axis in **Layout** and its line styles in **Rules**, without changing
+**Card Displays**.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -185,6 +186,11 @@ time_grid:
 
 `show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
 narrow card where the ruling alone is enough.
+
+```yaml
+time_grid:
+  show_axis_labels: false
+```
 
 ### How Often the Axis Is Labeled
 
@@ -534,7 +540,8 @@ optional detail rows rather than showing one partly clipped. A title that runs p
 stops at the last line that fits whole, and that line ends in "…" when more of the title
 follows, so no line is ever cut through the middle at the block's edge. Set
 `title_max_lines` above `0` when you want the title to stop sooner, after a fixed number of
-lines.
+lines. Grid draws at most three title lines however high you set it, and fewer on a short
+block.
 
 Titles wrap only between words. Where overlapping events share a narrow column, a word can
 be wider than its block; it is then cut short and ends in "…", so "Quarterly review" reads
@@ -711,6 +718,10 @@ Anything the block does not mention keeps its top-level value, except for the th
 options listed below. In the visual editor, choose the Grid workspace to edit these
 values directly without changing Card Displays.
 
+Options that decide which events the card loads, such as `days_to_show` and `start_date`,
+are card-wide and ignored inside `time_grid:`; see
+[Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+
 ### A Full Week Without Dimming
 
 Grid shows finished events by default, but dims their contents to 60%, just like List
@@ -732,32 +743,32 @@ time_grid:
 ```
 
 This applies to timed-event contents and all-day banner titles, not their background
-fills or accent stripes. The now line is independent: hiding it or browsing another week
-does not change opacity. If the card is too narrow and falls back to List, List's opacity
-applies instead. See [Past Events Display](/features/event-content#past-events-display)
+fills or accent bars. The now line is independent: hiding it or pointing `start_date` at
+another week does not change opacity. If the card is too narrow and falls back to List,
+List's opacity applies instead. See [Past Events Display](/features/event-content#past-events-display)
 for fractional percentages, clear-to-inherit behavior, and why zero is not a visibility
 switch.
 
 ## 🔀 Options That Start From a Different Default
 
-Thirteen shared options do not inherit their top-level value in grid view. The **Default**
-column is what grid view uses; **Instead of** is the top-level default it replaces:
+Thirteen shared options do not inherit their top-level value in grid view. **Default** is
+the top-level default, and **Grid Default** is what grid view uses instead:
 
-| Option                     | Type    | Default                              | Instead of                    |
-| -------------------------- | ------- | ------------------------------------ | ----------------------------- |
-| `event_background_opacity` | number  | `20`                                 | `0`                           |
-| `show_empty_days`          | boolean | `true`                               | `false`                       |
-| `show_past_events`         | boolean | `true`                               | `false`                       |
-| `day_separator_width`      | string  | `1px`                                | `0px`                         |
-| `day_separator_color`      | string  | Half-strength `var(--divider-color)` | `var(--secondary-text-color)` |
-| `day_spacing`              | string  | `1px`                                | `10px`                        |
-| `event_font_size`          | string  | `12px`                               | `14px`                        |
-| `event_color`              | string  | `accent`                             | `--primary-text-color`        |
-| `time_color`               | string  | `accent`                             | `--secondary-text-color`      |
-| `location_color`           | string  | `accent`                             | `--secondary-text-color`      |
-| `description_color`        | string  | `accent`                             | `--secondary-text-color`      |
-| `progress_bar_color`       | string  | `accent`                             | `--secondary-text-color`      |
-| `progress_bar_width`       | string  | `100%`                               | _per placement_               |
+| Option                     | Type    | Default                       | Grid Default                         |
+| -------------------------- | ------- | ----------------------------- | ------------------------------------ |
+| `event_background_opacity` | number  | `0`                           | `20`                                 |
+| `show_empty_days`          | boolean | `false`                       | `true`                               |
+| `show_past_events`         | boolean | `false`                       | `true`                               |
+| `day_separator_width`      | string  | `0px`                         | `1px`                                |
+| `day_separator_color`      | string  | `var(--secondary-text-color)` | Half-strength `var(--divider-color)` |
+| `day_spacing`              | string  | `10px`                        | `1px`                                |
+| `event_font_size`          | string  | `14px`                        | `12px`                               |
+| `event_color`              | string  | `--primary-text-color`        | `accent`                             |
+| `time_color`               | string  | `--secondary-text-color`      | `accent`                             |
+| `location_color`           | string  | `--secondary-text-color`      | `accent`                             |
+| `description_color`        | string  | `--secondary-text-color`      | `accent`                             |
+| `progress_bar_color`       | string  | `--secondary-text-color`      | `accent`                             |
+| `progress_bar_width`       | string  | _per placement_               | `100%`                               |
 
 These defaults take precedence even when you explicitly set a different top-level value.
 For example, `event_background_opacity: 5` at the top level does not change Grid's tint,
@@ -854,11 +865,20 @@ The all-day badge controls (`allday_badge`, `allday_badge_style` and `allday_bad
 are also omitted in Grid. Its all-day banners have their own shape, and timed blocks never
 draw an all-day badge. Edit those controls in List, Columns or All Layouts instead.
 
-The detail-row options also do nothing on all-day banners: `show_time`,
-`show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,
-`show_location_allday`, `show_description_allday`, `show_countdown_allday`,
-`show_progress_bar`, `weather.position: event`, per-calendar `label`,
-`label_type`, `label_icon_color` and their max-line companions affect
-timed blocks or the other views, not the all-day band.
+`show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`,
+`show_description_allday` and `show_countdown_allday` do nothing in grid view at all. They
+decide what an all-day row carries, and grid draws an all-day event as a
+[title-only banner](#all-day-events), with no time, location, description or countdown for
+them to switch. The editor omits them in Grid too.
 
+The other detail-row options still shape timed blocks but never reach the all-day band:
+`show_time`, `show_progress_bar`, `weather.position: event`, per-calendar `label`,
+`label_type`, `label_icon_color` and their max-line companions.
+
+`event_spacing` and `event_gap` do nothing here either. They set the padding inside a list
+or column row and the space between one row and the next, while a grid block sets its own
+padding and is placed by its own time. The editor omits both in Grid; `day_spacing` still
+sets the gutter between day columns.
+
+**→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** — the same options in the configuration reference.
 **→ [Grid-Only Options in the configuration reference](/reference/configuration#grid-only-options)** — full option table.

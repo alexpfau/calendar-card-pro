@@ -6,7 +6,16 @@ title: Release Notes
 
 ![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)
 
-**Grid view for your calendar, direct controls for each layout.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
+**Grid view for your calendar, and a card you can act on.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
+
+A few defaults change whichever layout you use, so they come first. 👇
+
+## ⚠️ Breaking Changes
+
+- **Today Sits on a Tile** - Today's day number now sits on a soft tile tinted with the today color (`today_indicator: tile`), where v4 drew no indicator unless you chose one. A card whose editor was set to **None** stored nothing, so it gets the tile as well. In column and grid view every day's number keeps room for the tile, so those headers grow slightly. `today_indicator: false` brings back the plain number. See [Today Indicator](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator)
+- **The Accent Follows Your Theme** - `accent_color` and `today_indicator_color` now default to your theme's primary color instead of a fixed `#03a9f4`, and the week-number pill and week separator take that color at 31%. On Home Assistant's default theme that is `#009ac7`, a touch deeper. On a theme whose primary color is orange or green, every calendar without an `accent_color` of its own turns orange or green too. To keep the old blue, set `accent_color: '#03a9f4'` and `today_indicator_color: '#03a9f4'`, and `week_number_background_color` and `week_separator_color` to `'#03a9f450'`. See [Visual Styling & Colors](https://calendar-card-pro.alexpfau.com/features/layout-appearance#visual-styling-colors)
+- **An Event Under Way Is Marked** - In list and column view, a running event's clock fills in, "Now ·" goes before its time, and its time turns green. It is on by default; `show_now_indicator: false` turns it off. See [The Now Indicator](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator)
+- **The Accent Bar Is an Element, Not a Border** - The colored stripe beside each event was the inline-start border of `.event`. It is now `.event-accent-bar`, an element of its own, so a card-mod rule that sets `border-left` or `border-inline-start` on `.event` no longer reaches it, and `border-left: none` no longer hides it. `vertical_line_width: 0px` hides it, and card-mod can style `.event-accent-bar`. See [Theming & Card-Mod](https://calendar-card-pro.alexpfau.com/features/theming)
 
 ## 🎉 New Features
 
@@ -42,6 +51,47 @@ See [Ruling the Axis](https://calendar-card-pro.alexpfau.com/features/grid-view#
 - **Keep default configurations short** - A fresh Grid card needs no `time_grid:` block at all. Untouched defaults are neither saved nor counted as customizations
 
 Older cards whose shared and List values are ambiguous get a one-time choice: keep the existing List appearance, or keep those values as shared. Unambiguous cards adopt the v5 format on their first real edit, and YAML-only cards keep working without the `config_version: 5` marker. See [the visual editor guide](https://calendar-card-pro.alexpfau.com/features/editor).
+
+### 👆 Add, Open, Change & Delete Events
+
+A grid block is only as tall as its event lasts, so no layout makes a half-hour meeting hold its description. Now a tap opens the whole event, and the card can add one too, through the dialogs Home Assistant's own Calendar panel uses.
+
+- **Add an event from the card** - `toolbar: { show: true }` puts an **Add event** button at the end of the card's header. It opens Home Assistant's new-event dialog with one of the card's calendars already chosen and today's date, or the first of the dates the card covers when today is not among them, and once you save, the new event appears on every card on the page that can show it. It appears only when one of the card's calendars accepts new events and is not failing to load (#45, Thanks @GContaldi, #663)
+- **Tap an event for its details** - `event_tap_action: { action: details }` opens Home Assistant's event dialog for the event you tapped, in list, column and grid view, all-day banners included, with its full description, location and how it repeats. Any other tap still runs `tap_action`, and a hold anywhere runs `hold_action` (#241, Thanks @GContaldi, #668)
+- **Change or delete it there** - The dialog offers Edit and Delete wherever the calendar's integration allows them. `allow_event_edit: false` and `allow_event_delete: false` take them away, on a wall tablet for instance; they never add what a calendar cannot do. Neither is offered on a merged duplicate or on a calendar that is failing to load (#298)
+- **Setting the card up writes nothing** - In the editor's preview and in dashboard edit mode, the add button and event taps do nothing, so configuring a card never opens a dialog or changes a calendar
+
+See [Tapping an Event](https://calendar-card-pro.alexpfau.com/features/actions#tapping-an-event) and [Add Event Button](https://calendar-card-pro.alexpfau.com/features/actions#add-event-button).
+
+### 🧰 A Toolbar to Page Through Dates & Switch Layouts
+
+- **`toolbar:`** - One switch for a toolbar in the card's header, and one for each control in it. The controls sit at the end of the title's row, or in a slim row of their own on a card without a title, or, with the date navigation, in a band of their own under the title. A card that leaves the toolbar off draws none
+- **Switch between List, Columns and Grid on the card** - The toolbar's view switcher lets a wall tablet change layout without the editor. Each device remembers its own choice until the card is edited, and `view` stays the layout the card opens with. A layout too wide for the card is dimmed, and switching never reloads events
+- **Page through the dates** - `navigation: true` adds arrows that move by as many days as the card shows, a button back to the days it opens with, and the dates on screen, which open the browser's date picker. Away from its own days the card shows events that have ended, so last week can be looked back on, and a reload or an edit brings it home. The 16 most recently shown pages are kept in memory while the dashboard is open, never in the browser's storage (#185)
+- **Icons alone, if you prefer** - The toolbar names the view switcher's layouts and the add button beside their icons wherever the card is wide enough; `labels: false` keeps them icons, with their names as tooltips
+
+See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar).
+
+### 📍 Today & Now at a Glance
+
+- **The date tile** - Today's day number sits on a soft tile in your theme's color, shaped like an app icon, so on a two-day card today's events are the ones under the tile. It is the new default, `today_indicator: tile`, and `today_indicator_color` tints it (#615)
+- **The Now indicator** - An event under way gets a filled clock and "Now ·" in front of its time, in green, in list and column view, and the mark comes and goes on time without waiting for Home Assistant. `now_color` changes the green, here and on grid view's now line, and `show_now_indicator: false` turns it off. "Now" comes from your browser, in the card's language
+- **Today, even when it is empty** - `show_empty_today` keeps today's row, reading "No events", while the other empty days stay hidden, so a glance tells you today is free (#670, Thanks @vincentullmann, #669)
+
+See [Today Indicator](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator), [The Now Indicator](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) and [Showing Today When It Is Empty](https://calendar-card-pro.alexpfau.com/features/event-content#showing-today-when-it-is-empty).
+
+### 🎨 Your Theme's Accent, Drawn Like macOS Calendar
+
+- **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for
+- **A rounded accent bar beside every event** - The colored bar beside an event has rounded ends in every view. Untinted, a day's touching events share one line that changes color where one calendar's event meets another's, so a busy day in one calendar still reads as one block. With `event_background_opacity` above 0, each event's bar sits inside its own tinted box, clear of the rounded corners. `vertical_line_width` sets how wide it is
+
+See [Visual Styling & Colors](https://calendar-card-pro.alexpfau.com/features/layout-appearance#visual-styling-colors).
+
+### ↕️ Room Between Events
+
+- **`event_gap`** - Back-to-back events from one calendar read as one long event when they touch. `event_gap` holds each event of a day apart from the next in list and column view, with its own accent bar and, under a background tint, its own rounded corners. `0px`, the default, keeps a day's events together in one block, and the option can differ per view (#653)
+
+See [Gaps Between Events](https://calendar-card-pro.alexpfau.com/features/layout-appearance#gaps-between-events).
 
 ### 🎨 Event Text in Calendar Colors
 
@@ -94,10 +144,6 @@ See [Performance & Caching](https://calendar-card-pro.alexpfau.com/features/perf
 
 The card now speaks Korean (`ko`), its 36th language: dates, relative times and every message in full, and the visual editor in part, with English filling in the rest string by string (Thanks @onesounds, #662).
 
-### 🔭 What Comes After This
-
-A block is only as tall as its event lasts, so no amount of layout work makes a half-hour meeting hold a description — which is why grid view reveals detail as a block grows. The other half comes next: tapping an event to open, change or remove it where the calendar supports it, tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604).
-
 ## 🐛 Bug Fixes
 
 These fixes address behavior present in v4.2, including the shared processing and lifecycle paths the new Grid view uses.
@@ -128,7 +174,8 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - **An empty day's text could be styled per view but its color could not** - `empty_day_text` accepted a `column:` override and `empty_day_color` did not, although the card honors both in exactly list and column view. Setting the color inside a `column:` block silently did nothing; it now applies, so a placeholder can be toned down in columns without changing the list
 - **A finished day's "no events" notice stayed bright** - With past events shown, an empty-day placeholder was drawn at full strength however old its date was, so a finished Monday's notice sat undimmed beside the finished meetings around it. It is now judged past on its own local date and fades with everything else, while today's stays bright all day
 - **A Sunday-start week broke before Monday** - With `first_day_of_week: sunday`, the week rule was drawn between Sunday and Monday rather than before Sunday, and only on cards that leave week numbers off. The rule marks wherever the week number changes, and the Monday-anchored ISO numbering the card falls back to when `show_week_numbers` is `null` skipped the step that moves Sunday into the week it opens. Setting `show_week_numbers` rendered correctly, so the one configuration in which the rule is the only marker of the week was the one that placed it wrongly (#621)
-- **Icon and font sizes could blow the layout up** - `today_indicator_size: 6 px`, with a space before the unit, drew today's dot hundreds of pixels wide, and the other icon sizes blew up to 300px the same way. Font sizes broke wherever the card measured with them: `day_font_size: 26 px` gave the date column half the card, and even a valid `150%` or `large` could squeeze the events aside or hide the progress bar. The space is now closed up, an icon size that still is not a size falls back to its default, and any valid font size works (#620)
+- **Icon and font sizes could blow the layout up** - `today_indicator_size: 6 px`, with a space before the unit, drew today's dot hundreds of pixels wide, and the other icon sizes blew up to 300px the same way. Font sizes broke wherever the card measured with them: `day_font_size: 26 px` gave the date column half the card, and even a valid `150%` or `large` could squeeze the events aside or hide the progress bar. The space is now closed up, an icon size that still is not a size falls back to its default, and any valid font size works. `vertical_line_width` written the same way, or with a misspelled unit, drew no accent stripe at all; it is closed up too, and a width that still cannot be drawn falls back to `2px` (#620)
+- **Right-to-left text ran into the accent stripe** - With Home Assistant in Hebrew or another right-to-left language, an event's text sat flush against its stripe in list and column view, because the space for the text was kept on the left while the stripe moved to the right. The text now keeps the same distance from the bar on either side
 - **A narrow column card could leave today out** - With `min_days_to_show` letting column view drop days to fit, the card kept the start of the range, so a week starting on Monday, three columns wide on a Thursday, showed Monday to Wednesday and never today. The columns now start at today and reach back to earlier days only when the range ends sooner, and they move on at midnight
 - **A relative font size drew titles and countdowns at the wrong size** - In list and column view, a size written in `em`, as a percentage, or as `larger` or `smaller` was applied twice, so `event_font_size: 1.5em` drew event titles at 2.25 times the card's text rather than 1.5, and `smaller` shrank them twice over. A relative `time_font_size` did the same to the countdown, and in column view a relative `weather → event → font_size` did it to the weather text. Pixel sizes, which every default uses, were never affected
 
@@ -156,13 +203,22 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#206](https://github.com/alexpfau/calendar-card-pro/issues/206) - Size an event by its duration by @ak-uma — answered by the block geometry
 - [#624](https://github.com/alexpfau/calendar-card-pro/issues/624) - The Google Calendar day @1Cedric1 showed, with overlapping events drawn on top of one another — answered by the default `overlap_layout: cascade`. Already closed as a duplicate of #300, so comment only
 - [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view by @junkiness — answered by `show_now_line`
-- [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The original issue/proposal by @lenaxia, whose design and configuration choices informed Grid. This is not a merged pull request or full parity with the proposal; **do not close** it as fully implemented. Paging and the event-detail popup remain separate work in [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) and [#241](https://github.com/alexpfau/calendar-card-pro/issues/241)
+- [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The original issue/proposal by @lenaxia, whose design and configuration choices informed Grid. This is not a merged pull request or full parity with the proposal; **do not close** it as fully implemented. The event-detail popup and the paging it proposed ship here too, through `event_tap_action` (#241) and the toolbar's date navigation (#185)
 - [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
 - [#176](https://github.com/alexpfau/calendar-card-pro/issues/176) - Asked for newest-first sorting on a calendar kept as a log by @iKaew, and in the discussion for a way to switch off the 60% dimming on past events. `past_event_opacity` answers the second in full; sorting newest first is untouched, so **do not close** it
 - [#621](https://github.com/alexpfau/calendar-card-pro/issues/621) - The week rule ignoring `first_day_of_week: sunday`, reported by @A-Talmor against Asia/Jerusalem. Both halves are answered. The week separator is fixed, and the report's second observation, that Sunday also carries the `weekend` class, is answered by the weekend now following the country set in Home Assistant, which gives a home in Israel Friday and Saturday whatever language Home Assistant runs in. Say when closing that this needs the country set, under Settings → System → Home information
 - [#620](https://github.com/alexpfau/calendar-card-pro/issues/620) - The today indicator taking over the column header when `today_indicator_size` was written as `6 px`, reported by @codetalker78
 - [#625](https://github.com/alexpfau/calendar-card-pro/issues/625) - Showing the time once for an event that starts and ends at the same time, requested by @KingDando8430. Filed as a feature request, but v4.2 printed the time twice, so it is listed above as a fix
 - [#603](https://github.com/alexpfau/calendar-card-pro/issues/603) - Choosing day or night weather icons from the forecast's own `is_daytime`, with the 18:00 to 06:00 rule kept as the fallback, requested by @jonaspinall
+- [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) - Page through weeks from the card, with a Today button by @brandher — answered by `toolbar → navigation`: arrows, a button home and a date picker
+- [#45](https://github.com/alexpfau/calendar-card-pro/issues/45) - Add an event from the card, using Home Assistant's create-event dialog — answered by the toolbar's add button (Thanks @GContaldi, #663)
+- [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) - Tap an event to see its details by @elindse — answered by `event_tap_action: details`. Passing an event's fields to a custom tap action, asked in the discussion, moves to an issue of its own
+- [#298](https://github.com/alexpfau/calendar-card-pro/issues/298) - Delete an event from the card by @borgqueenx — answered by the event dialog's Delete, wherever the calendar's integration allows it (Thanks @GContaldi, #668)
+- [#604](https://github.com/alexpfau/calendar-card-pro/issues/604) - Event details & editing by @alexpfau. Reading, adding, changing and deleting an event are answered; links in locations and descriptions (issue 306) are not, so **do not close** it
+- [#615](https://github.com/alexpfau/calendar-card-pro/issues/615) - A "Today" option in the day header by @EcoHeliGuy — answered by the date tile rather than the word, because "Today" and "Tomorrow" do not fit the list view's date column
+- [#670](https://github.com/alexpfau/calendar-card-pro/issues/670) - Always show today, even if empty by @vincentullmann — answered by `show_empty_today` (Thanks @vincentullmann, #669)
+- [#653](https://github.com/alexpfau/calendar-card-pro/issues/653) - Optional spacing between events in column and list view by @slikrik98 — answered by `event_gap`
+- [#264](https://github.com/alexpfau/calendar-card-pro/issues/264) - Spacing between events from different calendars on the same day by @Kaulhaaz. `event_gap` gives the spacing it asks for, but not the joined runs of one calendar's events its mock-up shows, so **do not close** it
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0
 

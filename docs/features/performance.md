@@ -16,16 +16,23 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   24 hours old, without waiting for Home Assistant.
 - **A background refetch on appearing.** With `refresh_on_navigate` on, which is the
   default, the card then asks Home Assistant again and swaps in the answer, unless its data
-  is less than 5 seconds old. Turn it off to keep using the cached events until they are
-  due.
+  is less than 5 seconds old or a calendar is failing to load and waiting for its next
+  retry. Turn it off to keep using the cached events until they are due.
 - **A refresh every `refresh_interval` minutes**, counted from when the data was loaded.
-  Cards showing the same calendars share one cache, so one card's refresh serves the others.
+  Cards showing the same calendars over the same dates share one cache, so one card's
+  refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as
   long as the slowest calendar rather than the sum of all of them.
 - **At once after a change made on the card.** Adding, editing or deleting an event through
   the card's [dialogs](/features/actions#home-assistants-own-dialogs) refetches straight
   away, on that card and on every other Calendar Card Pro card on the page that shows the
-  calendar.
+  changed calendar. A new event could have gone to any calendar that accepts new events, so
+  after one every card showing such a calendar refreshes.
+- **Pages kept in memory only.** Dates the
+  [date navigation](/features/layout-appearance#paging-through-dates) pages to are loaded the
+  first time they are shown and kept in memory, shared by the cards on the page, for the 16
+  most recent pages. They are never written to the browser's storage, so a tablet paging all
+  week leaves nothing behind.
 
 ```yaml
 # A wall tablet that should not refetch on every view switch

@@ -1,7 +1,7 @@
 /**
  * View-independent event presentation for Calendar Card Pro.
  *
- * Both list and column views use these derived values so event content cannot drift.
+ * List, column and grid views all use these derived values so event content cannot drift.
  */
 
 import * as AccentText from './accent-text';

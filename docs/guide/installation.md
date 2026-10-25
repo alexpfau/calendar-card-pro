@@ -71,8 +71,9 @@ gzip -9 -k calendar-card-pro.js editor.js
 ```
 
 That brings the card to 103 KB and the editor to 166 KB at gzip level 9, the level HACS uses
-as well. These rounded production-build figures were measured with Node 24.21.0's zlib at
-level 9; the exact sizes depend on the `gzip` build. Delete the `.gz` files whenever you
+as well. Every size here is a production build in whole kilobytes of 1,000 bytes, rounded
+down; the compressed ones were measured with Node 24.21.0's zlib at level 9, and the exact
+sizes depend on the `gzip` build. Delete the `.gz` files whenever you
 update, or regenerate them — Home Assistant will serve a stale `.gz` in preference to a
 newer `.js`.
 :::

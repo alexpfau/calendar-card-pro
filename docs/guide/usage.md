@@ -20,7 +20,7 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events — so you can skip straight to step 4. Nothing needs to be enabled for this.
 
-Two starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), and **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side. They are otherwise identical, so picking either and changing your mind later costs nothing more than switching `view`.
+Three starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side, and **Calendar Card Pro - Time Grid** for the [grid layout](/features/grid-view), which places them on an hour axis. The grid one also hides locations, which crowd a block on the axis. They are otherwise identical, so picking one and changing your mind later costs nothing more than switching `view`, plus turning `show_location` back on if you started from the grid.
 :::
 
 ## 🚀 Your First Card
@@ -85,6 +85,8 @@ Calendar Card Pro offers two ways to customize your card:
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
 - **Follow a Walkthrough** - one invented family, two displays, each built from start to finish. [The Weekly Grid](/guide/family-calendar) combines their calendars into one week on an hour axis for a wall tablet, with faces and every shared plan drawn once. [The Filtered Agenda](/guide/one-calendar-many-purposes) puts them on a short hallway list, splitting the calendars that mix several kinds of event into blocks with their own rules
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
+- **Page, Switch Layouts & Add Events on the Card** - The [header toolbar](/features/layout-appearance#header-toolbar) puts [date navigation](/features/layout-appearance#paging-through-dates), a List, Columns and Grid switcher and an add-event button on the card itself
+- **Open an Event** - With `event_tap_action: details`, [a tap on an event](/features/actions#tapping-an-event) opens it in Home Assistant's own event dialog, where it can also be edited or deleted if its calendar allows
 - **See Examples** - Browse [Examples](/reference/examples) for complete, ready-made setups
 - **Reference Configuration** - Use [Configuration Options](/reference/configuration) as the complete option reference
 - **Get Involved!** - See [Contributing & Roadmap](/contributing) to contribute or view upcoming features

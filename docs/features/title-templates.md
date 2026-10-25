@@ -33,11 +33,13 @@ No separate option enables this. Any title containing `{{` or `{%` is rendered a
     {% endif %}
   ```
 
-- **Count today's events from a calendar entity**
+- **Show the next event's title**
 
   ```yaml
   title: '{{ state_attr("calendar.family", "message") or "Nothing scheduled" }}'
   ```
+
+  A calendar entity's `message` attribute is the title of the event under way, or of the next one if none is.
 
 ::: tip Test Your Template First
 Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.

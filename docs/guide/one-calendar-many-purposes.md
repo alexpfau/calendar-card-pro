@@ -23,7 +23,7 @@ Filters read an event's title, location or description, so they need a reliable 
 
 A screen in the hall, on all day, that the whole household walks past. It needs to answer four questions at a glance — _whose birthday is it, does the trash go out, who is out this evening, and is anyone busy_ — without turning into a wall of text, and without telling every visitor what Ben's meetings are about.
 
-That makes it a short list rather than a week: three days, today first, in the default list layout, where finished timed events drop off as they end. Each row reads like a sentence, so this display is about what each event says, and the blocks below decide that.
+That makes it a short list rather than a week: three days, today first, in the default list layout, where finished timed events drop off as they end and the one under way has a green "Now ·" in front of its time. Late in the evening, once today has nothing left, the list starts at tomorrow; add [`show_empty_today: true`](/features/event-content#showing-today-when-it-is-empty) to keep today's row there with its "No events" line. Each row reads like a sentence, so this display is about what each event says, and the blocks below decide that.
 
 ## 🗂️ Calendars & Event Blocks
 
@@ -187,6 +187,8 @@ Replacing the title does **not** make an event private on its own.
 `show_location: false` is doing real work here — locations are shown by default, and _Meeting Room 2_ gives the game away on its own.
 
 `show_description: false` is not, yet. Descriptions are hidden by default, so on this card it changes nothing. Set it anyway: it is what keeps this block safe the day you turn [`show_description`](/reference/configuration#core-settings) on card-wide.
+
+Leave [`event_tap_action: details`](/features/actions#tapping-an-event) off this card too: it opens a tapped event in Home Assistant's own dialog as the calendar stores it, so a tap on _Busy_ would show the real title, location and description.
 :::
 
 ### Why This Works
@@ -242,7 +244,7 @@ Reach for the card-level option to tidy, and the per-calendar one to protect. Do
 The shape is the free choice here. The **color** is not: `allday_badge_color` has to stay `accent` for any of this to work, because the legend is the color. Setting it to `text` or to a single custom color draws every pill alike, which is a tidy look on a card showing one calendar and the one thing that undoes this entire page.
 :::
 
-Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`, which is right for an emoji and far too small for a word. Move it too: its default spot, `'15% 50%'`, sits just left of the date, where a dot fits and a word runs into the day number and off the card. `today_indicator_position: '50% 8%'` under `list:` puts it above the weekday instead. The position is a share of the day's height, so on a day with only one event it can still touch the date. And `show_multiday_allday_time` is deliberately left **on**: the grandparents' visit reads _All day, until Sunday, Oct 18_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when a visit or a holiday ends.
+Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word in place of the default [date tile](/features/layout-appearance#the-date-tile). Text replaces the tile rather than joining it, and is drawn beside the date rather than behind the day number, so two settings come with it. Raise `today_indicator_size`, since it ships at `6px`, which is right for an emoji and far too small for a word. And move it: its default spot, `'15% 50%'`, sits just left of the date, with room for a dot but not for a word, which runs into the day number and off the card. `today_indicator_position: '50% 8%'` under `list:` puts it above the weekday instead. The position is a share of the day's height, so on a day with only one event it can still touch the date. And `show_multiday_allday_time` is deliberately left **on**: the grandparents' visit reads _All day, until Sunday, Oct 18_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when a visit or a holiday ends.
 
 ## 🔀 Combining the Techniques
 

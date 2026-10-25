@@ -514,7 +514,7 @@ export const cardStyles = css`
 
   /* Every control in the bar shares one look, so they read as one family and none of them
      competes with the events: a neutral pill, the text color washed into the card at 8%,
-     36px tall, which is the hit target and leaves the slim row at 40px. The theme's primary
+     36px tall, which is the hit target and leaves the slim row at 48px. The theme's primary
      color is kept for the keyboard focus ring alone. The wash is mixed into transparent
      rather than named, so it follows any card background a theme sets.
 
