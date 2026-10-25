@@ -248,6 +248,13 @@ export const cardStyles = css`
 
     background: var(--calendar-card-background-color, var(--card-background-color));
     cursor: default;
+
+    /* Home Assistant's card transitions all of its properties, the padding included, and the
+       padding is what the view sets: list starts 8px in, column and grid 16px. So a switch
+       between list and either of the others slid everything 8px over 300ms, and one between
+       column and grid did not. A switch is a change of layout and is drawn at once; the
+       card's colors and shadow keep their transition. */
+    transition-property: background-color, border-color, box-shadow, color;
   }
 
   ha-card.card-interactive {
@@ -351,6 +358,160 @@ export const cardStyles = css`
     gap: 8px;
   }
 
+  /* The band the date navigation brings. It takes a row of its own under the title, which is
+     what the full basis does in the wrapping header, or is the whole header without one. The
+     dates lead and the trailing group keeps to the inline end; where the card is too narrow
+     for both, the trailing group wraps onto a second row and stays at the end. The range
+     reserves the width of its widest label, so which row each group sits on follows the
+     card's width and never the dates on screen. The 8px inline start lines the dates up with
+     the title, whose own margin it is; column and grid drop both. It is padding inside the
+     full basis, not a margin beside it: a margin would make the band 8px wider than the
+     header, push its end past the content box, and read as labels that do not fit at any
+     width. */
+  .header-container.has-band {
+    flex-wrap: wrap;
+  }
+
+  .card-toolbar.toolbar-band {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    box-sizing: border-box;
+    margin-inline-start: 0;
+    padding-inline-start: 8px;
+    margin-bottom: 12px;
+  }
+
+  .toolbar-band .toolbar-trailing {
+    margin-inline-start: auto;
+  }
+
+  .toolbar-leading {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  /* Previous, home and next on one track, like the view switcher's but with nothing raised:
+     one control, not a choice. */
+  .date-navigation {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 3px;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
+  }
+
+  .date-navigation-segment {
+    width: 34px;
+    height: 30px;
+    padding: 0;
+    border-radius: 15px;
+    background: transparent;
+  }
+
+  /* Drawn for left-to-right reading. Where the card reads right to left, previous is the
+     arrow pointing right. */
+  .date-navigation-direction:dir(rtl) {
+    transform: scaleX(-1);
+  }
+
+  /* The range on screen, a button that opens the date picker, as wide as the dates it names.
+     Behind it, in the same grid cell, an invisible copy of the widest label this page length
+     can have keeps that much room, so the band wraps by the card's width and never by the
+     dates, and a press never moves the controls after it. The cell can still shrink below
+     the copy, and the button below its label, so on a card narrower than the dates and the
+     arrows together the label is cut short rather than pushed past the card's edge. */
+  .toolbar-range-anchor {
+    display: grid;
+    flex: 0 1 auto;
+    grid-template-columns: minmax(0, max-content);
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* The button's own font, padding and caret, so it is as wide as the button would be
+     holding the widest label. */
+  .toolbar-range-reserve {
+    grid-area: 1 / 1;
+    overflow: hidden;
+    padding-inline: 10px 24px;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1;
+    white-space: nowrap;
+    visibility: hidden;
+  }
+
+  /* Holds the button and the input that lends it the picker, so the input covers the button
+     alone and the picker opens under the dates. */
+  .toolbar-range-slot {
+    position: relative;
+    display: flex;
+    grid-area: 1 / 1;
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Through its slot, so these outrank the rule every control shares below. */
+  .toolbar-range-slot > .toolbar-range {
+    height: 36px;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 10px 4px;
+    border-radius: 18px;
+    background: transparent;
+  }
+
+  /* The caret follows the label, so it marks the dates rather than the far end of the room
+     kept for them. */
+  .toolbar-range-text {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .toolbar-range-text bdi {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toolbar-range-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    color: var(--secondary-text-color);
+  }
+
+  /* Only lends the range button the browser's picker: laid over it, so the picker opens
+     there, and never seen, pressed or focused. */
+  .toolbar-date-input {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Days about to give way to another page's. The delay keeps a page that loads quickly from
+     flickering; leaving the state is immediate. */
+  .content-container.page-pending {
+    opacity: 0.5;
+    transition: opacity 120ms ease 150ms;
+  }
+
   /* Every control in the bar shares one look, so they read as one family and none of them
      competes with the events: a neutral pill, the text color washed into the card at 8%,
      36px tall, which is the hit target and leaves the slim row at 40px. The theme's primary
@@ -398,7 +559,9 @@ export const cardStyles = css`
   }
 
   .toolbar-button,
-  .view-switcher-segment {
+  .view-switcher-segment,
+  .date-navigation-segment,
+  .toolbar-range {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -485,23 +648,31 @@ export const cardStyles = css`
      tap. Pressed applies everywhere, and only for as long as the press lasts. */
   @media (hover: hover) {
     .toolbar-button:hover,
-    .view-switcher-segment:not(.selected):not(.unavailable):hover {
+    .view-switcher-segment:not(.selected):not(.unavailable):hover,
+    .date-navigation-segment:hover,
+    .toolbar-range:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
   }
 
   .toolbar-button:active,
-  .view-switcher-segment:not(.selected):not(.unavailable):active {
+  .view-switcher-segment:not(.selected):not(.unavailable):active,
+  .date-navigation-segment:active,
+  .toolbar-range:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
   .toolbar-button:focus,
-  .view-switcher-segment:focus {
+  .view-switcher-segment:focus,
+  .date-navigation-segment:focus,
+  .toolbar-range:focus {
     outline: none;
   }
 
   .toolbar-button:focus-visible,
-  .view-switcher-segment:focus-visible {
+  .view-switcher-segment:focus-visible,
+  .date-navigation-segment:focus-visible,
+  .toolbar-range:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
@@ -2728,9 +2899,14 @@ export const cardStyles = css`
 
   /* The title's 8px margin exists to add to the list view's 8px card padding.
      Column view already supplies the full 16px, so the margin would push the
-     title 8px past the first column's edge. */
+     title 8px past the first column's edge. The date band's 8px lines its dates
+     up with that margin, so it goes too. */
   .calendar-card-pro.column-view .card-header {
     margin-inline-start: 0;
+  }
+
+  .calendar-card-pro.column-view .card-toolbar.toolbar-band {
+    padding-inline-start: 0;
   }
 
   /* ===== COLUMN VIEW STYLES ===== */
@@ -2967,6 +3143,11 @@ export const cardStyles = css`
 
   .calendar-card-pro.grid-view .card-header {
     margin-inline-start: 0;
+  }
+
+  /* As in column view: the band's 8px stands for the title's margin, gone here. */
+  .calendar-card-pro.grid-view .card-toolbar.toolbar-band {
+    padding-inline-start: 0;
   }
 
   /* One grid for the whole view. The four rows -- week numbers, day headers, the

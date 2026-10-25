@@ -22,6 +22,7 @@ import {
   resolveColumnFit,
   resolveColumnFitIfPicked,
 } from '../src/config/view';
+import { cardStyles } from '../src/rendering/styles';
 import {
   VIEW_CHOICE_STORAGE_KEY,
   configFingerprint,
@@ -729,8 +730,27 @@ describe('the resolved toolbar the card reads', () => {
   it('is the one place a toolbar default comes from', () => {
     expect(Config.resolveToolbar(configFor())).toEqual({
       show: true,
+      labels: true,
+      navigation: false,
       addEvent: false,
       viewSwitcher: true,
     });
+  });
+});
+
+describe('a switch is drawn at once', () => {
+  it("keeps the padding each view sets out of the card's transition", () => {
+    // Home Assistant's ha-card transitions all of its properties, and list pads the card's
+    // start 8px where column and grid pad it 16px, so every switch to or from list slid the
+    // card's contents 8px over 300ms. The card names what may transition instead, pinned by
+    // value so neither the padding nor `all` can come back in.
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /\}\s*ha-card\s*\{([^}]*)\}/.exec(css)![1];
+    const properties = /transition-property:\s*([^;]+);/
+      .exec(rule)?.[1]
+      .split(',')
+      .map((property) => property.trim());
+
+    expect(properties).toEqual(['background-color', 'border-color', 'box-shadow', 'color']);
   });
 });

@@ -51,6 +51,7 @@ import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
+import * as Paging from './utils/paging';
 import * as Templates from './utils/templates';
 import {
   TitleMotionController,
@@ -289,7 +290,7 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
 /**
  * How `updateEvents` uses the cache and the network; its docblock has the table.
  */
-type LoadMode = 'navigate' | 'cache' | 'reprocess' | 'network' | 'reload';
+type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload';
 
 /**
  * Main Calendar Card Pro custom element.
@@ -532,6 +533,7 @@ class CalendarCardPro extends LitElement {
    * @param changed - The calendars the change may have touched
    */
   private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
+    this._markHomeStaleIfAway();
     const writeGeneration = EventUtils.advanceWriteGeneration();
     void this.refreshEvents(writeGeneration);
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
@@ -552,9 +554,19 @@ class CalendarCardPro extends LitElement {
       typeof entity === 'string' ? entity : entity.entity,
     );
     if (CalendarChanges.concernsCalendars(detail, shownIds, this.safeHass)) {
+      this._markHomeStaleIfAway();
       void this.refreshEvents(detail.writeGeneration);
     }
   };
+
+  /**
+   * Remember that home's cached events may predate a calendar change, when the card is away
+   * from home and so refreshes the page on screen instead. Other pages need nothing: the page
+   * store drops what was fetched before a write.
+   */
+  private _markHomeStaleIfAway(): void {
+    if (this._pageRequested !== null || this._pageShown !== null) this._homeStale = true;
+  }
 
   /**
    * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
@@ -680,6 +692,36 @@ class CalendarCardPro extends LitElement {
    * Never the configured view itself: choosing that clears the choice.
    */
   private _viewChoice: Types.EffectiveView | null = null;
+
+  /**
+   * First day of the page the date navigation asked for, as `YYYY-MM-DD`, or null for home:
+   * the window the card is configured to open with.
+   *
+   * Never stored anywhere: a reload, any change to the configuration and the start of editing
+   * all bring the card home. A fixed day rather than a distance from home, so a page stays on
+   * its dates at midnight while home moves on.
+   */
+  private _pageRequested: string | null = null;
+
+  /**
+   * First day of the page whose events `events` holds, or null for home.
+   *
+   * Lags `_pageRequested` while a page loads: the days on screen stay those of the page the
+   * events belong to, dimmed, rather than drawing one window's events under another's dates.
+   */
+  private _pageShown: string | null = null;
+
+  /** The configuration a page is drawn and fetched with, per page, for one configuration. */
+  private _pageConfigs: { config: Types.Config; pages: Map<string, Types.Config> } | null = null;
+
+  /**
+   * Set when a calendar changed while the card was away from home: home's cached events may
+   * predate the change, and nothing refreshes them meanwhile, so the way home fetches.
+   */
+  private _homeStale = false;
+
+  /** First day of the configured window, for the local day and options it was resolved for. */
+  private _homeWindowCache: { key: string; start: Date } | null = null;
 
   private _effectiveView: Types.EffectiveView = 'list';
 
@@ -893,17 +935,148 @@ class CalendarCardPro extends LitElement {
    */
   get effectiveConfig(): Types.Config {
     const view = this.effectiveView;
+    const config = this._configForPage(this._pageShown);
     const cache = this._effectiveConfigCache;
 
-    if (cache && cache.config === this.config && cache.view === view) {
+    if (cache && cache.config === config && cache.view === view) {
       return cache.resolved;
     }
 
-    const resolved = ViewConfig.resolveEffectiveConfig(this.config, view);
+    const resolved = ViewConfig.resolveEffectiveConfig(config, view);
 
-    this._effectiveConfigCache = { config: this.config, view, resolved };
+    this._effectiveConfigCache = { config, view, resolved };
 
     return resolved;
+  }
+
+  /**
+   * The configuration a page is fetched and drawn with: home's is the card's own; any other's
+   * starts on that page's first day and shows past events.
+   *
+   * Past events because `show_past_events: false` hides whatever has ended, which on a page in
+   * the past is everything; looking back is the reason to page there. It is set in every view
+   * block that sets it too, since a block's value outranks the shared one. Memoized per
+   * configuration, so the caches downstream that compare configurations by identity keep
+   * hitting while a page stays on screen.
+   *
+   * @param page - First day of the page, or null for home
+   * @returns The configuration for that page
+   */
+  private _configForPage(page: string | null): Types.Config {
+    if (page === null) return this.config;
+
+    if (this._pageConfigs?.config !== this.config) {
+      this._pageConfigs = { config: this.config, pages: new Map() };
+    }
+    const cached = this._pageConfigs.pages.get(page);
+    if (cached) return cached;
+
+    const derived: Types.Config = { ...this.config, start_date: page, show_past_events: true };
+    for (const view of ViewConfig.VIEWS) {
+      const blockKey = ViewConfig.VIEW_BLOCKS[view]?.blockKey as keyof Types.Config | undefined;
+      const block = blockKey ? this.config[blockKey] : undefined;
+      if (blockKey && Helpers.isConfigBlock(block) && 'show_past_events' in block) {
+        (derived as unknown as Record<string, unknown>)[blockKey] = {
+          ...block,
+          show_past_events: true,
+        };
+      }
+    }
+
+    this._pageConfigs.pages.set(page, derived);
+    return derived;
+  }
+
+  /**
+   * The query identity a page's events are fetched and cached under: home's is the card's
+   * own; a page's is that of a card configured to open on its first day, so two cards on one
+   * page share its request and its entry.
+   *
+   * @param page - First day of the page, or null for home
+   * @returns The instance id
+   */
+  private _instanceIdForPage(page: string | null): string {
+    if (page === null) return this._instanceId;
+
+    return Helpers.generateDeterministicId(
+      this.config.entities,
+      this.config.days_to_show,
+      page,
+      this.config.first_day_of_week,
+    );
+  }
+
+  /** Whether the configuration asks for the date navigation. */
+  private get _wantsNavigation(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    return toolbar.show && toolbar.navigation;
+  }
+
+  /** Day columns this render draws while the layout drops some, `0` when it draws them all. */
+  private get _shedColumns(): number {
+    return this.effectiveView === 'list' ? 0 : this._shownColumnCount;
+  }
+
+  /**
+   * First day of the window the card is configured to open with, at local midnight.
+   *
+   * Memoized per local day and per the options that decide it, because resolving a relative
+   * `start_date` logs, and this is read on every render while the date navigation is on.
+   *
+   * @param now - The current moment
+   * @returns The configured window's first day
+   */
+  private _homeWindowStart(now: Date): Date {
+    const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
+      this.config.first_day_of_week,
+      this.hass?.locale,
+    );
+    const key = [
+      FormatUtils.getLocalDateKey(now),
+      this.config.start_date ?? '',
+      this.config.days_to_show,
+      firstDayOfWeek,
+    ].join('|');
+    if (this._homeWindowCache?.key !== key) {
+      const { start } = EventUtils.getTimeWindow(
+        this.config.days_to_show,
+        this.config.start_date,
+        firstDayOfWeek,
+      );
+      this._homeWindowCache = { key, start };
+    }
+    return this._homeWindowCache.start;
+  }
+
+  /**
+   * The page the card opens with, as drawn now: the configured window, or the slice of it the
+   * card draws while the layout drops columns.
+   *
+   * @param now - The current moment
+   * @returns Home
+   */
+  private _homeRange(now: Date = new Date()): Paging.PageRange {
+    return Paging.homeRange(
+      this._homeWindowStart(now),
+      this.config.days_to_show,
+      this._shedColumns,
+      now,
+    );
+  }
+
+  /**
+   * The days a page covers as drawn now.
+   *
+   * @param page - First day of the page, or null for home
+   * @param now - The current moment
+   * @returns The page's days
+   */
+  private _pageRange(page: string | null, now: Date = new Date()): Paging.PageRange {
+    if (page === null) return this._homeRange(now);
+    return {
+      start: Paging.pageStart(page),
+      days: Paging.pageSpan(this.config.days_to_show, this._shedColumns),
+    };
   }
 
   /**
@@ -1124,6 +1297,8 @@ class CalendarCardPro extends LitElement {
         : [
             Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
             Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
+            Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH,
+            Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH,
           ].filter((threshold) => width >= threshold).length;
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
     // Labels that overflowed at some width are tried again once the card grows past it.
@@ -2036,6 +2211,17 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // Editing shows the card as configured: a page the date navigation reached gives way to
+    // home, and the controls do nothing until editing ends.
+    if (
+      (changedProps.has('editMode') || changedProps.has('preview')) &&
+      this._isBeingEdited &&
+      this._pageRequested !== null
+    ) {
+      this._requestPage(null);
+      this._loadPage();
+    }
+
     // Reconciled after every update rather than acquired once: the view can change after
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
@@ -2163,8 +2349,12 @@ class CalendarCardPro extends LitElement {
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
+    // Home only: a card paged to an empty week that hid itself would take with it the only way
+    // back.
     const shouldHide =
       this.config.hide_when_empty === true &&
+      this._pageRequested === null &&
+      this._pageShown === null &&
       !this.preview &&
       !this.editMode &&
       !isErrorState &&
@@ -3109,7 +3299,11 @@ class CalendarCardPro extends LitElement {
     // measured column card back to the list view at an unchanged width and leave
     // it there until the next resize. Only seed from a fit that a real
     // measurement produced — the optimistic pre-measurement answer must not.
-    this._syncViewChoice(config);
+    const replaced = this._syncViewChoice(config);
+    // Any other configuration starts at home, as a reload does. The days on screen stay until
+    // home's events are committed, so nothing is drawn under the wrong dates meanwhile.
+    const leftPage = replaced && this._pageRequested !== null;
+    if (leftPage) this._requestPage(null);
     const seededFit = ViewConfig.resolveColumnFit(
       this.requestedView,
       this.config,
@@ -3152,6 +3346,8 @@ class CalendarCardPro extends LitElement {
       // keystroke.
       Logger.debug('Per-calendar configuration changed, reprocessing cached data');
       this.updateEvents('reprocess');
+    } else if (leftPage) {
+      this._loadPage();
     }
   }
 
@@ -3165,15 +3361,17 @@ class CalendarCardPro extends LitElement {
    * configuration changed back to exactly what it was finds the choice made for it again.
    *
    * @param rawConfig - Configuration exactly as Home Assistant passed it
+   * @returns True when the configuration is a different one from the last
    */
-  private _syncViewChoice(rawConfig: unknown): void {
+  private _syncViewChoice(rawConfig: unknown): boolean {
     const fingerprint = ViewChoice.configFingerprint(rawConfig);
-    if (fingerprint === this._configFingerprint) return;
+    if (fingerprint === this._configFingerprint) return false;
 
     this._configFingerprint = fingerprint;
     const remembered = this._wantsViewSwitcher ? ViewChoice.readViewChoice(fingerprint) : undefined;
     this._viewChoice =
       remembered !== undefined && remembered !== this.config.view ? remembered : null;
+    return true;
   }
 
   /**
@@ -3200,6 +3398,7 @@ class CalendarCardPro extends LitElement {
    * | Mode        | Draws the cache                | Asks Home Assistant when                       |
    * | ----------- | ------------------------------ | ---------------------------------------------- |
    * | `navigate`  | anything up to 24 h old, first | nothing cached, cache due, or `refresh_on_navigate` and ≥ 5 s old |
+   * | `page`      | anything up to 24 h old, first | nothing cached, or cache due                   |
    * | `cache`     | only if not due                | nothing fresh is cached                        |
    * | `reprocess` | anything up to 24 h old        | nothing is cached at all                       |
    * | `network`   | no                             | always, joining a matching request under way   |
@@ -3212,6 +3411,10 @@ class CalendarCardPro extends LitElement {
    * none (see `refreshEvents`).
    *
    * A boolean is still accepted: `true` is `network`, `false` is `cache`.
+   *
+   * Every mode loads the page the date navigation asks for (`_pageRequested`): home from
+   * `localStorage`, any other page from the in-memory page store, so paging leaves nothing
+   * behind in a store shared with Home Assistant.
    *
    * @param mode How to use the cache and the network
    * @param afterWrite For `reload`, the generation of the write it refreshes for
@@ -3264,8 +3467,10 @@ class CalendarCardPro extends LitElement {
     const isAppearLoad = load === 'navigate';
     this._appearLoadPending = false;
 
-    const config = this.config;
-    const instanceId = this._instanceId;
+    const page = this._pageRequested;
+    const config = this._configForPage(page);
+    const instanceId = this._instanceIdForPage(page);
+    const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
     const usesCache = load !== 'network' && load !== 'reload';
 
     // Read synchronously, before any await, so a card attached with data on disk draws
@@ -3273,18 +3478,19 @@ class CalendarCardPro extends LitElement {
     let snapshot: Types.EventSnapshot | null = null;
     if (usesCache) {
       try {
-        snapshot = EventUtils.readEventSnapshot(hass, config, instanceId);
+        snapshot = EventUtils.readEventSnapshot(hass, config, instanceId, store);
       } catch (error) {
         Logger.warn('Could not read cached events:', error);
       }
     }
 
     const draws =
-      snapshot !== null && (load === 'navigate' || load === 'reprocess' || !snapshot.due);
+      snapshot !== null &&
+      (load === 'navigate' || load === 'page' || load === 'reprocess' || !snapshot.due);
 
     if (draws && snapshot) {
       Logger.info(`Drawing ${snapshot.events.length} cached events`);
-      this._commitEvents(snapshot, instanceId);
+      this._commitEvents(snapshot, instanceId, page);
     } else if (isAppearLoad && this.events.length > 0 && !this._residentEventsDrawable()) {
       // The element itself still holds events from before it was detached. With nothing
       // cached to replace them, they would be drawn under a config they were not fetched
@@ -3327,6 +3533,7 @@ class CalendarCardPro extends LitElement {
         load === 'reload' ? 'reload' : 'network',
         this._failureCountHint,
         afterWrite,
+        store,
       );
 
       if (isSuperseded()) {
@@ -3356,7 +3563,7 @@ class CalendarCardPro extends LitElement {
         this._setFailures(failedEntities);
         this.isInitialLoad = false;
       } else {
-        this._commitEvents(result, instanceId);
+        this._commitEvents(result, instanceId, page);
       }
 
       this.isLoading = false;
@@ -3398,12 +3605,18 @@ class CalendarCardPro extends LitElement {
    *
    * @param result Events and what is known about them
    * @param instanceId Query identity the events were loaded for
+   * @param page The page they belong to, null for home; it becomes the page on screen
    */
-  private _commitEvents(result: Types.EventFetchResult, instanceId: string): void {
+  private _commitEvents(
+    result: Types.EventFetchResult,
+    instanceId: string,
+    page: string | null,
+  ): void {
     const failedEntities = result.failedEntities ?? [];
 
     this.events = [...(result.events ?? [])];
     this._eventsInstanceId = instanceId;
+    this._pageShown = page;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._setFailures(failedEntities);
     this.isInitialLoad = false;
@@ -3446,7 +3659,8 @@ class CalendarCardPro extends LitElement {
 
     const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
     return (
-      this._eventsInstanceId === this._instanceId && Date.now() - this._eventsFetchedAt < maxStaleMs
+      this._eventsInstanceId === this._instanceIdForPage(this._pageRequested) &&
+      Date.now() - this._eventsFetchedAt < maxStaleMs
     );
   }
 
@@ -3517,8 +3731,17 @@ class CalendarCardPro extends LitElement {
     let drawsEventTarget = false;
 
     // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
+    // With the date navigation the days are the page's, by date: the page the range names and
+    // the arrows step by is a run of calendar days, and where empty days are not drawn, a slice
+    // by index would hold other days than those.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
       const count = this._shownColumnCount;
+      if (this._wantsNavigation && count > 0 && count < this.config.days_to_show) {
+        const page = this._pageRange(this._pageShown);
+        const from = page.start.getTime();
+        const until = Paging.addDays(page.start, page.days).getTime();
+        return days.filter((day) => day.timestamp >= from && day.timestamp < until);
+      }
       if (count <= 0 || count >= days.length) {
         return days;
       }
@@ -3600,6 +3823,7 @@ class CalendarCardPro extends LitElement {
       this._renderFetchErrorNotice(),
       toolbar,
       this._hostsControls(toolbar, drawsEventTarget),
+      this._pageRequested !== this._pageShown && !this.isInitialLoad,
     );
   }
 
@@ -3609,10 +3833,16 @@ class CalendarCardPro extends LitElement {
    * @returns The toolbar; with no control in it, no toolbar is drawn
    */
   private _headerToolbar(): Toolbar.HeaderToolbar {
+    const navigation = this._dateNavigation();
     const addEvent = this._addEventButton();
     const viewSwitcher = this._viewSwitcher();
 
-    return { labeled: this._toolbarLabeledFor(addEvent, viewSwitcher), addEvent, viewSwitcher };
+    return {
+      labeled: this._toolbarLabeledFor(addEvent, viewSwitcher, navigation),
+      navigation,
+      addEvent,
+      viewSwitcher,
+    };
   }
 
   /**
@@ -3623,19 +3853,27 @@ class CalendarCardPro extends LitElement {
    * Home Assistant may have no words for the add button, which then stays an icon, and so
    * does the switcher beside it.
    *
+   * `toolbar.labels: false` keeps every control an icon at any width. With the date
+   * navigation in the band, labels need the room for it as well, and are drawn only while the
+   * whole band fits on one row (`_syncToolbarLabelFit`).
+   *
    * @param addEvent - The add button this render draws, if any
    * @param viewSwitcher - The view switcher this render draws, if any
+   * @param navigation - The date navigation this render draws, if any
    * @returns True to draw labels
    */
   private _toolbarLabeledFor(
     addEvent: Toolbar.AddEventButton | undefined,
     viewSwitcher: Toolbar.ViewSwitcher | undefined,
+    navigation?: Toolbar.DateNavigation,
   ): boolean {
     if (this._toolbarWidthPx === null) return false;
+    if (!Config.resolveToolbar(this.config).labels) return false;
+    if (!addEvent && !viewSwitcher) return false;
     if (addEvent && addEvent.label === undefined) return false;
 
     const overflowed = this._toolbarLabelsOverflowed;
-    const signature = this._toolbarLabelSignature(addEvent, viewSwitcher);
+    const signature = this._toolbarLabelSignature(addEvent, viewSwitcher, navigation);
     if (
       overflowed &&
       overflowed.signature === signature &&
@@ -3644,9 +3882,13 @@ class CalendarCardPro extends LitElement {
       return false;
     }
 
-    const minWidth = viewSwitcher
-      ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
-      : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+    const minWidth = navigation
+      ? viewSwitcher
+        ? Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH
+        : Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH
+      : viewSwitcher
+        ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
+        : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
     return this._toolbarWidthPx >= minWidth;
   }
 
@@ -3655,17 +3897,22 @@ class CalendarCardPro extends LitElement {
    *
    * @param addEvent - The add button this render draws, if any
    * @param viewSwitcher - The view switcher this render draws, if any
+   * @param navigation - The date navigation this render draws, if any
    * @returns A string that changes whenever the labeled bar or the title beside it would
    */
   private _toolbarLabelSignature(
     addEvent: Toolbar.AddEventButton | undefined,
     viewSwitcher: Toolbar.ViewSwitcher | undefined,
+    navigation?: Toolbar.DateNavigation,
   ): string {
     return [
       this.effectiveTitle ?? '',
       this.effectiveLanguage,
       addEvent?.label ?? '',
       viewSwitcher ? 'views' : '',
+      // The range's reserved width, not its words: the widest label changes with the language
+      // and the page length, and the dates on screen never decide the layout.
+      navigation?.widestRange ?? '',
     ].join('\u0000');
   }
 
@@ -3693,13 +3940,21 @@ class CalendarCardPro extends LitElement {
 
     const overflows =
       toolbarRect.right > headerRect.right + 0.5 || toolbarRect.left < headerRect.left - 0.5;
-    if (!overflows) return;
+    // In the band, labels are for a band that fits on one row: a labeled trailing group that
+    // wrapped under the dates costs a row the icons would not.
+    const leading = toolbar.querySelector<HTMLElement>('.toolbar-leading');
+    const trailing = toolbar.querySelector<HTMLElement>('.toolbar-trailing');
+    const wraps =
+      leading !== null &&
+      trailing !== null &&
+      trailing.getBoundingClientRect().top > leading.getBoundingClientRect().bottom - 0.5;
+    if (!overflows && !wraps) return;
 
-    const { addEvent, viewSwitcher } = this._headerToolbar();
-    Logger.debug(`Toolbar labels do not fit beside the title at ${this._toolbarWidthPx}px`);
+    const { addEvent, viewSwitcher, navigation } = this._headerToolbar();
+    Logger.debug(`Toolbar labels do not fit at ${this._toolbarWidthPx}px`);
     this._toolbarLabelsOverflowed = {
       widthPx: this._toolbarWidthPx ?? 0,
-      signature: this._toolbarLabelSignature(addEvent, viewSwitcher),
+      signature: this._toolbarLabelSignature(addEvent, viewSwitcher, navigation),
     };
     this.requestUpdate();
   }
@@ -3720,7 +3975,12 @@ class CalendarCardPro extends LitElement {
    * @returns True while the card hosts at least one control
    */
   private _hostsControls(toolbar: Toolbar.HeaderToolbar, drawsEventTarget: boolean): boolean {
-    return toolbar.addEvent !== undefined || toolbar.viewSwitcher !== undefined || drawsEventTarget;
+    return (
+      toolbar.navigation !== undefined ||
+      toolbar.addEvent !== undefined ||
+      toolbar.viewSwitcher !== undefined ||
+      drawsEventTarget
+    );
   }
 
   /**
@@ -3756,6 +4016,11 @@ class CalendarCardPro extends LitElement {
    * @returns The dialog's `selectedDate`
    */
   private _newEventDate(): Date {
+    if (this._pageShown !== null) {
+      const page = this._pageRange(this._pageShown);
+      return AddEvent.newEventDate(page.start, page.days);
+    }
+
     const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
       this.config.first_day_of_week,
       this.hass?.locale,
@@ -3811,6 +4076,132 @@ class CalendarCardPro extends LitElement {
       // events, so every card showing one refreshes, and no card showing only read-only ones.
       updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
     });
+  }
+
+  //-----------------------------------------------------------------------------
+  // DATE NAVIGATION
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The date navigation, when the configuration asks for it.
+   *
+   * The range names the page asked for, so a press answers at once; the days below stay those
+   * of the page whose events have arrived, dimmed, until the new page's land. While the card is
+   * being edited everything is drawn and nothing responds.
+   *
+   * Previous and next are named by Home Assistant's own strings, in its language, as the add
+   * button is; without them the wrapper falls back to English accessible names that are never
+   * shown. Home and the range come from `Intl` in the card's language, so no card string is
+   * needed.
+   *
+   * @returns Navigation description for the wrapper, or undefined for none
+   */
+  private _dateNavigation(): Toolbar.DateNavigation | undefined {
+    if (!this._wantsNavigation) return undefined;
+
+    const now = new Date();
+    const language = this.effectiveLanguage;
+    const page = this._pageRange(this._pageRequested, now);
+    const localize = (key: string): string | undefined => {
+      const text = this.hass?.localize?.(key);
+      return text && text !== key ? text : undefined;
+    };
+
+    return {
+      range: Paging.rangeLabel(page, language, now),
+      widestRange: Paging.widestRangeLabel(page.days, language),
+      homeName: Paging.homeButtonName(this._homeRange(now), language, now),
+      previousName: localize('ui.common.previous'),
+      nextName: localize('ui.common.next'),
+      inert: this._isBeingEdited,
+      pickerValue: Paging.pageKey(page.start),
+      onPrevious: () => this._stepPage(-1),
+      onHome: () => this._goToPage(null),
+      onNext: () => this._stepPage(1),
+      onPick: (date) => this._pickDate(date),
+    };
+  }
+
+  /**
+   * Moves one page back or forward, by exactly the days on screen.
+   *
+   * From the page asked for rather than the one shown, so quick presses add up while a page
+   * is still loading.
+   *
+   * @param direction - `-1` for back, `1` for forward
+   */
+  private _stepPage(direction: -1 | 1): void {
+    const from = this._pageRange(this._pageRequested);
+    this._goToPage(Paging.stepPage(from.start, from.days, direction));
+  }
+
+  /**
+   * Opens the page holding a day picked in the date picker, lined up with home, or home when
+   * the day is one of its own.
+   *
+   * @param value - The picked day, `YYYY-MM-DD`
+   */
+  private _pickDate(value: string): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+    const date = Paging.pageStart(value);
+    if (isNaN(date.getTime())) return;
+
+    const home = this._homeRange();
+    this._goToPage(
+      Paging.rangeContains(home, date) ? null : Paging.pageContaining(date, home, home.days),
+    );
+  }
+
+  /**
+   * Asks for a page, and loads it.
+   *
+   * A page starting where home does is home: it draws the card's own window, past events
+   * hidden as configured. Nothing happens for the page already asked for, so the home button
+   * at home is inert, and nothing at all while the card is being edited.
+   *
+   * @param start - First day of the page, or null for home
+   */
+  private _goToPage(start: Date | null): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not paging while the card is being edited');
+      return;
+    }
+
+    const homeKey = Paging.pageKey(this._homeRange().start);
+    const key = start === null ? null : Paging.pageKey(start);
+    const page = key === null || key === homeKey ? null : key;
+    if (page === this._pageRequested) return;
+
+    Logger.debug(`Paging to ${page ?? 'home'}`);
+    this._requestPage(page);
+    this.requestUpdate();
+    this._loadPage();
+  }
+
+  /**
+   * Asks for another page without loading it yet. The failure count belongs to the page that
+   * produced it: a page never fetched has no cache entry to record one, and would otherwise
+   * start from the count this card carried, a step deeper in the backoff for every page
+   * visited during an outage.
+   *
+   * @param page - First day of the page, or null for home
+   */
+  private _requestPage(page: string | null): void {
+    this._pageRequested = page;
+    this._failureCountHint = 0;
+  }
+
+  /**
+   * Loads the page asked for: drawn from its cache at once when there is one, fetched when it
+   * is due or missing. Home after a calendar changed while the card was away is fetched.
+   */
+  private _loadPage(): void {
+    if (this._pageRequested === null && this._homeStale) {
+      this._homeStale = false;
+      void this.updateEvents('network');
+      return;
+    }
+    void this.updateEvents('page');
   }
 
   //-----------------------------------------------------------------------------

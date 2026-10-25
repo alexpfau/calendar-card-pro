@@ -38,6 +38,95 @@ import * as Localize from '../translations/localize';
 export type EventLoad = 'cache' | 'network' | 'reload';
 
 /**
+ * Where a window's cache entry lives.
+ *
+ * - `persistent` — `localStorage`, for the window a card opens with, so the next visit draws
+ *   on its first frame.
+ * - `page` — memory only, for a window reached by paging. Every page a card visits is a
+ *   window of its own, and a wall tablet paging for a week would otherwise leave hundreds of
+ *   entries in a store shared with Home Assistant that nothing ever reads again. The paged
+ *   position is never kept across a reload either, so nothing is lost.
+ */
+export type CacheStore = 'persistent' | 'page';
+
+/** Entries the page store holds before it drops the one used longest ago. */
+const PAGE_STORE_LIMIT = 16;
+
+/**
+ * Cache entries for paged windows, least recently used first, each with the write
+ * generation its request started at.
+ *
+ * Module state, so every card on the page shares it, as they share `localStorage`.
+ */
+const pageStore = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
+
+/**
+ * Forget every paged window. For tests; a calendar write retires entries on its own.
+ */
+export function clearPageStore(): void {
+  pageStore.clear();
+}
+
+/**
+ * Read a cache entry from either store.
+ *
+ * A paged entry older than a calendar write made since its request started is dropped
+ * rather than drawn: the write may have touched it, and unlike the window a card opens with,
+ * no card on the page refreshes it. The write generation lives on `globalThis`, so this holds
+ * for writes made through another copy of the card as well.
+ *
+ * @param store Where the entry lives
+ * @param key Cache key
+ * @returns The entry, or null
+ */
+function readStoredEntry(store: CacheStore, key: string): Types.CacheEntry | null {
+  if (store === 'persistent') return readCacheEntry(key);
+
+  const held = pageStore.get(key);
+  if (!held) return null;
+
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+  if (
+    held.writeGeneration !== currentWriteGeneration() ||
+    Date.now() - held.entry.timestamp >= maxStaleMs
+  ) {
+    pageStore.delete(key);
+    return null;
+  }
+
+  // Most recently used last, so the oldest is the first to go.
+  pageStore.delete(key);
+  pageStore.set(key, held);
+  return held.entry;
+}
+
+/**
+ * Write a cache entry to either store.
+ *
+ * @param store Where the entry lives
+ * @param key Cache key
+ * @param entry Entry to store
+ * @param writeGeneration The write generation its request started at
+ */
+function writeStoredEntry(
+  store: CacheStore,
+  key: string,
+  entry: Types.CacheEntry,
+  writeGeneration: number,
+): void {
+  if (store === 'persistent') {
+    writeCacheEntry(key, entry);
+    return;
+  }
+
+  pageStore.delete(key);
+  pageStore.set(key, { entry, writeGeneration });
+  while (pageStore.size > PAGE_STORE_LIMIT) {
+    pageStore.delete(pageStore.keys().next().value as string);
+  }
+}
+
+/**
  * One raw request that has started but not yet settled.
  *
  * It resolves to the cache entry it built rather than to a finished result, because what
@@ -120,20 +209,27 @@ interface ResolvedRequest {
   firstDayOfWeek: number;
   window: { start: Date; end: Date };
   signature: string;
+  store: CacheStore;
 }
 
 /**
  * Resolve the cache key, first weekday and window a config asks for right now.
  *
+ * The store is part of the signature: a paged window and a card configured to open on that
+ * same window share a cache key, but one is kept in memory and the other on disk, and a
+ * request started for one must not decide what the other keeps.
+ *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
  * @param instanceId Component instance ID for caching
+ * @param store Where the window's cache entry lives
  * @returns The request identity
  */
 function resolveRequest(
   hass: Types.Hass,
   config: Types.Config,
   instanceId: string,
+  store: CacheStore = 'persistent',
 ): ResolvedRequest {
   // Resolved before the key is built, not after. `first_day_of_week: 'system'` is a
   // single config string that resolves to a different weekday per user profile, so
@@ -155,7 +251,8 @@ function resolveRequest(
     cacheKey,
     firstDayOfWeek,
     window,
-    signature: `${cacheKey}|${window.start.toISOString()}|${window.end.toISOString()}`,
+    signature: `${store}|${cacheKey}|${window.start.toISOString()}|${window.end.toISOString()}`,
+    store,
   };
 }
 
@@ -172,15 +269,17 @@ function resolveRequest(
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
  * @param instanceId Component instance ID for caching
+ * @param store Where the window's cache entry lives
  * @returns The snapshot, or null when nothing paintable is cached
  */
 export function readEventSnapshot(
   hass: Types.Hass,
   config: Types.Config,
   instanceId: string,
+  store: CacheStore = 'persistent',
 ): Types.EventSnapshot | null {
-  const request = resolveRequest(hass, config, instanceId);
-  const entry = readCacheEntry(request.cacheKey);
+  const request = resolveRequest(hass, config, instanceId, store);
+  const entry = readStoredEntry(store, request.cacheKey);
   if (!entry) return null;
 
   const now = Date.now();
@@ -203,6 +302,7 @@ export function readEventSnapshot(
  *   when no cache entry records them (storage unavailable)
  * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
  *   `advanceWriteGeneration`. Ignored by every other load
+ * @param store Where the window's cache entry lives
  * @returns Promise resolving to calendar event data array
  */
 export async function fetchEventData(
@@ -212,11 +312,12 @@ export async function fetchEventData(
   load: EventLoad = 'cache',
   failureCountHint = 0,
   afterWrite?: number,
+  store: CacheStore = 'persistent',
 ): Promise<Types.EventFetchResult> {
-  const request = resolveRequest(hass, config, instanceId);
+  const request = resolveRequest(hass, config, instanceId, store);
 
   if (load === 'cache') {
-    const entry = readCacheEntry(request.cacheKey);
+    const entry = readStoredEntry(store, request.cacheKey);
     const now = Date.now();
     if (entry && !isEntryDue(entry, config, request.window, now)) {
       Logger.info(`Using ${entry.events.length} events from cache`);
@@ -308,10 +409,17 @@ function startRawFetch(
   failureCountHint: number,
 ): InFlightRequest {
   const seq = ++requestSeq;
-  latestRequestSeq.set(request.cacheKey, seq);
+  latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
 
   const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
-  inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint).finally(() => {
+  inFlight.promise = fetchRawEvents(
+    hass,
+    config,
+    request,
+    seq,
+    failureCountHint,
+    inFlight.writeGeneration,
+  ).finally(() => {
     if (inFlightRawFetches.get(request.signature) === inFlight) {
       inFlightRawFetches.delete(request.signature);
     }
@@ -340,6 +448,7 @@ function startRawFetch(
  * @param seq This request's sequence number
  * @param failureCountHint Consecutive failures the caller has seen for this query, used only
  *   when no cache entry records them
+ * @param writeGeneration The write generation the request started at
  * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
@@ -348,6 +457,7 @@ async function fetchRawEvents(
   request: ResolvedRequest,
   seq: number,
   failureCountHint: number,
+  writeGeneration: number,
 ): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
   const entities = config.entities.map((e) =>
@@ -361,7 +471,7 @@ async function fetchRawEvents(
   );
 
   const now = Date.now();
-  const previous = readCacheEntry(request.cacheKey);
+  const previous = readStoredEntry(request.store, request.cacheKey);
   const failed = new Set(failedEntities);
   const entityIds = uniqueEntityIds(config.entities);
   const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
@@ -416,8 +526,8 @@ async function fetchRawEvents(
     );
   }
 
-  if (latestRequestSeq.get(request.cacheKey) === seq) {
-    writeCacheEntry(request.cacheKey, entry);
+  if (latestRequestSeq.get(`${request.store}|${request.cacheKey}`) === seq) {
+    writeStoredEntry(request.store, request.cacheKey, entry, writeGeneration);
   } else {
     Logger.info('A newer request for the same calendars has started; not caching this response');
   }

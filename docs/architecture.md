@@ -67,6 +67,7 @@ src/
     ├── grid-title-fit.ts         # Browser-measured label/title fitting, separate from geometry
     ├── format.ts                 # Date and text formatting
     ├── start-date.ts             # The `start_date` relative-date grammar
+    ├── paging.ts                 # Paging through dates: page length, home, the range's name
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── logger.ts                 # Logging system
     ├── templates.ts              # Jinja2 title templates over the HA websocket
@@ -162,34 +163,57 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a toolbar between the title and the events. The view
-switcher and the add-event button exist so far, but the layout rule is fixed, so the
-controls still to come slot in without moving the ones already there. `renderHeaderToolbar`
+The card's own controls live in a toolbar between the title and the events. The date
+navigation, the view switcher and the add-event button exist so far, but the layout rule is
+fixed, so the controls still to come slot in without moving the ones already there. `renderHeaderToolbar`
 in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
 
 - **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, and a
   boolean per control. `resolveToolbar` in `config/config.ts` reads it member by member and
   is the only reader, so a malformed value reads as that member's default. `show` defaults
   off; the v5 controls default on inside a shown bar, and a control added later defaults
-  off, so a release never adds a control to a toolbar someone already set up. Every new
-  control needs a `toolbar → key` row in the reference: `check:docs` reconciles the block's
-  defaults against those rows in both directions.
+  off, so a release never adds a control to a toolbar someone already set up: `navigation`
+  is the first of those. `labels` is not a control and defaults on, which is what the bar has
+  always done. Every new control needs a `toolbar → key` row in the reference: `check:docs`
+  reconciles the block's defaults against those rows in both directions.
 
 - **It is conditional.** With no control enabled or available there is no toolbar and no
   new DOM: the header renders byte for byte as it did before the toolbar existed. That is
   why the header keeps a single child binding, since a second one, even rendering nothing,
   adds a Lit marker and a text node, and why no default snapshot moved.
-- **Two groups, in a fixed order.** A leading group holds navigation (previous, Today,
-  next) and the visible range. A trailing group holds actions: refresh, then any view
-  switch, then add, which is always last. Only the trailing group is drawn today. A
-  calendar legend, when it comes, gets a horizontally scrolling lane of its own below the
-  bar.
+- **Groups by purpose, in a fixed order.** The leading group is the dates: previous, home
+  and next on one track, then the range on screen, which opens a date picker. The trailing
+  group is the view switch, then the commands: refresh, when it comes, then add, which is
+  always last. Refresh sits with add rather than before the switch, because it is a command
+  on the data, not a change of layout. A calendar legend, when it comes, is a filter and gets
+  a horizontally scrolling lane of its own below the bar.
 - **Trailing actions alone share the title's row.** With a title, a pending templated
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
   beside them rather than pushing them below it, and the card gains no height. Without a
-  title they get a slim row of 48px, the bar and a 12px gap under it. A leading group, once there is one, takes a row
-  of its own between the title and the events.
+  title they get a slim row of 48px, the bar and a 12px gap under it.
+- **The dates make the toolbar a band of its own.** With `navigation` the toolbar is
+  `.card-toolbar.toolbar-band`, and `.header-container` gains `.has-band` and wraps, so the
+  band takes the row under the title, or is the whole header without one. The dates lead and
+  the trailing group keeps to the inline end; where both do not fit, the trailing group wraps
+  onto a second row. The range button is as wide as its dates; behind it, in the same grid
+  cell, an invisible copy of the widest label a page of its length can have
+  (`widestRangeLabel`) keeps that much room, so the band wraps by the card's width and its
+  controls, never by the dates on screen, and a press never moves a control. That holds
+  because a label names its year at most once, and only where it is not the one assumed. The range can still shrink below that, so on a card too narrow for the dates it is
+  cut short rather than pushed past the edge. The range focuses the hidden date input to open
+  its picker, because Safari closes a picker only when its input loses focus. A press on the
+  range while that picker is showing closes it by taking the focus away, and opens nothing:
+  Chrome closes its picker itself and then hands the page the very press that closed it, so
+  the card follows the picker from the moment it opens one, until focus leaves the input, a
+  day is picked, Escape is pressed, or `:open` turns false, which it checks once a frame. The
+  input is exposed to assistive technology only while it holds that focus, and focus goes
+  back to the range button when the button had it. The band's 8px
+  inline start is the title's margin, so column and grid, which drop that margin, drop it
+  too. A view switch is drawn at once: Home Assistant's `ha-card` transitions every
+  property, the padding each view sets included, so the card limits it to colors and the
+  shadow. Layout is logical throughout, and the arrows are
+  mirrored under `:dir(rtl)`, where previous points right.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and
   `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
   inside `.header-container`, so the card's children and the `.header-container` +
@@ -200,7 +224,9 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   Home Assistant's own shortcuts.
 - **Labels follow the card's width, not the viewport's.** From
   `UI.TOOLBAR_LABEL_MIN_WIDTH` (480px) up, a control carries its label beside its icon;
-  below it, the icon alone, named by `aria-label`. The width is the card's own
+  below it, the icon alone, named by `aria-label`. `labels: false` keeps every control an
+  icon at any width. The date navigation carries no labels: its home button is always an
+  icon, named by its tooltip, and the range is state rather than a control's name. The width is the card's own
   `ResizeObserver` reading, acted on inside the callback so the first painted frame is
   already right. A container query was rejected: it needs a `container-type` ancestor,
   which could capture the `cqh` units grid view sizes against, and happy-dom cannot
@@ -214,7 +240,10 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   never while Home Assistant offers no words for the add button. The thresholds assume a
   short title; `_syncToolbarLabelFit` reads the render, and if the labeled bar overflows the
   header it draws icons until the card is wider than that or the title, language or controls
-  change. It only ever drops labels, so it cannot oscillate.
+  change. It only ever drops labels, so it cannot oscillate. With the date navigation in the
+  band, labels start from `UI.TOOLBAR_BAND_LABEL_MIN_WIDTH` (600px), or
+  `UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH` (840px) with the switcher, and the same check
+  drops them when the labeled trailing group wraps under the dates: a label is not worth a row.
 - **The view switcher changes the requested view, never the configuration.** `requestedView`
   is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
   always follows it, so nothing about a switch is new to the fitting code. A switch draws
@@ -237,6 +266,27 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   dimmed and `aria-disabled`; with fewer than two that fit there is no switcher. A settled
   width that changes the offer without changing the layout still re-renders, and so does
   one that changes only the day columns of the configured view shown while editing.
+- **Paging changes the window asked for, never the configuration.** The page is a fixed first
+  day (`_pageRequested`), null at home, the window the configuration opens with. It is fetched
+  and drawn with the configuration's `start_date` replaced by that day, which keeps every view
+  on one window, so a view switch still never fetches, and with `show_past_events` forced on,
+  since a page in the past is otherwise empty. Its query identity is that of a card configured
+  to open on that day, so two cards on one page share its request. The arrows step by the days
+  on screen (`pageSpan`): `days_to_show`, or the columns drawn while column or grid drops some,
+  in which case a page draws from its own first day rather than from today. Presses accumulate
+  on the requested page; the range answers at once, while the days below stay those of the page
+  whose events `events` holds (`_pageShown`), dimmed, until the new page's land, so one
+  window's events are never drawn under another's dates. The request generation discards the
+  responses of pages passed by.
+- **Paged windows never touch `localStorage`.** They live in a bounded in-memory store in
+  `utils/events.ts`, shared by every card on the page, so a tablet paging all week leaves
+  nothing in a store it shares with Home Assistant. An entry fetched before a calendar write is
+  dropped on read, by the write generation that already lives on `globalThis`. Home stays on
+  disk, and a card that heard of a write while away fetches home on the way back
+  (`_homeStale`).
+- **Nothing remembers a page.** A reload, any change to the configuration and the start of
+  editing all bring the card home, where `hide_when_empty` alone acts: a card that hid itself
+  on an empty page would take the way back with it.
 - **Editing shows `view` and touches nothing.** In preview and edit mode `effectiveView` is
   the configured view, the switcher marks it and ignores presses, and when the device's
   choice differs the shown day count is fitted for display alone, so a width measured while
@@ -557,6 +607,11 @@ Provides core functionality across the card:
 - **start-date.ts**:
   - Parses the relative-date grammar accepted by `start_date`, such as `today+7`
     and `start_of_week`
+
+- **paging.ts**:
+  - The date navigation's rules, pure and over local calendar days: how many days a page
+    covers, where home is, where the arrows and the date picker lead
+  - Names a page and its home button through `Intl`, so the toolbar needs no card string
 
 - **helpers.ts**:
   - Provides color manipulation utilities

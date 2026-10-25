@@ -135,6 +135,16 @@ export const UI = {
    */
   TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 640,
 
+  /**
+   * The same two, once the date navigation shares the band. Its track and the widest range
+   * take about 300px before any trailing control, so labels need that much more room. These
+   * are first guesses: a labeled band that still wraps onto a second row drops its labels
+   * until the card is wider (`_syncToolbarLabelFit`), so a guess too low costs one frame and
+   * never a broken layout.
+   */
+  TOOLBAR_BAND_LABEL_MIN_WIDTH: 600,
+  TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH: 840,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,

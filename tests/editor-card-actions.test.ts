@@ -456,16 +456,28 @@ describe('the event tap dropdown in the editor', () => {
     expect(names(card!)).toContain('title');
     expect(names(card!)).not.toContain('tap_action');
     expect(names(card!)).not.toContain('add_event');
-    expect(shown('toolbar')).toEqual({ show: false, view_switcher: true, add_event: true });
+    expect(shown('toolbar')).toEqual({
+      show: false,
+      labels: true,
+      navigation: false,
+      view_switcher: true,
+      add_event: true,
+    });
 
-    // Both controls arrive switched on, as the card reads them, and nothing but the switch
-    // is written.
+    // The v5 controls and the labels arrive switched on, as the card reads them, the date
+    // navigation off, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
-      expect.arrayContaining(['show', 'view_switcher', 'add_event']),
+      expect.arrayContaining(['show', 'labels', 'navigation', 'view_switcher', 'add_event']),
     );
-    expect(shown('toolbar')).toEqual({ show: true, view_switcher: true, add_event: true });
+    expect(shown('toolbar')).toEqual({
+      show: true,
+      labels: true,
+      navigation: false,
+      view_switcher: true,
+      add_event: true,
+    });
 
     await change('toolbar', { ...(shown('toolbar') as object), add_event: false });
     expect(last(reported)).toEqual({

@@ -16,9 +16,10 @@ export const CARD_ICON = mdiCardText;
  *
  * The title and the card's own background first, then the toolbar under a sub-heading of
  * its own that closes the panel. The heading is there to say what the switches under it
- * are: the first turns the whole toolbar on or off, and only while it is on are the
- * controls offered, each with a switch of its own. Later controls join that list in the
- * toolbar's own order. Nothing may follow the toolbar's fields, because a heading claims
+ * are: the first turns the whole toolbar on or off, and only while it is on is the rest
+ * offered. Labels come next, because they apply to every control in the bar; then each
+ * control with a switch of its own, in the order the toolbar draws them: navigation leads,
+ * then the view switcher, then add, which is always last. Nothing may follow the toolbar's fields, because a heading claims
  * whatever comes after it; that is why the background sits above it rather than last.
  *
  * The heading stays while the toolbar is off, with Show Toolbar as the only field under it.
@@ -39,7 +40,9 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
     heading('heading_toolbar'),
     blockScope('toolbar', [
       bool('show'),
-      ...(toolbar.show ? [bool('view_switcher'), bool('add_event')] : []),
+      ...(toolbar.show
+        ? [bool('labels'), bool('navigation'), bool('view_switcher'), bool('add_event')]
+        : []),
     ]),
   ];
 }
