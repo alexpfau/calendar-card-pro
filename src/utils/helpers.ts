@@ -118,7 +118,7 @@ export function isIconValue(value: string): boolean {
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config
- * @returns Type of indicator ('dot', 'pulse', 'glow', 'mdi', 'image', 'emoji', 'none')
+ * @returns Type of indicator ('tile', 'dot', 'pulse', 'glow', 'mdi', 'image', 'emoji', 'none')
  */
 export function getTodayIndicatorType(value: string | boolean): string {
   if (value === undefined || value === false) {
@@ -135,7 +135,7 @@ export function getTodayIndicatorType(value: string | boolean): string {
     // (`BUILT_IN_INDICATORS`), so it reached the right answer only because *every*
     // unrecognized string did. The moment the fallthrough below became text rather than a
     // dot, that accident would have drawn the word "dot" on the card.
-    if (value === 'dot' || value === 'pulse' || value === 'glow') {
+    if (value === 'dot' || value === 'pulse' || value === 'glow' || value === 'tile') {
       return value;
     }
 

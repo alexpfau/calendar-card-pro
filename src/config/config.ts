@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   compact_events_to_show: undefined,
   compact_events_complete_days: false,
   show_empty_days: false,
+  show_empty_today: false,
   hide_when_empty: false,
   empty_day_text: undefined,
   filter_duplicates: false,
@@ -36,7 +37,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   title_color: undefined,
 
   background_color: 'var(--ha-card-background)',
-  accent_color: '#03a9f4',
+  // The theme's primary color, so a calendar nobody colored, the today tile, the week-number
+  // pills and the week separators take a custom theme's accent instead of a fixed blue. The
+  // fallback is the card's former default, for a host that defines no --primary-color. Kept
+  // as literals rather than a shared constant: check:docs reads these defaults as source text.
+  accent_color: 'var(--primary-color, #03a9f4)',
   vertical_line_width: '2px',
   day_spacing: '10px',
   event_spacing: '4px',
@@ -49,17 +54,19 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_current_week_number: true,
   week_number_font_size: '12px',
   week_number_color: 'var(--primary-text-color)',
-  week_number_background_color: '#03a9f450',
+  // 31% is the former '#03a9f450' (0x50 / 255), carried over to the theme's color.
+  week_number_background_color:
+    'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
   day_separator_width: '0px',
   day_separator_color: 'var(--secondary-text-color)',
   week_separator_width: '0px',
-  week_separator_color: '#03a9f450',
+  week_separator_color: 'color-mix(in srgb, var(--primary-color, #03a9f4) 31%, transparent)',
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
 
-  today_indicator: false,
+  today_indicator: 'tile',
   today_indicator_position: '15% 50%',
-  today_indicator_color: '#03a9f4',
+  today_indicator_color: 'var(--primary-color, #03a9f4)',
   today_indicator_size: '6px',
 
   date_vertical_alignment: 'middle',
@@ -83,6 +90,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_countdown: false,
   show_countdown_allday: true,
   show_progress_bar: false,
+  show_now_indicator: true,
+  // The card's color for "now": a running event's time in list and column view, and the
+  // grid's now line, which follows it unless time_grid.now_line_color is set. Emerald, to sit
+  // with the card's own colors rather than with the theme's error red.
+  now_color: '#34d399',
   progress_bar_color: 'var(--secondary-text-color)',
   // Three quarters of the time text: every bar carries the time font size, so `em` follows
   // it in both placements, whatever font size `time_font_size` holds.

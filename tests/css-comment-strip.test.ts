@@ -279,13 +279,21 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(118_000);
-    // The view switcher moved the ceiling last, from 116,600: the notes on why every toolbar
+    expect(saved).toBeLessThan(124_000);
+    // The view switcher moved the ceiling last, from 122,700: the notes on why every toolbar
     // control shares one neutral look mixed into transparent rather than a named gray, why the
-    // toolbar's custom properties live on the toolbar and not the card, and why the raised
-    // segment needs light-dark() behind @supports in a dark color scheme, and why the slim
-    // toolbar row keeps 12px under it. The reading went 115,624 to 117,458, taken with
-    // stripComments after the last comment in the change was written.
+    // toolbar's custom properties live on the toolbar and not the card, why the raised segment
+    // needs light-dark() behind @supports in a dark color scheme, and why the slim toolbar row
+    // keeps 12px under it. The reading went 121,650 to 123,276, taken with stripComments after
+    // the last comment in the change was written.
+    //
+    // The today tile and the now indicator moved the ceiling before that, from 116,600: the notes on why
+    // the tile takes layout space rather than being painted behind the digits, how its shape was
+    // scored against an iOS icon mask, why it is a wash in the all-day pill's recipe rather than
+    // a fill, why the "now" green is mixed toward the text color instead of drawn raw, how the
+    // label's separator was measured ink to ink so the space either side of it is equal, and
+    // why a running row's run is kept out of the time clamp. The reading went 115,832 on dev to
+    // 121,650, taken with stripComments after the last comment was written.
     //
     // Muting the card's ripple over an event moved the ceiling before that, from 115,800: the note on
     // why the ripple is muted rather than kept from seeing the press -- the recognizer needs

@@ -253,7 +253,10 @@ describe('card stylesheet', () => {
     it.each([
       ['.location span', '.location'],
       ['.description span', '.description'],
-      ['.time .time-actual > span:not(.time-text):not(.allday-badge)', '.time-actual'],
+      [
+        '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)',
+        '.time-actual',
+      ],
     ])(
       '%s may clamp with a literal -webkit-box because %s is a flex container',
       (target, parent) => {
@@ -292,9 +295,44 @@ describe('card stylesheet', () => {
       // display, because there is no computed display to read here: this file reads source
       // text. Dropping the :not() reintroduces the bug in full silence otherwise.
       expect(cardStyles.cssText).toContain(
-        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+        '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)',
       );
       expect(cardStyles.cssText).not.toMatch(/\.time \.time-actual > span:not\(\.time-text\)\s*\{/);
+    });
+
+    it("excludes a running event's time run from the countdown clamp", () => {
+      // The third exception. A running row wraps the "Now" label, its own clock and the time
+      // in one span so they flow as a sentence, and that span is a direct child of
+      // .time-actual. As a -webkit-box it is a legacy flex container, which in Safari stacks
+      // the three children vertically; an earlier shape lost the label's dot here in
+      // Chromium while the DOM, the snapshots and every declared value stayed the same.
+      expect(cardStyles.cssText).toContain(
+        '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)',
+      );
+      expect(declared('.time .now-indicator', 'display')).toBe('inline-flex');
+    });
+
+    it('reads the now color from now_color, with its default only as a fallback', () => {
+      // now_color arrives as a custom property from the config; a value declared on :host
+      // would shadow nothing today, but would beat any ancestor's value if the card ever
+      // stopped emitting one, so the default lives in each read's fallback instead.
+      expect(declared(':host', '--calendar-card-now-color')).toBe('');
+      const reads = cardStyles.cssText.match(/var\(--calendar-card-now-color[^)]*\)/g) ?? [];
+      expect(reads.length).toBeGreaterThan(0);
+      expect(new Set(reads)).toEqual(new Set(['var(--calendar-card-now-color, #34d399)']));
+    });
+
+    it("draws the label's separator instead of typing it", () => {
+      // A typed "·" brings the font's side bearings with it, a different amount on each side,
+      // which is why the space before and after it measured unequal on a live card. Drawn,
+      // it has none, and the margin after it accounts for the time's first digit.
+      expect(declared('.time .now-indicator::after', 'content')).toBe("''");
+      expect(declared('.time .now-indicator::after', 'width')).toBe('0.2em');
+      expect(declared('.time .now-indicator::before', 'content')).toBe('');
+      expect(declared('.time .now-indicator', 'align-items')).toBe('baseline');
+      expect(declared('.time .now-indicator', 'margin-inline-end')).toBe(
+        'calc(var(--calendar-card-now-gap) - 0.0675em)',
+      );
     });
 
     it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
@@ -383,7 +421,7 @@ describe('card stylesheet', () => {
     it.each([
       ['.event-title', '--calendar-card-title-max-lines'],
       [
-        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+        '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)',
         '--calendar-card-time-max-lines',
       ],
       ['.time .time-actual .time-text > span', '--calendar-card-time-max-lines'],
@@ -1007,7 +1045,7 @@ describe('card stylesheet', () => {
     });
 
     it('keeps .time-actual a flex container, which is what makes the row work at all', () => {
-      // Two things depend on it. `.time .time-actual > span:not(.time-text):not(.allday-badge)` clamps with a
+      // Two things depend on it. `.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)` clamps with a
       // literal -webkit-box, which is only safe while its parent blockifies it (see the
       // blockification trap above). And in inline flow this box is block-level, so it
       // would take a line of its own and push the countdown off the row entirely.
@@ -2364,7 +2402,7 @@ describe('card stylesheet', () => {
       // and column rely on it and on their own `white-space: normal` to *wrap* this text
       // instead of slicing it -- both were measured at zero clipped rows and the fix must
       // not reach them. If this assertion fails, the fix has leaked out of grid.
-      const global = '.time .time-actual > span:not(.time-text):not(.allday-badge)';
+      const global = '.time .time-actual > span:not(.time-text):not(.allday-badge):not(.now-time)';
       expect(declared(global, 'display')).toBe('-webkit-box');
       expect(declared(global, 'text-overflow')).toBe('');
       expect(rulesFor(span)).toHaveLength(1);

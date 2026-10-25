@@ -31,6 +31,9 @@ import * as Logger from '../utils/logger';
  */
 export const COLUMN_OVERRIDE_KEYS = [
   'show_empty_days',
+  // Read beside `show_empty_days`, and inert whenever that resolves on, so each view has to
+  // be able to answer it for itself: column and grid ship empty days on, list ships them off.
+  'show_empty_today',
   'empty_day_text',
   // Paired with `empty_day_text` deliberately. `VIEW_SCOPE` gives both the identical
   // `{list, column}` scope, so a column user overriding the placeholder's text and not its
@@ -62,6 +65,8 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_countdown',
   'show_countdown_allday',
   'show_progress_bar',
+  'show_now_indicator',
+  'now_color',
   'progress_bar_color',
   'progress_bar_height',
   'progress_bar_width',
@@ -314,6 +319,10 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // only the placeholder's text and color are irrelevant there.
   empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
   empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid shows "now" with its now line, and draws no chip: `gridTimedEventContentParts`
+  // clears the label whatever this resolves to.
+  show_now_indicator: new Set<Types.EffectiveView>(['list', 'column']),
 
   // Grid draws an all-day event as a banner in its own band, and `renderBanner` emits the
   // summary and nothing else — no time, no location, no description, no countdown. So the
@@ -585,10 +594,11 @@ export const TIME_GRID_DEFAULTS = {
   hour_height: '48px',
   show_now_line: true,
 
-  // Emerald, to sit with the card's own colors rather than with the theme's error red. It
-  // is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
-  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
-  now_line_color: '#34d399',
+  // The card's now color (now_color, emerald by default), so the line and a running event's
+  // time in list and column agree. It is a quiet line on a white card, about 1.9:1, and a
+  // bright one on a dark card; `var(--error-color)` brings the red back for anyone who wants
+  // the line to stand out.
+  now_line_color: 'var(--calendar-card-now-color, #34d399)',
   max_simultaneous_events: 3,
   overlap_layout: 'cascade',
   allday_band_max_rows: 3,

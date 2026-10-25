@@ -152,6 +152,7 @@ export function renderSharedDayHeader(
         class=${classMap({
           'column-date-content': true,
           'with-today-indicator': hasInlineIndicator,
+          'with-today-tile': isTileIndicator(config),
         })}
       >
         ${todayIndicator}
@@ -193,6 +194,22 @@ export function renderDayWeekNumber(
 }
 
 /**
+ * Whether today's indicator is the tile drawn behind the day number itself.
+ *
+ * The tile is the one style that is not an element of its own: it restyles the day number,
+ * so `renderDateContent` draws it and {@link renderTodayIndicator} draws nothing.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns `true` when the configured indicator is `tile`
+ */
+export function isTileIndicator(config: Types.Config): boolean {
+  return (
+    Boolean(config.today_indicator) &&
+    Helpers.getTodayIndicatorType(config.today_indicator) === 'tile'
+  );
+}
+
+/**
  * Render the contents of a date block: weekday, day number, optional month, and the already-rendered weather badge.
  *
  * @param date Date to display
@@ -224,9 +241,15 @@ export function renderDateContent(
     monthColor = config.weekend_month_color || monthColor;
   }
 
+  const todayTile = isToday && isTileIndicator(config);
+
   if (isToday) {
     weekdayColor = config.today_weekday_color || weekdayColor;
-    dayColor = config.today_day_color || dayColor;
+    // On the tile the digits take a deeper shade of the tile's own color (see
+    // `.day.today-tile` in the stylesheet), unless the user named a color for them: today's,
+    // or on a weekend the weekend one, which today's falls back to everywhere else too.
+    const namedDayColor = config.today_day_color || (isWeekendDay && config.weekend_day_color);
+    dayColor = namedDayColor || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
     monthColor = config.today_month_color || monthColor;
   }
 
@@ -251,7 +274,7 @@ export function renderDateContent(
       ${weekday}
     </div>
     <div
-      class="day"
+      class=${todayTile ? 'day today-tile' : 'day'}
       style=${styleMap({
         'font-size': config.day_font_size,
         color: dayColor,
@@ -692,6 +715,14 @@ export interface EventContentParts {
   countdownStr: string | null;
 
   progressPercentage: number | null;
+
+  /**
+   * The localized "Now" drawn before the time of an event that is under way, or `null`.
+   *
+   * Set by `buildEventPresentation` from `show_now_indicator`; grid clears it in
+   * `gridTimedEventContentParts`, because its now line already says the same thing.
+   */
+  nowLabel?: string | null;
 }
 
 /**
@@ -777,6 +808,7 @@ export function renderEventContent(
     entityLabel,
     entityLabelAlt,
     mergedLabels,
+    nowLabel,
   } = parts;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
@@ -862,6 +894,16 @@ export function renderEventContent(
     ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
     : timeValue;
 
+  // A running event's row keeps its clock where every row has it, filled rather than outlined,
+  // and reads "Now · 22:30 - 23:59" after it as one run of inline text, so it wraps as a
+  // sentence on a narrow card instead of squeezing the time beside a label that holds its
+  // width. Composed into the time's own binding, so a row that is not under way renders
+  // exactly the markup it always did. No whitespace inside: the spacing is the stylesheet's.
+  // prettier-ignore
+  const timeContent = nowLabel
+    ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
+    : timeText;
+
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
   // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
   // extraction seams" in tests/list-dom.test.ts).
@@ -875,8 +917,8 @@ export function renderEventContent(
           ? html`
               <div class="time">
                 <div class="time-actual">
-                  <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  ${allDayBadgeEl}${timeText}
+                  <ha-icon icon=${nowLabel ? 'mdi:clock' : 'mdi:clock-outline'}></ha-icon>
+                  ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown
                   ? html`<div class="time-countdown">${trailingCountdown}</div>`
@@ -986,7 +1028,8 @@ export function renderTodayIndicator(
   const indicatorValue = config.today_indicator;
   const indicatorType = Helpers.getTodayIndicatorType(indicatorValue);
 
-  if (indicatorType === 'none') {
+  // The tile is drawn on the day number itself, by `renderDateContent`.
+  if (indicatorType === 'none' || indicatorType === 'tile') {
     return nothing;
   }
 

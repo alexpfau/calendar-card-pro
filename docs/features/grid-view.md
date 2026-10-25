@@ -307,15 +307,17 @@ like a strikethrough. A dot at the column's edge stays on top and marks where it
 an event covers most of the line.
 
 ```yaml
+now_color: '#34d399' # The card's color for now, which the line follows (default)
 time_grid:
   show_now_line: true
-  now_line_color: '#34d399'
+  now_line_color: 'var(--error-color)' # Or give the line a color of its own
 ```
 
-It is emerald green by default, which reads as a quiet line on a white card. Any CSS color
-works, and `var(--error-color)` gives you your theme's red if you want it to stand out. Quote
-a hex value, as above: YAML reads an unquoted `#` as the start of a comment, and the color
-would be lost.
+The line takes the card's `now_color`, emerald green by default, so it matches the way list
+and column view mark an event that is under way. Emerald reads as a quiet line on a white
+card; `var(--error-color)` in `now_line_color` gives you your theme's red if you want the line
+to stand out. Any CSS color works in either option. Quote a hex value, as above: YAML reads an
+unquoted `#` as the start of a comment, and the color would be lost.
 
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.
@@ -821,7 +823,12 @@ used, because it would turn the middle day of a timed event into an all-day bann
 
 `empty_day_text` and `empty_day_color` also have no effect: grid discards the placeholder
 rows those options describe. `show_empty_days` still controls whether empty day columns
-are included.
+are included, and with it off, `show_empty_today` keeps today's column.
+
+`show_now_indicator` does nothing here either. The now line already runs through the block
+that is under way, so a "Now" label inside it would say the same thing twice; list and
+column view, which have no line, show the [label](/features/event-content#the-now-indicator)
+instead.
 
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing while the card is rendering

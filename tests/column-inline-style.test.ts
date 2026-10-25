@@ -74,16 +74,17 @@ describe('column view inline style bindings', () => {
   });
 
   describe('the event background color', () => {
+    // The default accent is the theme's primary color, a `var()` the card cannot resolve to
+    // channels, so the tint is a color-mix of it rather than an rgba() of a hex value.
+    const THEMED_TINT =
+      'background-color: color-mix(in srgb, var(--primary-color, #03a9f4) 50%, transparent)';
+
     it('draws a background on the column event once an opacity is configured', () => {
-      expect(eventStyle('column', { event_background_opacity: 50 })).toContain(
-        'background-color: #03a9f4',
-      );
+      expect(eventStyle('column', { event_background_opacity: 50 })).toContain(THEMED_TINT);
     });
 
     it('draws the same background on the list event', () => {
-      expect(eventStyle('list', { event_background_opacity: 50 })).toContain(
-        'background-color: #03a9f4',
-      );
+      expect(eventStyle('list', { event_background_opacity: 50 })).toContain(THEMED_TINT);
     });
 
     it('leaves the column background empty at the default opacity', () => {

@@ -29,6 +29,27 @@ whatever form it takes.
 
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
+### Showing Today When It Is Empty
+
+Hiding empty days is what most list layouts want: a free Thursday should not take a row between Wednesday's meeting and Friday's. Today is the exception. You still want to see that nothing is scheduled, even when every other blank day stays off the card.
+
+```yaml
+show_empty_days: false
+show_empty_today: true
+```
+
+Today is added beside the days that already qualified, so it does not push an event day off a card whose `days_to_show` is already full. The row uses the same "No events" message as any other empty day, including a custom `empty_day_text`.
+
+Today has to fall inside the card's date window: a card that starts next week does not gain a row for a day it was not asked to cover. While `show_empty_days` is on, this option changes nothing, because today is already one of the days being shown — which is why the editor only offers it while empty days are hidden.
+
+Column and grid view show every day by default, so there the option changes something only once empty days are turned off for that view as well:
+
+```yaml
+column:
+  show_empty_days: false
+  show_empty_today: true
+```
+
 ### Custom Empty-Day Text
 
 The default message is deliberately date-neutral — "No events", not "No upcoming events" — because the card draws empty days in the past as readily as in the future, and a past day is not waiting for anything. An empty day often means something specific to you, though. A meal-plan calendar reads far better with "Leftovers", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
@@ -46,14 +67,14 @@ By default, empty days are prefixed with a ✓ so they read as "nothing on". Tha
 Your text is kept exactly as written. It is never translated, trimmed or migrated, so a message that happens to match an older default stays as you typed it, and a message of only spaces is treated as your wording rather than as no wording at all. Clearing the option entirely — leaving it out, or setting it empty — brings the translated default back.
 
 ::: info Wording Only, Never Layout
-`empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
+`empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days` and `show_empty_today`, and its color by `empty_day_color`.
 :::
 
 The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
 If you would rather the card disappear completely instead of showing "No events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
-Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
+Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. An empty today from `show_empty_today` is the same kind of placeholder, so a card whose only row is that one still hides too. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
 The count covers the **full configured date range**, after past-event and per-calendar
 filters, but before display-only limits. A card can therefore remain visible when all
@@ -635,6 +656,38 @@ In the [editor](/features/editor), find **Past Event Opacity** under **Events �
 State**, in any workspace.
 
 **→ [Event Column in the configuration reference](/reference/configuration#event-column)**
+
+## 🟢 The Now Indicator
+
+An event that is happening right now has its clock filled in and "Now ·" in front of its
+time, and that whole row turns green, in list and column view. The clock stays where every
+other row has its icons, so the column of icons stays straight. It is on by default, needs no
+configuration, and takes nothing away: the event keeps its color and its stripe.
+
+```yaml
+show_now_indicator: false # Turn it off
+now_color: '#ef4444' # Mark it in red instead
+```
+
+Only timed events are marked. An all-day event is not "now" in this sense, or a day of them
+would read "Now" from morning to night. A multi-day timed event is marked while it runs. Split
+across days, as column view does by default, it is marked on its first and last day; the days
+in between show it as an all-day event, and those are not marked.
+
+The word comes from your browser in the card's language, "Jetzt" in German or "Maintenant" in
+French, so it needs no translation. A browser that carries no such word for a language shows "Now" in English instead; Chromium, as tested, does that for Icelandic and Norwegian Nynorsk.
+
+The green is `now_color`, emerald by default, mixed toward your theme's text color so it
+stays readable as text: a darker green on a light theme, a lighter one on a dark theme. The
+grid's now line is drawn in the same color, so both views mark the present alike; give the
+line a color of its own with `now_line_color` in the `time_grid` block. The card
+updates the mark at the moment an event starts or ends, so it appears and disappears on time
+without waiting for Home Assistant to send anything. With `show_past_events` off, a finished event leaves the card on time for the same reason.
+
+Grid view draws no mark. Its now line already runs through the block that is under way.
+
+Like the other options on this page, `show_now_indicator` can differ per view; see
+[Event Column in the configuration reference](/reference/configuration#event-column).
 
 ## 🎨 Event Text in Calendar Colors
 

@@ -7,6 +7,7 @@
 import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
 import * as Types from '../config/types';
+import { getNowString } from '../translations/dayjs';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
@@ -19,6 +20,13 @@ interface EventPresentation {
   isEmptyDay: boolean;
 
   isPastEvent: boolean;
+
+  /**
+   * Whether the event is under way and the card marks it as "now": a timed event between its
+   * start and its end, with `show_now_indicator` on. Drives the `event-now` class, which
+   * colors the time row; the label itself travels in `contentParts.nowLabel`.
+   */
+  isNow: boolean;
 
   entityAccentColor: string;
 
@@ -179,6 +187,11 @@ export function buildEventPresentation(
   const progressPercentage =
     isRunning && config.show_progress_bar ? EventUtils.calculateEventProgress(event) : null;
 
+  // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
+  // them — so a day full of all-day entries does not turn into a column of "Now" labels.
+  const nowLabel =
+    isRunning && config.show_now_indicator && !isEmptyDay ? getNowString(language) : null;
+
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
   // The badge draws the all-day label itself, so at the TIME position the time text keeps
@@ -282,11 +295,13 @@ export function buildEventPresentation(
     shouldShowTime,
     countdownStr,
     progressPercentage,
+    nowLabel,
   };
 
   return {
     isEmptyDay,
     isPastEvent,
+    isNow: nowLabel !== null,
     entityAccentColor,
     entityAccentBackgroundColor,
     accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),

@@ -475,6 +475,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
+  show_empty_today: 'Show Today When Empty',
+  'show_empty_today.helper':
+    'Keeps today on the card when it has no events, while other empty days stay hidden.',
   empty_day_text: 'Empty Day Text',
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',
   empty_day_color: 'Empty Day Color',
@@ -586,6 +589,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_indicator: 'Today Indicator',
   today_indicator_style: 'Style',
   'today_indicator_style.option.none.label': 'None',
+  'today_indicator_style.option.tile.label': 'Date Tile',
   'today_indicator_style.option.dot.label': 'Dot',
   'today_indicator_style.option.pulse.label': 'Pulsing Dot',
   'today_indicator_style.option.glow.label': 'Glowing Dot',
@@ -723,6 +727,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_countdown: 'Show Countdown',
   show_countdown_allday: 'Count Down To All-Day Events Too',
   show_progress_bar: 'Show Progress Bar',
+  show_now_indicator: 'Show Now Indicator',
+  'show_now_indicator.helper':
+    'Puts a green “Now” before the time of events that are happening right now.',
+  now_color: 'Now Color',
+  'now_color.helper':
+    'The color of an event that is happening right now, and of the now line in grid view.',
   progress_bar_color: 'Progress Bar Color',
   progress_bar_height: 'Progress Bar Height',
   progress_bar_width: 'Progress Bar Width',
