@@ -44,6 +44,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   accent_color: 'var(--primary-color, #03a9f4)',
   vertical_line_width: '2px',
   day_spacing: '10px',
+  // Zero keeps a day's events together in one block, the card's own look. A length here
+  // separates every event of a day from the next, in list and column view.
+  event_gap: '0px',
   event_spacing: '4px',
   additional_card_spacing: '0px',
   height: 'auto',

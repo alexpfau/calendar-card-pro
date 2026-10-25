@@ -265,7 +265,9 @@ function renderDayColumn(
         hass,
         dayLabelId,
       )}
-      <div class="column-events">
+      <div
+        class=${ViewConfig.hasEventGap(config) ? 'column-events with-event-gap' : 'column-events'}
+      >
         ${repeat(
           day.events,
           (event, index) => `${event._entityId}-${event.summary}-${index}`,

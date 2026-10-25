@@ -135,6 +135,15 @@ first and the last. A rule written for `.event-first` alone will therefore also 
 single-event day. Use `.event-first:not(.event-last)` when you mean "first of several".
 :::
 
+While [`event_gap`](/features/layout-appearance#gaps-between-events) is set, the element
+holding a day's events carries one more class. The position pair keeps meaning the event's
+place in its day, so this class is how to style events that stand apart:
+
+| Class            | Applied to                                                                   | When                    |
+| ---------------- | ---------------------------------------------------------------------------- | ----------------------- |
+| `with-event-gap` | `.day-table` in list view, `.column-events` in column view                   | `event_gap` is not zero |
+| `event-gap-row`  | the empty row list view draws between two events, hidden from screen readers | `event_gap` is not zero |
+
 The remaining event-level classes — `.event-title`, `.time`, `.location` — are plain
 element classes with no state attached.
 

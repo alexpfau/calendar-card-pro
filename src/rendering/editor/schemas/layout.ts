@@ -280,11 +280,14 @@ const layoutSchema = Helpers.memoizeLast(
     daysToShow: number,
     language: string,
   ): HaFormSchema[] => {
-    // Grid keeps neither: `event_spacing` is inert there and withheld by `VIEW_SCOPE`,
-    // and `day_spacing` is the column gutter rather than vertical space between days, so
-    // it is in Separators beside the rules drawn inside it. Building the row conditionally
-    // rather than letting the filter empty it keeps the panel's shape a decision made
-    // here, where it can be read.
+    // Grid keeps none of them: `event_spacing` and `event_gap` are inert there and withheld
+    // by `VIEW_SCOPE`, and `day_spacing` is the column gutter rather than vertical space
+    // between days, so it is in Separators beside the rules drawn inside it. Building the row
+    // conditionally rather than letting the filter empty it keeps the panel's shape a
+    // decision made here, where it can be read.
+    //
+    // Ordered from the outside in: the space between days, the space between a day's
+    // events, then the space inside each event.
     const spacing: HaFormSchema[] =
       view === 'grid'
         ? []
@@ -294,6 +297,7 @@ const layoutSchema = Helpers.memoizeLast(
               name: '',
               schema: [
                 { name: 'day_spacing', selector: { text: { type: 'text' } } },
+                { name: 'event_gap', selector: { text: { type: 'text' } } },
                 { name: 'event_spacing', selector: { text: { type: 'text' } } },
               ],
             },

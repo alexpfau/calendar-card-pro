@@ -53,6 +53,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
+    '--calendar-card-event-gap': config.event_gap,
     '--calendar-card-past-event-opacity': String(config.past_event_opacity / 100),
     '--calendar-card-spacing-additional': config.additional_card_spacing,
     '--calendar-card-height': config.height || 'auto',
@@ -489,6 +490,15 @@ export const cardStyles = css`
     border: none !important;
   }
 
+  /* event_gap in list view: the row between two events, which renderEventGapRow in
+     render.ts explains. Its height is all of it: padding 0 takes off the 1px the browser
+     gives every cell, and it needs no line height because it holds no text. Never
+     font-size: 0, which would turn an em gap into no gap. */
+  .event-gap-cell {
+    height: var(--calendar-card-event-gap);
+    padding: 0;
+  }
+
   table:last-of-type {
     margin-bottom: 0;
     border-bottom: 0;
@@ -915,6 +925,17 @@ export const cardStyles = css`
   .event-last {
     border-end-end-radius: var(--calendar-card-event-border-radius);
     border-end-start-radius: 0;
+  }
+
+  /* With event_gap set, a day's events stop being one block: each event is a block of its
+     own and rounds both of its end-side corners. The start side carries the accent stripe
+     and stays square, as it does on the joined block. event-first and event-last go on
+     meaning the first and last event of the day, which is what theming.md documents, so the
+     separated look hangs on the container's class rather than on them. The list view's
+     tap target and focus ring inherit these radii from the cell. */
+  .with-event-gap .event {
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-end-end-radius: var(--calendar-card-event-border-radius);
   }
 
   .past-event .event-content {
@@ -2517,6 +2538,12 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+
+  /* event_gap in column view. A gap rather than a margin on each event, so it falls only
+     between two events, never above the first or below the last. */
+  .column-events.with-event-gap {
+    row-gap: var(--calendar-card-event-gap);
   }
 
   /* Column event rows already include their 12px trailing gutter. Countdown

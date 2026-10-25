@@ -130,6 +130,7 @@ Fine-tune the spacing and alignment of your calendar elements:
 ```yaml
 # Spacing between elements
 day_spacing: '8px' # Space between different calendar days
+event_gap: '6px' # Space between the events of one day
 event_spacing: '6px' # Internal padding within each event
 
 list:
@@ -147,6 +148,26 @@ The `date_vertical_alignment` option controls how dates align with their events,
 ::: warning Changed In v4
 This option defaulted to `middle` before v4. Rows wrap often enough — a long address, a description, or a time row carrying a [countdown](/features/column-view#progress-bar-countdown) in a narrow column — that centering left the icon level with neither line of text. Add `event_icon_vertical_alignment: 'middle'` to your card to keep the old behavior.
 :::
+
+### Gaps Between Events
+
+A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent lines run together into one long line:
+
+```yaml
+event_gap: 6px
+event_background_opacity: 15
+```
+
+Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds its own corners on the side away from the accent line, where the joined block rounds only the top of its first event and the bottom of its last. The side with the accent line stays square, as it does on the joined block. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
+
+```yaml
+column:
+  event_gap: 4px # Gaps in column view only; list view keeps the joined block
+```
+
+`event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`.
 
 ## 📅 Week Numbers & Visual Separators
 

@@ -85,7 +85,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Spacing --------------------------------------------------------------
   day_spacing: 'Day Spacing',
   'day_spacing.helper': 'Gap between days. In column layout this is the gutter between columns.',
+  event_gap: 'Event Gap',
+  'event_gap.helper': "Space between a day's events. Zero keeps them together in one block.",
   event_spacing: 'Event Spacing',
+  'event_spacing.helper': 'Space above and below the text inside each event.',
   additional_card_spacing: 'Additional Card Spacing',
   'additional_card_spacing.helper': 'Extra padding above and below the card contents.',
 

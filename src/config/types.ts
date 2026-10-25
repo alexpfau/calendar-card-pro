@@ -53,6 +53,7 @@ export interface Config {
   accent_color: string;
   vertical_line_width: string;
   day_spacing: string;
+  event_gap: string;
   event_spacing: string;
   additional_card_spacing: string;
   max_height: string;
@@ -294,6 +295,7 @@ export interface SharedViewOverrides {
   // Layout and spacing
   vertical_line_width?: string;
   event_spacing?: string;
+  event_gap?: string;
   day_spacing?: string;
   additional_card_spacing?: string;
   height?: string;

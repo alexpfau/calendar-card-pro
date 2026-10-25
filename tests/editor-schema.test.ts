@@ -932,6 +932,9 @@ describe('editor: applicability', () => {
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
       event_spacing: ['column', 'list'],
+      // A grid block is placed by its time and kept apart by the grid's own layout; only
+      // the list and column renderers emit the class that draws the gap.
+      event_gap: ['column', 'list'],
     });
 
     expect(

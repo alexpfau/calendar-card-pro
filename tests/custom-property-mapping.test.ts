@@ -41,6 +41,7 @@ const PASS_THROUGH: readonly Pair[] = [
   ['vertical_line_width', '--calendar-card-line-width-vertical', '108px'],
   ['day_spacing', '--calendar-card-day-spacing', '109px'],
   ['event_spacing', '--calendar-card-event-spacing', '110px'],
+  ['event_gap', '--calendar-card-event-gap', '119px'],
   ['additional_card_spacing', '--calendar-card-spacing-additional', '111px'],
   ['progress_bar_color', '--calendar-card-progress-bar-color', 'rgb(10, 0, 0)'],
   ['progress_bar_height', '--calendar-card-progress-bar-height', '112px'],
@@ -99,6 +100,16 @@ describe('custom property mapping', () => {
     expect(
       propsFor({ day_font_size: 'calc(1em + 2px)' })['--calendar-card-date-column-width'],
     ).toBe('calc(1.75 * (calc(1em + 2px)))');
+  });
+
+  it('passes the event gap through in the unit it was written in', () => {
+    // Every length default is written in px, so a px-only assertion agrees with a mapping
+    // that discards the unit. The gap is read in em against the card's font, and a calc()
+    // has to reach the stylesheet as written for the browser to resolve.
+    expect(propsFor({ event_gap: '0.5em' })['--calendar-card-event-gap']).toBe('0.5em');
+    expect(propsFor({ event_gap: 'calc(0.25rem + 2px)' })['--calendar-card-event-gap']).toBe(
+      'calc(0.25rem + 2px)',
+    );
   });
 
   it('dims the default empty day color and passes a configured one through', () => {

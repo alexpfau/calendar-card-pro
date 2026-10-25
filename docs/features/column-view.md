@@ -261,6 +261,16 @@ column:
   day_spacing: 16px
 ```
 
+Within a column, a day's events touch and read as one block. Where several in a row share a
+calendar color, their accent lines run together, and
+[`event_gap`](/features/layout-appearance#gaps-between-events) holds each event apart
+instead. Set inside `column:`, it gaps the columns and leaves the list layout joined:
+
+```yaml
+column:
+  event_gap: 4px
+```
+
 ## 📐 Spacing Options That Only Exist in Column View
 
 A few things have no meaning in a list. A column layout needs a gap under each day
