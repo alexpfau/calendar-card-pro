@@ -53,7 +53,7 @@
   "day_spacing": "Dienas atstarpe",
   "day_spacing.helper": "Atstarpe starp dienām. Kolonnu izkārtojumā tā ir atstarpe starp kolonnām.",
   "event_gap": "Notikumu atstarpe",
-  "event_gap.helper": "Atstarpe starp dienas notikumiem. Nulle tos patur kopā vienā blokā.",
+  "event_gap.helper": "Atstarpe starp dienas notikumiem. Nulle tos patur kopā vienā blokā. Saraksta skatā dienas līnija (sadaļā Atdalītāji) atdala dienas.",
   "event_spacing": "Notikuma iekšējā atstarpe",
   "event_spacing.helper": "Atstarpe virs un zem teksta katrā notikumā.",
   "additional_card_spacing": "Papildu kartes atstarpe",

@@ -53,7 +53,7 @@
   "day_spacing": "Dienos tarpas",
   "day_spacing.helper": "Tarpas tarp dienų. Stulpelių išdėstyme tai yra tarpas tarp stulpelių.",
   "event_gap": "Tarpas tarp įvykių",
-  "event_gap.helper": "Tarpas tarp dienos įvykių. Nulis palieka juos kartu viename bloke.",
+  "event_gap.helper": "Tarpas tarp dienos įvykių. Nulis palieka juos kartu viename bloke. Sąrašo rodinyje dienos linija (skiltyje Skirtukai) atskiria dienas.",
   "event_spacing": "Įvykio vidinis tarpas",
   "event_spacing.helper": "Tarpas virš ir po tekstu kiekvieno įvykio viduje.",
   "additional_card_spacing": "Papildomas kortelės tarpas",

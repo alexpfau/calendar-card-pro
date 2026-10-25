@@ -53,7 +53,7 @@
   "day_spacing": "Dagavstånd",
   "day_spacing.helper": "Avstånd mellan dagar. I kolumnlayouten är det mellanrummet mellan kolumnerna.",
   "event_gap": "Avstånd mellan händelser",
-  "event_gap.helper": "Avstånd mellan en dags händelser. Noll håller ihop dem i ett block.",
+  "event_gap.helper": "Avstånd mellan en dags händelser. Noll håller ihop dem i ett block. I listvyn håller en daglinje (under Avdelare) isär dagarna.",
   "event_spacing": "Inre avstånd i händelser",
   "event_spacing.helper": "Avstånd ovanför och under texten inuti varje händelse.",
   "additional_card_spacing": "Ytterligare kortavstånd",

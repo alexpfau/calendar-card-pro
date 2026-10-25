@@ -53,7 +53,7 @@
   "day_spacing": "Odstęp między dniami",
   "day_spacing.helper": "Odstęp między dniami. W układzie kolumnowym jest to odstęp między kolumnami.",
   "event_gap": "Odstęp wydarzeń",
-  "event_gap.helper": "Odstęp między wydarzeniami jednego dnia. Zero łączy je w jeden blok.",
+  "event_gap.helper": "Odstęp między wydarzeniami jednego dnia. Zero łączy je w jeden blok. W widoku listy dzielnik dnia (w sekcji Dzielniki) oddziela od siebie dni.",
   "event_spacing": "Odstęp wewnątrz wydarzenia",
   "event_spacing.helper": "Odstęp nad i pod tekstem wewnątrz każdego wydarzenia.",
   "additional_card_spacing": "Dodatkowy odstęp karty",

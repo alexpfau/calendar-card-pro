@@ -53,7 +53,7 @@
   "day_spacing": "Päevade vahe",
   "day_spacing.helper": "Vahe päevade vahel. Veerupaigutuses on see veergudevaheline vahe.",
   "event_gap": "Vahe sündmuste vahel",
-  "event_gap.helper": "Vahe päeva sündmuste vahel. Null hoiab need koos ühe plokina.",
+  "event_gap.helper": "Vahe päeva sündmuste vahel. Null hoiab need koos ühe plokina. Loetelu vaates hoiab päevajoon (jaotises Eraldajad) päevad lahus.",
   "event_spacing": "Sündmuse sisemine vahe",
   "event_spacing.helper": "Vahe teksti kohal ja all iga sündmuse sees.",
   "additional_card_spacing": "Täiendav kaardivahe",

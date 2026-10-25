@@ -22,7 +22,7 @@
   "day_spacing": "일자 간격",
   "day_spacing.helper": "날짜 사이의 간격입니다. 열 레이아웃에서는 열 사이의 여백이 됩니다.",
   "event_gap": "이벤트 사이 간격",
-  "event_gap.helper": "하루의 이벤트 사이 간격입니다. 0이면 하나의 블록으로 붙어 표시됩니다.",
+  "event_gap.helper": "하루의 이벤트 사이 간격입니다. 0이면 하나의 블록으로 붙어 표시됩니다. 목록 보기에서는 구분선에서 일자 구분선을 설정하면 날짜가 서로 구분됩니다.",
   "event_spacing": "이벤트 안쪽 여백",
   "event_spacing.helper": "각 이벤트 안에서 텍스트 위아래의 여백입니다.",
   "additional_card_spacing": "추가 카드 여백",

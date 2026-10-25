@@ -53,7 +53,7 @@
   "day_spacing": "Medzery medzi dňami",
   "day_spacing.helper": "Medzera medzi dňami. V stĺpcovom rozložení je to medzera medzi stĺpcami.",
   "event_gap": "Medzera medzi udalosťami",
-  "event_gap.helper": "Medzera medzi udalosťami jedného dňa. Nula ich ponechá spolu v jednom bloku.",
+  "event_gap.helper": "Medzera medzi udalosťami jedného dňa. Nula ich ponechá spolu v jednom bloku. V zobrazení zoznamu oddelí dni rozdeľovač dní (v časti Rozdeľovače).",
   "event_spacing": "Vnútorná medzera udalosti",
   "event_spacing.helper": "Medzera nad a pod textom vnútri každej udalosti.",
   "additional_card_spacing": "Dodatočné medzery karty",

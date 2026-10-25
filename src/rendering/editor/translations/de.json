@@ -53,7 +53,7 @@
   "day_spacing": "Tagesabstand",
   "day_spacing.helper": "Abstand zwischen den Tagen. Im Spaltenlayout ist das der Abstand zwischen den Spalten.",
   "event_gap": "Terminabstand",
-  "event_gap.helper": "Abstand zwischen den Terminen eines Tages. Bei null bleiben sie als ein Block zusammen.",
+  "event_gap.helper": "Abstand zwischen den Terminen eines Tages. Bei null bleiben sie als ein Block zusammen. In der Listenansicht hält eine Tagestrennlinie (unter Trennlinien) die Tage auseinander.",
   "event_spacing": "Innenabstand der Termine",
   "event_spacing.helper": "Abstand über und unter dem Text in jedem Termin.",
   "additional_card_spacing": "Zusätzlicher Kartenabstand",
