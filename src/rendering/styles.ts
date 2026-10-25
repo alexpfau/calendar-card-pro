@@ -357,7 +357,9 @@ export const cardStyles = css`
      for both, the trailing group wraps onto a second row and stays at the end. The range
      reserves the width of its widest label, so which row each group sits on follows the
      card's width and never the dates on screen. The 8px inline start lines the dates up with
-     the title, whose own margin it is. */
+     the title, whose own margin it is. It is padding inside the full basis, not a margin
+     beside it: a margin would make the band 8px wider than the header, push its end past
+     the content box, and read as labels that do not fit at any width. */
   .header-container.has-band {
     flex-wrap: wrap;
   }
@@ -366,7 +368,9 @@ export const cardStyles = css`
     flex: 1 0 100%;
     flex-wrap: wrap;
     gap: 8px;
-    margin-inline-start: 8px;
+    box-sizing: border-box;
+    margin-inline-start: 0;
+    padding-inline-start: 8px;
     margin-bottom: 12px;
   }
 
