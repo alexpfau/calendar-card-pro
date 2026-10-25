@@ -17,6 +17,11 @@ import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
+  computeColumnThresholdPx,
+  resolveColumnFit,
+  resolveColumnFitIfPicked,
+} from '../src/config/view';
+import {
   VIEW_CHOICE_STORAGE_KEY,
   configFingerprint,
   readViewChoice,
@@ -376,6 +381,33 @@ describe('narrow cards', () => {
 
     await measure(card, WIDE);
     expect(drawnView(card)).toBe('list');
+  });
+
+  /**
+   * A view on screen keeps its layout until the card is half a hysteresis band narrower than
+   * it needs to enter it. A window narrowing into that band leaves Columns drawn — and the
+   * switcher once judged a pick by the entry threshold, so after switching away Columns was
+   * dimmed and could not be picked again, though the card had drawn it a moment before.
+   */
+  it('keeps a layout on offer after switching away from it inside the hysteresis band', async () => {
+    const config = configFor();
+    const inBand = computeColumnThresholdPx(config, 'column') - 8;
+    // The two rules this case lies between: entering refuses the width, staying allows it.
+    expect(resolveColumnFit('column', config, inBand, null).view).toBe('list');
+    expect(resolveColumnFitIfPicked('column', config, inBand).view).toBe('column');
+
+    const card = await mount();
+    await measure(card, WIDE);
+    await press(card, 'column');
+    await measure(card, inBand);
+    expect(drawnView(card)).toBe('column');
+
+    await press(card, 'list');
+    expect(segment(card, 'column').hasAttribute('aria-disabled')).toBe(false);
+
+    await press(card, 'column');
+    expect(drawnView(card)).toBe('column');
+    expect(card._columnCount).toBe(7);
   });
 
   it('draws no switcher when only one view fits', async () => {

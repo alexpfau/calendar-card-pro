@@ -227,7 +227,10 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   the docs state; the oldest entries are pruned past `MAX_VIEW_CHOICES`.
 - **Which views it offers is decided at render.** A view is offered when picking it would
   draw it at the settled width: the requested view by what is on screen, any other by
-  `resolveColumnFit` with the enter threshold. A view that does not fit stays in place,
+  `resolveColumnFitIfPicked`, which judges it as though it were already on screen. A pick
+  gets the hysteresis margin a view on screen keeps; judged by the entry threshold instead,
+  a layout the card had been drawing inside the band could not be switched back to. A view
+  that does not fit stays in place,
   dimmed and `aria-disabled`; with fewer than two that fit there is no switcher. A settled
   width that changes the offer without changing the layout still re-renders.
 - **Editing shows `view` and touches nothing.** In preview and edit mode `effectiveView` is

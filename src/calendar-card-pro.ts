@@ -3812,10 +3812,10 @@ class CalendarCardPro extends LitElement {
    * a narrow card falls back to.
    *
    * The view already asked for is answered by what is on screen, hysteresis included. Any
-   * other is fitted as a fresh pick would be — `_chooseView` fits it with no previous
-   * layout of its own — so a segment offered is a segment that works. List has no width
-   * requirement; before the first measurement every view fits, as `resolveColumnFit`
-   * itself assumes.
+   * other is fitted as `_chooseView` fits a pick, through `resolveColumnFitIfPicked`, so a
+   * segment offered is a segment that works, and a layout the card was just drawing stays
+   * on offer after switching away from it. List has no width requirement; before the first
+   * measurement every view fits, as `resolveColumnFit` itself assumes.
    *
    * @param view - View to test
    * @returns True when the view can be drawn now
@@ -3825,7 +3825,7 @@ class CalendarCardPro extends LitElement {
     if (view === this.requestedView) return this._effectiveView === view;
 
     return (
-      ViewConfig.resolveColumnFit(view, this.config, this._measuredWidthPx, null).view === view
+      ViewConfig.resolveColumnFitIfPicked(view, this.config, this._measuredWidthPx).view === view
     );
   }
 
@@ -3891,13 +3891,10 @@ class CalendarCardPro extends LitElement {
     if (choice === this._viewChoice) return;
 
     this._viewChoice = choice;
-    const fit = ViewConfig.resolveColumnFit(
+    const fit = ViewConfig.resolveColumnFitIfPicked(
       this.requestedView,
       this.config,
       this._measuredWidthPx,
-      this._measuredWidthPx === null
-        ? null
-        : { view: this._effectiveView, columns: this._columnCount },
     );
     Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
     this._effectiveView = fit.view;
