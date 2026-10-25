@@ -809,18 +809,25 @@ describe('card stylesheet', () => {
       ).toBe('');
 
       // Stated over the whole stylesheet rather than over this one rule, because the
-      // defect was a zero-width space in the wrong *place*, not a missing one. Exactly two
-      // rules may carry one — this separator and the folded countdown's — and in both it
-      // must be the last character, behind the glyph. A third rule, or either of these two
+      // defect was a zero-width space in the wrong *place*, not a missing one. Exactly three
+      // rules may carry one. In this separator and the folded countdown's it must be the last
+      // character, behind the glyph. After a text label it is the whole content, so the
+      // break it offers comes after the label and never in front of the title that follows;
+      // label-title-gap.test.ts says why it is there at all. A fourth rule, or any of these
       // growing a leading one, fails here.
       const zwsp = RULES.filter((rule) => rule.body.includes('\\200B'));
 
       expect(zwsp.flatMap((rule) => rule.selectors).sort()).toEqual([
+        '.calendar-label::after',
         '.time .time-actual .time-text > .time-countdown::before',
         '.time-location .event-weather .event-weather-text > span + span::before',
       ]);
       for (const rule of zwsp) {
-        expect(rule.body).toMatch(/content:\s*'\\2060·\\200B'/);
+        expect(rule.body).toMatch(
+          rule.selectors[0] === '.calendar-label::after'
+            ? /^\s*content:\s*'\\200B';\s*$/
+            : /content:\s*'\\2060·\\200B'/,
+        );
       }
     });
 

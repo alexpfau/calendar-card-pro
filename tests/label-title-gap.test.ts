@@ -7,6 +7,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import { renderGridGroupedEvents } from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
+import { cardStyles } from '../src/rendering/styles';
 import { groupEventsByDay } from '../src/utils/events';
 
 /**
@@ -23,9 +24,32 @@ import { groupEventsByDay } from '../src/utils/events';
  * happy-dom cannot lay text out, so the gap itself is measured in a browser; what this pins
  * is its cause, which is markup: no text node may sit between the last label and the title,
  * and the title may not open with whitespace.
+ *
+ * Taking that whitespace out also took out the only place a line could break between a text
+ * label and the title. "Anna" and "Birthday" became one word to the line breaker, and
+ * `overflow-wrap: break-word` split the title instead: a list row 190px wide read
+ * "Anna Birthda / y party for / the / grandparents". Pictures and icons are boxes a line
+ * breaks around anyway; text and emoji labels get a zero-width space after them from the
+ * stylesheet, which draws nothing and adds no node.
  */
 
 type View = 'list' | 'column' | 'grid';
+
+/**
+ * What the stylesheet draws after a text label, as characters, from the one rule allowed to.
+ * A second rule could take it away again without a trace in the markup, so it is pinned too.
+ */
+function generatedAfterTextLabel(): string {
+  const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selectors]) =>
+    /calendar-label[^,{]*::after/.test(selectors),
+  );
+  if (rules.length !== 1 || rules[0][1].trim() !== '.calendar-label::after') return '';
+  const content = rules[0][2].match(/content:\s*'([^']*)'/)?.[1] ?? '';
+  return content.replace(/\\([0-9a-f]{1,6})\s?/giu, (_match, hex: string) =>
+    String.fromCodePoint(Number.parseInt(hex, 16)),
+  );
+}
 
 const LABELS: Array<[string, string]> = [
   ['a picture', '/local/anna.png'],
@@ -135,6 +159,31 @@ describe.each<View>(['list', 'column', 'grid'])('label to title spacing in %s vi
             Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toEqual([]);
+  });
+
+  it.each<[string, Types.EntityConfig[]]>([
+    ['a prose label', [{ entity: 'calendar.anna', label: 'Anna' }]],
+    ['an emoji', [{ entity: 'calendar.anna', label: '🎉' }]],
+    [
+      'a merged run of prose labels',
+      [
+        { entity: 'calendar.anna', label: 'Anna' },
+        { entity: 'calendar.ben', label: 'Ben' },
+      ],
+    ],
+  ])('leaves a place to break after every text label in %s', (_name, entities) => {
+    const summary = summaryOf(render(view, entities));
+    const labels = Array.from(summary.querySelectorAll(':scope > .calendar-label'));
+    expect(labels).toHaveLength(entities.length);
+    for (const label of labels) {
+      let next = label.nextSibling;
+      while (next?.nodeType === Node.COMMENT_NODE) next = next.nextSibling;
+      const whitespace = next?.nodeType === Node.TEXT_NODE && /\s/u.test(next.textContent ?? '');
+      expect(
+        whitespace || /[\s\u200B]$/u.test(generatedAfterTextLabel()),
+        `a line can break after "${label.textContent}"`,
+      ).toBe(true);
+    }
   });
 
   it('leaves the markup of an unlabeled title as it always was', () => {

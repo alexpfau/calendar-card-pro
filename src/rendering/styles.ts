@@ -1470,6 +1470,19 @@ export const cardStyles = css`
     margin-right: 4px;
   }
 
+  /* A place to break after a text or emoji label. The title follows a label with nothing
+     between them, so the 4px margin is the whole gap, and without this the last letter of
+     the label and the first of the title had no break between them: "Anna" and "Birthday"
+     were one word to the line breaker, and overflow-wrap split the title instead,
+     "Anna Birthda / y party". A zero-width space is a break opportunity that draws nothing.
+     As generated content it is no node in the DOM, so the gap and every measurement of the
+     label stay as they are; where white-space forbids breaking, as in a scrolling title or
+     the compact grid line, it does nothing. Pictures and icons need none, being boxes the
+     line can already break around. */
+  .calendar-label::after {
+    content: '\\200B';
+  }
+
   /* The glyph labels are sized in em for the reason the hanging indent above is: they
      inherit the event font size from .summary, in whatever form it was written. Handed
      the option's value directly, a keyword or a space before the unit reached
