@@ -14,9 +14,9 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor), **Card Displays** chooses the visible layout.
-Select **Column** under **Editing Settings For** to edit its presentation values directly,
-including its column-only options, without changing the card's displayed layout.
+In the [visual editor](/features/editor), **Card Displays** chooses the layout the card
+opens with. Select **Columns** under **Editing Settings For** to edit its presentation values
+directly, including its column-only options, without changing **Card Displays**.
 
 Column view is responsive by design. A day column has a minimum readable width, so a card
 too narrow to give every configured day that much room falls back to the list layout.
@@ -152,13 +152,17 @@ column:
   show_empty_days: false # columns hide them too
 ```
 
+Showing empty days also leaves [`show_empty_today`](/features/event-content#showing-today-when-it-is-empty)
+with nothing to do in column view, since today is already on the card. It takes effect there
+once `show_empty_days: false` is set in `column:` as well.
+
 `show_past_events` is different: Column inherits its top-level value unless `column:`
 overrides it. Grid substitutes `true` for both options. The editor guide includes the
 [comparison across all three layouts](/features/editor#yaml-view-defaults).
 
 ## 🚫 Options That Cannot Be Overridden
 
-These options decide _which_ events the card loads, so they must hold the same value in both layouts and are ignored inside `column:`. Set them at the top level:
+These options decide _which_ events the card loads, so they must hold the same value in all three layouts and are ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level:
 
 `entities` · `start_date` · `days_to_show` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
 
@@ -172,6 +176,8 @@ column:
   show_past_events: false # a column is too narrow to spend on what is over
   filter_duplicates: true # and too narrow to show the same meeting twice
 ```
+
+`toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete` act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
 
@@ -199,11 +205,13 @@ Column density is controlled by [`min_days_to_show` and
 `min_days_fallback`](#showing-fewer-columns-instead) instead.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls in the Column workspace, including the per-calendar compact
+The editor omits these controls in the Columns workspace, including the per-calendar compact
 limit. Stored values are preserved and still apply when the card falls back to List. To
 change them, select List under Editing Settings For; Card Displays stays unchanged.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
+
+**→ [Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the same options in the configuration reference.
 
 ## 📊 Progress Bar & Countdown
 
