@@ -85,7 +85,8 @@ read, and every calendar falls back exactly as described below.
 
 **Calendars Home Assistant has no color for fall back rather than losing their color.** A
 per-calendar `home-assistant` falls back to the card's `accent_color`; a card-wide
-`home-assistant` falls back to the built-in `#03a9f4`.
+`home-assistant` falls back to the card's default accent, which is your theme's primary color
+(`#03a9f4` where the theme defines none).
 
 This matters more than it sounds, because **Google Calendar is currently the only
 integration that fills the color in for you** — and it does so only at the moment a calendar

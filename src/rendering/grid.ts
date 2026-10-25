@@ -910,17 +910,21 @@ function renderTimedEvent(
  * timed segment either keeps only its true start time for that day or shows title only.
  *
  * @param event - Timed grid event segment
- * @param parts - Shared presentation content
+ * @param presented - Shared presentation content
  * @param config - Card configuration
  * @param hass - Home Assistant instance
  * @returns Content parts with grid-specific time text
  */
 function gridTimedEventContentParts(
   event: Types.CalendarEventData,
-  parts: Leaves.EventContentParts,
+  presented: Leaves.EventContentParts,
   config: Types.Config,
   hass?: Types.Hass | null,
 ): Leaves.EventContentParts {
+  // Grid marks the present with its now line, which runs straight through the block that
+  // is under way; a "Now" label inside that block would say it twice.
+  const parts = presented.nowLabel ? { ...presented, nowLabel: null } : presented;
+
   if (!event._isMultiDaySegment) {
     return parts;
   }

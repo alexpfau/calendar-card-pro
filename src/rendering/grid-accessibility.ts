@@ -6,6 +6,8 @@
 import { type EventContentParts, eventWeatherContent } from './leaves';
 import { buildEventPresentation } from './presentation';
 import type * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
+import { getNowString } from '../translations/dayjs';
 import * as EventUtils from '../utils/events';
 import { resolveLabelType } from '../utils/helpers';
 import { isPersonEntityId } from '../utils/person-pictures';
@@ -64,9 +66,18 @@ export function gridEventAccessibleName(
       ? buildEventPresentation(source, config, language, hass).contentParts
       : parts;
   const weather = eventWeatherContent(event, config, weatherForecasts, 'row', hass);
+  // The now line is how the grid shows an event under way, and it is hidden from assistive
+  // technology, so the name says it instead. Judged on the block itself, not its source, as
+  // the line is: a block in tomorrow's column of an event running now is not where now is.
+  const now =
+    ViewConfig.resolveTimeGridOption(config, 'show_now_line') &&
+    EventUtils.isEventCurrentlyRunning(event)
+      ? getNowString(language)
+      : '';
   const words = [
     ...labelNames(event, parts, config, hass),
     event.summary,
+    now,
     original.shouldShowTime ? original.eventTime : '',
     original.countdownStr,
     parts.eventLocation,

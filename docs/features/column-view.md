@@ -188,7 +188,9 @@ sits above its events rather than beside them, so there is no cell to move it in
 **`today_indicator_position`** places the marker within that same date cell, as a
 percentage of it. In column view the indicator is a leading item on the weekday row
 instead — so `today_indicator`, `today_indicator_size` and `today_indicator_color` all
-still apply, and only the position does not.
+still apply, and only the position does not. The default [date tile](/features/layout-appearance#the-date-tile)
+uses neither the position nor the size: it sits on the day number itself, and every
+column's date keeps the tile's height so the headers stay level.
 
 **`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
 belong to compact mode, which caps the whole card rather than each column. A cap of three

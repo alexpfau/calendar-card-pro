@@ -55,7 +55,7 @@ const INITIAL_INDICATOR_CUSTOM = '⭐';
 /** What "Custom color" starts from when the card was following Home Assistant. */
 const INITIAL_ACCENT_COLOR = Config.DEFAULT_CONFIG.accent_color;
 
-const BUILT_IN_INDICATORS = ['dot', 'pulse', 'glow'] as const;
+const BUILT_IN_INDICATORS = ['tile', 'dot', 'pulse', 'glow'] as const;
 
 function todayIso(): string {
   const now = new Date();
@@ -146,13 +146,13 @@ export function languageMode(config: Readonly<Types.Config>): 'system' | 'custom
  */
 export function todayIndicatorStyle(
   config: Readonly<Types.Config>,
-): 'none' | 'dot' | 'pulse' | 'glow' | 'icon' | 'custom' {
+): 'none' | 'tile' | 'dot' | 'pulse' | 'glow' | 'icon' | 'custom' {
   const type = Helpers.getTodayIndicatorType(config.today_indicator);
 
   if (type === 'mdi') return 'icon';
   if (type === 'image' || type === 'emoji') return 'custom';
 
-  return type as 'none' | 'dot' | 'pulse' | 'glow';
+  return type as 'none' | 'tile' | 'dot' | 'pulse' | 'glow';
 }
 
 /**
@@ -547,7 +547,9 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         return { changes: { today_indicator: value }, pending: discardText };
       }
 
-      return { changes: { today_indicator: undefined }, pending: discardText };
+      // `false`, not removing the key: the shipped default is the tile, so an absent key
+      // would draw one, and "None" would snap back to "Date Tile" on the next derivation.
+      return { changes: { today_indicator: false }, pending: discardText };
     },
   },
 

@@ -1513,14 +1513,34 @@ export function groupEventsByDay(
     }
   }
 
-  if (showEmptyDays || days.length === 0) {
+  // Today, and only today, when empty days are otherwise hidden and today sits in
+  // the window. Absent means the fill below runs exactly as it always has.
+  //
+  // The window is `days_to_show` from the start date, not `effectiveDaysToShow`: a compact
+  // day limit counts days that have events rather than marking out a range of dates, so it
+  // says nothing about whether today is one the card covers.
+  //
+  // Empty means empty before the compact limits ran. They can drop today's events from a
+  // collapsed card whose window starts before today, and the fill must not then report a
+  // day as free that expanding the card shows is not.
+  let emptyToday: Date | undefined;
+  if (config.show_empty_today && !showEmptyDays) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const offset = FormatUtils.getCalendarDayDiff(referenceStart, today);
+    const hasEvents = Boolean(eventsByDay[FormatUtils.getLocalDateKey(today)]);
+    if (offset >= 0 && offset < config.days_to_show && !hasEvents) emptyToday = today;
+  }
+
+  const eventDayCount = days.length;
+
+  if (showEmptyDays || days.length === 0 || emptyToday) {
     const translations = Localize.getTranslations(language);
 
     const customEmptyText = config.empty_day_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    const startDateForEmptyDays = new Date(referenceDate);
+    let startDateForEmptyDays = new Date(referenceDate);
 
     let endDateForEmptyDays: Date;
 
@@ -1549,6 +1569,14 @@ export function groupEventsByDay(
       // a reader could distinguish from the default.
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+    }
+
+    // Collapse the range the loop already walks, rather than filling it and then
+    // throwing the other days away. A blank card's single start-date row becomes
+    // today the same way, when today is the day in range.
+    if (emptyToday) {
+      startDateForEmptyDays = new Date(emptyToday);
+      endDateForEmptyDays = new Date(emptyToday);
     }
 
     const existingDayKeys = new Set(
@@ -1596,7 +1624,10 @@ export function groupEventsByDay(
     days = allDays;
   }
 
-  return days.slice(0, effectiveDaysToShow);
+  // The extra day is the empty today just inserted. It does not spend a
+  // `days_to_show` slot, so an event day the cap already kept stays kept.
+  const addedToday = emptyToday && days.length > eventDayCount ? 1 : 0;
+  return days.slice(0, effectiveDaysToShow + addedToday);
 }
 
 function getEntityIndex(entityId: string | undefined, config: Types.Config): number {
@@ -2285,6 +2316,44 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
   if (!startDateTime || !endDateTime) return false;
 
   return now >= startDateTime && now < endDateTime;
+}
+
+/**
+ * The next instant at which a timed event starts or ends, after `now`.
+ *
+ * Those are the instants at which list and column view change with no new data: an event
+ * becomes "now", stops being it, or turns past (dimmed, or gone under
+ * `show_past_events: false`). So is the next local midnight while a timed event runs through
+ * it, where a split event's segments hand over. All-day events are left out — their
+ * boundaries are local midnights, when the whole day grouping moves, which is a refresh
+ * rather than a repaint.
+ *
+ * @param events Events the card holds
+ * @param now Instant to measure from, in milliseconds
+ * @returns The next boundary in milliseconds, or `null` when no timed event has one ahead
+ */
+export function nextEventBoundary(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  now: number,
+): number | null {
+  let next: number | null = null;
+  const today = new Date(now);
+  const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+
+  for (const event of events) {
+    if (event._isEmptyDay || !event.start?.dateTime || !event.end?.dateTime) continue;
+
+    const start = new Date(event.start.dateTime).getTime();
+    const end = new Date(event.end.dateTime).getTime();
+    // An event running through midnight changes there too when split_multiday_events splits
+    // it: one day's segment ends and the next day's begins, though the event does neither.
+    const crossings = start < midnight && end > midnight ? [start, end, midnight] : [start, end];
+    for (const at of crossings) {
+      if (at > now && (next === null || at < next)) next = at;
+    }
+  }
+
+  return next;
 }
 
 /**

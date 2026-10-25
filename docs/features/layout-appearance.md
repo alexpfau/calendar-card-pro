@@ -315,15 +315,19 @@ length, but not a percentage or a keyword.
 
 ## 🌟 Today Indicator
 
-Calendar Card Pro provides a sophisticated way to highlight the current day with a customizable indicator:
+Calendar Card Pro marks today out of the box: today's day number sits on a filled tile in
+your theme's primary color, in list, column and grid view. You can restyle it, swap it for a
+dot, an icon, an emoji or an image, or turn it off:
 
 ::: tip Visual Editor
-Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+Configure today indicators in the "Date Display" section, where you can choose the date tile, dots, pulses, glows, custom icons, emojis or images, and adjust their position.
 :::
 
 ```yaml
-# Enable and choose indicator type
-today_indicator: true # Enable basic dot indicator (default)
+# Choose the indicator type
+today_indicator: tile # A filled tile behind today's day number (default)
+today_indicator: false # No indicator
+today_indicator: true # Basic dot
 today_indicator: pulse # Animated pulsing dot
 today_indicator: glow # Glowing dot
 today_indicator: mdi:star # Any Material Design icon
@@ -339,8 +343,8 @@ list:
   today_indicator_position: '85% 15%' # Top right
 
 # Restyle the indicator
-today_indicator_color: '#03a9f4' # Color — applies to the dot and to MDI icons (default)
-today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
+today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons (default: your theme's primary color)
+today_indicator_size: 6px # Size of icons, emojis and images; the tile ignores it (default)
 ```
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="Today Indicator" width="600"><br>
@@ -349,6 +353,7 @@ The indicator is precisely positioned and always properly centered on the coordi
 
 Available indicator types:
 
+- `tile`: A softly tinted tile behind today's day number (the default)
 - `true` or `dot`: Simple dot indicator
 - `pulse`: Animated pulsing dot
 - `glow`: Glowing dot with subtle light effect
@@ -357,7 +362,32 @@ Available indicator types:
 - Image path: Any image URL or local path
 - Any other text: Drawn as the characters themselves — a week number, a quarter, a sprint name
 
-Anything the card does not recognize as one of the first four is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+Anything the card does not recognize as one of the first five is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+
+### The Date Tile
+
+The tile is shaped after an iOS app icon, a square with continuous rounded corners, and
+replaces nothing: the weekday and month stay where they are, and the tile sits behind the day
+number itself. It sizes itself from `day_font_size`, so `today_indicator_size` and
+`today_indicator_position` do not apply to it.
+
+The tile is a light wash of `today_indicator_color`, which follows your theme's primary color
+unless you set one, over the card's background, with the day number in a deeper shade of the
+same color. It is the recipe the tinted all-day pills use, and it adapts to light and dark
+themes on its own. A color you set therefore tints the tile rather than filling it. The digits
+take their shade from the tile, unless you name a color for them with `today_day_color` or, on
+a weekend, `weekend_day_color`.
+
+In column and grid view every day's number keeps the tile's height, so the dates stay on one
+line across the columns and each column's first event starts at the same height.
+
+```yaml
+today_indicator: tile
+today_indicator_color: '#e67c73' # Tint the tile with a fixed color instead of the theme's
+today_day_color: '#8c1d18' # Choose the digits' color yourself
+```
+
+### Placing an Indicator
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
@@ -365,6 +395,6 @@ The `today_indicator_position` option accepts CSS-like position values in the fo
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.
 :::
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. It takes a CSS length such as `6px`, `0.5em` or `1rem`, or an expression such as `calc()` that works out to one, and tolerates a space before the unit, so `6 px` reads as `6px`. A percentage, a negative size, a keyword such as `large` or a misspelled unit falls back to `6px`, because each would otherwise let the indicator balloon across today's date. For a size that follows the text around it, use `em`: `1.5em` rather than `150%`. A `var()` is passed on as written, since the card cannot see what it refers to. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
+`today_indicator_size` scales every indicator type except the tile — it sets the icon size, the font size for emoji and text, and the image width. It takes a CSS length such as `6px`, `0.5em` or `1rem`, or an expression such as `calc()` that works out to one, and tolerates a space before the unit, so `6 px` reads as `6px`. A percentage, a negative size, a keyword such as `large` or a misspelled unit falls back to `6px`, because each would otherwise let the indicator balloon across today's date. For a size that follows the text around it, use `em`: `1.5em` rather than `150%`. A `var()` is passed on as written, since the card cannot see what it refers to. `today_indicator_color` tints the tile and colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
 
 The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

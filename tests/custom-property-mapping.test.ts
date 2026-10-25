@@ -44,6 +44,7 @@ const PASS_THROUGH: readonly Pair[] = [
   ['additional_card_spacing', '--calendar-card-spacing-additional', '111px'],
   ['progress_bar_color', '--calendar-card-progress-bar-color', 'rgb(10, 0, 0)'],
   ['progress_bar_height', '--calendar-card-progress-bar-height', '112px'],
+  ['now_color', '--calendar-card-now-color', 'rgb(20, 0, 0)'],
   ['today_indicator_color', '--calendar-card-today-indicator-color', 'rgb(11, 0, 0)'],
   ['today_indicator_size', '--calendar-card-today-indicator-size', '113px'],
   ['week_number_font_size', '--calendar-card-week-number-font-size', '114px'],

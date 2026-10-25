@@ -55,6 +55,8 @@
   "time_color": "Time Colour",
   "location_color": "Location Colour",
   "description_color": "Description Colour",
+  "now_color": "Now Colour",
+  "now_color.helper": "The colour of an event that is happening right now, and of the now line in grid view.",
   "progress_bar_color": "Progress Bar Colour",
   "day_separator_color": "Day Rule Colour",
   "week_separator_color": "Week Rule Colour",

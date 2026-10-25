@@ -674,7 +674,8 @@ describe('editor: the grid block as the form shows it', () => {
       weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       hour_height: '48px',
       show_now_line: true,
-      now_line_color: '#34d399',
+      // The card's now color, which the line follows until it is given its own.
+      now_line_color: 'var(--calendar-card-now-color, #34d399)',
       max_simultaneous_events: 3,
       overlap_layout: 'cascade',
       allday_band_max_rows: 3,
@@ -912,6 +913,9 @@ describe('editor: applicability', () => {
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
+      // Grid marks the present with its now line; `gridTimedEventContentParts` clears the
+      // label whatever the option resolves to.
+      show_now_indicator: ['column', 'list'],
       empty_day_text: ['column', 'list'],
       empty_day_color: ['column', 'list'],
       // Grid's banner renderer emits the summary and drops every other content part, so
@@ -2048,7 +2052,11 @@ describe('editor: the fields whose stored shape no selector can emit', () => {
   it('derives each today-indicator style from the shape of the stored value', () => {
     const styles = deriveSyntheticData;
 
-    expect(styles(buildConfig()).today_indicator_style).toBe('none');
+    // The tile is the shipped default, so an unconfigured card derives it, and "none" is a
+    // stored `false` rather than an absent key.
+    expect(styles(buildConfig()).today_indicator_style).toBe('tile');
+    expect(styles(buildConfig({ today_indicator: false })).today_indicator_style).toBe('none');
+    expect(styles(buildConfig({ today_indicator: 'tile' })).today_indicator_style).toBe('tile');
     expect(styles(buildConfig({ today_indicator: true })).today_indicator_style).toBe('dot');
     expect(styles(buildConfig({ today_indicator: 'pulse' })).today_indicator_style).toBe('pulse');
     expect(styles(buildConfig({ today_indicator: 'mdi:star' })).today_indicator_style).toBe('icon');
@@ -2552,6 +2560,8 @@ describe('editor: the Events panel opening run', () => {
       'show_countdown',
       'show_progress_bar',
       'heading_event_state',
+      'show_now_indicator',
+      'now_color',
       'past_event_opacity',
       'heading_accent',
       'accent_event_text',
@@ -2643,7 +2653,17 @@ describe('editor: the Time Range & Content panel', () => {
   it('offers the empty-day fields whenever empty days can actually appear', () => {
     expect(namesIn(buildConfig())).not.toContain('empty_day_text');
     expect(namesIn(buildConfig({ show_empty_days: true }))).toContain('empty_day_text');
+    expect(namesIn(buildConfig({ show_empty_today: true }))).toContain('empty_day_text');
     expect(namesIn(columnConfig())).toContain('empty_day_text');
+  });
+
+  it('offers show_empty_today only while empty days are hidden', () => {
+    // List ships empty days off, so the switch has something to do there.
+    expect(namesIn(buildConfig())).toContain('show_empty_today');
+    // With every empty day showing, today is already one of them: the switch is withheld
+    // rather than offered as a no-op, at card level and in a view that ships them on.
+    expect(namesIn(buildConfig({ show_empty_days: true }))).not.toContain('show_empty_today');
+    expect(namesIn(columnConfig())).not.toContain('show_empty_today');
   });
 
   /**

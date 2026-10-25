@@ -18,7 +18,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 </ha-icon>
 </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -40,7 +40,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -53,8 +53,8 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -62,7 +62,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -84,7 +84,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -123,7 +123,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -158,7 +158,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -189,14 +189,14 @@ exports[`list view DOM > renders a single event 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -227,14 +227,14 @@ exports[`list view DOM > renders an empty calendar 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -259,14 +259,14 @@ exports[`list view DOM > renders compact mode 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -288,7 +288,7 @@ exports[`list view DOM > renders compact mode 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -301,8 +301,8 @@ exports[`list view DOM > renders compact mode 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -310,7 +310,7 @@ exports[`list view DOM > renders compact mode 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -341,14 +341,14 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -370,7 +370,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -383,8 +383,8 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 <div class="progress-bar">
 <div class="progress-bar-filled" style="width: 33%"></div>
@@ -395,7 +395,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -418,7 +418,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -458,7 +458,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -494,7 +494,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -526,14 +526,14 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -568,7 +568,7 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -597,7 +597,7 @@ exports[`list view DOM > renders empty days when show_empty_days is on 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -622,14 +622,14 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Mi
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -651,7 +651,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -664,8 +664,8 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Jetzt</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -673,7 +673,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -695,7 +695,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -734,7 +734,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -769,7 +769,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -800,14 +800,14 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -829,7 +829,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -842,8 +842,8 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -851,7 +851,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -873,7 +873,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -912,7 +912,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -947,7 +947,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -978,14 +978,14 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1007,7 +1007,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1029,7 +1029,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1042,8 +1042,8 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1051,7 +1051,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1073,7 +1073,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1112,7 +1112,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1147,7 +1147,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1178,14 +1178,14 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1207,7 +1207,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1220,8 +1220,8 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1229,7 +1229,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1251,7 +1251,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1290,7 +1290,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1325,7 +1325,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1347,7 +1347,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1378,14 +1378,14 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1407,7 +1407,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1420,8 +1420,8 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1429,7 +1429,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1451,7 +1451,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1490,7 +1490,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1525,7 +1525,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1567,7 +1567,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 </ha-icon>
 </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1589,7 +1589,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1602,8 +1602,8 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1611,7 +1611,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1633,7 +1633,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1672,7 +1672,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1707,7 +1707,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1738,7 +1738,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -1746,7 +1746,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-temp-low">/13°</span></div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1768,7 +1768,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1781,8 +1781,8 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1790,7 +1790,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1812,7 +1812,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1852,7 +1852,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-temp-low">/12°</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1888,7 +1888,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-temp-low">/11°</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1919,14 +1919,14 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1948,7 +1948,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1961,8 +1961,8 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -1970,7 +1970,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1992,7 +1992,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2031,7 +2031,7 @@ exports[`list view DOM > renders weather on events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2066,7 +2066,7 @@ exports[`list view DOM > renders weather on events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2097,7 +2097,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -2105,7 +2105,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span></div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2127,7 +2127,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2140,8 +2140,8 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -2149,7 +2149,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2171,7 +2171,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2211,7 +2211,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2247,7 +2247,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2288,14 +2288,14 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2317,7 +2317,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2330,8 +2330,8 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -2339,7 +2339,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2361,7 +2361,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2401,7 +2401,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2437,7 +2437,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2468,7 +2468,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
-<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+<div class="day today-tile" style="font-size:26px;color:var(--calendar-card-today-indicator-ink);">
       17
     </div>
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
@@ -2476,7 +2476,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-uv-index">UV7</span></div>
 </td>
-<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2498,7 +2498,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle event-now " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2511,8 +2511,8 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
-<ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>9:30 AM - 11:00 AM</span>
+<ha-icon icon="mdi:clock"></ha-icon>
+<span class="now-time"><span class="now-indicator">Now</span><span>9:30 AM - 11:00 AM</span></span>
 </div>
 </div>
 </div>
@@ -2520,7 +2520,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2542,7 +2542,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 </td>
 </tr>
 <tr>
-<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2582,7 +2582,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-uv-index">UV4</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -2618,7 +2618,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           </div>
 <div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-uv-index">UV2</span></div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid var(--primary-color, #03a9f4); background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
