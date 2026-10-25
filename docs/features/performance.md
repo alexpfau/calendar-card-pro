@@ -28,6 +28,11 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   away, on that card and on every other Calendar Card Pro card on the page that shows the
   changed calendar. A new event could have gone to any calendar that accepts new events, so
   after one every card showing such a calendar refreshes.
+- **Pages kept in memory only.** Dates the
+  [date navigation](/features/layout-appearance#paging-through-dates) pages to are loaded the
+  first time they are shown and kept in memory, shared by the cards on the page, for the 16
+  most recent pages. They are never written to the browser's storage, so a tablet paging all
+  week leaves nothing behind.
 
 ```yaml
 # A wall tablet that should not refetch on every view switch

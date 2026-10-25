@@ -258,18 +258,25 @@ in any day's `.grid-day-body`, and a day selector does not reach it; select it a
 ### Header Toolbar Classes
 
 The [header toolbar](/features/layout-appearance#header-toolbar) adds `.has-toolbar` to
-`.header-container`, which turns the header into a flex row, and draws its controls inside it:
+`.header-container`, which turns the header into a flex row, and draws its controls inside it.
+With the [date navigation](/features/layout-appearance#paging-through-dates) the toolbar is a
+band of its own: `.card-toolbar` also carries `.toolbar-band`, and `.header-container` also
+carries `.has-band`.
 
-| Class                    | Element                                                                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `.card-toolbar`          | the toolbar; `.toolbar-in-title-row` beside a title, `.toolbar-own-row` in a row of its own                                       |
-| `.toolbar-trailing`      | the group of controls at its end                                                                                                  |
-| `.toolbar-button`        | the add-event button, also `.add-event-button`; `.icon-only` while there is no room for its label                                 |
-| `.toolbar-button-icon`   | the add button's icon                                                                                                             |
-| `.toolbar-button-label`  | a control's label, on the add button and on each view switcher segment                                                            |
-| `.view-switcher`         | the view switcher's track                                                                                                         |
-| `.view-switcher-segment` | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` without a label |
-| `.view-switcher-icon`    | a segment's pictogram                                                                                                             |
+| Class                      | Element                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `.card-toolbar`            | the toolbar; `.toolbar-in-title-row` beside a title, `.toolbar-own-row` in a row of its own, `.toolbar-band` with the date navigation |
+| `.toolbar-trailing`        | the group of controls at its end                                                                                                      |
+| `.toolbar-leading`         | the group at the start of the band: the date navigation, then the dates on screen                                                     |
+| `.date-navigation`         | the track holding the previous, home and next buttons                                                                                 |
+| `.date-navigation-segment` | one of those three buttons                                                                                                            |
+| `.toolbar-range`           | the dates on screen, a button that opens the date picker; its words are `.toolbar-range-text`                                         |
+| `.toolbar-button`          | the add-event button, also `.add-event-button`; `.icon-only` while there is no room for its label                                     |
+| `.toolbar-button-icon`     | the add button's icon                                                                                                                 |
+| `.toolbar-button-label`    | a control's label, on the add button and on each view switcher segment                                                                |
+| `.view-switcher`           | the view switcher's track                                                                                                             |
+| `.view-switcher-segment`   | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` without a label     |
+| `.view-switcher-icon`      | a segment's pictogram                                                                                                                 |
 
 The controls are painted from four custom properties:
 
@@ -322,7 +329,8 @@ card_mod:
 
 With the [header toolbar](/features/layout-appearance#header-toolbar) on, the header is a flex
 row (`.header-container.has-toolbar`), so the title is centered in the space the controls
-leave rather than across the whole card.
+leave rather than across the whole card. With the date navigation the toolbar takes the row
+under the title instead (`.has-band`), and the title has its row to itself again.
 
 ### Highlight Today's Events
 

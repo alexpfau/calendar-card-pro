@@ -419,13 +419,14 @@ describe('theming.md card-mod selectors', () => {
     // The card around the days: its header with a toolbar holding both controls, and the
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
-    // Twice per view: with a title and room for labels, and untitled and icon-only, so both
-    // of the toolbar's row classes and its icon-only modifier are drawn.
-    for (const [view, title, labeled] of [
-      ['list', 'Family', true],
-      ['column', 'Family', true],
-      ['grid', 'Family', true],
-      ['list', undefined, false],
+    // With a title and room for labels in each view, untitled and icon-only once, and once
+    // with the date navigation, so every row and band class of the toolbar is drawn.
+    for (const [view, title, labeled, paging] of [
+      ['list', 'Family', true, false],
+      ['column', 'Family', true, false],
+      ['grid', 'Family', true, false],
+      ['list', undefined, false, false],
+      ['list', 'Family', true, true],
     ] as const) {
       const container = document.createElement('div');
       litRender(
@@ -452,6 +453,21 @@ describe('theming.md card-mod selectors', () => {
               onSelect: noop,
             },
             addEvent: { label: 'Add event', onActivate: noop },
+            navigation: paging
+              ? {
+                  range: 'Jun 17 – 23',
+                  widestRange: 'Sep 30 – Oct 6',
+                  homeName: 'Today',
+                  previousName: 'Previous',
+                  nextName: 'Next',
+                  inert: false,
+                  pickerValue: '2026-06-17',
+                  onPrevious: noop,
+                  onHome: noop,
+                  onNext: noop,
+                  onPick: noop,
+                }
+              : undefined,
           },
           true,
         ),
