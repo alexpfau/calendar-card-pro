@@ -3811,18 +3811,20 @@ class CalendarCardPro extends LitElement {
    * Whether picking a view would draw it at the card's current width, rather than the list
    * a narrow card falls back to.
    *
-   * The view already asked for is answered by what is on screen, hysteresis included. Any
-   * other is fitted as `_chooseView` fits a pick, through `resolveColumnFitIfPicked`, so a
-   * segment offered is a segment that works, and a layout the card was just drawing stays
-   * on offer after switching away from it. List has no width requirement; before the first
-   * measurement every view fits, as `resolveColumnFit` itself assumes.
+   * The view on screen fits by definition. Every other one is fitted as `_chooseView` fits
+   * a pick, through `resolveColumnFitIfPicked`, so a segment offered is a segment that
+   * works and the rule is the same for each: a layout the card was just drawing stays on
+   * offer after switching away from it, and the configured view, fallen back to the list
+   * at a width it could have kept, is offered exactly as it would be after a detour through
+   * another. List has no width requirement; before the first measurement every view fits,
+   * as `resolveColumnFit` itself assumes.
    *
    * @param view - View to test
    * @returns True when the view can be drawn now
    */
   private _viewFits(view: Types.EffectiveView): boolean {
     if (!ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) return true;
-    if (view === this.requestedView) return this._effectiveView === view;
+    if (view === this._effectiveView) return true;
 
     return (
       ViewConfig.resolveColumnFitIfPicked(view, this.config, this._measuredWidthPx).view === view
@@ -3873,7 +3875,9 @@ class CalendarCardPro extends LitElement {
    *
    * Pressing the view already on screen still counts. On a narrow card it may be the list
    * standing in for a remembered view that does not fit, and the press makes the list the
-   * choice. Nothing is fetched: every view draws the same days from the same events.
+   * choice. Pressing the view already asked for while the list stands in for it draws it,
+   * when it is offered at all: the choice is unchanged, the layout is not. Nothing is
+   * fetched: every view draws the same days from the same events.
    *
    * @param view - The view picked
    */
@@ -3888,7 +3892,7 @@ class CalendarCardPro extends LitElement {
     if (this._configFingerprint !== null) {
       ViewChoice.writeViewChoice(this._configFingerprint, choice ?? undefined);
     }
-    if (choice === this._viewChoice) return;
+    if (choice === this._viewChoice && view === this._effectiveView) return;
 
     this._viewChoice = choice;
     const fit = ViewConfig.resolveColumnFitIfPicked(

@@ -410,6 +410,25 @@ describe('narrow cards', () => {
     expect(card._columnCount).toBe(7);
   });
 
+  /**
+   * The same band from the other side: a card loaded there opens on the list, because the
+   * configured layout needs its entry width to start in. It is still offered, exactly as it
+   * would be after a detour through another layout, and pressing it draws it.
+   */
+  it('offers the configured layout the list stands in for inside the band, and draws it', async () => {
+    const config = configFor({ view: 'column' });
+    const inBand = computeColumnThresholdPx(config, 'column') - 8;
+
+    const card = await mount({ view: 'column' });
+    await measure(card, inBand);
+    expect(drawnView(card)).toBe('list');
+    expect(segment(card, 'column').hasAttribute('aria-disabled')).toBe(false);
+
+    await press(card, 'column');
+    expect(drawnView(card)).toBe('column');
+    expect(card._columnCount).toBe(7);
+  });
+
   it('draws no switcher when only one view fits', async () => {
     const card = await mount({ time_grid: { min_days_to_show: 7 } });
     await measure(card, NARROW);
