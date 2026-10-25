@@ -729,6 +729,8 @@ describe('the resolved toolbar the card reads', () => {
   it('is the one place a toolbar default comes from', () => {
     expect(Config.resolveToolbar(configFor())).toEqual({
       show: true,
+      labels: true,
+      navigation: false,
       addEvent: false,
       viewSwitcher: true,
     });

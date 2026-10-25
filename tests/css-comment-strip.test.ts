@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(126_700);
-    // The event gap moved the ceiling last, from 124,700 to 126,700: the notes on why a tinted
+    expect(saved).toBeLessThan(128_700);
+    // The date navigation moved the ceiling last, from 126,700 to 128,700: the notes on why the
+    // band takes a row of its own and wraps its trailing group by the card's width rather than
+    // by the dates, why the range shares a grid cell with an invisible copy of its widest label
+    // and may still shrink below it, why the caret follows the label, why the arrows mirror
+    // under :dir(rtl), why the date input is laid over the range yet never pressed, and why a
+    // page that is loading dims only after a delay. The reading went 126,022 to 127,883, taken
+    // with stripComments after the last comment in the change was written.
+    //
+    // The event gap moved the ceiling before that, from 124,700 to 126,700: the notes on why a tinted
     // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
     // and a grid block alike) while an untinted stripe stays straight, why the position classes
     // keep meaning the event's place in its day, why list view's gap is a row that must never

@@ -536,9 +536,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   background_color: 'Background Color',
   'toolbar.show': 'Show Toolbar',
   'toolbar.show.helper':
-    "Turns the whole toolbar on or off: the card's own controls, at the end of the " +
-    "title's row, or in a slim row of their own without a title. While it is on, the " +
-    'options below choose what it shows.',
+    "Turns the whole toolbar on or off: the card's own controls, at the top of the card. " +
+    'While it is on, the options below choose what it shows.',
+  'toolbar.labels': 'Text Labels',
+  'toolbar.labels.helper':
+    'Names each control beside its icon wherever the card is wide enough. Off keeps every ' +
+    'control an icon, with its name as a tooltip.',
+  'toolbar.navigation': 'Date Navigation',
+  'toolbar.navigation.helper':
+    'Arrows to page back and forward through the days, a button that returns to the days ' +
+    'the card opens with, and the dates on screen, which open a date picker. The arrows ' +
+    'move by as many days as the card shows.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper':
     'Buttons in the toolbar for switching between List, Columns and Grid on the ' +

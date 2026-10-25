@@ -347,6 +347,140 @@ export const cardStyles = css`
     gap: 8px;
   }
 
+  /* The band the date navigation brings. It takes a row of its own under the title, which is
+     what the full basis does in the wrapping header, or is the whole header without one. The
+     dates lead and the trailing group keeps to the inline end; where the card is too narrow
+     for both, the trailing group wraps onto a second row and stays at the end. The range
+     reserves the width of its widest label, so which row each group sits on follows the
+     card's width and never the dates on screen. The 8px inline start lines the dates up with
+     the title, whose own margin it is. */
+  .header-container.has-band {
+    flex-wrap: wrap;
+  }
+
+  .card-toolbar.toolbar-band {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-inline-start: 8px;
+    margin-bottom: 12px;
+  }
+
+  .toolbar-band .toolbar-trailing {
+    margin-inline-start: auto;
+  }
+
+  .toolbar-leading {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  /* Previous, home and next on one track, like the view switcher's but with nothing raised:
+     one control, not a choice. */
+  .date-navigation {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 3px;
+    border-radius: 18px;
+    background: var(--calendar-card-toolbar-fill);
+  }
+
+  .date-navigation-segment {
+    width: 34px;
+    height: 30px;
+    padding: 0;
+    border-radius: 15px;
+    background: transparent;
+  }
+
+  /* Drawn for left-to-right reading. Where the card reads right to left, previous is the
+     arrow pointing right. */
+  .date-navigation-direction:dir(rtl) {
+    transform: scaleX(-1);
+  }
+
+  /* The range on screen, a button that opens the date picker. Its label shares one grid cell
+     with an invisible copy of the widest label this page length can have, so it is always that
+     wide and a press never moves the controls after it. That width is what the band wraps by,
+     but the button can still shrink below it, so on a card narrower than the dates and the
+     arrows together the label is cut short rather than pushed past the card's edge. */
+  .toolbar-range-anchor {
+    position: relative;
+    display: flex;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* Through its anchor, so the grid outranks the inline flex every control shares below. */
+  .toolbar-range-anchor > .toolbar-range {
+    display: inline-grid;
+    grid-template-columns: minmax(0, max-content);
+    align-items: center;
+    height: 36px;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 10px 4px;
+    border-radius: 18px;
+    background: transparent;
+  }
+
+  /* The caret follows the label, so it marks the dates rather than the far end of the room
+     kept for them; the copy keeps the caret's width as well. */
+  .toolbar-range-text,
+  .toolbar-range-reserve {
+    display: flex;
+    grid-area: 1 / 1;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .toolbar-range-text bdi {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toolbar-range-reserve {
+    overflow: hidden;
+    padding-inline-end: 20px;
+    visibility: hidden;
+  }
+
+  .toolbar-range-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    color: var(--secondary-text-color);
+  }
+
+  /* Only lends the range button the browser's picker: laid over it, so the picker opens
+     there, and never seen, pressed or focused. */
+  .toolbar-date-input {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Days about to give way to another page's. The delay keeps a page that loads quickly from
+     flickering; leaving the state is immediate. */
+  .content-container.page-pending {
+    opacity: 0.5;
+    transition: opacity 120ms ease 150ms;
+  }
+
   /* Every control in the bar shares one look, so they read as one family and none of them
      competes with the events: a neutral pill, the text color washed into the card at 8%,
      36px tall, which is the hit target and leaves the slim row at 40px. The theme's primary
@@ -394,7 +528,9 @@ export const cardStyles = css`
   }
 
   .toolbar-button,
-  .view-switcher-segment {
+  .view-switcher-segment,
+  .date-navigation-segment,
+  .toolbar-range {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -481,23 +617,31 @@ export const cardStyles = css`
      tap. Pressed applies everywhere, and only for as long as the press lasts. */
   @media (hover: hover) {
     .toolbar-button:hover,
-    .view-switcher-segment:not(.selected):not(.unavailable):hover {
+    .view-switcher-segment:not(.selected):not(.unavailable):hover,
+    .date-navigation-segment:hover,
+    .toolbar-range:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
   }
 
   .toolbar-button:active,
-  .view-switcher-segment:not(.selected):not(.unavailable):active {
+  .view-switcher-segment:not(.selected):not(.unavailable):active,
+  .date-navigation-segment:active,
+  .toolbar-range:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
   .toolbar-button:focus,
-  .view-switcher-segment:focus {
+  .view-switcher-segment:focus,
+  .date-navigation-segment:focus,
+  .toolbar-range:focus {
     outline: none;
   }
 
   .toolbar-button:focus-visible,
-  .view-switcher-segment:focus-visible {
+  .view-switcher-segment:focus-visible,
+  .date-navigation-segment:focus-visible,
+  .toolbar-range:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }

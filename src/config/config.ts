@@ -171,8 +171,13 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_edit: true,
   allow_event_delete: true,
 
+  // Controls added after v5's first two default off (`navigation`), so a release never adds
+  // a control to a toolbar someone already set up. `labels` is not a control: on is what the
+  // toolbar has always done.
   toolbar: {
     show: false,
+    labels: true,
+    navigation: false,
     add_event: true,
     view_switcher: true,
   },
@@ -331,6 +336,8 @@ export function mergeConfig(
  */
 export interface ResolvedToolbar {
   show: boolean;
+  labels: boolean;
+  navigation: boolean;
   addEvent: boolean;
   viewSwitcher: boolean;
 }
@@ -356,6 +363,8 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
 
   return {
     show: read('show'),
+    labels: read('labels'),
+    navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),
   };

@@ -2768,7 +2768,9 @@ describe('editor: the Card & Header panel', () => {
    * Pinned by value and in order, because the position is the decision. The toolbar's
    * switches close the panel under a sub-heading of their own, and a heading claims every
    * field that follows it, so the background has to come before that heading rather than
-   * after the switches; a `toContain` would pass with it stranded under "Toolbar".
+   * after the switches; a `toContain` would pass with it stranded under "Toolbar". Under it,
+   * the bar's own switch, then the labels, which apply to every control, then the controls
+   * in the order the toolbar draws them.
    */
   it('closes the panel with the toolbar under its own heading', () => {
     const head = ['title', '', 'title_font_size', 'title_color', 'background_color'];
@@ -2782,7 +2784,16 @@ describe('editor: the Card & Header panel', () => {
       expect(
         namesIn(buildConfig({ view, toolbar: { show: true } })),
         `${view} view, toolbar on`,
-      ).toEqual([...head, 'heading_toolbar', 'toolbar', 'show', 'view_switcher', 'add_event']);
+      ).toEqual([
+        ...head,
+        'heading_toolbar',
+        'toolbar',
+        'show',
+        'labels',
+        'navigation',
+        'view_switcher',
+        'add_event',
+      ]);
     }
   });
 });

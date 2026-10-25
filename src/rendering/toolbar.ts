@@ -2,17 +2,18 @@
  * The header toolbar: the card's own controls, between the title and the events.
  *
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
- * it did before there was a toolbar. Its markup is built for the controls still to come:
- * a leading group for navigation (previous, Today, next) and the visible range, and a
- * trailing group for actions (refresh, the view switcher, and add, always last). The view
- * switcher and add exist so far, so only the trailing group is ever drawn.
+ * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
+ * leading group for the dates (previous, home and next on one track, then the range on
+ * screen, which opens a date picker), and a trailing group for the view switcher and the
+ * commands (refresh, still to come, then add, always last). A calendar legend, when it
+ * comes, gets a lane of its own below.
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
  * out of it. The theme's primary color is kept for the keyboard focus ring, so the bar never
  * competes with the events for attention.
  */
 
-import { mdiPlus } from '@mdi/js';
+import { mdiCalendarToday, mdiChevronLeft, mdiChevronRight, mdiMenuDown, mdiPlus } from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
@@ -47,6 +48,29 @@ export interface ViewSwitcher {
   onSelect: (view: Types.EffectiveView) => void;
 }
 
+/** What the card hands the wrapper when it should draw the date navigation. */
+export interface DateNavigation {
+  /** The dates on screen, in the card's language. */
+  range: string;
+  /**
+   * The widest name a page of this length can have in this language. The range reserves
+   * room for it, so paging changes the words and never moves a control.
+   */
+  widestRange: string;
+  /** The home button's name: "Today", or the day the card's own window starts on. */
+  homeName: string;
+  /** Names of the arrows, for assistive technology and as their tooltips. */
+  previousName: string;
+  nextName: string;
+  /** The first day on screen, as `YYYY-MM-DD`, which the date picker opens on. */
+  pickerValue: string;
+  onPrevious: () => void;
+  onHome: () => void;
+  onNext: () => void;
+  /** A day picked in the date picker, as `YYYY-MM-DD`. */
+  onPick: (date: string) => void;
+}
+
 /** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
   /**
@@ -54,6 +78,8 @@ export interface HeaderToolbar {
    * icon. Icon-only otherwise, with the label as the control's accessible name.
    */
   labeled?: boolean;
+  /** The date navigation, which leads the bar and gives it a row of its own. */
+  navigation?: DateNavigation;
   /** The view switcher, just before add. */
   viewSwitcher?: ViewSwitcher;
   /** The add-event button, always the last control in the trailing group. */
@@ -213,13 +239,127 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
 }
 
 /**
+ * Render the date navigation: previous, home and next on one track, then the range on
+ * screen, which opens the browser's own date picker.
+ *
+ * The three buttons share a track, styled like the view switcher's but with nothing raised,
+ * because they are one control: a step back, a way home and a step forward. Home is always
+ * an icon, named by its tooltip, so the track is the same width in every language and at
+ * every card width. The arrows are drawn for left-to-right reading and mirrored in a
+ * right-to-left one, where "previous" points right.
+ *
+ * The range is a button over a hidden native date input. Pressing it asks the input to show
+ * its picker; a browser that cannot gets the input focused and clicked instead. The input
+ * stays out of the tab order and away from assistive technology: the button is the control,
+ * and the input only lends it the browser's picker. Inside the button, the label and the
+ * caret after it share one grid cell with an invisible copy of the widest label this page
+ * length can have, so the button is as wide as that one, whatever it says now, and a press
+ * never moves the controls after it. The label is a polite live region, so the new dates are
+ * read out after a press.
+ *
+ * @param nav - Navigation description from the card
+ * @returns The leading group
+ */
+function renderDateNavigation(nav: DateNavigation): TemplateResult {
+  const press = (handler: () => void) => (ev: Event) => {
+    ev.stopPropagation();
+    handler();
+  };
+  const openPicker = (ev: Event) => {
+    ev.stopPropagation();
+    const anchor = (ev.currentTarget as HTMLElement).parentElement;
+    const input = anchor?.querySelector<HTMLInputElement>('input.toolbar-date-input');
+    if (!input) return;
+    input.value = nav.pickerValue;
+    try {
+      input.showPicker();
+    } catch {
+      input.focus();
+      input.click();
+    }
+  };
+  const onChange = (ev: Event) => {
+    const value = (ev.target as HTMLInputElement).value;
+    if (value) nav.onPick(value);
+  };
+  const segment = (name: string, path: string, handler: () => void, direction: boolean) =>
+    html`<button
+      type="button"
+      class="date-navigation-segment"
+      aria-label=${name}
+      title=${name}
+      @pointerdown=${stopCardGesture}
+      @click=${press(handler)}
+    >
+      <svg
+        class=${direction ? 'toolbar-button-icon date-navigation-direction' : 'toolbar-button-icon'}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d=${path}></path>
+      </svg>
+    </button>`;
+
+  return html`<div class="toolbar-leading">
+    <div class="date-navigation" role="group">
+      ${segment(nav.previousName, mdiChevronLeft, nav.onPrevious, true)}
+      ${segment(nav.homeName, mdiCalendarToday, nav.onHome, false)}
+      ${segment(nav.nextName, mdiChevronRight, nav.onNext, true)}
+    </div>
+    <div class="toolbar-range-anchor">
+      <button
+        type="button"
+        class="toolbar-range"
+        @pointerdown=${stopCardGesture}
+        @click=${openPicker}
+      >
+        <span class="toolbar-range-text" aria-live="polite"
+          ><bdi>${nav.range}</bdi
+          ><svg class="toolbar-range-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d=${mdiMenuDown}></path></svg
+        ></span>
+        <span class="toolbar-range-reserve" aria-hidden="true">${nav.widestRange}</span>
+      </button>
+      <input
+        type="date"
+        class="toolbar-date-input"
+        tabindex="-1"
+        aria-hidden="true"
+        .value=${nav.pickerValue}
+        @change=${onChange}
+      />
+    </div>
+  </div>`;
+}
+
+/**
+ * Render the trailing group: the view switcher, then add, always last.
+ *
+ * @param toolbar - The controls the card wants
+ * @param labeled - Whether the controls carry their labels
+ * @returns The group, or nothing when it holds no control
+ */
+function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResult | typeof nothing {
+  if (!toolbar.addEvent && !toolbar.viewSwitcher) return nothing;
+
+  return html`<div class="toolbar-trailing">
+    ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+    ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
+  </div>`;
+}
+
+/**
  * Render the header toolbar, or nothing when it would hold no control.
  *
  * Where it sits is the layout rule. With only trailing actions and a title — a pending
  * templated title included — the actions share the title's row, at its inline end, so
  * the title keeps its markup and the card gains no height. With only trailing actions
- * and no title they get a slim row of their own. A leading group, once there is one,
- * always takes a row of its own between the title and the events.
+ * and no title they get a slim row of their own. With the date navigation the toolbar is
+ * a band of its own between the title and the events, the dates at its start and the
+ * trailing group at its end; where the card is too narrow for both on one row, the
+ * trailing group wraps onto a second one. Which row each group is on depends on the card's
+ * width and the controls it holds, never on the dates it shows.
  *
  * @param toolbar - The controls the card wants
  * @param hasTitle - Whether the header draws a title, pending or not
@@ -229,9 +369,19 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   hasTitle: boolean,
 ): TemplateResult | undefined {
-  if (!toolbar.addEvent && !toolbar.viewSwitcher) return undefined;
+  if (!toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.navigation) return undefined;
 
   const labeled = toolbar.labeled === true;
+
+  if (toolbar.navigation) {
+    return html`<div
+      class="card-toolbar toolbar-band"
+      @pointerdown=${stopCardGesture}
+      @click=${stopCardGesture}
+    >
+      ${renderDateNavigation(toolbar.navigation)} ${renderTrailing(toolbar, labeled)}
+    </div>`;
+  }
 
   // The press guard sits on the toolbar's own box as well as on each control, because the
   // switcher's gray track and the gaps between controls are part of the bar but no button:

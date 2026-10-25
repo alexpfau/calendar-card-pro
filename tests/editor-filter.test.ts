@@ -881,7 +881,13 @@ describe('editor filter: section headings', () => {
     expect(headingNames(background)).toEqual([]);
 
     const toolbar = filterSchema(built, ctxFor(config, { query: 'toolbar' }));
-    expect(fieldNames(toolbar)).toEqual(['show', 'view_switcher', 'add_event']);
+    expect(fieldNames(toolbar)).toEqual([
+      'show',
+      'labels',
+      'navigation',
+      'view_switcher',
+      'add_event',
+    ]);
     expect(headingNames(toolbar)).toEqual(['heading_toolbar']);
   });
 
