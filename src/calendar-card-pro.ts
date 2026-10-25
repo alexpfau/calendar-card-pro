@@ -2208,7 +2208,7 @@ class CalendarCardPro extends LitElement {
       this._isBeingEdited &&
       this._pageRequested !== null
     ) {
-      this._pageRequested = null;
+      this._requestPage(null);
       this._loadPage();
     }
 
@@ -3293,7 +3293,7 @@ class CalendarCardPro extends LitElement {
     // Any other configuration starts at home, as a reload does. The days on screen stay until
     // home's events are committed, so nothing is drawn under the wrong dates meanwhile.
     const leftPage = replaced && this._pageRequested !== null;
-    if (leftPage) this._pageRequested = null;
+    if (leftPage) this._requestPage(null);
     const seededFit = ViewConfig.resolveColumnFit(
       this.requestedView,
       this.config,
@@ -3721,14 +3721,21 @@ class CalendarCardPro extends LitElement {
     let drawsEventTarget = false;
 
     // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
-    // Home keeps today in view; a page reached by the date navigation starts on its first day.
+    // With the date navigation the days are the page's, by date: the page the range names and
+    // the arrows step by is a run of calendar days, and where empty days are not drawn, a slice
+    // by index would hold other days than those.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
       const count = this._shownColumnCount;
+      if (this._wantsNavigation && count > 0 && count < this.config.days_to_show) {
+        const page = this._pageRange(this._pageShown);
+        const from = page.start.getTime();
+        const until = Paging.addDays(page.start, page.days).getTime();
+        return days.filter((day) => day.timestamp >= from && day.timestamp < until);
+      }
       if (count <= 0 || count >= days.length) {
         return days;
       }
-      const anchor = this._pageShown === null ? new Date() : Paging.pageStart(this._pageShown);
-      const start = ViewConfig.visibleDayWindowStart(days, count, anchor);
+      const start = ViewConfig.visibleDayWindowStart(days, count, new Date());
       return days.slice(start, start + count);
     };
 
@@ -4073,8 +4080,9 @@ class CalendarCardPro extends LitElement {
    * being edited everything is drawn and nothing responds.
    *
    * Previous and next are named by Home Assistant's own strings, in its language, as the add
-   * button is; the English fallbacks are only ever accessible names. Home and the range come
-   * from `Intl` in the card's language, so no card string is needed.
+   * button is; without them the wrapper falls back to English accessible names that are never
+   * shown. Home and the range come from `Intl` in the card's language, so no card string is
+   * needed.
    *
    * @returns Navigation description for the wrapper, or undefined for none
    */
@@ -4084,17 +4092,18 @@ class CalendarCardPro extends LitElement {
     const now = new Date();
     const language = this.effectiveLanguage;
     const page = this._pageRange(this._pageRequested, now);
-    const localize = (key: string, fallback: string): string => {
+    const localize = (key: string): string | undefined => {
       const text = this.hass?.localize?.(key);
-      return text && text !== key ? text : fallback;
+      return text && text !== key ? text : undefined;
     };
 
     return {
       range: Paging.rangeLabel(page, language, now),
       widestRange: Paging.widestRangeLabel(page.days, language),
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
-      previousName: localize('ui.common.previous', 'Previous'),
-      nextName: localize('ui.common.next', 'Next'),
+      previousName: localize('ui.common.previous'),
+      nextName: localize('ui.common.next'),
+      inert: this._isBeingEdited,
       pickerValue: Paging.pageKey(page.start),
       onPrevious: () => this._stepPage(-1),
       onHome: () => this._goToPage(null),
@@ -4154,9 +4163,22 @@ class CalendarCardPro extends LitElement {
     if (page === this._pageRequested) return;
 
     Logger.debug(`Paging to ${page ?? 'home'}`);
-    this._pageRequested = page;
+    this._requestPage(page);
     this.requestUpdate();
     this._loadPage();
+  }
+
+  /**
+   * Asks for another page without loading it yet. The failure count belongs to the page that
+   * produced it: a page never fetched has no cache entry to record one, and would otherwise
+   * start from the count this card carried, a step deeper in the backoff for every page
+   * visited during an outage.
+   *
+   * @param page - First day of the page, or null for home
+   */
+  private _requestPage(page: string | null): void {
+    this._pageRequested = page;
+    this._failureCountHint = 0;
   }
 
   /**

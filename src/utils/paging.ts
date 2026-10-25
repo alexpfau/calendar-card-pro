@@ -211,40 +211,61 @@ function dateFormat(
 }
 
 /**
- * Name a page in the card's language: "Oct 27 – Nov 2", "Tue, Oct 27" for a single day, and
- * the year only for a page with no day in the current year ("Mar 1 – 7, 2027").
+ * The year whose New Year's Day is nearest to a moment: this one until the start of July, the
+ * next one from then on.
  *
- * A page that starts in this December and ends in January needs no year: it reads as the turn
- * of this year, and the year would make it the widest label the toolbar has to reserve room
- * for. The one page that names two years is one crossing a new year with neither year the
- * current one, more than a year away; see `widestRangeLabel`.
+ * @param now - The current moment
+ * @returns That year
+ */
+function nearestNewYear(now: Date): number {
+  const year = now.getFullYear();
+  const sinceThis = now.getTime() - new Date(year, 0, 1).getTime();
+  const untilNext = new Date(year + 1, 0, 1).getTime() - now.getTime();
+  return sinceThis <= untilNext ? year : year + 1;
+}
+
+/**
+ * Name a page in the card's language: "Oct 27 – Nov 2", or "Tue, Oct 27" for a single day.
+ *
+ * The year is named only where it is not the one the reader assumes. A page in the current
+ * year goes without it. So does a page across the turn of the year nearest today, which
+ * reads as that turn: the last week of December in late autumn, the first week of January
+ * all spring. Any other page names its year, once, at its end ("Mar 1 – 7, 2027", "Dec 28 –
+ * Jan 3, 2027"), so the label is never wider than a one-year page's, which is what the
+ * toolbar reserves room for (`widestRangeLabel`).
  *
  * `Intl` rather than the card's own month names, because it knows each language's order and
  * range punctuation ("27. Okt. – 2. Nov.", "27 באוק׳–2 בנוב׳"), and it costs the card's 36
- * translation files nothing.
+ * translation files nothing. A page across a turn of the year is joined by hand, from each day
+ * and the language's own separator, because `formatRange` names both years of such a range
+ * whatever its options say.
  *
  * @param range - The page
  * @param language - Card language
- * @param now - The current moment, which decides whether the year is shown
+ * @param now - The current moment, which decides whether the year is named
  * @returns The page's name
  */
 export function rangeLabel(range: PageRange, language: string, now: Date): string {
   const start = startOfDay(range.start);
   const end = addDays(start, Math.max(1, range.days) - 1);
   const year = now.getFullYear();
-  const withYear = start.getFullYear() !== year && end.getFullYear() !== year;
 
-  if (range.days <= 1) return dateFormat(language, withYear, true).format(start);
-
-  const format = dateFormat(language, withYear, false) as RangeFormat;
-  // `formatRange` names both years of a range that crosses one, whatever the options say, so
-  // the turn of the current year is joined by hand: each day on its own, with the language's
-  // own range separator between them.
-  const turnOfYear = !withYear && start.getFullYear() !== end.getFullYear();
-  if (typeof format.formatRange !== 'function' || turnOfYear) {
-    return `${format.format(start)}${rangeSeparator(format)}${format.format(end)}`;
+  if (range.days <= 1) {
+    return dateFormat(language, start.getFullYear() !== year, true).format(start);
   }
-  return format.formatRange(start, end);
+
+  if (start.getFullYear() === end.getFullYear()) {
+    const format = dateFormat(language, start.getFullYear() !== year, false) as RangeFormat;
+    const separator = rangeSeparator(dateFormat(language, false, false) as RangeFormat);
+    return typeof format.formatRange === 'function'
+      ? format.formatRange(start, end)
+      : `${format.format(start)}${separator}${format.format(end)}`;
+  }
+
+  const withYear = end.getFullYear() !== nearestNewYear(now);
+  const startFormat = dateFormat(language, false, false) as RangeFormat;
+  const endFormat = dateFormat(language, withYear, false);
+  return `${startFormat.format(start)}${rangeSeparator(startFormat)}${endFormat.format(end)}`;
 }
 
 /**
@@ -297,39 +318,31 @@ function rangeSeparator(format: RangeFormat): string {
 const widestLabels = new Map<string, string>();
 
 /**
- * The widest name a page of this length can have within a year of today in this language, so
- * the toolbar can reserve its width and paging never moves a control.
+ * The widest name a page of this length can have in this language, so the toolbar can reserve
+ * its width and paging never moves a control.
  *
- * A page starting on the last day of each month crosses into the next month for any page
- * longer than a day, which names both months. From January to November it is named as a page
- * in another year, with its year; from December, as the turn of the current year, without
- * one. The longest of the twelve by character count is taken. Characters stand in for width;
- * the label is short enough that the difference between two names of one length is a few
- * pixels.
- *
- * Not covered: a page crossing a new year with neither year the current one, which names both
- * and is wider. It takes paging more than a year away to reach, and costs at most the range
- * growing on that one page; the range can also shrink, so it never pushes the band off the
- * card.
+ * Every page starting in a leap year is named as a page in another year, which is the widest
+ * form `rangeLabel` has: with its year, once, and across a turn of the year with the later
+ * year at the end. The longest by character count is taken. That covers every month name and
+ * every pair of one- and two-digit days, and a page that goes without its year only gets
+ * shorter. Characters stand in for width; the label is short enough that two names of one
+ * length differ by a few pixels.
  *
  * @param days - Days per page
  * @param language - Card language
- * @returns A label at least as wide as any page of this length should need
+ * @returns A label at least as long as any page of this length is named
  */
 export function widestRangeLabel(days: number, language: string): string {
   const key = `${language}|${days}`;
   const cached = widestLabels.get(key);
   if (cached !== undefined) return cached;
 
-  // A fixed year, so the reserve never changes with the date. Four digits, as every year
-  // the card will meet has.
-  const thisYear = new Date(2000, 0, 1);
-  const anotherYear = new Date(1999, 0, 1);
+  // A fixed year, so the reserve never changes with the date: four digits, as every year the
+  // card will meet has, and seen from a moment two years away, so every page names it.
+  const now = new Date(1998, 0, 1);
   let widest = '';
-  for (let month = 0; month < 12; month += 1) {
-    const lastDay = new Date(2000, month + 1, 0);
-    const now = month === 11 ? thisYear : anotherYear;
-    const label = rangeLabel({ start: lastDay, days }, language, now);
+  for (let start = new Date(2000, 0, 1); start.getFullYear() === 2000; start = addDays(start, 1)) {
+    const label = rangeLabel({ start, days }, language, now);
     if (label.length > widest.length) widest = label;
   }
 

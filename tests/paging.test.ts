@@ -9,9 +9,16 @@
  * changed string.
  */
 
+import { readdirSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import * as Paging from '../src/utils/paging';
+
+/** Every card language, as the card's own translation files name them. */
+const CARD_LANGUAGES = readdirSync('src/translations/languages')
+  .filter((file) => file.endsWith('.json'))
+  .map((file) => file.replace(/\.json$/, ''));
 
 /** A Wednesday, mid-month and mid-year: no week, month or year boundary by accident. */
 const NOW = new Date(2026, 5, 17, 10, 0);
@@ -112,25 +119,35 @@ describe("the range's name", () => {
     expect(label(day(2026, 6, 17), 1)).toBe('Wed, Jun 17');
   });
 
-  it('adds the year only to a page with no day in this one', () => {
+  it('names the year of a page in another year, once, at its end', () => {
     expect(label(day(2027, 3, 1), 7)).toBe(`Mar 1${TO}7, 2027`);
     expect(label(day(2025, 3, 1), 1)).toBe('Sat, Mar 1, 2025');
-    // The turn of this year reads as such, and the year would make it the widest label of all.
-    expect(label(day(2026, 12, 28), 7)).toBe(`Dec 28${TO}Jan 3`);
-    expect(label(day(2025, 12, 29), 7)).toBe(`Dec 29${TO}Jan 4`);
+    // In June the nearest New Year's Day is the one just gone, so December's turn is named.
+    expect(label(day(2026, 12, 28), 7)).toBe(`Dec 28${TO}Jan 3, 2027`);
   });
 
-  it('names both years of a turn of the year that is neither this one nor last', () => {
-    expect(label(day(2027, 12, 28), 7)).toBe(`Dec 28, 2027${TO}Jan 3, 2028`);
+  it('leaves the year off the turn of the year nearest today, and only that one', () => {
+    const october = new Date(2026, 9, 25);
+    const january = new Date(2026, 0, 2);
+    const at = (start: Date, now: Date) => Paging.rangeLabel({ start, days: 7 }, 'en', now);
+
+    expect(at(day(2026, 12, 28), october)).toBe(`Dec 28${TO}Jan 3`);
+    expect(at(day(2025, 12, 29), january)).toBe(`Dec 29${TO}Jan 4`);
+    // Last year's turn, seen in October, would otherwise read as the coming one.
+    expect(at(day(2025, 12, 29), october)).toBe(`Dec 29${TO}Jan 4, 2026`);
+    expect(at(day(2024, 12, 29), january)).toBe(`Dec 29${TO}Jan 4, 2025`);
   });
 
   it("joins the turn of the year with each language's own separator", () => {
     // Korean and Hungarian end a date with a suffix `Intl` writes once for a whole range; it
     // stays with each date and leaves the separator alone.
-    expect(label(day(2026, 12, 28), 7, 'ko')).toBe('12월 28일~1월 3일');
-    expect(label(day(2026, 12, 28), 7, 'hu')).toBe(`dec. 28.${TO}jan. 3.`);
-    expect(label(day(2026, 12, 28), 7, 'he')).toBe('28 בדצמ׳–3 בינו׳');
-    expect(label(day(2026, 12, 28), 7, 'de')).toBe(`28. Dez.${TO}3. Jan.`);
+    const october = new Date(2026, 9, 25);
+    const at = (language: string) =>
+      Paging.rangeLabel({ start: day(2026, 12, 28), days: 7 }, language, october);
+    expect(at('ko')).toBe('12월 28일~1월 3일');
+    expect(at('hu')).toBe(`dec. 28.${TO}jan. 3.`);
+    expect(at('he')).toBe('28 בדצמ׳–3 בינו׳');
+    expect(at('de')).toBe(`28. Dez.${TO}3. Jan.`);
   });
 
   it("follows each language's own order and punctuation", () => {
@@ -145,23 +162,33 @@ describe("the range's name", () => {
 });
 
 describe("the range's reserved width", () => {
-  it('is the widest label a page of this length can have: two months and a year', () => {
-    expect(Paging.widestRangeLabel(7, 'en')).toBe(`Jan 31${TO}Feb 6, 2000`);
-    expect(Paging.widestRangeLabel(7, 'de')).toBe(`31. Aug.${TO}6. Sept. 2000`);
-    expect(Paging.widestRangeLabel(1, 'en')).toBe('Mon, Jan 31, 2000');
+  it('is the widest label a page of this length can have: two months, two-digit days, a year', () => {
+    expect(Paging.widestRangeLabel(7, 'en')).toBe(`Jan 26${TO}Feb 1, 2000`);
+    expect(Paging.widestRangeLabel(7, 'de')).toBe(`26. Aug.${TO}1. Sept. 2000`);
+    expect(Paging.widestRangeLabel(1, 'en')).toBe('Mon, Jan 10, 2000');
+    expect(Paging.widestRangeLabel(7, 'sk')).toBe(`10. 10. 2000${TO}16. 10. 2000`);
   });
 
-  it('is at least as long as any page within a year of today is named', () => {
-    // Every page a year of paging reaches either way, named as the card names it. Further out,
-    // a turn of the year can name two years and be wider, which `widestRangeLabel` states.
-    for (const days of [1, 3, 7, 14]) {
-      const widest = Paging.widestRangeLabel(days, 'en').length;
-      for (let offset = -365; offset <= 365; offset += 1) {
-        const start = Paging.addDays(NOW, offset);
-        const name = Paging.rangeLabel({ start, days }, 'en', NOW);
-        expect(name.length, `${days} days from ${key(start)}`).toBeLessThanOrEqual(widest);
+  it('is at least as long as any page is named, in every card language', () => {
+    // Every page two years of paging reach either way, from four moments of a year, named as
+    // the card names them. Collected and asserted once: a quarter of a million `expect` calls
+    // would outrun the suite's timeout on CI.
+    const nows = [new Date(2026, 0, 2), NOW, new Date(2026, 9, 25), new Date(2026, 11, 30)];
+    const longer: string[] = [];
+    for (const language of CARD_LANGUAGES) {
+      for (const days of [1, 3, 7, 14]) {
+        const widest = Paging.widestRangeLabel(days, language).length;
+        for (const now of nows) {
+          for (let offset = -730; offset <= 730; offset += 3) {
+            const start = Paging.addDays(now, offset);
+            const name = Paging.rangeLabel({ start, days }, language, now);
+            if (name.length > widest) longer.push(`${language} ${days}d ${key(start)}: ${name}`);
+          }
+        }
       }
     }
+    expect(CARD_LANGUAGES).toHaveLength(36);
+    expect(longer).toEqual([]);
   });
 });
 

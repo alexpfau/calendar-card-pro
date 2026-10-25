@@ -52,6 +52,7 @@ interface CardUnderTest extends HTMLElement {
   readonly visibleEventCount: number;
   readonly effectiveView: Types.EffectiveView;
   _columnCount: number;
+  _failureCountHint: number;
   _newEventDate(): Date;
   readonly updateComplete: Promise<boolean>;
 }
@@ -265,8 +266,13 @@ describe('the date navigation', () => {
     const card = await mount();
     const [previous, home, next] = segments(card);
 
-    expect(root(card).querySelector('.date-navigation')!.getAttribute('role')).toBe('group');
+    // One group for the dates, named by the dates it moves through.
+    const group = root(card).querySelector('.toolbar-leading')!;
+    expect(group.getAttribute('role')).toBe('group');
+    const labelledBy = group.getAttribute('aria-labelledby')!;
+    expect(root(card).getElementById(labelledBy)!.textContent!.trim()).toBe(`Jun 15${TO}21`);
     expect(previous.getAttribute('aria-label')).toBe('Previous');
+    expect(previous.getAttribute('title')).toBe('Previous');
     expect(next.getAttribute('aria-label')).toBe('Next');
     // Home is an icon, named by its tooltip: today is in the window the card opens with.
     expect(home.getAttribute('aria-label')).toBe('Today');
@@ -278,7 +284,7 @@ describe('the date navigation', () => {
       'polite',
     );
     expect(root(card).querySelector('.toolbar-range-reserve')!.textContent).toBe(
-      `Jan 31${TO}Feb 6, 2000`,
+      `Jan 26${TO}Feb 1, 2000`,
     );
     for (const button of [...segments(card), root(card).querySelector('.toolbar-range')!]) {
       expect(button.tagName).toBe('BUTTON');
@@ -286,12 +292,15 @@ describe('the date navigation', () => {
     }
   });
 
-  it('names the arrows in English when Home Assistant has no words for them', async () => {
+  it('names the arrows in English for assistive technology alone when Home Assistant has no words', async () => {
     const card = await mount({}, { localize: (key) => key });
     const [previous, , next] = segments(card);
 
     expect(previous.getAttribute('aria-label')).toBe('Previous');
     expect(next.getAttribute('aria-label')).toBe('Next');
+    // An English tooltip on a card in another language would be worse than none.
+    expect(previous.hasAttribute('title')).toBe(false);
+    expect(next.hasAttribute('title')).toBe(false);
   });
 
   it('names home by its first day when home does not hold today', async () => {
@@ -445,13 +454,35 @@ describe('the date navigation', () => {
     expect(card.hidden).toBe(true);
   });
 
-  it('is drawn and does nothing while the card is being edited', async () => {
+  it('is drawn and does nothing while the card is being edited, the date picker included', async () => {
+    const showPicker = vi.fn();
+    Object.defineProperty(HTMLInputElement.prototype, 'showPicker', {
+      value: showPicker,
+      configurable: true,
+    });
     const card = await mount({}, { flag: 'preview' });
     const fetches = callApi.mock.calls.length;
 
     await press(card, 'next');
     expect(range(card)).toBe(`Jun 15${TO}21`);
     expect(callApi.mock.calls.length).toBe(fetches);
+
+    root(card).querySelector<HTMLButtonElement>('.toolbar-range')!.click();
+    expect(showPicker).not.toHaveBeenCalled();
+
+    delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;
+  });
+
+  it('starts every page it asks for at the first step of the backoff', async () => {
+    // A page never fetched has no cache entry to carry a failure count, so it would start from
+    // the card's own: a step deeper in the backoff for every page visited during an outage.
+    const card = await mount();
+    callApi.mockRejectedValue(new Error('Home Assistant is unreachable'));
+
+    for (let step = 0; step < 3; step += 1) {
+      await press(card, 'next');
+      expect(card._failureCountHint, `page ${step + 1}`).toBe(1);
+    }
   });
 
   it('comes home when the dashboard enters edit mode', async () => {
@@ -524,6 +555,48 @@ describe('the date navigation', () => {
     expect(drawnDays()).toEqual(Array.from({ length: columns }, (_, i) => 17 - columns + i));
   });
 
+  it('draws a page by its dates where empty days are not drawn, so a press never repeats one', async () => {
+    // Events only on some days, and a grid that draws only those: a slice by index would hold
+    // whichever event days come next, not the page the range names.
+    callApi.mockImplementation(async (_method: string, path: string) => {
+      const query = new URLSearchParams(path.split('?')[1]);
+      const sparse = new Set([
+        '2026-06-15',
+        '2026-06-18',
+        '2026-06-21',
+        '2026-06-23',
+        '2026-06-27',
+      ]);
+      return eventsBetween(new Date(query.get('start')!), new Date(query.get('end')!)).filter(
+        (event) => sparse.has((event.summary ?? '').replace('Event ', '')),
+      );
+    });
+    const card = await mount({ view: 'grid', time_grid: { show_empty_days: false } });
+    await measure(card, 400);
+    const columns = card._columnCount;
+    expect(columns).toBeGreaterThan(0);
+    expect(columns).toBeLessThan(7);
+
+    const drawnDays = (): number[] =>
+      Array.from(root(card).querySelectorAll('.grid-day-header .day')).map((cell) =>
+        Number(cell.textContent!.trim()),
+      );
+    const seen: number[] = [];
+    let start = 17;
+    for (let page = 0; page < 4; page += 1) {
+      // Every day drawn is one of the page's own, and no day is drawn twice across pages.
+      for (const drawn of drawnDays()) {
+        expect(drawn, `page from June ${start}`).toBeGreaterThanOrEqual(start);
+        expect(drawn, `page from June ${start}`).toBeLessThan(start + columns);
+        expect(seen).not.toContain(drawn);
+        seen.push(drawn);
+      }
+      await press(card, 'next');
+      start += columns;
+    }
+    expect(seen.length).toBeGreaterThan(0);
+  });
+
   it('opens the date picker, and pages to the week of the day picked', async () => {
     const showPicker = vi.fn();
     Object.defineProperty(HTMLInputElement.prototype, 'showPicker', {
@@ -563,9 +636,11 @@ describe('the date navigation', () => {
       configurable: true,
     });
     const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    const focus = vi.spyOn(HTMLInputElement.prototype, 'focus');
     const card = await mount();
 
     root(card).querySelector<HTMLButtonElement>('.toolbar-range')!.click();
+    expect(focus).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
 
     delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;

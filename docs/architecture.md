@@ -197,9 +197,9 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   band takes the row under the title, or is the whole header without one. The dates lead and
   the trailing group keeps to the inline end; where both do not fit, the trailing group wraps
   onto a second row. The range shares a grid cell with an invisible copy of the widest label a
-  page of its length can have within a year of today (`widestRangeLabel`), so the band wraps by
-  the card's width and its controls, never by the dates on screen, and a press never moves a
-  control. The range can still shrink below that, so on a card too narrow for the dates it is
+  page of its length can have (`widestRangeLabel`), so the band wraps by the card's width and
+  its controls, never by the dates on screen, and a press never moves a control. That holds
+  because a label names its year at most once, and only where it is not the one assumed. The range can still shrink below that, so on a card too narrow for the dates it is
   cut short rather than pushed past the edge. Layout is logical throughout, and the arrows are
   mirrored under `:dir(rtl)`, where previous points right.
 - **card-mod selectors stay valid.** `.header-container > h1.card-header` and

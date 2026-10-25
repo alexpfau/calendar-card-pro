@@ -59,9 +59,14 @@ export interface DateNavigation {
   widestRange: string;
   /** The home button's name: "Today", or the day the card's own window starts on. */
   homeName: string;
-  /** Names of the arrows, for assistive technology and as their tooltips. */
-  previousName: string;
-  nextName: string;
+  /**
+   * Home Assistant's names for the arrows, shown as their tooltips, or undefined when it has
+   * none; the arrows are then named in English for assistive technology alone.
+   */
+  previousName: string | undefined;
+  nextName: string | undefined;
+  /** True while the card is being edited: everything is drawn, and nothing opens or moves. */
+  inert: boolean;
   /** The first day on screen, as `YYYY-MM-DD`, which the date picker opens on. */
   pickerValue: string;
   onPrevious: () => void;
@@ -97,6 +102,10 @@ export interface HeaderToolbar {
  * be worse than an icon.
  */
 const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
+
+/** The arrows' accessible names when Home Assistant has none, under the same rule. */
+const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
+const UNLOCALIZED_NEXT_NAME = 'Next';
 
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
@@ -267,6 +276,7 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
   };
   const openPicker = (ev: Event) => {
     ev.stopPropagation();
+    if (nav.inert) return;
     const anchor = (ev.currentTarget as HTMLElement).parentElement;
     const input = anchor?.querySelector<HTMLInputElement>('input.toolbar-date-input');
     if (!input) return;
@@ -282,12 +292,18 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     const value = (ev.target as HTMLInputElement).value;
     if (value) nav.onPick(value);
   };
-  const segment = (name: string, path: string, handler: () => void, direction: boolean) =>
+  const segment = (
+    name: string | undefined,
+    fallback: string,
+    path: string,
+    handler: () => void,
+    direction: boolean,
+  ) =>
     html`<button
       type="button"
       class="date-navigation-segment"
-      aria-label=${name}
-      title=${name}
+      aria-label=${name ?? fallback}
+      title=${name ?? nothing}
       @pointerdown=${stopCardGesture}
       @click=${press(handler)}
     >
@@ -301,11 +317,13 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
       </svg>
     </button>`;
 
-  return html`<div class="toolbar-leading">
-    <div class="date-navigation" role="group">
-      ${segment(nav.previousName, mdiChevronLeft, nav.onPrevious, true)}
-      ${segment(nav.homeName, mdiCalendarToday, nav.onHome, false)}
-      ${segment(nav.nextName, mdiChevronRight, nav.onNext, true)}
+  // The group is named by the dates it moves through, so a screen reader entering it hears
+  // where it is before which way it can go.
+  return html`<div class="toolbar-leading" role="group" aria-labelledby="toolbar-range-text">
+    <div class="date-navigation">
+      ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
+      ${segment(nav.homeName, nav.homeName, mdiCalendarToday, nav.onHome, false)}
+      ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
     </div>
     <div class="toolbar-range-anchor">
       <button
@@ -314,7 +332,7 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
         @pointerdown=${stopCardGesture}
         @click=${openPicker}
       >
-        <span class="toolbar-range-text" aria-live="polite"
+        <span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
           ><bdi>${nav.range}</bdi
           ><svg class="toolbar-range-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d=${mdiMenuDown}></path></svg

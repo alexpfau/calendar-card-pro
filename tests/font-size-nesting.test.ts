@@ -663,11 +663,12 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
             navigation: config.toolbar.navigation
               ? {
                   range: 'Jun 17 – Jun 23',
-                  widestRange: 'Jan 31 – Feb 6, 2000',
+                  widestRange: 'Jan 26 – Feb 1, 2000',
                   homeName: 'Today',
                   previousName: 'Previous',
                   nextName: 'Next',
                   pickerValue: '2026-06-17',
+                  inert: false,
                   onPrevious: () => undefined,
                   onHome: () => undefined,
                   onNext: () => undefined,
