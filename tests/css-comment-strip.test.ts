@@ -279,8 +279,8 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(134_300);
-    // The accent bar moved the ceiling last, from 126,700 to 134,300: the notes on why the bar
+    expect(saved).toBeLessThan(136_000);
+    // The accent bar moved the ceiling last, from 126,700 to 136,000: the notes on why the bar
     // is an element of its own rather than a border, when a day's bars join into one line and
     // when each event has its own, why a joined bar reaches 1px into the next event, how the
     // insets switch on the tint and keep a bar end clear of a rounded corner only where the
@@ -288,10 +288,12 @@ describe('stripComments', () => {
     // no z-index and no pointer, why a column event's focus ring moved to a pseudo-element,
     // where grid text starts and why three rules share that one expression, and why a raised
     // block's outline now closes on all four sides. The same change also explains why a
-    // running event's time run sits on the baseline and why the first row under a title sits
-    // 1px closer outside grid view. The reading went 126,022 on dev to 133,577, taken with
-    // stripComments after the last comment in the change was written, and confirmed by a
-    // second reading from an esbuild bundle of the same source.
+    // running event's time run sits on the baseline, why the first row under a title has no
+    // margin of its own and how grid's hidden progress row hands that on, why a grid title's
+    // words align middle beside a label, and what the progress row's rung was measured
+    // against. The reading went 126,022 on dev to 135,312, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
     //
     // The event gap moved the ceiling before that, from 124,700 to 126,700: the notes on why a tinted
     // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event

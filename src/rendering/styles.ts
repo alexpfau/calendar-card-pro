@@ -1548,13 +1548,16 @@ export const cardStyles = css`
     margin-right: 12px;
   }
 
-  /* The first row under the title, whichever it is, sits 1px closer to it than the rows sit to
-     each other, which read as a hair too far apart in list and column view. Grid view keeps
-     2px: its blocks reveal rows by height (the container-query rungs further down), and those
-     are calibrated to the rows as they are. */
+  /* The first row under the title, whichever it is, sits directly under it, with no margin of
+     its own: at the 2px the rows keep between each other, the time read as a hair too far
+     from the title. Grid view matches. Its rows are revealed by height and withdrawn by
+     measurement wherever a block's content overflows, so a smaller gap can only leave a row
+     more room. Grid's progress row is the exception to "first child": see the progress
+     row's rung. */
   td.event .time-location > :first-child,
-  .column-events > .event .time-location > :first-child {
-    margin-top: 1px;
+  .column-events > .event .time-location > :first-child,
+  .grid-event .time-location > :first-child {
+    margin-top: 0;
   }
 
   /* break-word prevents unclamped time, location, and description flex items
@@ -3452,6 +3455,42 @@ export const cardStyles = css`
     vertical-align: top;
   }
 
+  /* A picture or icon label is centered on the title's text, as in list and column view,
+     where the label and the title are both aligned middle. Top-aligned words sit higher
+     than middle puts the label, so the label hung low: in WebKit its center sat 0.94px
+     below the text's at the default 12px, and further at larger sizes. So where such a
+     label shares the line, the words are aligned middle too, from the same baseline: the
+     title goes back to the baseline, or middle would be measured from one the title's own
+     middle had already moved. Middle places a box by its midpoint, so it is free of the
+     bottom-edge baseline that rules out baseline above.
+
+     Only for titles split into words and only while the words are inline-blocks; the fit
+     modes that make them inline again leave the title as text, aligned middle like the
+     label. Measured in WebKit, the label's center now sits 0.02px from the text's.
+     Chromium places the words the same way under either rule, and draws text on whole
+     pixels, which leaves it a fraction of a pixel off, by as much as in list view. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .label-icon, > .label-image):has(> .event-title .title-word)
+    > .event-title {
+    vertical-align: baseline;
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .label-icon, > .label-image)
+    .title-word {
+    vertical-align: middle;
+  }
+
   /* Clamp the whole title line. */
   .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: -webkit-box;
@@ -3848,23 +3887,36 @@ export const cardStyles = css`
      it. It cannot share the time row's rung either: a block just tall enough for a title and
      a time has no room left for a bar beneath them.
 
-     48px is measured rather than reasoned. In a browser, at the shipped fonts, the title row
-     is 18.8px and the row carrying the time plus the bar is 27.4px, so the content needs
-     46.2px; this is that, rounded up. Note these rungs query the CONTENT box, because
+     48px is measured rather than reasoned. It was set when, in a browser at the shipped
+     fonts, the title row was 18.8px and the row carrying the time plus the bar 27.4px, so the
+     content needed 46.2px, rounded up. Note these rungs query the CONTENT box, because
      .grid-event sets container-type through the container shorthand with a size type, while
      the block's own 4px of vertical padding sits outside it — so a rung of 48 is reached by
      a block that measures 52px on screen. An earlier 52 here was picked from arithmetic and
      carried 6px of dead slack, which pushed the bar out of every one-hour event at any
      normal density.
 
-     It is still not reachable by a one-hour event at the default 48px hour height: that is
-     44px of content, so such a block draws its title and time and stops. The bar arrives
-     from about 52px of block, i.e. a longer event or a taller axis. That is a real limit of
-     the space rather than a threshold worth lowering — below 46.2px something would have to
-     be clipped, and clipping the time to show a progress bar is the worse trade. */
+     The rows have shrunk since. Measured in Chromium, the title row is now 15.0px, and the
+     bar and the time beneath it take 25.4px since the first row under a title lost its 2px,
+     so they need 40.4px and the rung opens with about 7.6px to spare. It has not moved with
+     them. So a one-hour event at the default 48px hour height, 44px of content, still draws
+     its title and time and stops, and the bar arrives from about 52px of block. Lowering
+     the rung would bring the bar to those events, which is a decision of its own.
+
+     Grid always renders the progress row first and keeps it hidden below this rung, so there
+     the row after it is the first one drawn, and it takes the first row's spacing until the
+     bar appears above it. */
+  .grid-event-disclosure .time-location > .progress-bar-row:first-child + * {
+    margin-top: 0;
+  }
+
   @container calendar-card-grid-event (min-height: 48px) {
     .grid-event-disclosure .progress-bar-row {
       display: block;
+    }
+
+    .grid-event-disclosure .time-location > .progress-bar-row:first-child + * {
+      margin-top: 2px;
     }
   }
 

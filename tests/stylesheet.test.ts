@@ -346,23 +346,55 @@ describe('card stylesheet', () => {
       expect(declared('.time .now-time > span', 'vertical-align')).toBe('baseline');
     });
 
-    it('sets the first row under a title 1px closer than the rows below it, outside grid view', () => {
-      // List and column view only. Grid view keeps 2px, because its container-query rungs
-      // reveal rows by height and are calibrated to the rows as they are.
+    it('sets the first row under a title directly under it, in every view', () => {
+      // The rows keep 2px between each other; the first one has no margin of its own.
       expect(declared('.time', 'margin-top')).toBe('2px');
       expect(declared('.location', 'margin-top')).toBe('2px');
       expect(declared('.description', 'margin-top')).toBe('2px');
-      expect(declared('td.event .time-location > :first-child', 'margin-top')).toBe('1px');
-      expect(declared('.column-events > .event .time-location > :first-child', 'margin-top')).toBe(
-        '1px',
-      );
+      const firstRow = [
+        '.column-events > .event .time-location > :first-child',
+        '.grid-event .time-location > :first-child',
+        'td.event .time-location > :first-child',
+      ];
+      for (const selector of firstRow) expect(declared(selector, 'margin-top'), selector).toBe('0');
       const firstRowRules = RULES.filter((r) =>
         r.selectors.some((s) => s.endsWith('.time-location > :first-child')),
       );
-      expect(firstRowRules.flatMap((r) => r.selectors).sort()).toEqual([
-        '.column-events > .event .time-location > :first-child',
-        'td.event .time-location > :first-child',
-      ]);
+      expect(firstRowRules.flatMap((r) => r.selectors).sort()).toEqual(firstRow);
+
+      // Grid renders its progress row first and hides it below the 48px rung, so there the
+      // row after it is the first one drawn and takes the first row's spacing; it gets its
+      // 2px back once the bar shows above it.
+      const afterBar = '.grid-event-disclosure .time-location > .progress-bar-row:first-child + *';
+      expect(declared(afterBar, 'margin-top')).toBe('0');
+      const rung =
+        CSS.match(
+          /@container calendar-card-grid-event \(min-height: 48px\) \{([\s\S]*?)\n {2}\}/,
+        )?.[1] ?? '';
+      expect(rung).toContain('.progress-bar-row {');
+      expect(rung.replace(/\s+/g, ' ')).toContain(`${afterBar} { margin-top: 2px; }`);
+    });
+
+    it('centers a picture or icon label on a grid title split into words', () => {
+      // Top-aligned words sat above the middle-aligned label, which hung low. Where such a
+      // label shares the line, the words are aligned middle as well, from the title's own
+      // baseline, as list and column view align the label and the title text.
+      const flat = CSS.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+      const scope =
+        ".grid-event:not([data-grid-title-fit='measuring'], [data-grid-title-fit='compact'], " +
+        "[data-grid-title-fit='blank']) .grid-event-disclosure " +
+        '.summary:not(.summary-scroll):has(> .label-icon, > .label-image)';
+      expect(flat).toContain(
+        `${scope}:has(> .event-title .title-word) > .event-title { vertical-align: baseline; }`,
+      );
+      expect(flat).toContain(`${scope} .title-word { vertical-align: middle; }`);
+
+      // Everywhere else the words stay top-aligned, and the fit modes that make them inline
+      // again, which the scope above leaves out, put them back on the baseline.
+      expect(declared('.grid-event-disclosure .title-word', 'vertical-align')).toBe('top');
+      expect(flat).toMatch(
+        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; \}/,
+      );
     });
 
     it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
@@ -913,9 +945,13 @@ describe('card stylesheet', () => {
       // view-qualified rule may set `display` and nothing else — that is the line drawn
       // here, and it is the one that actually protects the placement: a scoped rule which
       // only reveals or hides cannot leak styling into another view.
-      const rules = RULES.filter((rule) =>
-        rule.selectors.some((selector) => selector.includes('progress-bar-row')),
-      );
+      //
+      // Only rules whose subject is the row are its styling. Grid's rule for the row after a
+      // hidden bar names the bar but styles its sibling, and is pinned with the first-row
+      // spacing instead.
+      const subjectIsRow = (selector: string) =>
+        /progress-bar-row(?::[\w-]+(?:\([^)]*\))?)*$/.test(selector);
+      const rules = RULES.filter((rule) => rule.selectors.some(subjectIsRow));
       const isUnqualified = (rule: { selectors: string[] }) =>
         rule.selectors.every((selector) => selector === '.progress-bar-row');
 
@@ -2205,7 +2241,16 @@ describe('card stylesheet', () => {
             '.grid-event-disclosure:where(.grid-time-fits) .summary',
           ],
         },
-        { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
+        // The bar's rung also hands the row after it its 2px back: below it the bar is
+        // hidden, and that row is the first one drawn, set directly under the title.
+        {
+          minHeight: 48,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure .progress-bar-row',
+            '.grid-event-disclosure .time-location > .progress-bar-row:first-child + *',
+          ],
+        },
         {
           minHeight: 72,
           minWidth: null,
