@@ -451,18 +451,55 @@ describe('a title mixing words with a script written without spaces', () => {
   });
 
   it('clamps when the last word is too narrow and a run from the line above precedes it', () => {
-    // "Z" has 11px and needs 13. Stepping back would mean hiding the run, which would take
-    // its first line with it and move every line above the cut, so the walk ends there.
+    // "Z" has 11px and needs 13. The run before it is wide enough for the clamp's ellipsis,
+    // so the clamp ends the line in the run rather than a cut hiding it whole.
     const element = cut({
       height: 36,
       summary: new DOMRect(4, line(0), 100, 3 * LINE),
       pieces: [
+        ['word', 'Team', new DOMRect(4, line(0), 28, LINE)],
         [
           'run',
           '会議室で打ち合わせ',
-          [new DOMRect(4, line(0), 96, LINE), new DOMRect(4, line(1), 50, LINE)],
+          [new DOMRect(36, line(0), 64, LINE), new DOMRect(4, line(1), 50, LINE)],
         ],
         ['word', 'Z', new DOMRect(93, line(1), 5, LINE)],
+        ['word', 'meeting', new DOMRect(4, line(2), 45, LINE)],
+      ],
+    });
+
+    expect(cutWord(element)).toBeNull();
+    expect(fitLines(element)).toBe('2');
+  });
+
+  it('keeps a run on the last line that the clamp can end, where the word after it cannot', () => {
+    // "a" has 12px and needs 13, so a cut would step back over the run to "Zoom" and hide
+    // both: "Zoom…". The run has the width for the clamp's ellipsis, which keeps it: "Zoom 会議…".
+    const element = cut({
+      height: 20,
+      summary: new DOMRect(4, line(0), 100, 2 * LINE),
+      labels: [PICTURE],
+      pieces: [
+        ['word', 'Zoom', new DOMRect(21, line(0), 30, LINE)],
+        ['run', '会議', [new DOMRect(55, line(0), 32, LINE)]],
+        ['word', 'a', new DOMRect(92, line(0), 7, LINE)],
+        ['word', 'meeting', new DOMRect(4, line(1), 45, LINE)],
+      ],
+    });
+
+    expect(cutWord(element)).toBeNull();
+    expect(fitLines(element)).toBe('1');
+  });
+
+  it('never walks back past the last line to cut a word on an earlier one', () => {
+    // "–" has no character to keep beside an ellipsis, and the word before it sits on the
+    // line above. Cutting there would hide everything after it, the whole last line too.
+    const element = cut({
+      height: 36,
+      summary: new DOMRect(4, line(0), 100, 3 * LINE),
+      pieces: [
+        ['word', 'Teamwork', new DOMRect(4, line(0), 56, LINE)],
+        ['word', '–', new DOMRect(4, line(1), 6, LINE)],
         ['word', 'meeting', new DOMRect(4, line(2), 45, LINE)],
       ],
     });

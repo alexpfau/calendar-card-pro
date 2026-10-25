@@ -740,12 +740,20 @@ function measureTitleCut(
   // Walking back along the last line, every piece hidden after a candidate word hands back
   // its width and the space before it: that is the candidate's room. The first word with
   // room for its first character and an ellipsis carries the cut, and the stylesheet hides
-  // every word and run after it. A run that began on an earlier line is never hidden: all
-  // that comes before it lies on earlier lines, so the walk leaves the line right after it.
+  // every word and run after it. A run on the way is the clamp's instead, as at the line's
+  // end, when it is wide enough to end in the clamp's ellipsis: the clamp shortens it by the
+  // character and keeps it, where a cut on a word before it would hide it whole. Stepping
+  // past such a run turned "Zoom 会議…" into "Zoom…" wherever the word after the run was
+  // too short to carry the cut. The walk stays on the last line: a piece that began on an
+  // earlier one ends it, so a cut never empties the line it is meant to end.
   let room = free;
   for (let index = end; index >= 0 && title[index].rects.some(onLast); index -= 1) {
     const item = title[index];
     room += widthOnLast(item);
+    if (item.kind === 'text') {
+      const ellipsis = ellipsisWidth(canvas, item.node.parentElement ?? target.title);
+      if (room + gapOnLast(title[index - 1], item) >= (ellipsis + 1) * scale) return clamp;
+    }
     if (item.kind === 'word' && title.slice(index + 1).every(hiddenByCut)) {
       const word = item.node as HTMLElement;
       const prefix = prefixWidth(textRuns(word));
