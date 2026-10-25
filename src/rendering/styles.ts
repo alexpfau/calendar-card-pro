@@ -1003,6 +1003,18 @@ export const cardStyles = css`
     display: inline;
   }
 
+  /* On the text's baseline, not in the middle. The same .time span rule sets
+     vertical-align: middle, which is inert on an ordinary row, where the time's span is the
+     flex item itself. Here the label and the time are inline content of .now-time, so middle
+     took effect: it raised their boxes off the baseline and the line box grew to hold them,
+     which sat the whole run lower than the clock icon it is centered on, by about 0.6px in
+     Chromium and 0.9px in WebKit at the default 12px time, and more at larger sizes. On the
+     baseline the row is exactly as tall as any other, and the text sits where an ordinary
+     row's does, in both engines. */
+  .time .now-time > span {
+    vertical-align: baseline;
+  }
+
   /* "Now ·" stays together: it wraps to the next line as a whole, as an atomic inline. Only
      a column narrower than the label itself breaks the word, as a title breaks at that width,
      rather than clipping it to its first letter. The separator is drawn rather than written
@@ -1534,6 +1546,15 @@ export const cardStyles = css`
     line-height: 1.2;
     margin-top: 2px;
     margin-right: 12px;
+  }
+
+  /* The first row under the title, whichever it is, sits 1px closer to it than the rows sit to
+     each other, which read as a hair too far apart in list and column view. Grid view keeps
+     2px: its blocks reveal rows by height (the container-query rungs further down), and those
+     are calibrated to the rows as they are. */
+  td.event .time-location > :first-child,
+  .column-events > .event .time-location > :first-child {
+    margin-top: 1px;
   }
 
   /* break-word prevents unclamped time, location, and description flex items

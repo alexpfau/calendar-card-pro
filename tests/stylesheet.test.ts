@@ -335,6 +335,36 @@ describe('card stylesheet', () => {
       );
     });
 
+    it("sets a running row's label and time on the baseline, so it centers on its clock", () => {
+      // `.time span` aligns every span in the row to the middle. On an ordinary row that is
+      // inert, because the time's span is the flex item itself; inside .now-time the label
+      // and the time are inline content, so middle lifted them off the baseline, grew the
+      // line box and sat the run below the clock icon. Measured on a harness card in
+      // Chromium and WebKit: with this rule the run centers on the icon exactly as an
+      // ordinary row's time does, and without it it does not.
+      expect(declared('.time span', 'vertical-align')).toBe('middle');
+      expect(declared('.time .now-time > span', 'vertical-align')).toBe('baseline');
+    });
+
+    it('sets the first row under a title 1px closer than the rows below it, outside grid view', () => {
+      // List and column view only. Grid view keeps 2px, because its container-query rungs
+      // reveal rows by height and are calibrated to the rows as they are.
+      expect(declared('.time', 'margin-top')).toBe('2px');
+      expect(declared('.location', 'margin-top')).toBe('2px');
+      expect(declared('.description', 'margin-top')).toBe('2px');
+      expect(declared('td.event .time-location > :first-child', 'margin-top')).toBe('1px');
+      expect(declared('.column-events > .event .time-location > :first-child', 'margin-top')).toBe(
+        '1px',
+      );
+      const firstRowRules = RULES.filter((r) =>
+        r.selectors.some((s) => s.endsWith('.time-location > :first-child')),
+      );
+      expect(firstRowRules.flatMap((r) => r.selectors).sort()).toEqual([
+        '.column-events > .event .time-location > :first-child',
+        'td.event .time-location > :first-child',
+      ]);
+    });
+
     it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
       // .time-actual is a flex item, so it defaults to min-width: auto -- its min-content
       // width. A nowrap pill has no soft break, so its min-content width is the whole label,
