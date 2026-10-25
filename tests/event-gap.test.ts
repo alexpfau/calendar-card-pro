@@ -280,11 +280,23 @@ describe('the stylesheet', () => {
     expect(body).not.toMatch(/border-(start|end)-(start|end)-radius/);
   });
 
-  it('places the corner rule after the day-position corner rules it has to win against', () => {
-    // `.event-first.event-last` has the same specificity, so source order decides.
-    expect(rules.indexOf('.with-event-gap .event')).toBeGreaterThan(
-      rules.indexOf('.event-first.event-last'),
-    );
+  it('rounds the joined block on all four outer corners and leaves its inner ones square', () => {
+    // The first event rounds both top corners and the last both bottom corners, so a day
+    // without a gap is one rounded block, like a gapped event and a grid block.
+    for (const [selector, edge] of [
+      ['.event-first', 'start'],
+      ['.event-last', 'end'],
+    ] as const) {
+      const body = ruleBody(selector);
+      expect(body).toContain(
+        `border-${edge}-start-radius: var(--calendar-card-event-border-radius)`,
+      );
+      expect(body).toContain(`border-${edge}-end-radius: var(--calendar-card-event-border-radius)`);
+    }
+    // The corners between two events stay square: `.event` itself sets none, and no rule
+    // squares the outer ones again for a lone event.
+    expect(ruleBody('.event')).toContain('border-radius: 0');
+    expect(rules).not.toContain('.event-first.event-last');
   });
 
   it('sizes the list gap row from the property, with no padding and no zeroed font', () => {

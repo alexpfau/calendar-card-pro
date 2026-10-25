@@ -1014,32 +1014,29 @@ export const cardStyles = css`
     background: currentColor;
   }
 
-  .event-first.event-last {
-    border-start-start-radius: 0;
-    border-start-end-radius: var(--calendar-card-event-border-radius);
-    border-end-end-radius: var(--calendar-card-event-border-radius);
-    border-end-start-radius: 0;
-  }
-
+  /* A block is a rounded rectangle whose accent stripe follows the curve, in every view: a
+     grid block (.grid-event), a gapped event (below) and the joined block a day's events
+     form without a gap. So the first event of a day rounds both of its top corners and the
+     last both of its bottom corners, and a lone event, being both, rounds all four. The
+     corners between two events of a joined block stay square, because the stripe and the
+     tint run on from one event into the next. Through v4 the stripe's side stayed square on
+     every corner. */
   .event-first {
+    border-start-start-radius: var(--calendar-card-event-border-radius);
     border-start-end-radius: var(--calendar-card-event-border-radius);
-    border-start-start-radius: 0;
   }
 
   .event-last {
+    border-end-start-radius: var(--calendar-card-event-border-radius);
     border-end-end-radius: var(--calendar-card-event-border-radius);
-    border-end-start-radius: 0;
   }
 
   /* With event_gap set, a day's events stop being one block: each event is a block of its
-     own and rounds all four corners, the accent stripe's side included. That is how grid
-     view already draws a block (.grid-event: a radius on every corner and the stripe as the
-     inline-start border, following the curve), so a card switched between views draws a
-     separate event the same way in all three. Only the joined block keeps the stripe's side
-     square, because there the stripe runs on from one event into the next. event-first and
-     event-last go on meaning the first and last event of the day, which is what theming.md
-     documents, so the separated look hangs on the container's class rather than on them.
-     The list view's tap target and focus ring inherit these radii from the cell. */
+     own and rounds all four corners, which is what turns the joined block's square inner
+     corners round. event-first and event-last go on meaning the first and last event of the
+     day, which is what theming.md documents, so the separated look hangs on the container's
+     class rather than on them. The list view's tap target and focus ring inherit these
+     radii from the cell. */
   .with-event-gap .event {
     border-radius: var(--calendar-card-event-border-radius);
   }

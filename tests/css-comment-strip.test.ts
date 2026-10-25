@@ -279,13 +279,13 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(125_700);
-    // The event gap moved the ceiling last, from 124,700 to 125,700: the notes on why a gapped
-    // event rounds all four corners the way a grid block does while the position classes keep
-    // meaning the event's place in its day, why list view's gap is a row that must never zero
-    // its font size, and why column view's is a gap rather than a margin. The reading went
-    // 123,954 to 125,250, taken with stripComments after the last comment in the change was
-    // written.
+    expect(saved).toBeLessThan(126_200);
+    // The event gap moved the ceiling last, from 124,700 to 126,200: the notes on why every
+    // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
+    // and a grid block alike) while the position classes keep meaning the event's place in its
+    // day, why list view's gap is a row that must never zero its font size, and why column
+    // view's is a gap rather than a margin. The reading went 123,954 to 125,486, taken with
+    // stripComments after the last comment in the change was written.
     //
     // The view switcher moved the ceiling before that, from 122,700 to 124,000 and then to 124,700: the
     // notes on why every toolbar control shares one neutral look mixed into transparent rather
