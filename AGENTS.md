@@ -687,6 +687,10 @@ replacement is only live once it reaches `main`.
 - a **prose section** on the relevant `docs/features/*.md` page, or a sentence in the
   nearest existing one, with a real YAML snippet. A table row alone is not documentation:
   `show_countdown_allday` shipped in v3.4 as a table row only, and was undiscoverable.
+- for an option a view ignores, its `VIEW_SCOPE` entry **and** its name in two lists: the
+  reference's _Options With No Effect in Column/Grid View_ and the view page's _Options That
+  Do Nothing_ section. Seven grid-inert options were missing from both before `check:docs`
+  grew Check 32, which reconciles them against `VIEW_SCOPE`.
 - for a new language: the supported-languages list in `docs/contributing.md` **and all
   three hardcoded counts**. Derive them rather than incrementing by hand — they were wrong
   for four consecutive releases before `check:docs` grew a gate for them, which reconciles
@@ -699,7 +703,7 @@ replacement is only live once it reaches `main`.
 
   **The `+ 1` is not a rounding error, and the editor count is the one that keeps going
   wrong.** US English has no file — it lives in `src/rendering/editor/strings.ts` — so
-  counting the directory undercounts by one. `en-GB.json` is a _delta_ of ~36 strings
+  counting the directory undercounts by one. `en-GB.json` is a _delta_ of a few dozen strings
   rather than a full translation, so it is easy to skip as well, and the nine complete
   files are easy to mistake for the whole set. All three are languages the editor renders
   in, and the total is **12**: US English in code, British English as a delta, nine
@@ -1303,11 +1307,11 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    partial file is safe to ship, so translate as much as you like and leave the rest.
    `check:i18n` reports coverage as an informational line, not as a failure.
 
-   🚨 **`en-GB` is complete at 13% — never gate on coverage without excluding it.**
-   `en-GB.json` is a _generated delta_ of ~44 spelling overrides written from `strings.ts`
+   🚨 **`en-GB` is complete at a coverage in the low teens — never gate on coverage without excluding it.**
+   `en-GB.json` is a _generated delta_ of a few dozen spelling overrides written from `strings.ts`
    by `scripts/generate-en-gb.mjs`, and `check:i18n` recomputes it and fails on any drift.
    It is complete by construction and already held to a **stricter** standard than
-   coverage. Measured against the full editor string table it reads 13%, so any "warn below
+   coverage. Measured against the full editor string table it reads in the low teens, so any "warn below
    N%" rule flags it permanently — and a permanently-red gate is the one people learn to
    ignore, which is the failure such a gate exists to prevent. The ten hand-maintained
    files are the only meaningful denominator.
@@ -1751,7 +1755,7 @@ nowhere near the backtick. Write property names bare in CSS comments.
 ## Reference
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
-  caching and performance design. Read before making structural changes. Its _Two Views,
+  caching and performance design. Read before making structural changes. Its _Three Views,
   One Agenda_ and _Two Files, One Card_ sections are the current description of the view
   split and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,

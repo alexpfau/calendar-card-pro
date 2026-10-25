@@ -1813,6 +1813,7 @@ function report(counts) {
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
       `${counts.listFences} YAML examples checked for list-only keys, ` +
+      `${counts.inertOptions} view-inert options reconciled, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `config format v${counts.configVersion} documented, ` +
@@ -3047,23 +3048,55 @@ function checkReadmeFragmentLinks() {
 // ---------------------------------------------------------------------------
 
 /**
- * The five keys `VIEW_SCOPE` scopes to list alone, read from the source rather than
- * listed here. A hand-written copy would silently stop covering the next one somebody
- * scopes to list, which is the failure this project has already had in several tables.
+ * `VIEW_SCOPE` as written: each scoped option and the views it affects.
  *
- * @returns The list-only config keys
+ * Shared by Check 30 and Check 32, so both read the table through one parser and a
+ * change to its shape fails them together instead of leaving one silently empty.
+ *
+ * @returns Map from config key to the set of views it affects
  */
-function readListOnlyKeys() {
+function readViewScope() {
   const src = readFileSync(VIEW_TS, 'utf8');
   const block = src.match(/VIEW_SCOPE[^=]*=\s*\{([\s\S]*?)\n\};/);
   if (!block) {
     console.error(`\n✗ FATAL: could not locate VIEW_SCOPE in ${relative(ROOT, VIEW_TS)}.\n`);
     process.exit(2);
   }
+  const body = block[1].replace(/\/\/.*$/gm, '');
+  const entry = /^ {2}([a-z0-9_]+):\s*new Set<[^>]*>\(\s*\[([^\]]*)\]\s*\)/gm;
+  const scope = new Map();
+  for (const m of body.matchAll(entry)) {
+    scope.set(m[1], new Set(m[2].replace(/['\s]/g, '').split(',').filter(Boolean)));
+  }
+  // Everything in the table has to parse. Reading only what matches would let a scoped
+  // option written in another shape (a quoted key, a spread, a computed name) drop out of
+  // both checks with nothing failing, so once the entries are removed, only separators may
+  // be left.
+  const unread = body.replace(entry, '').replace(/[\s,]/g, '');
+  if (unread !== '') {
+    console.error(
+      `\n✗ FATAL: VIEW_SCOPE in ${relative(ROOT, VIEW_TS)} holds something this script ` +
+        `cannot read, starting "${unread.slice(0, 40)}". Write each entry as ` +
+        '`key: new Set<…>([…])`, or teach readViewScope the new shape.\n',
+    );
+    process.exit(2);
+  }
+  assertFound(scope, 'VIEW_SCOPE entries', VIEW_TS);
+  return scope;
+}
+
+/**
+ * The five keys `VIEW_SCOPE` scopes to list alone, read from the source rather than
+ * listed here. A hand-written copy would silently stop covering the next one somebody
+ * scopes to list, which is the failure this project has already had in several tables.
+ *
+ * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
+ * @returns The list-only config keys
+ */
+function readListOnlyKeys(viewScope) {
   const keys = new Set();
-  for (const line of block[1].split('\n')) {
-    const m = line.match(/^ {2}([a-z0-9_]+):\s*new Set<[^>]*>\(\[([^\]]*)\]\)/);
-    if (m && m[2].replace(/['\s]/g, '') === 'list') keys.add(m[1]);
+  for (const [key, views] of viewScope) {
+    if (views.size === 1 && views.has('list')) keys.add(key);
   }
   assertFound(keys, 'list-only VIEW_SCOPE keys', VIEW_TS);
   return keys;
@@ -3113,6 +3146,114 @@ function checkListBlockExamples(docs, listOnly) {
     }
   }
   return fences;
+}
+
+// ---------------------------------------------------------------------------
+// Check 32 — the "no effect" lists name exactly what VIEW_SCOPE withholds
+// ---------------------------------------------------------------------------
+
+/**
+ * Where each view's inert options are listed and explained. The reference list is
+ * reconciled in both directions; the feature-page section must at least name each one,
+ * since it also names the options to use instead.
+ */
+const NO_EFFECT_SURFACES = [
+  {
+    view: 'column',
+    list: '### Options With No Effect in Column View',
+    page: join(DOCS_DIR, 'features/column-view.md'),
+    section: '## 💤 Options That Do Nothing in Column View',
+  },
+  {
+    view: 'grid',
+    list: '### Options With No Effect in Grid View',
+    page: join(DOCS_DIR, 'features/grid-view.md'),
+    section: '## 🚫 Options That Do Nothing in Grid View',
+  },
+];
+
+/**
+ * The text under a heading, up to the next heading of the same or a higher level.
+ *
+ * @param {string} text - Page source
+ * @param {string} heading - The heading line, exactly as written
+ * @param {string} rel - Page path, for the error message
+ * @returns The section body, or `null` after reporting a missing heading
+ */
+function sectionBody(text, heading, rel) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) {
+    error(`${rel}: heading "${heading}" not found — Check 32 reads the inert options under it`);
+    return null;
+  }
+  const level = heading.match(/^#+/)[0].length;
+  const end = lines.findIndex(
+    (line, i) => i > start && /^#+\s/.test(line) && line.match(/^#+/)[0].length <= level,
+  );
+  return lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+}
+
+/**
+ * Both "no effect" lists went stale without a gate noticing: six all-day and spacing
+ * options were scoped away from grid in `VIEW_SCOPE`, and `event_gap` arrived scoped to
+ * list and column, and neither reached the grid list. The editor withholds exactly what
+ * `VIEW_SCOPE` says, so a list that disagrees with it disagrees with the editor too.
+ *
+ * The reference list is the first paragraph under its heading and is compared as a set,
+ * both ways: an option `VIEW_SCOPE` keeps out of the view must be listed, and a listed
+ * option must be one it keeps out. A parenthesized note after a name, such as
+ * "(card-wide and per-entity)", is ignored.
+ *
+ * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
+ * @returns The number of inert options reconciled across both views
+ */
+function checkNoEffectLists(viewScope) {
+  const reference = readFileSync(REFERENCE_DOC, 'utf8');
+  const refRel = relative(ROOT, REFERENCE_DOC);
+  let reconciled = 0;
+
+  for (const { view, list, page, section } of NO_EFFECT_SURFACES) {
+    const inert = new Set([...viewScope].filter(([, views]) => !views.has(view)).map(([k]) => k));
+    assertFound(inert, `options VIEW_SCOPE keeps out of ${view} view`, VIEW_TS);
+    reconciled += inert.size;
+
+    const body = sectionBody(reference, list, refRel);
+    if (body !== null) {
+      const paragraph = body.trim().split(/\n\s*\n/)[0];
+      const listed = new Set([...paragraph.matchAll(/`([a-z0-9_]+)`/g)].map((m) => m[1]));
+      for (const key of inert) {
+        if (!listed.has(key)) {
+          error(
+            `${refRel}: "${list.replace(/^#+\s*/, '')}" omits \`${key}\`, which VIEW_SCOPE ` +
+              `keeps out of ${view} view`,
+          );
+        }
+      }
+      for (const key of listed) {
+        if (!inert.has(key)) {
+          error(
+            `${refRel}: "${list.replace(/^#+\s*/, '')}" lists \`${key}\`, but VIEW_SCOPE ` +
+              `says it affects ${view} view`,
+          );
+        }
+      }
+    }
+
+    const pageRel = relative(ROOT, page);
+    const explained = sectionBody(readFileSync(page, 'utf8'), section, pageRel);
+    if (explained !== null) {
+      for (const key of inert) {
+        if (!new RegExp('`' + escapeForRegExp(key) + '`').test(explained)) {
+          error(
+            `${pageRel}: "${section.replace(/^#+\s*\S+\s*/, '')}" never names \`${key}\`, ` +
+              `which VIEW_SCOPE keeps out of ${view} view`,
+          );
+        }
+      }
+    }
+  }
+  return reconciled;
 }
 
 // ---------------------------------------------------------------------------
@@ -3252,7 +3393,9 @@ function main() {
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
-  const listFences = checkListBlockExamples(docs, readListOnlyKeys());
+  const viewScope = readViewScope();
+  const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
+  const inertOptions = checkNoEffectLists(viewScope);
   const citations = checkCitations();
   const languages = checkLanguageCounts();
 
@@ -3276,6 +3419,7 @@ function main() {
       themed,
       citations,
       listFences,
+      inertOptions,
       languages,
       readmeAnchors,
       configVersion,
