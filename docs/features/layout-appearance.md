@@ -101,7 +101,7 @@ event_background_opacity: 15 # 0-100 scale for background color intensity
 vertical_line_width: '3px' # Width of the colored event indicator line
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, the accent line curving with the block at its top and bottom. Without one the accent line stays straight, with square ends, because a line bent into a rounded corner reads as a bracket.
 
 `title_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
@@ -223,7 +223,7 @@ event_gap: 6px
 event_background_opacity: 15
 ```
 
-Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, the accent line's side included, where the joined block rounds only the top of its first event and the bottom of its last. That is how grid view draws an event, so a card shows a separate event the same way in every view. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+Each event then becomes a block of its own. Its accent line stops where the event stops, and with [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, the accent line's side included, where the joined block rounds only the top of its first event and the bottom of its last. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the accent line stays straight here too, and simply breaks between the events. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
 
 `event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
 

@@ -272,26 +272,29 @@ describe('the stylesheet', () => {
     return match![1];
   }
 
-  it('rounds all four corners of every event while a gap is set, as grid rounds its blocks', () => {
+  const ACCENT_SIDE = 'var(--calendar-card-event-accent-side-radius, 0px)';
+  const END_SIDE = 'var(--calendar-card-event-border-radius)';
+
+  it('rounds every gapped event as a block, its stripe side only while tinted', () => {
     const body = ruleBody('.with-event-gap .event');
 
-    expect(body).toContain('border-radius: var(--calendar-card-event-border-radius)');
-    // The shorthand, not two end-side longhands: the accent stripe's side rounds too.
-    expect(body).not.toMatch(/border-(start|end)-(start|end)-radius/);
+    expect(body).toContain(`border-start-end-radius: ${END_SIDE}`);
+    expect(body).toContain(`border-end-end-radius: ${END_SIDE}`);
+    // Untinted, the property is unwritten and the stripe stays a straight line.
+    expect(body).toContain(`border-start-start-radius: ${ACCENT_SIDE}`);
+    expect(body).toContain(`border-end-start-radius: ${ACCENT_SIDE}`);
   });
 
-  it('rounds the joined block on all four outer corners and leaves its inner ones square', () => {
-    // The first event rounds both top corners and the last both bottom corners, so a day
+  it('rounds the joined block on its outer corners, its stripe side only while tinted', () => {
+    // The first event rounds the top of the block and the last its bottom, so a tinted day
     // without a gap is one rounded block, like a gapped event and a grid block.
     for (const [selector, edge] of [
       ['.event-first', 'start'],
       ['.event-last', 'end'],
     ] as const) {
       const body = ruleBody(selector);
-      expect(body).toContain(
-        `border-${edge}-start-radius: var(--calendar-card-event-border-radius)`,
-      );
-      expect(body).toContain(`border-${edge}-end-radius: var(--calendar-card-event-border-radius)`);
+      expect(body).toContain(`border-${edge}-end-radius: ${END_SIDE}`);
+      expect(body).toContain(`border-${edge}-start-radius: ${ACCENT_SIDE}`);
     }
     // The corners between two events stay square: `.event` itself sets none, and no rule
     // squares the outer ones again for a lone event.

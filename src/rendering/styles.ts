@@ -167,6 +167,13 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     props['--calendar-card-event-gap'] = config.event_gap;
   }
 
+  // Only while events are tinted: the stripe's side of a block is rounded then, and square
+  // otherwise. See .event-first in the stylesheet. Unwritten, the rules fall back to 0, so an
+  // untinted card keeps exactly the inline style it carried before blocks were rounded there.
+  if (config.event_background_opacity > 0) {
+    props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
+  }
+
   // Weather event color has no default. If absent, both placements use their
   // stylesheet fallback, matching the existing per-event badge color.
   //
@@ -1014,31 +1021,41 @@ export const cardStyles = css`
     background: currentColor;
   }
 
-  /* A block is a rounded rectangle whose accent stripe follows the curve, in every view: a
-     grid block (.grid-event), a gapped event (below) and the joined block a day's events
-     form without a gap. So the first event of a day rounds both of its top corners and the
-     last both of its bottom corners, and a lone event, being both, rounds all four. The
-     corners between two events of a joined block stay square, because the stripe and the
-     tint run on from one event into the next. Through v4 the stripe's side stayed square on
-     every corner. */
+  /* A tinted block is a rounded rectangle whose accent stripe follows the curve, in every
+     view: a grid block (.grid-event), a gapped event (below) and the joined block a day's
+     events form without a gap. So the first event of a day rounds both of its top corners
+     and the last both of its bottom corners, and a lone event, being both, rounds all four.
+     The corners between two events of a joined block stay square, because the stripe and
+     the tint run on from one event into the next.
+
+     Without a tint the stripe is all there is to see, and bent into a corner it reads as a
+     bracket rather than a line, worst under a rounded theme, where the radius is half the
+     card's. So the stripe's side takes its radius from --calendar-card-event-accent-side-radius,
+     which the card writes only while event_background_opacity is above 0; otherwise it falls
+     back to 0 and the stripe stays a straight line with square ends, as it was through v4.
+     The other side keeps its radius either way. Untinted it is invisible but for the shape
+     of the hover wash and the focus ring. */
   .event-first {
-    border-start-start-radius: var(--calendar-card-event-border-radius);
+    border-start-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
     border-start-end-radius: var(--calendar-card-event-border-radius);
   }
 
   .event-last {
-    border-end-start-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
     border-end-end-radius: var(--calendar-card-event-border-radius);
   }
 
   /* With event_gap set, a day's events stop being one block: each event is a block of its
-     own and rounds all four corners, which is what turns the joined block's square inner
-     corners round. event-first and event-last go on meaning the first and last event of the
-     day, which is what theming.md documents, so the separated look hangs on the container's
+     own and rounds all four corners, the stripe's side under the same tint condition as
+     above. event-first and event-last go on meaning the first and last event of the day,
+     which is what theming.md documents, so the separated look hangs on the container's
      class rather than on them. The list view's tap target and focus ring inherit these
      radii from the cell. */
   .with-event-gap .event {
-    border-radius: var(--calendar-card-event-border-radius);
+    border-start-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
   }
 
   .past-event .event-content {

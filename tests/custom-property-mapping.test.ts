@@ -122,6 +122,21 @@ describe('custom property mapping', () => {
     },
   );
 
+  it('rounds the stripe side of an event only while events are tinted', () => {
+    // Untinted, a stripe bent into a rounded corner reads as a bracket, so the property that
+    // rounds that side is left unwritten and the stylesheet falls back to a square corner.
+    // Unwritten rather than written as 0, so an untinted card keeps its inline style.
+    for (const opacity of [undefined, 0]) {
+      const props = propsFor(opacity === undefined ? {} : { event_background_opacity: opacity });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-side-radius');
+    }
+    for (const opacity of [1, 20, 100]) {
+      expect(
+        propsFor({ event_background_opacity: opacity })['--calendar-card-event-accent-side-radius'],
+      ).toBe('var(--calendar-card-event-border-radius)');
+    }
+  });
+
   it('dims the default empty day color and passes a configured one through', () => {
     const fallback = propsFor({ empty_day_color: Config.DEFAULT_CONFIG.empty_day_color });
     const custom = propsFor({ empty_day_color: 'rgb(14, 0, 0)' });
