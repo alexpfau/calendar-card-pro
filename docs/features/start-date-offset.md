@@ -109,6 +109,8 @@ show_past_events: true # otherwise the days already gone look empty
 
 Swap the anchor for `start_of_week+7` to get next week, or `start_of_week-7` for last week. Nothing else changes.
 
+In column or grid view, a card that drops days to fit a narrow width starts at today rather than at the start of the week, and moves back only once too few days are left in the week to fill it — see [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
+
 **A weekend view** ([#276](https://github.com/alexpfau/calendar-card-pro/issues/276)) — jumps ahead to the coming Saturday and shows both weekend days:
 
 ```yaml

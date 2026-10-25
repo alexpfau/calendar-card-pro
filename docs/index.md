@@ -37,10 +37,10 @@ features:
     details: Show forecasts alongside your events, in the date column or next to each event.
   - icon: ⚡
     title: Optimized Performance
-    details: Smart caching, progressive rendering and minimal API calls.
+    details: Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
   - icon: 🌍
     title: 36 Languages
-    details: Fully translated interface, with community contributions welcome.
+    details: The card in 36 languages and its visual editor in 12, with community contributions welcome.
 ---
 
 ## 🔍 About
@@ -56,12 +56,14 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🎨 **Sleek & Minimalist Design** – Clean, modern, and visually appealing layout.
 - ✅ **Multi-Calendar Support** – Display multiple calendars with unique styling.
 - 📅 **Compact & Expandable Views** – Adaptive views to suit different dashboard needs.
+- 🗓️ **List, Columns & Grid** – Three layouts, with a [switcher on the card](/features/layout-appearance#header-toolbar) to change between them.
+- ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card through [Home Assistant's own dialogs](/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
 - ⚙️ **Visual Configuration Editor** – Intuitive interface for effortless card setup.
 - 🔧 **Highly Customizable** – Fine-tune layout, colors, event details, and behavior.
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
-- ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
+- ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 36 languages](/contributing#adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 36 languages](/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
 
 ## 🔗 Dependencies
 
