@@ -206,17 +206,37 @@ describe('in grid view', () => {
 });
 
 describe('now_color', () => {
-  it('feeds the card and is what the grid line follows until it has a color of its own', () => {
+  it('is the one color for "now", and the grid line reads it as well', () => {
     const config = buildConfig({ view: 'grid', now_color: 'rgb(1, 2, 3)' });
     expect(Styles.generateCustomPropertiesObject(config)['--calendar-card-now-color']).toBe(
       'rgb(1, 2, 3)',
     );
-    expect(ViewConfig.resolveTimeGridOption(config, 'now_line_color')).toBe(
-      'var(--calendar-card-now-color, #34d399)',
-    );
 
-    const own = buildConfig({ view: 'grid', time_grid: { now_line_color: 'rgb(4, 5, 6)' } });
-    expect(ViewConfig.resolveTimeGridOption(own, 'now_line_color')).toBe('rgb(4, 5, 6)');
+    // The line and its dot paint that property, with the default now color as the fallback,
+    // and the grid writes no now color of its own over it.
+    for (const selector of ['.grid-now-line', '.grid-now-dot']) {
+      const body = Styles.cardStyles.cssText.match(
+        new RegExp(`\\n\\s*${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`),
+      )?.[1];
+      expect(body, selector).toContain('background: var(--calendar-card-now-color, #34d399);');
+    }
+    const grid = renderView('grid', { now_color: 'rgb(1, 2, 3)' });
+    expect(grid.querySelector('.grid-now-line')).not.toBeNull();
+    expect(grid.innerHTML).not.toContain('now-color');
+  });
+
+  it('can be set for grid view alone, in the time_grid block', () => {
+    const config = buildConfig({ view: 'grid', time_grid: { now_color: 'rgb(4, 5, 6)' } });
+    const nowColor = (view: Types.EffectiveView) =>
+      Styles.generateCustomPropertiesObject(ViewConfig.resolveEffectiveConfig(config, view))[
+        '--calendar-card-now-color'
+      ];
+    expect(nowColor('grid')).toBe('rgb(4, 5, 6)');
+    expect(nowColor('list')).toBe('#34d399');
+  });
+
+  it('has no grid-only twin', () => {
+    expect(ViewConfig.TIME_GRID_ONLY_KEYS as readonly string[]).not.toContain('now_line_color');
   });
 
   it("can differ per view, like the indicator's switch", () => {

@@ -748,8 +748,8 @@ function spanHorizontal(x0Pct: number, x1Pct: number): BlockHorizontal {
  *
  * That part is handed over as two unitless ratios — of the block's displayed duration and
  * of its width — and nothing else. The stylesheet turns them into the disclosure's size,
- * because only it knows the pixels the conversion needs: the block's padding, its accent
- * edge and the gaps it keeps, none of which the geometry module may know. See
+ * because only it knows the pixels the conversion needs: the block's padding, the room its
+ * accent bar takes and the gaps it keeps, none of which the geometry module may know. See
  * `.grid-event-content-limited`. A dimension nothing covers is left unwritten, so the
  * stylesheet's own default applies there.
  *
@@ -822,8 +822,8 @@ function renderTimedEvent(
   // drawn just before it in the same box: the card, the weekend tint and the hour rules,
   // rebuilt so the block's ordinary translucent tint lands on what a block standing alone
   // would have under it. Same color, same lines, and nothing of the block beneath. The
-  // block itself is then filled like any other, and only carries its accent for the
-  // outline. See `.grid-event-backdrop`.
+  // block itself is then filled like any other, and its outline reads the accent bar's
+  // color. See `.grid-event-backdrop`.
   const backdrop = horizontal.raised
     ? html`<div
         class=${classMap({
@@ -862,11 +862,8 @@ function renderTimedEvent(
       style=${styleMap({
         ...verticalGeometry(placement, edges),
         ...horizontal.style,
-        borderInlineStartColor: presentation.entityAccentColor,
+        '--calendar-card-event-accent-bar-color': presentation.entityAccentColor,
         backgroundColor: tint,
-        ...(horizontal.raised
-          ? { '--calendar-card-grid-raised-accent': presentation.entityAccentColor }
-          : {}),
         ...presentation.accentTextProperties,
       })}
       role=${tap ? 'button' : nothing}
@@ -874,6 +871,7 @@ function renderTimedEvent(
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
     >
+      ${Leaves.renderAccentBar()}
       <div
         class="grid-event-accessible"
         role="group"
@@ -1010,9 +1008,9 @@ function renderOverflow(
  * carries on outside the window, which a clamped banner otherwise misreports as ending
  * exactly at the card's edge.
  *
- * The calendar's color arrives as the fill and nothing else. A banner has no accent edge,
+ * The calendar's color arrives as the fill and nothing else. A banner has no accent bar,
  * where a timed block does — see the stylesheet comment on `.grid-banner` for why the two
- * differ, and note that removing the edge is what lets the pill ends read as ends rather
+ * differ, and note that leaving the bar off is what lets the pill ends read as ends rather
  * than as a shape with something stuck to one side of it.
  *
  * @param event - All-day event to render
@@ -1260,7 +1258,6 @@ export function renderGridGroupedEvents(
   const axisWidth = ViewConfig.resolveTimeGridOption(config, 'axis_width');
   const maxLanes = ViewConfig.resolveTimeGridOption(config, 'max_simultaneous_events');
   const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
-  const nowLineColor = ViewConfig.resolveTimeGridOption(config, 'now_line_color');
   const showAxisLabels = ViewConfig.resolveTimeGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
   const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
@@ -1405,7 +1402,6 @@ export function renderGridGroupedEvents(
         ...(fixedHeight
           ? { height: '100%', '--calendar-card-grid-allday-height': 'minmax(0, auto)' }
           : {}),
-        '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
         // The band's padding is sized from the two rules it has to clear, one per edge, so
         // the banners keep the same clear space under the upper rule as above the lower one

@@ -275,17 +275,17 @@ describe('the stylesheet', () => {
   const ACCENT_SIDE = 'var(--calendar-card-event-accent-side-radius, 0px)';
   const END_SIDE = 'var(--calendar-card-event-border-radius)';
 
-  it('rounds every gapped event as a block, its stripe side only while tinted', () => {
+  it('rounds every gapped event as a block, its accent bar side only while tinted', () => {
     const body = ruleBody('.with-event-gap .event');
 
     expect(body).toContain(`border-start-end-radius: ${END_SIDE}`);
     expect(body).toContain(`border-end-end-radius: ${END_SIDE}`);
-    // Untinted, the property is unwritten and the stripe stays a straight line.
+    // Untinted, the property is unwritten and the side the bar sits flush on stays square.
     expect(body).toContain(`border-start-start-radius: ${ACCENT_SIDE}`);
     expect(body).toContain(`border-end-start-radius: ${ACCENT_SIDE}`);
   });
 
-  it('rounds the joined block on its outer corners, its stripe side only while tinted', () => {
+  it('rounds the joined block on its outer corners, its accent bar side only while tinted', () => {
     // The first event rounds the top of the block and the last its bottom, so a tinted day
     // without a gap is one rounded block, like a gapped event and a grid block.
     for (const [selector, edge] of [

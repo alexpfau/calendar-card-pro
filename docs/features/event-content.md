@@ -679,8 +679,8 @@ French, so it needs no translation. A browser that carries no such word for a la
 
 The green is `now_color`, emerald by default, mixed toward your theme's text color so it
 stays readable as text: a darker green on a light theme, a lighter one on a dark theme. The
-grid's now line is drawn in the same color, so both views mark the present alike; give the
-line a color of its own with `now_line_color` in the `time_grid` block. The card
+grid's now line is drawn in the same color, so both views mark the present alike; set
+`now_color` in the `time_grid` block to give grid view a color of its own. The card
 updates the mark at the moment an event starts or ends, so it appears and disappears on time
 without waiting for Home Assistant to send anything. With `show_past_events` off, a finished event leaves the card on time for the same reason.
 

@@ -95,8 +95,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_progress_bar: false,
   show_now_indicator: true,
   // The card's color for "now": a running event's time in list and column view, and the
-  // grid's now line, which follows it unless time_grid.now_line_color is set. Emerald, to sit
-  // with the card's own colors rather than with the theme's error red.
+  // grid's now line, so the two always agree; a view block's own now_color sets it for that
+  // view alone. Emerald, to sit with the card's own colors rather than with the theme's error
+  // red. It is a quiet line on a white card, about 1.9:1, and a bright one on a dark card;
+  // `var(--error-color)` brings the red back for anyone who wants the line to stand out.
   now_color: '#34d399',
   progress_bar_color: 'var(--secondary-text-color)',
   // Three quarters of the time text: every bar carries the time font size, so `em` follows
@@ -453,9 +455,8 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * Values that carry no bare number, and genuinely numeric options, pass through untouched
  * — except a missing one. A blank YAML value parses as `null`, which means "no value
  * supplied" rather than a value to preserve, so a length-valued option falls back to what
- * it ships with. The options in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
- * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} are stricter still: any value that is not a size
- * they can be drawn at falls back the same way.
+ * it ships with. The options in {@link FOLDED_OPTIONS} are stricter still: any value that is
+ * not a size they can be drawn at falls back the same way.
  *
  * @param key - Option the value was written against: its name, or its dotted path inside a
  *   nested group, such as `weather.date.icon_size`
@@ -500,8 +501,7 @@ function valueAtPath(source: unknown, path: string): unknown {
  * @param key - Option path, where one applies: the name at the top level, or the dotted path
  *   of a nested option. Only consulted for the options in
  *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself, and
- *   in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} and {@link
- *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}, which fold what they cannot use.
+ *   in {@link FOLDED_OPTIONS}, which fold what they cannot use.
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
@@ -616,10 +616,49 @@ export const FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new S
   'weather.event.font_size',
 ]);
 
-/** Every option that folds an unusable value: the icon sizes, then the font sizes. */
+/**
+ * The accent bar's width, folded to its shipped default when it is not a width the bar can
+ * be drawn at.
+ *
+ * Until the bar became an element of its own, an unusable width cost only the bar: it was a
+ * border, the browser dropped the declaration, and the stripe disappeared while the text
+ * kept its place. The width now also decides where an event's text starts, inside a
+ * `calc()` in list, column and grid view alike, and a browser discards the whole
+ * declaration when one of its terms is unusable. So `2 px`, a misspelled unit or a word took
+ * the text's start padding to 0 and ran the text under the bar. Measured in Chromium.
+ *
+ * Judged by {@link toValidBarWidth}: a size by {@link toValidSize}'s rule, which is already
+ * the rule for a border width, plus the keywords a border width takes.
+ *
+ * Entries are option paths, as in the icon-size table. Its own table rather than an entry in
+ * {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE}, which is reconciled against every
+ * `--mdc-icon-size` in the stylesheet, and the bar width feeds none.
+ */
+export const BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE: ReadonlySet<string> = new Set([
+  'vertical_line_width',
+]);
+
+/**
+ * The keywords a border width takes, at the widths CSS defines for them, and `none`.
+ *
+ * `thin`, `medium` and `thick` drew the old border at 1px, 3px and 5px, and still draw the
+ * bar so, but a keyword cannot be added to a length, so the text's start could not use one.
+ * They are rewritten as the widths they stand for. `none` is no border width at all, but the
+ * old border dropped it and so drew no stripe, which is what writing it means: it becomes
+ * `0px`, the documented way to hide the bar, rather than the default 2px.
+ */
+const BAR_WIDTH_KEYWORDS: Readonly<Record<string, string>> = {
+  thin: '1px',
+  medium: '3px',
+  thick: '5px',
+  none: '0px',
+};
+
+/** Every option that folds an unusable value: the icon sizes, the font sizes, the bar width. */
 export const FOLDED_OPTIONS: ReadonlyArray<string> = [
   ...LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
   ...FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE,
+  ...BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE,
 ];
 
 /**
@@ -627,11 +666,16 @@ export const FOLDED_OPTIONS: ReadonlyArray<string> = [
  * never folds.
  *
  * @param key - Option path
- * @returns {@link toValidSize}, {@link toValidFontSize}, or `undefined`
+ * @returns {@link toValidSize}, {@link toValidFontSize}, {@link toValidBarWidth}, or
+ *   `undefined`
  */
 function foldValidator(key: string): ((value: unknown) => string | undefined) | undefined {
   if (LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
     return toValidSize;
+  }
+
+  if (BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)) {
+    return toValidBarWidth;
   }
 
   return FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key) ? toValidFontSize : undefined;
@@ -788,6 +832,23 @@ export function toValidFontSize(value: unknown): string | undefined {
 }
 
 /**
+ * The accent bar's width, tidied, or `undefined` when the value cannot be one.
+ *
+ * A border width keyword becomes the width it stands for (see {@link BAR_WIDTH_KEYWORDS});
+ * anything else is judged as {@link toValidSize} judges an icon size, whose rule is the
+ * border-width rule already: a non-negative length, no percentage.
+ *
+ * @param value - Raw configured value
+ * @returns The width to use, or `undefined` when the value cannot be one
+ */
+export function toValidBarWidth(value: unknown): string | undefined {
+  const keyword =
+    typeof value === 'string' ? BAR_WIDTH_KEYWORDS[value.trim().toLowerCase()] : undefined;
+
+  return keyword ?? toValidSize(value);
+}
+
+/**
  * Removes what a CSS declaration adds around a value — trailing semicolons and an
  * `!important` flag — judges the value that remains, and puts the flag back.
  *
@@ -862,8 +923,7 @@ function fontSizeOf(written: unknown): string | undefined {
 /**
  * Whether a value written for an option would be folded to its shipped default.
  *
- * Only an option in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
- * FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE} folds, and only a value that is present and not
+ * Only an option in {@link FOLDED_OPTIONS} folds, and only a value that is present and not
  * blank: a missing or blank one means "not set", which takes the default without being a
  * mistake.
  *
@@ -891,8 +951,7 @@ export function foldsToDefault(key: string, value: unknown): boolean {
  * view-override validation rather than from {@link coercePixelLengthAgainst}, which the
  * editor runs on every keystroke.
  *
- * @param key - Option path in {@link LENGTH_OPTIONS_FOLDED_WHEN_UNUSABLE} or {@link
- *   FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE}
+ * @param key - Option path in {@link FOLDED_OPTIONS}
  * @param value - Raw value, before normalization
  * @param path - Where the value was written, as the diagnostic names it — the option path
  *   itself, or `column.time_icon_size` for a view override
@@ -904,7 +963,9 @@ export function validateFoldedLength(key: string, value: unknown, path: string =
 
   const expected = FONT_SIZE_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
     ? 'a CSS font size such as "14px", "1.2em", "120%" or "large"'
-    : 'a non-negative CSS length such as "6px" or "0.5em"';
+    : BAR_WIDTH_OPTIONS_FOLDED_WHEN_UNUSABLE.has(key)
+      ? 'a non-negative CSS length such as "2px" or "0.2em", or "thin", "medium" or "thick"'
+      : 'a non-negative CSS length such as "6px" or "0.5em"';
   // `title_font_size` ships unset, so folding it means leaving the title at the size it
   // would have had without the option.
   const fallback = valueAtPath(DEFAULT_CONFIG, key);

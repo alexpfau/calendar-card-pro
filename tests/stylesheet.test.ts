@@ -335,6 +335,106 @@ describe('card stylesheet', () => {
       );
     });
 
+    it("sets a running row's label and time on the baseline, so it centers on its clock", () => {
+      // `.time span` aligns every span in the row to the middle. On an ordinary row that is
+      // inert, because the time's span is the flex item itself; inside .now-time the label
+      // and the time are inline content, so middle lifted them off the baseline, grew the
+      // line box and sat the run below the clock icon. Measured on a harness card in
+      // Chromium and WebKit: with this rule the run centers on the icon exactly as an
+      // ordinary row's time does, and without it it does not.
+      expect(declared('.time span', 'vertical-align')).toBe('middle');
+      expect(declared('.time .now-time > span', 'vertical-align')).toBe('baseline');
+    });
+
+    it('centers the text block on the accent bar by its ink, in list and column view', () => {
+      // The box was centered and the ink was not: the title's padding, half-leading and the
+      // room above its capitals outweighed the last row's descent, so the text read low. When
+      // detail rows follow, part of the title's top padding moves to a box at the end of the
+      // content, sized in the title's font, so the event keeps its height. Measured in
+      // Chromium and WebKit: the ink's center now sits within about a quarter pixel of the
+      // bar's at the default sizes, where it was 1.7px and 2.1px low.
+      const contents = [
+        'td.event > .event-content:has(> .time-location > *)',
+        '.column-events > .event > .event-content:has(> .time-location > *)',
+      ];
+      for (const content of contents) {
+        expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
+        expect(declared(`${content} > .summary-row > .summary`, 'padding-top'), content).toBe(
+          'calc(0.2em - var(--calendar-card-event-ink-shift))',
+        );
+        expect(declared(`${content}::after`, 'content'), content).toBe("''");
+        expect(declared(`${content}::after`, 'flex'), content).toBe('none');
+        expect(declared(`${content}::after`, 'height'), content).toBe(
+          'var(--calendar-card-event-ink-shift)',
+        );
+        // The same em as the padding it replaces: the title's own font size.
+        expect(declared(`${content}::after`, 'font-size'), content).toBe(
+          'var(--calendar-card-font-size-event)',
+        );
+      }
+      expect(declared('.summary', 'padding-block')).toBe('0.2em');
+
+      // Grid view keeps its own summary padding and gets no spacer: its text sits at the top
+      // of a block as tall as the event. Pinned as the whole set of selectors that take part.
+      const shiftRules = RULES.filter((r) =>
+        r.selectors.some((s) => s.includes('.event-content:has(> .time-location > *)')),
+      );
+      expect(shiftRules.flatMap((r) => r.selectors).sort()).toEqual(
+        contents.flatMap((c) => [c, `${c} > .summary-row > .summary`, `${c}::after`]).sort(),
+      );
+    });
+
+    it('sets the first row under a title directly under it, in every view', () => {
+      // The rows keep 2px between each other; the first one has no margin of its own.
+      expect(declared('.time', 'margin-top')).toBe('2px');
+      expect(declared('.location', 'margin-top')).toBe('2px');
+      expect(declared('.description', 'margin-top')).toBe('2px');
+      const firstRow = [
+        '.column-events > .event .time-location > :first-child',
+        '.grid-event .time-location > :first-child',
+        'td.event .time-location > :first-child',
+      ];
+      for (const selector of firstRow) expect(declared(selector, 'margin-top'), selector).toBe('0');
+      const firstRowRules = RULES.filter((r) =>
+        r.selectors.some((s) => s.endsWith('.time-location > :first-child')),
+      );
+      expect(firstRowRules.flatMap((r) => r.selectors).sort()).toEqual(firstRow);
+
+      // Grid renders its progress row first and hides it below the 48px rung, so there the
+      // row after it is the first one drawn and takes the first row's spacing; it gets its
+      // 2px back once the bar shows above it.
+      const afterBar = '.grid-event-disclosure .time-location > .progress-bar-row:first-child + *';
+      expect(declared(afterBar, 'margin-top')).toBe('0');
+      const rung =
+        CSS.match(
+          /@container calendar-card-grid-event \(min-height: 48px\) \{([\s\S]*?)\n {2}\}/,
+        )?.[1] ?? '';
+      expect(rung).toContain('.progress-bar-row {');
+      expect(rung.replace(/\s+/g, ' ')).toContain(`${afterBar} { margin-top: 2px; }`);
+    });
+
+    it('centers a picture or icon label on a grid title split into words', () => {
+      // Top-aligned words sat above the middle-aligned label, which hung low. Where such a
+      // label shares the line, the words are aligned middle as well, from the title's own
+      // baseline, as list and column view align the label and the title text.
+      const flat = CSS.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+      const scope =
+        ".grid-event:not([data-grid-title-fit='measuring'], [data-grid-title-fit='compact'], " +
+        "[data-grid-title-fit='blank']) .grid-event-disclosure " +
+        '.summary:not(.summary-scroll):has(> .label-icon, > .label-image)';
+      expect(flat).toContain(
+        `${scope}:has(> .event-title .title-word) > .event-title { vertical-align: baseline; }`,
+      );
+      expect(flat).toContain(`${scope} .title-word { vertical-align: middle; }`);
+
+      // Everywhere else the words stay top-aligned, and the fit modes that make them inline
+      // again, which the scope above leaves out, put them back on the baseline.
+      expect(declared('.grid-event-disclosure .title-word', 'vertical-align')).toBe('top');
+      expect(flat).toMatch(
+        /\[data-grid-title-fit='blank'\]\) \.title-word \{ display: inline; max-width: none; overflow: visible; vertical-align: baseline; \}/,
+      );
+    });
+
     it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
       // .time-actual is a flex item, so it defaults to min-width: auto -- its min-content
       // width. A nowrap pill has no soft break, so its min-content width is the whole label,
@@ -747,18 +847,25 @@ describe('card stylesheet', () => {
       ).toBe('');
 
       // Stated over the whole stylesheet rather than over this one rule, because the
-      // defect was a zero-width space in the wrong *place*, not a missing one. Exactly two
-      // rules may carry one — this separator and the folded countdown's — and in both it
-      // must be the last character, behind the glyph. A third rule, or either of these two
+      // defect was a zero-width space in the wrong *place*, not a missing one. Exactly three
+      // rules may carry one. In this separator and the folded countdown's it must be the last
+      // character, behind the glyph. After a text label it is the whole content, so the
+      // break it offers comes after the label and never in front of the title that follows;
+      // label-title-gap.test.ts says why it is there at all. A fourth rule, or any of these
       // growing a leading one, fails here.
       const zwsp = RULES.filter((rule) => rule.body.includes('\\200B'));
 
       expect(zwsp.flatMap((rule) => rule.selectors).sort()).toEqual([
+        '.calendar-label::after',
         '.time .time-actual .time-text > .time-countdown::before',
         '.time-location .event-weather .event-weather-text > span + span::before',
       ]);
       for (const rule of zwsp) {
-        expect(rule.body).toMatch(/content:\s*'\\2060·\\200B'/);
+        expect(rule.body).toMatch(
+          rule.selectors[0] === '.calendar-label::after'
+            ? /^\s*content:\s*'\\200B';\s*$/
+            : /content:\s*'\\2060·\\200B'/,
+        );
       }
     });
 
@@ -883,9 +990,13 @@ describe('card stylesheet', () => {
       // view-qualified rule may set `display` and nothing else — that is the line drawn
       // here, and it is the one that actually protects the placement: a scoped rule which
       // only reveals or hides cannot leak styling into another view.
-      const rules = RULES.filter((rule) =>
-        rule.selectors.some((selector) => selector.includes('progress-bar-row')),
-      );
+      //
+      // Only rules whose subject is the row are its styling. Grid's rule for the row after a
+      // hidden bar names the bar but styles its sibling, and is pinned with the first-row
+      // spacing instead.
+      const subjectIsRow = (selector: string) =>
+        /progress-bar-row(?::[\w-]+(?:\([^)]*\))?)*$/.test(selector);
+      const rules = RULES.filter((rule) => rule.selectors.some(subjectIsRow));
       const isUnqualified = (rule: { selectors: string[] }) =>
         rule.selectors.every((selector) => selector === '.progress-bar-row');
 
@@ -2026,15 +2137,25 @@ describe('card stylesheet', () => {
       ).toEqual([]);
     });
 
-    it('reserves the accent edge for timed blocks, not for all-day banners', () => {
-      // The transparent placeholder edge is what the renderer colors in. A banner has
-      // none at all now: its whole fill is the calendar's color, so an edge added
-      // nothing, and at a pill end it curved into a crescent. Asserted as a pair so the
-      // rule cannot pass by the accent disappearing from the grid altogether.
-      expect(declared('.grid-event', 'border-inline-start')).toBe(
-        'var(--calendar-card-line-width-vertical) solid transparent',
+    it('makes room for the accent bar in timed blocks, not in all-day banners', () => {
+      // The bar is an element of its own now, so a block reserves its room with padding
+      // rather than with a transparent border the renderer colored in: 3px inset, the bar,
+      // 3px clear of it. A banner has no bar: its whole fill is the calendar's color, so a
+      // bar added nothing, and as a border at a pill end it curved into a crescent. Asserted
+      // as a pair so the rule cannot pass by the room disappearing from the grid altogether.
+      expect(declared('.grid-event', '--calendar-card-grid-text-start')).toBe(
+        'calc(6px + var(--calendar-card-line-width-vertical))',
       );
+      expect(declared('.grid-event', 'padding-inline-start')).toBe(
+        'var(--calendar-card-grid-text-start)',
+      );
+      expect(declared('.grid-event', 'border-inline-start')).toBe('');
       expect(declared('.grid-banner', 'border-inline-start')).toBe('');
+      // A banner carries .event too, so it is kept out of the bar's room only by its own
+      // padding shorthand, which comes later at the same specificity and resets the start
+      // side. Pinned by value, so deleting it fails here; the source order is pinned by
+      // "is overridden by rules that come later" in view-scope-inert.test.ts.
+      expect(declared('.grid-banner', 'padding')).toBe('1px 6px');
     });
 
     it('rounds a banner end only where the event genuinely starts or ends', () => {
@@ -2165,7 +2286,16 @@ describe('card stylesheet', () => {
             '.grid-event-disclosure:where(.grid-time-fits) .summary',
           ],
         },
-        { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
+        // The bar's rung also hands the row after it its 2px back: below it the bar is
+        // hidden, and that row is the first one drawn, set directly under the title.
+        {
+          minHeight: 48,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure .progress-bar-row',
+            '.grid-event-disclosure .time-location > .progress-bar-row:first-child + *',
+          ],
+        },
         {
           minHeight: 72,
           minWidth: null,

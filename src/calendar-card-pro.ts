@@ -1742,6 +1742,16 @@ class CalendarCardPro extends LitElement {
 
       const wrappedTimes = this._applyGridTimeFit(pending);
 
+      // The title settles before anything measures the block's overflow: its first word moves
+      // up beside the labels, then it stops at the last whole line the block shows. After the
+      // time fit, because the class that reveals the time row also tightens an authored title
+      // clamp. Before the wrap and detail decisions, because they ask whether the content
+      // overflows, and a title line running past the block's edge answered yes for all of
+      // them: a time wrap was demoted, and the rows were withdrawn and then restored, unseen,
+      // beneath a title nobody could read whole.
+      GridTitleFit.leadGridTitles(titles);
+      GridTitleFit.cutGridTitleLines(titles);
+
       // A wrap is decided on width but paid for in height, so settle that here, before
       // anything else competes for the same pixels. Withdrawing it lands on exactly the
       // class set the rung below produces, which is what makes the loop underneath see an

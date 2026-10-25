@@ -1163,12 +1163,14 @@ describe('column view DOM', () => {
       }
     });
 
-    it('carries the accent color on the event wrapper', () => {
+    it('carries the accent color on the event wrapper, and draws its bar first', () => {
       const container = renderColumnContainer(SINGLE_EVENT, buildConfig());
-      const style = requireElement(container, '.event').getAttribute('style') ?? '';
+      const event = requireElement(container, '.event');
+      const style = event.getAttribute('style') ?? '';
 
-      expect(style).toContain('border-inline-start');
-      expect(style).toContain('--calendar-card-line-width-vertical');
+      expect(style).toContain('--calendar-card-event-accent-bar-color: var(--primary-color');
+      expect(style).not.toContain('border-inline-start');
+      expect(event.firstElementChild?.className).toBe('event-accent-bar');
     });
   });
 

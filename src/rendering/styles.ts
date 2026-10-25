@@ -167,11 +167,15 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     props['--calendar-card-event-gap'] = config.event_gap;
   }
 
-  // Only while events are tinted: the stripe's side of a block is rounded then, and square
-  // otherwise. See .event-first in the stylesheet. Unwritten, the rules fall back to 0, so an
-  // untinted card keeps exactly the inline style it carried before blocks were rounded there.
+  // Only while events are tinted. The box rounds the accent bar's side then, and keeps it
+  // square otherwise, where the bar sits flush on that edge; and each event's bar moves
+  // inside the tint, 4px from the edge and from its ends, where untinted the bars of touching
+  // events fall back to joining into one line. See .event-accent-bar and .event-first in the
+  // stylesheet. Unwritten, every rule falls back to its untinted value, so an untinted card
+  // keeps exactly the inline style it carried before either existed.
   if (config.event_background_opacity > 0) {
     props['--calendar-card-event-accent-side-radius'] = 'var(--calendar-card-event-border-radius)';
+    props['--calendar-card-event-accent-bar-inset'] = '4px';
   }
 
   // Weather event color has no default. If absent, both placements use their
@@ -1014,9 +1018,22 @@ export const cardStyles = css`
 
   /* ===== EVENT STYLES ===== */
 
+  /* The start side's padding makes room for the accent bar and then keeps the text 12px clear
+     of where the bar's room ends, which is where the text sat when the bar was a border. The
+     bar itself is absolutely positioned (.event-accent-bar), so the room is reserved here. */
   .event {
-    padding: var(--calendar-card-event-spacing) 0 var(--calendar-card-event-spacing) 12px;
+    padding: var(--calendar-card-event-spacing) 0;
+    padding-inline-start: calc(12px + var(--calendar-card-line-width-vertical));
     border-radius: 0;
+  }
+
+  /* The containing block for the accent bar. Scoped to the list cell and the column event
+     rather than set on .event: that class also reaches the grid's all-day banners and its +N
+     block, and positioning them would change the order they paint in. A grid block is
+     absolutely positioned already. */
+  td.event,
+  .column-events > .event {
+    position: relative;
   }
 
   /* ===== The ink an accent-colored event writes its text in =====
@@ -1130,6 +1147,18 @@ export const cardStyles = css`
     display: inline;
   }
 
+  /* On the text's baseline, not in the middle. The same .time span rule sets
+     vertical-align: middle, which is inert on an ordinary row, where the time's span is the
+     flex item itself. Here the label and the time are inline content of .now-time, so middle
+     took effect: it raised their boxes off the baseline and the line box grew to hold them,
+     which sat the whole run lower than the clock icon it is centered on, by about 0.6px in
+     Chromium and 0.9px in WebKit at the default 12px time, and more at larger sizes. On the
+     baseline the row is exactly as tall as any other, and the text sits where an ordinary
+     row's does, in both engines. */
+  .time .now-time > span {
+    vertical-align: baseline;
+  }
+
   /* "Now ·" stays together: it wraps to the next line as a whole, as an atomic inline. Only
      a column narrower than the label itself breaks the word, as a title breaks at that width,
      rather than clipping it to its first letter. The separator is drawn rather than written
@@ -1165,20 +1194,19 @@ export const cardStyles = css`
     background: currentColor;
   }
 
-  /* A tinted block is a rounded rectangle whose accent stripe follows the curve, in every
-     view: a grid block (.grid-event), a gapped event (below) and the joined block a day's
-     events form without a gap. So the first event of a day rounds both of its top corners
-     and the last both of its bottom corners, and a lone event, being both, rounds all four.
-     The corners between two events of a joined block stay square, because the stripe and
-     the tint run on from one event into the next.
+  /* A tinted block is a rounded rectangle, in every view: a grid block (.grid-event), a gapped
+     event (below) and the joined block a day's events form without a gap. So the first event
+     of a day rounds both of its top corners and the last both of its bottom corners, and a
+     lone event, being both, rounds all four. The corners between two events of a joined block
+     stay square, because the tint runs on from one event into the next.
 
-     Without a tint the stripe is all there is to see, and bent into a corner it reads as a
-     bracket rather than a line, worst under a rounded theme, where the radius is half the
-     card's. So the stripe's side takes its radius from --calendar-card-event-accent-side-radius,
-     which the card writes only while event_background_opacity is above 0; otherwise it falls
-     back to 0 and the stripe stays a straight line with square ends, as it was through v4.
-     The other side keeps its radius either way. Untinted it is invisible but for the shape
-     of the hover wash and the focus ring. */
+     Without a tint the accent bar sits flush on the block's start edge (.event-accent-bar,
+     below), and that side stays square, so the hover wash and the focus ring, which are all
+     that show of the box then, run straight along the bar instead of curving away from its
+     ends, which under a rounded theme they would do by several pixels. So the bar's side
+     takes its radius from --calendar-card-event-accent-side-radius, which the card writes
+     only while event_background_opacity is above 0, and falls back to 0 otherwise. The other
+     side keeps its radius either way. */
   .event-first {
     border-start-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
     border-start-end-radius: var(--calendar-card-event-border-radius);
@@ -1190,16 +1218,103 @@ export const cardStyles = css`
   }
 
   /* With event_gap set, a day's events stop being one block: each event is a block of its
-     own and rounds all four corners, the stripe's side under the same tint condition as
-     above. event-first and event-last go on meaning the first and last event of the day,
-     which is what theming.md documents, so the separated look hangs on the container's
-     class rather than on them. The list view's tap target and focus ring inherit these
-     radii from the cell. */
+     own and rounds all four corners, the bar's side under the same tint condition as above.
+     event-first and event-last go on meaning the first and last event of the day, which is
+     what theming.md documents, so the separated look hangs on the container's class rather
+     than on them. The list view's tap target and focus ring inherit these radii from the
+     cell. */
   .with-event-gap .event {
     border-start-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
     border-start-end-radius: var(--calendar-card-event-border-radius);
     border-end-end-radius: var(--calendar-card-event-border-radius);
     border-end-start-radius: var(--calendar-card-event-accent-side-radius, 0px);
+  }
+
+  /* ===== The accent bar =====
+   *
+   * Its own element in every view, the way macOS Calendar draws an event: a bar with fully
+   * rounded ends that names the calendar. It used to be a border on the event, which can have
+   * neither rounded ends nor sit inside the event's tint.
+   *
+   * Whether a day's bars join into one line or each event has its own is decided by the two
+   * options that already decide whether a day's events read as one thing:
+   *
+   * - No tint and no event_gap: the bars of touching events join. Untinted, the bar is all
+   *   there is of the day's block, so it stays one line, as the border always was, and a
+   *   single calendar's busy day does not break into short dashes. Several calendars change
+   *   color where their events meet. Only the day's two ends are round, each 2px short of
+   *   the block's top and bottom.
+   * - A tint: the bar sits inside the box, 4px from its start edge, and each event has its
+   *   own, 4px short of its top and bottom. Here the tint draws the block, and the bar names
+   *   the event.
+   * - Any event_gap: each event is a block of its own, and so has a bar of its own, 2px short
+   *   at each end untinted. Even 1px separates them, which is the way to have separate bars
+   *   without a tint.
+   *
+   * The insets come from one property the card writes only while events are tinted,
+   * --calendar-card-event-accent-bar-inset, read with the untinted values as fallbacks, so an
+   * untinted card keeps its inline style. An end where two events touch is round exactly when
+   * it is inset, which is when the card is tinted: the radius there is that inset scaled up,
+   * which makes 4px fully round and leaves 0 square, so the joined line has no notches.
+   *
+   * Joined, each bar also reaches 1px past its event's bottom into the next one. Two bars that
+   * only meet leave a lighter row at the join wherever the boundary falls inside a device
+   * pixel, as it does at a 1.5 device pixel ratio, because each covers the row only partly
+   * and their edges blend with what is behind. Reaching past it covers that row solid, and
+   * the next bar, painted later, lies over the overlap. Only downward, so it stays under the
+   * next event's focus ring, which is painted after both.
+   *
+   * An end that sits in one of the block's rounded corners keeps clear of the curve: it is
+   * inset by the corner's radius less 4px when that is more, which only a rounded theme
+   * reaches. That is the top of a day's first event, the bottom of its last, and both ends of
+   * every event once event_gap separates them, which are exactly the corners the rules above
+   * round. Untinted the corner radius on the bar's side is 0, so the same expression gives
+   * the plain 2px.
+   *
+   * Painted as a border on an element of no width rather than as a background, so it still
+   * shows where backgrounds are dropped: in forced-colors mode, which draws it in the system
+   * text color as it drew the old border, and in a printout without background graphics.
+   * border-radius 999px is clamped to half the bar's width, which is what makes the ends
+   * round at any vertical_line_width, and a width of 0px draws nothing.
+   *
+   * No z-index: as ordinary positioned content it paints over the event's tint and hover wash,
+   * and a positive one would escape a grid block, which is no stacking context unless raised,
+   * and show through a raised block drawn over it. That also puts it over the event's own
+   * outline, so the keyboard focus ring is drawn on a pseudo-element after it instead (see
+   * .event-button::after in list view and .column-events > .event-interactive below).
+   * pointer-events none, because in list view the bar is a sibling of the button that makes
+   * the event a tap target, and would otherwise be a strip of the event that ignores a tap. */
+  .event-accent-bar {
+    --calendar-card-event-accent-bar-corner-inset: max(
+      var(--calendar-card-event-accent-bar-inset, 2px),
+      calc(var(--calendar-card-event-accent-side-radius, 0px) - 4px)
+    );
+    position: absolute;
+    inset-inline-start: var(--calendar-card-event-accent-bar-inset, 0px);
+    inset-block-start: var(--calendar-card-event-accent-bar-inset, 0px);
+    inset-block-end: var(--calendar-card-event-accent-bar-inset, -1px);
+    width: 0;
+    border-inline-start: var(--calendar-card-line-width-vertical) solid
+      var(--calendar-card-event-accent-bar-color);
+    border-radius: calc(var(--calendar-card-event-accent-bar-inset, 0px) * 999);
+    pointer-events: none;
+  }
+
+  .event-first > .event-accent-bar {
+    inset-block-start: var(--calendar-card-event-accent-bar-corner-inset);
+    border-start-start-radius: 999px;
+    border-start-end-radius: 999px;
+  }
+
+  .event-last > .event-accent-bar {
+    inset-block-end: var(--calendar-card-event-accent-bar-corner-inset);
+    border-end-start-radius: 999px;
+    border-end-end-radius: 999px;
+  }
+
+  .with-event-gap .event > .event-accent-bar {
+    inset-block: var(--calendar-card-event-accent-bar-corner-inset);
+    border-radius: 999px;
   }
 
   .past-event .event-content {
@@ -1218,6 +1333,43 @@ export const cardStyles = css`
   .event-content {
     display: flex;
     flex-direction: column;
+  }
+
+  /* The text block is centered on the accent bar by its ink: from the top of the title's
+     capitals to the baseline of its last row. The box alone is centered already, but the
+     space inside it is not even. Above the capitals sit the title's 0.2em of padding, its
+     half-leading and the font's room above cap height; below the last baseline sit only
+     that row's descent and half-leading, at a smaller size. So the text read about 1.7px
+     low in Chromium and 2.1px low in WebKit at the default sizes, before the bar was
+     shortened as well, where the full-height stripe hid it.
+
+     When detail rows follow the title, 0.13em of its top padding moves below the content:
+     a box of that height at the end of the column, sized in the title's font, the same em
+     the padding is measured in. The event keeps its height, the gap between the title and
+     its first row does not change, and the ink then sits within about a quarter pixel of
+     the bar's center in both engines at the default sizes, closer at any equal title and
+     row size. The excess above scales with the title and the room below with the row, so
+     unequal sizes keep a small remainder: about 1.2px with a 20px title over 12px rows,
+     where it was 3.6px. A title on its own is centered without this, so it is left alone.
+
+     List and column view only. A grid block's text sits at the top of a block as tall as
+     the event, which no padding can center. */
+  td.event > .event-content:has(> .time-location > *),
+  .column-events > .event > .event-content:has(> .time-location > *) {
+    --calendar-card-event-ink-shift: 0.13em;
+  }
+
+  td.event > .event-content:has(> .time-location > *) > .summary-row > .summary,
+  .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary {
+    padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
+  }
+
+  td.event > .event-content:has(> .time-location > *)::after,
+  .column-events > .event > .event-content:has(> .time-location > *)::after {
+    content: '';
+    flex: none;
+    height: var(--calendar-card-event-ink-shift);
+    font-size: var(--calendar-card-font-size-event);
   }
 
   .summary-row {
@@ -1499,6 +1651,19 @@ export const cardStyles = css`
     margin-right: 4px;
   }
 
+  /* A place to break after a text or emoji label. The title follows a label with nothing
+     between them, so the 4px margin is the whole gap, and without this the last letter of
+     the label and the first of the title had no break between them: "Anna" and "Birthday"
+     were one word to the line breaker, and overflow-wrap split the title instead,
+     "Anna Birthda / y party". A zero-width space is a break opportunity that draws nothing.
+     As generated content it is no node in the DOM, so the gap and every measurement of the
+     label stay as they are; where white-space forbids breaking, as in a scrolling title or
+     the compact grid line, it does nothing. Pictures and icons need none, being boxes the
+     line can already break around. */
+  .calendar-label::after {
+    content: '\\200B';
+  }
+
   /* The glyph labels are sized in em for the reason the hanging indent above is: they
      inherit the event font size from .summary, in whatever form it was written. Handed
      the option's value directly, a keyword or a space before the unit reached
@@ -1575,6 +1740,18 @@ export const cardStyles = css`
     line-height: 1.2;
     margin-top: 2px;
     margin-right: 12px;
+  }
+
+  /* The first row under the title, whichever it is, sits directly under it, with no margin of
+     its own: at the 2px the rows keep between each other, the time read as a hair too far
+     from the title. Grid view matches. Its rows are revealed by height and withdrawn by
+     measurement wherever a block's content overflows, so a smaller gap can only leave a row
+     more room. Grid's progress row is the exception to "first child": see the progress
+     row's rung. */
+  td.event .time-location > :first-child,
+  .column-events > .event .time-location > :first-child,
+  .grid-event .time-location > :first-child {
+    margin-top: 0;
   }
 
   /* break-word prevents unclamped time, location, and description flex items
@@ -2542,6 +2719,27 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* A column event's ring, drawn on a pseudo-element after the accent bar rather than as the
+     event's own outline. An element's outline paints under its positioned children, and an
+     untinted bar is a positioned child flush on the edge the ring runs along, so the bar
+     covered that side of the ring in the calendar's color. List view already draws its ring
+     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides and crosses
+     it only at an edge where the event is cut off, for the bar's own width, so grid keeps the
+     outline. The event is the pseudo-element's containing block (see td.event above). */
+  .column-events > .event-interactive:focus-visible {
+    outline: none;
+  }
+
+  .column-events > .event-interactive:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+    pointer-events: none;
+  }
+
   /* A tap on an event is the event's, so the card's ripple must not flash as though the card
    * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
    * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than
@@ -2563,7 +2761,8 @@ export const cardStyles = css`
    * content (a day's date column spans every row and can outgrow a short event, which is
    * then centered in a stretched cell), and every part of the colored block has to answer
    * to a tap, wash on hover and show the focus ring. So the button's two pseudo-elements
-   * span the whole cell instead, accent stripe included: the cell is their containing block.
+   * span the whole cell instead, accent bar included: the cell is their containing block.
+   * The bar itself ignores the pointer (.event-accent-bar), so a tap on it lands here too.
    *
    * ::before is the hit area and the hover wash. It sits at z-index -1, which the cell's
    * own stacking context keeps above the cell's background and below its text, as the
@@ -2588,7 +2787,6 @@ export const cardStyles = css`
     content: '';
     position: absolute;
     inset: 0;
-    inset-inline-start: calc(-1 * var(--calendar-card-line-width-vertical));
   }
 
   .event-button::before {
@@ -2699,7 +2897,7 @@ export const cardStyles = css`
   }
 
   /* Columns are flex stacks; the grid keeps them top-aligned so quiet days do
-   * not stretch their accent borders through empty space. */
+   * not stretch their accent bars through empty space. */
   .day-column {
     display: flex;
     flex-direction: column;
@@ -3191,12 +3389,12 @@ export const cardStyles = css`
        anyone looks for a glyph. Clamped to half the height by the browser, so the value
        only has to be larger than any banner can be tall.
 
-       🚨 No leading accent edge, unlike every other event surface in the card. A banner
-       already carries its calendar's color as its whole fill, so a bar on top of that
-       said nothing a reader could not see — and against a rounded cap it curved into a
-       crescent, which read as a second shape stuck to the pill rather than as an edge.
-       macOS Calendar draws none either. The timed blocks keep theirs: they are tinted at
-       20% and need an edge to name the calendar. */
+       🚨 No accent bar, unlike every other event surface in the card. A banner already
+       carries its calendar's color as its whole fill, so a bar on top of that said nothing
+       a reader could not see — and when it was a border, against a rounded cap it curved
+       into a crescent, which read as a second shape stuck to the pill rather than as an
+       edge. macOS Calendar draws none either. The timed blocks keep theirs: they are tinted
+       at 20% and need a bar to name the calendar. */
     border-radius: 999px;
   }
 
@@ -3298,8 +3496,13 @@ export const cardStyles = css`
     min-height: var(--calendar-card-grid-block-min-height);
     max-height: 100%;
     padding: 2px 4px;
+    /* Where the text starts: the accent bar's 3px inset, the bar, then 3px clear of it, so
+       the bar sits centered in its gutter. One expression, because three things have to
+       agree on it: this padding, the compact disclosure's start and the continuation marks'
+       start. The bar itself is absolutely positioned (.grid-event > .event-accent-bar). */
+    --calendar-card-grid-text-start: calc(6px + var(--calendar-card-line-width-vertical));
+    padding-inline-start: var(--calendar-card-grid-text-start);
     border-radius: 4px;
-    border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
     /* No font-size: .summary inside carries event_font_size, as in list and column view.
        The block carried it too, so a relative size compounded three times on the way to
        the title (1.5em drew it at 3.375x), and the time, location, description, weather,
@@ -3390,9 +3593,20 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
+  /* No hanging indent in a grid block: a wrapped line starts at the block's text edge, as
+     an unlabeled title's does. List and column view hang wrapped lines under the first
+     glyph, which reads as a column of text beside the label. A grid lane is a few words
+     wide, so there the indent spends a label's width on every line and leaves the block's
+     left edge ragged under the picture.
+
+     Here rather than on the label rules, so it covers every label shape, a merged run of
+     several included, without naming them: the hanging indent rules are each one class and
+     one :has() argument, the same weight as this, and come earlier. */
   .grid-event-disclosure .summary {
     min-height: 0;
     padding-block: 0;
+    padding-inline-start: 0;
+    text-indent: 0;
   }
 
   .grid-event-disclosure .summary,
@@ -3444,6 +3658,136 @@ export const cardStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: top;
+  }
+
+  /* A picture or icon label is centered on the title's text, as in list and column view,
+     where the label and the title are both aligned middle. Top-aligned words sit higher
+     than middle puts the label, so the label hung low: in WebKit its center sat 0.94px
+     below the text's at the default 12px, and further at larger sizes. So where such a
+     label shares the line, the words are aligned middle too, from the same baseline: the
+     title goes back to the baseline, or middle would be measured from one the title's own
+     middle had already moved. Middle places a box by its midpoint, so it is free of the
+     bottom-edge baseline that rules out baseline above.
+
+     Only for titles split into words and only while the words are inline-blocks; the fit
+     modes that make them inline again leave the title as text, aligned middle like the
+     label. Measured in WebKit, the label's center now sits 0.02px from the text's.
+     Chromium places the words the same way under either rule, and draws text on whole
+     pixels, which leaves it a fraction of a pixel off, by as much as in list view. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .label-icon, > .label-image):has(> .event-title .title-word)
+    > .event-title {
+    vertical-align: baseline;
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .label-icon, > .label-image)
+    .title-word {
+    vertical-align: middle;
+  }
+
+  /* The first word of a labeled title fits the rest of the label's line, and is cut with its
+     own ellipsis when it is wider: "Birth… / lunch" beside a picture. Without this a word
+     too wide for what the labels leave wraps below them, and the label sits alone on the
+     first line. The host measures the label run, whatever shapes it holds, and publishes it
+     only where the word's first character and an ellipsis fit beside it; see leadGridTitles
+     in grid-title-fit.ts. Unset, this is the max-width every word has. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word:first-child {
+    max-width: calc(100% - var(--calendar-card-grid-title-label-run, 0px));
+  }
+
+  /* A title running past its block stops at the last line that fits whole, and that line
+     ends in an ellipsis. For a title split into words the host marks the word to end on:
+     it draws the ellipsis inside its own clip, narrowed to the room left on its line, and
+     everything after it is taken out: words, and the runs of Han, kana or Thai text that
+     sit among them, each in an element of its own so that it can be. So the cut is on a
+     word boundary, or inside the one word when even that is too wide, and there is exactly
+     one ellipsis either way: a word the clip shortens draws its own in place of this one.
+
+     A line clamp is the obvious tool and does the wrong thing here, in Chromium and WebKit
+     alike. It cannot shorten a word box, so to make room for its ellipsis it hides the last
+     one, which left a picture label beside a bare ellipsis, or it draws the ellipsis past
+     the edge where the block clips it in half. It is kept for the case it handles well, a
+     line ending in text the browser breaks itself, which it shortens character by character,
+     and only where that text leaves it room for its ellipsis without touching the word box
+     before it. See cutGridTitleLines in grid-title-fit.ts.
+
+     After the first-word rule and as specific, so a cut on the first word wins. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut] {
+    max-width: var(--calendar-card-grid-title-cut-room);
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut]::after {
+    content: '\\2026';
+  }
+
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .title-words
+    > .title-word[data-grid-title-cut]
+    ~ * {
+    display: none;
+  }
+
+  /* The clamp half of the cut, for a title ending in text rather than in a word. Outranks
+     every rung, container queries included, and only ever matches or tightens one: the host
+     counts the lines inside whatever clamp the rung already set.
+
+     The padding goes too. An unlabeled title is its own clamping box, and its 2px of bottom
+     padding sits inside the clip, so the top of the first hidden line showed through it as a
+     sliver under the title. A labeled title clamps on the summary, which has none here. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary[data-grid-title-lines],
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary[data-grid-title-lines]
+    > .event-title {
+    -webkit-line-clamp: var(--calendar-card-grid-title-fit-lines);
+    padding-bottom: 0;
   }
 
   /* Clamp the whole title line. */
@@ -3564,11 +3908,13 @@ export const cardStyles = css`
     border-end-end-radius: 0;
   }
 
+  /* The marks start where the text starts, 3px clear of the accent bar, which runs on to the
+     clipped edge itself. */
   .grid-event.clipped-top::before,
   .grid-event.clipped-bottom::after {
     content: '';
     position: absolute;
-    inset-inline: 4px;
+    inset-inline: var(--calendar-card-grid-text-start) 4px;
     border-block-start: 1px dashed currentColor;
     opacity: 0.45;
     pointer-events: none;
@@ -3598,6 +3944,31 @@ export const cardStyles = css`
 
   .grid-event.clipped-bottom::after {
     bottom: 0;
+  }
+
+  /* A grid block is always a box, tinted or not: it has corners, a hover wash, and an
+     outline when raised. So its accent bar always sits inside it, 3px from the start edge and
+     from the top and bottom, round at both ends, whatever event_background_opacity says:
+     the tint switch the list and column bars read does not apply here, and grid blocks never
+     join. Where the event runs past the
+     visible hours the bar runs on to that edge with a square end, as the block's own corners
+     square off there: the event does not end, so neither does its bar. */
+  .grid-event > .event-accent-bar {
+    inset-inline-start: 3px;
+    inset-block: 3px;
+    border-radius: 999px;
+  }
+
+  .grid-event.clipped-top > .event-accent-bar {
+    inset-block-start: 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+  }
+
+  .grid-event.clipped-bottom > .event-accent-bar {
+    inset-block-end: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
   }
 
   .grid-event-disclosure .time,
@@ -3815,23 +4186,36 @@ export const cardStyles = css`
      it. It cannot share the time row's rung either: a block just tall enough for a title and
      a time has no room left for a bar beneath them.
 
-     48px is measured rather than reasoned. In a browser, at the shipped fonts, the title row
-     is 18.8px and the row carrying the time plus the bar is 27.4px, so the content needs
-     46.2px; this is that, rounded up. Note these rungs query the CONTENT box, because
+     48px is measured rather than reasoned. It was set when, in a browser at the shipped
+     fonts, the title row was 18.8px and the row carrying the time plus the bar 27.4px, so the
+     content needed 46.2px, rounded up. Note these rungs query the CONTENT box, because
      .grid-event sets container-type through the container shorthand with a size type, while
      the block's own 4px of vertical padding sits outside it — so a rung of 48 is reached by
      a block that measures 52px on screen. An earlier 52 here was picked from arithmetic and
      carried 6px of dead slack, which pushed the bar out of every one-hour event at any
      normal density.
 
-     It is still not reachable by a one-hour event at the default 48px hour height: that is
-     44px of content, so such a block draws its title and time and stops. The bar arrives
-     from about 52px of block, i.e. a longer event or a taller axis. That is a real limit of
-     the space rather than a threshold worth lowering — below 46.2px something would have to
-     be clipped, and clipping the time to show a progress bar is the worse trade. */
+     The rows have shrunk since. Measured in Chromium, the title row is now 15.0px, and the
+     bar and the time beneath it take 25.4px since the first row under a title lost its 2px,
+     so they need 40.4px and the rung opens with about 7.6px to spare. It has not moved with
+     them. So a one-hour event at the default 48px hour height, 44px of content, still draws
+     its title and time and stops, and the bar arrives from about 52px of block. Lowering
+     the rung would bring the bar to those events, which is a decision of its own.
+
+     Grid always renders the progress row first and keeps it hidden below this rung, so there
+     the row after it is the first one drawn, and it takes the first row's spacing until the
+     bar appears above it. */
+  .grid-event-disclosure .time-location > .progress-bar-row:first-child + * {
+    margin-top: 0;
+  }
+
   @container calendar-card-grid-event (min-height: 48px) {
     .grid-event-disclosure .progress-bar-row {
       display: block;
+    }
+
+    .grid-event-disclosure .time-location > .progress-bar-row:first-child + * {
+      margin-top: 2px;
     }
   }
 
@@ -3855,7 +4239,9 @@ export const cardStyles = css`
     }
   }
 
-  /* Compact only: scale the group, not its query container. */
+  /* Compact only: scale the group, not its query container. Positioned against the block's
+     padding box, which is the whole block, so its start is the text start the padding gives
+     the normal state. */
   .grid-event:is(
       [data-grid-title-fit='measuring'],
       [data-grid-title-fit='compact'],
@@ -3864,7 +4250,7 @@ export const cardStyles = css`
     .grid-event-disclosure {
     position: absolute;
     inset-block: 1px;
-    inset-inline: 4px;
+    inset-inline: var(--calendar-card-grid-text-start) 4px;
     height: auto;
     justify-content: center;
   }
@@ -4033,35 +4419,38 @@ export const cardStyles = css`
 
      It also carries a hairline outline in its own accent, at 20% strength. Two events
      from one calendar have identical fills, so a block stacked on another of its calendar
-     otherwise has no edge but its leading stripe. The accent rather than white or black,
+     otherwise has no edge at all, its accent bar sitting inside it. The accent rather than
+     white or black,
      so the line reads as part of the event rather than as a frame around it. Drawn on the
      accessible layer's pseudo-element, which spans the block's padding box exactly, at
      z-index -1, which paints it over the fill and under the text like an inset shadow, so
      it takes no room from the text and none of the sizes below have to know about it.
 
-     🚨 No outline on the leading edge while the accent bar is drawn. An outline there sat
-     beside the bar and read as a bar thicker than every unstacked block's, so the leading
-     side is left to the bar alone and the corner radii follow the bar's inner curve, which
-     lets the outline run into the bar instead of stopping short of it. With
-     vertical_line_width: 0px there is no bar, and the outline closes on that side too; the
-     clamp switches it on only at zero. Only raised blocks carry any of this: a block
-     beneath has nothing on top of it to be told apart from.
+     The outline runs around all four sides. While the bar was a border on the block's
+     leading edge, that side was left to the bar, because an outline beside it read as a bar
+     thicker than every unstacked block's; the bar now sits 3px inside the block, so the
+     outline is the block's edge on that side as on the others. Only raised blocks carry any
+     of this: a block beneath has nothing on top of it to be told apart from.
 
      A CONTENT-LIMITED block has part of it covered by a later one. Its text keeps to the
      uncovered part: above its first nested block, and before the first later block to its
      right. The renderer writes that part as two unitless ratios and the conversion to a
      size happens here, because it needs pixels the geometry module may not know -- the
-     block's 2px/4px padding, its accent edge, and the gaps above and below it.
+     block's padding, the room its accent bar takes, and the gaps around it.
 
      The disclosure then becomes the size container instead of the block, so every rung
      below answers for the space the text really has. A block nothing covers keeps the
      container on itself, exactly as before.
 
-     Both formulas resolve to exactly the old size at a ratio of 1. In the normal state 100%
-     is the block's content box, so the padding is added back before scaling and taken off
-     after. In the compact state the disclosure is positioned against the padding box, which
-     already includes the padding; the 1px inset it keeps above and below is what the
-     2px in its formula pays for. */
+     Across, the text's chrome is the same in both states: the text start, the 4px padding
+     at the end and the column gap on either side (--calendar-card-grid-text-chrome). In the
+     normal state 100% is the block's content box, so all of it is added back before scaling
+     and taken off after. In the compact state the disclosure is positioned against the
+     padding box, which is the whole block, so only the two gaps are added back, and all of
+     the chrome is still taken off. Down, the normal state adds back the 2px padding above
+     and below; the compact one is inset 1px above and below instead, which is what the 2px
+     in its formula pays for. Every formula resolves to exactly the uncovered size at a
+     ratio of 1. */
   /* The outline below sits at z-index -1, which only lands above the fill when the block
      is its own stacking context. Size containment alone does not make it one. */
   .grid-event-raised {
@@ -4070,7 +4459,7 @@ export const cardStyles = css`
 
   /* Shares .grid-event's box, so the two cannot be placed apart, and gives back what a
      block needs and a backdrop must not have: the size container would make 100cqh mean the
-     backdrop instead of the band, and the padding and accent edge would inset its layers. */
+     backdrop instead of the band, and the padding would inset its layers. */
   .grid-event-backdrop {
     --calendar-card-grid-backdrop-base: var(
       --calendar-card-background-color,
@@ -4086,7 +4475,6 @@ export const cardStyles = css`
     );
     container: none;
     padding: 0;
-    border: 0;
     background-color: var(--calendar-card-grid-backdrop-base);
     pointer-events: none;
   }
@@ -4142,16 +4530,8 @@ export const cardStyles = css`
     z-index: -1;
     box-sizing: border-box;
     border: 1px solid
-      color-mix(in srgb, var(--calendar-card-grid-raised-accent, transparent) 20%, transparent);
-    border-inline-start-width: clamp(
-      0px,
-      calc((1px - var(--calendar-card-line-width-vertical)) * 10000),
-      1px
-    );
-    border-start-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px;
-    border-end-start-radius: max(0px, 4px - var(--calendar-card-line-width-vertical)) 4px;
-    border-start-end-radius: 4px;
-    border-end-end-radius: 4px;
+      color-mix(in srgb, var(--calendar-card-event-accent-bar-color, transparent) 20%, transparent);
+    border-radius: 4px;
     pointer-events: none;
   }
 
@@ -4173,8 +4553,9 @@ export const cardStyles = css`
     --calendar-card-grid-text-gaps: calc(
       var(--calendar-card-grid-block-gap-above) + var(--calendar-card-grid-block-gap-below)
     );
+    --calendar-card-grid-text-gutters: calc(2 * var(--calendar-card-grid-event-gap));
     --calendar-card-grid-text-chrome: calc(
-      var(--calendar-card-line-width-vertical) + 2 * var(--calendar-card-grid-event-gap)
+      var(--calendar-card-grid-text-start) + 4px + var(--calendar-card-grid-text-gutters)
     );
     container: calendar-card-grid-event / size;
     height: calc(
@@ -4184,8 +4565,7 @@ export const cardStyles = css`
     );
     width: calc(
       var(--calendar-card-grid-text-inline-ratio, 1) *
-        (100% + 8px + var(--calendar-card-grid-text-chrome)) -
-        (8px + var(--calendar-card-grid-text-chrome))
+        (100% + var(--calendar-card-grid-text-chrome)) - var(--calendar-card-grid-text-chrome)
     );
     overflow: hidden;
   }
@@ -4204,8 +4584,7 @@ export const cardStyles = css`
     );
     width: calc(
       var(--calendar-card-grid-text-inline-ratio, 1) *
-        (100% + var(--calendar-card-grid-text-chrome)) -
-        (8px + var(--calendar-card-grid-text-chrome))
+        (100% + var(--calendar-card-grid-text-gutters)) - var(--calendar-card-grid-text-chrome)
     );
   }
 
@@ -4243,12 +4622,15 @@ export const cardStyles = css`
      paints after it. That leaves it above the weekend tint and the hour rules, which are
      not positioned, and below the vertical day rules at z-index 1, which only meet it at
      the column's edges. A block drawn on top of another repaints its own ground and hides
-     the line along its width, just as it hides the block beneath. */
+     the line along its width, just as it hides the block beneath.
+
+     Its color is now_color, the same property a running event's time reads in list and
+     column view, so the card has one color for "now" in every view. */
   .grid-now-line {
     position: absolute;
     inset-inline: 0;
     height: 2px;
-    background: var(--calendar-card-grid-now-color, #34d399);
+    background: var(--calendar-card-now-color, #34d399);
     pointer-events: none;
   }
 
@@ -4262,7 +4644,7 @@ export const cardStyles = css`
     height: 8px;
     margin-top: -3px;
     border-radius: 50%;
-    background: var(--calendar-card-grid-now-color, #34d399);
+    background: var(--calendar-card-now-color, #34d399);
     pointer-events: none;
     z-index: 2;
   }
