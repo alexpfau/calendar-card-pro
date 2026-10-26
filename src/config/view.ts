@@ -10,6 +10,7 @@ import {
   coercePixelLength,
   coercePixelLengthAgainst,
   normalizeNumericOptions,
+  resolveToolbar,
   toValidPercentage,
   validateFoldedLength,
   validatePastEventOpacity,
@@ -30,6 +31,10 @@ import * as Logger from '../utils/logger';
  * runtime type does not describe.
  */
 export const COLUMN_OVERRIDE_KEYS = [
+  // The one override that reaches the load. Every view draws a prefix of a single load as
+  // long as the longest view the card can show, so switching still never refetches; see
+  // `loadedDaysToShow`.
+  'days_to_show',
   'show_empty_days',
   // Read beside `show_empty_days`, and inert whenever that resolves on, so each view has to
   // be able to answer it for itself: column and grid ship empty days on, list ships them off.
@@ -453,6 +458,11 @@ export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | 
 
 // Fetch-time options cannot become view overrides because switching views must not refetch.
 //
+// `days_to_show` left this set in v5. It does decide what is loaded, but not per view: the
+// card loads the longest count among the views it can show (`loadedDaysToShow`), and each
+// view draws a prefix of that one load. `start_date` stays, because a view starting on a
+// different day would need a load of its own.
+//
 // Exported so `tests/view-config.test.ts` can iterate this set rather than keep a second
 // hand-written copy of it. The two lists were maintained in parallel, which gated the
 // removal direction only: adding an eighth key here and to `COLUMN_OVERRIDE_KEYS` left a
@@ -461,7 +471,6 @@ export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | 
 export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
   'entities',
   'start_date',
-  'days_to_show',
   'first_day_of_week',
   'weather',
   'refresh_interval',
@@ -1855,7 +1864,7 @@ export function computeColumnThresholdPx(
   config: Types.Config,
   view: Types.EffectiveView = 'column',
 ): number {
-  return computeColumnThresholdPxFor(config, configuredDays(config), view);
+  return computeColumnThresholdPxFor(config, configuredDays(config, view), view);
 }
 
 /**
@@ -1969,9 +1978,9 @@ function dayColumnGutterPx(config: Types.Config, view: Types.EffectiveView): num
   return parsePx(String(resolveViewOption(config, 'day_spacing', view)), DEFAULT_DAY_GAP_PX);
 }
 
-// Normalizes `days_to_show` to a usable column count.
-function configuredDays(config: Types.Config): number {
-  return Math.max(1, Math.floor(config.days_to_show));
+// Normalizes a view's `days_to_show` to a usable column count.
+function configuredDays(config: Types.Config, view: Types.EffectiveView): number {
+  return Math.max(1, Math.floor(resolveViewOption(config, 'days_to_show', view)));
 }
 
 function widthFallbackDefaults(view: Types.EffectiveView): Readonly<Record<string, unknown>> {
@@ -1994,8 +2003,8 @@ function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): nu
 /**
  * Resolves the fewest columns the card may reduce to.
  *
- * The default is dynamic (`days_to_show`), so it cannot live in `COLUMN_DEFAULTS`.
- * The result is clamped into `[1, days_to_show]`.
+ * The default is dynamic (the view's own `days_to_show`), so it cannot live in
+ * `COLUMN_DEFAULTS`. The result is clamped into `[1, days_to_show]`.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Column floor, within `[1, days_to_show]`
@@ -2004,7 +2013,7 @@ export function resolveMinDaysToShow(
   config: Types.Config,
   view: Types.EffectiveView = 'column',
 ): number {
-  const days = configuredDays(config);
+  const days = configuredDays(config, view);
   const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
   const fallback = widthFallbackDefaults(view).min_days_to_show;
   const defaultValue =
@@ -2044,6 +2053,76 @@ export function resolveMinDaysFallback(
       : fallback;
 
   return value === 'cramp' ? 'cramp' : 'list';
+}
+
+//-----------------------------------------------------------------------------
+// LOADED RANGE
+//-----------------------------------------------------------------------------
+
+/**
+ * The views this configuration can put on screen, whatever the width or the device.
+ *
+ * Every view while the toolbar's view switcher is drawn. Otherwise `view`, plus list when
+ * `view` falls back to it for lack of room — that fallback draws list's own options,
+ * `days_to_show` included, so list's count has to be loaded too.
+ *
+ * 🚨 The switcher counts only when the toolbar is shown. The shipped toolbar has
+ * `view_switcher: true` and `show: false`, so reading the switcher flag alone would load
+ * every view's count for nearly every card. Mirrors the card's `_wantsViewSwitcher`.
+ *
+ * Decided by configuration alone, never by width: a load that followed the width would
+ * refetch whenever a tablet turned.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The reachable views, the configured `view` first
+ */
+export function reachableViews(config: Types.Config): ReadonlyArray<Types.EffectiveView> {
+  const toolbar = resolveToolbar(config);
+  if (toolbar.show && toolbar.viewSwitcher) return VIEWS;
+
+  const view = config.view;
+  return VIEWS_WITH_WIDTH_FALLBACK.has(view) && resolveMinDaysFallback(config, view) === 'list'
+    ? [view, 'list']
+    : [view];
+}
+
+/**
+ * How many days the card loads: the longest `days_to_show` among the views it can show.
+ *
+ * Each view then draws a prefix of that one load, which is why switching views never
+ * refetches. Resolved through {@link resolveViewOption}, so an invalid block value counts
+ * exactly as the view will draw it, and a card that sets no per-view count loads its
+ * top-level value unchanged.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Days to load from the start date
+ */
+export function loadedDaysToShow(config: Types.Config): number {
+  return Math.max(
+    ...reachableViews(config).map((view) => resolveViewOption(config, 'days_to_show', view)),
+  );
+}
+
+/**
+ * The configuration events are loaded with: this one, with `days_to_show` set to
+ * {@link loadedDaysToShow}.
+ *
+ * Everything that identifies or shapes a request reads `days_to_show` off the config it is
+ * handed — the cache key, the window, the fetch-side trim, the card's instance id and
+ * `hasConfigChanged` — so handing them this config is what makes them load for every view at
+ * once, without any of them learning about views. The same derive-a-config pattern as a
+ * page's `start_date`.
+ *
+ * Never draw from it: its top-level `days_to_show` is the load, not any view's count.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The same object when the load is already the top-level count, else a copy
+ */
+export function loadConfig(config: Types.Config): Types.Config {
+  const days = loadedDaysToShow(config);
+  return !Number.isFinite(days) || days === config.days_to_show
+    ? config
+    : { ...config, days_to_show: days };
 }
 
 /**
@@ -2178,7 +2257,7 @@ function fitColumns(config: Types.Config, widthPx: number, view: Types.Effective
     (widthPx - COLUMN_CARD_PADDING_PX + gutter - viewOverhead) / unit + 1e-9,
   );
 
-  return Math.max(0, Math.min(configuredDays(config), fitted));
+  return Math.max(0, Math.min(configuredDays(config, view), fitted));
 }
 
 // Clamped half-band so adjacent column-count thresholds cannot overlap.
@@ -2215,7 +2294,7 @@ export function resolveColumnFit(
   measuredWidthPx: number | null,
   previous: ColumnFit | null,
 ): ColumnFit {
-  const days = configuredDays(config);
+  const days = configuredDays(config, requestedView);
 
   if (!VIEWS_WITH_WIDTH_FALLBACK.has(requestedView)) {
     return { view: requestedView, columns: 0 };
@@ -2276,7 +2355,7 @@ export function resolveColumnFitIfPicked(
     view,
     config,
     measuredWidthPx,
-    measuredWidthPx === null ? null : { view, columns: configuredDays(config) },
+    measuredWidthPx === null ? null : { view, columns: configuredDays(config, view) },
   );
 }
 
@@ -2378,7 +2457,7 @@ export function describeColumnLayoutBands(
   config: Types.Config,
   view: Types.EffectiveView = 'column',
 ): ColumnLayoutBands {
-  const days = configuredDays(config);
+  const days = configuredDays(config, view);
   const floor = Math.min(resolveMinDaysToShow(config, view), days);
   const halfBand = columnHysteresisHalfBandPx(config, view);
 

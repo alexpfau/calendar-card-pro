@@ -76,14 +76,46 @@ describe('workspace routing uses the actual destination', () => {
     // wherever it was edited, or a title set in Grid would vanish on switching to List.
     for (const workspace of View.VIEWS) {
       const config = buildConfig({ view: 'grid', column: { day_spacing: '4px' } });
-      const result = apply(config, workspace, { title: 'Example', days_to_show: 9 }).config;
+      const result = apply(config, workspace, {
+        title: 'Example',
+        first_day_of_week: 'sunday',
+      }).config;
       const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
 
       expect(result.title, workspace).toBe('Example');
-      expect(result.days_to_show, workspace).toBe(9);
+      expect(result.first_day_of_week, workspace).toBe('sunday');
       expect(result[key] ?? {}, workspace).not.toHaveProperty('title');
-      expect(result[key] ?? {}, workspace).not.toHaveProperty('days_to_show');
+      expect(result[key] ?? {}, workspace).not.toHaveProperty('first_day_of_week');
     }
+  });
+
+  it.each(View.VIEWS)('stores a day count edited in %s in that view’s block', (workspace) => {
+    const config = buildConfig({ view: 'grid', days_to_show: 5 });
+    const result = apply(config, workspace, { days_to_show: 9 }).config;
+    const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
+
+    expect(result[key], workspace).toMatchObject({ days_to_show: 9 });
+    expect(result.days_to_show, workspace).toBe(5);
+  });
+
+  it('stores a day count edited in Shared at root, for every view without its own', () => {
+    const config = buildConfig({ view: 'grid', days_to_show: 5, time_grid: { days_to_show: 2 } });
+    const current: Routing.FormFrame = {
+      workspace: 'shared',
+      schema: [{ name: 'days_to_show', selector: { text: {} } }],
+      data: Routing.workspaceFormData(config, 'shared'),
+    };
+    const result = Routing.applyWorkspaceChange(
+      config,
+      current,
+      { ...current.data, days_to_show: 9 },
+      {},
+    ).config;
+
+    expect(result.days_to_show).toBe(9);
+    expect(result.time_grid).toEqual({ days_to_show: 2 });
+    expect(result.list).toBeUndefined();
+    expect(result.column).toBeUndefined();
   });
 
   it('projects each view rather than the card’s displayed view', () => {

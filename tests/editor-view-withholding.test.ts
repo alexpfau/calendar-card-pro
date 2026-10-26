@@ -479,7 +479,8 @@ describe('withholding is not a search filter or a config edit', () => {
         expect.objectContaining({ compact_events_to_show: 2, split_multiday_events: false }),
       ]);
     }
-    expect(seen[3].days_to_show).toBe(7);
+    // Edited in the Grid workspace, so the count belongs to the grid's block.
+    expect(seen[3].time_grid).toMatchObject({ days_to_show: 7 });
     expect(seen[3].entities).toEqual([expect.objectContaining({ label: 'Ben' })]);
     expect(
       forms(editor)

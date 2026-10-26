@@ -251,6 +251,7 @@
   "panel.content": "Tidsintervall och innehåll",
   "panel.content.helper": "Vilka dagar kortet täcker, och vad det lägger i dem.",
   "days_to_show": "Dagar att visa",
+  "days_to_show.helper": "Hur många dagar kortet täcker från startdatumet. Varje layout kan ha ett eget antal, till exempel 14 i listan och 7 i tidsrutnätet. Kortet läser in det längsta av dem, så att byta layout läser inte in något nytt.",
   "start_date_mode": "Startdatum",
   "start_date_mode.option.default.label": "I dag",
   "start_date_mode.option.fixed.label": "Ett fast datum",

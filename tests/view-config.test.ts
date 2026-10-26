@@ -663,11 +663,11 @@ describe('validateColumnOverrides', () => {
 
   // Every option that decides which events are loaded. One of these inside the block
   // would mean a Home Assistant API call each time the viewport crossed the
-  // breakpoint between views.
+  // breakpoint between views. `days_to_show` is not among them: the load spans the
+  // longest view, so a per-view count needs no call (tests/view-days-to-show.test.ts).
   it.each([
     'entities',
     'start_date',
-    'days_to_show',
     'first_day_of_week',
     'weather',
     'refresh_interval',
@@ -945,9 +945,18 @@ describe('column view config surface', () => {
     //
     // Iterating the exported set rather than a literal copy of it is what makes this gate
     // fire in the addition direction: a new fetch-time key is covered the moment it is
-    // declared. The assertion below pins the size so that emptying the set — which would
-    // make the loop vacuous and the test green — fails instead.
-    expect(FETCH_TIME_KEYS.size).toBe(7);
+    // declared. The whole set is pinned by value, so emptying it — which would make the loop
+    // vacuous — fails, and so does a key leaving it unannounced. `days_to_show` left in v5:
+    // the card loads the longest count among its views, so it is overridable per view, and
+    // its load is covered by tests/view-days-to-show.test.ts.
+    expect([...FETCH_TIME_KEYS].sort()).toEqual([
+      'entities',
+      'first_day_of_week',
+      'refresh_interval',
+      'refresh_on_navigate',
+      'start_date',
+      'weather',
+    ]);
 
     for (const key of FETCH_TIME_KEYS) {
       expect(COLUMN_OVERRIDE_KEYS, key).not.toContain(key);

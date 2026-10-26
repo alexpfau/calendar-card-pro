@@ -272,7 +272,12 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
 - **The view switcher changes the requested view, never the configuration.** `requestedView`
   is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
   always follows it, so nothing about a switch is new to the fitting code. A switch draws
-  without fetching, because `FETCH_TIME_KEYS` keep the window identical across views.
+  without fetching, because `FETCH_TIME_KEYS` keep the window's start identical across views
+  and the load spans the longest `days_to_show` among the views the card can show
+  (`loadedDaysToShow` and `loadConfig` in `config/view.ts`): every view with the switcher,
+  else `view` plus list when it falls back to list. Each view draws a prefix of that load, and
+  `groupEventsByDay` bounds every occurrence by the view's own window end so a shorter view
+  never fills from days past it.
   `utils/view-choice.ts` keeps the choice in one `localStorage` entry keyed by a fingerprint
   of the raw configuration, so any edit resets every device. Nothing deletes the old entry:
   Home Assistant builds a fresh card for a changed configuration, in edit mode and when a
@@ -293,11 +298,13 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   one that changes only the day columns of the configured view shown while editing.
 - **Paging changes the window asked for, never the configuration.** The page is a fixed first
   day (`_pageRequested`), null at home, the window the configuration opens with. It is fetched
-  and drawn with the configuration's `start_date` replaced by that day, which keeps every view
-  on one window, so a view switch still never fetches, and with `show_past_events` forced on,
+  and drawn with the configuration's `start_date` replaced by that day, and loaded as far as the
+  longest view the card can show, which keeps every view on one load, so a view switch still
+  never fetches, and with `show_past_events` forced on,
   since a page in the past is otherwise empty. Its query identity is that of a card configured
   to open on that day, so two cards on one page share its request. The arrows step by the days
-  on screen (`pageSpan`): `days_to_show`, or the columns drawn while column or grid drops some,
+  on screen (`pageSpan`): the view on screen's own `days_to_show`, or the columns drawn while
+  column or grid drops some,
   in which case a page draws from its own first day rather than from today. Presses accumulate
   on the requested page; the range answers at once, while the days below stay those of the page
   whose events `events` holds (`_pageShown`), dimmed, until the new page's land, so one
@@ -890,8 +897,8 @@ graph TD
    - While grid view draws its now line, a timer repaints it once a minute
      (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
      including a rollover that passed while the timer was stopped
-   - While column or grid view draws fewer day columns than `days_to_show`, a timer fires
-     just after local midnight (`_syncMidnightTimer`). It re-renders, so the visible window
+   - While column or grid view draws fewer day columns than its own `days_to_show`, a timer
+     fires just after local midnight (`_syncMidnightTimer`). It re-renders, so the visible window
      moves to the new today, and runs a `cache` load, which fetches only if the window it
      asks for moved, as a relative `start_date` can at midnight, or the cache is due
    - List, column, and grid without its now line repaint at the next start or end of a

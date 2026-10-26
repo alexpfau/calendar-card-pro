@@ -213,8 +213,10 @@ describe('editor panel option forms', () => {
     change(form, { ...formData(form), days_to_show: 7 });
     await element.updateComplete;
 
+    // A list card opens in the List workspace, so the count lands in `list:` since v5.
     expect(seen).toHaveLength(1);
-    expect(seen[0].days_to_show).toBe(7);
+    expect(seen[0].list).toMatchObject({ days_to_show: 7 });
+    expect(seen[0].days_to_show).toBeUndefined();
     expect(seen[0].entities).toEqual([{ entity: 'calendar.a', label: 'A' }, 'calendar.b']);
   });
 
@@ -222,19 +224,19 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const days = panelOwning(element, 'days_to_show');
-    change(days, { ...formData(days), days_to_show: 7 });
+    const week = panelOwning(element, 'first_day_of_week');
+    change(week, { ...formData(week), first_day_of_week: 'sunday' });
     await element.updateComplete;
 
     const lines = panelOwning(element, 'title_max_lines');
     change(lines, { ...formData(lines), title_max_lines: 3 });
     await element.updateComplete;
 
-    // Located by name rather than by position: `days_to_show` is fetch-time and stays at
-    // the top level, `title_max_lines` is a list override and lands in `list:` in v5. The
+    // Located by name rather than by position: `first_day_of_week` is fetch-time and stays
+    // at the top level, `title_max_lines` is a list override and lands in `list:` in v5. The
     // subject is that both survive one report, not where either sits.
     expect(seen).toHaveLength(2);
-    expect(seen[1].days_to_show).toBe(7);
+    expect(seen[1].first_day_of_week).toBe('sunday');
     expect(seen[1].list).toHaveProperty('title_max_lines', 3);
   });
 
@@ -262,7 +264,8 @@ describe('editor panel option forms', () => {
 
     const last = seen[seen.length - 1];
     expect(last).toBeDefined();
-    expect(last.days_to_show).toBe(7);
+    // Two destinations from one form: the count into `list:`, the week start at root.
+    expect(last.list).toMatchObject({ days_to_show: 7 });
     expect(last.first_day_of_week).toBe('monday');
   });
 

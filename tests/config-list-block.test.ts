@@ -114,9 +114,13 @@ describe('validation reaches the list block', () => {
   });
 
   it('gives a fetch-time option its tailored diagnostic', () => {
-    expect(messages({ days_to_show: 7 }).join('\n')).toContain(
+    expect(messages({ start_date: 'today+7' }).join('\n')).toContain(
       'it determines which events are loaded',
     );
+  });
+
+  it('accepts a day count of its own', () => {
+    expect(messages({ days_to_show: 7 })).toEqual([]);
   });
 
   it('rejects another view\u2019s only-key', () => {
@@ -283,10 +287,22 @@ describe('presence in the list block is authorship', () => {
     const stored = Value.toStoredConfig(
       buildConfig({
         view: 'list',
-        list: { event_font_size: '20px', days_to_show: 7 },
+        list: { event_font_size: '20px', start_date: 'today+7' },
       } as unknown as Partial<Types.Config>),
     );
 
     expect(stored.list).toEqual({ event_font_size: '20px' });
+  });
+
+  it('keeps a day count of its own', () => {
+    const stored = Value.toStoredConfig(
+      buildConfig({
+        view: 'list',
+        days_to_show: 7,
+        list: { days_to_show: 14 },
+      } as unknown as Partial<Types.Config>),
+    );
+
+    expect(stored.list).toEqual({ days_to_show: 14 });
   });
 });

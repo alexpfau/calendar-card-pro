@@ -50,9 +50,11 @@ more wrapping.
 
 That is the same card as the one at the top of [A Week Side by Side](/reference/examples#a-week-side-by-side-in-column-view), on a phone-width card. Three things change with the layout, and all three are defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
 
-By default the number of columns follows `days_to_show` exactly, and a card too narrow for
-all of them switches to the list layout rather than quietly showing fewer days than you
-configured.
+By default the number of columns follows the column layout's `days_to_show` exactly — the
+top-level value, or its own in `column:` — and a card too narrow for all of them switches to
+the list layout rather than quietly showing fewer days than you configured. That list shows
+List's own `days_to_show`; see
+[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 
 ## 🔢 Showing Fewer Columns Instead
 
@@ -164,7 +166,9 @@ overrides it. Grid substitutes `true` for both options. The editor guide include
 
 These options decide _which_ events the card loads, so they must hold the same value in all three layouts and are ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level:
 
-`entities` · `start_date` · `days_to_show` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
+`entities` · `start_date` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
+
+`days_to_show` also decides what is loaded, yet each layout may set its own: the card loads the longest count among the layouts it can show, and each draws the first of those days. See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 
 `show_past_events` and `filter_duplicates` sound like they belong in that list and do not. Both filter events the card has already loaded, so they can differ per view — and often want to, because a column is a narrow space where a finished event or a second copy of the same meeting costs more than it does in a full-width row:
 

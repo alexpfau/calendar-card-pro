@@ -251,6 +251,7 @@
   "panel.content": "Tidsrom og innhold",
   "panel.content.helper": "Hvilke dager kortet dekker, og hva det legger i dem.",
   "days_to_show": "Dager å vise",
+  "days_to_show.helper": "Hvor mange dager kortet dekker fra startdatoen. Hver layout kan ha sitt eget antall, for eksempel 14 i listen og 7 i tidsrutenettet. Kortet laster inn det lengste av dem, så bytte av layout laster ikke inn noe nytt.",
   "start_date_mode": "Startdato",
   "start_date_mode.option.default.label": "I dag",
   "start_date_mode.option.fixed.label": "En fast dato",

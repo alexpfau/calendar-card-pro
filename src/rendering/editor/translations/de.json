@@ -251,6 +251,7 @@
   "panel.content": "Zeitraum & Inhalt",
   "panel.content.helper": "Welche Tage die Karte abdeckt und was sie darin anzeigt.",
   "days_to_show": "Angezeigte Tage",
+  "days_to_show.helper": "Wie viele Tage die Karte ab ihrem Startdatum abdeckt. Jedes Layout kann eine eigene Anzahl haben, etwa 14 in der Liste und 7 im Zeitraster. Die Karte lädt die längste davon, daher lädt ein Wechsel des Layouts nichts nach.",
   "start_date_mode": "Startdatum",
   "start_date_mode.option.default.label": "Heute",
   "start_date_mode.option.fixed.label": "Ein festes Datum",

@@ -115,8 +115,9 @@ describe('both keys are classified as overridable rather than fetch-time', () =>
   it('leave the genuinely fetch-time keys alone', () => {
     // The control. These three really do shape the API window or the cache key, and must
     // stay forbidden — otherwise this change has quietly opened the door to a refetch on
-    // resize, which E3 forbids.
-    for (const key of ['days_to_show', 'entities', 'start_date', 'first_day_of_week']) {
+    // resize, which E3 forbids. `days_to_show` left this list in v5: the load spans the
+    // longest view's count, so a per-view count never refetches.
+    for (const key of ['entities', 'start_date', 'first_day_of_week']) {
       expect(ViewConfig.COLUMN_OVERRIDE_KEYS).not.toContain(key);
     }
   });

@@ -453,6 +453,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.content': 'Time Range & Content',
   'panel.content.helper': 'Which days the card covers, and what it puts in them.',
   days_to_show: 'Days To Show',
+  'days_to_show.helper':
+    'How many days the card covers from its start date. Each layout can set its own, such ' +
+    'as 14 in List and 7 in Grid. The card loads the longest of them once, so switching ' +
+    'layouts never reloads.',
   start_date_mode: 'Start Date',
   'start_date_mode.option.default.label': 'Today',
   'start_date_mode.option.fixed.label': 'A Fixed Date',

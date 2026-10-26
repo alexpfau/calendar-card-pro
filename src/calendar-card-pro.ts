@@ -300,6 +300,19 @@ type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
 /**
+ * The real events in a grouping, leaving out the placeholders that stand for empty days.
+ *
+ * @param days - Grouped days
+ * @returns How many events they hold
+ */
+function countRealEvents(days: ReadonlyArray<Types.EventsByDay>): number {
+  return days.reduce(
+    (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
+    0,
+  );
+}
+
+/**
  * Main Calendar Card Pro custom element.
  */
 @customElement('calendar-card-pro-dev')
@@ -1113,7 +1126,8 @@ class CalendarCardPro extends LitElement {
   /**
    * The query identity a page's events are fetched and cached under: home's is the card's
    * own; a page's is that of a card configured to open on its first day, so two cards on one
-   * page share its request and its entry.
+   * page share its request and its entry. Keyed by the days loaded, which span every view the
+   * card can show, so switching views never changes it.
    *
    * @param page - First day of the page, or null for home
    * @returns The instance id
@@ -1123,10 +1137,26 @@ class CalendarCardPro extends LitElement {
 
     return Helpers.generateDeterministicId(
       this.config.entities,
-      this.config.days_to_show,
+      ViewConfig.loadedDaysToShow(this.config),
       page,
       this.config.first_day_of_week,
     );
+  }
+
+  /**
+   * The configuration a page's events are loaded with: the page's own, with `days_to_show`
+   * as long as the longest view the card can show, so every view draws from one load.
+   *
+   * @param page - First day of the page, or null for home
+   * @returns The configuration to fetch and read the cache with
+   */
+  private _loadConfigForPage(page: string | null): Types.Config {
+    return ViewConfig.loadConfig(this._configForPage(page));
+  }
+
+  /** How many days the view on screen draws: its own `days_to_show`. */
+  private get _viewDays(): number {
+    return this.effectiveConfig.days_to_show;
   }
 
   /** Whether the configuration asks for the date navigation. */
@@ -1179,16 +1209,12 @@ class CalendarCardPro extends LitElement {
    * @returns Home
    */
   private _homeRange(now: Date = new Date()): Paging.PageRange {
-    return Paging.homeRange(
-      this._homeWindowStart(now),
-      this.config.days_to_show,
-      this._shedColumns,
-      now,
-    );
+    return Paging.homeRange(this._homeWindowStart(now), this._viewDays, this._shedColumns, now);
   }
 
   /**
-   * The days a page covers as drawn now.
+   * The days a page covers as drawn now: as many as the view on screen shows, so switching
+   * views keeps a page's first day and changes how far it runs.
    *
    * @param page - First day of the page, or null for home
    * @param now - The current moment
@@ -1198,7 +1224,7 @@ class CalendarCardPro extends LitElement {
     if (page === null) return this._homeRange(now);
     return {
       start: Paging.pageStart(page),
-      days: Paging.pageSpan(this.config.days_to_show, this._shedColumns),
+      days: Paging.pageSpan(this._viewDays, this._shedColumns),
     };
   }
 
@@ -1250,14 +1276,16 @@ class CalendarCardPro extends LitElement {
     }
 
     const count = events.length
-      ? EventUtils.groupEventsByDay(
-          events,
-          this.effectiveConfig,
-          true,
-          language,
-          view,
-          this.hass,
-        ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
+      ? countRealEvents(
+          EventUtils.groupEventsByDay(
+            events,
+            this.effectiveConfig,
+            true,
+            language,
+            view,
+            this.hass,
+          ),
+        )
       : 0;
 
     this._visibleCountCache = {
@@ -1272,6 +1300,41 @@ class CalendarCardPro extends LitElement {
     };
 
     return count;
+  }
+
+  /**
+   * Whether any view the card can show would draw an event in its own range, for
+   * `hide_when_empty`. The view on screen answers first, and usually alone.
+   *
+   * Each other view is grouped from the raw configuration and resolves its own block there.
+   * Never from `effectiveConfig`: that already carries the view on screen's hoisted values,
+   * so a view without an override of its own would inherit them — a list with no count of
+   * its own would draw the grid's seven days instead of the card's fourteen. Home only, as
+   * its one caller is, so the raw configuration is home's.
+   *
+   * @returns True when some reachable view has an event to draw
+   */
+  private _anyReachableViewHasEvents(): boolean {
+    if (this.visibleEventCount > 0) return true;
+
+    const events = this._shownEvents;
+    if (events.length === 0) return false;
+
+    const shown = this.effectiveView;
+    return ViewConfig.reachableViews(this.config).some(
+      (view) =>
+        view !== shown &&
+        countRealEvents(
+          EventUtils.groupEventsByDay(
+            events,
+            this.config,
+            true,
+            this.effectiveLanguage,
+            view,
+            this.hass,
+          ),
+        ) > 0,
+    );
   }
 
   //-----------------------------------------------------------------------------
@@ -2503,7 +2566,9 @@ class CalendarCardPro extends LitElement {
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
     // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
-    // by the legend, that hid itself would take with it the only way back.
+    // by the legend, that hid itself would take with it the only way back. And only when no
+    // view the card can show has an event: a seven-day view can be empty where a fourteen-day
+    // one is not, and hiding for it would take the view switcher with it.
     const shouldHide =
       this.config.hide_when_empty === true &&
       this._pageRequested === null &&
@@ -2513,7 +2578,7 @@ class CalendarCardPro extends LitElement {
       !this.editMode &&
       !isErrorState &&
       !this._hasFetchError &&
-      this.visibleEventCount === 0;
+      !this._anyReachableViewHasEvents();
 
     if (this.hidden === shouldHide) {
       return;
@@ -3475,7 +3540,7 @@ class CalendarCardPro extends LitElement {
 
     this._instanceId = Helpers.generateDeterministicId(
       this.config.entities,
-      this.config.days_to_show,
+      ViewConfig.loadedDaysToShow(this.config),
       this.config.start_date,
       this.config.first_day_of_week,
     );
@@ -3487,7 +3552,12 @@ class CalendarCardPro extends LitElement {
       this._failureCountHint = 0;
     }
 
-    const configChanged = Config.hasConfigChanged(previousConfig, this.config);
+    // Compared as loaded, not as configured: a view's own count that leaves the longest one
+    // where it was changes what is drawn, never what is fetched, and needs no request.
+    const configChanged = Config.hasConfigChanged(
+      ViewConfig.loadConfig(previousConfig),
+      ViewConfig.loadConfig(this.config),
+    );
     if (configChanged) {
       Logger.debug('Configuration changed, refreshing data');
       // A card configured after it was attached has not had its appear load yet, so it
@@ -3636,7 +3706,7 @@ class CalendarCardPro extends LitElement {
     this._appearLoadPending = false;
 
     const page = this._pageRequested;
-    const config = this._configForPage(page);
+    const config = this._loadConfigForPage(page);
     const instanceId = this._instanceIdForPage(page);
     const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
     const usesCache = load !== 'network' && load !== 'reload';
@@ -3904,7 +3974,7 @@ class CalendarCardPro extends LitElement {
     // by index would hold other days than those.
     const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
       const count = this._shownColumnCount;
-      if (this._wantsNavigation && count > 0 && count < this.config.days_to_show) {
+      if (this._wantsNavigation && count > 0 && count < this._viewDays) {
         const page = this._pageRange(this._pageShown);
         const from = page.start.getTime();
         const until = Paging.addDays(page.start, page.days).getTime();
@@ -4212,26 +4282,15 @@ class CalendarCardPro extends LitElement {
    * The date a new event starts on in Home Assistant's create dialog.
    *
    * Taken when the button is pressed rather than when it was drawn, so a card left open
-   * past midnight still offers the right day.
+   * past midnight still offers the right day. Taken from the days on screen, home included,
+   * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
+   * it is not showing.
    *
    * @returns The dialog's `selectedDate`
    */
   private _newEventDate(): Date {
-    if (this._pageShown !== null) {
-      const page = this._pageRange(this._pageShown);
-      return AddEvent.newEventDate(page.start, page.days);
-    }
-
-    const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(
-      this.config.first_day_of_week,
-      this.hass?.locale,
-    );
-    const { start } = EventUtils.getTimeWindow(
-      this.config.days_to_show,
-      this.config.start_date,
-      firstDayOfWeek,
-    );
-    return AddEvent.newEventDate(start, this.config.days_to_show);
+    const range = this._pageRange(this._pageShown);
+    return AddEvent.newEventDate(range.start, range.days);
   }
 
   /**
@@ -4848,7 +4907,8 @@ class CalendarCardPro extends LitElement {
    * standing in for a remembered view that does not fit, and the press makes the list the
    * choice. Pressing the view already asked for while the list stands in for it draws it,
    * when it is offered at all: the choice is unchanged, the layout is not. Nothing is
-   * fetched: every view draws the same days from the same events.
+   * fetched: every view draws from the same events, loaded as far as the longest view the
+   * card can show, so a view with fewer days draws the first of them.
    *
    * @param view - The view picked
    */

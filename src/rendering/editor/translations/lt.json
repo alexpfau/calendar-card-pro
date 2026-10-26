@@ -251,6 +251,7 @@
   "panel.content": "Laikotarpis ir turinys",
   "panel.content.helper": "Kurias dienas kortelė apima ir ką į jas įdeda.",
   "days_to_show": "Rodomų dienų skaičius",
+  "days_to_show.helper": "Kiek dienų nuo pradžios datos apima kortelė. Kiekvienas išdėstymas gali turėti savo skaičių, pavyzdžiui, 14 sąraše ir 7 laiko tinklelyje. Kortelė įkelia ilgiausią iš jų, todėl perjungiant išdėstymą nieko naujo neįkeliama.",
   "start_date_mode": "Pradžios data",
   "start_date_mode.option.default.label": "Šiandien",
   "start_date_mode.option.fixed.label": "Konkreti data",

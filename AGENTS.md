@@ -1407,7 +1407,9 @@ The falsifier, which is also the shape of the fix:
 
 Both controls are load-bearing. Without `days_to_show` the harness might be detecting
 nothing at all; without `show_location` a zero is indistinguishable from a probe that never
-ran.
+ran. Since v5 the `days_to_show` control needs a card with no per-view counts: a change
+refetches only when it moves the loaded span, the longest count among the views the card can
+show (`loadedDaysToShow`), so a view's own count that leaves that span alone reads 0.
 
 ### A new per-calendar option must be added to a hand-written whitelist
 
