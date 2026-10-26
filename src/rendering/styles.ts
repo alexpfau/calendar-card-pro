@@ -2840,9 +2840,12 @@ export const cardStyles = css`
      event's own outline. An element's outline paints under its positioned children, and an
      untinted bar is a positioned child flush on the edge the ring runs along, so the bar
      covered that side of the ring in the calendar's color. List view already draws its ring
-     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides and crosses
-     it only at an edge where the event is cut off, for the bar's own width, so grid keeps the
-     outline. The event is the pseudo-element's containing block (see td.event above). */
+     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides, and at
+     an edge where the event is cut off it stops short of the ring while the block has
+     focus (see .grid-event.clipped-top), so grid keeps the outline. Grid's pseudo-elements
+     are the continuation marks, both of them on a block cut off at both ends, which leaves
+     none for a ring. The event is the pseudo-element's containing block (see td.event
+     above). */
   .column-events > .event-interactive:focus-visible {
     outline: none;
   }
@@ -4144,6 +4147,20 @@ export const cardStyles = css`
     inset-block-end: 0;
     border-end-start-radius: 0;
     border-end-end-radius: 0;
+  }
+
+  /* A grid block keeps its focus ring as its own outline, inset 2px, and the outline paints
+     under the block's positioned children. The bar sits 3px clear of it everywhere but a
+     clipped edge, where it runs on to the edge itself and crossed the ring there for its own
+     width. While the block has keyboard focus the bar stops at the ring's inner edge
+     instead; the ring is what has to read as whole then. The 2px is the ring's width
+     (.event-interactive:focus-visible), not the bar's inset. */
+  .grid-event.clipped-top.event-interactive:focus-visible > .event-accent-bar {
+    inset-block-start: 2px;
+  }
+
+  .grid-event.clipped-bottom.event-interactive:focus-visible > .event-accent-bar {
+    inset-block-end: 2px;
   }
 
   .grid-event-disclosure .time,
