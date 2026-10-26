@@ -136,35 +136,29 @@ export const UI = {
   POINTER_MOVE_TOLERANCE: 8,
 
   /**
-   * Card width, in CSS pixels, from which the header toolbar's controls carry a text label
-   * beside their icon. Narrower cards draw the icon alone, named for assistive technology.
-   * This one holds while the add button is the only control.
+   * Card width, in CSS pixels, from which the toolbar's action row carries a text label beside
+   * each icon. Narrower cards draw the icon alone, named for assistive technology. This one
+   * holds while the add button is the only control in the row, which a labeled "Add event"
+   * fits on a card of about 150px in English and 200px in German.
    */
-  TOOLBAR_LABEL_MIN_WIDTH: 480,
+  TOOLBAR_LABEL_MIN_WIDTH: 240,
 
   /**
-   * The same, once the view switcher shares the bar. Its three labeled segments and a
-   * labeled add button take about 400px in English and more in German, so the title keeps
-   * room for a word or two only from here up. Labels are all or nothing across the bar.
+   * The same, once the view switcher shares the row. The switcher sits in the row's middle,
+   * so the room either side of it has to hold the wider of the two groups: its three labeled
+   * segments and a labeled add button, centered, need a card of about 540px in English and
+   * 670px in German. German past this threshold and short of that fits on one line with the
+   * switcher off center, which `_syncToolbarLabelFit` lets stand.
    */
   TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 640,
 
   /**
-   * The same two, once the date navigation shares the band. Its track and the widest range
-   * take about 300px before any trailing control, so labels need that much more room. These
-   * are first guesses: a labeled band that still wraps onto a second row drops its labels
+   * What each command beyond the first adds to those thresholds: the folded filter, reset or
+   * refresh. Each fixed threshold allows for one, the add button it was measured with; a
+   * labeled "My calendars" or "Refresh" is about a hundred pixels wider than its icon in
+   * English. These are first guesses: labels that still do not fit on one line are dropped
    * until the card is wider (`_syncToolbarLabelFit`), so a guess too low costs one frame and
    * never a broken layout.
-   */
-  TOOLBAR_BAND_LABEL_MIN_WIDTH: 600,
-  TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH: 840,
-
-  /**
-   * What each command beyond the first adds to those thresholds: refresh, or the legend
-   * folded into a button. Each fixed threshold allows for one, the add button it was measured
-   * with; a labeled refresh or "My calendars" is about a hundred pixels wider than its icon in
-   * English. A first guess under the same rule as the band's: labels that still do not fit
-   * are dropped until the card is wider (`_syncToolbarLabelFit`).
    */
   TOOLBAR_EXTRA_LABEL_MIN_WIDTH: 112,
 

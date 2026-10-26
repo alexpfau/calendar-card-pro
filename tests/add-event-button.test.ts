@@ -7,12 +7,16 @@
  * switched off inside a shown one, or only read-only calendars — so the pair distinguishes
  * "the option works" from "the fixture happens to produce this".
  *
- * Every case shows the add button alone (`ADD_ONLY`): the view switcher beside it has
- * its own file, and keeping it out here keeps these assertions about one control.
+ * Every case shows the add button alone (`ADD_ONLY`). A shown toolbar draws the view
+ * switcher, the date navigation, reset and the calendar filter by default, so each is
+ * switched off explicitly: they have files of their own, and keeping them out here keeps
+ * these assertions about one control.
  *
- * Where it goes is the header toolbar rule: in the title's row when there is a title, in a
- * slim row of its own when there is not, and — the half no other gate can see — with no
- * toolbar at all, a header byte for byte what it was before the toolbar existed.
+ * Where it goes is the header toolbar rule: the title, or its placeholder, stays the
+ * header's first child, then the action row with the button at its start (after the
+ * calendar filter's button, when the filter is folded into one), then the heading row. And
+ * — the half no other gate can see — with no control at all, a header byte for byte what it
+ * was before the toolbar existed.
  *
  * Two behaviors are pinned beyond the rendering: a press on the button must never become
  * a press on the card (the card captures the pointer for its own tap and hold actions),
@@ -30,7 +34,13 @@ import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
 import '../src/calendar-card-pro';
 
 /** A shown toolbar holding the add button and nothing else. */
-const ADD_ONLY = { show: true, view_switcher: false };
+const ADD_ONLY: Types.ToolbarConfig = {
+  show: true,
+  view_switcher: false,
+  navigation: false,
+  reset: false,
+  legend: false,
+};
 
 vi.mock('../src/utils/logger', () => ({
   warn: vi.fn(),
@@ -267,50 +277,91 @@ describe('add-event button rendering', () => {
     expect(untitled.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('puts the button in the title row, after the title', async () => {
+  it('keeps the title first, then puts the button at the start of the action row', async () => {
     const card = await mount({
       entities: [READ_ONLY, WRITABLE],
       toolbar: ADD_ONLY,
       title: 'Family',
     });
     const row = header(card);
-    const [title, toolbar] = Array.from(row.children);
+    const [title, actions, heading] = Array.from(row.children);
 
     expect(row.className).toBe('header-container has-toolbar');
+    expect(row.children).toHaveLength(3);
     expect(title.outerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
       '<h1 class="card-header">Family</h1>',
     );
-    expect(toolbar.className).toBe('card-toolbar toolbar-in-title-row');
-    expect(row.children).toHaveLength(2);
-    expect(toolbar.querySelector('.toolbar-trailing > .add-event-button')).toBe(button(card));
-    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
+    expect(actions.className).toBe('card-toolbar toolbar-actions');
+    expect(heading.className).toBe('card-toolbar toolbar-heading');
+    // The button leads the row; the switcher's place in its middle and the end stay empty.
+    expect(Array.from(actions.children).map((child) => child.className)).toEqual([
+      'toolbar-start',
+      'toolbar-end',
+    ]);
+    const [start, end] = Array.from(actions.children);
+    expect(start.children).toHaveLength(1);
+    expect(start.firstElementChild).toBe(button(card));
+    expect(end.children).toHaveLength(0);
+    // The one control in the whole header: the heading row has none without navigation.
+    expect(row.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('keeps the button in the title row while a templated title is still resolving', async () => {
+  it('draws a templated title still resolving as the label over the month, with both rows', async () => {
     // No `hass.connection`, so the template never resolves and the heading stays pending.
     const card = await mount({
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
       title: '{{ states("sensor.family") }}',
     });
-    const [title, toolbar] = Array.from(header(card).children);
+    const [title, actions, heading] = Array.from(header(card).children);
 
+    // The heading itself, empty, rather than the placeholder an untitled card draws.
     expect(title.tagName).toBe('H1');
-    expect(toolbar.classList.contains('toolbar-in-title-row')).toBe(true);
+    expect(title.className).toBe('card-header');
+    expect(title.textContent).toBe('');
+    expect(actions.className).toBe('card-toolbar toolbar-actions');
+    expect(actions.contains(button(card))).toBe(true);
+    expect(heading.className).toBe('card-toolbar toolbar-heading');
   });
 
-  it('gives an untitled card a slim row of its own', async () => {
+  it('leads an untitled card with the placeholder, the rows after it', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const row = header(card);
-    const [placeholder, toolbar] = Array.from(row.children);
 
     expect(row.className).toBe('header-container has-toolbar');
-    expect(placeholder.className).toBe('card-header-placeholder');
-    expect(toolbar.className).toBe('card-toolbar toolbar-own-row');
-    expect(toolbar.contains(button(card))).toBe(true);
-    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
+    expect(Array.from(row.children).map((child) => child.className)).toEqual([
+      'card-header-placeholder',
+      'card-toolbar toolbar-actions',
+      'card-toolbar toolbar-heading',
+    ]);
+    expect(row.querySelector('.toolbar-actions > .toolbar-start > .add-event-button')).toBe(
+      button(card),
+    );
+    expect(card.shadowRoot!.querySelectorAll('.add-event-button')).toHaveLength(1);
     // The content still follows the header directly, as card-mod styles expect.
     expect(row.nextElementSibling?.classList.contains('content-container')).toBe(true);
+  });
+
+  it.each([
+    [
+      'follows the filter folded into a button',
+      'menu',
+      ['legend-button', 'legend-menu', 'add-event-button'],
+    ],
+    ['leads the row while the filter shows as chips', 'chips', ['add-event-button']],
+  ] as const)('%s', async (_name, legend, expected) => {
+    const card = await mount({ entities: [WRITABLE], toolbar: { ...ADD_ONLY, legend } });
+    const start = card.shadowRoot!.querySelector('.toolbar-actions > .toolbar-start')!;
+    // A child's own class: a `.toolbar-button` is told apart by its second.
+    const kinds = Array.from(start.children).map((child) =>
+      child.classList[0] === 'toolbar-button' ? child.classList[1] : child.classList[0],
+    );
+
+    expect(kinds).toEqual(expected);
+    // The chips are the heading row's, and only where the filter is not folded.
+    expect(card.shadowRoot!.querySelectorAll('.toolbar-heading .legend-chip').length > 0).toBe(
+      legend === 'chips',
+    );
   });
 
   it("draws a native button with Home Assistant's label beside a plus", async () => {
@@ -368,14 +419,17 @@ describe('the add-event label follows the width of the card', () => {
   const LABELED = { label: 'Add event', iconOnly: false, ariaLabel: null, title: null };
   const ICON_ONLY = { label: null, iconOnly: true, ariaLabel: 'Add event', title: 'Add event' };
 
+  /** The width from which the add button, alone in the action row, carries its label. */
+  const ALONE = Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+
   it('draws the icon alone, named, until the card has been measured', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     expect(shape(card)).toEqual(ICON_ONLY);
   });
 
   it.each([
-    [479, ICON_ONLY],
-    [480, LABELED],
+    [ALONE - 1, ICON_ONLY],
+    [ALONE, LABELED],
     [900, LABELED],
   ])('at %ipx draws %o', async (width, expected) => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
@@ -387,7 +441,7 @@ describe('the add-event label follows the width of the card', () => {
     const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
     expect(shape(card)).toEqual(LABELED);
 
-    await measure(card, 479);
+    await measure(card, ALONE - 1);
     expect(shape(card)).toEqual(ICON_ONLY);
   });
 

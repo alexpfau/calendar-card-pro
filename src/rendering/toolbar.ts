@@ -2,13 +2,14 @@
  * The header toolbar: the card's own controls, between the title and the events.
  *
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
- * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
- * leading group for the dates (previous, home and next on one track, then the range on
- * screen, which opens a date picker), and a trailing group in two parts: what the card shows
- * (the filter, the view switcher, then reset, which undoes them), and past a wider gap the
- * commands on the events (refresh, then add, always last). The calendar legend is a filter,
- * and gets a lane of its own below; where its chips do not fit, it folds into a button that
- * leads the trailing group (`legend.ts`).
+ * it did before there was a toolbar. With one it is two rows. The action row holds what acts
+ * on the card, each in a fixed place: the calendar filter and add at its start, the view
+ * switcher in its middle, reset and refresh at its end. The heading row comes last, right
+ * above the days: the month the page on screen starts in, under the card's title, which
+ * shrinks to a small label over it, the date navigation (previous, home and next on one track)
+ * at the row's end, and, where they fit, a chip per calendar in its middle, under the switcher.
+ * The month opens a date picker. Where the chips do not all fit, the filter folds into a button
+ * at the start of the action row instead (`legend.ts`).
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
  * out of it, so the bar never competes with the events for attention. Color shows only on
@@ -18,10 +19,10 @@
 
 import {
   mdiAlertCircleOutline,
-  mdiCalendarToday,
   mdiCheck,
   mdiChevronLeft,
   mdiChevronRight,
+  mdiHomeOutline,
   mdiMenuDown,
   mdiPlus,
   mdiRefresh,
@@ -29,7 +30,7 @@ import {
 } from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
-import { CalendarLegend, renderLegendButton, renderLegendLane } from './legend';
+import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
 
@@ -90,15 +91,31 @@ export interface ViewSwitcher {
   onSelect: (view: Types.EffectiveView) => void;
 }
 
+/** What the card hands the wrapper for the month heading, drawn whenever the toolbar is. */
+export interface MonthHeading {
+  /** The month and year the page on screen starts in, in the form drawn. */
+  text: string;
+  /**
+   * Every month's heading in the form drawn. The heading keeps the room of the widest, so
+   * paging changes the words and never moves a control.
+   */
+  reserve: ReadonlyArray<string>;
+  /**
+   * Every month in full, which the card measures to decide whether the full form fits
+   * (`_syncMonthFit`), whichever form is drawn.
+   */
+  full: ReadonlyArray<string>;
+  /** True while the short form is drawn, because the full one does not fit. */
+  short: boolean;
+  /**
+   * The dates on screen, in the card's language: the heading's tooltip, and what assistive
+   * technology announces when they change.
+   */
+  range: string;
+}
+
 /** What the card hands the wrapper when it should draw the date navigation. */
 export interface DateNavigation {
-  /** The dates on screen, in the card's language. */
-  range: string;
-  /**
-   * The widest name a page of this length can have in this language. The range reserves
-   * room for it, so paging changes the words and never moves a control.
-   */
-  widestRange: string;
   /** The home button's name: "Today", or the day the card's own window starts on. */
   homeName: string;
   /**
@@ -121,21 +138,26 @@ export interface DateNavigation {
 /** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
   /**
-   * Whether the card is wide enough for its controls to carry a text label beside their
-   * icon. Icon-only otherwise, with the label as the control's accessible name.
+   * Whether the card is wide enough for the action row's controls to carry a text label
+   * beside their icon. Icon-only otherwise, with the label as the control's accessible name.
    */
   labeled?: boolean;
-  /** The date navigation, which leads the bar and gives it a row of its own. */
+  /** The month heading, which the heading row carries whenever the toolbar is drawn. */
+  heading?: MonthHeading;
+  /** Previous, home and next beside the month, which then opens a date picker. */
   navigation?: DateNavigation;
-  /** The calendar legend: a lane under the bar, or folded, a button leading the trailing group. */
+  /**
+   * The calendar filter: chips in the middle of the heading row, or, folded, a button leading the
+   * action row.
+   */
   legend?: CalendarLegend;
-  /** The view switcher, after a folded legend. */
+  /** The view switcher, in the middle of the action row. */
   viewSwitcher?: ViewSwitcher;
-  /** The reset button, after the switcher, closing what the card shows; refresh follows. */
+  /** The reset button, at the end of the action row, before refresh. */
   reset?: ResetButton;
-  /** The refresh button, between reset and add. */
+  /** The refresh button, last in the action row. */
   refresh?: RefreshButton;
-  /** The add-event button, always the last control in the trailing group. */
+  /** The add-event button, at the start of the action row, after a folded filter. */
   addEvent?: AddEventButton;
 }
 
@@ -221,22 +243,22 @@ function hasFocus(input: HTMLInputElement): boolean {
 /**
  * Follows a picker the card just opened, focused, until it closes.
  *
- * Browsers close their pickers in two ways a press on the range has to fit. Chrome closes its
+ * Browsers close their pickers in two ways a press on the month has to fit. Chrome closes its
  * picker on any press outside it and then hands that press to the page, so the press that
  * closes it would open it again at once. Safari closes its picker when the input loses focus,
  * and otherwise only on a scroll, which is why the input is focused to open it. So a press on
- * the range that finds the picker followed here closes it, by taking focus from the input,
+ * the month that finds the picker followed here closes it, by taking focus from the input,
  * and opens nothing.
  *
  * The picker counts as closed when the input loses focus, a day is picked or Escape is
  * pressed, and, where the browser reports `:open`, once that turns false: Chrome keeps the
  * input focused when its picker closes, and nothing else tells the page, so that is checked
- * once a frame. If the input still has focus then, it goes back to the range button where
+ * once a frame. If the input still has focus then, it goes back to the month button where
  * the button had it, so a keyboard is where it started, or else nowhere. While it is followed
  * the input is exposed to assistive technology, named by the dates, because it holds focus.
  *
  * @param input - The input whose picker was just shown
- * @param returnFocus - The range button, if it had focus when it was pressed
+ * @param returnFocus - The month button, if it had focus when it was pressed
  */
 function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | null): void {
   openDatePickers.get(input)?.();
@@ -321,11 +343,13 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
 /**
  * Render the reset button.
  *
- * Drawn the same whether or not there is anything to undo, so it never moves the controls
- * after it. With nothing to undo it is dimmed and `aria-disabled`, as a view the card is too
- * narrow for is, and a press does nothing; it stays focusable, so focus does not jump away from
- * it the moment a press has done its work. Named as the add button is. Its icon is a U-turn,
- * not a circular arrow: two circular arrows side by side read as one control turned round.
+ * Drawn whether or not there is anything to undo, so it keeps its room and never moves the
+ * controls beside it. With nothing to undo it is `.unavailable`, which the stylesheet hides, so
+ * it appears only once there is something to undo, and `aria-disabled`, and a press does nothing.
+ * The one exception is a button that holds focus, after a press that did its work: it stays,
+ * dimmed, until focus moves on, so a keyboard is never left nowhere. Named as the add button is.
+ * Its icon is a U-turn, not a circular arrow: two circular arrows side by side read as one
+ * control turned round.
  *
  * @param button - Button description from the card
  * @param roomForLabel - Whether the card is wide enough to draw the label
@@ -495,39 +519,119 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
 }
 
 /**
- * Render the date navigation: previous, home and next on one track, then the range on
- * screen, which opens the browser's own date picker.
+ * Render previous, home and next on one track.
  *
  * The three buttons share a track, styled like the view switcher's but with nothing raised,
  * because they are one control: a step back, a way home and a step forward. Home is always
- * an icon, named by its tooltip, so the track is the same width in every language and at
- * every card width. The arrows are drawn for left-to-right reading and mirrored in a
- * right-to-left one, where "previous" points right.
- *
- * The range is a button over a hidden native date input. Pressing it focuses the input and
- * asks it to show its picker; a browser that cannot gets the input clicked instead. Pressed
- * while the picker it opened is showing, it closes it (`followDatePicker`). The input stays
- * out of the tab order and, unless it holds focus for its picker, away from assistive
- * technology: the button is the control, and the input only lends it the browser's picker.
- * The button is as wide as the dates it names.
- * Behind it, in the same grid cell, an invisible copy of the widest label this page length
- * can have keeps that much room, so the band wraps by the card's width and never by the
- * dates, and a press never moves the controls after it. The label is a polite live region,
- * so the new dates are read out after a press.
+ * an icon, a house, named by its tooltip: it leads to the days the card opens with, which are
+ * not always today, so neither the word "Today" nor a calendar glyph, which beside the month
+ * reads as the date picker's, would say where it goes. The track is the same width in every
+ * language and at every card width. The arrows are drawn for left-to-right reading and
+ * mirrored in a right-to-left one, where "previous" points right.
  *
  * @param nav - Navigation description from the card
- * @returns The leading group
+ * @returns The track
  */
 function renderDateNavigation(nav: DateNavigation): TemplateResult {
   const press = (handler: () => void) => (ev: Event) => {
     ev.stopPropagation();
     handler();
   };
+  const segment = (
+    name: string | undefined,
+    fallback: string,
+    path: string,
+    handler: () => void,
+    direction: boolean,
+  ) =>
+    html`<button
+      type="button"
+      class="date-navigation-segment"
+      aria-label=${name ?? fallback}
+      title=${name ?? nothing}
+      @pointerdown=${stopCardGesture}
+      @click=${press(handler)}
+    >
+      <svg
+        class=${direction ? 'toolbar-button-icon date-navigation-direction' : 'toolbar-button-icon'}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d=${path}></path>
+      </svg>
+    </button>`;
+
+  return html`<div class="date-navigation">
+    ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
+    ${segment(nav.homeName, nav.homeName, mdiHomeOutline, nav.onHome, false)}
+    ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
+  </div>`;
+}
+
+/**
+ * Render each label in a set, laid over one another by the stylesheet, so the set is as wide
+ * as the widest of them.
+ *
+ * @param labels - The labels
+ * @returns One span per label
+ */
+function renderOverlaid(labels: ReadonlyArray<string>): TemplateResult[] {
+  return labels.map((label) => html`<span>${label}</span>`);
+}
+
+/**
+ * Render the month heading: the month the page on screen starts in, which opens the browser's
+ * own date picker where the card has date navigation, and is plain text where it has none.
+ *
+ * As a control it is a button over a hidden native date input, with a caret after the month.
+ * Pressing it focuses the input and asks it to show its picker; a browser that cannot gets the
+ * input clicked instead. Pressed while the picker it opened is showing, it closes it
+ * (`followDatePicker`). The input stays out of the tab order and, unless it holds focus for its
+ * picker, away from assistive technology: the button is the control, and the input only lends
+ * it the browser's picker.
+ *
+ * The month names the page by its first day, so the exact dates live beside it: in its
+ * tooltip, and in a polite live region, visually hidden, that describes the button and names
+ * the row, so a screen reader hears the dates on reaching it and again after every press.
+ *
+ * Behind the month, in the same grid cell, invisible copies of every month in the form drawn
+ * keep the room of the widest, so paging changes the words and never moves the controls after
+ * them. Out of the flow, the months in full are laid over one another once more, for the card
+ * to measure whichever form is drawn (`_syncMonthFit`).
+ *
+ * @param heading - Heading description from the card
+ * @param nav - The date navigation, when the card draws it
+ * @returns The heading
+ */
+function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): TemplateResult {
+  const reserve = html`<span class="toolbar-month-reserve" aria-hidden="true"
+    >${renderOverlaid(heading.reserve)}</span
+  >`;
+  const measure = html`<span class="toolbar-month-measure" aria-hidden="true"
+    ><span class="toolbar-month-probe">${renderOverlaid(heading.full)}</span></span
+  >`;
+  const live = html`<span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
+    >${heading.range}</span
+  >`;
+
+  if (!nav) {
+    return html`<div class="toolbar-month">
+      ${reserve}
+      <span class="toolbar-month-slot">
+        <span class="toolbar-month-label" title=${heading.range}
+          ><bdi class="toolbar-month-text">${heading.text}</bdi></span
+        >
+      </span>
+      ${measure}${live}
+    </div>`;
+  }
+
   const inputBeside = (button: EventTarget | null): HTMLInputElement | null =>
     (button as HTMLElement | null)?.parentElement?.querySelector<HTMLInputElement>(
       'input.toolbar-date-input',
     ) ?? null;
-  const pressRange = (ev: Event) => {
+  const pressMonth = (ev: Event) => {
     stopCardGesture(ev);
     const input = inputBeside(ev.currentTarget);
     if (!input) return;
@@ -561,180 +665,172 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     const value = (ev.target as HTMLInputElement).value;
     if (value) nav.onPick(value);
   };
-  const segment = (
-    name: string | undefined,
-    fallback: string,
-    path: string,
-    handler: () => void,
-    direction: boolean,
-  ) =>
-    html`<button
-      type="button"
-      class="date-navigation-segment"
-      aria-label=${name ?? fallback}
-      title=${name ?? nothing}
-      @pointerdown=${stopCardGesture}
-      @click=${press(handler)}
-    >
-      <svg
-        class=${direction ? 'toolbar-button-icon date-navigation-direction' : 'toolbar-button-icon'}
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <path d=${path}></path>
-      </svg>
-    </button>`;
 
-  // The group is named by the dates it moves through, so a screen reader entering it hears
-  // where it is before which way it can go.
-  return html`<div class="toolbar-leading" role="group" aria-labelledby="toolbar-range-text">
-    <div class="date-navigation">
-      ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
-      ${segment(nav.homeName, nav.homeName, mdiCalendarToday, nav.onHome, false)}
-      ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
-    </div>
-    <div class="toolbar-range-anchor">
-      <span class="toolbar-range-reserve" aria-hidden="true">${nav.widestRange}</span>
-      <span class="toolbar-range-slot">
-        <button type="button" class="toolbar-range" @pointerdown=${pressRange} @click=${openPicker}>
-          <span id="toolbar-range-text" class="toolbar-range-text" aria-live="polite"
-            ><bdi>${nav.range}</bdi
-            ><svg
-              class="toolbar-range-icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d=${mdiMenuDown}></path></svg
-          ></span>
-        </button>
-        <input
-          type="date"
-          class="toolbar-date-input"
-          tabindex="-1"
-          aria-hidden="true"
-          aria-labelledby="toolbar-range-text"
-          .value=${nav.pickerValue}
-          @change=${onChange}
-        />
-      </span>
-    </div>
+  return html`<div class="toolbar-month with-picker">
+    ${reserve}
+    <span class="toolbar-month-slot">
+      <button
+        type="button"
+        class="toolbar-month-button"
+        title=${heading.range}
+        aria-describedby="toolbar-range-text"
+        @pointerdown=${pressMonth}
+        @click=${openPicker}
+      >
+        <span class="toolbar-month-label"
+          ><bdi class="toolbar-month-text">${heading.text}</bdi
+          ><svg class="toolbar-month-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d=${mdiMenuDown}></path></svg
+        ></span>
+      </button>
+      <input
+        type="date"
+        class="toolbar-date-input"
+        tabindex="-1"
+        aria-hidden="true"
+        aria-labelledby="toolbar-range-text"
+        .value=${nav.pickerValue}
+        @change=${onChange}
+      />
+    </span>
+    ${measure}${live}
   </div>`;
 }
 
 /**
- * The legend, when it is folded into a button in the trailing group.
+ * The legend, when it is folded into a button in the action row.
  *
  * @param toolbar - The controls the card wants
- * @returns The legend, or undefined when it is drawn as a lane or not at all
+ * @returns The legend, or undefined when it is drawn as chips or not at all
  */
 function foldedLegend(toolbar: HeaderToolbar): CalendarLegend | undefined {
   return toolbar.legend?.folded ? toolbar.legend : undefined;
 }
 
 /**
- * Whether the toolbar draws a trailing group.
- *
- * @param toolbar - The controls the card wants
- * @returns True when it holds at least one control
- */
-function hasTrailing(toolbar: HeaderToolbar): boolean {
-  return Boolean(
-    foldedLegend(toolbar) ||
-    toolbar.viewSwitcher ||
-    toolbar.reset ||
-    toolbar.refresh ||
-    toolbar.addEvent,
-  );
-}
-
-/**
- * Render the trailing group: a folded legend, the view switcher, reset, then refresh and add,
- * always last, past the wider gap the stylesheet puts between the two parts.
- *
- * @param toolbar - The controls the card wants
- * @param labeled - Whether the controls carry their labels
- * @returns The group, or nothing when it holds no control
- */
-function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResult | typeof nothing {
-  if (!hasTrailing(toolbar)) return nothing;
-  const legend = foldedLegend(toolbar);
-
-  return html`<div class="toolbar-trailing">
-    ${legend ? renderLegendButton(legend, labeled) : nothing}
-    ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
-    ${toolbar.reset ? renderResetButton(toolbar.reset, labeled) : nothing}
-    ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
-    ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
-  </div>`;
-}
-
-/**
- * Whether the toolbar draws the legend's lane under the bar.
+ * Whether the toolbar draws the legend's chips, in the middle of the heading row.
  *
  * @param toolbar - The controls the card wants
  * @returns True when the legend is on and not folded
  */
-export function drawsLegendLane(toolbar: HeaderToolbar): boolean {
+export function drawsLegendChips(toolbar: HeaderToolbar): boolean {
   return toolbar.legend !== undefined && !toolbar.legend.folded;
 }
 
 /**
- * Render the bar itself, or nothing when it would hold no control.
+ * Whether the toolbar draws an action row.
  *
  * @param toolbar - The controls the card wants
- * @param hasTitle - Whether the header draws a title, pending or not
- * @returns The bar, or nothing
+ * @returns True when it holds at least one control
  */
-function renderBar(toolbar: HeaderToolbar, hasTitle: boolean): TemplateResult | typeof nothing {
-  const labeled = toolbar.labeled === true;
+export function drawsActionRow(toolbar: HeaderToolbar): boolean {
+  return Boolean(
+    foldedLegend(toolbar) ||
+    toolbar.addEvent ||
+    toolbar.viewSwitcher ||
+    toolbar.reset ||
+    toolbar.refresh,
+  );
+}
 
-  if (toolbar.navigation) {
-    return html`<div
-      class="card-toolbar toolbar-band"
-      @pointerdown=${stopCardGesture}
-      @click=${stopCardGesture}
-    >
-      ${renderDateNavigation(toolbar.navigation)} ${renderTrailing(toolbar, labeled)}
-    </div>`;
-  }
+/**
+ * Render the action row: a folded filter and add at its start, the view switcher in its
+ * middle, reset and refresh at its end.
+ *
+ * The start and the end are groups of their own, there even when empty, so the stylesheet
+ * can share the room left beside the switcher out equally between them and the switcher sits
+ * in the middle of the card while there is room for that. Twice the usual gap stands between
+ * reset and refresh, so the U-turn and the circular arrow never read as one control.
+ *
+ * The press guard sits on the row's own box as well as on each control, because the
+ * switcher's gray track and the gaps between controls are part of the row but no button: a
+ * near miss there must do nothing, not run the card's tap or hold action.
+ *
+ * @param toolbar - The controls the card wants
+ * @param labeled - Whether the controls carry their labels
+ * @returns The row, or nothing when it holds no control
+ */
+function renderActionRow(
+  toolbar: HeaderToolbar,
+  labeled: boolean,
+): TemplateResult | typeof nothing {
+  if (!drawsActionRow(toolbar)) return nothing;
+  const legend = foldedLegend(toolbar);
 
-  if (!hasTrailing(toolbar)) return nothing;
-
-  // The press guard sits on the toolbar's own box as well as on each control, because the
-  // switcher's gray track and the gaps between controls are part of the bar but no button:
-  // a near miss there must do nothing, not run the card's tap or hold action.
   return html`<div
-    class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
+    class="card-toolbar toolbar-actions"
     @pointerdown=${stopCardGesture}
     @click=${stopCardGesture}
   >
-    ${renderTrailing(toolbar, labeled)}
+    <div class="toolbar-start">
+      ${legend ? renderLegendButton(legend, labeled) : nothing}
+      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
+    </div>
+    ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+    <div class="toolbar-end">
+      ${toolbar.reset ? renderResetButton(toolbar.reset, labeled) : nothing}
+      ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
+    </div>
+  </div>`;
+}
+
+/**
+ * Render the heading row: the month at its start, the chips where they fit, and the date
+ * navigation at its end.
+ *
+ * The arrows keep to the row's end in every layout, so a press on next lands on the same spot
+ * page after page however long each month's name is. The chips sit between, in the middle of
+ * the card under the view switcher while there is room for that, by the switcher's own rule:
+ * the month and the group holding the arrows share the room beside them equally. Named as a
+ * group by the dates on screen, so a screen reader entering it hears where it is before which
+ * way it can go. It keeps every press from the card, as the action row does.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns The row, or nothing when it would be empty
+ */
+function renderHeadingRow(toolbar: HeaderToolbar): TemplateResult | typeof nothing {
+  const chips = drawsLegendChips(toolbar) ? toolbar.legend : undefined;
+  const heading = toolbar.heading;
+  if (!heading && !toolbar.navigation && !chips) return nothing;
+
+  const className = [
+    'card-toolbar',
+    'toolbar-heading',
+    chips ? 'chips-shown' : '',
+    heading?.short ? 'short-month' : '',
+  ]
+    .filter((cls) => cls !== '')
+    .join(' ');
+
+  return html`<div
+    class=${className}
+    role="group"
+    aria-labelledby=${heading ? 'toolbar-range-text' : nothing}
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
+  >
+    ${heading ? renderMonth(heading, toolbar.navigation) : nothing}
+    ${chips ? renderLegendChips(chips) : nothing}
+    <div class="toolbar-heading-end">
+      ${toolbar.navigation ? renderDateNavigation(toolbar.navigation) : nothing}
+    </div>
   </div>`;
 }
 
 /**
  * Render the header toolbar, or nothing when it would hold no control.
  *
- * Where it sits is the layout rule. With only trailing actions and a title — a pending
- * templated title included — the actions share the title's row, at its inline end, so
- * the title keeps its markup and the card gains no height. With only trailing actions
- * and no title they get a slim row of their own. With the date navigation the toolbar is
- * a band of its own between the title and the events, the dates at its start and the
- * trailing group at its end; where the card is too narrow for both on one row, the
- * trailing group wraps onto a second one. Which row each group is on depends on the card's
- * width and the controls it holds, never on the dates it shows. The legend's lane, when it
- * is not folded, comes last, on a row of its own under all of them.
+ * Where it sits is the layout rule. With no control the header is exactly as it was before
+ * there was a toolbar. With one, the header is two rows above the events: the action row, when
+ * it holds a control, then the heading row, where the card's title, drawn as a small label
+ * over the month, joins it. The title stays the header's first child, so it keeps its element
+ * and classes, and the stylesheet places it. Which row a control sits on depends on the
+ * configuration and, for the chips alone, on whether all of them fit; never on the dates.
  *
  * @param toolbar - The controls the card wants
- * @param hasTitle - Whether the header draws a title, pending or not
  * @returns The toolbar, or undefined when it would be empty
  */
-export function renderHeaderToolbar(
-  toolbar: HeaderToolbar,
-  hasTitle: boolean,
-): TemplateResult | undefined {
+export function renderHeaderToolbar(toolbar: HeaderToolbar): TemplateResult | undefined {
   if (
     !toolbar.addEvent &&
     !toolbar.viewSwitcher &&
@@ -746,8 +842,6 @@ export function renderHeaderToolbar(
     return undefined;
   }
 
-  const bar = renderBar(toolbar, hasTitle);
-  if (!drawsLegendLane(toolbar)) return bar === nothing ? undefined : (bar as TemplateResult);
-
-  return html`${bar}${renderLegendLane(toolbar.legend!)}`;
+  const labeled = toolbar.labeled === true;
+  return html`${renderActionRow(toolbar, labeled)}${renderHeadingRow(toolbar)}`;
 }

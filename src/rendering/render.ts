@@ -136,24 +136,15 @@ export function renderMainCardStructure(
   // - no control: no toolbar, and the header exactly as it was before there was one. Hence
   //   a single binding below; a second, even one rendering nothing, adds a marker and a
   //   text node to the header.
-  // - trailing actions only (a folded legend, the view switch, refresh, add always last): in
-  //   the title's row at its inline end, or in a slim row of their own when there is no title.
-  // - with the date navigation: a band of its own between the title and the events, the
-  //   dates leading and the trailing actions at its end, wrapping onto a second row where the
-  //   card is too narrow for both.
-  // - the legend's lane, unless it is folded: a row of its own under all of them.
+  // - with a control: two rows above the events. The action row (a folded filter and add,
+  //   the view switch, reset and refresh) when it holds a control, then the heading row: the
+  //   title as a small label over the month the page starts in, the date navigation, and the
+  //   filter's chips where they all fit.
   // The toolbar stays inside `.header-container`, after the h1 or the
-  // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
-  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
-  const headerClass = !toolbarBlock
-    ? 'header-container'
-    : [
-        'header-container has-toolbar',
-        toolbar.navigation ? 'has-band' : '',
-        Toolbar.drawsLegendLane(toolbar) ? 'has-legend' : '',
-      ]
-        .filter((cls) => cls !== '')
-        .join(' ');
+  // `.card-header-placeholder`, so both keep the place card-mod styles find them in; the
+  // stylesheet draws the title between the two rows.
+  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar);
+  const headerClass = toolbarBlock ? 'header-container has-toolbar' : 'header-container';
   // Days about to give way to another page's are dimmed until its events arrive. A class
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';

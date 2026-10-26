@@ -258,30 +258,29 @@ in any day's `.grid-day-body`, and a day selector does not reach it; select it a
 ### Header Toolbar Classes
 
 The [header toolbar](/features/layout-appearance#header-toolbar) adds `.has-toolbar` to
-`.header-container`, which turns the header into a flex row, and draws its controls inside it.
-With the [date navigation](/features/layout-appearance#paging-through-dates) the toolbar is a
-band of its own: `.card-toolbar` also carries `.toolbar-band`, and `.header-container` also
-carries `.has-band`. The [legend](/features/layout-appearance#showing-hiding-calendars) draws
-its chips in a row after the toolbar, inside `.header-container`, which then carries
-`.has-legend` too.
+`.header-container`, which turns the header into a grid of rows, and draws two rows inside it,
+each a `.card-toolbar`: the actions (`.toolbar-actions`), then the month (`.toolbar-heading`). The
+title, `h1.card-header`, stays the header's first child and is drawn between them as a small
+label over the month.
 
-| Class                      | Element                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.card-toolbar`            | the toolbar; `.toolbar-in-title-row` beside a title, `.toolbar-own-row` in a row of its own, `.toolbar-band` with the date navigation                                                                                                                                                                                                                                                                     |
-| `.toolbar-trailing`        | the group of controls at its end                                                                                                                                                                                                                                                                                                                                                                          |
-| `.toolbar-leading`         | the group at the start of the band: the date navigation, then the dates on screen                                                                                                                                                                                                                                                                                                                         |
-| `.date-navigation`         | the track holding the previous, home and next buttons                                                                                                                                                                                                                                                                                                                                                     |
-| `.date-navigation-segment` | one of those three buttons                                                                                                                                                                                                                                                                                                                                                                                |
-| `.toolbar-range`           | the dates on screen, a button that opens the date picker; its words are `.toolbar-range-text`                                                                                                                                                                                                                                                                                                             |
-| `.toolbar-button`          | a button: add, also `.add-event-button`; reset, also `.reset-button`, with `.unavailable` while there is nothing to undo; refresh, also `.refresh-button`, with `.busy` while it turns, then `.refresh-done` or `.refresh-failed` for a moment after a press; and the folded legend, also `.legend-button`, with `.filtered` while it hides a calendar. `.icon-only` while there is no room for its label |
-| `.toolbar-button-icon`     | a button's icon                                                                                                                                                                                                                                                                                                                                                                                           |
-| `.toolbar-button-label`    | a control's label, on a button and on each view switcher segment                                                                                                                                                                                                                                                                                                                                          |
-| `.toolbar-legend`          | the legend's row of chips                                                                                                                                                                                                                                                                                                                                                                                 |
-| `.legend-chip`             | one calendar's chip; `.hidden-calendar` while its events are hidden                                                                                                                                                                                                                                                                                                                                       |
-| `.legend-menu`             | the menu a folded legend opens; each calendar in it is a `.legend-menu-row`, also `.hidden-calendar` while hidden                                                                                                                                                                                                                                                                                         |
-| `.view-switcher`           | the view switcher's track                                                                                                                                                                                                                                                                                                                                                                                 |
-| `.view-switcher-segment`   | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` without a label                                                                                                                                                                                                                                                                         |
-| `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                                                                                                                                                                     |
+| Class                      | Element                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.card-toolbar`            | either row: `.toolbar-actions` for the actions, `.toolbar-heading` for the month, which also carries `.chips-shown` while the [calendar chips](/features/layout-appearance#showing-hiding-calendars) show and `.short-month` while the month takes its short form                                                                                                                                                        |
+| `.toolbar-start`           | the group at the start of the action row: the calendar filter's button and the add button                                                                                                                                                                                                                                                                                                                                |
+| `.toolbar-end`             | the group at the end of the action row: reset and refresh                                                                                                                                                                                                                                                                                                                                                                |
+| `.toolbar-month`           | the month heading; its words are `.toolbar-month-text`, inside `.toolbar-month-button` where it opens the date picker                                                                                                                                                                                                                                                                                                    |
+| `.toolbar-heading-end`     | the group at the end of the month's row, holding the date navigation                                                                                                                                                                                                                                                                                                                                                     |
+| `.date-navigation`         | the track holding the previous, home and next buttons                                                                                                                                                                                                                                                                                                                                                                    |
+| `.date-navigation-segment` | one of those three buttons                                                                                                                                                                                                                                                                                                                                                                                               |
+| `.toolbar-button`          | a button: add, also `.add-event-button`; reset, also `.reset-button`, with `.unavailable`, and hidden, while there is nothing to undo; refresh, also `.refresh-button`, with `.busy` while it turns, then `.refresh-done` or `.refresh-failed` for a moment after a press; and the calendar filter, also `.legend-button`, with `.filtered` while it hides a calendar. `.icon-only` while there is no room for its label |
+| `.toolbar-button-icon`     | a button's icon                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `.toolbar-button-label`    | a control's label, on a button and on each view switcher segment                                                                                                                                                                                                                                                                                                                                                         |
+| `.toolbar-legend`          | the calendar chips, in the middle of the month's row                                                                                                                                                                                                                                                                                                                                                                     |
+| `.legend-chip`             | one calendar's chip; `.hidden-calendar` while its events are hidden                                                                                                                                                                                                                                                                                                                                                      |
+| `.legend-menu`             | the menu the filter button opens; each calendar in it is a `.legend-menu-row`, also `.hidden-calendar` while hidden                                                                                                                                                                                                                                                                                                      |
+| `.view-switcher`           | the view switcher's track                                                                                                                                                                                                                                                                                                                                                                                                |
+| `.view-switcher-segment`   | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` without a label                                                                                                                                                                                                                                                                                        |
+| `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 The controls are painted from four custom properties:
 
@@ -292,9 +291,11 @@ The controls are painted from four custom properties:
 | `--calendar-card-toolbar-fill-pressed` | a control while it is pressed                                  |
 | `--calendar-card-toolbar-selected`     | the switcher's selected segment                                |
 
-The stylesheet declares them on `.card-toolbar` and `.toolbar-legend` themselves, so a theme or
-a rule on `ha-card` does not reach them. Each chip and menu row tints itself from
-`--calendar-card-legend-color`, which the card sets on it to the calendar's accent. Set them on both, with `ha-card` in front so the rule outweighs the card's own:
+The stylesheet declares them on `.card-toolbar` itself, which both rows are, so a theme or a rule
+on `ha-card` does not reach them; the chips and the menu sit inside a row and take them from
+there. Each chip and menu row tints itself from `--calendar-card-legend-color`, which the card
+sets on it to the calendar's accent. Set them on `.card-toolbar`, with `ha-card` in front so the
+rule outweighs the card's own:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -305,8 +306,7 @@ toolbar:
   show: true
 card_mod:
   style: |
-    ha-card .card-toolbar,
-    ha-card .toolbar-legend {
+    ha-card .card-toolbar {
       --calendar-card-toolbar-fill: color-mix(in srgb, var(--primary-color) 15%, transparent);
       --calendar-card-toolbar-selected: var(--primary-color);
     }
@@ -333,13 +333,11 @@ card_mod:
     }
 ```
 
-With the [header toolbar](/features/layout-appearance#header-toolbar) on, the header is a flex
-row (`.header-container.has-toolbar`), so the title is centered in the space the controls
-leave rather than across the whole card. With the date navigation the toolbar takes the row
-under the title instead (`.has-band`), and the title has its row to itself again. With the
-legend's chips under a title and no date navigation (`.has-legend`), the header is a grid of two
-columns instead, the title and the controls, with the chips on a row of their own, and the
-title is centered in the same space.
+With the [header toolbar](/features/layout-appearance#header-toolbar) on, the title is the small
+label over the month, a row of its own in the header's grid (`.header-container.has-toolbar`),
+so it is centered across the whole card. The month is then the card's headline: it takes
+`title_font_size` and `title_color`, and a rule for the title's look reaches the label, not the
+month. Style the month through `.toolbar-month`.
 
 ### Highlight Today's Events
 

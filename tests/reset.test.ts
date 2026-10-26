@@ -1,9 +1,9 @@
 /**
  * The toolbar's reset button, on the real card.
  *
- * The toolbar defaults to hidden and reset to off, so every DOM gate built from default config
- * sees no reset button and would stay green if it did nothing; each case here turns it on.
- * What it undoes is owned elsewhere — paging in `date-navigation.test.ts`, the switcher in
+ * The toolbar defaults to hidden, so every DOM gate built from default config sees no reset
+ * button and would stay green if it did nothing; each case here shows the toolbar. What it
+ * undoes is owned elsewhere — paging in `date-navigation.test.ts`, the switcher in
  * `view-switcher.test.ts`, the legend in `legend.test.ts`, the stored choice in
  * `view-choice.test.ts` — so this file pins how the button joins them: when it is drawn and
  * where, when it is lit, that one press undoes each choice and all of them, what it forgets and
@@ -11,14 +11,11 @@
  */
 
 import { mdiRefresh, mdiUndoVariant } from '@mdi/js';
-import { html, render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
-import { cardStyles } from '../src/rendering/styles';
-import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
 import {
   VIEW_CHOICE_STORAGE_KEY,
@@ -71,13 +68,28 @@ const HELD: Record<string, Types.CalendarEventData[]> = {
   ],
 };
 
-/** Every control reset can undo, and reset itself; add is left out unless a case wants it. */
-const EVERYTHING = {
+/**
+ * Every control reset can undo, and reset itself; add is left out unless a case wants it. The
+ * legend is drawn as chips, which a card that is never laid out always shows, so a case can
+ * press one.
+ */
+const EVERYTHING: Types.ToolbarConfig = {
   show: true,
   navigation: true,
   view_switcher: true,
-  legend: true,
+  legend: 'chips',
   reset: true,
+  add_event: false,
+};
+
+/** Reset and refresh, and nothing reset could undo: no navigation, switcher or legend. */
+const COMMANDS_ONLY: Types.ToolbarConfig = {
+  show: true,
+  reset: true,
+  refresh: true,
+  navigation: false,
+  view_switcher: false,
+  legend: false,
   add_event: false,
 };
 
@@ -306,18 +318,18 @@ describe('the reset button', () => {
   });
 
   it('is drawn only on a card with something it could undo', async () => {
-    const commandsOnly = { show: true, reset: true, refresh: true, view_switcher: false };
-    const nothingToUndo = await mount({ toolbar: commandsOnly });
+    const nothingToUndo = await mount({ toolbar: COMMANDS_ONLY });
     expect(resetButton(nothingToUndo)).toBeNull();
     expect(root(nothingToUndo).querySelector('.refresh-button')).not.toBeNull();
 
-    for (const [name, toolbar, extra] of [
-      ['navigation', { ...commandsOnly, navigation: true }, {}],
-      ['the view switcher', { ...commandsOnly, view_switcher: true }, {}],
-      ['the legend', { ...commandsOnly, legend: true }, {}],
-      ['an expand tap', commandsOnly, { tap_action: { action: 'expand' } }],
-      ['an expand hold', commandsOnly, { hold_action: { action: 'expand' } }],
-    ] as const) {
+    const reasons: Array<[string, Types.ToolbarConfig, Partial<Types.Config>]> = [
+      ['navigation', { ...COMMANDS_ONLY, navigation: true }, {}],
+      ['the view switcher', { ...COMMANDS_ONLY, view_switcher: true }, {}],
+      ['the legend', { ...COMMANDS_ONLY, legend: 'menu' }, {}],
+      ['an expand tap', COMMANDS_ONLY, { tap_action: { action: 'expand' } }],
+      ['an expand hold', COMMANDS_ONLY, { hold_action: { action: 'expand' } }],
+    ];
+    for (const [name, toolbar, extra] of reasons) {
       document.body.innerHTML = '';
       const card = await mount({ toolbar, ...extra });
       expect(resetButton(card), name).not.toBeNull();
@@ -328,18 +340,50 @@ describe('the reset button', () => {
     expect(resetButton(hidden)).toBeNull();
   });
 
-  it('closes what the card shows, after the view switcher and before refresh', async () => {
-    const card = await mount({ toolbar: { ...EVERYTHING, refresh: true, add_event: true } });
+  it('is drawn for the legend in either form, without navigation or the switcher', async () => {
+    for (const legend of ['menu', 'chips'] as const) {
+      document.body.innerHTML = '';
+      const card = await mount({ toolbar: { ...COMMANDS_ONLY, legend } });
+      expect(resetButton(card), legend).not.toBeNull();
+      expect(root(card).querySelector('.date-navigation'), legend).toBeNull();
+      expect(root(card).querySelector('.view-switcher'), legend).toBeNull();
+    }
 
-    expect(
-      Array.from(root(card).querySelectorAll('.toolbar-trailing > *')).map((element) =>
+    document.body.innerHTML = '';
+    const noLegend = await mount({ toolbar: COMMANDS_ONLY });
+    expect(resetButton(noLegend)).toBeNull();
+  });
+
+  it('leads the end of the action row, with refresh after it and last', async () => {
+    const card = await mount({
+      toolbar: { ...EVERYTHING, legend: 'menu', refresh: true, add_event: true },
+    });
+    const row = root(card).querySelector('.toolbar-actions')!;
+    const kinds = (parent: Element) =>
+      Array.from(parent.children).map((element) =>
         element.className.split(' ').slice(0, 2).join(' '),
-      ),
-    ).toEqual([
-      'view-switcher',
+      );
+
+    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
+    expect(kinds(row.querySelector('.toolbar-start')!)).toEqual([
+      'toolbar-button legend-button',
+      'legend-menu',
+      'toolbar-button add-event-button',
+    ]);
+    // Side by side, reset first: the stylesheet's wider gap goes between exactly these two.
+    expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
-      'toolbar-button add-event-button',
+    ]);
+    expect(resetButton(card)!.nextElementSibling).toBe(root(card).querySelector('.refresh-button'));
+    const buttons = row.querySelectorAll('button');
+    expect(buttons[buttons.length - 1].classList).toContain('refresh-button');
+
+    // Without reset, refresh stands alone at the end, and nothing comes before it to widen.
+    document.body.innerHTML = '';
+    const noReset = await mount({ toolbar: { ...EVERYTHING, reset: false, refresh: true } });
+    expect(kinds(root(noReset).querySelector('.toolbar-end')!)).toEqual([
+      'toolbar-button refresh-button',
     ]);
   });
 
@@ -355,14 +399,7 @@ describe('the reset button', () => {
   });
 
   it('counts as one more command toward the width the labels need', async () => {
-    const toolbar = {
-      show: true,
-      reset: true,
-      refresh: true,
-      view_switcher: false,
-      add_event: false,
-    };
-    const card = await mount({ toolbar, ...EXPANDABLE });
+    const card = await mount({ toolbar: COMMANDS_ONLY, ...EXPANDABLE });
     const labeledFrom =
       Constants.UI.TOOLBAR_LABEL_MIN_WIDTH + Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
 
@@ -376,15 +413,8 @@ describe('the reset button', () => {
   });
 
   it('keeps every control an icon where Home Assistant has no word for it', async () => {
-    const toolbar = {
-      show: true,
-      reset: true,
-      refresh: true,
-      view_switcher: false,
-      add_event: false,
-    };
     const card = await mount(
-      { toolbar, ...EXPANDABLE },
+      { toolbar: COMMANDS_ONLY, ...EXPANDABLE },
       { localize: (key) => (key === 'ui.common.reset' ? key : (STRINGS[key] ?? key)) },
     );
 
@@ -620,68 +650,5 @@ describe('reset beside other cards and while editing', () => {
 
     expect(drawnView(card)).toBe('grid');
     expect(lit(card)).toBe(true);
-  });
-});
-
-//-----------------------------------------------------------------------------
-// THE GAP BETWEEN THE TWO GROUPS
-//-----------------------------------------------------------------------------
-
-describe('the trailing group', () => {
-  /** The stylesheet's rule that widens the gap, read from the stylesheet itself. */
-  function groupBreakRule(): { selector: string; body: string } {
-    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
-    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-      .map(([, selector, body]) => ({ selector: selector.replace(/\s+/g, ' ').trim(), body }))
-      .filter(({ selector }) => /\.toolbar-trailing\s*>.*\+/.test(selector));
-    expect(rules).toHaveLength(1);
-    return rules[0];
-  }
-
-  const noop = (): void => {};
-  const BUTTONS = {
-    viewSwitcher: {
-      views: [
-        { view: 'list', label: 'List', available: true },
-        { view: 'grid', label: 'Grid', available: true },
-      ],
-      selected: 'list',
-      onSelect: noop,
-    },
-    reset: { label: 'Reset', active: true, onActivate: noop },
-    refresh: { label: 'Refresh', phase: 'idle', onActivate: noop },
-    addEvent: { label: 'Add event', onActivate: noop },
-    legend: {
-      calendars: [{ id: ANNA, name: 'Anna', color: 'red', shown: true }],
-      name: 'My calendars',
-      folded: true,
-      inert: false,
-      onToggle: noop,
-    },
-  } as const satisfies Toolbar.HeaderToolbar;
-
-  /** The trailing controls a toolbar draws, and which of them the wider gap lands on. */
-  function widened(controls: Array<keyof typeof BUTTONS>): string[] {
-    const toolbar = Object.fromEntries(controls.map((name) => [name, BUTTONS[name]]));
-    const container = document.createElement('div');
-    litRender(html`${Toolbar.renderHeaderToolbar(toolbar, true)}`, container);
-    const { selector } = groupBreakRule();
-    return Array.from(container.querySelectorAll('.toolbar-trailing > *'))
-      .filter((element) => element.matches(selector))
-      .map((element) => element.className.split(' ')[1]);
-  }
-
-  it('widens the gap by a second gap, and no more', () => {
-    expect(groupBreakRule().body.replace(/\s+/g, '')).toBe('margin-inline-start:8px;');
-  });
-
-  it('lands on the first command after what the card shows, and on nothing else', () => {
-    expect(widened(['viewSwitcher', 'reset', 'refresh', 'addEvent'])).toEqual(['refresh-button']);
-    expect(widened(['viewSwitcher', 'addEvent'])).toEqual(['add-event-button']);
-    expect(widened(['legend', 'refresh'])).toEqual(['refresh-button']);
-    expect(widened(['reset', 'addEvent'])).toEqual(['add-event-button']);
-    // One group alone has no boundary to mark.
-    expect(widened(['refresh', 'addEvent'])).toEqual([]);
-    expect(widened(['viewSwitcher', 'reset'])).toEqual([]);
   });
 });

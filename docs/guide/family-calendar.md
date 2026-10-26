@@ -181,9 +181,11 @@ The card in the picture only shows the week, but the tablet can take a new plan 
 toolbar:
   show: true
   view_switcher: false # this tablet is always a week on the hour axis
+  navigation: false # and always this week
+  legend: false # with every calendar on it
 ```
 
-That puts an add button at the end of the title's row, so the card grows no taller and the axis still fits the screen. It opens Home Assistant's own new-event dialog with the first calendar that accepts new events preselected, which is Anna's if hers does, because it is listed first. The dialog's picker offers the others, so a visit or a birthday goes on the Family calendar from there. See [Add Event Button](/features/actions#add-event-button).
+That puts an add button in a row of its own above the week, and turns the title into a small label over the month. The card grows by those rows, so on a screen with no room to spare take a few pixels off `hour_height` to keep the axis on it. The button opens Home Assistant's own new-event dialog with the first calendar that accepts new events preselected, which is Anna's if hers does, because it is listed first. The dialog's picker offers the others, so a visit or a birthday goes on the Family calendar from there. See [Add Event Button](/features/actions#add-event-button).
 
 ## 🔀 Combining the Techniques
 

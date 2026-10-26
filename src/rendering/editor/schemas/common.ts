@@ -26,16 +26,19 @@ function options(language: string, name: string, values: ReadonlyArray<string>):
  * @param language - Effective language code
  * @param name - Config or synthetic key
  * @param values - Option values, in the order they should appear
+ * @param labelKey - Key the option labels are named under, when not the field's own name: a
+ * field inside a block (`toolbar.legend`) names its options by its full path
  * @returns The field
  */
 export function select(
   language: string,
   name: string,
   values: ReadonlyArray<string>,
+  labelKey: string = name,
 ): SelectorSchema {
   return {
     name,
-    selector: { select: { mode: 'dropdown', options: options(language, name, values) } },
+    selector: { select: { mode: 'dropdown', options: options(language, labelKey, values) } },
   };
 }
 

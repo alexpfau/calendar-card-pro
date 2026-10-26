@@ -1,6 +1,6 @@
 /**
  * The pure rules of paging through dates: how long a page is, where home is, where the arrows
- * and the date picker lead, and what the toolbar calls a page.
+ * and the date picker lead, and what the toolbar calls a page: its month, and its dates.
  *
  * Everything here is a local calendar day, so this file runs under the `unit` project's UTC;
  * `paging.dst.test.ts` runs the arithmetic across daylight-saving changes in three zones.
@@ -161,42 +161,65 @@ describe("the range's name", () => {
   });
 });
 
-describe("the range's reserved width", () => {
-  it('is the widest label a page of this length can have: two months, two-digit days, a year', () => {
-    expect(Paging.widestRangeLabel(7, 'en')).toBe(`Jan 26${TO}Feb 1, 2000`);
-    expect(Paging.widestRangeLabel(7, 'de')).toBe(`26. Aug.${TO}1. Sept. 2000`);
-    expect(Paging.widestRangeLabel(1, 'en')).toBe('Mon, Jan 10, 2000');
-    expect(Paging.widestRangeLabel(7, 'sk')).toBe(`10. 10. 2000${TO}16. 10. 2000`);
+describe('the month heading', () => {
+  it('names the month the first day falls in, never two', () => {
+    expect(Paging.monthHeading(day(2026, 11, 30), 'en')).toBe('November 2026');
+    expect(Paging.monthHeading(day(2026, 12, 28), 'en')).toBe('December 2026');
+    expect(Paging.monthHeading(day(2026, 6, 17), 'de')).toBe('Juni 2026');
   });
 
-  it(
-    'is at least as long as any page is named, in every card language',
-    { timeout: 30_000 },
-    () => {
-      // Every page two years of paging reach either way, from four moments of a year, named as
-      // the card names them. Collected and asserted once: a quarter of a million `expect` calls
-      // would outrun the suite's timeout on CI. Even so, the naming itself is about 280,000
-      // `Intl` range formats: some 2s locally and about five times that on a CI runner, past the
-      // 5s default, where it failed two runs in a row. The timeout is raised rather than the
-      // sweep thinned, because the sweep is the point.
-      const nows = [new Date(2026, 0, 2), NOW, new Date(2026, 9, 25), new Date(2026, 11, 30)];
-      const longer: string[] = [];
-      for (const language of CARD_LANGUAGES) {
-        for (const days of [1, 3, 7, 14]) {
-          const widest = Paging.widestRangeLabel(days, language).length;
-          for (const now of nows) {
-            for (let offset = -730; offset <= 730; offset += 3) {
-              const start = Paging.addDays(now, offset);
-              const name = Paging.rangeLabel({ start, days }, language, now);
-              if (name.length > widest) longer.push(`${language} ${days}d ${key(start)}: ${name}`);
-            }
-          }
+  it('capitalizes a month that leads, and leaves a year that leads as Intl writes it', () => {
+    expect(Paging.monthHeading(day(2026, 11, 1), 'pl')).toBe('Listopad 2026');
+    expect(Paging.monthHeading(day(2026, 11, 1), 'fr')).toBe('Novembre 2026');
+    expect(Paging.monthHeading(day(2026, 11, 1), 'lt')).toBe('2026 m. lapkritis');
+    expect(Paging.monthHeading(day(2026, 11, 1), 'hu')).toBe('2026. november');
+    expect(Paging.monthHeading(day(2026, 11, 1), 'he')).toBe('נובמבר 2026');
+  });
+
+  it("writes the short form in the language's own abbreviation", () => {
+    expect(Paging.monthHeading(day(2026, 11, 1), 'en', 'short')).toBe('Nov 2026');
+    expect(Paging.monthHeading(day(2026, 9, 1), 'de', 'short')).toBe('Sept. 2026');
+    expect(Paging.monthHeading(day(2026, 11, 1), 'fr', 'short')).toBe('Nov. 2026');
+  });
+
+  it('falls back to English for a language Intl does not know', () => {
+    expect(Paging.monthHeading(day(2026, 6, 15), 'not-a-language-code-at-all')).toBe('June 2026');
+  });
+
+  it("is Intl's own month and year in every card language, only its first letter raised", () => {
+    // The oracle is `Intl` itself, not strings written out: CLDR moves between patches of one
+    // Node major, and what is pinned here is the rule, not the data.
+    const wrong: string[] = [];
+    for (const language of CARD_LANGUAGES) {
+      for (const form of ['long', 'short'] as const) {
+        for (let month = 0; month < 12; month++) {
+          const date = new Date(2026, month, 1);
+          const format = new Intl.DateTimeFormat(language, { month: form, year: 'numeric' });
+          const intl = format.format(date);
+          const locale = format.resolvedOptions().locale;
+          const heading = Paging.monthHeading(date, language, form);
+          const leadsWithMonth = format.formatToParts(date)[0]?.type === 'month';
+          const expected = leadsWithMonth
+            ? intl.charAt(0).toLocaleUpperCase(locale) + intl.slice(1)
+            : intl;
+          if (heading !== expected) wrong.push(`${language} ${form} ${month}: ${heading}`);
         }
       }
-      expect(CARD_LANGUAGES).toHaveLength(36);
-      expect(longer).toEqual([]);
-    },
-  );
+    }
+    expect(CARD_LANGUAGES).toHaveLength(36);
+    expect(wrong).toEqual([]);
+  });
+
+  it('lists every month of one year in each form, January first, for the room it keeps', () => {
+    const headings = Paging.monthHeadings('en');
+    expect(headings).toHaveLength(12);
+    expect(headings[0]).toBe('January 2000');
+    expect(headings[8]).toBe('September 2000');
+    expect(Paging.monthHeadings('en', 'short')[8]).toBe('Sep 2000');
+    expect(Paging.monthHeadings('de', 'long')).toEqual(
+      Array.from({ length: 12 }, (_, month) => Paging.monthHeading(new Date(2000, month, 1), 'de')),
+    );
+  });
 });
 
 describe("the home button's name", () => {

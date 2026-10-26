@@ -139,12 +139,13 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 
 ## 🧰 Header Toolbar
 
-The card can carry a toolbar of its own controls in its header: arrows to
-[page through the dates](#paging-through-dates), a view switcher between the List, Columns and
-Grid layouts, a button that [loads the events again](#refreshing-the-events), a button for
-adding events, a [legend of the card's calendars](#showing-hiding-calendars) that hides or
-shows each one, and a button that [resets the card](#resetting-the-card) to how it is set up. One option turns the toolbar on, and the view switcher and the add button with
-it; the others are turned on one by one:
+The card can carry a toolbar of its own controls in its header: a
+[filter for the card's calendars](#showing-hiding-calendars), a button for adding events, a view
+switcher between the List, Columns and Grid layouts, a button that
+[resets the card](#resetting-the-card) to how it is set up, arrows to
+[page through the dates](#paging-through-dates), and a button that
+[loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
+control in it except refresh:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -156,13 +157,27 @@ toolbar:
   show: true
 ```
 
-The controls sit at the end of the title's row, so the card grows no taller; a card without a
-title gives them a slim row of their own above the events. Those that change what the card
-shows, the layouts and the reset button, come first; a wider gap sets refresh and the add
-button apart, since they act on the events. Each is a neutral gray pill, so the
-toolbar never competes with the events for attention. Color shows only on the control in use:
-the card's accent, as on the card's own hover, while the pointer is over it or it is pressed,
-and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Every button beyond the first among add, reset, refresh and a folded legend needs 112px more. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width. The date navigation and the legend's chips are unaffected: the home button is always an icon, and the dates on screen and the chips are always words.
+With the toolbar on, the header is two rows above the events. The top row holds the actions:
+the calendar filter and the add button at its start, the view switcher in its middle, and the
+reset button at its end, with refresh after it when it is on. The row under it names the month
+the days on screen start in, with the arrows at its end, and the card's title shrinks to a small
+label over the month. The month is the card's headline then, so `title_font_size` and
+`title_color` style it rather than the title. A card without a title has no label over the
+month. With the toolbar off, the header is exactly what it always was.
+
+Each control is a neutral gray pill, so the toolbar never competes with the events for
+attention. Color shows only on the control in use: the card's accent, as on the card's own
+hover, while the pointer is over it or it is pressed, and the theme's primary color as a ring
+around the one a keyboard has focused. Every control looks 36px tall and answers a press 44px
+tall, the size touch guidelines ask for.
+
+On a card at least 640px wide the top row's controls carry their names beside their icons, or
+240px when the add button is the only one there; every button beyond the first among the
+filter, add, reset and refresh needs 112px more. Narrower, each is an icon with its name as a
+tooltip. Where the names still do not fit on one line, as in a language with longer words, the
+card keeps the icons until it is wider. `labels: false` keeps every control an icon at any
+width. The month and the calendar chips are always words, and the home button is always an
+icon.
 
 Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
@@ -170,13 +185,13 @@ keeps those choices for when it is turned back on:
 ```yaml
 toolbar:
   show: true
-  add_event: false
+  reset: false
 ```
 
 ### Paging Through Dates
 
-`navigation: true` adds the date navigation, which leads the toolbar: arrows back and forward
-on either side of a button home, then the dates on screen.
+The date navigation puts arrows back and forward at the end of the month's row, on either side of a button
+home. It is on whenever the toolbar is:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -187,25 +202,29 @@ days_to_show: 7
 start_date: start_of_week
 toolbar:
   show: true
-  navigation: true
 ```
 
 The arrows move by as many days as the card shows, a week here. Columns and Grid draw fewer
 days on a narrow card, and the arrows then move by the days drawn, so no day is ever skipped.
 A layout with its own `days_to_show` pages by its own count.
 The button between them returns to the days the card opens with, the window its
-[`start_date`](/features/start-date-offset) sets. It is a calendar icon, named "Today" in its
+[`start_date`](/features/start-date-offset) sets. It is a house, named "Today" in its
 tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
-the day it starts on.
+the day it starts on. A house rather than the word "Today", because home is not always today.
 
-The dates on screen open the browser's own date picker, and pressing them again closes it. Picking a day shows the page that holds
-it, lined up with the card's own pages, so a week card still starts its week on the usual day.
-The picker is the browser's, so it speaks the browser's language rather than the card's.
+The month names the page by its first day, as a desktop calendar's week view does: the week of
+November 30 to December 6 reads "November 2026". The exact dates on screen are its tooltip, and
+what a screen reader announces after each press. The month opens the browser's own date picker,
+and pressing it again closes it. Picking a day shows the page that holds it, lined up with the
+card's own pages, so a week card still starts its week on the usual day. The picker is the
+browser's, so it speaks the browser's language rather than the card's.
 
-With the date navigation the toolbar takes a band of its own between the title and the events:
-the dates at its start, the other controls at its end. On a card too narrow for both, the other
-controls move to a second row. Which row a control sits on depends on the card's width, never
-on the dates shown, so paging never moves one.
+The arrows keep to the end of the row in every layout, so a press on next lands on the same spot
+page after page, however long each month's name is. Where the month in full does not fit beside
+them, every month takes the language's short form ("Nov 2026"), and on a card narrower still the
+month is cut short. Which form is
+drawn follows the card's width and language, never the month on screen, so paging never changes
+it. `navigation: false` takes the arrows away and leaves the month as plain text.
 
 A few things work differently away from the days the card opens with:
 
@@ -287,7 +306,8 @@ toolbar:
   refresh: true
 ```
 
-It sits just before the add button, named by Home Assistant's own "Refresh".
+It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".
+A wider gap sets the two apart, so their arrows never read as one control.
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
 While the card loads, for whatever reason, the button's icon turns, and the small spinner the
@@ -303,8 +323,14 @@ for a card that should not carry a button.
 
 ### Showing & Hiding Calendars
 
-`legend: true` adds a row of chips under the toolbar, one for each calendar on the card, tinted
-in that calendar's color and named as Home Assistant names it:
+The calendar filter hides or shows each calendar's events on this device. It is on whenever the
+toolbar is, as a button at the start of the top row that opens a menu with a checkbox for each
+calendar on the card, tinted in that calendar's color and named as Home Assistant names it. A
+calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
+first entry.
+
+`legend: chips` shows the calendars as chips instead, one for each, in the row with the month,
+centered under the view switcher:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -317,13 +343,24 @@ entities:
   - calendar.family
 toolbar:
   show: true
-  legend: true
+  legend: chips
 ```
 
 The chips are the key to the colors on the events below, and each is also a switch: a press hides
-that calendar's events and turns its chip gray, and another press shows them again. A calendar
-listed twice, such as one split by `event_type`, has one chip, in the color of its first entry. A
-long name is cut short with an ellipsis, and shows in full as the chip's tooltip.
+that calendar's events and turns its chip gray, and another press shows them again. A long name
+is cut short with an ellipsis, and shows in full as the chip's tooltip. The chips sit in the middle
+of the card while there is room for that, and move toward the arrows where there is not, as the
+view switcher above them does. The month keeps the room of its longest name while they show, so
+paging never moves them.
+
+The chips show only where all of them fit between the month and the arrows. Where they do not, the
+card draws exactly what `legend: menu` draws, the filter button back at the start of the top row,
+never some of the chips. They come back once the card is wide enough for them again, as when a
+tablet is turned.
+
+The menu closes on a press outside it, Escape, a scroll or a change in the card's width. The
+button carries a dot while any calendar is hidden, so a card filtered behind a closed menu still
+says so. `legend: false` takes the filter away.
 
 Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
 and named if they fail to load, so a press redraws at once and costs no request. Everything that
@@ -333,8 +370,8 @@ counts events counts only those of the calendars shown:
   calendar shown, so hiding the one that drew it hands it to the next instead of removing it.
 - **Compact limits.** `compact_events_to_show` and `compact_days_to_show` are filled from the
   calendars shown, so hiding one lets more of the others in.
-- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the legend
-  stays, with its chips, so the calendars can be brought back.
+- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the filter
+  stays, with its filter, so the calendars can be brought back.
 
 Each device remembers which calendars it hides, the way the
 [view switcher](#switching-between-layouts) remembers its layout: in the browser, for this
@@ -345,22 +382,16 @@ again; opening the editor and closing it without a change forgets nothing. The
 same configuration share their hidden calendars, and a press on either changes both at once.
 Paging and switching layouts keep them.
 
-Where the chips do not fit on one row, they fold into a single button at the start of the
-toolbar's controls, which opens them as a menu over the events, with a checkbox for each
-calendar. A press outside the menu, Escape, a scroll or a change in the card's width closes it. The button carries a dot while
-any calendar is hidden, so a folded legend still says the card is filtered. The chips come back
-once the card is wide enough for them again, as when a tablet is turned.
-
 ::: tip Nothing Hides While You Edit
 In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
-chips and the menu button do nothing.
+chips and the filter button do nothing.
 :::
 
 ### Resetting the Card
 
-`reset: true` adds a button that undoes, in one press, every choice made on this device. It is
-for a card several people share, such as a wall tablet, where a week someone paged to or a
-calendar someone hid would otherwise stay for whoever walks up next:
+The reset button undoes, in one press, every choice made on this device. It is for a card
+several people share, such as a wall tablet, where a week someone paged to or a calendar someone
+hid would otherwise stay for whoever walks up next. It is on whenever the toolbar is:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -370,9 +401,6 @@ entities:
   - calendar.ben
 toolbar:
   show: true
-  navigation: true
-  legend: true
-  reset: true
 ```
 
 One press brings back all of these at once:
@@ -381,21 +409,21 @@ One press brings back all of these at once:
   home button does.
 - **The configured `view`,** from a layout the [view switcher](#switching-between-layouts)
   picked. Where the card is too narrow for it, List stands in for it, as it always does.
-- **Every calendar,** from any the [legend](#showing-hiding-calendars) hid.
+- **Every calendar,** from any the [calendar filter](#showing-hiding-calendars) hid.
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button follows the view switcher, the last of the controls that change what the card
-shows, with a wider gap before refresh. It shows a U-turn arrow, and Home Assistant's own word
-"Reset" names it.
-While the card already shows how it is set up, the button is dimmed and a press does nothing,
-so a glance at it says whether someone left the card on a choice of their own. It is drawn only
-on a card with something it could undo: the date navigation, the view switcher, the legend, or an
-`expand` action.
+The button sits at the end of the top row, with a wider gap before refresh when that is on. It
+shows a U-turn arrow, and Home Assistant's own word "Reset" names it.
+While the card already shows how it is set up, the button is hidden, and it appears the moment
+something is changed, so a glance at the card says whether someone left it on a choice of their
+own. It keeps its place while hidden, so nothing in the toolbar moves when it appears. It is drawn only
+on a card with something it could undo: the date navigation, the view switcher, the calendar
+filter, or an `expand` action.
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
 only. Another card with the same configuration shows every calendar again at once, as it does
-after a press on the legend; its layout stays until that card is reset, reloaded or edited.
+after a press on the filter; its layout stays until that card is reset, reloaded or edited.
 Nothing is loaded again for the layout or the calendars, and the card's own days are drawn from
 what it already holds unless they are due for a refresh anyway.
 
@@ -410,7 +438,7 @@ control's name.
 :::
 
 ::: tip Nothing Resets While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the button is dimmed and does
+In the card editor's preview, and on a dashboard in edit mode, the button is hidden and does
 nothing, like every other control in the toolbar there. What each device remembers is kept for
 when editing ends.
 :::

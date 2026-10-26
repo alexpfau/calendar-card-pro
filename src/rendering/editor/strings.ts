@@ -533,25 +533,27 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   title: 'Title',
   'title.helper':
     'Anything containing {{ or {% is rendered by Home Assistant as a template and ' +
-    'keeps itself up to date.',
+    'keeps itself up to date. With the toolbar shown, the title is a small label over the ' +
+    'month, and the title font size and color style the month instead.',
   title_font_size: 'Title Font Size',
   title_color: 'Title Color',
   background_color: 'Background Color',
   'toolbar.show': 'Show Toolbar',
   'toolbar.show.helper':
-    "Turns the whole toolbar on or off: the card's own controls, at the top of the card. " +
-    'While it is on, the options below choose what it shows.',
+    "Turns the whole toolbar on or off: the card's own controls, in two rows above its " +
+    'events, the lower one naming the month on screen. While it is on, the options below ' +
+    'choose what it shows.',
   'toolbar.labels': 'Text Labels',
   'toolbar.labels.helper':
-    "Names the toolbar's buttons beside their icons wherever the card is wide enough: the " +
-    'layouts, reset, refresh, add event and the button a folded legend becomes. Off keeps them ' +
-    "icons, with their names as tooltips. The date navigation and the legend's chips look " +
-    'the same either way.',
+    "Names the buttons in the toolbar's top row beside their icons wherever the card is wide " +
+    'enough: the calendar filter, add event, the layouts, reset and refresh. Off keeps them ' +
+    'icons, with their names as tooltips. The month and the calendar chips look the same ' +
+    'either way.',
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
-    'Arrows to page back and forward through the days, a button that returns to the days ' +
-    'the card opens with, and the dates on screen, which open a date picker. The arrows ' +
-    'move by as many days as the card shows.',
+    "Arrows at the end of the month's row to page back and forward through the days, with a " +
+    'button between them that returns to the days the card opens with. The month then opens a ' +
+    'date picker. The arrows move by as many days as the card shows.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper':
     'Buttons in the toolbar for switching between List, Columns and Grid on the ' +
@@ -561,7 +563,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.reset.helper':
     'A button in the toolbar that undoes what was changed on this device: the card goes back ' +
     'to the days and the layout it opens with, shows every calendar again and collapses an ' +
-    'expanded view. Dimmed while there is nothing to undo.',
+    'expanded view. Hidden while there is nothing to undo, keeping its place.',
   'toolbar.refresh': 'Refresh Button',
   'toolbar.refresh.helper':
     'A button in the toolbar that loads the events again now, rather than at the next ' +
@@ -570,12 +572,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.add_event.helper':
     "A button in the toolbar that opens Home Assistant's own new-event dialog. Shown " +
     "only when at least one of the card's calendars accepts new events.",
-  'toolbar.legend': 'Calendar Legend',
+  'toolbar.legend': 'Calendar Filter',
   'toolbar.legend.helper':
-    'A chip for each calendar, in its color, under the toolbar. Tapping one hides that ' +
-    "calendar's events on this device, or shows them again; each device remembers its " +
-    'choice until this card is edited. Where the chips do not fit on one row, they fold ' +
-    'into a button that opens them as a menu.',
+    "Hides or shows each calendar's events on this device; each device remembers its choice " +
+    'until this card is edited. Menu puts a button in the toolbar that opens a checkbox for ' +
+    "each calendar. Chips puts a chip for each calendar, in its color, in the month's row, " +
+    'and falls back to the menu wherever they do not all fit.',
+  'toolbar.legend.option.off.label': 'Off',
+  'toolbar.legend.option.menu.label': 'Menu',
+  'toolbar.legend.option.chips.label': 'Chips',
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',

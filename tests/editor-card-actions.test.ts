@@ -462,16 +462,16 @@ describe('the event tap dropdown in the editor', () => {
     expect(shown('toolbar')).toEqual({
       show: false,
       labels: true,
-      navigation: false,
+      navigation: true,
       view_switcher: true,
-      reset: false,
+      reset: true,
       add_event: true,
       refresh: false,
-      legend: false,
+      legend: 'menu',
     });
 
-    // The v5 controls and the labels arrive switched on, as the card reads them, the date
-    // navigation off, and nothing but the switch is written.
+    // Every control but refresh arrives switched on, as the card reads them, the filter as a
+    // menu, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
@@ -489,22 +489,40 @@ describe('the event tap dropdown in the editor', () => {
     expect(shown('toolbar')).toEqual({
       show: true,
       labels: true,
-      navigation: false,
+      navigation: true,
       view_switcher: true,
-      reset: false,
+      reset: true,
       add_event: true,
       refresh: false,
-      legend: false,
+      legend: 'menu',
     });
 
-    // A control added later, off by default, reads back on once it is switched on: one flip.
-    await change('toolbar', { ...(shown('toolbar') as object), legend: true });
+    // The one control off by default reads back on once it is switched on: one flip.
+    await change('toolbar', { ...(shown('toolbar') as object), refresh: true });
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
-      toolbar: { show: true, legend: true },
+      toolbar: { show: true, refresh: true },
     });
-    expect((shown('toolbar') as Record<string, unknown>).legend).toBe(true);
-    await change('toolbar', { ...(shown('toolbar') as object), legend: false });
+    expect((shown('toolbar') as Record<string, unknown>).refresh).toBe(true);
+    await change('toolbar', { ...(shown('toolbar') as object), refresh: false });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
+
+    // The filter's dropdown holds strings, so it says `off` where the configuration says
+    // `false`: written as `false`, never as the word, and shown as the word again.
+    await change('toolbar', { ...(shown('toolbar') as object), legend: 'off' });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, legend: false },
+    });
+    expect((shown('toolbar') as Record<string, unknown>).legend).toBe('off');
+    await change('toolbar', { ...(shown('toolbar') as object), legend: 'chips' });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, legend: 'chips' },
+    });
+    expect((shown('toolbar') as Record<string, unknown>).legend).toBe('chips');
+    // The default, a menu, is not written.
+    await change('toolbar', { ...(shown('toolbar') as object), legend: 'menu' });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     await change('toolbar', { ...(shown('toolbar') as object), add_event: false });

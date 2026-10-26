@@ -2770,8 +2770,9 @@ describe('editor: the Card & Header panel', () => {
    * switches close the panel under a sub-heading of their own, and a heading claims every
    * field that follows it, so the background has to come before that heading rather than
    * after the switches; a `toContain` would pass with it stranded under "Toolbar". Under it,
-   * the bar's own switch, then the labels, which apply to every control, then the controls
-   * in the order the toolbar draws them.
+   * the bar's own switch, then the labels, which apply to every control in the top row, then
+   * the controls in the order the toolbar is read: the top row from start to end, the filter
+   * leading as its default button does, then the date navigation in the row under it.
    */
   it('closes the panel with the toolbar under its own heading', () => {
     const head = ['title', '', 'title_font_size', 'title_color', 'background_color'];
@@ -2791,12 +2792,12 @@ describe('editor: the Card & Header panel', () => {
         'toolbar',
         'show',
         'labels',
-        'navigation',
+        'legend',
+        'add_event',
         'view_switcher',
         'reset',
         'refresh',
-        'add_event',
-        'legend',
+        'navigation',
       ]);
     }
   });

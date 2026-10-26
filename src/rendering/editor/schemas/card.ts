@@ -7,7 +7,8 @@ import { mdiCardText } from '@mdi/js';
 import * as Config from '../../../config/config';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
-import { blockScope, bool, color, heading, row, text } from './common';
+import { blockScope, bool, color, heading, row, select, text } from './common';
+import { LEGEND_EDITOR_VALUES } from '../normalize';
 
 export const CARD_ICON = mdiCardText;
 
@@ -17,10 +18,11 @@ export const CARD_ICON = mdiCardText;
  * The title and the card's own background first, then the toolbar under a sub-heading of
  * its own that closes the panel. The heading is there to say what the switches under it
  * are: the first turns the whole toolbar on or off, and only while it is on is the rest
- * offered. Labels come next, because they apply to every control in the bar; then each
- * control with a switch of its own, in the order the toolbar is read: navigation leads,
- * then the view switcher, reset, refresh and add, which is always last in the bar, then the legend,
- * whose chips sit in a lane under it. Nothing may follow the toolbar's fields, because a
+ * offered. Labels come next, because they apply to every control in the top row; then each
+ * control in the order the toolbar is read: the top row from its start to its end (the
+ * calendar filter, add, the view switcher, reset and refresh), then the date navigation,
+ * which sits in the row under it beside the month. The filter leads because its default form
+ * is the button that leads the top row. Nothing may follow the toolbar's fields, because a
  * heading claims whatever comes after it; that is why the background sits above it rather
  * than last.
  *
@@ -45,12 +47,12 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
       ...(toolbar.show
         ? [
             bool('labels'),
-            bool('navigation'),
+            select(ctx.language, 'legend', LEGEND_EDITOR_VALUES, 'toolbar.legend'),
+            bool('add_event'),
             bool('view_switcher'),
             bool('reset'),
             bool('refresh'),
-            bool('add_event'),
-            bool('legend'),
+            bool('navigation'),
           ]
         : []),
     ]),

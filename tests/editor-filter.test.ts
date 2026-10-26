@@ -883,16 +883,19 @@ describe('editor filter: section headings', () => {
     expect(fieldNames(background)).toEqual(['background_color']);
     expect(headingNames(background)).toEqual([]);
 
+    // The title says what it becomes while the toolbar is shown, so the search finds it too,
+    // above the heading and outside what the heading captions.
     const toolbar = filterSchema(built, ctxFor(config, { query: 'toolbar' }));
     expect(fieldNames(toolbar)).toEqual([
+      'title',
       'show',
       'labels',
-      'navigation',
+      'legend',
+      'add_event',
       'view_switcher',
       'reset',
       'refresh',
-      'add_event',
-      'legend',
+      'navigation',
     ]);
     expect(headingNames(toolbar)).toEqual(['heading_toolbar']);
   });
