@@ -2950,9 +2950,9 @@ describe('editor: a group states its family applicability once', () => {
 
 describe('editor: every panel writes a minimal configuration', () => {
   /**
-   * The failure this prevents shipped twice in the card nearest to this one, the second
-   * time introduced by its own move to `ha-form`: the form hands back the whole merged
-   * object, so writing it through persists every default into the user's YAML.
+   * The classic failure of an `ha-form` editor, and one that moving an existing editor onto
+   * `ha-form` tends to introduce: the form hands back the whole merged object, so writing
+   * it through persists every default into the user's YAML.
    */
   it('adds nothing to a configuration by rendering every panel against it', () => {
     for (const view of VIEWS) {

@@ -828,15 +828,18 @@ the card the original design was built with; that is attribution, and it stays a
 
 `check:docs` enforces this as Check 33, over every file git tracks or would add. It rejects
 a listed card's name written as a slug, words joined by a hyphen or underscore in any case,
-or as a title, every word capitalized, even across a line break. A lowercase phrase is
-description rather than a name and passes, and so does a name run together into one word.
-It also rejects a `custom:` type other than this card's, a GitHub link to a repository
-named like a card, and a few wordings that rank this card against others. The names are
-kept as SHA-256 digests, so the gate does not itself name what it forbids;
-`node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one. Each credit
-site is pinned to its exact count, so a second mention beside the credit fails, and so does
-a credit that is reworded away. Pull request bodies and commit messages are outside every
-gate, and generic wordings are too varied to list, so the rule applies there by hand.
+or as a name in prose, its first word capitalized, even where it wraps across lines inside
+a comment. A phrase starting in lowercase is description rather than a name and passes, and
+so does a name run together into one word. It also rejects a `custom:` type ending in
+`card` (card-mod's wrapper aside), a GitHub link to a repository whose name ends in `card`,
+and a few wordings that rank this card against others. The names are kept as SHA-256
+digests, so the gate does not itself name what it forbids;
+`node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one, and a
+self-test on a made-up name proves the name and wording matchers before the scan runs.
+Each credit site is pinned to its exact count, so a second mention beside the credit fails,
+and so does a credit that is reworded away. Pull request bodies and commit messages are
+outside every gate, and generic wordings are too varied to list, so the rule applies there
+by hand.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.

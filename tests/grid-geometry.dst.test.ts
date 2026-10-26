@@ -237,8 +237,7 @@ describe('the now line on a transition day', () => {
       )?.topPct;
 
       // The line and the events must be computed the same way, or they disagree by an
-      // hour on exactly these two days — which is the live defect in the card this
-      // module was designed against.
+      // hour on exactly these two days, as the header explains.
       expect(linePct, day.toDateString()).toBeCloseTo(eventTopPct as number, 10);
     }
   });
