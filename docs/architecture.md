@@ -229,7 +229,9 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   hidden polite live region that describes the button and names the arrows' track, a group of its
   own; the row is none, since it holds the card's heading. With navigation the
   month is a button over a hidden native date input, which opens the browser's picker, and
-  previous, home (a house, because home is not always today) and next stand beside it, three
+  previous, home (a house, because home is not always today, filled on the success wash for
+  `HOME_CONFIRMATION` after a press that brought the card back, `_pressHome`) and next stand
+  beside it, three
   small round buttons in one group;
   without navigation the month is plain text. The arrows keep to the row's end in every layout
   (`.toolbar-heading-end`), so a press on next lands on the same spot page after page. While the

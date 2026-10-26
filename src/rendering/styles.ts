@@ -874,11 +874,13 @@ export const cardStyles = css`
   }
 
   /* A refresh someone asked for then shows how it ended, for a moment: a check where it went
-     well, an alert where a calendar could not be loaded. The button takes the color as a wash
-     as strong as a press, and the icon takes it in full. Specific enough to hold over the
+     well, an alert where a calendar could not be loaded. Reset shows its check the same way, and
+     home a filled house after a press that brought the card back. The button takes the color as
+     a wash as strong as a press, and the icon takes it in full. Specific enough to hold over the
      hover and press rules, since the pointer that pressed it is usually still on it. */
   .toolbar-button.refresh-button.refresh-done,
-  .toolbar-button.reset-button.reset-done {
+  .toolbar-button.reset-button.reset-done,
+  .date-navigation .date-navigation-segment.home-done {
     background: color-mix(
       in srgb,
       var(--success-color, #4caf50) 20%,
@@ -896,6 +898,7 @@ export const cardStyles = css`
 
   .refresh-done .toolbar-button-icon,
   .reset-done .toolbar-button-icon,
+  .home-done .toolbar-button-icon,
   .refresh-done .loading-indicator-icon {
     fill: var(--success-color, #4caf50);
   }

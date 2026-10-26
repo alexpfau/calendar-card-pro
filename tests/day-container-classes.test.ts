@@ -496,6 +496,7 @@ describe('theming.md card-mod selectors', () => {
                   nextName: 'Next',
                   inert: false,
                   pickerValue: '2026-06-17',
+                  homeConfirming: true,
                   onPrevious: noop,
                   onHome: noop,
                   onNext: noop,

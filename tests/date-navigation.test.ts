@@ -11,7 +11,7 @@
  * action row carries labels.
  */
 
-import { mdiHomeOutline } from '@mdi/js';
+import { mdiHome, mdiHomeOutline } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -1177,6 +1177,94 @@ describe('the date navigation', () => {
 
     expect(haCard.hasAttribute('role')).toBe(false);
     expect(haCard.getAttribute('tabindex')).toBe('0');
+  });
+});
+
+//-----------------------------------------------------------------------------
+// HOME'S CONFIRMATION
+//-----------------------------------------------------------------------------
+
+describe('the filled house a press on home shows', () => {
+  const home = (card: CardUnderTest) => segments(card)[1];
+  const shows = (card: CardUnderTest) => ({
+    done: home(card).classList.contains('home-done'),
+    icon: home(card).querySelector('path')!.getAttribute('d'),
+  });
+  const FILLED = { done: true, icon: mdiHome };
+  const OUTLINE = { done: false, icon: mdiHomeOutline };
+
+  it('shows for a moment after a press that brought the card home', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(shows(card)).toEqual(FILLED);
+    // Still named for where it leads.
+    expect(home(card).getAttribute('aria-label')).toBe('Today');
+
+    vi.advanceTimersByTime(Constants.TIMING.HOME_CONFIRMATION - 1);
+    await settle(card);
+    expect(shows(card)).toEqual(FILLED);
+
+    vi.advanceTimersByTime(1);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('shows nothing for a press with the card already home', async () => {
+    const card = await mount();
+    await press(card, 'home');
+    // Such a press moves nothing and asks for no render, so render anyway: the house must not
+    // be waiting for the next one.
+    card.requestUpdate();
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('ends at once when the card pages away during it', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(shows(card)).toEqual(FILLED);
+
+    await press(card, 'next');
+    expect(shows(card)).toEqual(OUTLINE);
+    // And a timer left over from it changes nothing later.
+    vi.advanceTimersByTime(Constants.TIMING.HOME_CONFIRMATION);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it("is home's own: reset bringing the card home shows its check, not the house", async () => {
+    const card = await mount({ toolbar: { ...NAVIGATION_ONLY, reset: true } });
+    await press(card, 'next');
+    root(card).querySelector<HTMLButtonElement>('.reset-button')!.click();
+    await settle(card);
+
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(shows(card)).toEqual(OUTLINE);
+    expect(root(card).querySelector('.reset-button')!.classList).toContain('reset-done');
+  });
+
+  it('ends with the card leaving the page, so a card put back is never stuck on it', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(shows(card)).toEqual(FILLED);
+
+    card.remove();
+    document.body.appendChild(card);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('shows nothing while the card is being edited, when home moves nothing', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    (card as unknown as { editMode: boolean }).editMode = true;
+    await settle(card);
+    await press(card, 'home');
+    expect(shows(card)).toEqual(OUTLINE);
   });
 });
 

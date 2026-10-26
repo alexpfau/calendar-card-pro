@@ -3060,6 +3060,19 @@ describe('the toolbar layout', () => {
     ).toBe('var(--calendar-card-toolbar-fill)');
   });
 
+  it("shows home's filled house in the wash refresh shows its check in, over hover and press", () => {
+    const wash = (selector: string) => flat(declared(selector, 'background'));
+    const homeDone = '.date-navigation .date-navigation-segment.home-done';
+    expect(wash(homeDone)).toBe(wash('.toolbar-button.refresh-button.refresh-done'));
+    expect(declared('.home-done .toolbar-button-icon', 'fill')).toBe(
+      'var(--success-color, #4caf50)',
+    );
+    // One class more than the hover and press rules, so the pointer still on it after the
+    // press does not paint over it.
+    const specificity = (selector: string) => (selector.match(/[.:][\w-]+/g) ?? []).length;
+    expect(specificity(homeDone)).toBeGreaterThan(specificity('.date-navigation-segment:hover'));
+  });
+
   it('shows the check after a press in the wash refresh shows its own in', () => {
     const wash = (selector: string) => flat(declared(selector, 'background'));
     expect(wash('.toolbar-button.reset-button.reset-done')).toBe(

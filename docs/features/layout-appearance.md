@@ -214,6 +214,8 @@ The button between them returns to the days the card opens with, the window its
 [`start_date`](/features/start-date-offset) sets. It is a house, named "Today" in its
 tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
 the day it starts on. A house rather than the word "Today", because home is not always today.
+A press that brings the card back fills the house in green for a moment, as reset and refresh
+show a check, so it is clear the press worked.
 
 The month names the page by its first day, as a desktop calendar's week view does: the week of
 November 30 to December 6 reads "November 2026". The exact dates on screen are its tooltip, and

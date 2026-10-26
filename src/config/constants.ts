@@ -108,6 +108,12 @@ export const TIMING = {
   RESET_CONFIRMATION: 1000,
 
   /**
+   * How long the home button shows a filled house after a press that brought the card back,
+   * as long as reset shows its check.
+   */
+  HOME_CONFIRMATION: 1000,
+
+  /**
    * How long the reset button takes to fade out after its check, still showing the check. The
    * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
    */

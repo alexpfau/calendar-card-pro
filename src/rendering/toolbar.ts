@@ -28,6 +28,7 @@ import {
   mdiCheck,
   mdiChevronLeft,
   mdiChevronRight,
+  mdiHome,
   mdiHomeOutline,
   mdiMenuDown,
   mdiPlus,
@@ -146,6 +147,11 @@ export interface DateNavigation {
   inert: boolean;
   /** The first day on screen, as `YYYY-MM-DD`, which the date picker opens on. */
   pickerValue: string;
+  /**
+   * True for a moment after a press on home brought the card back: home then shows a filled
+   * house on the success wash, as reset and refresh show a check.
+   */
+  homeConfirming?: boolean;
   onPrevious: () => void;
   onHome: () => void;
   onNext: () => void;
@@ -541,8 +547,9 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
  * screen, so a screen reader entering it hears where it is before which way it can go. Home is
  * always an icon, a house, named by its tooltip: it leads to the days the card opens with, which
  * are not always today, so neither the word "Today" nor a calendar glyph, which beside the month
- * reads as the date picker's, would say where it goes. The group is the same width in every
- * language and at every card width. The arrows are drawn for left-to-right reading and
+ * reads as the date picker's, would say where it goes. A press that brings the card home shows
+ * a filled house on the success wash for a moment, as reset and refresh show a check. The group
+ * is the same width in every language and at every card width. The arrows are drawn for left-to-right reading and
  * mirrored in a right-to-left one, where "previous" points right.
  *
  * @param nav - Navigation description from the card
@@ -559,10 +566,11 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
     path: string,
     handler: () => void,
     direction: boolean,
+    done = false,
   ) =>
     html`<button
       type="button"
-      class="date-navigation-segment"
+      class=${done ? 'date-navigation-segment home-done' : 'date-navigation-segment'}
       aria-label=${name ?? fallback}
       title=${name ?? nothing}
       @pointerdown=${stopCardGesture}
@@ -580,7 +588,11 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
 
   return html`<div class="date-navigation" role="group" aria-labelledby="toolbar-range-text">
     ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
-    ${segment(nav.homeName, nav.homeName, mdiHomeOutline, nav.onHome, false)}
+    ${
+      nav.homeConfirming
+        ? segment(nav.homeName, nav.homeName, mdiHome, nav.onHome, false, true)
+        : segment(nav.homeName, nav.homeName, mdiHomeOutline, nav.onHome, false)
+    }
     ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
   </div>`;
 }

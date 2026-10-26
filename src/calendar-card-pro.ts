@@ -765,6 +765,14 @@ class CalendarCardPro extends LitElement {
   private _resetConfirmTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
+   * Set for a moment after a press on home brought the card back, while home shows a filled
+   * house (`_pressHome`); the timer that clears it.
+   */
+  private _homeConfirming = false;
+
+  private _homeConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
    * A refresh someone asked for whose load another replaced before it answered, waiting for
    * that load to end before it shows how it went (`_requestRefresh`).
    */
@@ -1412,6 +1420,7 @@ class CalendarCardPro extends LitElement {
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
     this._settleResetConfirmation();
+    this._settleHomeConfirmation();
     if (this._legendFitRaf !== null) {
       cancelAnimationFrame(this._legendFitRaf);
       this._legendFitRaf = null;
@@ -4521,11 +4530,39 @@ class CalendarCardPro extends LitElement {
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
       pickerValue: Paging.pageKey(page.start),
+      // Only while the card is still home: paging away ends it at once.
+      homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),
-      onHome: () => this._goToPage(null),
+      onHome: () => this._pressHome(),
       onNext: () => this._stepPage(1),
       onPick: (date) => this._pickDate(date),
     };
+  }
+
+  /**
+   * Goes home from a press on the home button, and shows that it did for `HOME_CONFIRMATION`.
+   * A press with the card already home, or while it is being edited, moves nothing and shows
+   * nothing.
+   */
+  private _pressHome(): void {
+    const away = this._pageRequested !== null;
+    this._goToPage(null);
+    if (!away || this._pageRequested !== null) return;
+
+    clearTimeout(this._homeConfirmTimer);
+    this._homeConfirming = true;
+    this._homeConfirmTimer = setTimeout(() => {
+      this._homeConfirmTimer = undefined;
+      this._homeConfirming = false;
+      this.requestUpdate();
+    }, Constants.TIMING.HOME_CONFIRMATION);
+  }
+
+  /** Ends home's filled house at once, as on disconnect, so a card put back is never stuck on it. */
+  private _settleHomeConfirmation(): void {
+    clearTimeout(this._homeConfirmTimer);
+    this._homeConfirmTimer = undefined;
+    this._homeConfirming = false;
   }
 
   /**
