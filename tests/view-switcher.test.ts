@@ -269,14 +269,14 @@ describe('the view switcher', () => {
     const actions = root.querySelector('.toolbar-actions')!;
     const kinds = (parent: Element) => Array.from(parent.children).map(kind);
 
-    // The placeholder first, then the action row, then the heading row.
+    // The action row, then the heading row, which takes the placeholder in where a title
+    // would be: at the start of the block it shares with the month.
     expect(
       Array.from(root.querySelector('.header-container')!.children).map((row) => row.className),
-    ).toEqual([
+    ).toEqual(['card-toolbar toolbar-actions', 'card-toolbar toolbar-heading']);
+    expect(root.querySelector('.toolbar-identity')!.firstElementChild!.className).toBe(
       'card-header-placeholder',
-      'card-toolbar toolbar-actions',
-      'card-toolbar toolbar-heading',
-    ]);
+    );
     expect(kinds(actions)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
     expect(kinds(actions.querySelector('.toolbar-start')!)).toEqual([
       'legend-button',
@@ -348,6 +348,17 @@ describe('the view switcher', () => {
     // So do the heading row's: around the month, and between it and the arrows.
     ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
     ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
+    // The block the month shares with the title is the row's too, and so is the empty
+    // placeholder an untitled card draws there: only a title is the card's.
+    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
+    [
+      "an untitled card's placeholder over the month",
+      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
+    ],
+    [
+      "the arrows' group at the row's end",
+      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
+    ],
   ])(
     "never runs the card's tap action from %s, while the rest of the card still does",
     async (_name, target) => {
@@ -378,9 +389,10 @@ describe('the view switcher', () => {
       toolbar: { show: true },
       tap_action: { action: 'more-info' },
     });
-    const title = part(card, '.header-container > h1.card-header');
-    // The toolbar is drawn, so this is the small label between its two rows.
-    expect(title.nextElementSibling?.className).toBe('card-toolbar toolbar-actions');
+    const title = part(card, '.toolbar-heading .toolbar-identity > h1.card-header');
+    // The toolbar is drawn, so this is the small label over the month, inside the heading row
+    // whose every other press is kept from the card.
+    expect(title.nextElementSibling?.className).toBe('toolbar-month with-picker');
 
     dispatchPointer(title, 'pointerdown');
     dispatchPointer(title, 'pointerup');

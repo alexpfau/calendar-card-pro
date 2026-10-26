@@ -757,6 +757,14 @@ class CalendarCardPro extends LitElement {
   private _refreshPhaseTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
+   * Set for a moment after a press on reset did its work: while the button shows its check, then
+   * while it fades out still showing it (`_confirmReset`); the timer that moves it on.
+   */
+  private _resetConfirmation: 'showing' | 'leaving' | null = null;
+
+  private _resetConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
    * A refresh someone asked for whose load another replaced before it answered, waiting for
    * that load to end before it shows how it went (`_requestRefresh`).
    */
@@ -1403,6 +1411,7 @@ class CalendarCardPro extends LitElement {
     Legend.closeLegendMenus(this.renderRoot);
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
+    this._settleResetConfirmation();
     if (this._legendFitRaf !== null) {
       cancelAnimationFrame(this._legendFitRaf);
       this._legendFitRaf = null;
@@ -2518,6 +2527,7 @@ class CalendarCardPro extends LitElement {
     this._syncTitleScroll();
     this._syncToolbarLabelFit();
     this._syncMonthFit();
+    this._syncHeadingMiddle();
     this._syncLegendFit(false);
     Legend.markShortenedChips(this.renderRoot);
     Legend.repositionLegendMenus(this.renderRoot);
@@ -4416,9 +4426,10 @@ class CalendarCardPro extends LitElement {
    * Measures the card width from which every month in full fits in the heading row beside the
    * arrows, and re-renders when that moves the month into the other form at this width.
    *
-   * The heading's room is everything from its own start to the row's end, less the arrows and
-   * the gap before them: where the filter is folded the arrows keep to the row's end, and where
-   * the chips show the month is drawn in full regardless. The months in full are measured in a
+   * The heading's room is everything from its own start to the row's end, less the arrows, when
+   * there are any, and the gap before the group at the row's end, which is drawn either way:
+   * where the filter is folded the arrows keep to the row's end, and where the chips show the
+   * month is drawn in full regardless. The months in full are measured in a
    * hidden copy laid over one another, in the heading's own font, so the answer is the same
    * whichever form is drawn, and nothing the answer changes feeds back into it. The form never
    * changes the card's height, so this may act at once, inside a resize too.
@@ -4443,8 +4454,12 @@ class CalendarCardPro extends LitElement {
 
     const style = getComputedStyle(row);
     const gap = parseFloat(style.columnGap) || 0;
+    // The group at the row's end is drawn with or without the arrows, and costs a gap either way.
+    // Its own width grows while the chips show, so the arrows' track is what is read.
     const navigation = row.querySelector<HTMLElement>('.date-navigation');
-    const navigationRoom = navigation ? navigation.getBoundingClientRect().width + gap : 0;
+    const navigationRoom = row.querySelector('.toolbar-heading-end')
+      ? (navigation?.getBoundingClientRect().width ?? 0) + gap
+      : 0;
     const room =
       style.direction === 'rtl'
         ? monthBox.right - rowBox.left - (parseFloat(style.paddingLeft) || 0)
@@ -4461,6 +4476,40 @@ class CalendarCardPro extends LitElement {
         `Month heading ${wasShort ? 'fits in full' : 'shortened'} at ${Math.round(cardWidth)}px`,
       );
       this.requestUpdate();
+    }
+  }
+
+  /**
+   * Centers the controls beside the month on its capitals: writes how far the middle of the
+   * month's capital letters stands above the foot of the heading row
+   * (`--calendar-card-heading-middle`), which the stylesheet sets the middle of the arrows' track
+   * and of each chip on. So they read as level with the month's words, as they would not with
+   * their bottom edges on its baseline: a pill much taller than the letters then rises far above
+   * them.
+   *
+   * Read from an empty box at the start of the month's words, one capital tall (`1cap`) and
+   * standing on their baseline. The row aligns its items' feet and the month stands at its foot,
+   * so the height depends only on the month's own font and line, never on where the controls
+   * sit: writing it cannot move what it was measured from. Written straight onto the row, which
+   * no render binds a style to, and only when it changed, so it costs no render. Until it is
+   * first written, the stylesheet stands in 15px.
+   *
+   * Only ever reads layout that exists: a row with no height (the card hidden, or not yet laid
+   * out) writes nothing. Both boxes are read in the viewport's coordinates, so a card scrolled
+   * above the viewport, whose boxes read negative, measures the same height as one in view.
+   */
+  private _syncHeadingMiddle(): void {
+    const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-heading');
+    const marker = row?.querySelector<HTMLElement>('.toolbar-month-cap');
+    if (!row || !marker) return;
+    const rowBox = row.getBoundingClientRect();
+    if (rowBox.height <= 0) return;
+    const cap = marker.getBoundingClientRect();
+
+    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0);
+    const value = `${Math.max(0, foot - (cap.top + cap.bottom) / 2).toFixed(2)}px`;
+    if (row.style.getPropertyValue('--calendar-card-heading-middle') !== value) {
+      row.style.setProperty('--calendar-card-heading-middle', value);
     }
   }
 
@@ -5130,7 +5179,7 @@ class CalendarCardPro extends LitElement {
   /**
    * Whether the configuration asks for the reset button, and the card has something it could
    * ever undo: the date navigation, the view switcher, the legend or an `expand` action.
-   * Without any of them the button could only ever be dimmed, so it is not drawn.
+   * Without any of them the button could only ever be hidden, so it is not drawn.
    *
    * Decided by the configuration alone, never by what the card shows, so the button never
    * comes and goes and never moves the controls after it.
@@ -5171,8 +5220,9 @@ class CalendarCardPro extends LitElement {
   /**
    * The reset button, when the configuration asks for it.
    *
-   * Named by Home Assistant's own word, as refresh is. Dimmed while the card shows its
-   * configuration, which it always does while it is being edited.
+   * Named by Home Assistant's own word, as refresh is. Hidden while the card shows its
+   * configuration, which it always does while it is being edited, after a check for a moment
+   * where a press brought it back.
    *
    * @returns Button description for the wrapper, or undefined for none
    */
@@ -5182,8 +5232,37 @@ class CalendarCardPro extends LitElement {
     return {
       label: this._haString('ui.common.reset'),
       active: this._differsFromConfiguration,
+      confirmation: this._resetConfirmation ?? undefined,
       onActivate: () => this._resetToConfiguration(),
     };
+  }
+
+  /**
+   * Shows the reset button's check for `RESET_CONFIRMATION`, then lets it fade out for
+   * `RESET_FADE` still showing the check, and only then gives it its U-turn back, by which time it
+   * is hidden: drawing the U-turn for the fade made the button flash back before it went. A press
+   * during any of it does nothing, there being nothing left to undo; a change made during it shows
+   * the button as itself again at once, since `active` wins over the check.
+   */
+  private _confirmReset(): void {
+    clearTimeout(this._resetConfirmTimer);
+    this._resetConfirmation = 'showing';
+    this._resetConfirmTimer = setTimeout(() => {
+      this._resetConfirmation = 'leaving';
+      this.requestUpdate();
+      this._resetConfirmTimer = setTimeout(() => {
+        this._resetConfirmTimer = undefined;
+        this._resetConfirmation = null;
+        this.requestUpdate();
+      }, Constants.TIMING.RESET_FADE);
+    }, Constants.TIMING.RESET_CONFIRMATION);
+  }
+
+  /** Ends a reset's check at once, as on disconnect, so a card put back is never stuck on it. */
+  private _settleResetConfirmation(): void {
+    clearTimeout(this._resetConfirmTimer);
+    this._resetConfirmTimer = undefined;
+    this._resetConfirmation = null;
   }
 
   /**
@@ -5229,6 +5308,7 @@ class CalendarCardPro extends LitElement {
 
     this.isExpanded = false;
     this._goToPage(null);
+    this._confirmReset();
     this.requestUpdate();
   }
 }

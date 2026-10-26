@@ -277,17 +277,18 @@ describe('add-event button rendering', () => {
     expect(untitled.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('keeps the title first, then puts the button at the start of the action row', async () => {
+  it('puts the button at the start of the action row, the title over the month below it', async () => {
     const card = await mount({
       entities: [READ_ONLY, WRITABLE],
       toolbar: ADD_ONLY,
       title: 'Family',
     });
     const row = header(card);
-    const [title, actions, heading] = Array.from(row.children);
+    const [actions, heading] = Array.from(row.children);
+    const title = heading.querySelector('.toolbar-identity')!.firstElementChild!;
 
     expect(row.className).toBe('header-container has-toolbar');
-    expect(row.children).toHaveLength(3);
+    expect(row.children).toHaveLength(2);
     expect(title.outerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
       '<h1 class="card-header">Family</h1>',
     );
@@ -313,7 +314,8 @@ describe('add-event button rendering', () => {
       toolbar: ADD_ONLY,
       title: '{{ states("sensor.family") }}',
     });
-    const [title, actions, heading] = Array.from(header(card).children);
+    const [actions, heading] = Array.from(header(card).children);
+    const title = heading.querySelector('.toolbar-identity')!.firstElementChild!;
 
     // The heading itself, empty, rather than the placeholder an untitled card draws.
     expect(title.tagName).toBe('H1');
@@ -324,16 +326,18 @@ describe('add-event button rendering', () => {
     expect(heading.className).toBe('card-toolbar toolbar-heading');
   });
 
-  it('leads an untitled card with the placeholder, the rows after it', async () => {
+  it('draws the placeholder where an untitled card would have its title, over the month', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const row = header(card);
 
     expect(row.className).toBe('header-container has-toolbar');
     expect(Array.from(row.children).map((child) => child.className)).toEqual([
-      'card-header-placeholder',
       'card-toolbar toolbar-actions',
       'card-toolbar toolbar-heading',
     ]);
+    expect(
+      Array.from(row.querySelector('.toolbar-identity')!.children).map((child) => child.className),
+    ).toEqual(['card-header-placeholder', 'toolbar-month']);
     expect(row.querySelector('.toolbar-actions > .toolbar-start > .add-event-button')).toBe(
       button(card),
     );

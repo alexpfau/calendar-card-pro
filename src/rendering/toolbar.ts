@@ -67,9 +67,15 @@ export interface ResetButton {
   label: string | undefined;
   /**
    * True while the card shows something its configuration does not: a press then undoes it.
-   * False draws the button dimmed, and a press does nothing.
+   * False hides the button, keeping its room, and a press does nothing.
    */
   active: boolean;
+  /**
+   * Set for a moment after a press did its work: `showing` while the button shows a check instead
+   * of hiding, so the press is seen to have worked, then `leaving` while it fades out still
+   * showing it, so the U-turn never reappears on the way out.
+   */
+  confirmation?: 'showing' | 'leaving';
   onActivate: () => void;
 }
 
@@ -344,24 +350,34 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
  * Render the reset button.
  *
  * Drawn whether or not there is anything to undo, so it keeps its room and never moves the
- * controls beside it. With nothing to undo it is `.unavailable`, which the stylesheet hides, so
- * it appears only once there is something to undo, and `aria-disabled`, and a press does nothing.
- * The one exception is a button that holds focus, after a press that did its work: it stays,
- * dimmed, until focus moves on, so a keyboard is never left nowhere. Named as the add button is.
- * Its icon is a U-turn, not a circular arrow: two circular arrows side by side read as one
- * control turned round.
+ * controls beside it. With nothing to undo it is `.unavailable`, which the stylesheet hides and
+ * fades out, so it appears only once there is something to undo, and `aria-disabled`, and a
+ * press does nothing. A press that did its work shows a check on a green wash for a moment, as
+ * refresh does, and the button then hides by itself. A keyboard that pressed it keeps it, dimmed,
+ * until focus moves on, so focus is never left on nothing. Alone in its row it is never hidden,
+ * only dimmed (`.alone`): hidden, it would leave the row an empty strip over the month. Named as
+ * the add button is. Its icon is a U-turn, not a circular arrow: two circular arrows side by side
+ * read as one control turned round.
  *
  * @param button - Button description from the card
  * @param roomForLabel - Whether the card is wide enough to draw the label
+ * @param alone - Whether it is the only control in its row
  * @returns The button
  */
-function renderResetButton(button: ResetButton, roomForLabel: boolean): TemplateResult {
+function renderResetButton(
+  button: ResetButton,
+  roomForLabel: boolean,
+  alone: boolean,
+): TemplateResult {
   const labeled = roomForLabel && button.label !== undefined;
+  const confirmation = button.active ? undefined : button.confirmation;
   const className = [
     'toolbar-button',
     'reset-button',
     labeled ? '' : 'icon-only',
-    button.active ? '' : 'unavailable',
+    alone ? 'alone' : '',
+    confirmation ? 'reset-done' : '',
+    button.active || confirmation === 'showing' ? '' : 'unavailable',
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -380,7 +396,7 @@ function renderResetButton(button: ResetButton, roomForLabel: boolean): Template
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d=${mdiUndoVariant}></path>
+      <path d=${confirmation ? mdiCheck : mdiUndoVariant}></path>
     </svg>
     ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
@@ -522,7 +538,9 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
  * Render previous, home and next on one track.
  *
  * The three buttons share a track, styled like the view switcher's but with nothing raised,
- * because they are one control: a step back, a way home and a step forward. Home is always
+ * because they are one control: a step back, a way home and a step forward. A group named by the
+ * dates on screen, so a screen reader entering it hears where it is before which way it can go.
+ * Home is always
  * an icon, a house, named by its tooltip: it leads to the days the card opens with, which are
  * not always today, so neither the word "Today" nor a calendar glyph, which beside the month
  * reads as the date picker's, would say where it goes. The track is the same width in every
@@ -562,7 +580,7 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
       </svg>
     </button>`;
 
-  return html`<div class="date-navigation">
+  return html`<div class="date-navigation" role="group" aria-labelledby="toolbar-range-text">
     ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
     ${segment(nav.homeName, nav.homeName, mdiHomeOutline, nav.onHome, false)}
     ${segment(nav.nextName, UNLOCALIZED_NEXT_NAME, mdiChevronRight, nav.onNext, true)}
@@ -598,7 +616,9 @@ function renderOverlaid(labels: ReadonlyArray<string>): TemplateResult[] {
  * Behind the month, in the same grid cell, invisible copies of every month in the form drawn
  * keep the room of the widest, so paging changes the words and never moves the controls after
  * them. Out of the flow, the months in full are laid over one another once more, for the card
- * to measure whichever form is drawn (`_syncMonthFit`).
+ * to measure whichever form is drawn (`_syncMonthFit`). An empty box at the start of the words,
+ * one capital tall and standing on their baseline, is what the card reads to center the controls
+ * beside the month on its capitals (`_syncHeadingMiddle`).
  *
  * @param heading - Heading description from the card
  * @param nav - The date navigation, when the card draws it
@@ -620,7 +640,9 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
       ${reserve}
       <span class="toolbar-month-slot">
         <span class="toolbar-month-label" title=${heading.range}
-          ><bdi class="toolbar-month-text">${heading.text}</bdi></span
+          ><bdi class="toolbar-month-text"
+            ><span class="toolbar-month-cap"></span>${heading.text}</bdi
+          ></span
         >
       </span>
       ${measure}${live}
@@ -678,7 +700,8 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
         @click=${openPicker}
       >
         <span class="toolbar-month-label"
-          ><bdi class="toolbar-month-text">${heading.text}</bdi
+          ><bdi class="toolbar-month-text"
+            ><span class="toolbar-month-cap"></span>${heading.text}</bdi
           ><svg class="toolbar-month-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d=${mdiMenuDown}></path></svg
         ></span>
@@ -756,6 +779,7 @@ function renderActionRow(
 ): TemplateResult | typeof nothing {
   if (!drawsActionRow(toolbar)) return nothing;
   const legend = foldedLegend(toolbar);
+  const resetAlone = !legend && !toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.refresh;
 
   return html`<div
     class="card-toolbar toolbar-actions"
@@ -768,31 +792,48 @@ function renderActionRow(
     </div>
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
     <div class="toolbar-end">
-      ${toolbar.reset ? renderResetButton(toolbar.reset, labeled) : nothing}
+      ${toolbar.reset ? renderResetButton(toolbar.reset, labeled, resetAlone) : nothing}
       ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
     </div>
   </div>`;
 }
 
 /**
- * Render the heading row: the month at its start, the chips where they fit, and the date
- * navigation at its end.
+ * Keep a press inside the heading row from becoming a press on the card, unless it is on the
+ * title, which is the card's own and runs the card's tap and hold actions as it always has.
  *
- * The arrows keep to the row's end in every layout, so a press on next lands on the same spot
- * page after page however long each month's name is. The chips sit between, in the middle of
- * the card under the view switcher while there is room for that, by the switcher's own rule:
- * the month and the group holding the arrows share the room beside them equally. Named as a
- * group by the dates on screen, so a screen reader entering it hears where it is before which
- * way it can go. It keeps every press from the card, as the action row does.
+ * @param ev - The event to keep inside the row
+ */
+function stopHeadingGesture(ev: Event): void {
+  const target = ev.target as Element | null;
+  if (target?.closest?.('.card-header')) return;
+  ev.stopPropagation();
+}
+
+/**
+ * Render the heading row: the title over the month at its start, the chips where they fit, and
+ * the date navigation at its end.
+ *
+ * The title and the month are one block, the title a small label over the month, so a long
+ * title wraps within it and the controls beside it never move. Those controls are smaller than
+ * the action row's and centered on the month's capitals, so they read as level with its words
+ * rather than raised above them. The arrows keep to the row's end in every layout, so a press on
+ * next lands on the same spot page after page however long each month's name is. The chips sit
+ * between, in the middle of the card under the view switcher while there is room for that, by
+ * the switcher's own rule: the title's block and the group holding the arrows share the room
+ * beside them equally.
+ *
+ * The row is no group of its own, since it holds the card's heading; the arrows' track is,
+ * named by the dates on screen. It keeps every press from the card, as the action row does,
+ * except a press on the title (`stopHeadingGesture`).
  *
  * @param toolbar - The controls the card wants
- * @returns The row, or nothing when it would be empty
+ * @param title - The header's title block: the `h1`, or the empty placeholder without a title
+ * @returns The row
  */
-function renderHeadingRow(toolbar: HeaderToolbar): TemplateResult | typeof nothing {
+function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): TemplateResult {
   const chips = drawsLegendChips(toolbar) ? toolbar.legend : undefined;
   const heading = toolbar.heading;
-  if (!heading && !toolbar.navigation && !chips) return nothing;
-
   const className = [
     'card-toolbar',
     'toolbar-heading',
@@ -804,12 +845,12 @@ function renderHeadingRow(toolbar: HeaderToolbar): TemplateResult | typeof nothi
 
   return html`<div
     class=${className}
-    role="group"
-    aria-labelledby=${heading ? 'toolbar-range-text' : nothing}
-    @pointerdown=${stopCardGesture}
-    @click=${stopCardGesture}
+    @pointerdown=${stopHeadingGesture}
+    @click=${stopHeadingGesture}
   >
-    ${heading ? renderMonth(heading, toolbar.navigation) : nothing}
+    <div class="toolbar-identity">
+      ${title}${heading ? renderMonth(heading, toolbar.navigation) : nothing}
+    </div>
     ${chips ? renderLegendChips(chips) : nothing}
     <div class="toolbar-heading-end">
       ${toolbar.navigation ? renderDateNavigation(toolbar.navigation) : nothing}
@@ -821,16 +862,20 @@ function renderHeadingRow(toolbar: HeaderToolbar): TemplateResult | typeof nothi
  * Render the header toolbar, or nothing when it would hold no control.
  *
  * Where it sits is the layout rule. With no control the header is exactly as it was before
- * there was a toolbar. With one, the header is two rows above the events: the action row, when
- * it holds a control, then the heading row, where the card's title, drawn as a small label
- * over the month, joins it. The title stays the header's first child, so it keeps its element
- * and classes, and the stylesheet places it. Which row a control sits on depends on the
- * configuration and, for the chips alone, on whether all of them fit; never on the dates.
+ * there was a toolbar, and the caller draws the title itself. With one, the header is two rows
+ * above the events: the action row, when it holds a control, then the heading row, which takes
+ * the title in, as a small label over the month. The title keeps its element and classes there,
+ * inside `.header-container` still. Which row a control sits on depends on the configuration
+ * and, for the chips alone, on whether all of them fit; never on the dates.
  *
  * @param toolbar - The controls the card wants
- * @returns The toolbar, or undefined when it would be empty
+ * @param title - The header's title block: the `h1`, or the empty placeholder without a title
+ * @returns The toolbar, title included, or undefined when it would be empty
  */
-export function renderHeaderToolbar(toolbar: HeaderToolbar): TemplateResult | undefined {
+export function renderHeaderToolbar(
+  toolbar: HeaderToolbar,
+  title: TemplateResult,
+): TemplateResult | undefined {
   if (
     !toolbar.addEvent &&
     !toolbar.viewSwitcher &&
@@ -843,5 +888,5 @@ export function renderHeaderToolbar(toolbar: HeaderToolbar): TemplateResult | un
   }
 
   const labeled = toolbar.labeled === true;
-  return html`${renderActionRow(toolbar, labeled)}${renderHeadingRow(toolbar)}`;
+  return html`${renderActionRow(toolbar, labeled)}${renderHeadingRow(toolbar, title)}`;
 }

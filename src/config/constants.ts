@@ -101,6 +101,19 @@ export const TIMING = {
   REFRESH_CONFIRMATION: 1500,
 
   /**
+   * How long the reset button shows its check after a press that did its work, before it hides,
+   * there being nothing left to undo. A little shorter than refresh's, since a reset shows its
+   * outcome on the card itself as well: the days, the layout and the calendars come back.
+   */
+  RESET_CONFIRMATION: 1000,
+
+  /**
+   * How long the reset button takes to fade out after its check, still showing the check. The
+   * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
+   */
+  RESET_FADE: 200,
+
+  /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.
    *
    * Home Assistant's sections grid lays a card out at its unconstrained width for at

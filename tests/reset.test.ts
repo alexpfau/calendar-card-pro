@@ -10,7 +10,7 @@
  * tells a twin card, and that editing leaves it inert and loses nothing.
  */
 
-import { mdiRefresh, mdiUndoVariant } from '@mdi/js';
+import { mdiCheck, mdiRefresh, mdiUndoVariant } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -214,14 +214,18 @@ function resetButton(card: CardUnderTest): HTMLButtonElement | null {
   return root(card).querySelector<HTMLButtonElement>('.reset-button');
 }
 
-/** Whether the reset button is lit: drawn, and neither dimmed nor `aria-disabled`. */
+/**
+ * Whether the reset button is lit: drawn, and neither hidden (`.unavailable`), showing the check
+ * after a press (`.reset-done`), nor `aria-disabled`. Both of the first two do nothing on a press,
+ * so either must agree with `aria-disabled`.
+ */
 function lit(card: CardUnderTest): boolean {
   const button = resetButton(card);
   if (!button) throw new Error('no reset button');
-  const dimmed = button.classList.contains('unavailable');
+  const off = button.classList.contains('unavailable') || button.classList.contains('reset-done');
   const disabled = button.getAttribute('aria-disabled') === 'true';
-  if (dimmed !== disabled) throw new Error('dimmed and aria-disabled disagree');
-  return !dimmed;
+  if (off !== disabled) throw new Error('hidden or confirming and aria-disabled disagree');
+  return !off;
 }
 
 async function pressReset(card: CardUnderTest): Promise<void> {
@@ -432,6 +436,38 @@ describe('the reset button', () => {
     expect(iconOf('.refresh-button')).toBe(mdiRefresh);
   });
 
+  it('is drawn dimmed rather than hidden where it is alone in its row', async () => {
+    // Hidden, it would leave the row an empty strip over the month while there is nothing to
+    // undo, which is most of the time.
+    const lone: Types.ToolbarConfig = {
+      show: true,
+      reset: true,
+      navigation: true,
+      view_switcher: false,
+      legend: false,
+      add_event: false,
+      refresh: false,
+    };
+    const classes = (of: CardUnderTest) => Array.from(resetButton(of)!.classList);
+    const icon = (of: CardUnderTest) => resetButton(of)!.querySelector('path')!.getAttribute('d');
+    const card = await mount({ toolbar: lone });
+    const actions = root(card).querySelector('.toolbar-actions')!;
+    expect(actions.querySelectorAll('button')).toHaveLength(1);
+    expect(classes(card)).toEqual(expect.arrayContaining(['alone', 'unavailable']));
+    expect(lit(card)).toBe(false);
+
+    // Lit, then confirming, it is the same button as anywhere else.
+    await pressNext(card);
+    expect(lit(card)).toBe(true);
+    await pressReset(card);
+    expect(icon(card)).toBe(mdiCheck);
+
+    // Any other control in the row, and it hides again as usual.
+    document.body.innerHTML = '';
+    const withRefresh = await mount({ toolbar: { ...lone, refresh: true } });
+    expect(classes(withRefresh)).not.toContain('alone');
+  });
+
   it('keeps a press from becoming a press on the card', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     await pressNext(card);
@@ -447,11 +483,104 @@ describe('the reset button', () => {
 });
 
 //-----------------------------------------------------------------------------
+// THE CHECK A PRESS SHOWS
+//-----------------------------------------------------------------------------
+
+describe('the check a press on reset shows', () => {
+  const icon = (card: CardUnderTest) => resetButton(card)!.querySelector('path')!.getAttribute('d');
+  const classes = (card: CardUnderTest) => Array.from(resetButton(card)!.classList);
+
+  it('shows a check for a moment after a press that did its work, then hides', async () => {
+    const card = await mount();
+    await pressNext(card);
+    await pressReset(card);
+
+    // The check, as refresh shows one, and no press does anything meanwhile.
+    expect(classes(card)).toContain('reset-done');
+    expect(classes(card)).not.toContain('unavailable');
+    expect(icon(card)).toBe(mdiCheck);
+    expect(lit(card)).toBe(false);
+
+    vi.advanceTimersByTime(Constants.TIMING.RESET_CONFIRMATION - 1);
+    await settle(card);
+    expect(classes(card)).toContain('reset-done');
+    expect(classes(card)).not.toContain('unavailable');
+
+    // Then it fades out still showing the check, so the U-turn never shows on the way out.
+    vi.advanceTimersByTime(1);
+    await settle(card);
+    expect(classes(card)).toContain('reset-done');
+    expect(classes(card)).toContain('unavailable');
+    expect(icon(card)).toBe(mdiCheck);
+    expect(lit(card)).toBe(false);
+
+    vi.advanceTimersByTime(Constants.TIMING.RESET_FADE - 1);
+    await settle(card);
+    expect(icon(card)).toBe(mdiCheck);
+
+    // Hidden by then, it takes the U-turn back for the next time it appears.
+    vi.advanceTimersByTime(1);
+    await settle(card);
+    expect(classes(card)).not.toContain('reset-done');
+    expect(classes(card)).toContain('unavailable');
+    expect(icon(card)).toBe(mdiUndoVariant);
+  });
+
+  it('gives way at once to a change made while it fades out', async () => {
+    const card = await mount();
+    await pressNext(card);
+    await pressReset(card);
+    vi.advanceTimersByTime(Constants.TIMING.RESET_CONFIRMATION);
+    await settle(card);
+    expect(classes(card)).toEqual(expect.arrayContaining(['reset-done', 'unavailable']));
+
+    await pressNext(card);
+    expect(lit(card)).toBe(true);
+    expect(icon(card)).toBe(mdiUndoVariant);
+    expect(classes(card)).not.toContain('reset-done');
+  });
+
+  it('shows no check for a press with nothing to undo', async () => {
+    const card = await mount();
+    await pressReset(card);
+
+    expect(classes(card)).toContain('unavailable');
+    expect(classes(card)).not.toContain('reset-done');
+    expect(icon(card)).toBe(mdiUndoVariant);
+  });
+
+  it('gives way at once to a change made while it shows', async () => {
+    const card = await mount();
+    await pressNext(card);
+    await pressReset(card);
+    expect(classes(card)).toContain('reset-done');
+
+    await pressNext(card);
+    expect(lit(card)).toBe(true);
+    expect(icon(card)).toBe(mdiUndoVariant);
+    expect(classes(card)).not.toContain('reset-done');
+  });
+
+  it('ends with the card leaving the page, so a card put back is never stuck on it', async () => {
+    const card = await mount();
+    await pressNext(card);
+    await pressReset(card);
+    expect(classes(card)).toContain('reset-done');
+
+    card.remove();
+    document.body.appendChild(card);
+    await settle(card);
+    expect(classes(card)).toContain('unavailable');
+    expect(classes(card)).not.toContain('reset-done');
+  });
+});
+
+//-----------------------------------------------------------------------------
 // WHEN IT IS LIT, AND WHAT A PRESS UNDOES
 //-----------------------------------------------------------------------------
 
 describe('what reset undoes', () => {
-  it('is dimmed while the card shows its configuration, and a press does nothing', async () => {
+  it('is hidden while the card shows its configuration, and a press does nothing', async () => {
     const card = await mount(EXPANDABLE);
     const requests = callApi.mock.calls.length;
     const writes = watchChoiceWrites();
@@ -632,7 +761,7 @@ describe('reset beside other cards and while editing', () => {
     expect(lit(other)).toBe(true);
   });
 
-  it('is drawn dimmed and does nothing while the card is edited, and loses nothing', async () => {
+  it('is drawn hidden and does nothing while the card is edited, and loses nothing', async () => {
     const fingerprint = configFingerprint(configFor());
     writeViewChoice(fingerprint, 'grid');
     writeHiddenCalendars(fingerprint, [BEN]);

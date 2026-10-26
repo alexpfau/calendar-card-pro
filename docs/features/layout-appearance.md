@@ -160,16 +160,18 @@ toolbar:
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
 the calendar filter and the add button at its start, the view switcher in its middle, and the
 reset button at its end, with refresh after it when it is on. The row under it names the month
-the days on screen start in, with the arrows at its end, and the card's title shrinks to a small
-label over the month. The month is the card's headline then, so `title_font_size` and
+the days on screen start in, with smaller arrows at its end, level with the month's letters, and
+the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. A card without a title has no label over the
 month. With the toolbar off, the header is exactly what it always was.
 
 Each control is a neutral gray pill, so the toolbar never competes with the events for
 attention. Color shows only on the control in use: the card's accent, as on the card's own
 hover, while the pointer is over it or it is pressed, and the theme's primary color as a ring
-around the one a keyboard has focused. Every control looks 36px tall and answers a press 44px
-tall, the size touch guidelines ask for.
+around the one a keyboard has focused. The top row's controls are 36px tall and the month's row's
+24px, in proportion to the month beside them, and every one answers a press 44px tall, the size
+touch guidelines ask for. The month answers across its words and its arrow, and a little below
+them, but hardly above, so a press on the title over it still reaches the card.
 
 On a card at least 640px wide the top row's controls carry their names beside their icons, or
 240px when the add button is the only one there; every button beyond the first among the
@@ -414,12 +416,14 @@ One press brings back all of these at once:
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
 The button sits at the end of the top row, with a wider gap before refresh when that is on. It
-shows a U-turn arrow, and Home Assistant's own word "Reset" names it.
-While the card already shows how it is set up, the button is hidden, and it appears the moment
-something is changed, so a glance at the card says whether someone left it on a choice of their
-own. It keeps its place while hidden, so nothing in the toolbar moves when it appears. It is drawn only
-on a card with something it could undo: the date navigation, the view switcher, the calendar
-filter, or an `expand` action.
+shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
+how it is set up, the button is hidden, and it appears the moment something is changed, so a
+glance at the card says whether someone left it on a choice of their own. It keeps its place while
+hidden, so nothing in the toolbar moves when it appears. A press shows a check for a second, as
+refresh does after a reload, then the button fades away. Where it is the only control in the top
+row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card with
+something it could undo: the date navigation, the view switcher, the calendar filter, or an
+`expand` action.
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
 only. Another card with the same configuration shows every calendar again at once, as it does

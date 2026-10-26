@@ -2838,13 +2838,20 @@ describe('the toolbar controls', () => {
 });
 
 describe("the card's ripple over the toolbar", () => {
+  const RIPPLE_STILL =
+    'ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple';
+
   it('stays still while the pointer is anywhere on the bar, as it does over an event', () => {
     // The bar keeps every press and click from the card, rim and gaps included, so the
     // ripple's hover must not promise a tap there; it washed the card blue behind a control
     // washing blue. Top level, so it is not gated on (hover: hover) like the controls' fill.
-    expect(
-      declared('ha-card:has(.card-toolbar:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
-    ).toBe('0');
+    expect(declared(RIPPLE_STILL, '--ha-ripple-hover-opacity')).toBe('0');
+  });
+
+  it('still ripples over the title, which runs the card tap action from inside the heading row', () => {
+    // The title is the one part of a toolbar row that is the card's, so the rule spares it.
+    expect(RIPPLE_STILL).toContain(':not(:has(.toolbar-identity > .card-header:hover))');
+    expect(rulesFor('ha-card:has(.card-toolbar:hover) > ha-ripple')).toEqual([]);
   });
 });
 
@@ -2910,22 +2917,63 @@ describe('the legend and refresh', () => {
 });
 
 describe('the toolbar layout', () => {
-  it('draws the action row, then the title, then the heading row, whatever their order in the DOM', () => {
-    // The title stays the header's first child, where card-mod styles find it; the grid puts it
-    // between the rows as the label over the month.
-    expect(declared('.header-container.has-toolbar', 'display')).toBe('grid');
-    expect(declared('.header-container.has-toolbar > .toolbar-actions', 'grid-row')).toBe('1');
-    for (const title of ['.card-header', '.card-header-placeholder']) {
-      expect(declared(`.header-container.has-toolbar > ${title}`, 'grid-row'), title).toBe('2');
-    }
-    expect(declared('.header-container.has-toolbar > .toolbar-heading', 'grid-row')).toBe('3');
+  /** A length in px, as a number. */
+  const px = (value: string): number => {
+    const match = /^(-?\d*\.?\d+)px$/.exec(value);
+    expect(match, `${value} is not in px`).not.toBeNull();
+    return Number(match![1]);
+  };
+
+  it('sets the title over the month in one block, and centers the arrows and chips on its capitals', () => {
+    // No grid places the rows any more: the title is drawn inside the heading row, so the
+    // header needs no placement rule of its own.
+    expect(declared('.header-container.has-toolbar', 'display')).toBe('');
+    expect(rulesFor('.header-container.has-toolbar > .card-header')).toEqual([]);
+    expect(declared('.toolbar-identity', 'flex-direction')).toBe('column');
+    // The row aligns its items' feet, and the card writes how far the middle of the month's
+    // capitals stands above that foot; each control is raised by that, less half its height.
+    expect(declared('.card-toolbar.toolbar-heading', 'align-items')).toBe('flex-end');
+    const half = (selector: string) => px(declared(selector, 'height')) / 2;
+    expect(flat(declared('.toolbar-heading > .toolbar-heading-end', 'margin-block-end'))).toBe(
+      `calc(var(--calendar-card-heading-middle, 15px) - ${half('.date-navigation')}px)`,
+    );
+    // The chips' box is padded to hold their touch targets, and pulled back by as much, so the
+    // padding comes off the same distance too.
+    const [padBlock, padInline] = declared('.toolbar-legend', 'padding').split(' ');
+    expect(padInline).toBe('4px');
+    expect(flat(declared('.toolbar-legend', 'margin-block-end'))).toBe(
+      `calc(var(--calendar-card-heading-middle, 15px) - ${half('.legend-chip') + px(padBlock)}px)`,
+    );
+    expect(declared('.toolbar-legend', 'margin')).toBe(`-${padBlock} -${padInline}`);
+    // The card reads the capitals from a box one capital tall, standing on the month's baseline,
+    // with an em-based stand-in declared first for a browser without the cap unit.
+    expect(declared('.toolbar-month-cap', 'height')).toBe('1cap');
+    expect(rulesFor('.toolbar-month-cap')[0].body).toMatch(/height: 0\.7em;\s*height: 1cap;/);
+    expect(declared('.toolbar-month-cap', 'vertical-align')).toBe('baseline');
+  });
+
+  it("draws the heading row's controls smaller than the action row's, the icons in proportion", () => {
+    expect(declared('.toolbar-button', 'height')).toBe('36px');
+    expect(declared('.view-switcher', 'height')).toBe('36px');
+    expect(declared('.date-navigation', 'height')).toBe('24px');
+    expect(declared('.legend-chip', 'height')).toBe('24px');
+    // A chevron is half its icon box tall, so the arrows' fill 44% of the track; the house,
+    // which fills more of its box, is as tall as they are.
+    const arrow = px(declared('.date-navigation-segment .date-navigation-direction', 'width'));
+    expect(arrow / 2 / px(declared('.date-navigation', 'height'))).toBeCloseTo(0.44, 2);
+    expect(declared('.date-navigation-segment .toolbar-button-icon', 'width')).toBe('15px');
+    // The chips keep Home Assistant's control text size.
+    expect(declared('.legend-chip', 'font-size')).toBe('var(--ha-font-size-m, 14px)');
   });
 
   it("shrinks the title to a label, and hands the title's size and color to the month", () => {
-    const eyebrow = '.header-container.has-toolbar > .card-header';
+    const eyebrow = '.toolbar-identity > .card-header';
     expect(declared(eyebrow, 'color')).toBe('var(--secondary-text-color)');
     expect(declared(eyebrow, 'font-size')).toBe('var(--ha-font-size-m, 14px)');
     expect(declared(eyebrow, 'float')).toBe('none');
+    // A long title wraps in the room the month takes, and never widens the block the chips
+    // are measured against.
+    expect(declared(eyebrow, 'contain')).toBe('inline-size');
     // The same two properties the title reads with the toolbar off, so title_font_size and
     // title_color style whichever is the card's headline.
     expect(declared('.toolbar-month', 'font-size')).toBe(declared('.card-header', 'font-size'));
@@ -2954,51 +3002,84 @@ describe('the toolbar layout', () => {
     // finger page after page.
     expect(declared('.toolbar-heading-end', 'margin-inline-start')).toBe('auto');
     expect(declared('.toolbar-heading-end', 'justify-content')).toBe('flex-end');
-    // While the chips show, the month and the arrows' group share the room beside them equally,
-    // as the action row's groups do beside the switcher, and the month keeps its widest name.
-    for (const group of ['.toolbar-month', '.toolbar-heading-end']) {
+    // While the chips show, the title's block and the arrows' group share the room beside them
+    // equally, as the action row's groups do beside the switcher, and the block keeps the
+    // month's widest name.
+    for (const group of ['.toolbar-identity', '.toolbar-heading-end']) {
       const shown = `.toolbar-heading.chips-shown > ${group}`;
       expect(declared(shown, 'flex'), group).toBe(declared('.toolbar-start', 'flex'));
       expect(declared(shown, 'min-width'), group).toBe('max-content');
     }
-    // Without the chips the month takes what the arrows leave, and may shrink.
-    expect(declared('.toolbar-month', 'flex')).toBe('0 1 auto');
+    // Without the chips the block takes what the arrows leave, and the month in it may shrink.
+    expect(declared('.toolbar-identity', 'flex')).toBe('1 1 auto');
+    expect(declared('.toolbar-identity', 'min-width')).toBe('0');
     expect(declared('.toolbar-month', 'min-width')).toBe('0');
-    // The month button's pull toward the title is given back by the arrows' group, so the chips
-    // stay centered.
     expect(declared('.toolbar-month.with-picker', 'margin-inline-start')).toBe('-8px');
-    expect(
-      declared(
-        '.toolbar-heading.chips-shown > .toolbar-month.with-picker ~ .toolbar-heading-end',
-        'margin-inline-start',
-      ),
-    ).toBe('-8px');
-    expect(declared('.toolbar-legend', 'margin')).toBe('-4px');
-    expect(declared('.toolbar-legend', 'padding')).toBe('4px');
   });
 
-  it('hides reset while there is nothing to undo, keeping its room, unless it holds focus', () => {
+  it('hides reset while there is nothing to undo, keeping its room, unless a keyboard holds it', () => {
+    const hidden = '.toolbar-button.reset-button.unavailable:not(.alone):not(:focus-visible)';
+    const dimmed = '.toolbar-button.reset-button.unavailable:not(.reset-done)';
     // Hidden with visibility, so it keeps its room and nothing moves when it appears, and it
     // leaves the tab order and the accessibility tree with it. Never display: none.
-    expect(declared('.toolbar-button.reset-button.unavailable:not(:focus)', 'visibility')).toBe(
-      'hidden',
+    expect(declared(hidden, 'visibility')).toBe('hidden');
+    expect(declared(dimmed, 'display')).toBe('');
+    // A pointer press focuses a button in some browsers, so only a keyboard's focus may keep
+    // it, dimmed, once the press has done its work; so is a reset alone in its row, which would
+    // otherwise leave the row an empty strip.
+    expect(rulesFor('.toolbar-button.reset-button.unavailable:not(:focus)')).toEqual([]);
+    expect(rulesFor('.toolbar-button.reset-button.unavailable:not(:focus-visible)')).toEqual([]);
+    expect(declared(dimmed, 'opacity')).toBe('0.38');
+    // It fades out, and the visibility follows once the fade is over; appearing is immediate.
+    // The fade lasts as long as the card waits before giving it its U-turn back.
+    const fade = Constants.TIMING.RESET_FADE;
+    expect(declared(hidden, 'opacity')).toBe('0');
+    expect(flat(declared(hidden, 'transition'))).toBe(
+      `opacity ${fade}ms ease, visibility 0s linear ${fade}ms`,
     );
-    expect(declared('.toolbar-button.reset-button.unavailable', 'display')).toBe('');
-    // Pressed and still focused, it stays, dimmed, until focus moves on.
-    expect(declared('.toolbar-button.reset-button.unavailable', 'opacity')).toBe('0.38');
+    expect(bodyIn(atRuleBlock('@media (prefers-reduced-motion: reduce)'), hidden)).toBe(
+      'transition: none;',
+    );
+  });
+
+  it('keeps the check and its wash while reset fades out, so the U-turn never shows on the way', () => {
+    // Fading, the button is both .reset-done and .unavailable: the dimmed look, gray and 38%,
+    // must not reach it, or the button turns gray before it goes.
+    expect(rulesFor('.toolbar-button.reset-button.unavailable')).toEqual([]);
+    expect(
+      declared('.toolbar-button.reset-button.unavailable:not(.reset-done)', 'background'),
+    ).toBe('var(--calendar-card-toolbar-fill)');
+  });
+
+  it('shows the check after a press in the wash refresh shows its own in', () => {
+    const wash = (selector: string) => flat(declared(selector, 'background'));
+    expect(wash('.toolbar-button.reset-button.reset-done')).toBe(
+      wash('.toolbar-button.refresh-button.refresh-done'),
+    );
+    expect(declared('.reset-done .toolbar-button-icon', 'fill')).toBe(
+      'var(--success-color, #4caf50)',
+    );
   });
 
   it('sets the title close over the month, so the two read as one heading', () => {
-    expect(declared('.header-container.has-toolbar > .card-header', 'margin')).toBe('0');
-    expect(declared('.header-container.has-toolbar > .card-header', 'line-height')).toBe('1.2');
-    expect(declared('.card-toolbar.toolbar-heading', 'margin-block')).toBe('-4px 12px');
+    expect(declared('.toolbar-identity > .card-header', 'margin')).toBe('0');
+    expect(declared('.toolbar-identity > .card-header', 'line-height')).toBe('1.2');
+    expect(declared('.toolbar-month', 'line-height')).toBe('1.2');
+    // The month button is its line tall and no taller, so nothing pushes the two apart.
+    expect(declared('.toolbar-month-button', 'padding-block')).toBe('0');
+    expect(declared('.toolbar-month-button', 'margin')).toBe('0');
+    expect(declared('.toolbar-month-button', 'min-height')).toBe('');
+    expect(declared('.card-toolbar.toolbar-heading', 'margin-bottom')).toBe('12px');
+  });
+
+  it("wraps the month's hover in a pill close around its words, clear of the title", () => {
+    expect(declared('.toolbar-month-button', 'border-radius')).toBe('999px');
   });
 
   it('lines the rows up with the title in the list, and with the content edge in column and grid', () => {
+    // The rows carry the title's 8px, so the label over the month needs none of its own.
     expect(declared('.card-toolbar', 'padding-inline-start')).toBe('8px');
-    expect(declared('.header-container.has-toolbar > .card-header', 'margin-inline-start')).toBe(
-      '8px',
-    );
+    expect(declared('.toolbar-identity > .card-header', 'margin')).toBe('0');
     for (const view of ['column-view', 'grid-view']) {
       expect(declared(`.calendar-card-pro.${view} .card-toolbar`, 'padding-inline-start')).toBe(
         '0',
@@ -3008,23 +3089,40 @@ describe('the toolbar layout', () => {
   });
 
   it('gives every control a 44px touch target that never overlaps a neighbor', () => {
-    // 36px pills: 4px out on every side, inside the 8px gaps.
-    expect(declared('.toolbar-button', 'height')).toBe('36px');
+    /** How far a control's target reaches up and down beyond it, from its ::before. */
+    const reach = (selector: string) => {
+      const block =
+        declared(`${selector}::before`, 'inset-block') || declared(`${selector}::before`, 'inset');
+      return -px(block);
+    };
+    const tall = (selector: string, box = selector) =>
+      px(declared(box, 'height')) + 2 * reach(selector);
+    // The action row's 36px pills: 4px out on every side, inside the 8px gaps.
     expect(declared('.toolbar-button::before', 'inset')).toBe('-4px');
-    // 36px chips: 4px up and down, 3px across, inside their 6px gaps.
-    expect(declared('.legend-chip', 'height')).toBe('36px');
-    expect(declared('.legend-chip::before', 'inset-inline')).toBe('-3px');
-    // 30px segments on a 36px track: 7px up and down; across only at the track's ends.
-    const segment = '.view-switcher-segment::before';
-    expect(declared('.view-switcher-segment', 'height')).toBe('30px');
-    expect(declared(segment, 'inset-block')).toBe('-7px');
-    expect(declared(segment, 'inset-inline')).toBe('0');
+    expect(tall('.toolbar-button')).toBe(44);
+    expect(px(declared('.card-toolbar.toolbar-actions', 'gap'))).toBeGreaterThanOrEqual(2 * 4);
+    // The 24px chips: 10px up and down, 2px across, inside their 5px gaps.
+    expect(tall('.legend-chip')).toBe(44);
+    expect(declared('.legend-chip::before', 'inset-inline')).toBe('-2px');
+    expect(px(declared('.legend-chips', 'gap'))).toBeGreaterThanOrEqual(2 * 2);
+    // Segments on a track: up and down to 44px, across only at the track's ends, where 7px
+    // reaches as far as a pill's target would.
+    expect(tall('.view-switcher-segment')).toBe(44);
+    expect(tall('.date-navigation-segment')).toBe(44);
     for (const track of ['.view-switcher-segment', '.date-navigation-segment']) {
-      expect(declared(`${track}::before`, 'inset-block'), track).toBe('-7px');
+      expect(declared(`${track}::before`, 'inset-inline'), track).toBe('0');
       expect(declared(`${track}:first-child::before`, 'inset-inline-start'), track).toBe('-7px');
       expect(declared(`${track}:last-child::before`, 'inset-inline-end'), track).toBe('-7px');
     }
-    expect(declared('.toolbar-month-button', 'min-height')).toBe('44px');
+    // The chips' box pads itself by as much as their targets reach, so it never clips them.
+    expect(declared('.toolbar-legend', 'overflow')).toBe('hidden');
+    expect(px(declared('.toolbar-legend', 'padding').split(' ')[0])).toBe(reach('.legend-chip'));
+    // The month, one line of the title's type: 10px down into the gap above the days and only
+    // 2px up, so the title above keeps its own line for the card's tap action.
+    expect(declared('.toolbar-month-button', 'position')).toBe('relative');
+    expect(declared('.toolbar-month-button::before', 'position')).toBe('absolute');
+    expect(declared('.toolbar-month-button::before', 'inset-block')).toBe('-2px -10px');
+    expect(declared('.toolbar-month-button::before', 'inset-inline')).toBe('0');
   });
 
   it('measures the months in full in a box of no size, so the measurement widens nothing', () => {

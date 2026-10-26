@@ -346,41 +346,21 @@ export const cardStyles = css`
   /* ===== HEADER TOOLBAR ===== */
 
   /* Drawn only while it holds a control; without one none of these rules match and the header
-     is exactly the floated title above. With one, the header is a grid of three rows, placed
-     here rather than by the order they are written in: the action row, then the title, then the
-     heading row, right above the days. The title stays the header's first child, where card-mod
-     styles find it, and is drawn between the rows as the small label over the month. A grid
-     item simply ignores its float. */
-  .header-container.has-toolbar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
+     is exactly the floated title above. With one, the header holds two rows, the action row and
+     then the heading row, which takes the title in as a small label over the month.
 
-  .header-container.has-toolbar > .toolbar-actions {
-    grid-row: 1;
-  }
-
-  .header-container.has-toolbar > .card-header,
-  .header-container.has-toolbar > .card-header-placeholder {
-    grid-row: 2;
-  }
-
-  .header-container.has-toolbar > .toolbar-heading {
-    grid-row: 3;
-  }
-
-  /* With the toolbar the title is a small label over the month, in the secondary text color:
-     the month is the card's headline then, and takes the title's size and color from
-     title_font_size and title_color. Held one line tall while a templated title has no value
-     yet, so the month does not move when it arrives; a title that resolves to nothing is the
-     placeholder instead, and takes no room. A long title wraps. The 8px inline start is the
-     title's own margin, which column and grid drop. Its line is tight, and the month row is
-     pulled up under it, so the two read as one heading rather than two lines. */
-  .header-container.has-toolbar > .card-header {
+     The title in the heading row is in the secondary text color: the month is the card's
+     headline then, and takes the title's size and color from title_font_size and title_color.
+     Held one line tall while a templated title has no value yet, so the month does not move when
+     it arrives; a title that resolves to nothing is the placeholder instead, and takes no room.
+     A long title wraps within the block it shares with the month, and adds nothing to that
+     block's width (contain: inline-size), so it never pushes the chips away. A flex item simply
+     ignores the title's float. */
+  .toolbar-identity > .card-header {
     float: none;
+    contain: inline-size;
     min-height: 1.2em;
     margin: 0;
-    margin-inline-start: 8px;
     color: var(--secondary-text-color);
     font-size: var(--ha-font-size-m, 14px);
     font-weight: var(--ha-font-weight-medium, 500);
@@ -429,21 +409,49 @@ export const cardStyles = css`
     margin-inline-start: 8px;
   }
 
-  /* The heading row, last above the days: the month at its start, the date navigation at its
-     end, in every layout, so a press on next lands on the same spot page after page. Pulled up
-     4px under the title, into the room the arrows' track takes beyond the month's line.
+  /* The heading row, last above the days: the title over the month at its start, the date
+     navigation at its end, in every layout, so a press on next lands on the same spot page after
+     page.
 
-     Where the chips do not show, the month takes what the arrows leave, and may shrink: to its
-     short form, then cut short. While they show, they sit between the two by the action row's
-     own rule, the month and the arrows' group sharing the room beside them equally, so the
-     chips are centered under the view switcher while there is room for that. The month then
-     keeps the room of its widest name, so paging never moves the chips either. Everything is
-     centered on the month's line. */
+     Where the chips do not show, the title's block takes what the arrows leave, and the month may
+     shrink: to its short form, then cut short. While they show, they sit between the two by the
+     action row's own rule, the block and the arrows' group sharing the room beside them equally,
+     so the chips are centered under the view switcher while there is room for that. The block
+     then keeps the room of the month's widest name, so paging never moves the chips either.
+
+     The arrows and the chips are smaller than the action row's controls, 24px against 36px, in
+     proportion to the month beside them, and centered on its capitals: a pill much taller than
+     the letters, its bottom edge on their baseline, rose far above them and read as misaligned.
+     The row aligns its items' feet, and the card measures how far the middle of the month's
+     capitals stands above that foot (_syncHeadingMiddle) and writes it here; each control is
+     raised so its own middle sits there. They reach up beside the title rather than make the row
+     taller. Until the card has measured, 15px stands in, what the default title size measures in
+     most fonts; never a share of the title's size, which may be a keyword or a percentage rather
+     than a length. */
   .card-toolbar.toolbar-heading {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 8px;
-    margin-block: -4px 12px;
+    margin-bottom: 12px;
+  }
+
+  /* Without the chips it takes everything the arrows leave, so a long title has that much room
+     to wrap in; with them, its share of the room beside them. The title and the month stretch
+     across it, the month's words keeping to its start. */
+  .toolbar-identity {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .toolbar-heading.chips-shown > .toolbar-identity {
+    flex: 1 1 0;
+    min-width: max-content;
+  }
+
+  .toolbar-heading > .toolbar-heading-end {
+    margin-block-end: calc(var(--calendar-card-heading-middle, 15px) - 12px);
   }
 
   .toolbar-heading-end {
@@ -459,12 +467,6 @@ export const cardStyles = css`
     min-width: max-content;
   }
 
-  /* The month button is pulled back by 8px to line its words up with the title, which takes 8px
-     from its share of the room; the arrows' group gives up as much, so the chips stay centered. */
-  .toolbar-heading.chips-shown > .toolbar-month.with-picker ~ .toolbar-heading-end {
-    margin-inline-start: -8px;
-  }
-
   /* The month, in the title's type: the card's headline while the toolbar is drawn. Behind it,
      in the same grid cell, every month in the form drawn keeps the room of the widest. The cell
      can shrink below that, and the month below its words, so on a card too narrow for the
@@ -473,9 +475,9 @@ export const cardStyles = css`
   .toolbar-month {
     position: relative;
     display: grid;
-    flex: 0 1 auto;
     grid-template-columns: minmax(0, max-content);
     align-items: center;
+    align-self: stretch;
     min-width: 0;
     color: var(--calendar-card-color-title, var(--primary-text-color));
     font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
@@ -483,11 +485,6 @@ export const cardStyles = css`
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.012em;
     line-height: 1.2;
-  }
-
-  .toolbar-heading.chips-shown > .toolbar-month {
-    flex: 1 1 0;
-    min-width: max-content;
   }
 
   /* As a control the month is a button, padded so a press around its words lands on it; it is
@@ -550,22 +547,21 @@ export const cardStyles = css`
     max-width: 100%;
   }
 
-  /* 44px tall, the touch target, with the line of the title inside it. Pulled in by 4px above
-     and below, so the row is as tall as the arrows and the month sits close under the title:
-     the extra height reaches over the gap rather than widening it. */
+  /* A pill exactly the month's line tall, close around its words, so the month sits close under
+     the title and its hover never reaches the title above it; the touch target reaches beyond it
+     (below). */
   .toolbar-month-button {
+    position: relative;
     display: inline-flex;
     align-items: center;
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
-    min-height: 44px;
-    margin-block: -4px;
-    margin-inline: 0;
+    margin: 0;
     padding-block: 0;
     padding-inline: 8px 4px;
     border: none;
-    border-radius: 12px;
+    border-radius: 999px;
     background: transparent;
     color: inherit;
     font: inherit;
@@ -596,6 +592,17 @@ export const cardStyles = css`
     color: var(--secondary-text-color);
   }
 
+  /* An empty box one capital tall, standing on the month's baseline, which the card reads to
+     center the controls beside the month on its capitals. A browser without the cap unit takes
+     0.7em, near enough for most fonts. */
+  .toolbar-month-cap {
+    display: inline-block;
+    width: 0;
+    height: 0.7em;
+    height: 1cap;
+    vertical-align: baseline;
+  }
+
   /* The dates on screen, read out rather than shown: the month names the page, and this is
      what it covers, for assistive technology. */
   .toolbar-range-text {
@@ -611,24 +618,38 @@ export const cardStyles = css`
   }
 
   /* Previous, home and next on one track, like the view switcher's but with nothing raised:
-     one control, not a choice. */
+     one control, not a choice. Smaller than the switcher, beside the month rather than among the
+     actions. */
   .date-navigation {
     display: inline-flex;
     flex: none;
     align-items: center;
     box-sizing: border-box;
-    height: 36px;
-    padding: 3px;
-    border-radius: 18px;
+    height: 24px;
+    padding: 2px;
+    border-radius: 12px;
     background: var(--calendar-card-toolbar-fill);
   }
 
   .date-navigation-segment {
-    width: 34px;
-    height: 30px;
+    width: 30px;
+    height: 20px;
     padding: 0;
-    border-radius: 15px;
+    border-radius: 10px;
     background: transparent;
+  }
+
+  /* The arrows fill as much of the smaller track as they would of a larger one: a chevron is
+     drawn half as tall as its icon box, so 21px makes it 44% of the track's height. The house
+     fills more of its box, and at 15px stands as tall as they do. */
+  .date-navigation-segment .toolbar-button-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .date-navigation-segment .date-navigation-direction {
+    width: 21px;
+    height: 21px;
   }
 
   /* Drawn for left-to-right reading. Where the card reads right to left, previous is the
@@ -797,12 +818,13 @@ export const cardStyles = css`
     height: 16px;
   }
 
-  /* Touch targets. Every control looks 36px tall and answers a press 44px tall, as touch
-     guidelines ask, through an invisible box around it that never overlaps a neighbor's, so a
-     press between two goes to the nearer. A free-standing pill grows 4px each way, which the
-     8px gaps hold; a chip 3px across, for the chips' 6px gaps. A segment on a track grows 7px up
-     and down, and across only at the track's two ends, out to where a pill would: inside a track
-     the segments touch, and stay 34px wide. The month button is 44px tall itself. */
+  /* Touch targets. Every control answers a press 44px tall, as touch guidelines ask, through an
+     invisible box around it that never overlaps a neighbor's, so a press between two goes to the
+     nearer. A free-standing pill in the action row, 36px, grows 4px each way, which the 8px gaps
+     hold. A chip, 24px, grows 10px up and down and 2px across, for the chips' 5px gaps. A segment
+     on a track grows up and down to 44px, 7px on the switcher's and 12px on the arrows', and
+     across only at the track's two ends, 7px: inside a track the segments touch, and stay as
+     wide as they are drawn. The month button grows mostly downward (below). */
   .toolbar-button::before,
   .view-switcher-segment::before,
   .date-navigation-segment::before,
@@ -818,6 +840,10 @@ export const cardStyles = css`
     inset-inline: 0;
   }
 
+  .date-navigation-segment::before {
+    inset-block: -12px;
+  }
+
   .view-switcher-segment:first-child::before,
   .date-navigation-segment:first-child::before {
     inset-inline-start: -7px;
@@ -829,7 +855,18 @@ export const cardStyles = css`
   }
 
   .legend-chip::before {
-    inset-inline: -3px;
+    inset-block: -10px;
+    inset-inline: -2px;
+  }
+
+  /* The month button: 10px down, into the gap above the days, and only 2px up, so the title
+     above it, which runs the card's own tap action, keeps nearly all of its line; nothing across,
+     where its padding already reaches. */
+  .toolbar-month-button::before {
+    content: '';
+    position: absolute;
+    inset-block: -2px -10px;
+    inset-inline: 0;
   }
 
   /* While the card loads, the refresh button's icon turns, as the corner spinner it stands in
@@ -842,7 +879,8 @@ export const cardStyles = css`
      well, an alert where a calendar could not be loaded. The button takes the color as a wash
      as strong as a press, and the icon takes it in full. Specific enough to hold over the
      hover and press rules, since the pointer that pressed it is usually still on it. */
-  .toolbar-button.refresh-button.refresh-done {
+  .toolbar-button.refresh-button.refresh-done,
+  .toolbar-button.reset-button.reset-done {
     background: color-mix(
       in srgb,
       var(--success-color, #4caf50) 20%,
@@ -859,6 +897,7 @@ export const cardStyles = css`
   }
 
   .refresh-done .toolbar-button-icon,
+  .reset-done .toolbar-button-icon,
   .refresh-done .loading-indicator-icon {
     fill: var(--success-color, #4caf50);
   }
@@ -870,18 +909,34 @@ export const cardStyles = css`
 
   /* Reset with nothing to undo: hidden, and out of the tab order and away from assistive
      technology with it, but keeping its room, so nothing in the row moves when it appears. A
-     button that holds focus, after a press that just did its work, stays until focus moves on,
+     button a keyboard holds, after a press that did its work, stays until focus moves on,
      dimmed as a layout too wide for the card is and with no hover or press wash, so a keyboard
      is never left on nothing. Specific enough to hold over the hover and press rules, as the
      refresh outcomes are. */
-  .toolbar-button.reset-button.unavailable {
+  .toolbar-button.reset-button.unavailable:not(.reset-done) {
     background: var(--calendar-card-toolbar-fill);
     opacity: 0.38;
     cursor: default;
   }
 
-  .toolbar-button.reset-button.unavailable:not(:focus) {
+  /* It fades out rather than vanishing, after the check a press shows (.reset-done), still
+     showing the check and its wash, and the visibility follows once the fade is over; the card
+     gives it its U-turn back only then (RESET_FADE). Appearing is immediate. Only a keyboard's
+     focus keeps it, since a pointer press focuses a button in some browsers and would otherwise
+     hold it there until the next press elsewhere. Alone in its row it is never hidden, only
+     dimmed, so the row is never an empty strip over the month. */
+  .toolbar-button.reset-button.unavailable:not(.alone):not(:focus-visible) {
     visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 200ms ease,
+      visibility 0s linear 200ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toolbar-button.reset-button.unavailable:not(.alone):not(:focus-visible) {
+      transition: none;
+    }
   }
 
   /* The folded legend carries a dot in the theme's primary color while it hides a calendar,
@@ -915,14 +970,15 @@ export const cardStyles = css`
     box-sizing: border-box;
     min-width: 0;
     overflow: hidden;
-    margin: -4px;
-    padding: 4px;
+    margin: -10px -4px;
+    margin-block-end: calc(var(--calendar-card-heading-middle, 15px) - 22px);
+    padding: 10px 4px;
     cursor: default;
   }
 
   .legend-chips {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     width: max-content;
   }
 
@@ -934,11 +990,11 @@ export const cardStyles = css`
     display: inline-flex;
     align-items: center;
     box-sizing: border-box;
-    height: 36px;
+    height: 24px;
     margin: 0;
-    padding: 0 14px;
+    padding: 0 12px;
     border: none;
-    border-radius: 18px;
+    border-radius: 12px;
     background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
     color: var(--primary-text-color);
     font-family: inherit;
@@ -1086,7 +1142,7 @@ export const cardStyles = css`
      washing blue. The title above the month is still the card's, and still ripples. A press
      needs no rule here, because the ripple never sees one. Where :has is not supported the
      rule is dropped and both hover at once. */
-  ha-card:has(.card-toolbar:hover) > ha-ripple {
+  ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple {
     --ha-ripple-hover-opacity: 0;
   }
 

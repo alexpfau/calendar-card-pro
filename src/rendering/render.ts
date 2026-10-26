@@ -140,10 +140,10 @@ export function renderMainCardStructure(
   //   the view switch, reset and refresh) when it holds a control, then the heading row: the
   //   title as a small label over the month the page starts in, the date navigation, and the
   //   filter's chips where they all fit.
-  // The toolbar stays inside `.header-container`, after the h1 or the
-  // `.card-header-placeholder`, so both keep the place card-mod styles find them in; the
-  // stylesheet draws the title between the two rows.
-  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar);
+  // With a toolbar the title moves into the heading row, as a small label over the month,
+  // keeping its element and classes inside `.header-container`; `.header-container
+  // h1.card-header` still finds it, `.header-container > h1.card-header` only without one.
+  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, titleBlock);
   const headerClass = toolbarBlock ? 'header-container has-toolbar' : 'header-container';
   // Days about to give way to another page's are dimmed until its events arrive. A class
   // only while that is so, so the container reads as it always has otherwise.
@@ -158,6 +158,11 @@ export function renderMainCardStructure(
     .filter((cls) => cls !== '')
     .join(' ');
 
+  // The header's binding stands on a line of its own, as it did before there was a toolbar, so a
+  // card without one keeps the same whitespace on either side of its title, byte for byte.
+  // Prettier treats the space at a block element's edges as insignificant and pulls the binding
+  // onto the div's line, so this template is kept as written; match its style by hand.
+  // prettier-ignore
   return html`
     <ha-card
       class=${cardClasses}
@@ -202,7 +207,7 @@ export function renderMainCardStructure(
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
       <div class=${headerClass}>
-        ${toolbarBlock ? html`${titleBlock}${toolbarBlock}` : titleBlock}
+        ${toolbarBlock ?? titleBlock}
       </div>
 
       <!-- Content container is always present -->

@@ -479,16 +479,18 @@ describe('the calendar legend', () => {
     });
     const header = root(card).querySelector('.header-container')!;
 
-    // Nothing else in the toolbar, so no action row: the title and the heading row alone.
+    // Nothing else in the toolbar, so no action row: the heading row alone, the title in it
+    // over the month.
     expect(header.className).toBe('header-container has-toolbar');
-    expect(childClasses(header)).toEqual([
-      'card-header',
-      'card-toolbar toolbar-heading chips-shown',
-    ]);
+    expect(childClasses(header)).toEqual(['card-toolbar toolbar-heading chips-shown']);
     expect(childClasses(headingRow(card))).toEqual([
-      'toolbar-month',
+      'toolbar-identity',
       'toolbar-legend',
       'toolbar-heading-end',
+    ]);
+    expect(childClasses(root(card).querySelector('.toolbar-identity')!)).toEqual([
+      'card-header',
+      'toolbar-month',
     ]);
     // Without the date navigation the end group is there, and empty.
     expect(childClasses(root(card).querySelector('.toolbar-heading-end')!)).toEqual([]);
@@ -533,12 +535,11 @@ describe('the calendar legend', () => {
     const withChips = await mount({ title: 'Family', toolbar: { ...toolbar, legend: 'chips' } });
 
     expect(childClasses(root(withChips).querySelector('.header-container')!)).toEqual([
-      'card-header',
       'card-toolbar toolbar-actions',
       'card-toolbar toolbar-heading chips-shown',
     ]);
     expect(headingLayout(withChips)).toEqual([
-      'toolbar-month with-picker',
+      'toolbar-identity',
       'toolbar-legend',
       'toolbar-heading-end',
       ['date-navigation'],
@@ -552,7 +553,7 @@ describe('the calendar legend', () => {
 
     expect(headingRow(withMenu).className).toBe('card-toolbar toolbar-heading');
     expect(headingLayout(withMenu)).toEqual([
-      'toolbar-month with-picker',
+      'toolbar-identity',
       'toolbar-heading-end',
       ['date-navigation'],
     ]);
@@ -889,7 +890,6 @@ describe('chips too wide for the heading row', () => {
     expect(chips(card)).toEqual([]);
     expect(header.className).toBe('header-container has-toolbar');
     expect(childClasses(header)).toEqual([
-      'card-header',
       'card-toolbar toolbar-actions',
       'card-toolbar toolbar-heading',
     ]);
@@ -899,7 +899,7 @@ describe('chips too wide for the heading row', () => {
       'toolbar-button add-event-button',
     ]);
     expect(controls(card, '.toolbar-end')).toEqual(['toolbar-button refresh-button']);
-    expect(childClasses(headingRow(card))).toEqual(['toolbar-month', 'toolbar-heading-end']);
+    expect(childClasses(headingRow(card))).toEqual(['toolbar-identity', 'toolbar-heading-end']);
     const button = legendButton(card)!;
     expect(button.getAttribute('aria-haspopup')).toBe('dialog');
     expect(button.getAttribute('aria-expanded')).toBe('false');

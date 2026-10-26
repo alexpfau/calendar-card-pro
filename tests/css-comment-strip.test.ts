@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(156_000);
-    // The grid polish fixes moved the ceiling last, from 153,000 to 156,000: the notes on why
+    expect(saved).toBeLessThan(159_000);
+    // The two-row header moved the ceiling last, from 156,000 to 159,000: the notes on why the
+    // title moves into the heading row as a label over the month, and why a long title there
+    // adds nothing to the block's width; why the arrows and the chips are raised by a measured
+    // distance rather than aligned on the baseline by CSS, and why the stand-in is a length and
+    // never a share of the title's size; why the month's hover is a pill its line tall and its
+    // touch target reaches down rather than up; and why reset hides only for a pointer's focus,
+    // and fades after its check. The reading went 154,185, dev's own, to 156,128, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The grid polish fixes moved it before that, from 153,000 to 156,000: the notes on why
     // grid resets the two properties a time folded with its countdown reads, rather than the
     // declarations that read them, and what the clamp did to that row before; why a grid
     // title keeps the dashboard's side through :dir() when match-parent would say the same

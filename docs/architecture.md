@@ -200,15 +200,21 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   the header renders byte for byte as it did before the toolbar existed. That is why the header
   keeps a single child binding, since a second one, even rendering nothing, adds a Lit marker and
   a text node, and why no default snapshot moved.
-- **Two rows, placed by the stylesheet.** With a control, `.header-container.has-toolbar` is a
-  grid of three rows: the action row (`.card-toolbar.toolbar-actions`), the title, then the
-  heading row (`.card-toolbar.toolbar-heading`), right above the days. In the DOM the title stays
-  the header's first child, so `.header-container > h1.card-header` and `.card-header-placeholder`
-  keep their element, classes and place for card-mod, and the `.header-container` +
-  `.content-container` adjacency is unchanged; `grid-row` draws it between the rows. With the
-  toolbar the title is a small label over the month, in the secondary text color, and the month,
-  the card's headline then, reads `title_font_size` and `title_color`. A templated title still
-  pending keeps the `h1`, held one line tall, so the month does not move when its value arrives.
+- **Two rows, the title in the second.** With a control, `.header-container.has-toolbar` holds
+  the action row (`.card-toolbar.toolbar-actions`), then the heading row
+  (`.card-toolbar.toolbar-heading`), right above the days. The title moves into the heading row:
+  `h1.card-header`, or `.card-header-placeholder` without a title, is the first child of
+  `.toolbar-identity`, a block it shares with the month, so the title is a small label directly
+  over it. It keeps its element and classes, and the `.header-container` + `.content-container`
+  adjacency is unchanged, but while the toolbar is drawn the child selector
+  `.header-container > h1.card-header` no longer reaches it; the descendant
+  `.header-container h1.card-header` does, with the toolbar on or off. One block is what lets the
+  arrows and the chips sit centered on the month's capitals (below) whatever the title's height, and
+  what keeps the month's hover off the title. The title is in the secondary text color, and the
+  month, the card's headline then, reads `title_font_size` and `title_color`. A long title wraps
+  within the block and adds nothing to its width (`contain: inline-size`), so it never takes room
+  from the chips. A templated title still pending keeps the `h1`, held one line tall, so the
+  month does not move when its value arrives.
 - **The action row groups by purpose.** A start group (`.toolbar-start`: the folded filter, then
   add), the view switcher, and an end group (`.toolbar-end`: reset, then refresh). Both groups are
   always drawn and share the room beside the switcher equally (`flex: 1 1 0` with a
@@ -221,14 +227,15 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   writes the month and year of the page's first day through `Intl` in the card's language,
   capitalized where the month leads: one month, never two, so a week across a turn of the month is
   named by its first. The exact dates, `rangeLabel`, are the heading's tooltip and a visually
-  hidden polite live region that describes the button and names the row. With navigation the
+  hidden polite live region that describes the button and names the arrows' track, a group of its
+  own; the row is none, since it holds the card's heading. With navigation the
   month is a button over a hidden native date input, which opens the browser's picker, and
   previous, home (a house, because home is not always today) and next share one track beside it;
   without navigation the month is plain text. The arrows keep to the row's end in every layout
   (`.toolbar-heading-end`), so a press on next lands on the same spot page after page. While the
-  chips show they sit between, by the action row's rule: the month and the arrows' group share
-  the room beside them equally, so the chips are centered under the switcher while there is room,
-  and the month keeps the room of its widest name. Behind the month, in the same grid cell, every
+  chips show they sit between, by the action row's rule: the title's block and the arrows' group
+  share the room beside them equally, so the chips are centered under the switcher while there is
+  room, and the block keeps the room of the month's widest name. Behind the month, in the same grid cell, every
   month in the form drawn keeps the room of the widest, with tabular figures, so paging never
   moves a control. The month button
   focuses the hidden date input to open its picker, because Safari closes a picker only when its
@@ -239,6 +246,19 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   once a frame. The input is exposed to assistive technology only while it holds that focus, and
   focus goes back to the month button when the button had it. Layout is logical throughout, and
   the arrows are mirrored under `:dir(rtl)`, where previous points right.
+- **The arrows and the chips are small, and centered on the month's capitals.** They are 24px
+  tall against the action row's 36px, with the chevrons filling 44% of the track and the chips
+  keeping Home Assistant's control text size, so beside a 24px month they are about as tall as
+  its capitals plus a little. A 36px pill with its bottom edge on the month's baseline rose about
+  19px above the letters, and its icons sat higher than their middle, which read as misaligned
+  however exactly it was aligned. The row aligns its items' feet, and `_syncHeadingMiddle` reads,
+  after every render, an empty box at the start of the month's words that is one capital tall
+  (`1cap`) and stands on their baseline (`.toolbar-month-cap`). It writes how far that box's
+  middle stands above the row's content foot as `--calendar-card-heading-middle`, straight onto
+  the row, which no render binds a style to, and the stylesheet raises the arrows' group and the
+  chips' box so their middles sit there. The height depends on the month's font and line alone,
+  never on where the controls sit, so writing it cannot move what it was measured from; 15px
+  stands in until the first measurement, and `0.7em` for a browser without the `cap` unit.
 - **The month shortens by measurement, never by the month on screen.** `_syncMonthFit` reads,
   after every render, a hidden copy of every month in full laid over one another in the heading's
   own font, and the room from the month's start to the row's end less the arrows. It turns that
@@ -258,11 +278,16 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   `hold_action`. The title above the month is not guarded, and still runs them. None stops
   `keydown`: the card already ignores keys aimed at anything but itself, and stopping them would
   hide them from Home Assistant's own shortcuts.
-- **Every control has a 44px touch target.** Each looks 36px tall and answers a press through an
-  invisible `::before` box that never overlaps a neighbor's: a pill grows 4px each way, a chip 3px
-  across, and a segment on a track 7px up and down and across only at the track's two ends, so the
-  segments inside stay 34px wide. The month button is 44px tall itself, pulled in by 4px above and
-  below so the row stays as tall as the arrows.
+- **Every control has a 44px touch target.** Each answers a press 44px tall through an invisible
+  `::before` box that never overlaps a neighbor's: a 36px pill in the action row grows 4px each
+  way; a 24px chip 10px up and down and 2px across, for the chips' 5px gaps, with the chips' box
+  padded as far so it does not clip them; and a segment on a track up and down to 44px, across
+  only at the track's two ends, so the segments inside stay as wide as they are drawn, 34px on the
+  switcher and 30px on the arrows. The month is the exception: its button is a pill exactly its
+  line tall, so its hover sits close around the words and never reaches the title above it. Its
+  target reaches 10px down, into the gap above the days, and only 2px up, so the title keeps its
+  line for the card's own tap action: about 41px tall at the default title size, and as wide as
+  the month and its caret.
 - **Labels follow the card's width, not the viewport's.** Above a width that depends on which
   controls the action row draws, a control carries its label beside its icon; under it, the icon
   alone, named by `aria-label`. `labels: false` keeps every control an icon at any width. The
@@ -365,10 +390,10 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   never hides: the card would take the way back with it.
 - **`menu` is always the button; `chips` fold by measurement, never inside a resize.** Under
   `legend: chips`, `_syncLegendFit` reads the chips' natural width against the room the heading
-  row leaves them (`_legendChipsRoom`): from the end of the control before them, the arrows or the
-  month, to the row's end. It is read from that control rather than from the chips' box, which
-  never shrinks below nothing, so a month and arrows that already overflow give a negative room and
-  a true width to unfold from. When the chips do not fit the card records what they were drawn with
+  row leaves them (`_legendChipsRoom`): the row's content width less the widest month in full, the
+  arrows' track and the two gaps either side of the chips. It is worked out from those widths
+  rather than read from the chips' box, which never shrinks below nothing, so a month and arrows
+  that already overflow give a negative room and a true width to unfold from. When the chips do not fit the card records what they were drawn with
   and the card width from which they fit by `UI.LEGEND_UNFOLD_MARGIN`, and draws exactly the `menu`
   layout until then: the filter button back at the start of the action row, never part of the
   chips. After a render it only folds, at the width the legend was last judged at, before anything
@@ -411,10 +436,20 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   because home's days follow the view on screen. Whether the button is drawn depends on the
   configuration alone: `reset` with navigation, the switcher, the filter or an `expand` action.
   With nothing to undo it is `.unavailable`, which the stylesheet hides with `visibility`, so it
-  keeps its room and never moves the controls beside it when it appears; a button that holds
-  focus after a press stays, dimmed, until focus moves on, so a keyboard is never left nowhere. Its name is `ui.common.reset`, which Home Assistant has carried only since 2026.2;
-  older, the label rule treats it as any control without a name and the whole bar stays icons,
-  which the docs state. It does nothing on its own clock; there is no idle timer.
+  keeps its room and never moves the controls beside it when it appears. A press that did its work
+  first shows a check on the success wash, as refresh does (`.reset-done`, `_confirmReset`), for
+  `RESET_CONFIRMATION`; then it fades out over `RESET_FADE` still showing the check, and takes
+  its U-turn back only once hidden. Swapping the icon first made the button flash back as itself
+  on the way out. A change made meanwhile shows it as itself again at once, and disconnecting
+  ends the check (`_settleResetConfirmation`), so a card put back is never stuck on it. Only a
+  keyboard's focus (`:focus-visible`) keeps a button with nothing to undo drawn, dimmed, so a
+  keyboard is never left on nothing; a pointer press focuses a button in some browsers, and kept
+  it showing until the next press elsewhere. A reset that is the only control in its row
+  (`.alone`) is always drawn, dimmed when there is nothing to undo, since hiding it would leave the
+  row an empty strip over the month, and in the editor's preview always. Its name is
+  `ui.common.reset`, which Home Assistant has carried only since 2026.2; older, the label rule
+  treats it as any control without a name and the whole bar stays icons, which the docs state.
+  Beyond that one check and its fade it keeps no clock; there is no idle timer.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
   then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,

@@ -70,6 +70,7 @@ interface CardUnderTest extends HTMLElement {
   _columnCount: number;
   _failureCountHint: number;
   _newEventDate(): Date;
+  requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -449,16 +450,19 @@ describe('the date navigation', () => {
     const header = root(card).querySelector('.header-container')!;
 
     expect(header.className).toBe('header-container has-toolbar');
-    // The title stays first, where card-mod styles find it; the stylesheet draws it as a label
-    // between the two rows.
     expect(childClasses(header)).toEqual([
-      'card-header',
       'card-toolbar toolbar-actions',
       'card-toolbar toolbar-heading',
     ]);
+    // The title moves into the heading row, a small label over the month: the two share one
+    // block, so the arrows can sit on the month's baseline whatever the title's height.
     expect(childClasses(header.querySelector('.toolbar-heading')!)).toEqual([
-      'toolbar-month with-picker',
+      'toolbar-identity',
       'toolbar-heading-end',
+    ]);
+    expect(childClasses(header.querySelector('.toolbar-identity')!)).toEqual([
+      'card-header',
+      'toolbar-month with-picker',
     ]);
     expect(childClasses(header.querySelector('.toolbar-heading-end')!)).toEqual([
       'date-navigation',
@@ -468,30 +472,37 @@ describe('the date navigation', () => {
     expect(actions.querySelector('.date-navigation, .toolbar-month')).toBeNull();
   });
 
-  it('keeps the placeholder card-mod styles find first without a title, and draws no empty action row', async () => {
+  it('keeps the placeholder over the month without a title, and draws no empty action row', async () => {
     const alone = await mount();
     expect(childClasses(root(alone).querySelector('.header-container')!)).toEqual([
-      'card-header-placeholder',
       'card-toolbar toolbar-heading',
+    ]);
+    expect(childClasses(root(alone).querySelector('.toolbar-identity')!)).toEqual([
+      'card-header-placeholder',
+      'toolbar-month with-picker',
     ]);
     expect(root(alone).querySelector('.toolbar-actions')).toBeNull();
 
     document.body.innerHTML = '';
     const withAdd = await mount({ toolbar: { ...NAVIGATION_ONLY, add_event: true } });
     expect(childClasses(root(withAdd).querySelector('.header-container')!)).toEqual([
-      'card-header-placeholder',
       'card-toolbar toolbar-actions',
       'card-toolbar toolbar-heading',
     ]);
+    expect(
+      root(withAdd).querySelector('.toolbar-identity > .card-header-placeholder'),
+    ).not.toBeNull();
   });
 
   it('names its controls, and the dates on screen', async () => {
     const card = await mount();
     const [previous, home, next] = segments(card);
 
-    // One group for the heading row, named by the dates it moves through.
-    const group = root(card).querySelector('.toolbar-heading')!;
+    // One group for the arrows' track, named by the dates it moves through. The row is none:
+    // it holds the card's heading, which a group named by the dates would mislabel.
+    const group = root(card).querySelector('.date-navigation')!;
     expect(group.getAttribute('role')).toBe('group');
+    expect(root(card).querySelector('.toolbar-heading')!.hasAttribute('role')).toBe(false);
     const labelledBy = group.getAttribute('aria-labelledby')!;
     expect(root(card).getElementById(labelledBy)!.textContent!.trim()).toBe(`Jun 15${TO}21`);
     expect(previous.getAttribute('aria-label')).toBe('Previous');
@@ -523,12 +534,12 @@ describe('the date navigation', () => {
   it("gives the exact dates as the month's tooltip and description, and says when they change", async () => {
     const card = await mount();
     const button = monthButton(card);
-    const heading = root(card).querySelector('.toolbar-heading')!;
+    const track = root(card).querySelector('.date-navigation')!;
     const live = root(card).querySelector('#toolbar-range-text')!;
 
     expect(button.getAttribute('title')).toBe(`Jun 15${TO}21`);
     expect(button.getAttribute('aria-describedby')).toBe('toolbar-range-text');
-    expect(heading.getAttribute('aria-labelledby')).toBe('toolbar-range-text');
+    expect(track.getAttribute('aria-labelledby')).toBe('toolbar-range-text');
     expect(live.className).toBe('toolbar-range-text');
     expect(live.getAttribute('aria-live')).toBe('polite');
     expect(live.textContent!.trim()).toBe(`Jun 15${TO}21`);
@@ -549,13 +560,19 @@ describe('the date navigation', () => {
     const heading = root(card).querySelector('.toolbar-heading')!;
 
     // The group at the row's end is drawn without navigation too, and holds nothing then.
-    expect(childClasses(heading)).toEqual(['toolbar-month', 'toolbar-heading-end']);
+    expect(childClasses(heading)).toEqual(['toolbar-identity', 'toolbar-heading-end']);
+    expect(childClasses(heading.querySelector('.toolbar-identity')!)).toEqual([
+      'card-header-placeholder',
+      'toolbar-month',
+    ]);
     expect(heading.querySelector('.toolbar-heading-end')!.children).toHaveLength(0);
     const label = heading.querySelector('.toolbar-month-slot > span.toolbar-month-label')!;
     expect(label.getAttribute('title')).toBe(`Jun 15${TO}21`);
     expect(label.textContent!.trim()).toBe('June 2026');
     expect(range(card)).toBe(`Jun 15${TO}21`);
-    expect(heading.getAttribute('aria-labelledby')).toBe('toolbar-range-text');
+    // No arrows, so no group for them to be named in.
+    expect(heading.hasAttribute('aria-labelledby')).toBe(false);
+    expect(root(card).querySelector('[role="group"][aria-labelledby]')).toBeNull();
     expect(root(card).querySelector('button.toolbar-month-button')).toBeNull();
     expect(root(card).querySelector('.toolbar-date-input')).toBeNull();
     expect(root(card).querySelector('.date-navigation')).toBeNull();
@@ -1163,6 +1180,103 @@ describe('the date navigation', () => {
 });
 
 //-----------------------------------------------------------------------------
+// THE MONTH'S CAPITALS
+//-----------------------------------------------------------------------------
+
+describe("the controls beside the month, centered on the month's capitals", () => {
+  /** Where the stubbed layout puts the heading row, and the top and foot of the month's capitals. */
+  const geometry = { rowTop: 100, rowHeight: 60, paddingBottom: 0, capTop: 134.6, baseline: 151.7 };
+
+  beforeEach(() => {
+    Object.assign(geometry, {
+      rowTop: 100,
+      rowHeight: 60,
+      paddingBottom: 0,
+      capTop: 134.6,
+      baseline: 151.7,
+    });
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const { rowTop, rowHeight, capTop, baseline } = geometry;
+      if (this.classList.contains('toolbar-heading')) {
+        return { top: rowTop, bottom: rowTop + rowHeight, height: rowHeight } as DOMRect;
+      }
+      if (this.classList.contains('toolbar-month-cap')) {
+        return { top: capTop, bottom: baseline, height: baseline - capTop } as DOMRect;
+      }
+      return realRect.call(this);
+    });
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      return (element as HTMLElement).classList?.contains('toolbar-heading')
+        ? ({ ...style, paddingBottom: `${geometry.paddingBottom}px` } as CSSStyleDeclaration)
+        : style;
+    });
+  });
+
+  const heading = (card: CardUnderTest): HTMLElement =>
+    root(card).querySelector<HTMLElement>('.toolbar-heading')!;
+  const middle = (card: CardUnderTest): string =>
+    heading(card).style.getPropertyValue('--calendar-card-heading-middle');
+
+  async function rerender(card: CardUnderTest): Promise<void> {
+    card.requestUpdate();
+    await settle(card);
+  }
+
+  it("writes how far the middle of the month's capitals stands above the row's foot", async () => {
+    const card = await mount({ title: 'Family' });
+    // The capitals run from 134.6 to 151.7, so their middle is at 143.15, 16.85 above the foot.
+    expect(middle(card)).toBe('16.85px');
+
+    // A larger title size puts the middle further from the foot.
+    Object.assign(geometry, { capTop: 126, baseline: 149.6 });
+    await rerender(card);
+    expect(middle(card)).toBe('22.20px');
+  });
+
+  it("measures from the row's content box, inside any padding a theme gives it", async () => {
+    geometry.paddingBottom = 4;
+    const card = await mount();
+    expect(middle(card)).toBe('12.85px');
+  });
+
+  it('measures the same height for a card scrolled above the viewport', async () => {
+    Object.assign(geometry, { rowTop: -300, capTop: -265.4, baseline: -248.3 });
+    const card = await mount();
+    expect(middle(card)).toBe('16.85px');
+  });
+
+  it('writes nothing for a row with no layout, leaving the stylesheet its stand-in', async () => {
+    Object.assign(geometry, { rowHeight: 0, capTop: 0, baseline: 0 });
+    const card = await mount();
+    expect(middle(card)).toBe('');
+
+    // Laid out later, it measures then.
+    Object.assign(geometry, { rowHeight: 60, capTop: 134.6, baseline: 151.7 });
+    await rerender(card);
+    expect(middle(card)).toBe('16.85px');
+  });
+
+  it('never sets them below the foot', async () => {
+    Object.assign(geometry, { capTop: 165, baseline: 180 });
+    const card = await mount();
+    expect(middle(card)).toBe('0.00px');
+  });
+
+  it('writes onto the row alone, which no render binds a style to', async () => {
+    const card = await mount();
+    expect(heading(card).getAttribute('style')).toBe('--calendar-card-heading-middle: 16.85px;');
+    // A render that changes nothing keeps it.
+    await rerender(card);
+    expect(middle(card)).toBe('16.85px');
+  });
+});
+
+//-----------------------------------------------------------------------------
 // THE MONTH'S SHORT FORM
 //-----------------------------------------------------------------------------
 
@@ -1199,6 +1313,21 @@ describe("the month's short form", () => {
 
     await measure(card, fullFrom() - 1);
     expect(month(card)).toBe('Jun 2026');
+  });
+
+  it("keeps the gap before the row's end without the arrows, where the end group stays empty", async () => {
+    // The group at the row's end is drawn without navigation too, so the month still loses the
+    // gap before it, and is shortened rather than cut off in the band of widths that gap costs.
+    const card = await mount({
+      toolbar: { ...NAVIGATION_ONLY, navigation: false, add_event: true },
+    });
+    expect(root(card).querySelector('.date-navigation')).toBeNull();
+
+    await measure(card, layout.probe + HEADING_GAP - 1);
+    expect(month(card)).toBe('Jun 2026');
+
+    await measure(card, layout.probe + HEADING_GAP);
+    expect(month(card)).toBe('June 2026');
   });
 
   it('never shortens the month while the chips show', async () => {

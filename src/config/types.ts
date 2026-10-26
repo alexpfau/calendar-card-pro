@@ -747,7 +747,7 @@ export interface ToolbarConfig {
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
    * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
-   * row; dimmed while there is nothing to undo.
+   * row; hidden while there is nothing to undo, keeping its room.
    */
   reset?: boolean;
   /** A button that loads the events again now, last in the action row, after reset. */

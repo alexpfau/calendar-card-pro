@@ -954,9 +954,11 @@ describe('every piece of text is sized by its own option', () => {
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
       'calendar-label in summary': ['event_font_size'],
-      // The title is the card's headline without the toolbar, and a label over the month with
-      // it, at Home Assistant's control size; the month then takes the title's option.
-      'card-header in header-container': ['--ha-font-size-m', 'title_font_size'],
+      // The title is the card's headline without the toolbar. With it, the title is drawn in the
+      // heading row as a label over the month, at Home Assistant's control size, and the month
+      // takes the title's option.
+      'card-header in header-container': ['title_font_size'],
+      'card-header in toolbar-identity': ['--ha-font-size-m'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
       'event-title in summary': ['event_font_size'],
