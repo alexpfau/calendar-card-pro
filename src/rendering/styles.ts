@@ -617,30 +617,26 @@ export const cardStyles = css`
     border: 0;
   }
 
-  /* Previous, home and next on one track, like the view switcher's but with nothing raised:
-     one control, not a choice. Smaller than the switcher, beside the month rather than among the
-     actions. */
+  /* Previous, home and next: three round buttons close together, each a pill of its own like the
+     action row's, smaller, beside the month rather than among the actions. */
   .date-navigation {
     display: inline-flex;
     flex: none;
     align-items: center;
-    box-sizing: border-box;
+    gap: 4px;
     height: 24px;
-    padding: 2px;
+  }
+
+  .date-navigation-segment {
+    width: 24px;
+    height: 24px;
+    padding: 0;
     border-radius: 12px;
     background: var(--calendar-card-toolbar-fill);
   }
 
-  .date-navigation-segment {
-    width: 30px;
-    height: 20px;
-    padding: 0;
-    border-radius: 10px;
-    background: transparent;
-  }
-
-  /* The arrows fill as much of the smaller track as they would of a larger one: a chevron is
-     drawn half as tall as its icon box, so 21px makes it 44% of the track's height. The house
+  /* The arrows fill as much of the smaller button as they would of a larger one: a chevron is
+     drawn half as tall as its icon box, so 21px makes it 44% of the button's height. The house
      fills more of its box, and at 15px stands as tall as they do. */
   .date-navigation-segment .toolbar-button-icon {
     width: 15px;
@@ -753,17 +749,13 @@ export const cardStyles = css`
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* The commands are icons, never words: a round button, named by its tooltip. */
   .toolbar-button {
+    width: 36px;
     height: 36px;
-    min-width: 36px;
-    padding: 0 14px 0 10px;
+    padding: 0;
     border-radius: 18px;
     background: var(--calendar-card-toolbar-fill);
-  }
-
-  .toolbar-button.icon-only {
-    width: 36px;
-    padding: 0;
   }
 
   .toolbar-button-icon {
@@ -786,9 +778,10 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill);
   }
 
+  /* Each view is its word, or, where the card is too narrow for the words, its pictogram. */
   .view-switcher-segment {
     height: 30px;
-    padding: 0 12px;
+    padding: 0 14px;
     border-radius: 15px;
     background: transparent;
     color: var(--secondary-text-color);
@@ -820,11 +813,12 @@ export const cardStyles = css`
 
   /* Touch targets. Every control answers a press 44px tall, as touch guidelines ask, through an
      invisible box around it that never overlaps a neighbor's, so a press between two goes to the
-     nearer. A free-standing pill in the action row, 36px, grows 4px each way, which the 8px gaps
-     hold. A chip, 24px, grows 10px up and down and 2px across, for the chips' 5px gaps. A segment
-     on a track grows up and down to 44px, 7px on the switcher's and 12px on the arrows', and
-     across only at the track's two ends, 7px: inside a track the segments touch, and stay as
-     wide as they are drawn. The month button grows mostly downward (below). */
+     nearer. A button in the action row, 36px, grows 4px each way, which the 8px gaps hold. A chip
+     or an arrow, 24px, grows 10px up and down, and 2px across, for their 5px and 4px gaps; the
+     first and last arrows 6px outward, where the row's 8px gap holds that and a chip's 2px. A
+     segment on the switcher's track grows 7px up and down, and across only at the track's two
+     ends, 7px: inside the track the segments touch, and stay as wide as they are drawn. The
+     month button grows mostly downward (below). */
   .toolbar-button::before,
   .view-switcher-segment::before,
   .date-navigation-segment::before,
@@ -834,29 +828,31 @@ export const cardStyles = css`
     inset: -4px;
   }
 
-  .view-switcher-segment::before,
-  .date-navigation-segment::before {
+  .view-switcher-segment::before {
     inset-block: -7px;
     inset-inline: 0;
   }
 
-  .date-navigation-segment::before {
-    inset-block: -12px;
-  }
-
-  .view-switcher-segment:first-child::before,
-  .date-navigation-segment:first-child::before {
+  .view-switcher-segment:first-child::before {
     inset-inline-start: -7px;
   }
 
-  .view-switcher-segment:last-child::before,
-  .date-navigation-segment:last-child::before {
+  .view-switcher-segment:last-child::before {
     inset-inline-end: -7px;
   }
 
-  .legend-chip::before {
+  .legend-chip::before,
+  .date-navigation-segment::before {
     inset-block: -10px;
     inset-inline: -2px;
+  }
+
+  .date-navigation-segment:first-child::before {
+    inset-inline-start: -6px;
+  }
+
+  .date-navigation-segment:last-child::before {
+    inset-inline-end: -6px;
   }
 
   /* The month button: 10px down, into the gap above the days, and only 2px up, so the title

@@ -6,15 +6,21 @@
  * on the card, each in a fixed place: the calendar filter and add at its start, the view
  * switcher in its middle, reset and refresh at its end. The heading row comes last, right
  * above the days: the month the page on screen starts in, under the card's title, which
- * shrinks to a small label over it, the date navigation (previous, home and next on one track)
- * at the row's end, and, where they fit, a chip per calendar in its middle, under the switcher.
+ * shrinks to a small label over it, the date navigation (previous, home and next) at the row's
+ * end, and, where they fit, a chip per calendar in its middle, under the switcher.
  * The month opens a date picker. Where the chips do not all fit, the filter folds into a button
  * at the start of the action row instead (`legend.ts`).
  *
- * Every control shares one look: a neutral pill on a gray track, the selected view raised
- * out of it, so the bar never competes with the events for attention. Color shows only on
- * the control in use: the card's hover color, its accent, laid over the gray under the
- * pointer and while pressed, and the theme's primary color as the keyboard focus ring.
+ * Every control shares one look: a neutral gray pill, the selected view raised out of its track,
+ * so the bar never competes with the events for attention. Color shows only on the control in
+ * use: the card's hover color, its accent, laid over the gray under the pointer and while
+ * pressed, and the theme's primary color as the keyboard focus ring.
+ *
+ * Each control is either an icon or words, never both, and which is fixed per control rather
+ * than configured. The commands (the filter, add, reset, refresh and the arrows) are icons, named
+ * by Home Assistant's own words in their tooltips and for assistive technology. The views are
+ * words, which say what a pictogram cannot, until the card is too narrow for them; then they too
+ * are pictograms. The month and the chips are words.
  */
 
 import {
@@ -144,8 +150,9 @@ export interface DateNavigation {
 /** The controls the card wants in its header toolbar. No control draws no toolbar. */
 export interface HeaderToolbar {
   /**
-   * Whether the card is wide enough for the action row's controls to carry a text label
-   * beside their icon. Icon-only otherwise, with the label as the control's accessible name.
+   * Whether the card is wide enough for the view switcher to name its views in words. Its
+   * pictograms otherwise, each named by its view's word for assistive technology and as its
+   * tooltip. The commands are icons either way.
    */
   labeled?: boolean;
   /** The month heading, which the heading row carries whenever the toolbar is drawn. */
@@ -312,37 +319,29 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
  * the card names as few of Home Assistant's elements as it can, because their names and
  * attributes change without notice.
  *
- * Labeled, it is named by its text. Icon-only, Home Assistant's label names it and shows
- * as its tooltip; the English fallback names it and nothing else.
+ * An icon, a plus. Home Assistant's own words name it and show as its tooltip; the English
+ * fallback names it and nothing else.
  *
  * @param button - Button description from the card
- * @param roomForLabel - Whether the card is wide enough to draw the label
  * @returns The button
  */
-function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): TemplateResult {
-  const labeled = roomForLabel && button.label !== undefined;
-  const className = labeled
-    ? 'toolbar-button add-event-button'
-    : 'toolbar-button add-event-button icon-only';
+function renderAddEventButton(button: AddEventButton): TemplateResult {
   const onClick = (ev: Event) => {
     ev.stopPropagation();
     button.onActivate();
   };
 
-  // Whitespace between the icon and the label is not drawn: the button is a flex
-  // container, and its gap is the only space between them.
   return html`<button
     type="button"
-    class=${className}
-    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_ADD_EVENT_NAME)}
-    title=${labeled || button.label === undefined ? nothing : button.label}
+    class="toolbar-button add-event-button"
+    aria-label=${button.label ?? UNLOCALIZED_ADD_EVENT_NAME}
+    title=${button.label ?? nothing}
     @pointerdown=${stopCardGesture}
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${mdiPlus}></path>
     </svg>
-    ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
 }
 
@@ -360,21 +359,14 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
  * read as one control turned round.
  *
  * @param button - Button description from the card
- * @param roomForLabel - Whether the card is wide enough to draw the label
  * @param alone - Whether it is the only control in its row
  * @returns The button
  */
-function renderResetButton(
-  button: ResetButton,
-  roomForLabel: boolean,
-  alone: boolean,
-): TemplateResult {
-  const labeled = roomForLabel && button.label !== undefined;
+function renderResetButton(button: ResetButton, alone: boolean): TemplateResult {
   const confirmation = button.active ? undefined : button.confirmation;
   const className = [
     'toolbar-button',
     'reset-button',
-    labeled ? '' : 'icon-only',
     alone ? 'alone' : '',
     confirmation ? 'reset-done' : '',
     button.active || confirmation === 'showing' ? '' : 'unavailable',
@@ -390,15 +382,14 @@ function renderResetButton(
     type="button"
     class=${className}
     aria-disabled=${button.active ? nothing : 'true'}
-    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_RESET_NAME)}
-    title=${labeled || button.label === undefined ? nothing : button.label}
+    aria-label=${button.label ?? UNLOCALIZED_RESET_NAME}
+    title=${button.label ?? nothing}
     @pointerdown=${stopCardGesture}
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${confirmation ? mdiCheck : mdiUndoVariant}></path>
     </svg>
-    ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
 }
 
@@ -429,17 +420,10 @@ export const REFRESH_PHASE_ICON: Readonly<Record<RefreshPhase, string>> = {
  * flickering to disabled and back with every scheduled refresh. Named as the add button is.
  *
  * @param button - Button description from the card
- * @param roomForLabel - Whether the card is wide enough to draw the label
  * @returns The button
  */
-function renderRefreshButton(button: RefreshButton, roomForLabel: boolean): TemplateResult {
-  const labeled = roomForLabel && button.label !== undefined;
-  const className = [
-    'toolbar-button',
-    'refresh-button',
-    labeled ? '' : 'icon-only',
-    REFRESH_PHASE_CLASS[button.phase],
-  ]
+function renderRefreshButton(button: RefreshButton): TemplateResult {
+  const className = ['toolbar-button', 'refresh-button', REFRESH_PHASE_CLASS[button.phase]]
     .filter((cls) => cls !== '')
     .join(' ');
   const onClick = (ev: Event) => {
@@ -450,15 +434,14 @@ function renderRefreshButton(button: RefreshButton, roomForLabel: boolean): Temp
   return html`<button
     type="button"
     class=${className}
-    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_REFRESH_NAME)}
-    title=${labeled || button.label === undefined ? nothing : button.label}
+    aria-label=${button.label ?? UNLOCALIZED_REFRESH_NAME}
+    title=${button.label ?? nothing}
     @pointerdown=${stopCardGesture}
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${REFRESH_PHASE_ICON[button.phase]}></path>
     </svg>
-    ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
 }
 
@@ -493,10 +476,12 @@ function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
  * the bar keeps its shape as a tablet turns, and a screen reader still learns the view
  * exists. Pressing it does nothing.
  *
- * Icon-only, each segment is named by its label, which also shows as its tooltip.
+ * Each view is its word, which says what a pictogram cannot, wherever the card is wide enough for
+ * all three; narrower, each is its pictogram, named by its word for assistive technology and as
+ * its tooltip. Never both, so the switcher reads as words beside the icon commands around it.
  *
  * @param switcher - Switcher description from the card
- * @param labeled - Whether the card is wide enough to draw the labels
+ * @param labeled - Whether the card is wide enough for the words
  * @returns The switcher
  */
 function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateResult {
@@ -527,28 +512,30 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
         @pointerdown=${stopCardGesture}
         @click=${onClick}
       >
-        ${renderViewPictogram(option.view)}
-        ${labeled ? html`<span class="toolbar-button-label">${option.label}</span>` : nothing}
+        ${
+          labeled
+            ? html`<span class="toolbar-button-label">${option.label}</span>`
+            : renderViewPictogram(option.view)
+        }
       </button>`;
     })}
   </div>`;
 }
 
 /**
- * Render previous, home and next on one track.
+ * Render previous, home and next, side by side.
  *
- * The three buttons share a track, styled like the view switcher's but with nothing raised,
- * because they are one control: a step back, a way home and a step forward. A group named by the
- * dates on screen, so a screen reader entering it hears where it is before which way it can go.
- * Home is always
- * an icon, a house, named by its tooltip: it leads to the days the card opens with, which are
- * not always today, so neither the word "Today" nor a calendar glyph, which beside the month
- * reads as the date picker's, would say where it goes. The track is the same width in every
+ * Three small round buttons close together, each a pill of its own like the action row's, in
+ * one group: a step back, a way home and a step forward. The group is named by the dates on
+ * screen, so a screen reader entering it hears where it is before which way it can go. Home is
+ * always an icon, a house, named by its tooltip: it leads to the days the card opens with, which
+ * are not always today, so neither the word "Today" nor a calendar glyph, which beside the month
+ * reads as the date picker's, would say where it goes. The group is the same width in every
  * language and at every card width. The arrows are drawn for left-to-right reading and
  * mirrored in a right-to-left one, where "previous" points right.
  *
  * @param nav - Navigation description from the card
- * @returns The track
+ * @returns The group
  */
 function renderDateNavigation(nav: DateNavigation): TemplateResult {
   const press = (handler: () => void) => (ev: Event) => {
@@ -770,7 +757,7 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
  * near miss there must do nothing, not run the card's tap or hold action.
  *
  * @param toolbar - The controls the card wants
- * @param labeled - Whether the controls carry their labels
+ * @param labeled - Whether the view switcher names its views in words
  * @returns The row, or nothing when it holds no control
  */
 function renderActionRow(
@@ -787,13 +774,13 @@ function renderActionRow(
     @click=${stopCardGesture}
   >
     <div class="toolbar-start">
-      ${legend ? renderLegendButton(legend, labeled) : nothing}
-      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
+      ${legend ? renderLegendButton(legend) : nothing}
+      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent) : nothing}
     </div>
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
     <div class="toolbar-end">
-      ${toolbar.reset ? renderResetButton(toolbar.reset, labeled, resetAlone) : nothing}
-      ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
+      ${toolbar.reset ? renderResetButton(toolbar.reset, resetAlone) : nothing}
+      ${toolbar.refresh ? renderRefreshButton(toolbar.refresh) : nothing}
     </div>
   </div>`;
 }
@@ -823,7 +810,7 @@ function stopHeadingGesture(ev: Event): void {
  * the switcher's own rule: the title's block and the group holding the arrows share the room
  * beside them equally.
  *
- * The row is no group of its own, since it holds the card's heading; the arrows' track is,
+ * The row is no group of its own, since it holds the card's heading; the arrows' group is,
  * named by the dates on screen. It keeps every press from the card, as the action row does,
  * except a press on the title (`stopHeadingGesture`).
  *

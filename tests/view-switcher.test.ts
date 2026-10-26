@@ -9,7 +9,7 @@
  * fetching, that it survives a reload and not an edit, and that editing neither uses it
  * nor disturbs it. It also pins the action row the switcher sits in: its place between the
  * row's start and end groups, the press guard on both toolbar rows, and the widths from
- * which the row's controls carry labels.
+ * which the switcher names its views in words rather than pictograms.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -679,13 +679,9 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
     const five = computeColumnThresholdPxFor(config, 5, 'column') + 20;
     expect(resolveColumnFit('column', config, six, null).columns).toBe(6);
     expect(resolveColumnFit('column', config, five, null).columns).toBe(5);
-    // Both on one side of every toolbar label threshold, so no label change re-renders.
-    for (const threshold of [
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
-      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
-    ]) {
-      expect(five >= threshold).toBe(six >= threshold);
-    }
+    // Both on one side of the switcher's threshold, so no change to its words re-renders.
+    const threshold = Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH;
+    expect(five >= threshold).toBe(six >= threshold);
 
     const card = await mount(overrides);
     await measure(card, WIDE);
@@ -701,10 +697,9 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
   });
 });
 
-describe('labels', () => {
-  const ALONE = Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
+describe('words or pictograms', () => {
   const WITH_SWITCHER = Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH;
-  const EXTRA = Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
+  const { TOOLBAR_COMMAND_WIDTH: ICON, TOOLBAR_COMMAND_GAP: GAP } = Constants.UI;
 
   /** Home Assistant's words for every command the action row can hold. */
   const EVERY_LABEL: Readonly<Record<string, string>> = {
@@ -746,8 +741,8 @@ describe('labels', () => {
     legend: 'menu',
   };
 
-  /** How many controls the action row draws, and how many of them carry a label. */
-  function actionRowLabels(card: CardUnderTest) {
+  /** How many controls the action row draws, and how many of them are words. */
+  function actionRowWords(card: CardUnderTest) {
     const controls = Array.from(
       card.shadowRoot!.querySelectorAll(
         '.toolbar-actions .toolbar-button, .toolbar-actions .view-switcher-segment',
@@ -755,11 +750,11 @@ describe('labels', () => {
     );
     return {
       controls: controls.length,
-      labeled: controls.filter((control) => control.querySelector('.toolbar-button-label')).length,
+      words: controls.filter((control) => control.querySelector('.toolbar-button-label')).length,
     };
   }
 
-  function labelsDrawn(card: CardUnderTest): boolean {
+  function wordsDrawn(card: CardUnderTest): boolean {
     return card.shadowRoot!.querySelector('.toolbar-button-label') !== null;
   }
 
@@ -770,108 +765,140 @@ describe('labels', () => {
   }
 
   it.each([
-    ['the switcher alone', SWITCHER_ONLY],
-    ['the switcher beside the add button', SWITCHER_AND_ADD],
-  ])('labels %s only from the wider threshold', async (_name, toolbar) => {
-    const card = await mount({ toolbar });
+    ['the switcher alone', SWITCHER_ONLY, WITH_SWITCHER],
+    ['the switcher beside the add button', SWITCHER_AND_ADD, WITH_SWITCHER + ICON],
+  ])(
+    'names the views of %s in words from its width, and draws their pictograms below it',
+    async (_name, toolbar, threshold) => {
+      const card = await mount({ toolbar });
 
-    await measure(card, WITH_SWITCHER - 1);
-    for (const button of segments(card)) {
-      expect(button.querySelector('.toolbar-button-label')).toBeNull();
-      expect(button.classList.contains('icon-only')).toBe(true);
-    }
-    expect(segment(card, 'column').getAttribute('aria-label')).toBe('Columns');
-    expect(segment(card, 'column').getAttribute('title')).toBe('Columns');
+      await measure(card, threshold - 1);
+      for (const button of segments(card)) {
+        expect(button.querySelector('.toolbar-button-label')).toBeNull();
+        expect(button.querySelector('svg.view-switcher-icon')).not.toBeNull();
+        expect(button.classList.contains('icon-only')).toBe(true);
+      }
+      expect(segment(card, 'column').getAttribute('aria-label')).toBe('Columns');
+      expect(segment(card, 'column').getAttribute('title')).toBe('Columns');
 
-    await measure(card, WITH_SWITCHER);
-    expect(segments(card).map((button) => button.textContent!.trim())).toEqual([
-      'List',
-      'Columns',
-      'Grid',
-    ]);
-    expect(segment(card, 'column').hasAttribute('aria-label')).toBe(false);
-  });
-
-  it('keeps the add button labeled from its own threshold when it is alone', async () => {
-    const card = await mount({ toolbar: { ...SWITCHER_AND_ADD, view_switcher: false } });
-    await measure(card, ALONE);
-
-    expect(
-      card.shadowRoot!.querySelector('.add-event-button .toolbar-button-label'),
-    ).not.toBeNull();
-  });
+      // Words, and only words: no pictogram beside them, and nothing to name them twice.
+      await measure(card, threshold);
+      expect(segments(card).map((button) => button.textContent!.trim())).toEqual([
+        'List',
+        'Columns',
+        'Grid',
+      ]);
+      for (const button of segments(card)) {
+        expect(button.querySelector('svg')).toBeNull();
+        expect(button.classList.contains('icon-only')).toBe(false);
+      }
+      expect(segment(card, 'column').hasAttribute('aria-label')).toBe(false);
+      expect(segment(card, 'column').hasAttribute('title')).toBe(false);
+    },
+  );
 
   /**
-   * Each fixed threshold allows for one command beside the switcher, or none; every further
-   * command among add, reset, refresh and the folded filter needs one extra step. The date
-   * navigation and the filter's chips are the heading row's, and count for nothing here.
+   * The switcher's words need its own width, and every command beside it its icon, with a gap
+   * between two in a group and twice that between reset and refresh. The date navigation and
+   * the filter's chips are the heading row's, and count for nothing here. Each width is written
+   * out rather than worked out, so a change to the rule shows up as a change to this table.
    */
   it.each<[string, Types.ToolbarConfig, number, number]>([
-    ['add alone', { add_event: true }, ALONE, 1],
-    ['the folded filter alone', { legend: 'menu' }, ALONE, 1],
-    ['add and refresh', { add_event: true, refresh: true }, ALONE + EXTRA, 2],
-    ['add and the folded filter', { add_event: true, legend: 'menu' }, ALONE + EXTRA, 2],
-    // The date navigation is what gives reset something to undo here.
-    [
-      'add and reset, beside the date navigation',
-      { add_event: true, reset: true, navigation: true },
-      ALONE + EXTRA,
-      2,
-    ],
     ['the switcher alone', { view_switcher: true }, WITH_SWITCHER, 3],
-    ['the switcher and add', { view_switcher: true, add_event: true }, WITH_SWITCHER, 4],
-    ['the switcher and reset', { view_switcher: true, reset: true }, WITH_SWITCHER, 4],
+    ['the switcher and add', { view_switcher: true, add_event: true }, WITH_SWITCHER + ICON, 4],
+    ['the switcher and reset', { view_switcher: true, reset: true }, WITH_SWITCHER + ICON, 4],
     [
-      'the switcher, add and reset',
-      { view_switcher: true, add_event: true, reset: true },
-      WITH_SWITCHER + EXTRA,
+      'the switcher, add and the folded filter',
+      { view_switcher: true, add_event: true, legend: 'menu' },
+      WITH_SWITCHER + 2 * ICON + GAP,
       5,
     ],
     [
-      'the switcher, add, reset and refresh',
-      { view_switcher: true, add_event: true, reset: true, refresh: true },
-      WITH_SWITCHER + 2 * EXTRA,
-      6,
+      'the switcher, add and reset',
+      { view_switcher: true, add_event: true, reset: true },
+      WITH_SWITCHER + 2 * ICON,
+      5,
     ],
-    ['every command', EVERY_COMMAND, WITH_SWITCHER + 3 * EXTRA, 7],
+    [
+      'the switcher, reset and refresh',
+      { view_switcher: true, reset: true, refresh: true },
+      WITH_SWITCHER + 2 * ICON + 2 * GAP,
+      5,
+    ],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 3 * GAP, 7],
     [
       'the switcher and add, the filter drawn as chips',
       { view_switcher: true, add_event: true, legend: 'chips' },
-      WITH_SWITCHER,
+      WITH_SWITCHER + ICON,
       4,
     ],
-  ])('labels %s from its own width', async (_name, controls, threshold, count) => {
+  ])('names the views beside %s from its own width', async (_name, controls, threshold, count) => {
     const card = await mount(
       { toolbar: { ...NOTHING, ...controls } },
       { localize: labelsWithout() },
     );
 
     await measure(card, threshold - 1);
-    expect(actionRowLabels(card)).toEqual({ controls: count, labeled: 0 });
+    expect(actionRowWords(card)).toEqual({ controls: count, words: 0 });
 
     await measure(card, threshold);
-    expect(actionRowLabels(card)).toEqual({ controls: count, labeled: count });
+    expect(actionRowWords(card)).toEqual({ controls: count, words: 3 });
+  });
+
+  it('keeps every command an icon at any width, named by its tooltip', async () => {
+    const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout() });
+    await measure(card, WIDE * 2);
+
+    const commands = Array.from(
+      card.shadowRoot!.querySelectorAll<HTMLButtonElement>('.toolbar-actions .toolbar-button'),
+    );
+    expect(commands.map((button) => button.getAttribute('title'))).toEqual([
+      'My calendars',
+      'Add event',
+      'Reset',
+      'Refresh',
+    ]);
+    for (const button of commands) {
+      expect(button.querySelector('.toolbar-button-label')).toBeNull();
+      expect(button.querySelector('svg.toolbar-button-icon')).not.toBeNull();
+      expect(button.getAttribute('aria-label')).toBe(button.getAttribute('title'));
+    }
+    // The views beside them are words at this width.
+    expect(actionRowWords(card).words).toBe(3);
+
+    // Without the switcher, the row has no words at all.
+    document.body.innerHTML = '';
+    const noSwitcher = await mount(
+      { toolbar: { ...EVERY_COMMAND, view_switcher: false } },
+      { localize: labelsWithout() },
+    );
+    await measure(noSwitcher, WIDE * 2);
+    expect(wordsDrawn(noSwitcher)).toBe(false);
   });
 
   it.each([
-    ['add', 'ui.components.calendar.event.add'],
-    ['reset', 'ui.common.reset'],
-    ['refresh', 'ui.common.refresh'],
-    ['the folded filter', 'ui.components.calendar.my_calendars'],
-  ])('labels nothing while %s has no words to show', async (_name, missing) => {
-    const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout(missing) });
-    await measure(card, WIDE);
+    ['add', 'ui.components.calendar.event.add', '.add-event-button', 'Add event'],
+    ['reset', 'ui.common.reset', '.reset-button', 'Reset'],
+    ['refresh', 'ui.common.refresh', '.refresh-button', 'Refresh'],
+    ['the folded filter', 'ui.components.calendar.my_calendars', '.legend-button', 'Calendars'],
+  ])(
+    'names the views in words while %s has no words of its own, which it is named in English',
+    async (_name, missing, selector, english) => {
+      const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout(missing) });
+      await measure(card, WIDE);
 
-    expect(labelsDrawn(card)).toBe(false);
-    expect(segment(card, 'grid').getAttribute('aria-label')).toBe('Grid');
+      // The views are the card's own words, so a command Home Assistant cannot name does not
+      // take them away.
+      expect(actionRowWords(card).words).toBe(3);
+      // The command is named for assistive technology in English, and shows no tooltip: an
+      // English word on a card in another language would be worse than none.
+      const button = part(card, selector);
+      expect(button.getAttribute('aria-label')).toBe(english);
+      expect(button.hasAttribute('title')).toBe(false);
+    },
+  );
 
-    // The control: with every word there, the same card is labeled at the same width.
-    const control = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout() });
-    await measure(control, WIDE);
-    expect(labelsDrawn(control)).toBe(true);
-  });
-
-  /** How the stubbed layout places the labeled action row's controls. */
+  /** How the stubbed layout places the action row's controls, the views in words. */
   type RowLayout = 'fits' | 'wraps' | 'overflows-end' | 'overflows-start';
 
   /**
@@ -916,15 +943,15 @@ describe('labels', () => {
     });
   }
 
-  /** A card width the labels are drawn at, with room either side of it to measure. */
-  const LABELED_WIDTH = WITH_SWITCHER + 60;
+  /** A card width the views are words at, with room either side of it to measure. */
+  const LABELED_WIDTH = WITH_SWITCHER + ICON + 60;
 
   it.each<[string, RowLayout]>([
     ['wraps onto a second line', 'wraps'],
     ["reaches past the row's end", 'overflows-end'],
     ["reaches past the row's start, as in a right-to-left card", 'overflows-start'],
   ])(
-    'drops the labels while the labeled action row %s, until the card is wider',
+    'draws the pictograms while the row with the words %s, until the card is wider',
     async (_name, broken) => {
       let layout: RowLayout = broken;
       reportActionRow(() => layout);
@@ -932,44 +959,44 @@ describe('labels', () => {
 
       await measure(card, LABELED_WIDTH);
       await card.updateComplete;
-      expect(labelsDrawn(card)).toBe(false);
+      expect(wordsDrawn(card)).toBe(false);
       expect(segment(card, 'grid').getAttribute('aria-label')).toBe('Grid');
 
-      // From here the labels would fit, so only the card keeps them off: narrower, and at the
-      // very width they did not fit at, a render still draws icons.
+      // From here the words would fit, so only the card keeps them off: narrower, and at the
+      // very width they did not fit at, a render still draws pictograms.
       layout = 'fits';
       for (const width of [LABELED_WIDTH - 20, LABELED_WIDTH]) {
         await measure(card, width);
         await rerender(card);
-        expect(labelsDrawn(card)).toBe(false);
+        expect(wordsDrawn(card)).toBe(false);
       }
 
-      // Wider than the width it overflowed at: the labels are tried again, and now they fit.
+      // Wider than the width it overflowed at: the words are tried again, and now they fit.
       await measure(card, LABELED_WIDTH + 20);
       await card.updateComplete;
-      expect(labelsDrawn(card)).toBe(true);
+      expect(wordsDrawn(card)).toBe(true);
     },
   );
 
-  it('keeps the labels off for another title at the same width, not for another language', async () => {
+  it('keeps the words off for another title at the same width, not for another language', async () => {
     let layout: RowLayout = 'wraps';
     reportActionRow(() => layout);
     const card = await mount({ title: 'Familienkalender', toolbar: SWITCHER_AND_ADD });
     await measure(card, LABELED_WIDTH);
     await card.updateComplete;
-    expect(labelsDrawn(card)).toBe(false);
+    expect(wordsDrawn(card)).toBe(false);
 
     // The title is drawn over the month, in the heading row: a shorter one makes no room in
-    // the action row, so the labels are not tried again, although the row would now fit.
+    // the action row, so the words are not tried again, although the row would now fit.
     layout = 'fits';
     card.setConfig(configFor({ title: 'Family', toolbar: SWITCHER_AND_ADD }));
     await card.updateComplete;
     await card.updateComplete;
     expect(part(card, 'h1.card-header').textContent).toBe('Family');
-    expect(labelsDrawn(card)).toBe(false);
+    expect(wordsDrawn(card)).toBe(false);
 
-    // The control: another language changes the row's own words, so at the same width the
-    // labels are tried again, and drawn.
+    // The control: another language changes the row's own words, so at the same width they
+    // are tried again, and drawn.
     card.setConfig(configFor({ title: 'Family', language: 'de', toolbar: SWITCHER_AND_ADD }));
     await card.updateComplete;
     await card.updateComplete;
@@ -997,7 +1024,6 @@ describe('the resolved toolbar the card reads', () => {
     // What every case in this file starts from: the switcher, and nothing else.
     expect(Config.resolveToolbar(configFor())).toEqual({
       show: true,
-      labels: true,
       navigation: false,
       addEvent: false,
       viewSwitcher: true,
@@ -1008,7 +1034,6 @@ describe('the resolved toolbar the card reads', () => {
     // What it switches off: a shown toolbar draws every control but refresh by default.
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
-      labels: true,
       navigation: true,
       addEvent: true,
       viewSwitcher: true,

@@ -281,15 +281,15 @@ describe('the refresh button', () => {
     expect(refreshButton(unnamed)!.hasAttribute('title')).toBe(false);
   });
 
-  it('carries its label from the width the fixed threshold allows for one command', async () => {
+  it('stays an icon however wide the card, named by its tooltip', async () => {
     const card = await mount();
 
-    await measure(card, Constants.UI.TOOLBAR_LABEL_MIN_WIDTH - 1);
-    expect(refreshButton(card)!.classList).toContain('icon-only');
-
-    await measure(card, Constants.UI.TOOLBAR_LABEL_MIN_WIDTH);
-    expect(refreshButton(card)!.classList).not.toContain('icon-only');
-    expect(refreshButton(card)!.textContent!.trim()).toBe('Refresh');
+    for (const width of [300, 2000]) {
+      await measure(card, width);
+      expect(refreshButton(card)!.querySelector('.toolbar-button-label'), `${width}px`).toBeNull();
+      expect(refreshButton(card)!.textContent!.trim()).toBe('');
+      expect(refreshButton(card)!.getAttribute('title')).toBe('Refresh');
+    }
   });
 
   it('asks again for every calendar, though the events it holds are not due', async () => {

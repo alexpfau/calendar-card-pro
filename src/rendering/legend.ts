@@ -382,28 +382,21 @@ export function renderLegendChips(legend: CalendarLegend): TemplateResult {
  * The menu lists every calendar as a checkbox, tinted as its chip would be. It closes on a
  * press outside it, on Escape, on a scroll or a resize, and on a second press on the button.
  * The button carries a dot while any calendar is hidden, so a folded legend still says the
- * card is filtered. Labeled, it is named by its text; icon-only, Home Assistant's name for it
- * names it and shows as its tooltip, and the English fallback names it and nothing else.
+ * card is filtered. An icon, a calendar with a funnel: Home Assistant's name for it names it and
+ * shows as its tooltip, and the English fallback names it and nothing else.
  *
  * `aria-expanded` is written once by the template and then kept by the menu itself, so a
  * re-render while the menu is open does not reset it.
  *
  * @param legend - Legend description from the card
- * @param labeled - Whether the toolbar's controls carry their labels
  * @returns The button and its menu
  */
-export function renderLegendButton(legend: CalendarLegend, labeled: boolean): TemplateResult {
+export function renderLegendButton(legend: CalendarLegend): TemplateResult {
   const name = legend.name ?? UNLOCALIZED_LEGEND_NAME;
-  const withLabel = labeled && legend.name !== undefined;
   const filtered = legend.calendars.some((calendar) => !calendar.shown);
-  const className = [
-    'toolbar-button',
-    'legend-button',
-    withLabel ? '' : 'icon-only',
-    filtered ? 'filtered' : '',
-  ]
-    .filter((cls) => cls !== '')
-    .join(' ');
+  const className = filtered
+    ? 'toolbar-button legend-button filtered'
+    : 'toolbar-button legend-button';
 
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.legend-menu') ?? null;
@@ -439,15 +432,14 @@ export function renderLegendButton(legend: CalendarLegend, labeled: boolean): Te
       class=${className}
       aria-haspopup="dialog"
       aria-expanded="false"
-      aria-label=${withLabel ? nothing : name}
-      title=${withLabel || legend.name === undefined ? nothing : legend.name}
+      aria-label=${name}
+      title=${legend.name ?? nothing}
       @pointerdown=${stopCardGesture}
       @click=${onClick}
     >
       <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d=${mdiCalendarFilter}></path>
       </svg>
-      ${withLabel ? html`<span class="toolbar-button-label">${legend.name}</span>` : nothing}
     </button>
     <dialog
       class="legend-menu"

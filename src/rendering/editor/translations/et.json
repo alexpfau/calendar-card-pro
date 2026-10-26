@@ -308,8 +308,6 @@
   "background_color": "Taustavärv",
   "toolbar.show": "Näita tööriistariba",
   "toolbar.show.helper": "Lülitab kogu tööriistariba sisse või välja: kaardi enda juhtelemendid kahes reas sündmuste kohal, millest alumine näitab ekraanil olevat kuud. Kui see on sees, valivad allolevad valikud, mida see näitab.",
-  "toolbar.labels": "Tekstisildid",
-  "toolbar.labels.helper": "Kui kaart on piisavalt lai, kuvatakse tööriistariba ülemise rea nuppude nimed nende ikoonide kõrval: kalendrite filter, „Lisa sündmus“, paigutused, „Lähtesta“ ja „Värskenda“. Kui valik on välja lülitatud, kuvatakse nupud ainult ikoonidena ja nende nimed kohtspikritena. Kuu ja kalendrite nupud näevad mõlemal juhul ühesugused välja.",
   "toolbar.navigation": "Kuupäevade navigeerimine",
   "toolbar.navigation.helper": "Kuu rea lõpus olevad nooled päevade kaupa edasi ja tagasi liikumiseks ning nende vahel nupp, mis viib tagasi päevadele, millega kaart avaneb. Kuu puudutamine avab siis kuupäevavalija. Nooled liiguvad nii mitu päeva, kui kaart näitab.",
   "toolbar.view_switcher": "Paigutuse vahetaja",

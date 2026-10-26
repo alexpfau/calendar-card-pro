@@ -308,8 +308,6 @@
   "background_color": "Colore sfondo",
   "toolbar.show": "Mostra barra strumenti",
   "toolbar.show.helper": "Attiva o disattiva l'intera barra strumenti: comandi della scheda stessa, su due righe sopra i suoi eventi, di cui quella inferiore indica il mese sullo schermo. Quando è attiva, le opzioni qui sotto scelgono cosa mostra.",
-  "toolbar.labels": "Etichette di testo",
-  "toolbar.labels.helper": "Quando la scheda è abbastanza larga, nella riga superiore della barra strumenti vengono mostrati accanto alle rispettive icone i nomi dei pulsanti: filtro dei calendari, Aggiungi evento, layout, Ripristina e Aggiorna. Quando l'opzione è disattivata, vengono visualizzate solo le icone e i nomi compaiono come suggerimenti. Il mese e i chip dei calendari restano uguali in entrambi i casi.",
   "toolbar.navigation": "Navigazione per date",
   "toolbar.navigation.helper": "Frecce alla fine della riga del mese per scorrere i giorni avanti e indietro, con in mezzo un pulsante per tornare ai giorni con cui la scheda si apre. Toccando il mese si apre inoltre un selettore di data. Le frecce si spostano di tanti giorni quanti ne mostra la scheda.",
   "toolbar.view_switcher": "Selettore di layout",

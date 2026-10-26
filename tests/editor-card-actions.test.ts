@@ -461,7 +461,6 @@ describe('the event tap dropdown in the editor', () => {
     expect(names(card!)).not.toContain('add_event');
     expect(shown('toolbar')).toEqual({
       show: false,
-      labels: true,
       navigation: true,
       view_switcher: true,
       reset: true,
@@ -477,7 +476,6 @@ describe('the event tap dropdown in the editor', () => {
     expect(names(owner('toolbar')!)).toEqual(
       expect.arrayContaining([
         'show',
-        'labels',
         'navigation',
         'view_switcher',
         'reset',
@@ -488,7 +486,6 @@ describe('the event tap dropdown in the editor', () => {
     );
     expect(shown('toolbar')).toEqual({
       show: true,
-      labels: true,
       navigation: true,
       view_switcher: true,
       reset: true,

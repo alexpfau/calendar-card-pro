@@ -149,31 +149,22 @@ export const UI = {
   POINTER_MOVE_TOLERANCE: 8,
 
   /**
-   * Card width, in CSS pixels, from which the toolbar's action row carries a text label beside
-   * each icon. Narrower cards draw the icon alone, named for assistive technology. This one
-   * holds while the add button is the only control in the row, which a labeled "Add event"
-   * fits on a card of about 150px in English and 200px in German.
+   * Card width, in CSS pixels, from which the view switcher names its views in words rather than
+   * pictograms, with no command beside it in the action row. "List", "Columns" and "Grid" need a
+   * card of 242px; German needs 274px, Italian 300px and Lithuanian 330px. Measured in English,
+   * so the switcher shows its words wherever they fit there: a language whose words do not fit
+   * draws them once, finds the row overflowing and keeps the pictograms until the card is wider
+   * (`_syncToolbarLabelFit`), all before anything is painted.
    */
-  TOOLBAR_LABEL_MIN_WIDTH: 240,
+  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 248,
 
   /**
-   * The same, once the view switcher shares the row. The switcher sits in the row's middle,
-   * so the room either side of it has to hold the wider of the two groups: its three labeled
-   * segments and a labeled add button, centered, need a card of about 540px in English and
-   * 670px in German. German past this threshold and short of that fits on one line with the
-   * switcher off center, which `_syncToolbarLabelFit` lets stand.
+   * The width of each command in the action row, the folded filter, add, reset or refresh, all
+   * icons; and the gap between two controls, which reset and refresh have twice of. Both are the
+   * stylesheet's, so the width the switcher's words need is worked out exactly beside them.
    */
-  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 640,
-
-  /**
-   * What each command beyond the first adds to those thresholds: the folded filter, reset or
-   * refresh. Each fixed threshold allows for one, the add button it was measured with; a
-   * labeled "My calendars" or "Refresh" is about a hundred pixels wider than its icon in
-   * English. These are first guesses: labels that still do not fit on one line are dropped
-   * until the card is wider (`_syncToolbarLabelFit`), so a guess too low costs one frame and
-   * never a broken layout.
-   */
-  TOOLBAR_EXTRA_LABEL_MIN_WIDTH: 112,
+  TOOLBAR_COMMAND_WIDTH: 36,
+  TOOLBAR_COMMAND_GAP: 8,
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

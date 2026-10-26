@@ -402,29 +402,16 @@ describe('the reset button', () => {
     expect(resetButton(unnamed)!.hasAttribute('title')).toBe(false);
   });
 
-  it('counts as one more command toward the width the labels need', async () => {
+  it('stays an icon however wide the card, named by its tooltip', async () => {
     const card = await mount({ toolbar: COMMANDS_ONLY, ...EXPANDABLE });
-    const labeledFrom =
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH + Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
 
-    await measure(card, labeledFrom - 1);
-    expect(resetButton(card)!.classList).toContain('icon-only');
-
-    await measure(card, labeledFrom);
-    expect(resetButton(card)!.classList).not.toContain('icon-only');
-    expect(resetButton(card)!.textContent!.trim()).toBe('Reset');
-    expect(resetButton(card)!.hasAttribute('aria-label')).toBe(false);
-  });
-
-  it('keeps every control an icon where Home Assistant has no word for it', async () => {
-    const card = await mount(
-      { toolbar: COMMANDS_ONLY, ...EXPANDABLE },
-      { localize: (key) => (key === 'ui.common.reset' ? key : (STRINGS[key] ?? key)) },
-    );
-
-    await measure(card, 2000);
-    expect(resetButton(card)!.classList).toContain('icon-only');
-    expect(root(card).querySelector('.refresh-button')!.classList).toContain('icon-only');
+    for (const width of [300, 2000]) {
+      await measure(card, width);
+      expect(resetButton(card)!.querySelector('.toolbar-button-label'), `${width}px`).toBeNull();
+      expect(resetButton(card)!.textContent!.trim()).toBe('');
+      expect(resetButton(card)!.getAttribute('aria-label')).toBe('Reset');
+      expect(resetButton(card)!.getAttribute('title')).toBe('Reset');
+    }
   });
 
   it("draws a U-turn, so it never reads as refresh's arrow turned round", async () => {

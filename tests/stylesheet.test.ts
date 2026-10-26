@@ -2957,7 +2957,7 @@ describe('the toolbar layout', () => {
     expect(declared('.view-switcher', 'height')).toBe('36px');
     expect(declared('.date-navigation', 'height')).toBe('24px');
     expect(declared('.legend-chip', 'height')).toBe('24px');
-    // A chevron is half its icon box tall, so the arrows' fill 44% of the track; the house,
+    // A chevron is half its icon box tall, so the arrows fill 44% of their button; the house,
     // which fills more of its box, is as tall as they are.
     const arrow = px(declared('.date-navigation-segment .date-navigation-direction', 'width'));
     expect(arrow / 2 / px(declared('.date-navigation', 'height'))).toBeCloseTo(0.44, 2);
@@ -3088,6 +3088,42 @@ describe('the toolbar layout', () => {
     }
   });
 
+  it('draws every command as a round icon, and the views as words or pictograms', () => {
+    // A command is an icon and never words, so its button is as wide as it is tall.
+    expect(declared('.toolbar-button', 'width')).toBe(declared('.toolbar-button', 'height'));
+    expect(declared('.toolbar-button', 'padding')).toBe('0');
+    expect(rulesFor('.toolbar-button.icon-only')).toEqual([]);
+    // A view is its word, padded, or its pictogram, square on the track.
+    expect(declared('.view-switcher-segment', 'padding')).toBe('0 14px');
+    expect(declared('.view-switcher-segment.icon-only', 'width')).toBe('34px');
+    expect(declared('.view-switcher-segment.icon-only', 'padding')).toBe('0');
+  });
+
+  it('works out the width for the views in words from the widths the stylesheet draws', () => {
+    // The card adds each command's width and the gaps between them to the switcher's own
+    // threshold, so its numbers must be the ones the row is drawn with.
+    expect(declared('.toolbar-button', 'width')).toBe(`${Constants.UI.TOOLBAR_COMMAND_WIDTH}px`);
+    for (const gap of [
+      declared('.card-toolbar.toolbar-actions', 'gap'),
+      declared('.toolbar-start', 'gap'),
+      declared('.toolbar-end', 'gap'),
+      declared('.toolbar-end > .reset-button + .refresh-button', 'margin-inline-start'),
+    ]) {
+      expect(gap).toBe(`${Constants.UI.TOOLBAR_COMMAND_GAP}px`);
+    }
+  });
+
+  it('draws the arrows as three round buttons apart, each a pill of its own', () => {
+    expect(declared('.date-navigation', 'background')).toBe('');
+    expect(declared('.date-navigation', 'gap')).toBe('4px');
+    expect(declared('.date-navigation-segment', 'width')).toBe('24px');
+    expect(declared('.date-navigation-segment', 'height')).toBe('24px');
+    expect(declared('.date-navigation-segment', 'border-radius')).toBe('12px');
+    expect(declared('.date-navigation-segment', 'background')).toBe(
+      'var(--calendar-card-toolbar-fill)',
+    );
+  });
+
   it('gives every control a 44px touch target that never overlaps a neighbor', () => {
     /** How far a control's target reaches up and down beyond it, from its ::before. */
     const reach = (selector: string) => {
@@ -3105,15 +3141,27 @@ describe('the toolbar layout', () => {
     expect(tall('.legend-chip')).toBe(44);
     expect(declared('.legend-chip::before', 'inset-inline')).toBe('-2px');
     expect(px(declared('.legend-chips', 'gap'))).toBeGreaterThanOrEqual(2 * 2);
-    // Segments on a track: up and down to 44px, across only at the track's ends, where 7px
-    // reaches as far as a pill's target would.
-    expect(tall('.view-switcher-segment')).toBe(44);
-    expect(tall('.date-navigation-segment')).toBe(44);
-    for (const track of ['.view-switcher-segment', '.date-navigation-segment']) {
-      expect(declared(`${track}::before`, 'inset-inline'), track).toBe('0');
-      expect(declared(`${track}:first-child::before`, 'inset-inline-start'), track).toBe('-7px');
-      expect(declared(`${track}:last-child::before`, 'inset-inline-end'), track).toBe('-7px');
-    }
+    // The switcher's segments on their track: up and down to 44px, across only at the track's
+    // ends, where 7px reaches as far as a pill's target would.
+    const segment = '.view-switcher-segment';
+    expect(tall(segment)).toBe(44);
+    expect(declared(`${segment}::before`, 'inset-inline')).toBe('0');
+    expect(declared(`${segment}:first-child::before`, 'inset-inline-start')).toBe('-7px');
+    expect(declared(`${segment}:last-child::before`, 'inset-inline-end')).toBe('-7px');
+    // The 24px arrows, three buttons apart: 10px up and down, 2px toward each other inside
+    // their 4px gaps, and 6px outward at either end, which the row's 8px gap holds beside a
+    // chip's 2px.
+    const arrow = '.date-navigation-segment';
+    expect(tall(arrow)).toBe(44);
+    const across = -px(declared(`${arrow}::before`, 'inset-inline'));
+    expect(across).toBe(2);
+    expect(px(declared('.date-navigation', 'gap'))).toBeGreaterThanOrEqual(2 * across);
+    const outward = -px(declared(`${arrow}:first-child::before`, 'inset-inline-start'));
+    expect(outward).toBe(6);
+    expect(declared(`${arrow}:last-child::before`, 'inset-inline-end')).toBe(`-${outward}px`);
+    expect(px(declared('.card-toolbar.toolbar-heading', 'gap'))).toBeGreaterThanOrEqual(
+      outward - px(declared('.legend-chip::before', 'inset-inline')),
+    );
     // The chips' box pads itself by as much as their targets reach, so it never clips them.
     expect(declared('.toolbar-legend', 'overflow')).toBe('hidden');
     expect(px(declared('.toolbar-legend', 'padding').split(' ')[0])).toBe(reach('.legend-chip'));

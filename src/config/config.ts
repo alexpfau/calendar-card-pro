@@ -177,10 +177,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   // not: every control on except `refresh`, which only matters where events change somewhere
   // else between refreshes. v5 is the first release with a toolbar, so these are its first
   // defaults. A control added in a later release defaults off, so a release never adds a
-  // control to a toolbar someone already set up. `labels` is not a control.
+  // control to a toolbar someone already set up.
   toolbar: {
     show: false,
-    labels: true,
     navigation: true,
     add_event: true,
     view_switcher: true,
@@ -343,7 +342,6 @@ export function mergeConfig(
  */
 export interface ResolvedToolbar {
   show: boolean;
-  labels: boolean;
   navigation: boolean;
   addEvent: boolean;
   viewSwitcher: boolean;
@@ -385,7 +383,6 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
 
   return {
     show: read('show'),
-    labels: read('labels'),
     navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),

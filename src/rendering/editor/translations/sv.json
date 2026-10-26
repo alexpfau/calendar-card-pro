@@ -308,8 +308,6 @@
   "background_color": "Bakgrundsfärg",
   "toolbar.show": "Visa verktygsfält",
   "toolbar.show.helper": "Slår på eller av hela verktygsfältet: kortets egna kontroller, i två rader ovanför dess händelser, där den nedre visar månaden på skärmen. När det är på väljer alternativen nedan vad det visar.",
-  "toolbar.labels": "Textetiketter",
-  "toolbar.labels.helper": "Visar namnen på knapparna i verktygsfältets övre rad bredvid respektive ikon när kortet är tillräckligt brett: kalenderfiltret, ”Lägg till händelse”, layouterna, ”Återställ” och ”Uppdatera”. När alternativet är av visas bara ikonerna och namnen visas som verktygstips. Månaden och kalenderbrickorna ser likadana ut i båda fallen.",
   "toolbar.navigation": "Datumnavigering",
   "toolbar.navigation.helper": "Pilar i slutet av månadsraden för att bläddra bakåt och framåt genom dagarna, med en knapp mellan dem som går tillbaka till dagarna kortet öppnas med. Ett tryck på månaden öppnar då en datumväljare. Pilarna flyttar lika många dagar som kortet visar.",
   "toolbar.view_switcher": "Layoutväljare",

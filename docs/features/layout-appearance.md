@@ -173,13 +173,14 @@ around the one a keyboard has focused. The top row's controls are 36px tall and 
 touch guidelines ask for. The month answers across its words and its arrow, and a little below
 them, but hardly above, so a press on the title over it still reaches the card.
 
-On a card at least 640px wide the top row's controls carry their names beside their icons, or
-240px when the add button is the only one there; every button beyond the first among the
-filter, add, reset and refresh needs 112px more. Narrower, each is an icon with its name as a
-tooltip. Where the names still do not fit on one line, as in a language with longer words, the
-card keeps the icons until it is wider. `labels: false` keeps every control an icon at any
-width. The month and the calendar chips are always words, and the home button is always an
-icon.
+Each control is either an icon or words, never both. The top row's commands, the calendar
+filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip.
+The view switcher names its layouts in words, List, Columns and Grid, wherever the card is wide
+enough for them beside the commands, and shows a pictogram for each where it is not, with the
+name as its tooltip. In English the words fit from a 248px card with the switcher alone, plus 36px
+for each command and 8px between two; a language with longer words keeps the pictograms until
+they fit. The month and the calendar chips are always words, and the arrows and the home button
+are always icons.
 
 Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:

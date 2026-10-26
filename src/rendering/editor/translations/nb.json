@@ -308,8 +308,6 @@
   "background_color": "Bakgrunnsfarge",
   "toolbar.show": "Vis verktøylinje",
   "toolbar.show.helper": "Slår hele verktøylinjen av eller på: kortets egne kontroller, i to rader over hendelsene, der den nederste viser måneden på skjermen. Når den er på, velger valgene nedenfor hva den viser.",
-  "toolbar.labels": "Tekstetiketter",
-  "toolbar.labels.helper": "Viser navnene på knappene i verktøylinjens øvre rad ved siden av ikonene når kortet er bredt nok: kalenderfilteret, «Legg til hendelse», layoutene, «Tilbakestill» og «Oppdater». Når alternativet er slått av, vises bare ikonene, mens navnene vises som verktøytips. Måneden og kalenderbrikkene ser like ut uansett.",
   "toolbar.navigation": "Datonavigasjon",
   "toolbar.navigation.helper": "Piler i enden av månedsraden for å bla bakover og fremover gjennom dagene, med en knapp mellom dem som går tilbake til dagene kortet åpner med. Et trykk på måneden åpner da en datovelger. Pilene flytter like mange dager som kortet viser.",
   "toolbar.view_switcher": "Layoutvelger",

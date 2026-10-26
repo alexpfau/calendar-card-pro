@@ -315,7 +315,7 @@ const MENU_FORM = {
  *
  * The heading row spans the card: the month at its start, the arrows at its end, and the chips
  * between them. `probe` is the width of the longest month in full, which the month keeps the
- * room of while the chips show; `navigation` is the arrows' track, drawn only with the date
+ * room of while the chips show; `navigation` is the arrows' group, drawn only with the date
  * navigation; `chips` is the chips' natural width. `scrollbar` is the width a page scrollbar
  * takes from the card, and from its heading row, while the chips are drawn: what chips tall
  * enough to make the page scroll do in a browser. The rest are the row's padding on each side,
@@ -910,11 +910,13 @@ describe('chips too wide for the heading row', () => {
   });
 
   /**
-   * The width at which every label the fullest action row needs fits: the switcher and four
-   * commands (the folded filter, add, reset and refresh).
+   * The width at which the switcher names its views in words beside the fullest action row: four
+   * commands (the folded filter, add, reset and refresh), three gaps between them.
    */
   const ALL_LABELS =
-    Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + 3 * Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
+    Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
+    4 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
+    3 * Constants.UI.TOOLBAR_COMMAND_GAP;
 
   it.each([
     {
@@ -932,7 +934,7 @@ describe('chips too wide for the heading row', () => {
       heading: 'card-toolbar toolbar-heading short-month',
     },
   ])("give way to exactly the menu's layout $reading, never to a part of them", async (row) => {
-    // Wide enough for every label, so the comparison covers the labeled buttons.
+    // Wide enough for the switcher's words, so the comparison covers them.
     stubLayout();
     Object.assign(layout, { card: ALL_LABELS, probe: row.probe, chips: row.chips });
     const mountWith = async (legend: Types.ToolbarConfig['legend']) => {
@@ -948,8 +950,8 @@ describe('chips too wide for the heading row', () => {
     expect(root(folded).querySelector('.toolbar-legend')).toBeNull();
     expect(headingRow(folded).classList.contains('chips-shown')).toBe(false);
 
-    // What the comparison covers: the button leads the action row, labeled, before add; reset
-    // and refresh end it; the month is in the form this width gives it.
+    // What the comparison covers: the button leads the action row, before add; the views are
+    // words; reset and refresh end it; the month is in the form this width gives it.
     expect(controls(menu, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
       'legend-menu',
@@ -959,7 +961,10 @@ describe('chips too wide for the heading row', () => {
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
     ]);
-    expect(legendButton(menu)!.textContent!.trim()).toBe('My calendars');
+    expect(legendButton(menu)!.getAttribute('title')).toBe('My calendars');
+    expect(
+      root(menu).querySelectorAll('.view-switcher-segment .toolbar-button-label'),
+    ).toHaveLength(3);
     expect(headingRow(menu).className).toBe(row.heading);
 
     for (const selector of ['.toolbar-actions', '.toolbar-heading']) {
@@ -1134,20 +1139,17 @@ describe('chips too wide for the heading row', () => {
     expect(legendButton(card)!.classList).toContain('filtered');
   });
 
-  it('leave a button labeled only from the width every labeled control needs', async () => {
-    // Refresh, add and the folded legend: two commands past the one each threshold allows.
+  it('leave a button that stays an icon however wide the card, named by its tooltip', async () => {
     const card = await mountFolded();
-    const needs =
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH + 2 * Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
     // Keep the fold while the card grows: the chips are wider than any card here.
     layout.chips = 5000;
 
-    await measure(card, needs - 1);
-    expect(legendButton(card)!.classList).toContain('icon-only');
-
-    await measure(card, needs);
-    expect(legendButton(card)!.classList).not.toContain('icon-only');
-    expect(legendButton(card)!.textContent!.trim()).toBe('My calendars');
+    for (const width of [400, 2000]) {
+      await measure(card, width);
+      expect(legendButton(card)!.querySelector('.toolbar-button-label'), `${width}px`).toBeNull();
+      expect(legendButton(card)!.getAttribute('aria-label')).toBe('My calendars');
+      expect(legendButton(card)!.getAttribute('title')).toBe('My calendars');
+    }
   });
 });
 

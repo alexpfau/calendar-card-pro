@@ -305,7 +305,7 @@ function persistedEntries(): string[] {
  *
  * `card` is the card's width, which `measure` keeps in step with the width it delivers, and
  * the heading row spans all of it, the month at its start. `probe` is the width of every month
- * in full laid over one another, `navigation` the width of the arrows' track, and `chips` the
+ * in full laid over one another, `navigation` the width of the arrows' group, and `chips` the
  * width the chips need.
  */
 const layout = { card: 0, probe: 0, navigation: 0, chips: 0 };
@@ -372,7 +372,8 @@ const ACTION_ROW_WIDTH = 760;
 
 /**
  * Describe the action row the way a browser would report it: as icons everything fits, and
- * labeled, while `labeledOverflows` says so, every control reaches past the row's end.
+ * with the switcher's words, while `labeledOverflows` says so, every control reaches past the
+ * row's end.
  */
 function reportActionRowOverflow(labeledOverflows: () => boolean): void {
   const realRect = HTMLElement.prototype.getBoundingClientRect;
@@ -498,7 +499,7 @@ describe('the date navigation', () => {
     const card = await mount();
     const [previous, home, next] = segments(card);
 
-    // One group for the arrows' track, named by the dates it moves through. The row is none:
+    // One group for the arrows, named by the dates it moves through. The row is none:
     // it holds the card's heading, which a group named by the dates would mislabel.
     const group = root(card).querySelector('.date-navigation')!;
     expect(group.getAttribute('role')).toBe('group');
@@ -1380,7 +1381,7 @@ describe("the month's short form", () => {
 // THE ACTION ROW'S LABELS
 //-----------------------------------------------------------------------------
 
-describe("the action row's labels", () => {
+describe("the view switcher's words", () => {
   /** Add and reset beside the switcher, with the date navigation. */
   const LABELED: Types.ToolbarConfig = {
     show: true,
@@ -1391,18 +1392,18 @@ describe("the action row's labels", () => {
     legend: false,
   };
 
-  /** The switcher's threshold allows for one command; the second needs the extra. */
+  /** The switcher's own threshold, and add and reset each an icon beside it. */
   const labeledFrom = (): number =>
-    Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
+    Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + 2 * Constants.UI.TOOLBAR_COMMAND_WIDTH;
 
-  /** The labels the action row draws, in order. */
+  /** The words the action row draws, in order. */
   function labels(card: CardUnderTest): string[] {
     return Array.from(root(card).querySelectorAll('.toolbar-actions .toolbar-button-label')).map(
       (label) => label.textContent!.trim(),
     );
   }
 
-  const ALL_LABELS = ['Add event', 'List', 'Columns', 'Grid', 'Reset'];
+  const ALL_LABELS = ['List', 'Columns', 'Grid'];
 
   it('are drawn from their own threshold, whatever the navigation', async () => {
     for (const navigation of [true, false]) {
@@ -1418,18 +1419,8 @@ describe("the action row's labels", () => {
     }
   });
 
-  it('are never drawn with labels off', async () => {
-    const card = await mount({ toolbar: { ...LABELED, labels: false } });
-    await measure(card, labeledFrom() * 2);
-
-    expect(labels(card)).toEqual([]);
-    expect(root(card).querySelector('.add-event-button')!.getAttribute('aria-label')).toBe(
-      'Add event',
-    );
-  });
-
   describe('once they did not fit', () => {
-    // A retry would fit from the moment the labels are dropped, so a retry would show.
+    // A retry would fit from the moment the words are dropped, so a retry would show.
     let overflows: boolean;
 
     beforeEach(() => {

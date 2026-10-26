@@ -193,8 +193,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   as that member's default; `legend: true` names no form and reads as `menu`. `show` defaults off;
   inside a shown bar every control defaults on except `refresh`, because v5 is the first release
   with a toolbar and these are its first defaults. A control added in a later release defaults
-  off, so a release never adds a control to a toolbar someone already set up. `labels` is not a
-  control and defaults on. Every control needs a `toolbar → key` row in the reference:
+  off, so a release never adds a control to a toolbar someone already set up. Every control
+  needs a `toolbar → key` row in the reference:
   `check:docs` reconciles the block's defaults against those rows in both directions.
 - **It is conditional.** With no control enabled or available there is no toolbar and no new DOM:
   the header renders byte for byte as it did before the toolbar existed. That is why the header
@@ -230,7 +230,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   hidden polite live region that describes the button and names the arrows' track, a group of its
   own; the row is none, since it holds the card's heading. With navigation the
   month is a button over a hidden native date input, which opens the browser's picker, and
-  previous, home (a house, because home is not always today) and next share one track beside it;
+  previous, home (a house, because home is not always today) and next stand beside it, three
+  small round buttons in one group;
   without navigation the month is plain text. The arrows keep to the row's end in every layout
   (`.toolbar-heading-end`), so a press on next lands on the same spot page after page. While the
   chips show they sit between, by the action row's rule: the title's block and the arrows' group
@@ -247,7 +248,7 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   focus goes back to the month button when the button had it. Layout is logical throughout, and
   the arrows are mirrored under `:dir(rtl)`, where previous points right.
 - **The arrows and the chips are small, and centered on the month's capitals.** They are 24px
-  tall against the action row's 36px, with the chevrons filling 44% of the track and the chips
+  tall against the action row's 36px, with the chevrons filling 44% of their button and the chips
   keeping Home Assistant's control text size, so beside a 24px month they are about as tall as
   its capitals plus a little. A 36px pill with its bottom edge on the month's baseline rose about
   19px above the letters, and its icons sat higher than their middle, which read as misaligned
@@ -279,21 +280,27 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   `keydown`: the card already ignores keys aimed at anything but itself, and stopping them would
   hide them from Home Assistant's own shortcuts.
 - **Every control has a 44px touch target.** Each answers a press 44px tall through an invisible
-  `::before` box that never overlaps a neighbor's: a 36px pill in the action row grows 4px each
-  way; a 24px chip 10px up and down and 2px across, for the chips' 5px gaps, with the chips' box
-  padded as far so it does not clip them; and a segment on a track up and down to 44px, across
-  only at the track's two ends, so the segments inside stay as wide as they are drawn, 34px on the
-  switcher and 30px on the arrows. The month is the exception: its button is a pill exactly its
+  `::before` box that never overlaps a neighbor's: a 36px button in the action row grows 4px each
+  way; a 24px chip or arrow 10px up and down and 2px across, for their 5px and 4px gaps, the
+  first and last arrows 6px outward, with the chips' box padded as far so it does not clip them;
+  and a segment on the switcher's track 7px up and down, across only at the track's two ends, so
+  the segments inside stay 34px wide. The arrows answer 28px to 32px across, above the 24px that
+  accessibility guidelines set as the least. The month is the exception: its button is a pill exactly its
   line tall, so its hover sits close around the words and never reaches the title above it. Its
   target reaches 10px down, into the gap above the days, and only 2px up, so the title keeps its
   line for the card's own tap action: about 41px tall at the default title size, and as wide as
   the month and its caret.
-- **Labels follow the card's width, not the viewport's.** Above a width that depends on which
-  controls the action row draws, a control carries its label beside its icon; under it, the icon
-  alone, named by `aria-label`. `labels: false` keeps every control an icon at any width. The
-  heading row carries no labels: the home button is always an icon, and the month and the chips
-  are words. The width is the card's own `ResizeObserver` reading, acted on inside the callback so
-  the first painted frame is already right. A container query was rejected: it needs a
+- **Each control is an icon or words, never both, and which is fixed.** The commands, the
+  folded filter, add, reset and refresh, are icons at every width, named by Home Assistant's own
+  words as their tooltips and `aria-label`, or in English for assistive technology alone where it
+  has none. The view switcher shows the words List, Columns and Grid where they fit beside the
+  commands and its pictograms where they do not, each then named by its word. The month and the
+  chips are words, the arrows and home icons. There is no option for it: a `labels` switch
+  existed during v5's development and was removed before release, because it added an editor
+  field, its strings in eleven languages, a reference row and tests for a preference that changed
+  only wide cards, while labeled commands hid the views' words whenever Home Assistant lacked a
+  word for a single command. The width is the card's own `ResizeObserver` reading, acted on
+  inside the callback so the first painted frame is already right. A container query was rejected: it needs a
   `container-type` ancestor, which could capture the `cqh` units grid view sizes against, and
   happy-dom cannot evaluate one, so it could not be tested.
 - **Controls are native, and share one look.** Every control is a `<button>` styled from theme
@@ -302,15 +309,16 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   out of it. A control under the pointer or pressed takes the card's hover color, its accent, laid
   over the gray, as an untinted event does, and the theme's primary color is kept for the focus
   ring. The four `--calendar-card-toolbar-*` properties are declared on `.card-toolbar`, which
-  both rows are, so the chips and the filter's menu inside them take them too. Labels are all or
-  nothing across the row: from `UI.TOOLBAR_LABEL_MIN_WIDTH` (240px) with the add button alone,
-  from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) with the switcher, 112px more for every
-  command beyond the first, and never while Home Assistant offers no words for a control drawn.
-  The thresholds are guesses measured in English and German; `_syncToolbarLabelFit` reads the
-  render, and if a labeled control wrapped or overflows the row it draws icons until the card is
-  wider than that or the language or the controls change. It only ever drops labels, so it cannot
-  oscillate, and its signature is the row's own controls, so neither a templated title nor a page
-  turn retries labels that did not fit.
+  both rows are, so the chips and the filter's menu inside them take them too. The switcher's
+  words show from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (248px) for the switcher alone, plus
+  exactly the commands beside it: `UI.TOOLBAR_COMMAND_WIDTH` for each icon, `UI.TOOLBAR_COMMAND_GAP`
+  between two in a group and twice that between reset and refresh, which `stylesheet.test.ts`
+  reconciles against the stylesheet. The base is measured in English, where the words need 242px;
+  German needs 274px and Lithuanian 330px. `_syncToolbarLabelFit` reads the render, and if the row
+  wrapped or overflows with the words it draws the pictograms until the card is wider than that
+  or the language or the controls change. It only ever drops the words, so it cannot oscillate,
+  and its signature is the row's own controls, so neither a templated title nor a page turn
+  retries words that did not fit.
 - **The view switcher changes the requested view, never the configuration.** `requestedView`
   is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
   always follows it, so nothing about a switch is new to the fitting code. A switch draws

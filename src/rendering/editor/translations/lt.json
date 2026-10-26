@@ -308,8 +308,6 @@
   "background_color": "Fono spalva",
   "toolbar.show": "Rodyti įrankių juostą",
   "toolbar.show.helper": "Įjungia arba išjungia visą įrankių juostą: pačios kortelės valdiklius dviem eilutėmis virš jos įvykių; apatinėje eilutėje nurodomas ekrane rodomas mėnuo. Kai ji įjungta, toliau esančios parinktys nustato, ką ji rodo.",
-  "toolbar.labels": "Teksto etiketės",
-  "toolbar.labels.helper": "Rodo viršutinės įrankių juostos eilutės mygtukų pavadinimus šalia jų piktogramų, kai kortelė pakankamai plati: kalendorių filtro, „Pridėti įvykį“, išdėstymų, „Atstatyti“ ir „Atnaujinti“. Išjungus jie lieka piktogramomis, o jų pavadinimai rodomi kaip patarimai. Mėnuo ir kalendorių mygtukai abiem atvejais atrodo vienodai.",
   "toolbar.navigation": "Naršymas pagal datas",
   "toolbar.navigation.helper": "Rodyklės mėnesio eilutės pabaigoje dienoms slinkti atgal ir pirmyn, o tarp jų yra mygtukas, grąžinantis į dienas, kuriomis kortelė atidaroma. Tada palietus mėnesį atsiveria datos parinkiklis. Rodyklės paslenka tiek dienų, kiek rodo kortelė.",
   "toolbar.view_switcher": "Išdėstymo perjungiklis",

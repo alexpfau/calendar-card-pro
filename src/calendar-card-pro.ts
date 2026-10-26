@@ -293,7 +293,7 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
  */
 type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload';
 
-/** The controls a render draws in the header toolbar, before it decides on their labels. */
+/** The controls a render draws in the header toolbar, before it decides on the switcher's words. */
 type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
@@ -702,7 +702,7 @@ class CalendarCardPro extends LitElement {
   private _measuredWidthPx: number | null = null;
 
   /**
-   * Card width as the observer last reported it, which is what the toolbar's labels follow.
+   * Card width as the observer last reported it, which is what the switcher's words follow.
    *
    * Set from the observer's own callback rather than after the settle delay the view fit
    * waits for: the browser delivers that callback after layout and before paint, and the
@@ -714,8 +714,8 @@ class CalendarCardPro extends LitElement {
   private _toolbarWidthPx: number | null = null;
 
   /**
-   * The width at which the labeled action row last did not fit on one line, and what it held.
-   * See `_syncToolbarLabelFit`.
+   * The width at which the action row, with the switcher's words, last did not fit on one line,
+   * and what it held. See `_syncToolbarLabelFit`.
    */
   private _toolbarLabelsOverflowed: { widthPx: number; signature: string } | null = null;
 
@@ -809,7 +809,7 @@ class CalendarCardPro extends LitElement {
 
   private _toolbarFontsCleanup: (() => void) | null = null;
 
-  /** The label width the toolbar drawn last needs, which `_syncToolbarLabels` watches for. */
+  /** The width the switcher's words needed in the toolbar drawn last, which `_syncToolbarLabels` watches for. */
   private _toolbarLabelMinWidthPx: number | null = null;
 
   /** How `handleAction` runs the actions only the card knows. */
@@ -1500,22 +1500,21 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records the card's width for the toolbar, and re-renders at once if that moves it across a
-   * label threshold or the width the month fits in full from.
+   * Records the card's width for the toolbar, and re-renders at once if that moves it across the
+   * width the switcher's words need or the width the month fits in full from.
    *
-   * No hysteresis: a dashboard sizes the card, not the card's content, so neither a label nor
-   * the month's form can feed back into the width it was chosen from, and there is no loop for
-   * a band to damp. Whether the bar is actually labeled also depends on which controls it
-   * draws, so that is decided at render (`_toolbarLabeledFor`); this only notices a threshold
-   * being crossed.
+   * No hysteresis: a dashboard sizes the card, not the card's content, so neither the switcher's
+   * words nor the month's form can feed back into the width they were chosen from, and there is
+   * no loop for a band to damp. Whether the switcher shows words also depends on which controls
+   * the row draws, so that is decided at render (`_toolbarLabeledFor`); this only notices a
+   * threshold being crossed.
    *
    * @param widthPx - Measured card width in CSS pixels
    */
   private _syncToolbarLabels(widthPx: number): void {
-    // The fixed thresholds, the one the row drawn last needs, and the width the month fits in
-    // full from.
+    // The switcher's own threshold, the one the row drawn last needs, and the width the month
+    // fits in full from.
     const thresholds = [
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
       Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
       this._toolbarLabelMinWidthPx,
       this._monthFit?.fullFromPx,
@@ -1523,7 +1522,7 @@ class CalendarCardPro extends LitElement {
     const band = (width: number | null): string =>
       width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
-    // Labels that overflowed at some width are tried again once the card grows past it.
+    // Words that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
     const outgrew =
       overflowed !== null &&
@@ -4087,7 +4086,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The controls this render draws in the header toolbar, and whether they carry labels.
+   * The controls this render draws in the header toolbar, and whether the switcher shows words.
    *
    * @returns The toolbar; with no control in it, no toolbar is drawn
    */
@@ -4108,25 +4107,19 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the action row's controls carry text labels beside their icons.
+   * Whether the view switcher names its views in words rather than pictograms.
    *
-   * All or nothing, so the controls stay one family: the row is labeled only when it is wide
-   * enough for every control it draws, and only when every one of them has a label to show.
-   * Home Assistant may have no words for the add button, reset, refresh or the folded filter,
-   * which then stays an icon, and so does everything beside it. Labels are drawn only while the
-   * whole row fits on one line (`_syncToolbarLabelFit`).
-   *
-   * `toolbar.labels: false` keeps every one of those buttons an icon at any width. The heading
-   * row takes no labels either way: its home button is an icon, and the month and the chips
-   * are words.
+   * Only the switcher ever does: the commands beside it are icons at every width, named by Home
+   * Assistant's words in their tooltips. The switcher shows its words where the card is wide
+   * enough for them beside those icons, and only while the whole row fits on one line
+   * (`_syncToolbarLabelFit`).
    *
    * @param controls - The controls this render draws
-   * @returns True to draw labels
+   * @returns True to draw the words
    */
   private _toolbarLabeledFor(controls: ToolbarControls): boolean {
     const minWidth = this._toolbarLabelMinWidth(controls);
     if (this._toolbarWidthPx === null || minWidth === null) return false;
-    if (!Config.resolveToolbar(this.config).labels) return false;
 
     const overflowed = this._toolbarLabelsOverflowed;
     const signature = this._toolbarLabelSignature(controls);
@@ -4142,62 +4135,60 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The card width from which the action row's controls carry labels, or null when they never
-   * do.
+   * The card width from which the view switcher shows its words, or null without a switcher.
    *
-   * The fixed thresholds each allow for one command beside the switcher, the add button they
-   * were measured with; every further one, the folded filter, reset or refresh, needs
-   * `UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH` more. Null when there is nothing to label, or a control
-   * has no words to show.
+   * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
+   * beside it add their two groups' widths exactly: the folded filter and add at the start, reset
+   * and refresh at the end, each an icon, with a gap between two in a group and twice that
+   * between reset and refresh.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
    */
   private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
-    const legendButton = controls.legend?.folded ? controls.legend : undefined;
-    const commands = [controls.addEvent, controls.reset, controls.refresh, legendButton].filter(
-      (control) => control !== undefined,
-    ).length;
-    if (commands === 0 && !controls.viewSwitcher) return null;
-    if (controls.addEvent && controls.addEvent.label === undefined) return null;
-    if (controls.reset && controls.reset.label === undefined) return null;
-    if (controls.refresh && controls.refresh.label === undefined) return null;
-    if (legendButton && legendButton.name === undefined) return null;
-
-    const base = controls.viewSwitcher
-      ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
-      : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
-    return base + Math.max(0, commands - 1) * Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
+    if (!controls.viewSwitcher) return null;
+    const { TOOLBAR_COMMAND_WIDTH: icon, TOOLBAR_COMMAND_GAP: gap } = Constants.UI;
+    const group = (count: number): number => (count === 0 ? 0 : count * icon + (count - 1) * gap);
+    const start = [controls.legend?.folded ? controls.legend : undefined, controls.addEvent];
+    const end = [controls.reset, controls.refresh];
+    const count = (members: ReadonlyArray<unknown>): number =>
+      members.filter((member) => member !== undefined).length;
+    return (
+      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
+      group(count(start)) +
+      group(count(end)) +
+      (count(end) === 2 ? gap : 0)
+    );
   }
 
   /**
-   * What the labeled action row's fit depends on, other than the width.
+   * What the fit of the switcher's words depends on, other than the width.
    *
-   * Only what the row holds: the title and the dates sit in the heading row now, so neither a
-   * templated title ticking over nor a page turned retries labels that did not fit.
+   * Only what the row holds: the language, which sets the words, and which commands sit beside
+   * the switcher. The title and the dates sit in the heading row, so neither a templated title
+   * ticking over nor a page turned retries words that did not fit.
    *
    * @param controls - The controls this render draws
-   * @returns A string that changes whenever the labeled row would
+   * @returns A string that changes whenever the row would
    */
   private _toolbarLabelSignature(controls: ToolbarControls): string {
     return [
       this.effectiveLanguage,
-      controls.addEvent?.label ?? '',
       controls.viewSwitcher ? 'views' : '',
-      controls.reset?.label ?? '',
-      controls.refresh?.label ?? '',
-      controls.legend?.folded ? (controls.legend.name ?? '') : '',
+      controls.addEvent ? 'add' : '',
+      controls.reset ? 'reset' : '',
+      controls.refresh ? 'refresh' : '',
+      controls.legend?.folded ? 'filter' : '',
     ].join('\u0000');
   }
 
   /**
-   * Drops the action row's labels when they do not fit on one line.
+   * Drops the switcher's words when the action row does not fit on one line with them.
    *
-   * The width thresholds are guesses measured in English and German; a language with longer
-   * words, or Home Assistant renaming a control, can need more. Read after the render that drew
-   * them: if a labeled control wrapped onto a second line, or reaches past the row, the card
-   * remembers the width, and draws icons until it is wider than that, or the language or the
-   * controls change. Never the other way round, so a measurement cannot set the card flipping
+   * The width thresholds are measured in English and German; a language with longer words can
+   * need more. Read after the render that drew them: if a control wrapped onto a second line, or
+   * reaches past the row, the card remembers the width, and draws the switcher's pictograms until
+   * it is wider than that, or the language or the controls change. Never the other way round, so a measurement cannot set the card flipping
    * between the two.
    *
    * Only ever reads layout that exists. Without it — a card not laid out yet, or a test
@@ -4221,7 +4212,7 @@ class CalendarCardPro extends LitElement {
     const wraps = boxes.some((box) => box.top > firstLineEnds - 0.5);
     if (!overflows && !wraps) return;
 
-    Logger.debug(`Toolbar labels do not fit at ${this._toolbarWidthPx}px`);
+    Logger.debug(`View switcher words do not fit at ${this._toolbarWidthPx}px`);
     this._toolbarLabelsOverflowed = {
       widthPx: this._toolbarWidthPx ?? 0,
       signature: this._toolbarLabelSignature(this._headerToolbar()),
@@ -4455,7 +4446,7 @@ class CalendarCardPro extends LitElement {
     const style = getComputedStyle(row);
     const gap = parseFloat(style.columnGap) || 0;
     // The group at the row's end is drawn with or without the arrows, and costs a gap either way.
-    // Its own width grows while the chips show, so the arrows' track is what is read.
+    // Its own width grows while the chips show, so the arrows' group is what is read.
     const navigation = row.querySelector<HTMLElement>('.date-navigation');
     const navigationRoom = row.querySelector('.toolbar-heading-end')
       ? (navigation?.getBoundingClientRect().width ?? 0) + gap
@@ -4482,7 +4473,7 @@ class CalendarCardPro extends LitElement {
   /**
    * Centers the controls beside the month on its capitals: writes how far the middle of the
    * month's capital letters stands above the foot of the heading row
-   * (`--calendar-card-heading-middle`), which the stylesheet sets the middle of the arrows' track
+   * (`--calendar-card-heading-middle`), which the stylesheet sets the middle of the arrows
    * and of each chip on. So they read as level with the month's words, as they would not with
    * their bottom edges on its baseline: a pill much taller than the letters then rises far above
    * them.
@@ -4985,7 +4976,7 @@ class CalendarCardPro extends LitElement {
    * The room the heading row leaves the legend's chips, in CSS pixels: the row less every month
    * in full, which the month keeps the room of while the chips show, and the arrows, with a gap
    * on either side of the chips, and less the chips' box's own padding, which its negative
-   * margins give back. Read from the month's hidden copy and the arrows' track rather than from
+   * margins give back. Read from the month's hidden copy and the arrows' group rather than from
    * the chips' box, which never shrinks below nothing: a month and arrows that already overflow
    * the row would otherwise read as no room at all, and say nothing about how much wider the card
    * must be. The same answer whichever layout is drawn. Negative while they overflow.

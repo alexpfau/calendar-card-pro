@@ -543,12 +543,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Turns the whole toolbar on or off: the card's own controls, in two rows above its " +
     'events, the lower one naming the month on screen. While it is on, the options below ' +
     'choose what it shows.',
-  'toolbar.labels': 'Text Labels',
-  'toolbar.labels.helper':
-    "Names the buttons in the toolbar's top row beside their icons wherever the card is wide " +
-    'enough: the calendar filter, add event, the layouts, reset and refresh. Off keeps them ' +
-    'icons, with their names as tooltips. The month and the calendar chips look the same ' +
-    'either way.',
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
     "Arrows at the end of the month's row to page back and forward through the days, with a " +

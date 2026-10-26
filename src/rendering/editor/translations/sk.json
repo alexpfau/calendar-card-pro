@@ -308,8 +308,6 @@
   "background_color": "Farba pozadia",
   "toolbar.show": "Zobraziť panel nástrojov",
   "toolbar.show.helper": "Zapne alebo vypne celý panel nástrojov: vlastné ovládacie prvky karty v dvoch riadkoch nad jej udalosťami, pričom spodný uvádza zobrazený mesiac. Keď je zapnutý, možnosti nižšie určujú, čo zobrazuje.",
-  "toolbar.labels": "Textové štítky",
-  "toolbar.labels.helper": "Zobrazí názvy tlačidiel v hornom riadku panela nástrojov vedľa ich ikon, keď je karta dostatočne široká: filtra kalendárov, „Pridať udalosť“, rozložení, „Reset“ a „Obnoviť“. Po vypnutí sa zobrazia iba ikony a názvy sa zobrazia ako tipy. Mesiac a tlačidlá kalendárov vyzerajú v oboch prípadoch rovnako.",
   "toolbar.navigation": "Navigácia podľa dátumu",
   "toolbar.navigation.helper": "Šípky na konci riadka mesiaca na listovanie dňami dozadu a dopredu a medzi nimi tlačidlo späť na dni, s ktorými sa karta otvára. Klepnutím na mesiac sa potom otvorí výber dátumu. Šípky sa posunú o toľko dní, koľko karta zobrazuje.",
   "toolbar.view_switcher": "Prepínač rozloženia",

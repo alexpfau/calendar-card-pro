@@ -368,7 +368,7 @@ describe('add-event button rendering', () => {
     );
   });
 
-  it("draws a native button with Home Assistant's label beside a plus", async () => {
+  it("draws a native button, a plus, named by Home Assistant's words in its tooltip", async () => {
     const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const el = button(card)!;
 
@@ -376,88 +376,56 @@ describe('add-event button rendering', () => {
     expect(el.getAttribute('type')).toBe('button');
     expect(el.querySelector('svg path')?.getAttribute('d')).toBe(mdiPlus);
     expect(el.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
-    expect(el.querySelector('.toolbar-button-label')?.textContent).toBe('Add event');
-    // The visible label is the name; a second one in aria-label would only shadow it.
-    expect(el.hasAttribute('aria-label')).toBe(false);
+    // An icon, never words: its name is its tooltip and what assistive technology reads.
+    expect(el.querySelector('.toolbar-button-label')).toBeNull();
+    expect(el.textContent?.trim()).toBe('');
+    expect(el.getAttribute('aria-label')).toBe('Add event');
+    expect(el.getAttribute('title')).toBe('Add event');
   });
 
-  it("uses Home Assistant's own translation of the label", async () => {
+  it("uses Home Assistant's own translation of its name", async () => {
     const localize = (key: string) =>
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
     const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY }, { localize });
 
-    expect(button(card)!.querySelector('.toolbar-button-label')?.textContent).toBe(
-      'Aggiungi evento',
-    );
+    expect(button(card)!.getAttribute('aria-label')).toBe('Aggiungi evento');
+    expect(button(card)!.getAttribute('title')).toBe('Aggiungi evento');
   });
 
-  it('draws only the icon, still named, when Home Assistant has no label to give', async () => {
-    // Measured wide, so it is the missing string and not the width that drops the label.
+  it('is still named, in English, when Home Assistant has no words for it', async () => {
     const card = await mountWide(
       { entities: [WRITABLE], toolbar: ADD_ONLY },
       { localize: () => '' },
     );
     const el = button(card)!;
 
-    expect(el.classList.contains('icon-only')).toBe(true);
-    expect(el.querySelector('.toolbar-button-label')).toBeNull();
-    expect(el.textContent?.trim()).toBe('');
     expect(el.getAttribute('aria-label')).toBe('Add event');
     // English is the last resort for assistive technology, never a tooltip on screen.
     expect(el.hasAttribute('title')).toBe(false);
   });
 });
 
-describe('the add-event label follows the width of the card', () => {
+describe('the add-event button at any width', () => {
   /** What the button shows and what it is called, read off the DOM. */
   function shape(card: CardUnderTest) {
     const el = button(card)!;
     return {
-      label: el.querySelector('.toolbar-button-label')?.textContent ?? null,
-      iconOnly: el.classList.contains('icon-only'),
+      words: el.querySelector('.toolbar-button-label')?.textContent ?? null,
       ariaLabel: el.getAttribute('aria-label'),
       title: el.getAttribute('title'),
     };
   }
 
-  const LABELED = { label: 'Add event', iconOnly: false, ariaLabel: null, title: null };
-  const ICON_ONLY = { label: null, iconOnly: true, ariaLabel: 'Add event', title: 'Add event' };
+  const ICON = { words: null, ariaLabel: 'Add event', title: 'Add event' };
 
-  /** The width from which the add button, alone in the action row, carries its label. */
-  const ALONE = Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
-
-  it('draws the icon alone, named, until the card has been measured', async () => {
+  it('is the same icon before the card is measured, on a narrow card and on a wide one', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    expect(shape(card)).toEqual(ICON_ONLY);
-  });
+    expect(shape(card)).toEqual(ICON);
 
-  it.each([
-    [ALONE - 1, ICON_ONLY],
-    [ALONE, LABELED],
-    [900, LABELED],
-  ])('at %ipx draws %o', async (width, expected) => {
-    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    await measure(card, width);
-    expect(shape(card)).toEqual(expected);
-  });
-
-  it('drops the label again when the card narrows', async () => {
-    const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    expect(shape(card)).toEqual(LABELED);
-
-    await measure(card, ALONE - 1);
-    expect(shape(card)).toEqual(ICON_ONLY);
-  });
-
-  it('decides on the measurement itself, before the view fit settles', async () => {
-    // `measure` awaits only the render, never the settle delay, so a label decided where
-    // the column fit is decided would still be missing here.
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    await measure(card, 600);
-
-    expect(vi.getTimerCount()).toBeGreaterThan(0);
-    expect(shape(card)).toEqual(LABELED);
+    for (const width of [200, 600, 2000]) {
+      await measure(card, width);
+      expect(shape(card), `${width}px`).toEqual(ICON);
+    }
   });
 
   it('does not re-render a card that has no toolbar for it', async () => {

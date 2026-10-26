@@ -4,7 +4,7 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * and once shown, everything a shared screen needs on: the date navigation, the view switcher,
- * reset, add and the calendar filter as a menu, with labels where they fit. Refresh alone is
+ * reset, add and the calendar filter as a menu. Refresh alone is
  * off, since it only matters where events change somewhere else between refreshes.
  */
 
@@ -18,7 +18,6 @@ import { toolbarFormBlock } from '../src/rendering/editor/value';
 /** What every member reads as when the block says nothing about it. */
 const DEFAULTS = {
   show: false,
-  labels: true,
   navigation: true,
   addEvent: true,
   viewSwitcher: true,
@@ -31,7 +30,6 @@ describe('the toolbar configuration', () => {
   it('ships hidden, with every control on once shown except refresh, and the filter as a menu', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
-      labels: true,
       navigation: true,
       add_event: true,
       view_switcher: true,
@@ -53,11 +51,10 @@ describe('the toolbar configuration', () => {
       show: true,
       viewSwitcher: false,
     });
-    expect(resolveToolbar({ toolbar: { show: true, navigation: false, labels: false } })).toEqual({
+    expect(resolveToolbar({ toolbar: { show: true, navigation: false } })).toEqual({
       ...DEFAULTS,
       show: true,
       navigation: false,
-      labels: false,
     });
     expect(resolveToolbar({ toolbar: { show: true, refresh: true, legend: 'chips' } })).toEqual({
       ...DEFAULTS,
@@ -95,7 +92,6 @@ describe('the toolbar configuration', () => {
         add_event: 0,
         view_switcher: null,
         navigation: 'yes',
-        labels: 0,
         reset: 'yes',
         refresh: 'on',
         legend: 1,
@@ -103,6 +99,18 @@ describe('the toolbar configuration', () => {
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);
+  });
+
+  it('has no switch for labels: which control is an icon and which is words is fixed', () => {
+    // `labels` was an option during v5's development and never shipped. A block that still
+    // carries it reads exactly as one that does not.
+    const config = { toolbar: { show: true, labels: false } };
+
+    expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual({
+      ...DEFAULTS,
+      show: true,
+    });
+    expect('labels' in (DEFAULT_CONFIG.toolbar as object)).toBe(false);
   });
 
   it.each([
@@ -131,16 +139,7 @@ describe('the toolbar block the editor shows', () => {
 
     expect(block).toEqual(changed);
     expect(Object.keys(block).sort()).toEqual(
-      [
-        'add_event',
-        'labels',
-        'legend',
-        'navigation',
-        'refresh',
-        'reset',
-        'show',
-        'view_switcher',
-      ].sort(),
+      ['add_event', 'legend', 'navigation', 'refresh', 'reset', 'show', 'view_switcher'].sort(),
     );
   });
 

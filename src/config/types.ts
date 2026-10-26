@@ -729,13 +729,6 @@ export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
   /**
-   * Whether the action row's buttons — the filter, add, the switcher's layouts, reset and
-   * refresh — carry a text label beside their icons when the card has room for it. Off keeps
-   * them icons, named by their tooltips. The heading row is unaffected: the month and the
-   * chips are always words, and the home button is always an icon.
-   */
-  labels?: boolean;
-  /**
    * Previous, home and next beside the month heading, which then opens a date picker. Off
    * leaves the month as plain text.
    */

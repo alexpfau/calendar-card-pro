@@ -308,8 +308,6 @@
   "background_color": "Hintergrundfarbe",
   "toolbar.show": "Symbolleiste anzeigen",
   "toolbar.show.helper": "Schaltet die ganze Symbolleiste ein oder aus: Bedienelemente der Karte selbst, in zwei Zeilen über ihren Terminen; die untere nennt den angezeigten Monat. Ist sie an, legen die Optionen darunter fest, was sie zeigt.",
-  "toolbar.labels": "Beschriftungen",
-  "toolbar.labels.helper": "Wenn die Karte breit genug ist, stehen in der oberen Zeile der Symbolleiste neben den Symbolen auch die Namen der Knöpfe: der Kalenderfilter, „Termin hinzufügen“, die Layouts, „Zurücksetzen“ und „Aktualisieren“. Ist die Option aus, bleiben nur die Symbole, und die Namen erscheinen als Tooltips. Der Monat und die Kalender-Chips sehen in beiden Fällen gleich aus.",
   "toolbar.navigation": "Datumsnavigation",
   "toolbar.navigation.helper": "Pfeile am Ende der Monatszeile, um durch die Tage vor- und zurückzublättern, dazwischen ein Knopf zurück zu den Tagen, mit denen die Karte startet. Der Monat öffnet dann beim Antippen eine Datumsauswahl. Die Pfeile springen um so viele Tage, wie die Karte zeigt.",
   "toolbar.view_switcher": "Layout-Umschalter",

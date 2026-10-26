@@ -889,7 +889,6 @@ describe('editor filter: section headings', () => {
     expect(fieldNames(toolbar)).toEqual([
       'title',
       'show',
-      'labels',
       'legend',
       'add_event',
       'view_switcher',

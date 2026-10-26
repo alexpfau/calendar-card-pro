@@ -308,8 +308,6 @@
   "background_color": "Kolor tła",
   "toolbar.show": "Pokaż pasek narzędzi",
   "toolbar.show.helper": "Włącza lub wyłącza cały pasek narzędzi: własne elementy sterujące karty, w dwóch wierszach nad jej wydarzeniami; dolny wiersz podaje miesiąc widoczny na ekranie. Gdy jest włączony, opcje poniżej określają, co pokazuje.",
-  "toolbar.labels": "Etykiety tekstowe",
-  "toolbar.labels.helper": "Pokazuje nazwy przycisków z górnego wiersza paska narzędzi obok ich ikon, gdy karta jest wystarczająco szeroka: filtra kalendarzy, „Dodaj wydarzenie”, układów, „Reset” i „Odśwież”. Po wyłączeniu wyświetlane są tylko ikony, a nazwy pojawiają się w podpowiedziach. Miesiąc i przyciski kalendarzy wyglądają tak samo w obu przypadkach.",
   "toolbar.navigation": "Nawigacja po datach",
   "toolbar.navigation.helper": "Strzałki na końcu wiersza miesiąca do przewijania dni wstecz i do przodu, a między nimi przycisk powrotu do dni, od których karta startuje. Dotknięcie miesiąca otwiera wtedy wybór daty. Strzałki przesuwają o tyle dni, ile pokazuje karta.",
   "toolbar.view_switcher": "Przełącznik układu",

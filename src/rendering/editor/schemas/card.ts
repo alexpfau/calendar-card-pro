@@ -18,10 +18,9 @@ export const CARD_ICON = mdiCardText;
  * The title and the card's own background first, then the toolbar under a sub-heading of
  * its own that closes the panel. The heading is there to say what the switches under it
  * are: the first turns the whole toolbar on or off, and only while it is on is the rest
- * offered. Labels come next, because they apply to every control in the top row; then each
- * control in the order the toolbar is read: the top row from its start to its end (the
- * calendar filter, add, the view switcher, reset and refresh), then the date navigation,
- * which sits in the row under it beside the month. The filter leads because its default form
+ * offered. Then each control in the order the toolbar is read: the top row from its start to
+ * its end (the calendar filter, add, the view switcher, reset and refresh), then the date
+ * navigation, which sits in the row under it beside the month. The filter leads because its default form
  * is the button that leads the top row. Nothing may follow the toolbar's fields, because a
  * heading claims whatever comes after it; that is why the background sits above it rather
  * than last.
@@ -46,7 +45,6 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
       bool('show'),
       ...(toolbar.show
         ? [
-            bool('labels'),
             select(ctx.language, 'legend', LEGEND_EDITOR_VALUES, 'toolbar.legend'),
             bool('add_event'),
             bool('view_switcher'),

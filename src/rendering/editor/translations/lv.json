@@ -308,8 +308,6 @@
   "background_color": "Fona krāsa",
   "toolbar.show": "Rādīt rīkjoslu",
   "toolbar.show.helper": "Ieslēdz vai izslēdz visu rīkjoslu: pašas kartes vadīklas divās rindās virs tās notikumiem; apakšējā rindā redzams ekrānā rādītais mēnesis. Kad tā ir ieslēgta, zemāk esošās opcijas nosaka, ko tā rāda.",
-  "toolbar.labels": "Teksta etiķetes",
-  "toolbar.labels.helper": "Rāda rīkjoslas augšējās rindas pogu nosaukumus blakus to ikonām, ja karte ir pietiekami plata: kalendāru filtra, „Pievienot notikumu“, izkārtojumu, „Atiestatīt“ un „Atsvaidzināt“. Ja opcija ir izslēgta, tiek rādītas tikai ikonas un nosaukumi tiek parādīti kā rīka padomi. Mēnesis un kalendāru pogas abos gadījumos izskatās vienādi.",
   "toolbar.navigation": "Datumu navigācija",
   "toolbar.navigation.helper": "Bultiņas mēneša rindas beigās, lai pāršķirtu dienas uz priekšu un atpakaļ, un starp tām poga, kas atgriež pie dienām, ar kurām karte atveras. Pieskāriens mēnesim tad atver datuma atlasītāju. Bultiņas pārvietojas par tik dienām, cik karte rāda.",
   "toolbar.view_switcher": "Izkārtojuma pārslēdzējs",

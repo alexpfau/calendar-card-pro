@@ -994,7 +994,6 @@ describe('every piece of text is sized by its own option', () => {
       'today-indicator in today-indicator-container': ['today_indicator_size'],
       // A control, not card text: it takes Home Assistant's own control size, so it reads
       // the same as the buttons around the card whatever the card's own sizes are.
-      'toolbar-button-label in toolbar-button': ['--ha-font-size-m'],
       'toolbar-button-label in view-switcher-segment': ['--ha-font-size-m'],
       'toolbar-month-text in toolbar-month-label': ['title_font_size'],
       'toolbar-range-text in toolbar-month': ['title_font_size'],
