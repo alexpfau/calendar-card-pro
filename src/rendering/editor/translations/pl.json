@@ -251,6 +251,7 @@
   "panel.content": "Zakres czasu i zawartość",
   "panel.content.helper": "Które dni karta obejmuje i co w nich umieszcza.",
   "days_to_show": "Dni do wyświetlenia",
+  "days_to_show.helper": "Ile dni obejmuje karta od daty początkowej. Każdy układ może mieć własną liczbę, na przykład 14 na liście i 7 w siatce czasu. Karta wczytuje najdłuższy z nich, więc przełączenie układu nie wczytuje niczego nowego.",
   "start_date_mode": "Data początkowa",
   "start_date_mode.option.default.label": "Dzisiaj",
   "start_date_mode.option.fixed.label": "Ustalona data",

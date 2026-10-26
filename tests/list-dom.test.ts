@@ -819,9 +819,11 @@ describe('list view DOM', () => {
   });
 
   it('suppresses event weather when no forecast matches', () => {
+    // Five days, so the 21st is inside the window: the renderer bounds every event by the
+    // view's own range, as the fetch-side trim always did for a card's real events.
     const container = renderListContainer(
       [timedEvent('2026-06-21', '12:00', '13:00', 'No forecast weather')],
-      buildConfig({ weather: { entity: 'weather.home', position: 'event' } }),
+      buildConfig({ days_to_show: 5, weather: { entity: 'weather.home', position: 'event' } }),
       { weather: WEATHER },
     );
 

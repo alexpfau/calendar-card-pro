@@ -263,7 +263,9 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
  * Per-view configuration overrides applied when the card renders in column view.
  *
  * Overrides are presence-based. Fetch-time options are excluded because switching views
- * must not trigger Home Assistant API requests.
+ * must not trigger Home Assistant API requests. `days_to_show` is the one key that decides
+ * what is loaded and may still differ: the card loads the longest count among the views it
+ * can show (`loadedDaysToShow`), so each view draws a prefix of one shared load.
  *
  * @see resolveViewOption in `src/config/view.ts`
  */
@@ -280,6 +282,9 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
  * that the renderer then replaces with the top-level default.
  */
 export interface SharedViewOverrides {
+  // How many days the view draws. Loaded once, as the longest of the views the card can show.
+  days_to_show?: number;
+
   // Day grouping and empty days
   show_empty_days?: boolean;
   show_empty_today?: boolean;

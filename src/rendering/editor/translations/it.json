@@ -251,6 +251,7 @@
   "panel.content": "Periodo e contenuto",
   "panel.content.helper": "Quali giorni copre la scheda e cosa vi inserisce.",
   "days_to_show": "Giorni da mostrare",
+  "days_to_show.helper": "Quanti giorni copre la scheda a partire dalla data di inizio. Ogni layout può averne un numero proprio, per esempio 14 nella lista e 7 nella griglia oraria. La scheda carica il più lungo, quindi cambiare layout non carica nulla di nuovo.",
   "start_date_mode": "Data di inizio",
   "start_date_mode.option.default.label": "Oggi",
   "start_date_mode.option.fixed.label": "Una data fissa",

@@ -779,10 +779,13 @@ describe('editor filter: the chassis', () => {
     await element.updateComplete;
 
     expect(dispatched).toHaveLength(1);
+    // The List workspace owns this edit, so the new count is the list block's and the
+    // shared count is left as it was — exactly what the unfiltered edit writes.
     expect(dispatched[0]).toEqual({
       config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.a'],
-      days_to_show: 10,
+      days_to_show: 7,
+      list: { days_to_show: 10 },
     });
   });
 });

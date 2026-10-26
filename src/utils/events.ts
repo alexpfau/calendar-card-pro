@@ -1101,13 +1101,10 @@ export function groupEventsByDay(
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
 
-  // Upper bound of the configured window. Multi-day events become
-  // per-day segments below, and a segment can land past the window when an
-  // event starts inside it but runs beyond. Splitting used to happen at fetch
-  // time, where `processRawEvents` trimmed those segments before they were ever
-  // grouped; now that it is view-scoped and happens here, the same bound has to
-  // be applied here. Without it `days_to_show` — a `.slice()` over days that
-  // have events, not a date range — would fill with days past the window.
+  // Upper bound of the window this view draws. Multi-day events become per-day segments
+  // below, and a segment can land past the window when an event starts inside it but runs
+  // beyond; and the load can be longer than this view, because it spans the longest view
+  // the card can show. See the bound applied in the filter below.
   const windowEnd = new Date(referenceStart);
   windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
 
@@ -1153,13 +1150,16 @@ export function groupEventsByDay(
 
     if (!startDate || !endDate) return false;
 
-    // Upper window bound, segments only. Whole events are already bounded at
-    // fetch time by `processRawEvents`; segments are not, because they are
-    // created here rather than there. An event starting inside the window but
-    // running past it yields segments beyond the window, and `days_to_show` is
-    // a `.slice()` over days that have events rather than a date range, so
-    // those segments would push real days out of the card.
-    if (event._isMultiDaySegment && startDate >= windowEnd) return false;
+    // Upper window bound, for every occurrence. Segments are created here rather than at
+    // fetch time, so `processRawEvents` never saw them: an event starting inside the window
+    // but running past it yields segments beyond the window. And since v5 a whole event can
+    // lie past it too, because the card loads the longest `days_to_show` among its views and
+    // this one may draw fewer. Either way `days_to_show` is a `.slice()` over days that have
+    // events rather than a date range, so an occurrence past the window would push real days
+    // out of the card — or, with empty days hidden, fill a seven-day view from days eight to
+    // fourteen. Where the view draws every loaded day this is the fetch-side trim again, at
+    // the same boundary, so it removes nothing that reached this far.
+    if (startDate >= windowEnd) return false;
 
     // Only the third term below decides anything for events this card can actually
     // receive. An event starting inside the window, or after it, necessarily also ends

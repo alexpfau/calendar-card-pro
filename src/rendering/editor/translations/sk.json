@@ -251,6 +251,7 @@
   "panel.content": "Obdobie a obsah",
   "panel.content.helper": "Ktoré dni karta pokrýva a čo do nich vkladá.",
   "days_to_show": "Zobrazované dni",
+  "days_to_show.helper": "Koľko dní karta pokrýva od dátumu začiatku. Každé rozloženie môže mať vlastný počet, napríklad 14 v zozname a 7 v časovej mriežke. Karta načíta najdlhší z nich, takže prepnutie rozloženia nenačíta nič nové.",
   "start_date_mode": "Počiatočný dátum",
   "start_date_mode.option.default.label": "Dnes",
   "start_date_mode.option.fixed.label": "Pevný dátum",

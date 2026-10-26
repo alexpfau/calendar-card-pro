@@ -1517,10 +1517,10 @@ describe('editor: the chassis', () => {
   it('reports an ordinary edit to Home Assistant', async () => {
     const { dispatched, change } = await mount({ entities: ['calendar.personal'] });
 
-    await change({ days_to_show: 9 });
+    await change({ first_day_of_week: 'sunday' });
 
     expect(dispatched).toHaveLength(1);
-    expect(dispatched[0].days_to_show).toBe(9);
+    expect(dispatched[0].first_day_of_week).toBe('sunday');
   });
 
   /**
@@ -1644,7 +1644,7 @@ describe('editor: the chassis', () => {
       view: 'column',
     });
 
-    await change({ days_to_show: 4 });
+    await change({ first_day_of_week: 'sunday' });
 
     expect(dispatched[0]).not.toHaveProperty('column');
   });

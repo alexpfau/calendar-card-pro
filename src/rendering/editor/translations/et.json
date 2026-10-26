@@ -251,6 +251,7 @@
   "panel.content": "Ajavahemik ja sisu",
   "panel.content.helper": "Milliseid päevi kaart hõlmab ja mida see neisse paneb.",
   "days_to_show": "Kuvatavate päevade arv",
+  "days_to_show.helper": "Mitu päeva kaart alates alguskuupäevast hõlmab. Igal paigutusel võib olla oma arv, näiteks 14 loetelus ja 7 ajarastris. Kaart laadib neist pikima, nii et paigutuse vahetamine ei laadi midagi juurde.",
   "start_date_mode": "Alguskuupäev",
   "start_date_mode.option.default.label": "Täna",
   "start_date_mode.option.fixed.label": "Kindel kuupäev",

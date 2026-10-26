@@ -251,6 +251,7 @@
   "panel.content": "Laika periods un saturs",
   "panel.content.helper": "Kuras dienas karte aptver un ko tā tajās ievieto.",
   "days_to_show": "Rādāmo dienu skaits",
+  "days_to_show.helper": "Cik dienas karte aptver no sākuma datuma. Katram izkārtojumam var būt savs skaits, piemēram, 14 sarakstā un 7 laika režģī. Karte ielādē garāko no tiem, tāpēc, pārslēdzot izkārtojumu, nekas jauns netiek ielādēts.",
   "start_date_mode": "Sākuma datums",
   "start_date_mode.option.default.label": "Šodien",
   "start_date_mode.option.fixed.label": "Konkrēts datums",
