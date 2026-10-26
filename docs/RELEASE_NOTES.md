@@ -74,7 +74,7 @@ See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appe
 
 ### 📍 Today & Now at a Glance
 
-- **The date tile** - Today's day number sits on a soft tile in your theme's color, shaped like an app icon, so on a two-day card today's events are the ones under the tile. It is the new default, `today_indicator: tile`, and `today_indicator_color` tints it (#615)
+- **The date tile** - Today's day number sits on a soft tile in your theme's color, a little wider than tall with the rounded corners of an app icon and the digits centered more evenly, so on a two-day card today's events are the ones under the tile. It is the new default, `today_indicator: tile`, and `today_indicator_color` tints it (#615)
 - **The Now indicator** - An event under way gets a filled clock and "Now ·" in front of its time, in green, in list and column view, and the mark comes and goes on time without waiting for Home Assistant. `now_color` changes the green, here and on grid view's now line, and `show_now_indicator: false` turns it off. "Now" comes from your browser, in the card's language
 - **Today, even when it is empty** - `show_empty_today` keeps today's row, reading "No events", while the other empty days stay hidden, so a glance tells you today is free (#670, Thanks @vincentullmann, #669)
 
@@ -82,7 +82,7 @@ See [Today Indicator](https://calendar-card-pro.alexpfau.com/features/layout-app
 
 ### 🎨 Your Theme's Accent, Drawn Like macOS Calendar
 
-- **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for
+- **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for. So do the washes on an event and on a toolbar control under the pointer or pressed, as the card's own hover always has; an event with a background tint keeps its faint wash of its text color
 - **A rounded accent bar beside every event** - The colored bar beside an event has rounded ends in every view. Untinted, a day's touching events share one line that changes color where one calendar's event meets another's, so a busy day in one calendar still reads as one block. With `event_background_opacity` above 0, each event's bar sits inside its own tinted box, clear of the rounded corners. `vertical_line_width` sets how wide it is
 
 See [Visual Styling & Colors](https://calendar-card-pro.alexpfau.com/features/layout-appearance#visual-styling-colors).
@@ -156,6 +156,7 @@ These fixes address behavior present in v4.2, including the shared processing an
 - **A second finger could steal a press and strand its hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action started with the first — and an indicator already drawn could stay on the dashboard until the page was reloaded
 - **Sliding off the card canceled a hold you were still making** - The press continued, but the gesture ended the moment the pointer crossed the card's edge
 - **Right and middle mouse buttons could run the card's actions** - Only the primary button should. A right or middle click ran the tap action, and holding one down ran the hold action
+- **A card-wide `home-assistant` accent hid the keyboard focus ring** - With `accent_color: home-assistant` set for the whole card, the ring a keyboard draws around the card had no color and did not show. Where the card needs a color of its own, it now takes your theme's primary color, as a calendar without one does
 
 ### Cards That Leave The Screen
 

@@ -253,7 +253,9 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
 - **Controls are native, and share one look.** Every control is a `<button>` styled from
   theme variables rather than an `ha-*` element, so the card names no new Home Assistant
   element: a neutral pill on a gray track, the text color washed into the card, with the
-  selected view raised out of it and the theme's primary color kept for the focus ring.
+  selected view raised out of it. A control under the pointer or pressed takes the card's
+  hover color, its accent, laid over the gray, as an untinted event does, and the theme's
+  primary color is kept for the focus ring.
   Labels are all or nothing across the bar: from `UI.TOOLBAR_LABEL_MIN_WIDTH` with the add
   button alone, from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) with the switcher, and
   never while Home Assistant offers no words for the add button. The thresholds assume a

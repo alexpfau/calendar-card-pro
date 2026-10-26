@@ -156,8 +156,9 @@ toolbar:
 
 The controls sit at the end of the title's row, so the card grows no taller; a card without a
 title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
-toolbar never competes with the events for attention, and the theme's primary color only
-rings the control a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps the view switcher and the add button icons at any width. The date navigation is unaffected: its home button is always an icon, and the dates on screen are always words.
+toolbar never competes with the events for attention. Color shows only on the control in use:
+the card's accent, as on the card's own hover, while the pointer is over it or it is pressed,
+and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps the view switcher and the add button icons at any width. The date navigation is unaffected: its home button is always an icon, and the dates on screen are always words.
 
 Either control can be turned off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
@@ -548,10 +549,13 @@ Anything the card does not recognize as one of the first six is drawn as its own
 
 ### The Date Tile
 
-The tile is shaped after an iOS app icon, a square with continuous rounded corners, and
-replaces nothing: the weekday and month stay where they are, and the tile sits behind the day
-number itself. It sizes itself from `day_font_size`, so `today_indicator_size` and
-`today_indicator_position` do not apply to it.
+The tile is a rounded rectangle a little wider than it is tall, with the continuous corners of
+an iOS app icon, and replaces nothing: the weekday and month stay where they are, and the tile
+sits behind the day number itself. It sizes itself from `day_font_size`, so
+`today_indicator_size` and `today_indicator_position` do not apply to it. The digits are
+drawn as proportional figures, so a 1 no longer sits in a slot as wide as a 0, which halves
+how far a 21 or a 31 leans left. Where the browser supports CSS `text-box`, the digits are
+also centered on their own height rather than on the font's line.
 
 The tile is a light wash of `today_indicator_color`, which follows your theme's primary color
 unless you set one, over the card's background, with the day number in a deeper shade of the
