@@ -142,8 +142,8 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 The card can carry a toolbar of its own controls in its header: arrows to
 [page through the dates](#paging-through-dates), a view switcher between the List, Columns and
 Grid layouts, a button that [loads the events again](#refreshing-the-events), a button for
-adding events, and a [legend of the card's calendars](#showing-hiding-calendars) that hides or
-shows each one. One option turns the toolbar on, and the view switcher and the add button with
+adding events, a [legend of the card's calendars](#showing-hiding-calendars) that hides or
+shows each one, and a button that [resets the card](#resetting-the-card) to how it is set up. One option turns the toolbar on, and the view switcher and the add button with
 it; the others are turned on one by one:
 
 ```yaml
@@ -160,7 +160,7 @@ The controls sit at the end of the title's row, so the card grows no taller; a c
 title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
 toolbar never competes with the events for attention. Color shows only on the control in use:
 the card's accent, as on the card's own hover, while the pointer is over it or it is pressed,
-and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Every button beyond the first among add, refresh and a folded legend needs 112px more. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width. The date navigation and the legend's chips are unaffected: the home button is always an icon, and the dates on screen and the chips are always words.
+and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Every button beyond the first among add, reset, refresh and a folded legend needs 112px more. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width. The date navigation and the legend's chips are unaffected: the home button is always an icon, and the dates on screen and the chips are always words.
 
 Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
@@ -213,8 +213,8 @@ A few things work differently away from the days the card opens with:
   arrows. It hides the card on its own days, as it always has.
 - **The add button suggests the first day on screen,** unless the page includes today.
 
-Where you are is never saved. A reload, a change to the card's configuration and a dashboard
-entering edit mode all bring the card back to its own days, and a page stays on its dates at
+Where you are is never saved. A reload, a change to the card's configuration, a dashboard
+entering edit mode and the [reset button](#resetting-the-card) all bring the card back to its own days, and a page stays on its dates at
 midnight while those move on. Switching layouts keeps the page's first day, shows the new
 layout's own number of days from it, and loads nothing. Each page's
 events are fetched the first time it is shown and kept in memory while the dashboard is open,
@@ -231,7 +231,8 @@ does nothing, and the card shows the days it opens with.
 The view switcher changes the layout on the dashboard without editing the card. The
 configured `view` stays the layout the card opens with, and each device remembers its own
 switch in the browser, so a wall tablet can show Grid while a phone keeps List. The choice is
-never written to the configuration, and editing the card resets every device to its `view`.
+never written to the configuration, and editing the card resets every device to its `view`;
+the [reset button](#resetting-the-card) does the same for one device.
 The choice belongs to the configuration it was made for, though, so a card changed back to
 exactly what it was finds it again.
 
@@ -284,7 +285,7 @@ toolbar:
   refresh: true
 ```
 
-It sits between the view switcher and the add button, named by Home Assistant's own "Refresh".
+It sits just before the add button, named by Home Assistant's own "Refresh".
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
 While the card loads, for whatever reason, the button's icon turns, and the small spinner the
@@ -337,7 +338,8 @@ Each device remembers which calendars it hides, the way the
 [view switcher](#switching-between-layouts) remembers its layout: in the browser, for this
 configuration of the card. A change to the card's configuration shows every calendar again on
 every device, and a configuration changed back to exactly what it was finds its hidden calendars
-again; opening the editor and closing it without a change forgets nothing. Two cards with the
+again; opening the editor and closing it without a change forgets nothing. The
+[reset button](#resetting-the-card) shows them all again on one device. Two cards with the
 same configuration share their hidden calendars, and a press on either changes both at once.
 Paging and switching layouts keep them.
 
@@ -350,6 +352,56 @@ once the card is wide enough for them again, as when a tablet is turned.
 ::: tip Nothing Hides While You Edit
 In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
 chips and the menu button do nothing.
+:::
+
+### Resetting the Card
+
+`reset: true` adds a button that undoes, in one press, every choice made on this device. It is
+for a card several people share, such as a wall tablet, where a week someone paged to or a
+calendar someone hid would otherwise stay for whoever walks up next:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  navigation: true
+  legend: true
+  reset: true
+```
+
+One press brings back all of these at once:
+
+- **The days the card opens with,** from any page the arrows or the date picker reached, as the
+  home button does.
+- **The configured `view`,** from a layout the [view switcher](#switching-between-layouts)
+  picked. Where the card is too narrow for it, List stands in for it, as it always does.
+- **Every calendar,** from any the [legend](#showing-hiding-calendars) hid.
+- **A compact card collapsed,** after a tap or hold with the
+  [`expand` action](/features/actions#expandable-calendar-card) opened it.
+
+The button sits between the view switcher and refresh, named by Home Assistant's own "Reset".
+While the card already shows how it is set up, the button is dimmed and a press does nothing,
+so a glance at it says whether someone left the card on a choice of their own. It is drawn only
+on a card with something it could undo: the date navigation, the view switcher, the legend, or an
+`expand` action.
+
+What the device remembered, its layout and its hidden calendars, is forgotten on that device
+only. Another card with the same configuration shows every calendar again at once, as it does
+after a press on the legend; its layout stays until that card is reset, reloaded or edited.
+Nothing is loaded again for the layout or the calendars, and the card's own days are drawn from
+what it already holds unless they are due for a refresh anyway.
+
+The card never goes back by itself. A layout and hidden calendars stay until someone presses
+the button or the card is edited, and a page until then or a reload.
+
+::: tip Nothing Resets While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the card shows how it is set up,
+so the button is dimmed and does nothing. What each device remembers is kept for when editing
+ends.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).

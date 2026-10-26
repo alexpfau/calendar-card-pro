@@ -36,7 +36,7 @@ When using expansion with both global and per-calendar limits:
 
 - In compact mode: Both global and per-calendar limits are enforced
 - In expanded mode: **every** compact limit is removed — the card-wide caps **and** each calendar's own `compact_events_to_show`. What remains is the ordinary `days_to_show` window
-- The expand/collapse state persists until manually toggled or the page is reloaded
+- The expand/collapse state persists until manually toggled, the page is reloaded, or the toolbar's [reset button](/features/layout-appearance#resetting-the-card) is pressed
 
 **Example scenario**: If you have a configuration like this:
 
