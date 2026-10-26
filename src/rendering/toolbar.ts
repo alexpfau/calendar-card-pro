@@ -64,6 +64,12 @@ export interface RefreshButton {
   label: string | undefined;
   /** Where the refresh stands; in any phase but `idle`, a press does nothing. */
   phase: RefreshPhase;
+  /**
+   * True while it turns for a load the card started itself, such as a page not loaded yet or a
+   * scheduled refresh, rather than one someone asked for. The icon then turns only once the load
+   * has lasted a moment, so one that ends at once never flickers it.
+   */
+  unasked?: boolean;
   onActivate: () => void;
 }
 
@@ -423,7 +429,12 @@ export const REFRESH_PHASE_ICON: Readonly<Record<RefreshPhase, string>> = {
  * @returns The button
  */
 function renderRefreshButton(button: RefreshButton): TemplateResult {
-  const className = ['toolbar-button', 'refresh-button', REFRESH_PHASE_CLASS[button.phase]]
+  const className = [
+    'toolbar-button',
+    'refresh-button',
+    REFRESH_PHASE_CLASS[button.phase],
+    button.unasked ? 'unasked' : '',
+  ]
     .filter((cls) => cls !== '')
     .join(' ');
   const onClick = (ev: Event) => {

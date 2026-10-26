@@ -471,7 +471,13 @@ describe('theming.md card-mod selectors', () => {
               confirmation: view === 'grid' ? 'showing' : undefined,
               onActivate: noop,
             },
-            refresh: { label: 'Refresh', phase: refreshPhase, onActivate: noop },
+            refresh: {
+              label: 'Refresh',
+              phase: refreshPhase,
+              // The turning case is a load the card started itself.
+              unasked: refreshPhase === 'turning',
+              onActivate: noop,
+            },
             addEvent: { label: 'Add event', onActivate: noop },
             legend: {
               calendars: [

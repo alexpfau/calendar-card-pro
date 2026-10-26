@@ -313,12 +313,29 @@ describe('the refresh button', () => {
 
     expect(card.isLoading).toBe(true);
     expect(refreshButton(card)!.classList).toContain('busy');
+    // Asked for, so it turns at once, however quickly the load would end.
+    expect(refreshButton(card)!.classList).not.toContain('unasked');
     expect(root(card).querySelector('.loading-indicator')).toBeNull();
     expect(root(card).querySelector('ha-card')!.getAttribute('aria-busy')).toBe('true');
 
     refreshButton(card)!.click();
     await settle(card);
     expect(callApi.mock.calls.length).toBe(during);
+  });
+
+  it('turns for a load the card started itself only once it has lasted a moment', async () => {
+    const card = await mount();
+    holdAnswers();
+
+    // Nobody pressed anything: the card loads by itself, as for a page it has not loaded yet.
+    void (card as unknown as { refreshEvents(): Promise<void> }).refreshEvents();
+    await settle(card);
+
+    expect(card.isLoading).toBe(true);
+    expect(Array.from(refreshButton(card)!.classList)).toEqual(
+      expect.arrayContaining(['busy', 'unasked']),
+    );
+    expect(root(card).querySelector('.loading-indicator')).toBeNull();
   });
 
   it('leaves the corner spinner to a card without it', async () => {

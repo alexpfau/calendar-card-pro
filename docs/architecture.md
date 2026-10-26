@@ -464,7 +464,10 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   it answered, the outcome waits for `isLoading` to drop and reads that load's, since the
   requested one committed nothing. The button draws the phase, or the corner indicator
   where there is no button. A load the card starts itself never enters it: the button follows
-  `isLoading` alone and shows nothing after. A ticket bumped on disconnect retires a sequence in
+  `isLoading` alone and shows nothing after, and it is `.unasked`, so its icon starts turning only
+  after the 150ms the dimmed days wait (`.page-pending`). A page not loaded yet usually arrives
+  well inside that, and turned the icon for a few milliseconds, which read as a reload nobody
+  asked for. A ticket bumped on disconnect retires a sequence in
   flight, so a card put back is never stuck on a check.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's

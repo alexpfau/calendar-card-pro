@@ -4630,6 +4630,7 @@ class CalendarCardPro extends LitElement {
       label: this._haString('ui.common.refresh'),
       phase:
         this._refreshPhase !== 'idle' ? this._refreshPhase : this.isLoading ? 'turning' : 'idle',
+      unasked: this._refreshPhase === 'idle' && this.isLoading,
       onActivate: () => {
         if (this._isBeingEdited) {
           Logger.debug('Not refreshing from the toolbar while the card is being edited');

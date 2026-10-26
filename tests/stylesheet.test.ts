@@ -2856,6 +2856,16 @@ describe("the card's ripple over the toolbar", () => {
 });
 
 describe('the legend and refresh', () => {
+  it('turns the icon for a load the card started itself only once the days would dim', () => {
+    // The same wait as the dimmed days', so a load that ends at once shows neither, and one that
+    // lasts shows both together.
+    const pending = flat(declared('.content-container.page-pending', 'transition')).split(' ');
+    expect(declared('.refresh-button.busy.unasked .toolbar-button-icon', 'animation-delay')).toBe(
+      pending[pending.length - 1],
+    );
+    expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation-delay')).toBe('');
+  });
+
   it('turns the refresh icon while the card loads, one turn in the shortest a press shows', () => {
     // A press turns it for at least REFRESH_MIN_TURN, which is meant to be one whole turn.
     expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation')).toBe(

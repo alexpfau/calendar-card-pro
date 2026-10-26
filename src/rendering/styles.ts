@@ -865,6 +865,14 @@ export const cardStyles = css`
     animation: ccp-spin 1s linear infinite;
   }
 
+  /* A load the card started itself, such as a page not loaded yet, turns the icon only once it
+     has lasted as long as the dimmed days wait (.page-pending): one that ends at once, as most
+     do, never flickers it, and where the days dim the icon turns with them. A refresh someone
+     asked for turns at once. */
+  .refresh-button.busy.unasked .toolbar-button-icon {
+    animation-delay: 150ms;
+  }
+
   /* A refresh someone asked for then shows how it ended, for a moment: a check where it went
      well, an alert where a calendar could not be loaded. The button takes the color as a wash
      as strong as a press, and the icon takes it in full. Specific enough to hold over the
