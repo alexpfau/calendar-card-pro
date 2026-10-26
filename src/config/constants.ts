@@ -87,6 +87,20 @@ export const TIMING = {
   REFRESH_MIN_DELAY: 1000,
 
   /**
+   * Shortest time the refresh button, or the corner spinner where there is no button, turns
+   * after someone asks for a refresh: one turn of the button's icon, which the stylesheet
+   * declares as `ccp-spin 1s`. On a fast network the load itself ends within a frame or two,
+   * which would leave the press with nothing to show for it.
+   */
+  REFRESH_MIN_TURN: 1000,
+
+  /**
+   * How long a refresh someone asked for shows how it ended, a check or an alert, before the
+   * button or the corner is itself again. Presses do nothing until then.
+   */
+  REFRESH_CONFIRMATION: 1500,
+
+  /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.
    *
    * Home Assistant's sections grid lays a card out at its unconstrained width for at

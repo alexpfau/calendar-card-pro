@@ -133,8 +133,11 @@ hold_action:
 ```
 
 It asks Home Assistant for every calendar on the card, even when the events it holds are recent,
-and a second tap or hold while that load is under way does nothing. Unlike the toolbar's
-controls it is not paused while you edit the card, any more than the card's other actions are.
+and shows that it did as the button does: the small spinner in the card's corner turns for at
+least one full turn, then gives way to a green check for a moment, or a red alert where a calendar
+could not be loaded. On a card that has the refresh button, the button shows it instead. A second
+tap or hold does nothing until that is over. Unlike the toolbar's controls it is not paused while
+you edit the card, any more than the card's other actions are.
 
 ## 🗒️ Tapping an Event
 

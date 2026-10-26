@@ -725,6 +725,18 @@ class CalendarCardPro extends LitElement {
    */
   private _hiddenCalendars: ReadonlySet<string> = NO_HIDDEN_CALENDARS;
 
+  /**
+   * Where a refresh someone asked for stands (`_requestRefresh`): `idle` when none is under
+   * way, and then the button and the corner spinner follow `isLoading` alone.
+   */
+  private _refreshPhase: Toolbar.RefreshPhase = 'idle';
+
+  /** Bumped by every refresh someone asks for and on disconnect, so a stale step never lands. */
+  private _refreshTicket = 0;
+
+  /** The timer that moves `_refreshPhase` on to its next step. */
+  private _refreshPhaseTimer: ReturnType<typeof setTimeout> | undefined;
+
   /** `events` without the hidden calendars', and what it was filtered from. */
   private _shownEventsCache: {
     events: Types.CalendarEventData[];
@@ -1333,6 +1345,7 @@ class CalendarCardPro extends LitElement {
     // `eventsMatchCurrentQuery` treats the mismatch as current.
     this._eventRequestGeneration++;
     this.isLoading = false;
+    this._settleRefreshPhase();
 
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
@@ -3972,6 +3985,7 @@ class CalendarCardPro extends LitElement {
       toolbar,
       this._hostsControls(toolbar, drawsEventTarget),
       this._pageRequested !== this._pageShown && !this.isInitialLoad,
+      this._refreshPhase,
     );
   }
 
@@ -4397,7 +4411,8 @@ class CalendarCardPro extends LitElement {
 
     return {
       label: this._haString('ui.common.refresh'),
-      busy: this.isLoading,
+      phase:
+        this._refreshPhase !== 'idle' ? this._refreshPhase : this.isLoading ? 'turning' : 'idle',
       onActivate: () => {
         if (this._isBeingEdited) {
           Logger.debug('Not refreshing from the toolbar while the card is being edited');
@@ -4412,18 +4427,68 @@ class CalendarCardPro extends LitElement {
    * Loads the events again because someone asked to: the refresh button, or a `refresh` tap
    * or hold action.
    *
-   * Does nothing while a load is under way, which the button shows by turning, so a second
+   * Shows that it did, wherever it is shown: on the refresh button, or in the card's corner
+   * where there is none. It turns for at least one turn (`REFRESH_MIN_TURN`) and for as long
+   * as the load takes, then shows a check, or an alert where a calendar could not be loaded,
+   * for `REFRESH_CONFIRMATION`. On a fast network the load ends within a frame or two, and
+   * without the minimum a press would show nothing at all. A load the card starts by itself
+   * shows only while it lasts, with nothing after.
+   *
+   * Does nothing until all of that is over, nor while any load is under way, so a second
    * press never starts a second request beside the first, nor before the card's first load
-   * has drawn anything. The guard is here rather than in
-   * `refreshEvents`, which a calendar write must still be able to force.
+   * has drawn anything. The guard is here rather than in `refreshEvents`, which a calendar
+   * write must still be able to force.
    */
   private _requestRefresh(): void {
+    if (this._refreshPhase !== 'idle') {
+      Logger.debug('Not refreshing: the last refresh is still showing');
+      return;
+    }
     if (this.isLoading || this.isInitialLoad) {
       Logger.debug('Not refreshing: a load is already under way');
       return;
     }
     Logger.debug('Refreshing on request');
-    void this.refreshEvents();
+    const ticket = ++this._refreshTicket;
+    const startedAt = Date.now();
+    this._setRefreshPhase('turning');
+    void this.refreshEvents()
+      .then(
+        () => this._hasFetchError,
+        () => true,
+      )
+      .then((failed) => {
+        if (ticket !== this._refreshTicket) return;
+        const turnLeft = Math.max(0, Constants.TIMING.REFRESH_MIN_TURN - (Date.now() - startedAt));
+        this._refreshPhaseTimer = setTimeout(() => {
+          this._setRefreshPhase(failed ? 'failed' : 'done');
+          this._refreshPhaseTimer = setTimeout(
+            () => this._settleRefreshPhase(),
+            Constants.TIMING.REFRESH_CONFIRMATION,
+          );
+        }, turnLeft);
+      });
+  }
+
+  /**
+   * Move a refresh someone asked for on to its next step, and draw it.
+   *
+   * @param phase - The step
+   */
+  private _setRefreshPhase(phase: Toolbar.RefreshPhase): void {
+    this._refreshPhase = phase;
+    this.requestUpdate();
+  }
+
+  /**
+   * End a refresh someone asked for wherever it stands, with nothing left to move it on.
+   * Also on disconnect, so a card put back is never stuck showing one.
+   */
+  private _settleRefreshPhase(): void {
+    this._refreshTicket++;
+    clearTimeout(this._refreshPhaseTimer);
+    this._refreshPhaseTimer = undefined;
+    if (this._refreshPhase !== 'idle') this._setRefreshPhase('idle');
   }
 
   //-----------------------------------------------------------------------------

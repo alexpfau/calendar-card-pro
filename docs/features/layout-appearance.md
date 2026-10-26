@@ -283,8 +283,12 @@ It sits between the view switcher and the add button, named by Home Assistant's 
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
 While the card loads, for whatever reason, the button's icon turns, and the small spinner the
-card otherwise shows in its corner is left out, since it would sit right beside it. A press while
-a load is under way does nothing.
+card otherwise shows in its corner is left out, since it would sit right beside it. After a press
+it turns for at least one full turn, however quickly the events arrive, so a fast network still
+shows that something happened. Then, for a moment, the button turns green and shows a check, or
+red with an alert where a calendar could not be loaded, and the card names that calendar at its
+foot as it always does. A press does nothing until the button is itself again, nor while the card
+is loading by itself.
 
 The same refresh is available as a [tap or hold action](/features/actions#refreshing-from-a-tap-or-hold),
 for a card that should not carry a button.

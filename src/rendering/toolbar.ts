@@ -16,7 +16,9 @@
  */
 
 import {
+  mdiAlertCircleOutline,
   mdiCalendarToday,
+  mdiCheck,
   mdiChevronLeft,
   mdiChevronRight,
   mdiMenuDown,
@@ -40,12 +42,19 @@ export interface AddEventButton {
   onActivate: () => void;
 }
 
+/**
+ * Where a refresh stands. `turning` while the card loads, and after a refresh someone asked
+ * for for at least one turn, however quickly the load ends; then `done`, or `failed` when a
+ * calendar could not be loaded, for a moment; `idle` otherwise.
+ */
+export type RefreshPhase = 'idle' | 'turning' | 'done' | 'failed';
+
 /** What the card hands the wrapper when it should draw the refresh button. */
 export interface RefreshButton {
   /** Home Assistant's own word for it, or undefined when it offers none. */
   label: string | undefined;
-  /** True while the card is loading: the icon turns, and a press does nothing. */
-  busy: boolean;
+  /** Where the refresh stands; in any phase but `idle`, a press does nothing. */
+  phase: RefreshPhase;
   onActivate: () => void;
 }
 
@@ -290,14 +299,31 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
   </button>`;
 }
 
+/** The class each refresh phase gives the button, and the corner where there is no button. */
+export const REFRESH_PHASE_CLASS: Readonly<Record<RefreshPhase, string>> = {
+  idle: '',
+  turning: 'busy',
+  done: 'refresh-done',
+  failed: 'refresh-failed',
+};
+
+/** The icon each refresh phase draws: the refresh arrow until it shows how the refresh ended. */
+export const REFRESH_PHASE_ICON: Readonly<Record<RefreshPhase, string>> = {
+  idle: mdiRefresh,
+  turning: mdiRefresh,
+  done: mdiCheck,
+  failed: mdiAlertCircleOutline,
+};
+
 /**
  * Render the refresh button.
  *
  * Its icon turns while the card loads, whatever started the load, and the card's corner
- * spinner is left out meanwhile: it would sit right beside it saying the same thing. A press
- * while the card loads does nothing (the card decides that), so the button keeps its look
- * rather than flickering to disabled and back with every scheduled refresh. Named as the add
- * button is.
+ * spinner is left out meanwhile: it would sit right beside it saying the same thing. A
+ * refresh someone asked for turns it for at least one turn, then shows a check, or an alert
+ * where a calendar could not be loaded, before the button is itself again. A press in any
+ * of that does nothing (the card decides that), so the button keeps its look rather than
+ * flickering to disabled and back with every scheduled refresh. Named as the add button is.
  *
  * @param button - Button description from the card
  * @param roomForLabel - Whether the card is wide enough to draw the label
@@ -309,7 +335,7 @@ function renderRefreshButton(button: RefreshButton, roomForLabel: boolean): Temp
     'toolbar-button',
     'refresh-button',
     labeled ? '' : 'icon-only',
-    button.busy ? 'busy' : '',
+    REFRESH_PHASE_CLASS[button.phase],
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -327,7 +353,7 @@ function renderRefreshButton(button: RefreshButton, roomForLabel: boolean): Temp
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d=${mdiRefresh}></path>
+      <path d=${REFRESH_PHASE_ICON[button.phase]}></path>
     </svg>
     ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;

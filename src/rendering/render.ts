@@ -53,6 +53,26 @@ export function drawsEvent(
 //-----------------------------------------------------------------------------
 
 /**
+ * Render the corner's answer to a refresh someone asked for, on a card with no refresh
+ * button: the button's check, or its alert where a calendar could not be loaded, in place of
+ * the spinner that turned before it.
+ *
+ * @param outcome How the refresh ended
+ * @returns The corner indicator
+ */
+function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
+  return html`<div
+    class=${`loading-indicator ${Toolbar.REFRESH_PHASE_CLASS[outcome]}`}
+    role="status"
+    aria-live="polite"
+  >
+    <svg class="loading-indicator-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${Toolbar.REFRESH_PHASE_ICON[outcome]}></path>
+    </svg>
+  </div>`;
+}
+
+/**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
  * @param customStyles Custom style properties from configuration
@@ -68,6 +88,8 @@ export function drawsEvent(
  * @param toolbar The controls for the header toolbar; none draws no toolbar
  * @param hostsControls Whether the card draws interactive children of its own
  * @param contentPending Whether the days drawn are about to be replaced by another page's
+ * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
+ * refresh button does
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -94,6 +116,7 @@ export function renderMainCardStructure(
   toolbar: Toolbar.HeaderToolbar = {},
   hostsControls: boolean = false,
   contentPending: boolean = false,
+  refreshPhase: Toolbar.RefreshPhase = 'idle',
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -160,14 +183,20 @@ export function renderMainCardStructure(
     >
       ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${
-        // The refresh button turns while the card loads, so the corner says nothing beside it.
-        isLoading && !toolbar.refresh
-          ? html`
-              <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
-                <div class="spinner" aria-hidden="true"></div>
-              </div>
-            `
-          : nothing
+        // The refresh button turns while the card loads and shows how a refresh someone asked
+        // for ended, so the corner says nothing beside it. Without the button the corner does
+        // both (`refreshPhase`).
+        toolbar.refresh
+          ? nothing
+          : refreshPhase === 'done' || refreshPhase === 'failed'
+            ? renderRefreshOutcome(refreshPhase)
+            : isLoading || refreshPhase === 'turning'
+              ? html`
+                  <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                    <div class="spinner" aria-hidden="true"></div>
+                  </div>
+                `
+              : nothing
       }
 
       <!-- Title is always rendered with the same structure, even if empty.

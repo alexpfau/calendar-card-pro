@@ -686,7 +686,7 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
               onSelect: () => undefined,
             },
             refresh: config.toolbar.refresh
-              ? { label: 'Refresh', busy: false, onActivate: () => undefined }
+              ? { label: 'Refresh', phase: 'idle', onActivate: () => undefined }
               : undefined,
             legend: config.toolbar.legend
               ? {

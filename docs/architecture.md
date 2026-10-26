@@ -370,6 +370,13 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
   able to force. The button is inert while editing like every toolbar control; the action runs
   wherever the card's tap and hold actions do.
+- **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
+  `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
+  then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,
+  and ignores every request until then. The button draws the phase, or the corner indicator
+  where there is no button. A load the card starts itself never enters it: the button follows
+  `isLoading` alone and shows nothing after. A ticket bumped on disconnect retires a sequence in
+  flight, so a card put back is never stuck on a check.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's
   own date.

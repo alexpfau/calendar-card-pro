@@ -4,10 +4,13 @@
  * Both load the events again through one guarded entry point, so the cases here pin what that
  * point promises from every way in: a fresh request even when the cached events are not due,
  * nothing while a load is under way, and the toolbar button inert while the card is edited.
+ * Then what it shows, on the button or in the corner: at least one turn however fast the load,
+ * a check or an alert for a moment, and every press ignored until it is over.
  * `interaction-actions.test.ts` pins that `handleAction` hands `refresh` to the card and never
  * to Home Assistant; this file pins what the card then does with it.
  */
 
+import { mdiAlertCircleOutline, mdiCheck, mdiRefresh } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -151,6 +154,30 @@ function refreshButton(card: CardUnderTest): HTMLButtonElement | null {
   return root(card).querySelector<HTMLButtonElement>('.refresh-button');
 }
 
+/** The icon a refresh control draws, by its path. */
+function iconOf(element: Element | null): string | null | undefined {
+  return element?.querySelector('path')?.getAttribute('d');
+}
+
+/** The card's corner indicator, where the card draws one. */
+function corner(card: CardUnderTest): HTMLElement | null {
+  return root(card).querySelector<HTMLElement>('.loading-indicator');
+}
+
+/** Let time pass, and every render it causes land. */
+async function advance(card: CardUnderTest, ms: number): Promise<void> {
+  vi.advanceTimersByTime(ms);
+  await settle(card);
+}
+
+/** Answer for one calendar and fail for the other. */
+function failOneCalendar(): void {
+  callApi.mockImplementation(async (_method: string, path: string) => {
+    if (path.includes('calendar.ben')) throw new Error('Ben is unreachable');
+    return [];
+  });
+}
+
 /** A minimal stand-in for a real PointerEvent, which happy-dom does not construct. */
 function pointer(pointerId: number): PointerEvent {
   return { pointerId, clientX: 0, clientY: 0, button: 0 } as unknown as PointerEvent;
@@ -269,11 +296,6 @@ describe('the refresh button', () => {
     refreshButton(card)!.click();
     await settle(card);
     expect(callApi.mock.calls.length).toBe(during);
-
-    held.forEach((release) => release());
-    await settle(card);
-    expect(card.isLoading).toBe(false);
-    expect(refreshButton(card)!.classList).not.toContain('busy');
   });
 
   it('leaves the corner spinner to a card without it', async () => {
@@ -371,5 +393,172 @@ describe('the refresh action', () => {
     await settle(card);
 
     expect(fired).toEqual([]);
+  });
+});
+
+describe('what a refresh someone asked for shows', () => {
+  const NO_BAR = { show: false };
+  const TURN = Constants.TIMING.REFRESH_MIN_TURN;
+  const CONFIRMATION = Constants.TIMING.REFRESH_CONFIRMATION;
+
+  it('turns for one whole turn though the load ends at once, then shows a check', async () => {
+    const card = await mount();
+
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(card.isLoading).toBe(false);
+    expect(refreshButton(card)!.classList).toContain('busy');
+    expect(iconOf(refreshButton(card))).toBe(mdiRefresh);
+
+    await advance(card, TURN - 1);
+    expect(refreshButton(card)!.classList).toContain('busy');
+
+    await advance(card, 1);
+    expect(refreshButton(card)!.classList).not.toContain('busy');
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+    expect(iconOf(refreshButton(card))).toBe(mdiCheck);
+
+    await advance(card, CONFIRMATION - 1);
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+
+    await advance(card, 1);
+    expect(refreshButton(card)!.classList).not.toContain('refresh-done');
+    expect(refreshButton(card)!.classList).not.toContain('busy');
+    expect(iconOf(refreshButton(card))).toBe(mdiRefresh);
+    // Through all of it the button stood in for the corner.
+    expect(corner(card)).toBeNull();
+  });
+
+  it('turns for as long as a slower load lasts, and shows the check as soon as it ends', async () => {
+    const card = await mount();
+    holdAnswers();
+
+    refreshButton(card)!.click();
+    await advance(card, TURN * 2);
+    expect(refreshButton(card)!.classList).toContain('busy');
+
+    held.forEach((release) => release());
+    await settle(card);
+    await advance(card, 0);
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+  });
+
+  it('ignores every press until the button is itself again', async () => {
+    const card = await mount();
+
+    refreshButton(card)!.click();
+    await settle(card);
+    const once = callApi.mock.calls.length;
+
+    // The load is over, but the turn is not.
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(callApi.mock.calls.length).toBe(once);
+
+    await advance(card, TURN);
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(callApi.mock.calls.length).toBe(once);
+
+    await advance(card, CONFIRMATION);
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(callApi.mock.calls.length).toBe(once + 2);
+  });
+
+  it('shows an alert instead where a calendar could not be loaded', async () => {
+    const card = await mount();
+    failOneCalendar();
+
+    refreshButton(card)!.click();
+    await settle(card);
+    await advance(card, TURN);
+
+    expect(refreshButton(card)!.classList).toContain('refresh-failed');
+    expect(refreshButton(card)!.classList).not.toContain('refresh-done');
+    expect(iconOf(refreshButton(card))).toBe(mdiAlertCircleOutline);
+
+    await advance(card, CONFIRMATION);
+    expect(refreshButton(card)!.classList).not.toContain('refresh-failed');
+    expect(iconOf(refreshButton(card))).toBe(mdiRefresh);
+  });
+
+  it('shows nothing after a load the card started by itself', async () => {
+    const card = await mount();
+    holdAnswers();
+
+    void (card as unknown as { refreshEvents(): Promise<void> }).refreshEvents();
+    await settle(card);
+    expect(refreshButton(card)!.classList).toContain('busy');
+
+    held.forEach((release) => release());
+    await settle(card);
+    expect(refreshButton(card)!.classList).not.toContain('busy');
+
+    for (let step = 0; step < 3; step += 1) {
+      await advance(card, TURN);
+      expect(refreshButton(card)!.className).not.toMatch(/busy|refresh-done|refresh-failed/);
+    }
+  });
+
+  it('shows the same in the corner where there is no button', async () => {
+    const card = await mount({ tap_action: { action: 'refresh' }, toolbar: NO_BAR });
+
+    card.handleAction(card.config.tap_action);
+    await settle(card);
+    expect(card.isLoading).toBe(false);
+    expect(corner(card)!.querySelector('.spinner')).not.toBeNull();
+
+    await advance(card, TURN);
+    expect(corner(card)!.querySelector('.spinner')).toBeNull();
+    expect(corner(card)!.classList).toContain('refresh-done');
+    expect(iconOf(corner(card))).toBe(mdiCheck);
+
+    await advance(card, CONFIRMATION);
+    expect(corner(card)).toBeNull();
+  });
+
+  it('shows the alert in the corner too', async () => {
+    const card = await mount({ tap_action: { action: 'refresh' }, toolbar: NO_BAR });
+    failOneCalendar();
+
+    card.handleAction(card.config.tap_action);
+    await settle(card);
+    await advance(card, TURN);
+
+    expect(corner(card)!.classList).toContain('refresh-failed');
+    expect(iconOf(corner(card))).toBe(mdiAlertCircleOutline);
+  });
+
+  it('shows a hold on the button where the card draws one', async () => {
+    const card = await mount({ hold_action: { action: 'refresh' } });
+
+    card._handlePointerDown(pointer(1));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    card._handlePointerUp(pointer(1));
+    await settle(card);
+    expect(refreshButton(card)!.classList).toContain('busy');
+
+    await advance(card, TURN);
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+    expect(corner(card)).toBeNull();
+  });
+
+  it('is over when the card leaves the page, so it comes back ready', async () => {
+    const card = await mount();
+    refreshButton(card)!.click();
+    await settle(card);
+    await advance(card, TURN);
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+
+    card.remove();
+    document.body.appendChild(card);
+    await settle(card);
+    expect(refreshButton(card)!.className).not.toMatch(/busy|refresh-done|refresh-failed/);
+
+    const before = callApi.mock.calls.length;
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(callApi.mock.calls.length).toBe(before + 2);
   });
 });

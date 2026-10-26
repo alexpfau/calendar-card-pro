@@ -688,6 +688,36 @@ export const cardStyles = css`
     animation: ccp-spin 1s linear infinite;
   }
 
+  /* A refresh someone asked for then shows how it ended, for a moment: a check where it went
+     well, an alert where a calendar could not be loaded. The button takes the color as a wash
+     as strong as a press, and the icon takes it in full. Specific enough to hold over the
+     hover and press rules, since the pointer that pressed it is usually still on it. */
+  .toolbar-button.refresh-button.refresh-done {
+    background: color-mix(
+      in srgb,
+      var(--success-color, #4caf50) 20%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  .toolbar-button.refresh-button.refresh-failed {
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 20%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  .refresh-done .toolbar-button-icon,
+  .refresh-done .loading-indicator-icon {
+    fill: var(--success-color, #4caf50);
+  }
+
+  .refresh-failed .toolbar-button-icon,
+  .refresh-failed .loading-indicator-icon {
+    fill: var(--error-color, #db4437);
+  }
+
   /* The folded legend carries a dot in the theme's primary color while it hides a calendar,
      so a card filtered behind a closed menu still says so. Ringed in the card's background,
      so it reads on the gray pill and off it. */
@@ -3193,6 +3223,13 @@ export const cardStyles = css`
     border-top-color: var(--primary-text-color);
     border-radius: 50%;
     animation: ccp-spin 0.8s linear infinite;
+  }
+
+  /* Where the spinner gives way to the check or alert a refresh someone asked for ends in,
+     on a card with no refresh button to show it. */
+  .loading-indicator-icon {
+    width: 16px;
+    height: 16px;
   }
 
   @keyframes ccp-spin {
