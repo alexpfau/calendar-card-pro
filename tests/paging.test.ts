@@ -169,27 +169,34 @@ describe("the range's reserved width", () => {
     expect(Paging.widestRangeLabel(7, 'sk')).toBe(`10. 10. 2000${TO}16. 10. 2000`);
   });
 
-  it('is at least as long as any page is named, in every card language', () => {
-    // Every page two years of paging reach either way, from four moments of a year, named as
-    // the card names them. Collected and asserted once: a quarter of a million `expect` calls
-    // would outrun the suite's timeout on CI.
-    const nows = [new Date(2026, 0, 2), NOW, new Date(2026, 9, 25), new Date(2026, 11, 30)];
-    const longer: string[] = [];
-    for (const language of CARD_LANGUAGES) {
-      for (const days of [1, 3, 7, 14]) {
-        const widest = Paging.widestRangeLabel(days, language).length;
-        for (const now of nows) {
-          for (let offset = -730; offset <= 730; offset += 3) {
-            const start = Paging.addDays(now, offset);
-            const name = Paging.rangeLabel({ start, days }, language, now);
-            if (name.length > widest) longer.push(`${language} ${days}d ${key(start)}: ${name}`);
+  it(
+    'is at least as long as any page is named, in every card language',
+    { timeout: 30_000 },
+    () => {
+      // Every page two years of paging reach either way, from four moments of a year, named as
+      // the card names them. Collected and asserted once: a quarter of a million `expect` calls
+      // would outrun the suite's timeout on CI. Even so, the naming itself is about 280,000
+      // `Intl` range formats: some 2s locally and about five times that on a CI runner, past the
+      // 5s default, where it failed two runs in a row. The timeout is raised rather than the
+      // sweep thinned, because the sweep is the point.
+      const nows = [new Date(2026, 0, 2), NOW, new Date(2026, 9, 25), new Date(2026, 11, 30)];
+      const longer: string[] = [];
+      for (const language of CARD_LANGUAGES) {
+        for (const days of [1, 3, 7, 14]) {
+          const widest = Paging.widestRangeLabel(days, language).length;
+          for (const now of nows) {
+            for (let offset = -730; offset <= 730; offset += 3) {
+              const start = Paging.addDays(now, offset);
+              const name = Paging.rangeLabel({ start, days }, language, now);
+              if (name.length > widest) longer.push(`${language} ${days}d ${key(start)}: ${name}`);
+            }
           }
         }
       }
-    }
-    expect(CARD_LANGUAGES).toHaveLength(36);
-    expect(longer).toEqual([]);
-  });
+      expect(CARD_LANGUAGES).toHaveLength(36);
+      expect(longer).toEqual([]);
+    },
+  );
 });
 
 describe("the home button's name", () => {
