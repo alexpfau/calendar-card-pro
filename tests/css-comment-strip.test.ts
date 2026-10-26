@@ -279,17 +279,27 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(149_000);
-    // The today tile's new shape and the card's hover color moved the ceiling last, from 145,000
-    // to 149,000: the notes on why the tile's corners are written in em rather than percent, why
-    // its figures are proportional and the last pixel was left unmeasured, why centering its one
-    // line trimmed to the cap height centers the digits and why that makes the tile a block, why
-    // the column headers leave the tile out of their flex rule and drop its margins for a middle
-    // ground between the tile and the other days' numbers, why an untinted event washes in the
-    // card's hover color at twice the ripple's strength while a tinted one keeps its text color,
-    // why the toolbar lays that color over its gray rather than in place of it, and why the
-    // card's ripple stays still over the bar. The reading went 143,588 to 147,219, taken with
-    // stripComments after the last comment in the change was written.
+    expect(saved).toBeLessThan(153_000);
+    // The calendar legend and the refresh button moved the ceiling last, from 149,000 to 153,000:
+    // the notes on why the legend's lane clips rather than scrolls and pads itself for a focus
+    // ring, why the header beside a title becomes a grid rather than a wrapping row while the lane
+    // is drawn, why a chip is tinted from its calendar's accent and turns the toolbar's gray when
+    // hidden, why the menu floats on the top layer and sets its own font, why its backdrop stays
+    // clear, why the folded button carries a dot while a calendar is hidden, why the refresh icon
+    // turns in place of the corner spinner, and why the ripple stays still over the lane in a rule
+    // of its own. The reading went 147,219 to 150,153, taken with stripComments after the last
+    // comment in the change was written.
+    //
+    // The today tile's new shape and the card's hover color moved the ceiling before that, from
+    // 145,000 to 149,000: the notes on why the tile's corners are written in em rather than
+    // percent, why its figures are proportional and the last pixel was left unmeasured, why
+    // centering its one line trimmed to the cap height centers the digits and why that makes the
+    // tile a block, why the column headers leave the tile out of their flex rule and drop its
+    // margins for a middle ground between the tile and the other days' numbers, why an untinted
+    // event washes in the card's hover color at twice the ripple's strength while a tinted one
+    // keeps its text color, why the toolbar lays that color over its gray rather than in place of
+    // it, and why the card's ripple stays still over the bar. The reading went 143,588 to 147,219,
+    // taken with stripComments after the last comment in the change was written.
     //
     // The date navigation moved the ceiling before that, from 141,500 to 145,000: the notes on why the
     // band takes a row of its own and wraps its trailing group by the card's width rather than

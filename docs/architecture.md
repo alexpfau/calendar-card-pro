@@ -180,17 +180,18 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a toolbar between the title and the events. The date
-navigation, the view switcher and the add-event button exist so far, but the layout rule is
-fixed, so the controls still to come slot in without moving the ones already there. `renderHeaderToolbar`
+The card's own controls live in a toolbar between the title and the events: the date
+navigation, the calendar legend, the view switcher, refresh and the add-event button. The
+layout rule is fixed, so a control still to come slots in without moving the ones already
+there. `renderHeaderToolbar`
 in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
 
 - **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, and a
   boolean per control. `resolveToolbar` in `config/config.ts` reads it member by member and
   is the only reader, so a malformed value reads as that member's default. `show` defaults
   off; the v5 controls default on inside a shown bar, and a control added later defaults
-  off, so a release never adds a control to a toolbar someone already set up: `navigation`
-  is the first of those. `labels` is not a control and defaults on, which is what the bar has
+  off, so a release never adds a control to a toolbar someone already set up: `navigation`,
+  `refresh` and `legend` are those. `labels` is not a control and defaults on, which is what the bar has
   always done. Every new control needs a `toolbar → key` row in the reference: `check:docs`
   reconciles the block's defaults against those rows in both directions.
 
@@ -200,10 +201,12 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   adds a Lit marker and a text node, and why no default snapshot moved.
 - **Groups by purpose, in a fixed order.** The leading group is the dates: previous, home
   and next on one track, then the range on screen, which opens a date picker. The trailing
-  group is the view switch, then the commands: refresh, when it comes, then add, which is
-  always last. Refresh sits with add rather than before the switch, because it is a command
-  on the data, not a change of layout. A calendar legend, when it comes, is a filter and gets
-  a horizontally scrolling lane of its own below the bar.
+  group is the view switch, then the commands: refresh, then add, which is always last.
+  Refresh sits with add rather than before the switch, because it is a command on the data,
+  not a change of layout. The calendar legend is a filter, and gets a lane of its own below
+  the bar: one row of chips, which clips rather than scrolls. Where the chips do not fit, the
+  legend folds into a button that leads the trailing group, ahead of the switch, and the lane
+  goes.
 - **Trailing actions alone share the title's row.** With a title, a pending templated
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
@@ -321,6 +324,41 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   `tabindex="0"` while it has a `tap_action`: with the card itself focused, Enter and Space
   still run it, since `_handleKeyDown` leaves keys aimed at a child to the child. The
   ripple and the pointer `tap_action` stay too.
+- **The legend filters what is drawn, never what is loaded.** The hidden calendars are a set
+  of entity ids, replaced rather than changed in place, and `_shownEvents` is `events` without
+  theirs, memoized on the events, that set and whether the card is being edited, which shows
+  every calendar. `groupedEvents`, `visibleEventCount` and the now-boundary timer read it, so
+  expiry, `days_of_week`, which copy of a duplicate wins, the compact limits and the empty days
+  all see only the calendars shown, and a hidden calendar's merged row falls to the next one
+  shown. The cache, the page store, the request identity and the failure notice stay on
+  `events`, so a press fetches nothing. The set is remembered beside the switcher's view, in the
+  same `utils/view-choice.ts` entry, still version 1, and read for its own control: a card with a
+  legend and no switcher remembers too. `hide_when_empty` acts only while nothing is hidden,
+  for the reason a page away from home never hides: the card would take the way back with it.
+- **The legend folds by measurement, never inside a resize.** `_syncLegendFit` reads the chips'
+  natural width against the lane's; when they overflow it the card records what they were drawn
+  with and the card width from which they fit by `UI.LEGEND_UNFOLD_MARGIN`, and draws the
+  button until then. After a render it only folds, at the width the legend was last judged at,
+  before anything is painted. A width change is judged a frame later (`_scheduleLegendFit`),
+  from a width only that pass moves (`_legendWidthPx`), so no render the resize observer causes
+  folds or unfolds it: either changes the card's height, and a height changed while the browser
+  delivers resize observations is logged as an error. For the same reason the header beside a
+  title is a two-column grid while it carries the lane rather than a wrapping row, which would
+  drop a still-labeled bar under the title for a frame. An unfold that still overflows folds
+  again from a wider width, so the two cannot alternate.
+- **The legend's menu is a modal `<dialog>` with one controller.** `showModal()` reaches the
+  top layer, past `ha-card`'s `overflow: hidden`, in every browser Home Assistant serves; the
+  popover API would need iOS 17 and Chrome 114. Because a modal makes the rest of the page
+  inert, every way it ends goes through `closeMenu` in `rendering/legend.ts`, and the card
+  closes it before anything takes its button away: in `willUpdate` before a render that unfolds
+  the legend, drops it or starts editing, in `_applyVisibility` before the card hides, and on
+  disconnect. `placeMenu` is pure: inline end on the button's by the card's direction, inside
+  the viewport, below or above by room.
+- **Refresh has one guarded entry point.** The button and the `refresh` card action both call
+  `_requestRefresh`, which does nothing while a load is under way and otherwise calls
+  `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
+  able to force. The button is inert while editing like every toolbar control; the action runs
+  wherever the card's tap and hold actions do.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's
   own date.

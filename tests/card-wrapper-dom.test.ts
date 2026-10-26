@@ -174,7 +174,12 @@ describe('the card wrapper', () => {
         .querySelector('.header-container')!
         .outerHTML.replace(/<!--\?lit\$[0-9]+\$-->/g, '<!--?lit$-->');
 
-    for (const toolbar of [undefined, {}, { addEvent: undefined }]) {
+    for (const toolbar of [
+      undefined,
+      {},
+      { addEvent: undefined },
+      { refresh: undefined, legend: undefined },
+    ]) {
       expect(header(wrapper({ toolbar }))).toBe(
         '<div class="header-container">\n        <!--?lit$--><div class="card-header-placeholder"></div>\n      </div>',
       );

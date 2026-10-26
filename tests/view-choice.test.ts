@@ -1,5 +1,6 @@
 /**
- * The view the toolbar's switcher remembers per device, as a pure module.
+ * What the toolbar remembers per device — the switcher's view and the calendars the legend
+ * hides — as a pure module.
  *
  * The card-level behavior — a switch surviving a reload, an edit resetting it — is in
  * `view-switcher.test.ts`. This file pins what that rests on: the fingerprint ignores key
@@ -15,7 +16,9 @@ import {
   VIEW_CHOICE_STORAGE_KEY,
   canonicalJson,
   configFingerprint,
+  readHiddenCalendars,
   readViewChoice,
+  writeHiddenCalendars,
   writeViewChoice,
 } from '../src/utils/view-choice';
 
@@ -154,4 +157,88 @@ describe('remembered choices', () => {
     expect(readViewChoice('a')).toBe('grid');
     expect(localStorage.getItem(VIEW_CHOICE_STORAGE_KEY)).toContain('"grid"');
   });
+});
+
+describe('the calendars the legend hides', () => {
+  it('reads back what was written, per fingerprint, and nothing for another', () => {
+    const storage = memoryStorage();
+    writeHiddenCalendars('a', ['calendar.ben'], storage);
+
+    expect(readHiddenCalendars('a', storage)).toEqual(['calendar.ben']);
+    expect(readHiddenCalendars('b', storage)).toEqual([]);
+  });
+
+  it('shares the view choice’s entry, and changing one half keeps the other', () => {
+    const storage = memoryStorage();
+    writeViewChoice('a', 'grid', storage, 1);
+    writeHiddenCalendars('a', ['calendar.ben'], storage, 2);
+
+    expect(readViewChoice('a', storage)).toBe('grid');
+    expect(readHiddenCalendars('a', storage)).toEqual(['calendar.ben']);
+    expect(JSON.parse(storage.items.get(VIEW_CHOICE_STORAGE_KEY)!).choices).toEqual({
+      a: { view: 'grid', hidden: ['calendar.ben'], at: 2 },
+    });
+
+    writeViewChoice('a', undefined, storage, 3);
+    expect(readViewChoice('a', storage)).toBeUndefined();
+    expect(readHiddenCalendars('a', storage)).toEqual(['calendar.ben']);
+
+    writeHiddenCalendars('a', [], storage, 4);
+    expect(storage.items.has(VIEW_CHOICE_STORAGE_KEY)).toBe(false);
+  });
+
+  it('keeps showing every calendar a view-only choice from before the legend', () => {
+    // Version 1 has always been a view and a time. Still version 1, still read.
+    const storage = memoryStorage();
+    storage.items.set(
+      VIEW_CHOICE_STORAGE_KEY,
+      JSON.stringify({ version: 1, choices: { a: { view: 'column', at: 1 } } }),
+    );
+
+    expect(readViewChoice('a', storage)).toBe('column');
+    expect(readHiddenCalendars('a', storage)).toEqual([]);
+  });
+
+  it('counts a choice holding only hidden calendars against the cap like any other', () => {
+    const storage = memoryStorage();
+    for (let index = 0; index <= MAX_VIEW_CHOICES; index++) {
+      writeHiddenCalendars(`card-${index}`, ['calendar.ben'], storage, 1_000 + index);
+    }
+
+    expect(readHiddenCalendars('card-0', storage)).toEqual([]);
+    expect(readHiddenCalendars(`card-${MAX_VIEW_CHOICES}`, storage)).toEqual(['calendar.ben']);
+  });
+
+  it('drops what is not a calendar id, and repeats, and keeps the rest of the choice', () => {
+    const storage = memoryStorage();
+    storage.items.set(
+      VIEW_CHOICE_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        choices: {
+          a: { view: 'grid', hidden: ['calendar.ben', 7, '', 'calendar.ben', null], at: 1 },
+          b: { view: 'month', hidden: 'calendar.ben', at: 1 },
+          c: { hidden: ['calendar.anna'], at: 1 },
+        },
+      }),
+    );
+
+    expect(readHiddenCalendars('a', storage)).toEqual(['calendar.ben']);
+    expect(readViewChoice('a', storage)).toBe('grid');
+    // Neither half valid: no choice at all.
+    expect(readHiddenCalendars('b', storage)).toEqual([]);
+    expect(readViewChoice('b', storage)).toBeUndefined();
+    expect(readHiddenCalendars('c', storage)).toEqual(['calendar.anna']);
+  });
+
+  it.each(['getItem', 'setItem', 'removeItem'] as const)(
+    'survives storage that refuses %s',
+    (call) => {
+      const storage = memoryStorage({ [call]: true });
+
+      expect(() => writeHiddenCalendars('a', ['calendar.ben'], storage)).not.toThrow();
+      expect(() => readHiddenCalendars('a', storage)).not.toThrow();
+      expect(() => writeHiddenCalendars('a', [], storage)).not.toThrow();
+    },
+  );
 });
