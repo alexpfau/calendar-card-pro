@@ -9,8 +9,9 @@
  * comes, gets a lane of its own below.
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
- * out of it. The theme's primary color is kept for the keyboard focus ring, so the bar never
- * competes with the events for attention.
+ * out of it, so the bar never competes with the events for attention. Color shows only on
+ * the control in use: the card's hover color, its accent, laid over the gray under the
+ * pointer and while pressed, and the theme's primary color as the keyboard focus ring.
  */
 
 import { mdiCalendarToday, mdiChevronLeft, mdiChevronRight, mdiMenuDown, mdiPlus } from '@mdi/js';

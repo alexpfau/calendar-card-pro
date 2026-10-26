@@ -156,6 +156,7 @@ These fixes address behavior present in v4.2, including the shared processing an
 - **A second finger could steal a press and strand its hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action started with the first — and an indicator already drawn could stay on the dashboard until the page was reloaded
 - **Sliding off the card canceled a hold you were still making** - The press continued, but the gesture ended the moment the pointer crossed the card's edge
 - **Right and middle mouse buttons could run the card's actions** - Only the primary button should. A right or middle click ran the tap action, and holding one down ran the hold action
+- **A card-wide `home-assistant` accent hid the keyboard focus ring** - With `accent_color: home-assistant` set for the whole card, the ring a keyboard draws around the card had no color and did not show. Where the card needs a color of its own, it now takes your theme's primary color, as a calendar without one does
 
 ### Cards That Leave The Screen
 

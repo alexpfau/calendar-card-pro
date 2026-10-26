@@ -2773,24 +2773,38 @@ describe('a tappable event', () => {
   });
 });
 
-describe("the card's hover color", () => {
-  const hoverColors = (accent: string) => {
+describe("the card's own accent", () => {
+  /** The ripple's hover and press colors and the focus rings' color, in that order. */
+  const accentColors = (accent: string) => {
     const props = generateCustomPropertiesObject(buildConfig({ accent_color: accent }));
-    return [props['--ha-ripple-hover-color'], props['--ha-ripple-pressed-color']];
+    return [
+      props['--ha-ripple-hover-color'],
+      props['--ha-ripple-pressed-color'],
+      props['--calendar-card-line-color-vertical'],
+    ];
   };
 
   it('is accent_color', () => {
-    expect(hoverColors('rgb(1, 2, 3)')).toEqual(['rgb(1, 2, 3)', 'rgb(1, 2, 3)']);
+    expect(accentColors('rgb(1, 2, 3)')).toEqual(['rgb(1, 2, 3)', 'rgb(1, 2, 3)', 'rgb(1, 2, 3)']);
   });
 
   it('is the shipped accent where accent_color is the home-assistant sentinel, or empty', () => {
     // The sentinel asks each calendar for its color and is no color itself. Written through,
-    // it voids every rule that mixes the property: the ripple, an untinted event's wash, and
-    // a toolbar control's hover fill, which would then lose its fill instead of gaining one.
+    // it voids every rule that reads the property: the focus rings on the card and on events
+    // vanish, as they did from v4.1.0, and the ripple, an untinted event's wash and a toolbar
+    // control's hover fill lose their color, the last losing its fill instead of gaining one.
     const shipped = String(Config.DEFAULT_CONFIG.accent_color);
     expect(shipped).toBe('var(--primary-color, #03a9f4)');
-    expect(hoverColors('home-assistant')).toEqual([shipped, shipped]);
-    expect(hoverColors('')).toEqual([shipped, shipped]);
+    expect(accentColors('home-assistant')).toEqual([shipped, shipped, shipped]);
+    expect(accentColors('')).toEqual([shipped, shipped, shipped]);
+  });
+
+  it('is what every focus ring reads, so the guard covers them all', () => {
+    const rings = [...CSS.matchAll(/outline:\s*2px solid var\((--[\w-]+)\)/g)].map((m) => m[1]);
+    expect(rings.length).toBeGreaterThan(3);
+    expect(new Set(rings)).toEqual(
+      new Set(['--calendar-card-line-color-vertical', '--primary-color']),
+    );
   });
 });
 
@@ -2822,6 +2836,17 @@ describe('the toolbar controls', () => {
   });
 });
 
+describe("the card's ripple over the toolbar", () => {
+  it('stays still while the pointer is anywhere on the bar, as it does over an event', () => {
+    // The bar keeps every press and click from the card, rim and gaps included, so the
+    // ripple's hover must not promise a tap there; it washed the card blue behind a control
+    // washing blue. Top level, so it is not gated on (hover: hover) like the controls' fill.
+    expect(
+      declared('ha-card:has(.card-toolbar:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
+    ).toBe('0');
+  });
+});
+
 describe('the today tile', () => {
   const em = (value: string) => {
     const match = /^(\d*\.?\d+)em$/.exec(value);
@@ -2830,16 +2855,17 @@ describe('the today tile', () => {
   };
   const height = () => em(declared('.day.today-tile', 'height'));
 
-  it('fills exactly the 1.5em footprint the column and grid headers reserve on other days', () => {
-    // The tile and its margin above and below are the footprint; a header day without the
-    // tile is given the same height, so the date row stays level across the columns.
+  it('keeps a 1.5em footprint in the list, and its own height in the column and grid headers', () => {
+    // In the list the tile and its air above and below fill 1.5em of the date cell.
     const [block, inline] = declared('.day.today-tile', 'margin').split(/\s+/);
     expect(inline).toBe('auto');
-    const reserved = em(
-      declared('.column-date-content.with-today-tile .day:not(.today-tile)', 'min-height'),
-    );
-    expect(reserved).toBe(1.5);
-    expect(height() + 2 * em(block)).toBeCloseTo(reserved, 10);
+    expect(height() + 2 * em(block)).toBeCloseTo(1.5, 10);
+    // In a header the tile drops that air, and every other day reserves exactly its height,
+    // so the numbers stay level across the columns without sitting far below their weekdays.
+    expect(declared('.column-date-content .day.today-tile', 'margin')).toBe('0');
+    expect(
+      em(declared('.column-date-content.with-today-tile .day:not(.today-tile)', 'min-height')),
+    ).toBe(height());
   });
 
   it('is wider than tall, and narrower than the list date cell it sits in', () => {
@@ -2886,7 +2912,7 @@ describe('the today tile', () => {
     expect(declared('.column-date-content.with-today-tile .day:not(.today-tile)', 'display')).toBe(
       'flex',
     );
-    expect(declared('.column-date-content .day.today-tile', 'margin-inline')).toBe('0');
+    expect(declared('.column-date-content .day.today-tile', 'margin')).toBe('0');
 
     // And no other rule, at any depth, may set the display of an element the tile could be:
     // any selector whose subject is a `.day` and does not leave the tile out. A rule written

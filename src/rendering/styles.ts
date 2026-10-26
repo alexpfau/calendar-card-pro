@@ -28,13 +28,19 @@ function gridTitleLineRung(configured: number, ladderMaximum: number): string {
 }
 
 /**
- * The color the card answers a pointer in: its accent, resolved to a color.
+ * The card's own accent, resolved to a color: what it answers the pointer and the keyboard in.
+ *
+ * `home-assistant` is not a color. It asks each calendar for the color Home Assistant holds
+ * for it, and the card itself is no calendar, so the shipped accent stands in, as it does for
+ * a calendar without a color. Written through, the word voids every rule that reads it: the
+ * focus rings vanished and the ripple's hover had no color, and with the washes mixing it a
+ * toolbar control would lose its fill on hover rather than gain one.
  *
  * @param config Card configuration.
  * @returns `accent_color`, or the shipped accent where that is the `home-assistant`
  *   sentinel or empty.
  */
-function cardHoverColor(config: Types.Config): string {
+function cardAccentColor(config: Types.Config): string {
   return config.accent_color && !EntityColors.isEntityColorSentinel(config.accent_color)
     ? config.accent_color
     : String(Config.DEFAULT_CONFIG.accent_color);
@@ -62,7 +68,8 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
     '--calendar-card-color-description': config.description_color,
-    '--calendar-card-line-color-vertical': config.accent_color,
+    // The card's focus rings, card and events alike.
+    '--calendar-card-line-color-vertical': cardAccentColor(config),
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
@@ -108,15 +115,11 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
           : 'center',
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
     // The card's own hover color, which the ripple, the wash on an untinted event and the
-    // toolbar's hover and press all draw in. `home-assistant` is not a color: it asks each
-    // calendar for the color Home Assistant holds for it, and the card itself is no calendar,
-    // so the shipped accent stands in, as it does for a calendar without a color. Written
-    // through, the word would void every rule that mixes it, and a toolbar control would
-    // lose its fill on hover rather than gain one.
+    // toolbar's hover and press all draw in.
     '--ha-ripple-hover-opacity': '0.04',
-    '--ha-ripple-hover-color': cardHoverColor(config),
+    '--ha-ripple-hover-color': cardAccentColor(config),
     '--ha-ripple-pressed-opacity': '0.12',
-    '--ha-ripple-pressed-color': cardHoverColor(config),
+    '--ha-ripple-pressed-color': cardAccentColor(config),
 
     '--calendar-card-today-indicator-color': config.today_indicator_color,
     '--calendar-card-today-indicator-size': config.today_indicator_size,
@@ -694,6 +697,17 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
+  /* The bar answers the pointer for itself, as an event does, so the card's ripple stays
+     still while the pointer is anywhere on it. The ripple's hover follows the pointer
+     anywhere inside ha-card, and the bar is no part of the card to tap: it keeps every press
+     and click from the card, near misses on a track's rim or between controls included. Left
+     to it, the card washed blue behind a control washing blue. A press needs no rule here,
+     because the ripple never sees one. Where :has is not supported the rule is dropped and
+     both hover at once. */
+  ha-card:has(.card-toolbar:hover) > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+  }
+
   .toolbar-button:focus,
   .view-switcher-segment:focus,
   .date-navigation-segment:focus,
@@ -894,11 +908,11 @@ export const cardStyles = css`
 
      The tile takes layout space rather than being painted behind the digits, so it cannot
      overlap the weekday above it (no gap in the list cell) or stick out past a column's
-     left edge, where the date is flush left. Its footprint is 1.5em of day_font_size: the
-     tile is 1.2em tall, with 0.15em of air to the weekday above and the month below. The
-     footprint is what the column and grid headers reserve on every day (below), so changing
-     the tile's size does not move anything around it, and the tile's 1.45em width stays
-     inside the list view's date cell, which is 1.75 times the same font size.
+     left edge, where the date is flush left. In the list its footprint is 1.5em of
+     day_font_size: the tile is 1.2em tall, with 0.15em of air to the weekday above and the
+     month below, and its 1.45em width stays inside the date cell, which is 1.75 times the
+     same font size. The column and grid headers drop that air and reserve the tile's own
+     height on every day instead (below).
 
      The digits are centered on their ink rather than on their boxes, as far as CSS reaches.
      Home Assistant's Roboto draws tabular figures, every digit as wide as a 0, so a 1 sits in
@@ -3052,20 +3066,28 @@ export const cardStyles = css`
     grid-area: day;
   }
 
-  /* With the tile configured, every other day's number sits in a box as tall as the tile's
-     footprint, so the date row stays level and every column's first event starts on the
-     same line. Without it, today's header alone grew by the tile and pushed its column (and
-     in grid, the shared header row) down. The tile itself is left out, so it keeps its own
-     layout, which centers the digits (above), and only loses the margin that centers it in
-     the list's date cell: a column's date is flush left. */
+  /* With the tile configured, every other day's number sits in a box as tall as the tile,
+     centered in it as the tile centers its own, so the numbers stay level across the
+     columns and every column's first event starts on the same line. Without it, today's
+     header alone grew by the tile and pushed its column (and in grid, the shared header row)
+     down. The tile itself is left out, so it keeps its own layout, which centers the digits
+     (above).
+
+     Here the tile also drops the margins it has in the list. Their air sat between the
+     weekday and the tile on top of the row gap, and the box every other day reserves had to
+     match it, which left those numbers about 14px below their weekdays at the default size.
+     Flush, the tile is about 4px under the weekday and the other numbers about 10px, a
+     middle ground the maintainer chose over letting the tile overflow its row: that brought
+     the numbers up to where they sit without a tile, but left the tile nearly
+     touching the weekday. Flush also means flush left, as a column's date is. */
   .column-date-content.with-today-tile .day:not(.today-tile) {
     display: flex;
     align-items: center;
-    min-height: 1.5em;
+    min-height: 1.2em;
   }
 
   .column-date-content .day.today-tile {
-    margin-inline: 0;
+    margin: 0;
   }
 
   .column-date-content .month {
