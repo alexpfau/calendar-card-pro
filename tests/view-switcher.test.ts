@@ -7,7 +7,9 @@
  * (`view-choice.test.ts`, the view resolvers). This file pins how the card joins them:
  * which view is marked, which are offered at a width, that a switch draws without
  * fetching, that it survives a reload and not an edit, and that editing neither uses it
- * nor disturbs it.
+ * nor disturbs it. It also pins the action row the switcher sits in: its place between the
+ * row's start and end groups, the press guard on both toolbar rows, and the widths from
+ * which the switcher names its views in words rather than pictograms.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,8 +45,22 @@ vi.mock('../src/utils/logger', () => ({
 const handleAction = vi.hoisted(() => vi.fn());
 vi.mock('../src/interaction/actions', () => ({ handleAction }));
 
-/** A shown toolbar holding the switcher and nothing else. */
-const SWITCHER_ONLY = { show: true, add_event: false };
+/**
+ * A shown toolbar holding the switcher and nothing else. A shown toolbar draws add, the date
+ * navigation, reset and the calendar filter by default, so each is switched off here and
+ * turned back on only where a case is about it.
+ */
+const SWITCHER_ONLY: Types.ToolbarConfig = {
+  show: true,
+  add_event: false,
+  navigation: false,
+  reset: false,
+  refresh: false,
+  legend: false,
+};
+
+/** The switcher beside the add button, and nothing else. */
+const SWITCHER_AND_ADD: Types.ToolbarConfig = { ...SWITCHER_ONLY, add_event: true };
 
 /**
  * Seven days: at the default 140px a day, Columns needs about a thousand pixels, while Grid
@@ -176,6 +192,18 @@ function drawnView(card: CardUnderTest): string {
   return 'list';
 }
 
+/** A toolbar element's own class: its first, or its second for a `.toolbar-button`. */
+function kind(el: Element): string {
+  return el.classList[0] === 'toolbar-button' ? el.classList[1] : el.classList[0];
+}
+
+/** One element of the card's own, which the case expects to be there. */
+function part(card: CardUnderTest, selector: string): HTMLElement {
+  const el = card.shadowRoot!.querySelector<HTMLElement>(selector);
+  if (!el) throw new Error(`the card draws no ${selector}`);
+  return el;
+}
+
 const originalResizeObserver = globalThis.ResizeObserver;
 
 beforeEach(() => {
@@ -212,7 +240,7 @@ describe('the view switcher', () => {
 
   it.each([
     ['the toolbar is hidden', { toolbar: { show: false, view_switcher: true } }],
-    ['the switcher is off', { toolbar: { show: true, view_switcher: false, add_event: false } }],
+    ['the switcher is off', { toolbar: { ...SWITCHER_ONLY, view_switcher: false } }],
   ])('draws nothing when %s', async (_name, overrides) => {
     const card = await mount(overrides);
 
@@ -236,14 +264,34 @@ describe('the view switcher', () => {
     }
   });
 
-  it('sits before the add button, which stays last', async () => {
-    const card = await mount({ toolbar: { show: true } });
-    const trailing = card.shadowRoot!.querySelector('.toolbar-trailing')!;
+  it('sits in the middle of the action row: filter and add before it, reset and refresh after', async () => {
+    const card = await mount({ toolbar: { show: true, reset: true, refresh: true } });
+    const root = card.shadowRoot!;
+    const actions = root.querySelector('.toolbar-actions')!;
+    const kinds = (parent: Element) => Array.from(parent.children).map(kind);
 
-    expect(Array.from(trailing.children).map((child) => child.className.split(' ')[0])).toEqual([
-      'view-switcher',
-      'toolbar-button',
+    // The action row, then the heading row, which takes the placeholder in where a title
+    // would be: at the start of the block it shares with the month.
+    expect(
+      Array.from(root.querySelector('.header-container')!.children).map((row) => row.className),
+    ).toEqual(['card-toolbar toolbar-actions', 'card-toolbar toolbar-heading']);
+    expect(root.querySelector('.toolbar-identity')!.firstElementChild!.className).toBe(
+      'card-header-placeholder',
+    );
+    expect(kinds(actions)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
+    expect(kinds(actions.querySelector('.toolbar-start')!)).toEqual([
+      'legend-button',
+      'legend-menu',
+      'add-event-button',
     ]);
+    expect(kinds(actions.querySelector('.toolbar-end')!)).toEqual([
+      'reset-button',
+      'refresh-button',
+    ]);
+    // None of them is drawn in the heading row as well.
+    expect(
+      root.querySelectorAll('.toolbar-heading .toolbar-button, .toolbar-heading .view-switcher'),
+    ).toHaveLength(0);
   });
 
   it("draws each view's pictogram in the text color", async () => {
@@ -295,22 +343,38 @@ describe('the view switcher', () => {
     ['a segment', (card: CardUnderTest) => segment(card, 'grid')],
     // The gray rim around the segments belongs to the switcher, not to any button.
     ['the track around the segments', (card: CardUnderTest) => switcher(card)!],
-    // So does the gap between the switcher and the add button.
+    // The gaps between the action row's controls belong to the row, not to any button.
+    ['a gap in the action row', (card: CardUnderTest) => part(card, '.toolbar-actions')],
+    ['the gap between the filter and add', (card: CardUnderTest) => part(card, '.toolbar-start')],
+    // So do the heading row's: around the month, and between it and the arrows.
+    ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
+    ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
+    // The block the month shares with the title is the row's too, and so is the empty
+    // placeholder an untitled card draws there: only a title is the card's.
+    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
     [
-      'the gap between controls',
-      (card: CardUnderTest) => card.shadowRoot!.querySelector<HTMLElement>('.toolbar-trailing')!,
+      "an untitled card's placeholder over the month",
+      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
+    ],
+    [
+      "the arrows' group at the row's end",
+      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
     ],
   ])(
     "never runs the card's tap action from %s, while the rest of the card still does",
     async (_name, target) => {
       const card = await mount({ toolbar: { show: true }, tap_action: { action: 'more-info' } });
       const el = target(card);
+      // Nothing above the card may take the press for a tap on the card either.
+      const clicksOnHost = vi.fn();
+      card.addEventListener('click', clicksOnHost);
 
       dispatchPointer(el, 'pointerdown');
       dispatchPointer(el, 'pointerup');
       el.click();
       await card.updateComplete;
       expect(handleAction).not.toHaveBeenCalled();
+      expect(clicksOnHost).not.toHaveBeenCalled();
 
       // The control: the same press on the events reaches the card's gesture.
       const content = card.shadowRoot!.querySelector('.content-container')!;
@@ -319,6 +383,23 @@ describe('the view switcher', () => {
       expect(handleAction).toHaveBeenCalledOnce();
     },
   );
+
+  it("still runs the card's tap action from the title drawn over the month", async () => {
+    const card = await mount({
+      title: 'Family',
+      toolbar: { show: true },
+      tap_action: { action: 'more-info' },
+    });
+    const title = part(card, '.toolbar-heading .toolbar-identity > h1.card-header');
+    // The toolbar is drawn, so this is the small label over the month, inside the heading row
+    // whose every other press is kept from the card.
+    expect(title.nextElementSibling?.className).toBe('toolbar-month with-picker');
+
+    dispatchPointer(title, 'pointerdown');
+    dispatchPointer(title, 'pointerup');
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
 
   it('stops the card presenting itself as a button around it, and keeps its tab stop', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
@@ -599,13 +680,9 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
     const five = computeColumnThresholdPxFor(config, 5, 'column') + 20;
     expect(resolveColumnFit('column', config, six, null).columns).toBe(6);
     expect(resolveColumnFit('column', config, five, null).columns).toBe(5);
-    // Both on one side of every toolbar label threshold, so no label change re-renders.
-    for (const threshold of [
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
-      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
-    ]) {
-      expect(five >= threshold).toBe(six >= threshold);
-    }
+    // Both on one side of the switcher's threshold, so no change to its words re-renders.
+    const threshold = Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH;
+    expect(five >= threshold).toBe(six >= threshold);
 
     const card = await mount(overrides);
     await measure(card, WIDE);
@@ -621,97 +698,314 @@ describe.each<'preview' | 'editMode'>(['preview', 'editMode'])('while %s is set'
   });
 });
 
-describe('labels', () => {
-  it.each([
-    ['the switcher alone', SWITCHER_ONLY],
-    ['the switcher beside the add button', { show: true }],
-  ])('labels %s only from the wider threshold', async (_name, toolbar) => {
-    const card = await mount({ toolbar });
+describe('words or pictograms', () => {
+  const WITH_SWITCHER = Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH;
+  const { TOOLBAR_COMMAND_WIDTH: ICON, TOOLBAR_COMMAND_GAP: GAP } = Constants.UI;
 
-    await measure(card, Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH - 1);
-    for (const button of segments(card)) {
-      expect(button.querySelector('.toolbar-button-label')).toBeNull();
-      expect(button.classList.contains('icon-only')).toBe(true);
-    }
-    expect(segment(card, 'column').getAttribute('aria-label')).toBe('Columns');
-    expect(segment(card, 'column').getAttribute('title')).toBe('Columns');
-
-    await measure(card, Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH);
-    expect(segments(card).map((button) => button.textContent!.trim())).toEqual([
-      'List',
-      'Columns',
-      'Grid',
-    ]);
-    expect(segment(card, 'column').hasAttribute('aria-label')).toBe(false);
-  });
-
-  it('keeps the add button labeled from its own threshold when it is alone', async () => {
-    const card = await mount({ toolbar: { show: true, view_switcher: false } });
-    await measure(card, Constants.UI.TOOLBAR_LABEL_MIN_WIDTH);
-
-    expect(
-      card.shadowRoot!.querySelector('.add-event-button .toolbar-button-label'),
-    ).not.toBeNull();
-  });
-
-  it('labels nothing while the add button has no words to show', async () => {
-    const card = await mount({ toolbar: { show: true } }, { localize: () => '' });
-    await measure(card, WIDE);
-
-    expect(card.shadowRoot!.querySelector('.toolbar-button-label')).toBeNull();
-    expect(segment(card, 'grid').getAttribute('aria-label')).toBe('Grid');
-  });
+  /** Home Assistant's words for every command the action row can hold. */
+  const EVERY_LABEL: Readonly<Record<string, string>> = {
+    'ui.components.calendar.event.add': 'Add event',
+    'ui.common.reset': 'Reset',
+    'ui.common.refresh': 'Refresh',
+    'ui.components.calendar.my_calendars': 'My calendars',
+  };
 
   /**
-   * happy-dom lays nothing out, so the overflow is described to the card the way a browser
-   * would report it: the labeled bar reaching past the header's edge, the icon bar not.
+   * Home Assistant answering with every label but one.
+   *
+   * @param missing - The key it has no words for, if any
+   * @returns A `localize`
    */
-  function reportOverflow(labeledOverflows: () => boolean) {
+  function labelsWithout(missing?: string): (key: string) => string {
+    return (key) => (key === missing ? '' : (EVERY_LABEL[key] ?? ''));
+  }
+
+  /** A shown toolbar with every control off, for a case to turn on what it is about. */
+  const NOTHING: Types.ToolbarConfig = {
+    show: true,
+    navigation: false,
+    add_event: false,
+    view_switcher: false,
+    reset: false,
+    refresh: false,
+    legend: false,
+  };
+
+  /** Every command the action row can hold, beside the date navigation. */
+  const EVERY_COMMAND: Types.ToolbarConfig = {
+    ...NOTHING,
+    navigation: true,
+    add_event: true,
+    view_switcher: true,
+    reset: true,
+    refresh: true,
+    legend: 'menu',
+  };
+
+  /** How many controls the action row draws, and how many of them are words. */
+  function actionRowWords(card: CardUnderTest) {
+    const controls = Array.from(
+      card.shadowRoot!.querySelectorAll(
+        '.toolbar-actions .toolbar-button, .toolbar-actions .view-switcher-segment',
+      ),
+    );
+    return {
+      controls: controls.length,
+      words: controls.filter((control) => control.querySelector('.toolbar-button-label')).length,
+    };
+  }
+
+  function wordsDrawn(card: CardUnderTest): boolean {
+    return card.shadowRoot!.querySelector('.toolbar-button-label') !== null;
+  }
+
+  /** Render again with nothing changed, as any update from Home Assistant would. */
+  async function rerender(card: CardUnderTest): Promise<void> {
+    (card as unknown as { requestUpdate(): void }).requestUpdate();
+    await card.updateComplete;
+  }
+
+  it.each([
+    ['the switcher alone', SWITCHER_ONLY, WITH_SWITCHER],
+    ['the switcher beside the add button', SWITCHER_AND_ADD, WITH_SWITCHER + ICON],
+  ])(
+    'names the views of %s in words from its width, and draws their pictograms below it',
+    async (_name, toolbar, threshold) => {
+      const card = await mount({ toolbar });
+
+      await measure(card, threshold - 1);
+      for (const button of segments(card)) {
+        expect(button.querySelector('.toolbar-button-label')).toBeNull();
+        expect(button.querySelector('svg.view-switcher-icon')).not.toBeNull();
+        expect(button.classList.contains('icon-only')).toBe(true);
+      }
+      expect(segment(card, 'column').getAttribute('aria-label')).toBe('Columns');
+      expect(segment(card, 'column').getAttribute('title')).toBe('Columns');
+
+      // Words, and only words: no pictogram beside them, and nothing to name them twice.
+      await measure(card, threshold);
+      expect(segments(card).map((button) => button.textContent!.trim())).toEqual([
+        'List',
+        'Columns',
+        'Grid',
+      ]);
+      for (const button of segments(card)) {
+        expect(button.querySelector('svg')).toBeNull();
+        expect(button.classList.contains('icon-only')).toBe(false);
+      }
+      expect(segment(card, 'column').hasAttribute('aria-label')).toBe(false);
+      expect(segment(card, 'column').hasAttribute('title')).toBe(false);
+    },
+  );
+
+  /**
+   * The switcher's words need its own width, and every command beside it its icon, with a gap
+   * between two in a group. The date navigation and
+   * the filter's chips are the heading row's, and count for nothing here. Each width is written
+   * out rather than worked out, so a change to the rule shows up as a change to this table.
+   */
+  it.each<[string, Types.ToolbarConfig, number, number]>([
+    ['the switcher alone', { view_switcher: true }, WITH_SWITCHER, 3],
+    ['the switcher and add', { view_switcher: true, add_event: true }, WITH_SWITCHER + ICON, 4],
+    ['the switcher and reset', { view_switcher: true, reset: true }, WITH_SWITCHER + ICON, 4],
+    [
+      'the switcher, add and the folded filter',
+      { view_switcher: true, add_event: true, legend: 'menu' },
+      WITH_SWITCHER + 2 * ICON + GAP,
+      5,
+    ],
+    [
+      'the switcher, add and reset',
+      { view_switcher: true, add_event: true, reset: true },
+      WITH_SWITCHER + 2 * ICON,
+      5,
+    ],
+    [
+      'the switcher, reset and refresh',
+      { view_switcher: true, reset: true, refresh: true },
+      WITH_SWITCHER + 2 * ICON + GAP,
+      5,
+    ],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 2 * GAP, 7],
+    [
+      'the switcher and add, the filter drawn as chips',
+      { view_switcher: true, add_event: true, legend: 'chips' },
+      WITH_SWITCHER + ICON,
+      4,
+    ],
+  ])('names the views beside %s from its own width', async (_name, controls, threshold, count) => {
+    const card = await mount(
+      { toolbar: { ...NOTHING, ...controls } },
+      { localize: labelsWithout() },
+    );
+
+    await measure(card, threshold - 1);
+    expect(actionRowWords(card)).toEqual({ controls: count, words: 0 });
+
+    await measure(card, threshold);
+    expect(actionRowWords(card)).toEqual({ controls: count, words: 3 });
+  });
+
+  it('keeps every command an icon at any width, named by its tooltip', async () => {
+    const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout() });
+    await measure(card, WIDE * 2);
+
+    const commands = Array.from(
+      card.shadowRoot!.querySelectorAll<HTMLButtonElement>('.toolbar-actions .toolbar-button'),
+    );
+    expect(commands.map((button) => button.getAttribute('title'))).toEqual([
+      'My calendars',
+      'Add event',
+      'Reset',
+      'Refresh',
+    ]);
+    for (const button of commands) {
+      expect(button.querySelector('.toolbar-button-label')).toBeNull();
+      expect(button.querySelector('svg.toolbar-button-icon')).not.toBeNull();
+      expect(button.getAttribute('aria-label')).toBe(button.getAttribute('title'));
+    }
+    // The views beside them are words at this width.
+    expect(actionRowWords(card).words).toBe(3);
+
+    // Without the switcher, the row has no words at all.
+    document.body.innerHTML = '';
+    const noSwitcher = await mount(
+      { toolbar: { ...EVERY_COMMAND, view_switcher: false } },
+      { localize: labelsWithout() },
+    );
+    await measure(noSwitcher, WIDE * 2);
+    expect(wordsDrawn(noSwitcher)).toBe(false);
+  });
+
+  it.each([
+    ['add', 'ui.components.calendar.event.add', '.add-event-button', 'Add event'],
+    ['reset', 'ui.common.reset', '.reset-button', 'Reset'],
+    ['refresh', 'ui.common.refresh', '.refresh-button', 'Refresh'],
+    ['the folded filter', 'ui.components.calendar.my_calendars', '.legend-button', 'Calendars'],
+  ])(
+    'names the views in words while %s has no words of its own, which it is named in English',
+    async (_name, missing, selector, english) => {
+      const card = await mount({ toolbar: EVERY_COMMAND }, { localize: labelsWithout(missing) });
+      await measure(card, WIDE);
+
+      // The views are the card's own words, so a command Home Assistant cannot name does not
+      // take them away.
+      expect(actionRowWords(card).words).toBe(3);
+      // The command is named for assistive technology in English, and shows no tooltip: an
+      // English word on a card in another language would be worse than none.
+      const button = part(card, selector);
+      expect(button.getAttribute('aria-label')).toBe(english);
+      expect(button.hasAttribute('title')).toBe(false);
+    },
+  );
+
+  /** How the stubbed layout places the action row's controls, the views in words. */
+  type RowLayout = 'fits' | 'wraps' | 'overflows-end' | 'overflows-start';
+
+  /**
+   * happy-dom lays nothing out, so the action row is described to the card the way a browser
+   * would report it: a 700px row with its controls side by side on one line, except that the
+   * last one drops to a second line while the row wraps, and one reaches past an edge while it
+   * overflows. Only the boxes the card reads are described; everything else keeps happy-dom's
+   * empty one.
+   *
+   * @param layout - The layout to report at the moment of reading
+   * @returns The spy
+   */
+  function reportActionRow(layout: () => RowLayout) {
     const original = HTMLElement.prototype.getBoundingClientRect;
     return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
     ) {
-      const box = (left: number, width: number) =>
-        ({ left, right: left + width, width, top: 0, bottom: 36, height: 36 }) as DOMRect;
-      if (this.classList.contains('header-container')) return box(0, 668);
-      if (this.classList.contains('card-toolbar')) {
-        const labeled = this.querySelector('.toolbar-button-label') !== null;
-        return labeled ? box(labeledOverflows() ? 200 : 170, 495) : box(516, 152);
-      }
-      return original.call(this);
+      const row = this.closest('.toolbar-actions');
+      if (!row) return original.call(this);
+      const box = (left: number, top: number, width: number) =>
+        ({
+          x: left,
+          y: top,
+          left,
+          top,
+          width,
+          height: 36,
+          right: left + width,
+          bottom: top + 36,
+        }) as DOMRect;
+      if (this === row) return box(0, 0, 700);
+
+      const controls = Array.from(row.querySelectorAll('.toolbar-button, .view-switcher'));
+      const index = controls.indexOf(this);
+      if (index === -1) return original.call(this);
+      const last = index === controls.length - 1;
+      const mode = layout();
+      if (mode === 'wraps' && last) return box(0, 44, 100);
+      if (mode === 'overflows-end' && last) return box(650, 0, 100);
+      if (mode === 'overflows-start' && index === 0) return box(-20, 0, 100);
+      return box(index * 110, 0, 100);
     });
   }
 
-  it('drops the labels when a long title pushes them past the edge, until there is room', async () => {
-    let overflows = true;
-    reportOverflow(() => overflows);
-    const card = await mount({ title: 'Familienkalender', toolbar: { show: true } });
+  /** A card width the views are words at, with room either side of it to measure. */
+  const LABELED_WIDTH = WITH_SWITCHER + ICON + 60;
 
-    await measure(card, 700);
-    await card.updateComplete;
-    expect(card.shadowRoot!.querySelector('.toolbar-button-label')).toBeNull();
-    expect(segment(card, 'grid').getAttribute('aria-label')).toBe('Grid');
+  it.each<[string, RowLayout]>([
+    ['wraps onto a second line', 'wraps'],
+    ["reaches past the row's end", 'overflows-end'],
+    ["reaches past the row's start, as in a right-to-left card", 'overflows-start'],
+  ])(
+    'draws the pictograms while the row with the words %s, until the card is wider',
+    async (_name, broken) => {
+      let layout: RowLayout = broken;
+      reportActionRow(() => layout);
+      const card = await mount({ toolbar: SWITCHER_AND_ADD });
 
-    // Wider than the width it overflowed at: the labels are tried again, and now they fit.
-    overflows = false;
-    await measure(card, 720);
-    await card.updateComplete;
-    expect(card.shadowRoot!.querySelector('.toolbar-button-label')).not.toBeNull();
-  });
+      await measure(card, LABELED_WIDTH);
+      await card.updateComplete;
+      expect(wordsDrawn(card)).toBe(false);
+      expect(segment(card, 'grid').getAttribute('aria-label')).toBe('Grid');
 
-  it('tries the labels again for a different title at the same width', async () => {
-    let overflows = true;
-    reportOverflow(() => overflows);
-    const card = await mount({ title: 'Familienkalender', toolbar: { show: true } });
-    await measure(card, 700);
-    await card.updateComplete;
-    expect(card.shadowRoot!.querySelector('.toolbar-button-label')).toBeNull();
+      // From here the words would fit, so only the card keeps them off: narrower, and at the
+      // very width they did not fit at, a render still draws pictograms.
+      layout = 'fits';
+      for (const width of [LABELED_WIDTH - 20, LABELED_WIDTH]) {
+        await measure(card, width);
+        await rerender(card);
+        expect(wordsDrawn(card)).toBe(false);
+      }
 
-    overflows = false;
-    card.setConfig(configFor({ title: 'Family', toolbar: { show: true } }));
+      // Wider than the width it overflowed at: the words are tried again, and now they fit.
+      await measure(card, LABELED_WIDTH + 20);
+      await card.updateComplete;
+      expect(wordsDrawn(card)).toBe(true);
+    },
+  );
+
+  it('keeps the words off for another title at the same width, not for another language', async () => {
+    let layout: RowLayout = 'wraps';
+    reportActionRow(() => layout);
+    const card = await mount({ title: 'Familienkalender', toolbar: SWITCHER_AND_ADD });
+    await measure(card, LABELED_WIDTH);
+    await card.updateComplete;
+    expect(wordsDrawn(card)).toBe(false);
+
+    // The title is drawn over the month, in the heading row: a shorter one makes no room in
+    // the action row, so the words are not tried again, although the row would now fit.
+    layout = 'fits';
+    card.setConfig(configFor({ title: 'Family', toolbar: SWITCHER_AND_ADD }));
     await card.updateComplete;
     await card.updateComplete;
-    expect(card.shadowRoot!.querySelector('.toolbar-button-label')).not.toBeNull();
+    expect(part(card, 'h1.card-header').textContent).toBe('Family');
+    expect(wordsDrawn(card)).toBe(false);
+
+    // The control: another language changes the row's own words, so at the same width they
+    // are tried again, and drawn.
+    card.setConfig(configFor({ title: 'Family', language: 'de', toolbar: SWITCHER_AND_ADD }));
+    await card.updateComplete;
+    await card.updateComplete;
+    expect(segments(card).map((button) => button.textContent!.trim())).toEqual([
+      'Liste',
+      'Spalten',
+      'Zeitraster',
+    ]);
   });
 
   it("names each view in the card's language", async () => {
@@ -728,15 +1022,25 @@ describe('labels', () => {
 
 describe('the resolved toolbar the card reads', () => {
   it('is the one place a toolbar default comes from', () => {
+    // What every case in this file starts from: the switcher, and nothing else.
     expect(Config.resolveToolbar(configFor())).toEqual({
       show: true,
-      labels: true,
       navigation: false,
       addEvent: false,
       viewSwitcher: true,
       reset: false,
       refresh: false,
       legend: false,
+    });
+    // What it switches off: a shown toolbar draws every control but reset by default.
+    expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
+      show: true,
+      navigation: true,
+      addEvent: true,
+      viewSwitcher: true,
+      reset: false,
+      refresh: true,
+      legend: 'menu',
     });
   });
 });

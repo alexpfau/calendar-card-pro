@@ -136,24 +136,15 @@ export function renderMainCardStructure(
   // - no control: no toolbar, and the header exactly as it was before there was one. Hence
   //   a single binding below; a second, even one rendering nothing, adds a marker and a
   //   text node to the header.
-  // - trailing actions only (a folded legend, the view switch, refresh, add always last): in
-  //   the title's row at its inline end, or in a slim row of their own when there is no title.
-  // - with the date navigation: a band of its own between the title and the events, the
-  //   dates leading and the trailing actions at its end, wrapping onto a second row where the
-  //   card is too narrow for both.
-  // - the legend's lane, unless it is folded: a row of its own under all of them.
-  // The toolbar stays inside `.header-container`, after the h1 or the
-  // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
-  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
-  const headerClass = !toolbarBlock
-    ? 'header-container'
-    : [
-        'header-container has-toolbar',
-        toolbar.navigation ? 'has-band' : '',
-        Toolbar.drawsLegendLane(toolbar) ? 'has-legend' : '',
-      ]
-        .filter((cls) => cls !== '')
-        .join(' ');
+  // - with a control: two rows above the events. The action row (a folded filter and add,
+  //   the view switch, reset and refresh) when it holds a control, then the heading row: the
+  //   title as a small label over the month the page starts in, the date navigation, and the
+  //   filter's chips where they all fit.
+  // With a toolbar the title moves into the heading row, as a small label over the month,
+  // keeping its element and classes inside `.header-container`; `.header-container
+  // h1.card-header` still finds it, `.header-container > h1.card-header` only without one.
+  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, titleBlock);
+  const headerClass = toolbarBlock ? 'header-container has-toolbar' : 'header-container';
   // Days about to give way to another page's are dimmed until its events arrive. A class
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
@@ -167,6 +158,11 @@ export function renderMainCardStructure(
     .filter((cls) => cls !== '')
     .join(' ');
 
+  // The header's binding stands on a line of its own, as it did before there was a toolbar, so a
+  // card without one keeps the same whitespace on either side of its title, byte for byte.
+  // Prettier treats the space at a block element's edges as insignificant and pulls the binding
+  // onto the div's line, so this template is kept as written; match its style by hand.
+  // prettier-ignore
   return html`
     <ha-card
       class=${cardClasses}
@@ -211,7 +207,7 @@ export function renderMainCardStructure(
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
       <div class=${headerClass}>
-        ${toolbarBlock ? html`${titleBlock}${toolbarBlock}` : titleBlock}
+        ${toolbarBlock ?? titleBlock}
       </div>
 
       <!-- Content container is always present -->

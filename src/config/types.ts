@@ -712,6 +712,12 @@ export interface WeatherPositionConfig {
 }
 
 /**
+ * How the toolbar offers the calendar filter: a button opening a menu, or one chip per
+ * calendar beside the month that falls back to the button where the chips do not all fit.
+ */
+export type ToolbarLegendMode = 'menu' | 'chips';
+
+/**
  * The header toolbar, as written in the configuration: one switch for the bar, and one per
  * control in it.
  *
@@ -723,32 +729,28 @@ export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
   /**
-   * Whether the toolbar's buttons — the switcher's layouts, refresh, add and a folded
-   * legend's button — carry a text label beside their icons when the card has room for it.
-   * Off keeps them icons, named by their tooltips. The date navigation and the legend's
-   * chips are unaffected: the home button is always an icon, and the dates and the chips
-   * are always words.
+   * Previous, home and next beside the month heading, which then opens a date picker. Off
+   * leaves the month as plain text.
    */
-  labels?: boolean;
-  /** Previous, home and next, and the range on screen, which opens a date picker. First. */
   navigation?: boolean;
-  /** The add-event button, always the last control. */
+  /** The add-event button, at the start of the action row, after the filter. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, before reset, refresh and add. */
+  /** The List / Columns / Grid switcher, in the middle of the action row. */
   view_switcher?: boolean;
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
-   * with, `view`, every calendar shown and a compact card collapsed. After the switcher, before
-   * the wider gap that sets refresh and add apart; dimmed while there is nothing to undo.
+   * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
+   * row; hidden while there is nothing to undo, keeping its room.
    */
   reset?: boolean;
-  /** A button that loads the events again now, between the switcher and add. */
+  /** A button that loads the events again now, last in the action row, after reset. */
   refresh?: boolean;
   /**
-   * One chip per calendar, below the bar, that hides or shows its events on this device.
-   * Where the chips do not fit on one row they fold into a button that opens them as a menu.
+   * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
+   * button opening a checkbox per calendar; `chips`, a chip per calendar at the end of the
+   * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
-  legend?: boolean;
+  legend?: false | ToolbarLegendMode;
 }
 
 /** Weather configuration. */

@@ -3,7 +3,7 @@
  * Defaults are stripped on write so opening the editor does not persist values the user never set.
  */
 
-import { normalizeRootValue } from './normalize';
+import { LEGEND_OFF, normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
@@ -704,10 +704,11 @@ export const VIEW_FORM_BLOCKS: Readonly<
 /**
  * Builds the `toolbar:` block as the form should show it.
  *
- * The v5 controls and the labels default on inside a shown toolbar, so binding the block raw
- * would show them unticked under a freshly switched-on toolbar while the card draws them. Read through
+ * Most controls default on inside a shown toolbar, so binding the block raw would show them
+ * unticked under a freshly switched-on toolbar while the card draws them. Read through
  * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
- * {@link stripToolbarDefaults} takes the defaults back out on write.
+ * {@link stripToolbarDefaults} takes the defaults back out on write. The legend's `false` shows
+ * as `off`, since a dropdown's values are strings (`LEGEND_OFF`).
  *
  * Every key of the shipped block, walked rather than listed: a key missing here reaches the
  * form as `undefined`, which a switch draws as off whatever the configuration says, so a
@@ -717,15 +718,15 @@ export const VIEW_FORM_BLOCKS: Readonly<
  * @returns The block, with every option at its effective value
  */
 export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
-  const toolbar = Config.resolveToolbar(config) as unknown as Record<string, boolean>;
+  const toolbar = Config.resolveToolbar(config) as unknown as Record<string, unknown>;
   const resolvedName = (key: string): string =>
     key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
   return Object.fromEntries(
-    Object.keys(Config.DEFAULT_CONFIG.toolbar ?? {}).map((key) => [
-      key,
-      toolbar[resolvedName(key)],
-    ]),
+    Object.keys(Config.DEFAULT_CONFIG.toolbar ?? {}).map((key) => {
+      const value = toolbar[resolvedName(key)];
+      return [key, key === 'legend' && value === false ? LEGEND_OFF : value];
+    }),
   );
 }
 

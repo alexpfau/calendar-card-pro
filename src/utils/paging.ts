@@ -1,6 +1,6 @@
 /**
  * Paging through dates: which days a page covers, where the arrows lead, and what the
- * toolbar calls a page.
+ * toolbar calls a page: the month it starts in, and the dates it covers.
  *
  * Pure and free of Lit, the DOM and the card, so every rule can be tested against a fixed
  * `now`. Every date here is a local calendar day at midnight, built from local fields, so a
@@ -231,8 +231,8 @@ function nearestNewYear(now: Date): number {
  * year goes without it. So does a page across the turn of the year nearest today, which
  * reads as that turn: the last week of December in late autumn, the first week of January
  * all spring. Any other page names its year, once, at its end ("Mar 1 – 7, 2027", "Dec 28 –
- * Jan 3, 2027"), so the label is never wider than a one-year page's, which is what the
- * toolbar reserves room for (`widestRangeLabel`).
+ * Jan 3, 2027"). The toolbar's month heading names a page by its first month; this is its
+ * tooltip, and what assistive technology hears.
  *
  * `Intl` rather than the card's own month names, because it knows each language's order and
  * range punctuation ("27. Okt. – 2. Nov.", "27 באוק׳–2 בנוב׳"), and it costs the card's 36
@@ -315,39 +315,77 @@ function rangeSeparator(format: RangeFormat): string {
   return separator;
 }
 
-const widestLabels = new Map<string, string>();
+/** How the month heading names a month: in full, or in the language's short form. */
+export type MonthForm = 'long' | 'short';
 
 /**
- * The widest name a page of this length can have in this language, so the toolbar can reserve
- * its width and paging never moves a control.
+ * The format `monthHeading` writes, `Intl`'s month and year in the card's language.
  *
- * Every page starting in a leap year is named as a page in another year, which is the widest
- * form `rangeLabel` has: with its year, once, and across a turn of the year with the later
- * year at the end. The longest by character count is taken. That covers every month name and
- * every pair of one- and two-digit days, and a page that goes without its year only gets
- * shorter. Characters stand in for width; the label is short enough that two names of one
- * length differ by a few pixels.
- *
- * @param days - Days per page
  * @param language - Card language
- * @returns A label at least as long as any page of this length is named
+ * @param form - The month in full or short
+ * @returns The format
  */
-export function widestRangeLabel(days: number, language: string): string {
-  const key = `${language}|${days}`;
-  const cached = widestLabels.get(key);
-  if (cached !== undefined) return cached;
-
-  // A fixed year, so the reserve never changes with the date: four digits, as every year the
-  // card will meet has, and seen from a moment two years away, so every page names it.
-  const now = new Date(1998, 0, 1);
-  let widest = '';
-  for (let start = new Date(2000, 0, 1); start.getFullYear() === 2000; start = addDays(start, 1)) {
-    const label = rangeLabel({ start, days }, language, now);
-    if (label.length > widest.length) widest = label;
+function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
+  const key = `${language}|month|${form}`;
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(intlLocale(language), { month: form, year: 'numeric' });
+    dateFormats.set(key, format);
   }
+  return format;
+}
 
-  widestLabels.set(key, widest);
-  return widest;
+/**
+ * Name the month a page starts in, with its year, as the toolbar's heading: "November 2026",
+ * or in the short form "Nov 2026".
+ *
+ * Always the month of the first day, never two: the week of Nov 30 – Dec 6 reads "November
+ * 2026", as a desktop calendar's week view does. `Intl` writes it in the card's language, in the
+ * form a language uses for a month standing on its own ("listopad 2026", not the genitive a
+ * date takes), so the card needs no month names of its own. Where the label starts with the
+ * month it is capitalized in that language's own casing, as a heading is; a label that starts
+ * with the year ("2026 m. lapkritis") is left as `Intl` writes it, since its month is mid-phrase.
+ *
+ * @param date - Any day of the month, usually the first day on screen
+ * @param language - Card language
+ * @param form - The month in full or short
+ * @returns The heading
+ */
+export function monthHeading(date: Date, language: string, form: MonthForm = 'long'): string {
+  const format = monthFormat(language, form);
+  // The parts only say what leads: their literals are not always `format`'s, which writes a
+  // plain space where they write a no-break one in Russian, Ukrainian and Bulgarian.
+  const text = format.format(date);
+  if (format.formatToParts(date)[0]?.type !== 'month') return text;
+
+  const locale = format.resolvedOptions().locale;
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
+
+const monthHeadingSets = new Map<string, ReadonlyArray<string>>();
+
+/**
+ * Every month's heading in one year, in one form and language, so the toolbar can keep the room
+ * of the widest and paging never moves the controls beside it.
+ *
+ * The browser picks the widest, from the twelve laid over one another in the card's own font,
+ * so no character count stands in for a width. The year is fixed: the heading's figures are
+ * tabular, so every four-digit year is as wide as any other.
+ *
+ * @param language - Card language
+ * @param form - The month in full or short
+ * @returns Twelve headings, January first
+ */
+export function monthHeadings(language: string, form: MonthForm = 'long'): ReadonlyArray<string> {
+  const key = `${language}|${form}`;
+  let headings = monthHeadingSets.get(key);
+  if (!headings) {
+    headings = Array.from({ length: 12 }, (_, month) =>
+      monthHeading(new Date(2000, month, 1), language, form),
+    );
+    monthHeadingSets.set(key, headings);
+  }
+  return headings;
 }
 
 const todayWords = new Map<string, string>();

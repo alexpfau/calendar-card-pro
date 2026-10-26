@@ -1,11 +1,12 @@
 /**
- * The calendar legend: one chip per calendar under the header toolbar, each hiding or showing
- * that calendar's events on this device.
+ * The calendar filter, which the configuration calls the legend: each calendar hides or shows
+ * its events on this device.
  *
- * The legend is a filter on what the card shows, not a command, so it has a lane of its own
- * below the bar rather than a place in it. Where its chips do not fit on one row it folds into
- * a single button, first in the trailing group, that opens them as a menu floating over the
- * events. The card decides which; this module draws either, and runs the menu.
+ * It takes one of two forms. As a menu, a button at the start of the action row opens a
+ * checkbox per calendar, floating over the events. As chips, one per calendar sits in the middle
+ * of the heading row, tinted in its color, so the chips are also the key to the colors below;
+ * where they do not all fit beside the month and the arrows, the chips give way to exactly the
+ * menu's layout. The card decides which; this module draws either, and runs the menu.
  *
  * The menu is a native `<dialog>` opened with `showModal()`. That reaches the browser's top
  * layer, so `ha-card`'s `overflow: hidden` cannot clip it, in every browser Home Assistant
@@ -40,7 +41,10 @@ export interface CalendarLegend {
   calendars: ReadonlyArray<LegendCalendar>;
   /** Home Assistant's name for a list of calendars, or undefined when it offers none. */
   name: string | undefined;
-  /** True when the chips do not fit on one row: the legend is a button opening a menu. */
+  /**
+   * True when the legend is a button opening a menu: always under `menu`, and under `chips`
+   * while they do not all fit.
+   */
   folded: boolean;
   /** True while the card is being edited: everything is drawn, and nothing toggles or opens. */
   inert: boolean;
@@ -103,9 +107,9 @@ const MENU_GAP = 4;
 /**
  * Where the menu goes beside its button.
  *
- * Its inline end lines up with the button's, because the button sits at the bar's inline end:
- * the right edge in a left-to-right card, the left edge in a right-to-left one. It is then
- * kept inside the viewport. It opens below the button where it fits, else above where it
+ * Its inline start lines up with the button's, because the button leads the action row: the
+ * left edge in a left-to-right card, the right edge in a right-to-left one. It is then kept
+ * inside the viewport. It opens below the button where it fits, else above where it
  * fits, else on the roomier side with a height that fits there, scrolling inside.
  *
  * @param anchor - The button's rectangle
@@ -120,7 +124,7 @@ export function placeMenu(
   viewport: { width: number; height: number },
   rtl: boolean,
 ): MenuPlacement {
-  const inlineStart = rtl ? anchor.left : anchor.right - menu.width;
+  const inlineStart = rtl ? anchor.right - menu.width : anchor.left;
   const maxLeft = Math.max(MENU_VIEWPORT_INSET, viewport.width - MENU_VIEWPORT_INSET - menu.width);
   const left = Math.min(Math.max(inlineStart, MENU_VIEWPORT_INSET), maxLeft);
 
@@ -333,16 +337,16 @@ function legendColor(calendar: LegendCalendar) {
 }
 
 /**
- * Render the legend's lane: one chip per calendar, on one row under the bar.
+ * Render the legend's chips: one per calendar, in the middle of the heading row.
  *
  * Each chip is a native toggle button, pressed while its calendar is shown, so it is a tab
  * stop of its own and Enter and Space work without key handling of ours. A hidden calendar's
  * chip stays in place, gray, so a filtered card always shows that it is filtered.
  *
  * @param legend - Legend description from the card
- * @returns The lane
+ * @returns The chips
  */
-export function renderLegendLane(legend: CalendarLegend): TemplateResult {
+export function renderLegendChips(legend: CalendarLegend): TemplateResult {
   const name = legend.name ?? UNLOCALIZED_LEGEND_NAME;
 
   return html`<div
@@ -373,33 +377,26 @@ export function renderLegendLane(legend: CalendarLegend): TemplateResult {
 }
 
 /**
- * Render the folded legend: a button in the trailing group, and the menu it opens.
+ * Render the folded legend: a button leading the action row, and the menu it opens.
  *
  * The menu lists every calendar as a checkbox, tinted as its chip would be. It closes on a
  * press outside it, on Escape, on a scroll or a resize, and on a second press on the button.
  * The button carries a dot while any calendar is hidden, so a folded legend still says the
- * card is filtered. Labeled, it is named by its text; icon-only, Home Assistant's name for it
- * names it and shows as its tooltip, and the English fallback names it and nothing else.
+ * card is filtered. An icon, a calendar with a funnel: Home Assistant's name for it names it and
+ * shows as its tooltip, and the English fallback names it and nothing else.
  *
  * `aria-expanded` is written once by the template and then kept by the menu itself, so a
  * re-render while the menu is open does not reset it.
  *
  * @param legend - Legend description from the card
- * @param labeled - Whether the toolbar's controls carry their labels
  * @returns The button and its menu
  */
-export function renderLegendButton(legend: CalendarLegend, labeled: boolean): TemplateResult {
+export function renderLegendButton(legend: CalendarLegend): TemplateResult {
   const name = legend.name ?? UNLOCALIZED_LEGEND_NAME;
-  const withLabel = labeled && legend.name !== undefined;
   const filtered = legend.calendars.some((calendar) => !calendar.shown);
-  const className = [
-    'toolbar-button',
-    'legend-button',
-    withLabel ? '' : 'icon-only',
-    filtered ? 'filtered' : '',
-  ]
-    .filter((cls) => cls !== '')
-    .join(' ');
+  const className = filtered
+    ? 'toolbar-button legend-button filtered'
+    : 'toolbar-button legend-button';
 
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.legend-menu') ?? null;
@@ -435,15 +432,14 @@ export function renderLegendButton(legend: CalendarLegend, labeled: boolean): Te
       class=${className}
       aria-haspopup="dialog"
       aria-expanded="false"
-      aria-label=${withLabel ? nothing : name}
-      title=${withLabel || legend.name === undefined ? nothing : legend.name}
+      aria-label=${name}
+      title=${legend.name ?? nothing}
       @pointerdown=${stopCardGesture}
       @click=${onClick}
     >
       <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d=${mdiCalendarFilter}></path>
       </svg>
-      ${withLabel ? html`<span class="toolbar-button-label">${legend.name}</span>` : nothing}
     </button>
     <dialog
       class="legend-menu"
@@ -496,7 +492,7 @@ export function legendCalendarIds(entities: ReadonlyArray<string | { entity: str
 }
 
 /**
- * Names, in a tooltip, each chip whose name the lane cut short.
+ * Names, in a tooltip, each chip whose name was cut short.
  *
  * A chip is only as wide as a long name allows (`.legend-chip-label`), so a long name ends in
  * an ellipsis. Its full name then shows on hover. Read after a render, from layout: a name

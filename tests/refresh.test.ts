@@ -31,8 +31,19 @@ vi.mock('../src/utils/logger', () => ({
 
 const NOW = new Date(Date.UTC(2026, 5, 17, 10, 0));
 
-/** A bar holding the refresh button and nothing else. */
-const REFRESH_ONLY = { show: true, refresh: true, view_switcher: false, add_event: false };
+/**
+ * A bar holding the refresh button and nothing else: every other control is on by default once
+ * the toolbar is shown, so each is turned off.
+ */
+const REFRESH_ONLY: Types.ToolbarConfig = {
+  show: true,
+  refresh: true,
+  navigation: false,
+  view_switcher: false,
+  add_event: false,
+  reset: false,
+  legend: false,
+};
 
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna', 'calendar.ben'],
@@ -113,6 +124,7 @@ function defaultLocalize(key: string): string {
   return (
     {
       'ui.common.refresh': 'Refresh',
+      'ui.common.reset': 'Reset',
       'ui.components.calendar.event.add': 'Add event',
     }[key] ?? key
   );
@@ -212,16 +224,17 @@ afterEach(async () => {
 
 describe('the refresh button', () => {
   it('draws nothing of its own until asked for', async () => {
-    const card = await mount({ toolbar: { show: true, add_event: false, view_switcher: false } });
+    const card = await mount({ toolbar: { ...REFRESH_ONLY, refresh: false } });
 
     expect(refreshButton(card)).toBeNull();
     expect(root(card).querySelector('.card-toolbar')).toBeNull();
+    expect(root(card).querySelector('.header-container')!.className).toBe('header-container');
   });
 
-  it('sits between the view switcher and add, which stays last', async () => {
+  it('sits last in the action row, at its end after reset', async () => {
     const card = await mount({
       entities: [{ entity: 'calendar.anna' }],
-      toolbar: { show: true, refresh: true },
+      toolbar: { show: true, reset: true, refresh: true },
     });
     // Two views must fit for a switcher, and a writable calendar for add.
     card.hass = {
@@ -235,16 +248,26 @@ describe('the refresh button', () => {
       },
     };
     await settle(card);
-
-    expect(
-      Array.from(root(card).querySelectorAll('.toolbar-trailing > *')).map((element) =>
+    const row = root(card).querySelector('.toolbar-actions')!;
+    const kinds = (parent: Element) =>
+      Array.from(parent.children).map((element) =>
         element.className.split(' ').slice(0, 2).join(' '),
-      ),
-    ).toEqual([
-      'view-switcher',
+      );
+
+    expect(kinds(row)).toEqual(['toolbar-start', 'view-switcher', 'toolbar-end']);
+    expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
+      'toolbar-button reset-button',
       'toolbar-button refresh-button',
+    ]);
+    const buttons = row.querySelectorAll('button');
+    expect(buttons[buttons.length - 1]).toBe(refreshButton(card));
+    // The start holds the filter and add, the heading row the month and the arrows.
+    expect(kinds(row.querySelector('.toolbar-start')!)).toEqual([
+      'toolbar-button legend-button',
+      'legend-menu',
       'toolbar-button add-event-button',
     ]);
+    expect(root(card).querySelector('.toolbar-heading .refresh-button')).toBeNull();
   });
 
   it("is named by Home Assistant's own word, or in English for assistive technology", async () => {
@@ -258,15 +281,15 @@ describe('the refresh button', () => {
     expect(refreshButton(unnamed)!.hasAttribute('title')).toBe(false);
   });
 
-  it('carries its label from the width the fixed threshold allows for one command', async () => {
+  it('stays an icon however wide the card, named by its tooltip', async () => {
     const card = await mount();
 
-    await measure(card, Constants.UI.TOOLBAR_LABEL_MIN_WIDTH - 1);
-    expect(refreshButton(card)!.classList).toContain('icon-only');
-
-    await measure(card, Constants.UI.TOOLBAR_LABEL_MIN_WIDTH);
-    expect(refreshButton(card)!.classList).not.toContain('icon-only');
-    expect(refreshButton(card)!.textContent!.trim()).toBe('Refresh');
+    for (const width of [300, 2000]) {
+      await measure(card, width);
+      expect(refreshButton(card)!.querySelector('.toolbar-button-label'), `${width}px`).toBeNull();
+      expect(refreshButton(card)!.textContent!.trim()).toBe('');
+      expect(refreshButton(card)!.getAttribute('title')).toBe('Refresh');
+    }
   });
 
   it('asks again for every calendar, though the events it holds are not due', async () => {
@@ -290,6 +313,8 @@ describe('the refresh button', () => {
 
     expect(card.isLoading).toBe(true);
     expect(refreshButton(card)!.classList).toContain('busy');
+    // Asked for, so it turns at once, however quickly the load would end.
+    expect(refreshButton(card)!.classList).not.toContain('unasked');
     expect(root(card).querySelector('.loading-indicator')).toBeNull();
     expect(root(card).querySelector('ha-card')!.getAttribute('aria-busy')).toBe('true');
 
@@ -298,9 +323,26 @@ describe('the refresh button', () => {
     expect(callApi.mock.calls.length).toBe(during);
   });
 
+  it('turns for a load the card started itself only once it has lasted a moment', async () => {
+    const card = await mount();
+    holdAnswers();
+
+    // Nobody pressed anything: the card loads by itself, as for a page it has not loaded yet.
+    void (card as unknown as { refreshEvents(): Promise<void> }).refreshEvents();
+    await settle(card);
+
+    expect(card.isLoading).toBe(true);
+    expect(Array.from(refreshButton(card)!.classList)).toEqual(
+      expect.arrayContaining(['busy', 'unasked']),
+    );
+    expect(root(card).querySelector('.loading-indicator')).toBeNull();
+  });
+
   it('leaves the corner spinner to a card without it', async () => {
-    // The control for the case above: the spinner goes because the button turns instead.
-    const card = await mount({ toolbar: { show: true, add_event: false, view_switcher: false } });
+    // The control for the case above: the spinner goes because the button turns instead, not
+    // because the card has a toolbar.
+    const card = await mount({ toolbar: { ...REFRESH_ONLY, refresh: false, navigation: true } });
+    expect(root(card).querySelector('.card-toolbar')).not.toBeNull();
     holdAnswers();
 
     void (card as unknown as { refreshEvents(): Promise<void> }).refreshEvents();

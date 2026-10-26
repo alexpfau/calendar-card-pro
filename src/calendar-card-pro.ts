@@ -293,7 +293,7 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
  */
 type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload';
 
-/** The controls a render draws in the header toolbar, before it decides on their labels. */
+/** The controls a render draws in the header toolbar, before it decides on the switcher's words. */
 type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
@@ -702,7 +702,7 @@ class CalendarCardPro extends LitElement {
   private _measuredWidthPx: number | null = null;
 
   /**
-   * Card width as the observer last reported it, which is what the toolbar's labels follow.
+   * Card width as the observer last reported it, which is what the switcher's words follow.
    *
    * Set from the observer's own callback rather than after the settle delay the view fit
    * waits for: the browser delivers that callback after layout and before paint, and the
@@ -714,10 +714,16 @@ class CalendarCardPro extends LitElement {
   private _toolbarWidthPx: number | null = null;
 
   /**
-   * The width at which the labeled toolbar last overflowed the header, and what it was
-   * drawn beside. See `_syncToolbarLabelFit`.
+   * The width at which the action row, with the switcher's words, last did not fit on one line,
+   * and what it held. See `_syncToolbarLabelFit`.
    */
   private _toolbarLabelsOverflowed: { widthPx: number; signature: string } | null = null;
+
+  /**
+   * The card width from which the month heading fits in full beside the arrows, and what that
+   * width depends on. See `_syncMonthFit`.
+   */
+  private _monthFit: { signature: string; fullFromPx: number } | null = null;
 
   /**
    * Fingerprint of the configuration last set, which keys this device's remembered view.
@@ -751,6 +757,22 @@ class CalendarCardPro extends LitElement {
   private _refreshPhaseTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
+   * Set for a moment after a press on reset did its work: while the button shows its check, then
+   * while it fades out still showing it (`_confirmReset`); the timer that moves it on.
+   */
+  private _resetConfirmation: 'showing' | 'leaving' | null = null;
+
+  private _resetConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Set for a moment after a press on home brought the card back, while home shows a filled
+   * house (`_pressHome`); the timer that clears it.
+   */
+  private _homeConfirming = false;
+
+  private _homeConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
    * A refresh someone asked for whose load another replaced before it answered, waiting for
    * that load to end before it shows how it went (`_requestRefresh`).
    */
@@ -764,8 +786,8 @@ class CalendarCardPro extends LitElement {
   } | null = null;
 
   /**
-   * Set once the legend's chips did not fit on one row: what they were drawn with, and the
-   * card width from which they fit again. See `_syncLegendFit`.
+   * Set once the legend's chips did not all fit in the heading row: what they were drawn with,
+   * and the card width from which they fit again. See `_syncLegendFit`.
    */
   private _legendFold: { signature: string; unfoldAtPx: number } | null = null;
 
@@ -787,12 +809,15 @@ class CalendarCardPro extends LitElement {
 
   private _legendFitRaf: number | null = null;
 
-  /** Counts fonts finishing loading while the legend is on, since a chip may change width. */
-  private _legendFontGeneration = 0;
+  /**
+   * Counts fonts finishing loading while the toolbar is shown, since a chip or the month may
+   * change width.
+   */
+  private _toolbarFontGeneration = 0;
 
-  private _legendFontsCleanup: (() => void) | null = null;
+  private _toolbarFontsCleanup: (() => void) | null = null;
 
-  /** The label width the toolbar drawn last needs, which `_syncToolbarLabels` watches for. */
+  /** The width the switcher's words needed in the toolbar drawn last, which `_syncToolbarLabels` watches for. */
   private _toolbarLabelMinWidthPx: number | null = null;
 
   /** How `handleAction` runs the actions only the card knows. */
@@ -1392,8 +1417,10 @@ class CalendarCardPro extends LitElement {
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
     Legend.closeLegendMenus(this.renderRoot);
-    this._legendFontsCleanup?.();
-    this._legendFontsCleanup = null;
+    this._toolbarFontsCleanup?.();
+    this._toolbarFontsCleanup = null;
+    this._settleResetConfirmation();
+    this._settleHomeConfirmation();
     if (this._legendFitRaf !== null) {
       cancelAnimationFrame(this._legendFitRaf);
       this._legendFitRaf = null;
@@ -1482,30 +1509,29 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records the card's width for the toolbar's labels, and re-renders at once if that moves
-   * it across a label threshold.
+   * Records the card's width for the toolbar, and re-renders at once if that moves it across the
+   * width the switcher's words need or the width the month fits in full from.
    *
-   * No hysteresis: a dashboard sizes the card, not the card's content, so the label cannot
-   * feed back into the width it was chosen from, and there is no loop for a band to damp.
-   * Whether the bar is actually labeled also depends on which controls it draws, so that is
-   * decided at render (`_toolbarLabeledFor`); this only notices a threshold being crossed.
+   * No hysteresis: a dashboard sizes the card, not the card's content, so neither the switcher's
+   * words nor the month's form can feed back into the width they were chosen from, and there is
+   * no loop for a band to damp. Whether the switcher shows words also depends on which controls
+   * the row draws, so that is decided at render (`_toolbarLabeledFor`); this only notices a
+   * threshold being crossed.
    *
    * @param widthPx - Measured card width in CSS pixels
    */
   private _syncToolbarLabels(widthPx: number): void {
-    // The fixed thresholds, the one the bar drawn last needs, and the width a folded legend
-    // opens again from.
+    // The switcher's own threshold, the one the row drawn last needs, and the width the month
+    // fits in full from.
     const thresholds = [
-      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
       Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
-      Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH,
-      Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH,
       this._toolbarLabelMinWidthPx,
+      this._monthFit?.fullFromPx,
     ].filter((threshold): threshold is number => typeof threshold === 'number');
     const band = (width: number | null): string =>
       width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
-    // Labels that overflowed at some width are tried again once the card grows past it.
+    // Words that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
     const outgrew =
       overflowed !== null &&
@@ -2508,6 +2534,8 @@ class CalendarCardPro extends LitElement {
     this._applyVisibility();
     this._syncTitleScroll();
     this._syncToolbarLabelFit();
+    this._syncMonthFit();
+    this._syncHeadingMiddle();
     this._syncLegendFit(false);
     Legend.markShortenedChips(this.renderRoot);
     Legend.repositionLegendMenus(this.renderRoot);
@@ -4067,14 +4095,16 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The controls this render draws in the header toolbar, and whether they carry labels.
+   * The controls this render draws in the header toolbar, and whether the switcher shows words.
    *
    * @returns The toolbar; with no control in it, no toolbar is drawn
    */
   private _headerToolbar(): Toolbar.HeaderToolbar {
+    const legend = this._legend();
     const controls: ToolbarControls = {
+      heading: this._monthHeading(legend !== undefined && !legend.folded),
       navigation: this._dateNavigation(),
-      legend: this._legend(),
+      legend,
       viewSwitcher: this._viewSwitcher(),
       reset: this._resetButton(),
       refresh: this._refreshButton(),
@@ -4086,25 +4116,19 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the toolbar's controls carry text labels beside their icons.
+   * Whether the view switcher names its views in words rather than pictograms.
    *
-   * All or nothing, so the controls stay one family: the bar is labeled only when it is wide
-   * enough for every control it draws, and only when every one of them has a label to show.
-   * Home Assistant may have no words for the add button, refresh or the folded legend, which
-   * then stays an icon, and so does everything beside it.
-   *
-   * `toolbar.labels: false` keeps every one of those buttons an icon at any width. The date
-   * navigation takes no labels either way: its home button is an icon and its dates are words.
-   * With it in the band, labels need the room for it as well, and are drawn only while the
-   * whole band fits on one row (`_syncToolbarLabelFit`).
+   * Only the switcher ever does: the commands beside it are icons at every width, named by Home
+   * Assistant's words in their tooltips. The switcher shows its words where the card is wide
+   * enough for them beside those icons, and only while the whole row fits on one line
+   * (`_syncToolbarLabelFit`).
    *
    * @param controls - The controls this render draws
-   * @returns True to draw labels
+   * @returns True to draw the words
    */
   private _toolbarLabeledFor(controls: ToolbarControls): boolean {
     const minWidth = this._toolbarLabelMinWidth(controls);
     if (this._toolbarWidthPx === null || minWidth === null) return false;
-    if (!Config.resolveToolbar(this.config).labels) return false;
 
     const overflowed = this._toolbarLabelsOverflowed;
     const signature = this._toolbarLabelSignature(controls);
@@ -4120,93 +4144,78 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The card width from which the toolbar's controls carry labels, or null when they never do.
+   * The card width from which the view switcher shows its words, or null without a switcher.
    *
-   * The fixed thresholds each allow for one command beside the switcher and the dates, the add
-   * button they were measured with; every further one, reset, refresh or the folded legend,
-   * needs `UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH` more. Null when there is nothing to label, the date
-   * navigation carrying none, or a control has no words to show.
+   * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
+   * beside it add their two groups' widths exactly: the folded filter and add at the start, reset
+   * and refresh at the end, each an icon, with a gap between two in a group.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
    */
   private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
-    const legendButton = controls.legend?.folded ? controls.legend : undefined;
-    const commands = [controls.addEvent, controls.reset, controls.refresh, legendButton].filter(
-      (control) => control !== undefined,
-    ).length;
-    if (commands === 0 && !controls.viewSwitcher) return null;
-    if (controls.addEvent && controls.addEvent.label === undefined) return null;
-    if (controls.reset && controls.reset.label === undefined) return null;
-    if (controls.refresh && controls.refresh.label === undefined) return null;
-    if (legendButton && legendButton.name === undefined) return null;
-
-    const base = controls.navigation
-      ? controls.viewSwitcher
-        ? Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH
-        : Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH
-      : controls.viewSwitcher
-        ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
-        : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
-    return base + Math.max(0, commands - 1) * Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
+    if (!controls.viewSwitcher) return null;
+    const { TOOLBAR_COMMAND_WIDTH: icon, TOOLBAR_COMMAND_GAP: gap } = Constants.UI;
+    const group = (count: number): number => (count === 0 ? 0 : count * icon + (count - 1) * gap);
+    const start = [controls.legend?.folded ? controls.legend : undefined, controls.addEvent];
+    const end = [controls.reset, controls.refresh];
+    const count = (members: ReadonlyArray<unknown>): number =>
+      members.filter((member) => member !== undefined).length;
+    return Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + group(count(start)) + group(count(end));
   }
 
   /**
-   * What the labeled toolbar's fit beside the title depends on, other than the width.
+   * What the fit of the switcher's words depends on, other than the width.
+   *
+   * Only what the row holds: the language, which sets the words, and which commands sit beside
+   * the switcher. The title and the dates sit in the heading row, so neither a templated title
+   * ticking over nor a page turned retries words that did not fit.
    *
    * @param controls - The controls this render draws
-   * @returns A string that changes whenever the labeled bar or the title beside it would
+   * @returns A string that changes whenever the row would
    */
   private _toolbarLabelSignature(controls: ToolbarControls): string {
     return [
-      this.effectiveTitle ?? '',
       this.effectiveLanguage,
-      controls.addEvent?.label ?? '',
       controls.viewSwitcher ? 'views' : '',
-      controls.reset?.label ?? '',
-      controls.refresh?.label ?? '',
-      controls.legend?.folded ? (controls.legend.name ?? '') : '',
-      // The range's reserved width, not its words: the widest label changes with the language
-      // and the page length, and the dates on screen never decide the layout.
-      controls.navigation?.widestRange ?? '',
+      controls.addEvent ? 'add' : '',
+      controls.reset ? 'reset' : '',
+      controls.refresh ? 'refresh' : '',
+      controls.legend?.folded ? 'filter' : '',
     ].join('\u0000');
   }
 
   /**
-   * Drops the toolbar's labels when the title leaves them no room.
+   * Drops the switcher's words when the action row does not fit on one line with them.
    *
-   * The width thresholds assume a title of a word or two. A longer single word cannot wrap,
-   * so beside the labeled controls it pushes them past the card's edge, where the card
-   * clips them. Read after the render that drew them: if the labeled bar overflows the
-   * header, the card remembers the width, and draws icons until it is wider than that, or
-   * the title, the language or the controls change. Never the other way round, so a
-   * measurement cannot set the card flipping between the two.
+   * The width thresholds are measured in English and German; a language with longer words can
+   * need more. Read after the render that drew them: if a control wrapped onto a second line, or
+   * reaches past the row, the card remembers the width, and draws the switcher's pictograms until
+   * it is wider than that, or the language or the controls change. Never the other way round, so a measurement cannot set the card flipping
+   * between the two.
    *
    * Only ever reads layout that exists. Without it — a card not laid out yet, or a test
    * environment with no layout engine — every box is empty, and nothing is concluded.
    */
   private _syncToolbarLabelFit(): void {
-    const header = this.renderRoot.querySelector<HTMLElement>('.header-container.has-toolbar');
-    const toolbar = header?.querySelector<HTMLElement>('.card-toolbar');
-    if (!header || !toolbar || !toolbar.querySelector('.toolbar-button-label')) return;
+    const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-actions');
+    if (!row || !row.querySelector('.toolbar-button-label')) return;
 
-    const headerRect = header.getBoundingClientRect();
-    const toolbarRect = toolbar.getBoundingClientRect();
-    if (headerRect.width === 0 || toolbarRect.width === 0) return;
+    const rowRect = row.getBoundingClientRect();
+    if (rowRect.width === 0) return;
+    const boxes = [...row.querySelectorAll<HTMLElement>('.toolbar-button, .view-switcher')]
+      .map((control) => control.getBoundingClientRect())
+      .filter((box) => box.width > 0 && box.height > 0);
+    if (boxes.length === 0) return;
 
-    const overflows =
-      toolbarRect.right > headerRect.right + 0.5 || toolbarRect.left < headerRect.left - 0.5;
-    // In the band, labels are for a band that fits on one row: a labeled trailing group that
-    // wrapped under the dates costs a row the icons would not.
-    const leading = toolbar.querySelector<HTMLElement>('.toolbar-leading');
-    const trailing = toolbar.querySelector<HTMLElement>('.toolbar-trailing');
-    const wraps =
-      leading !== null &&
-      trailing !== null &&
-      trailing.getBoundingClientRect().top > leading.getBoundingClientRect().bottom - 0.5;
+    const overflows = boxes.some(
+      (box) => box.right > rowRect.right + 0.5 || box.left < rowRect.left - 0.5,
+    );
+    const firstLineEnds = Math.min(...boxes.map((box) => box.bottom));
+    const wraps = boxes.some((box) => box.top > firstLineEnds - 0.5);
     if (!overflows && !wraps) return;
 
-    Logger.debug(`Toolbar labels do not fit at ${this._toolbarWidthPx}px`);
+    Logger.debug(`View switcher words do not fit at ${this._toolbarWidthPx}px`);
     this._toolbarLabelsOverflowed = {
       widthPx: this._toolbarWidthPx ?? 0,
       signature: this._toolbarLabelSignature(this._headerToolbar()),
@@ -4347,16 +4356,164 @@ class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
 
   /**
+   * The month heading, whenever the toolbar is shown.
+   *
+   * It names the page asked for, so a press on the arrows answers at once; the days below stay
+   * those of the page whose events have arrived, dimmed, until the new page's land. The month is
+   * the one the page's first day falls in, in full while every month in full fits beside the
+   * arrows and in the language's short form while it does not (`_syncMonthFit`), and always in
+   * full while the chips show, since they are drawn only where the full month leaves them room.
+   * Everything comes from `Intl` in the card's language, so no card string is needed.
+   *
+   * @param chipsShown - Whether this render draws the legend's chips
+   * @returns Heading description for the wrapper, or undefined while the toolbar is hidden
+   */
+  private _monthHeading(chipsShown: boolean): Toolbar.MonthHeading | undefined {
+    if (!Config.resolveToolbar(this.config).show) return undefined;
+
+    const now = new Date();
+    const language = this.effectiveLanguage;
+    const page = this._pageRange(this._pageRequested, now);
+    const short = !chipsShown && this._monthFormShort();
+    const form: Paging.MonthForm = short ? 'short' : 'long';
+
+    return {
+      text: Paging.monthHeading(page.start, language, form),
+      reserve: Paging.monthHeadings(language, form),
+      full: Paging.monthHeadings(language, 'long'),
+      short,
+      range: Paging.rangeLabel(page, language, now),
+    };
+  }
+
+  /**
+   * What the width the month fits in full from depends on, other than the card's width.
+   *
+   * @returns A string that changes whenever that width might
+   */
+  private _monthFitSignature(): string {
+    return [
+      this.effectiveLanguage,
+      // The heading row's inline padding follows the view.
+      this.effectiveView,
+      String(this._toolbarFontGeneration),
+      this._wantsNavigation ? 'navigation' : '',
+      String(this.config.title_font_size ?? ''),
+    ].join('\u0000');
+  }
+
+  /**
+   * Whether the month heading takes its short form at the card's width now: only once a
+   * measurement found that every month in full does not fit there, with the same language,
+   * view, fonts, navigation and title size.
+   *
+   * @returns True to draw the short form
+   */
+  private _monthFormShort(): boolean {
+    const fit = this._monthFit;
+    if (!fit || this._toolbarWidthPx === null) return false;
+    if (fit.signature !== this._monthFitSignature()) return false;
+    return this._toolbarWidthPx < fit.fullFromPx;
+  }
+
+  /**
+   * Measures the card width from which every month in full fits in the heading row beside the
+   * arrows, and re-renders when that moves the month into the other form at this width.
+   *
+   * The heading's room is everything from its own start to the row's end, less the arrows, when
+   * there are any, and the gap before the group at the row's end, which is drawn either way:
+   * where the filter is folded the arrows keep to the row's end, and where the chips show the
+   * month is drawn in full regardless. The months in full are measured in a
+   * hidden copy laid over one another, in the heading's own font, so the answer is the same
+   * whichever form is drawn, and nothing the answer changes feeds back into it. The form never
+   * changes the card's height, so this may act at once, inside a resize too.
+   *
+   * Only ever reads layout that exists. Without it — a card not laid out yet, a section folded
+   * away, or a test environment with no layout engine — every box is empty, and nothing is
+   * concluded.
+   */
+  private _syncMonthFit(): void {
+    if (!this.isConnected) return;
+    const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-heading');
+    const month = row?.querySelector<HTMLElement>('.toolbar-month');
+    const probe = month?.querySelector<HTMLElement>('.toolbar-month-probe');
+    if (!row || !month || !probe) return;
+    this._watchToolbarFonts();
+
+    const cardWidth = this.getBoundingClientRect().width;
+    const full = probe.getBoundingClientRect().width;
+    const rowBox = row.getBoundingClientRect();
+    const monthBox = month.getBoundingClientRect();
+    if (cardWidth <= 0 || full <= 0 || rowBox.width <= 0) return;
+
+    const style = getComputedStyle(row);
+    const gap = parseFloat(style.columnGap) || 0;
+    // The group at the row's end is drawn with or without the arrows, and costs a gap either way.
+    // Its own width grows while the chips show, so the arrows' group is what is read.
+    const navigation = row.querySelector<HTMLElement>('.date-navigation');
+    const navigationRoom = row.querySelector('.toolbar-heading-end')
+      ? (navigation?.getBoundingClientRect().width ?? 0) + gap
+      : 0;
+    const room =
+      style.direction === 'rtl'
+        ? monthBox.right - rowBox.left - (parseFloat(style.paddingLeft) || 0)
+        : rowBox.right - (parseFloat(style.paddingRight) || 0) - monthBox.left;
+    // Half a pixel of give: layout widths are fractional, and a month that fits exactly must
+    // not be judged short by the rounding.
+    const fullFromPx = cardWidth + full - (room - navigationRoom) - 0.5;
+
+    // The resize observer reads the new width back from here (`_syncToolbarLabels`).
+    const wasShort = this._monthFormShort();
+    this._monthFit = { signature: this._monthFitSignature(), fullFromPx };
+    if (this._monthFormShort() !== wasShort) {
+      Logger.debug(
+        `Month heading ${wasShort ? 'fits in full' : 'shortened'} at ${Math.round(cardWidth)}px`,
+      );
+      this.requestUpdate();
+    }
+  }
+
+  /**
+   * Centers the controls beside the month on its capitals: writes how far the middle of the
+   * month's capital letters stands above the foot of the heading row
+   * (`--calendar-card-heading-middle`), which the stylesheet sets the middle of the arrows
+   * and of each chip on. So they read as level with the month's words, as they would not with
+   * their bottom edges on its baseline: a pill much taller than the letters then rises far above
+   * them.
+   *
+   * Read from an empty box at the start of the month's words, one capital tall (`1cap`) and
+   * standing on their baseline. The row aligns its items' feet and the month stands at its foot,
+   * so the height depends only on the month's own font and line, never on where the controls
+   * sit: writing it cannot move what it was measured from. Written straight onto the row, which
+   * no render binds a style to, and only when it changed, so it costs no render. Until it is
+   * first written, the stylesheet stands in 15px.
+   *
+   * Only ever reads layout that exists: a row with no height (the card hidden, or not yet laid
+   * out) writes nothing. Both boxes are read in the viewport's coordinates, so a card scrolled
+   * above the viewport, whose boxes read negative, measures the same height as one in view.
+   */
+  private _syncHeadingMiddle(): void {
+    const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-heading');
+    const marker = row?.querySelector<HTMLElement>('.toolbar-month-cap');
+    if (!row || !marker) return;
+    const rowBox = row.getBoundingClientRect();
+    if (rowBox.height <= 0) return;
+    const cap = marker.getBoundingClientRect();
+
+    const foot = rowBox.bottom - (parseFloat(getComputedStyle(row).paddingBottom) || 0);
+    const value = `${Math.max(0, foot - (cap.top + cap.bottom) / 2).toFixed(2)}px`;
+    if (row.style.getPropertyValue('--calendar-card-heading-middle') !== value) {
+      row.style.setProperty('--calendar-card-heading-middle', value);
+    }
+  }
+
+  /**
    * The date navigation, when the configuration asks for it.
    *
-   * The range names the page asked for, so a press answers at once; the days below stay those
-   * of the page whose events have arrived, dimmed, until the new page's land. While the card is
-   * being edited everything is drawn and nothing responds.
-   *
-   * Previous and next are named by Home Assistant's own strings, in its language, as the add
-   * button is; without them the wrapper falls back to English accessible names that are never
-   * shown. Home and the range come from `Intl` in the card's language, so no card string is
-   * needed.
+   * While the card is being edited everything is drawn and nothing responds. Previous and next
+   * are named by Home Assistant's own strings, in its language, as the add button is; without
+   * them the wrapper falls back to English accessible names that are never shown. Home is named
+   * through `Intl` in the card's language, so no card string is needed.
    *
    * @returns Navigation description for the wrapper, or undefined for none
    */
@@ -4368,18 +4525,44 @@ class CalendarCardPro extends LitElement {
     const page = this._pageRange(this._pageRequested, now);
 
     return {
-      range: Paging.rangeLabel(page, language, now),
-      widestRange: Paging.widestRangeLabel(page.days, language),
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
       previousName: this._haString('ui.common.previous'),
       nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
       pickerValue: Paging.pageKey(page.start),
+      // Only while the card is still home: paging away ends it at once.
+      homeConfirming: this._homeConfirming && this._pageRequested === null,
       onPrevious: () => this._stepPage(-1),
-      onHome: () => this._goToPage(null),
+      onHome: () => this._pressHome(),
       onNext: () => this._stepPage(1),
       onPick: (date) => this._pickDate(date),
     };
+  }
+
+  /**
+   * Goes home from a press on the home button, and shows that it did for `HOME_CONFIRMATION`.
+   * A press with the card already home, or while it is being edited, moves nothing and shows
+   * nothing.
+   */
+  private _pressHome(): void {
+    const away = this._pageRequested !== null;
+    this._goToPage(null);
+    if (!away || this._pageRequested !== null) return;
+
+    clearTimeout(this._homeConfirmTimer);
+    this._homeConfirming = true;
+    this._homeConfirmTimer = setTimeout(() => {
+      this._homeConfirmTimer = undefined;
+      this._homeConfirming = false;
+      this.requestUpdate();
+    }, Constants.TIMING.HOME_CONFIRMATION);
+  }
+
+  /** Ends home's filled house at once, as on disconnect, so a card put back is never stuck on it. */
+  private _settleHomeConfirmation(): void {
+    clearTimeout(this._homeConfirmTimer);
+    this._homeConfirmTimer = undefined;
+    this._homeConfirming = false;
   }
 
   /**
@@ -4484,6 +4667,7 @@ class CalendarCardPro extends LitElement {
       label: this._haString('ui.common.refresh'),
       phase:
         this._refreshPhase !== 'idle' ? this._refreshPhase : this.isLoading ? 'turning' : 'idle',
+      unasked: this._refreshPhase === 'idle' && this.isLoading,
       onActivate: () => {
         if (this._isBeingEdited) {
           Logger.debug('Not refreshing from the toolbar while the card is being edited');
@@ -4598,10 +4782,16 @@ class CalendarCardPro extends LitElement {
   // LEGEND
   //-----------------------------------------------------------------------------
 
-  /** Whether the configuration asks for the calendar legend. */
+  /** Whether the configuration asks for the calendar legend, in either form. */
   private get _wantsLegend(): boolean {
     const toolbar = Config.resolveToolbar(this.config);
-    return toolbar.show && toolbar.legend;
+    return toolbar.show && toolbar.legend !== false;
+  }
+
+  /** Whether the configuration asks for the legend as chips, which fold where they do not fit. */
+  private get _wantsLegendChips(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    return toolbar.show && toolbar.legend === 'chips';
   }
 
   /**
@@ -4609,7 +4799,8 @@ class CalendarCardPro extends LitElement {
    *
    * One entry per calendar, colored by its accent as its events are and named as Home
    * Assistant names it. While the card is being edited every calendar is shown and nothing
-   * toggles. Folded when its chips did not fit on one row at this width (`_syncLegendFit`).
+   * toggles. Folded into a button under `menu`, and under `chips` while they did not all fit
+   * at this width (`_syncLegendFit`).
    *
    * @returns Legend description for the wrapper, or undefined for none
    */
@@ -4637,7 +4828,7 @@ class CalendarCardPro extends LitElement {
     return {
       calendars,
       name: this._haString('ui.components.calendar.my_calendars'),
-      folded: this._legendFoldedFor(this._legendSignature(calendars)),
+      folded: !this._wantsLegendChips || this._legendFoldedFor(this._legendSignature(calendars)),
       inert: this._isBeingEdited,
       onToggle: (id) => this._toggleCalendar(id),
     };
@@ -4651,20 +4842,24 @@ class CalendarCardPro extends LitElement {
    */
   private _legendSignature(calendars: ReadonlyArray<Legend.LegendCalendar>): string {
     return [
+      // The month beside the chips, which keeps the room of its widest name, follows all of
+      // these, as the chips' own width follows the language and the fonts.
       this.effectiveLanguage,
-      // The lane's inline padding follows the view.
+      // The heading row's inline padding follows the view.
       this.effectiveView,
-      String(this._legendFontGeneration),
+      String(this._toolbarFontGeneration),
+      this._wantsNavigation ? 'navigation' : '',
+      String(this.config.title_font_size ?? ''),
       ...calendars.map((calendar) => `${calendar.id}\u0001${calendar.name}`),
     ].join('\u0000');
   }
 
   /**
-   * Whether the legend is folded into a button now.
+   * Whether the legend's chips are folded into a button now.
    *
    * Folded from the width at which its chips did not fit, drawn with the same calendars,
-   * names, language and view, until the card is wide enough for them by a margin. Anything
-   * else draws the chips, which `_syncLegendFit` then measures.
+   * names, language, view, fonts, navigation and title size, until the card is wide enough for
+   * them by a margin. Anything else draws the chips, which `_syncLegendFit` then measures.
    *
    * @param signature - From `_legendSignature`
    * @returns True to draw the button
@@ -4731,15 +4926,19 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Folds the legend into a button when its chips do not fit on one row, and, after a resize,
-   * draws them again once they fit.
+   * Under `legend: chips`, folds the chips into the filter button when they do not all fit in
+   * the heading row, and, after a resize, draws them again once they fit.
    *
-   * Reads the chips the last render drew, laid out: their natural width against the lane's.
-   * When they overflow it, the card remembers what they were drawn with and the card width
-   * from which they would fit by a small margin, and draws the button instead until the card
-   * is that wide, or the calendars, their names, the language, the view or a font change.
-   * Then the chips are drawn again and measured again. An unfold that still does not fit folds
-   * again from a wider width, so the two cannot alternate.
+   * Reads the chips the last render drew, laid out: their natural width against the room the
+   * month, which keeps the room of its widest name in full, and the arrows leave them
+   * (`_legendChipsRoom`). When
+   * they overflow it, the card remembers what they were drawn with and the card width from
+   * which they would fit by a small margin, and draws exactly the `menu` layout instead until
+   * the card is that wide, or the calendars, their names, the language, the view, the fonts,
+   * the navigation or the title size change. Then the chips are drawn again and measured again.
+   * An unfold that still does not fit folds again from a wider width, so the two cannot
+   * alternate. Never a part of the chips, so the card never shows a filter that seems to list
+   * every calendar and does not.
    *
    * After a render (`updated`) this only folds, at the width the legend was last judged at,
    * and before anything is painted, so a card that cannot fit its chips never shows them cut
@@ -4754,8 +4953,8 @@ class CalendarCardPro extends LitElement {
    * @param mayUnfold - Whether the card width may move, which can draw the chips again
    */
   private _syncLegendFit(mayUnfold = true): void {
-    if (!this.isConnected || !this._wantsLegend) return;
-    this._watchLegendFonts();
+    if (!this.isConnected || !this._wantsLegendChips) return;
+    this._watchToolbarFonts();
 
     const cardWidth = this.getBoundingClientRect().width;
     if (cardWidth <= 0) return;
@@ -4780,13 +4979,9 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    const style = getComputedStyle(lane);
-    const available =
-      lane.clientWidth -
-      (parseFloat(style.paddingLeft) || 0) -
-      (parseFloat(style.paddingRight) || 0);
     const needed = chips.getBoundingClientRect().width;
-    if (available <= 0 || needed <= 0) return;
+    const available = this._legendChipsRoom(lane);
+    if (needed <= 0 || available === null) return;
     if (needed <= available + 0.5) {
       this._legendUnfoldedAtPx = null;
       return;
@@ -4810,10 +5005,51 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * The room the heading row leaves the legend's chips, in CSS pixels: the row less every month
+   * in full, which the month keeps the room of while the chips show, and the arrows, with a gap
+   * on either side of the chips, and less the chips' box's own padding, which its negative
+   * margins give back. Read from the month's hidden copy and the arrows' group rather than from
+   * the chips' box, which never shrinks below nothing: a month and arrows that already overflow
+   * the row would otherwise read as no room at all, and say nothing about how much wider the card
+   * must be. The same answer whichever layout is drawn. Negative while they overflow.
+   *
+   * @param lane - The chips' box
+   * @returns The room, or null without layout
+   */
+  private _legendChipsRoom(lane: HTMLElement): number | null {
+    const row = lane.parentElement;
+    const probe = row?.querySelector<HTMLElement>('.toolbar-month-probe');
+    if (!row || !probe) return null;
+    const rowWidth = row.getBoundingClientRect().width;
+    const month = probe.getBoundingClientRect().width;
+    if (rowWidth <= 0 || month <= 0) return null;
+
+    const rowStyle = getComputedStyle(row);
+    const laneStyle = getComputedStyle(lane);
+    const px = (value: string): number => parseFloat(value) || 0;
+    const navigation = row.querySelector<HTMLElement>('.date-navigation');
+    // The month's own margin pulls it back over the row's padding, as drawn.
+    const monthBox = row.querySelector<HTMLElement>('.toolbar-month');
+    const monthMargin = monthBox ? px(getComputedStyle(monthBox).marginInlineStart) : 0;
+    return (
+      rowWidth -
+      px(rowStyle.paddingLeft) -
+      px(rowStyle.paddingRight) -
+      (month + monthMargin) -
+      (navigation?.getBoundingClientRect().width ?? 0) -
+      2 * px(rowStyle.columnGap) -
+      px(laneStyle.paddingLeft) -
+      px(laneStyle.paddingRight) -
+      px(laneStyle.marginLeft) -
+      px(laneStyle.marginRight)
+    );
+  }
+
+  /**
    * Runs `_syncLegendFit` in the next frame, once per frame, for a card whose width moved.
    */
   private _scheduleLegendFit(): void {
-    if (!this._wantsLegend || this._legendFitRaf !== null) return;
+    if (!this._wantsLegendChips || this._legendFitRaf !== null) return;
     this._legendFitRaf = requestAnimationFrame(() => {
       this._legendFitRaf = null;
       this._syncLegendFit();
@@ -4821,22 +5057,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Re-measures the legend's chips whenever a font finishes loading, since a late web font can
-   * change their width without changing anything else. Held from the first measurement while
-   * the card is attached.
+   * Re-measures the heading row whenever a font finishes loading, since a late web font can
+   * change the width of the month or a chip without changing anything else. Held from the first
+   * measurement while the card is attached.
    */
-  private _watchLegendFonts(): void {
-    if (this._legendFontsCleanup) return;
+  private _watchToolbarFonts(): void {
+    if (this._toolbarFontsCleanup) return;
     const fonts = typeof document === 'undefined' ? undefined : document.fonts;
     if (!fonts || typeof fonts.addEventListener !== 'function') return;
 
     const onLoaded = () => {
-      if (!this.isConnected || !this._wantsLegend) return;
-      this._legendFontGeneration++;
+      if (!this.isConnected || !Config.resolveToolbar(this.config).show) return;
+      this._toolbarFontGeneration++;
       this.requestUpdate();
     };
     fonts.addEventListener('loadingdone', onLoaded);
-    this._legendFontsCleanup = () => fonts.removeEventListener('loadingdone', onLoaded);
+    this._toolbarFontsCleanup = () => fonts.removeEventListener('loadingdone', onLoaded);
   }
 
   //-----------------------------------------------------------------------------
@@ -4966,7 +5202,7 @@ class CalendarCardPro extends LitElement {
   /**
    * Whether the configuration asks for the reset button, and the card has something it could
    * ever undo: the date navigation, the view switcher, the legend or an `expand` action.
-   * Without any of them the button could only ever be dimmed, so it is not drawn.
+   * Without any of them the button could only ever be hidden, so it is not drawn.
    *
    * Decided by the configuration alone, never by what the card shows, so the button never
    * comes and goes and never moves the controls after it.
@@ -4974,7 +5210,12 @@ class CalendarCardPro extends LitElement {
   private get _wantsReset(): boolean {
     const toolbar = Config.resolveToolbar(this.config);
     if (!toolbar.show || !toolbar.reset) return false;
-    return toolbar.navigation || toolbar.viewSwitcher || toolbar.legend || this._hasExpandAction;
+    return (
+      toolbar.navigation ||
+      toolbar.viewSwitcher ||
+      toolbar.legend !== false ||
+      this._hasExpandAction
+    );
   }
 
   /**
@@ -5002,8 +5243,9 @@ class CalendarCardPro extends LitElement {
   /**
    * The reset button, when the configuration asks for it.
    *
-   * Named by Home Assistant's own word, as refresh is. Dimmed while the card shows its
-   * configuration, which it always does while it is being edited.
+   * Named by Home Assistant's own word, as refresh is. Hidden while the card shows its
+   * configuration, which it always does while it is being edited, after a check for a moment
+   * where a press brought it back.
    *
    * @returns Button description for the wrapper, or undefined for none
    */
@@ -5013,8 +5255,37 @@ class CalendarCardPro extends LitElement {
     return {
       label: this._haString('ui.common.reset'),
       active: this._differsFromConfiguration,
+      confirmation: this._resetConfirmation ?? undefined,
       onActivate: () => this._resetToConfiguration(),
     };
+  }
+
+  /**
+   * Shows the reset button's check for `RESET_CONFIRMATION`, then lets it fade out for
+   * `RESET_FADE` still showing the check, and only then gives it its U-turn back, by which time it
+   * is hidden: drawing the U-turn for the fade made the button flash back before it went. A press
+   * during any of it does nothing, there being nothing left to undo; a change made during it shows
+   * the button as itself again at once, since `active` wins over the check.
+   */
+  private _confirmReset(): void {
+    clearTimeout(this._resetConfirmTimer);
+    this._resetConfirmation = 'showing';
+    this._resetConfirmTimer = setTimeout(() => {
+      this._resetConfirmation = 'leaving';
+      this.requestUpdate();
+      this._resetConfirmTimer = setTimeout(() => {
+        this._resetConfirmTimer = undefined;
+        this._resetConfirmation = null;
+        this.requestUpdate();
+      }, Constants.TIMING.RESET_FADE);
+    }, Constants.TIMING.RESET_CONFIRMATION);
+  }
+
+  /** Ends a reset's check at once, as on disconnect, so a card put back is never stuck on it. */
+  private _settleResetConfirmation(): void {
+    clearTimeout(this._resetConfirmTimer);
+    this._resetConfirmTimer = undefined;
+    this._resetConfirmation = null;
   }
 
   /**
@@ -5060,6 +5331,7 @@ class CalendarCardPro extends LitElement {
 
     this.isExpanded = false;
     this._goToPage(null);
+    this._confirmReset();
     this.requestUpdate();
   }
 }

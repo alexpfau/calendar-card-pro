@@ -390,13 +390,13 @@ and add no text, but the nested template's indentation is text. When the bump la
 `npm run format` reflowed five templates, and the per-site experiment above split them
 three ways:
 
-| template                                | on reflow + `npm test`                 | kept as              |
-| --------------------------------------- | -------------------------------------- | -------------------- |
-| `renderDateContent` (`leaves.ts`)       | 27 fail: the list and column snapshots | `// prettier-ignore` |
-| `renderEventContent` (`leaves.ts`)      | 1 fails: the source-shape guard        | `// prettier-ignore` |
-| `renderEvent` (`render.ts`)             | 1 fails: the same guard                | `// prettier-ignore` |
-| `renderMainCardStructure` (`render.ts`) | suite green                            | reformatted          |
-| exception panel (`element.ts`)          | suite green                            | reformatted          |
+| template                                | on reflow + `npm test`                 | kept as                         |
+| --------------------------------------- | -------------------------------------- | ------------------------------- |
+| `renderDateContent` (`leaves.ts`)       | 27 fail: the list and column snapshots | `// prettier-ignore`            |
+| `renderEventContent` (`leaves.ts`)      | 1 fails: the source-shape guard        | `// prettier-ignore`            |
+| `renderEvent` (`render.ts`)             | 1 fails: the same guard                | `// prettier-ignore`            |
+| `renderMainCardStructure` (`render.ts`) | suite green                            | reformatted; ignored since (\*) |
+| exception panel (`element.ts`)          | suite green                            | reformatted                     |
 
 The guard is _"preserves no-output idioms at extraction seams"_ in `tests/list-dom.test.ts`,
 which pins `: ''}` directly before the next `${…}` in the source; the directive keeps that
@@ -407,6 +407,13 @@ rendered before and after the reflow and compared with the normalizer below, whi
 them equal and caught a planted text change as the control. The cost of the directives is
 that those three templates are no longer formatted by anything, so match the surrounding
 style by hand when editing inside them.
+
+(\*) `renderMainCardStructure` took a directive later, for a reason that has nothing to do with
+3.9. Its header binding sits on a line of its own, so a card without a toolbar keeps the
+whitespace either side of its title byte for byte; once v5's two-row header shortened that
+binding, `npm run format` pulled it onto the `<div>`'s line, because Prettier treats the space at a
+block element's edges as insignificant. The snapshots normalize exactly that whitespace, so only
+the tests pinning the toolbar-off header's markup saw it. Its comment names the header, not 3.9.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artifact the person doing the refactor

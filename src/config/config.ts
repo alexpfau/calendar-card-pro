@@ -173,18 +173,20 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_edit: true,
   allow_event_delete: true,
 
-  // Controls added after v5's first two default off (`navigation`, `reset`, `refresh`,
-  // `legend`), so a release never adds a control to a toolbar someone already set up. `labels`
-  // is not a control: on is what the toolbar has always done.
+  // The toolbar ships hidden; shown, it draws what anyone looking at a calendar needs: every
+  // control on except `reset`, which is for a screen several people share. Elsewhere a layout
+  // picked on the switcher is a preference, which a lit reset button would keep presenting as
+  // something to undo. v5 is the first release with a toolbar, so these are its first defaults. A control
+  // added in a later release defaults off, so a release never adds a control to a toolbar
+  // someone already set up.
   toolbar: {
     show: false,
-    labels: true,
-    navigation: false,
+    navigation: true,
     add_event: true,
     view_switcher: true,
     reset: false,
-    refresh: false,
-    legend: false,
+    refresh: true,
+    legend: 'menu',
   },
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
@@ -341,22 +343,30 @@ export function mergeConfig(
  */
 export interface ResolvedToolbar {
   show: boolean;
-  labels: boolean;
   navigation: boolean;
   addEvent: boolean;
   viewSwitcher: boolean;
   reset: boolean;
   refresh: boolean;
-  legend: boolean;
+  /** How the calendar filter is offered, or false for none. */
+  legend: false | Types.ToolbarLegendMode;
 }
+
+/** Every value `toolbar.legend` accepts. */
+export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMode> = [
+  false,
+  'menu',
+  'chips',
+];
 
 /**
  * Reads the `toolbar:` block, member by member, falling back to the shipped default.
  *
  * Defensive rather than trusting `mergeConfig`: a user may write `toolbar: null`, which
- * replaces the default block, or a non-boolean such as `show: "yes"`. Either reads as the
- * default for that member, so a typo never draws a control the user did not ask for and
- * never removes one they did.
+ * replaces the default block, or a value of the wrong kind such as `show: "yes"`. Either reads
+ * as the default for that member, so a typo never draws a control the user did not ask for and
+ * never removes one they did. `legend: true` is one of those: the legend is a choice of mode,
+ * and `true` names none, so it reads as the default, `menu`.
  *
  * @param config - Configuration, merged or raw
  * @returns Every member of the toolbar, resolved
@@ -366,18 +376,20 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: keyof Types.ToolbarConfig): boolean =>
-    typeof block[key] === 'boolean' ? (block[key] as boolean) : defaults[key];
+  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend'>): boolean =>
+    typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
+  const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
+    ? (block.legend as false | Types.ToolbarLegendMode)
+    : defaults.legend;
 
   return {
     show: read('show'),
-    labels: read('labels'),
     navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),
     reset: read('reset'),
     refresh: read('refresh'),
-    legend: read('legend'),
+    legend,
   };
 }
 

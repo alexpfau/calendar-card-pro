@@ -229,10 +229,9 @@ entities:
   - calendar.holidays
 toolbar:
   show: true
-  view_switcher: false
 ```
 
-The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), always its last; `view_switcher: false` above leaves it alone there. It sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events, and with the [date navigation](/features/layout-appearance#paging-through-dates) on it sits at the end of the toolbar's band instead. On a card at least 480px wide it carries Home Assistant's own "Add event" label, 640px with the view switcher beside it (600px and 840px with the date navigation, and 112px more for each of the reset button, the refresh button and a folded legend), and narrower than that it is a plus icon, with the label as its tooltip. If Home Assistant has no label to give it or a control beside it, the button stays an icon at any width, and so do the others; `labels: false` keeps it an icon too.
+The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
 
 The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above. Its calendar picker is Home Assistant's own, though, so it offers every calendar in Home Assistant that accepts new events, not only this card's, and the event is saved to whichever you pick. The new event is set for today when the days on screen include today, and for the first of them otherwise, so a card looking at next week, or paged to it, does not suggest today.
 

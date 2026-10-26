@@ -7,12 +7,16 @@
  * switched off inside a shown one, or only read-only calendars — so the pair distinguishes
  * "the option works" from "the fixture happens to produce this".
  *
- * Every case shows the add button alone (`ADD_ONLY`): the view switcher beside it has
- * its own file, and keeping it out here keeps these assertions about one control.
+ * Every case shows the add button alone (`ADD_ONLY`). A shown toolbar draws the view
+ * switcher, the date navigation, reset and the calendar filter by default, so each is
+ * switched off explicitly: they have files of their own, and keeping them out here keeps
+ * these assertions about one control.
  *
- * Where it goes is the header toolbar rule: in the title's row when there is a title, in a
- * slim row of its own when there is not, and — the half no other gate can see — with no
- * toolbar at all, a header byte for byte what it was before the toolbar existed.
+ * Where it goes is the header toolbar rule: the title, or its placeholder, stays the
+ * header's first child, then the action row with the button at its start (after the
+ * calendar filter's button, when the filter is folded into one), then the heading row. And
+ * — the half no other gate can see — with no control at all, a header byte for byte what it
+ * was before the toolbar existed.
  *
  * Two behaviors are pinned beyond the rendering: a press on the button must never become
  * a press on the card (the card captures the pointer for its own tap and hold actions),
@@ -30,7 +34,14 @@ import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
 import '../src/calendar-card-pro';
 
 /** A shown toolbar holding the add button and nothing else. */
-const ADD_ONLY = { show: true, view_switcher: false };
+const ADD_ONLY: Types.ToolbarConfig = {
+  show: true,
+  view_switcher: false,
+  navigation: false,
+  reset: false,
+  refresh: false,
+  legend: false,
+};
 
 vi.mock('../src/utils/logger', () => ({
   warn: vi.fn(),
@@ -267,53 +278,98 @@ describe('add-event button rendering', () => {
     expect(untitled.shadowRoot!.querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('puts the button in the title row, after the title', async () => {
+  it('puts the button at the start of the action row, the title over the month below it', async () => {
     const card = await mount({
       entities: [READ_ONLY, WRITABLE],
       toolbar: ADD_ONLY,
       title: 'Family',
     });
     const row = header(card);
-    const [title, toolbar] = Array.from(row.children);
+    const [actions, heading] = Array.from(row.children);
+    const title = heading.querySelector('.toolbar-identity')!.firstElementChild!;
 
     expect(row.className).toBe('header-container has-toolbar');
+    expect(row.children).toHaveLength(2);
     expect(title.outerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
       '<h1 class="card-header">Family</h1>',
     );
-    expect(toolbar.className).toBe('card-toolbar toolbar-in-title-row');
-    expect(row.children).toHaveLength(2);
-    expect(toolbar.querySelector('.toolbar-trailing > .add-event-button')).toBe(button(card));
-    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
+    expect(actions.className).toBe('card-toolbar toolbar-actions');
+    expect(heading.className).toBe('card-toolbar toolbar-heading');
+    // The button leads the row; the switcher's place in its middle and the end stay empty.
+    expect(Array.from(actions.children).map((child) => child.className)).toEqual([
+      'toolbar-start',
+      'toolbar-end',
+    ]);
+    const [start, end] = Array.from(actions.children);
+    expect(start.children).toHaveLength(1);
+    expect(start.firstElementChild).toBe(button(card));
+    expect(end.children).toHaveLength(0);
+    // The one control in the whole header: the heading row has none without navigation.
+    expect(row.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('keeps the button in the title row while a templated title is still resolving', async () => {
+  it('draws a templated title still resolving as the label over the month, with both rows', async () => {
     // No `hass.connection`, so the template never resolves and the heading stays pending.
     const card = await mount({
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
       title: '{{ states("sensor.family") }}',
     });
-    const [title, toolbar] = Array.from(header(card).children);
+    const [actions, heading] = Array.from(header(card).children);
+    const title = heading.querySelector('.toolbar-identity')!.firstElementChild!;
 
+    // The heading itself, empty, rather than the placeholder an untitled card draws.
     expect(title.tagName).toBe('H1');
-    expect(toolbar.classList.contains('toolbar-in-title-row')).toBe(true);
+    expect(title.className).toBe('card-header');
+    expect(title.textContent).toBe('');
+    expect(actions.className).toBe('card-toolbar toolbar-actions');
+    expect(actions.contains(button(card))).toBe(true);
+    expect(heading.className).toBe('card-toolbar toolbar-heading');
   });
 
-  it('gives an untitled card a slim row of its own', async () => {
+  it('draws the placeholder where an untitled card would have its title, over the month', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const row = header(card);
-    const [placeholder, toolbar] = Array.from(row.children);
 
     expect(row.className).toBe('header-container has-toolbar');
-    expect(placeholder.className).toBe('card-header-placeholder');
-    expect(toolbar.className).toBe('card-toolbar toolbar-own-row');
-    expect(toolbar.contains(button(card))).toBe(true);
-    expect(card.shadowRoot!.querySelectorAll('.card-toolbar, .add-event-button')).toHaveLength(2);
+    expect(Array.from(row.children).map((child) => child.className)).toEqual([
+      'card-toolbar toolbar-actions',
+      'card-toolbar toolbar-heading',
+    ]);
+    expect(
+      Array.from(row.querySelector('.toolbar-identity')!.children).map((child) => child.className),
+    ).toEqual(['card-header-placeholder', 'toolbar-month']);
+    expect(row.querySelector('.toolbar-actions > .toolbar-start > .add-event-button')).toBe(
+      button(card),
+    );
+    expect(card.shadowRoot!.querySelectorAll('.add-event-button')).toHaveLength(1);
     // The content still follows the header directly, as card-mod styles expect.
     expect(row.nextElementSibling?.classList.contains('content-container')).toBe(true);
   });
 
-  it("draws a native button with Home Assistant's label beside a plus", async () => {
+  it.each([
+    [
+      'follows the filter folded into a button',
+      'menu',
+      ['legend-button', 'legend-menu', 'add-event-button'],
+    ],
+    ['leads the row while the filter shows as chips', 'chips', ['add-event-button']],
+  ] as const)('%s', async (_name, legend, expected) => {
+    const card = await mount({ entities: [WRITABLE], toolbar: { ...ADD_ONLY, legend } });
+    const start = card.shadowRoot!.querySelector('.toolbar-actions > .toolbar-start')!;
+    // A child's own class: a `.toolbar-button` is told apart by its second.
+    const kinds = Array.from(start.children).map((child) =>
+      child.classList[0] === 'toolbar-button' ? child.classList[1] : child.classList[0],
+    );
+
+    expect(kinds).toEqual(expected);
+    // The chips are the heading row's, and only where the filter is not folded.
+    expect(card.shadowRoot!.querySelectorAll('.toolbar-heading .legend-chip').length > 0).toBe(
+      legend === 'chips',
+    );
+  });
+
+  it("draws a native button, a plus, named by Home Assistant's words in its tooltip", async () => {
     const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
     const el = button(card)!;
 
@@ -321,85 +377,56 @@ describe('add-event button rendering', () => {
     expect(el.getAttribute('type')).toBe('button');
     expect(el.querySelector('svg path')?.getAttribute('d')).toBe(mdiPlus);
     expect(el.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
-    expect(el.querySelector('.toolbar-button-label')?.textContent).toBe('Add event');
-    // The visible label is the name; a second one in aria-label would only shadow it.
-    expect(el.hasAttribute('aria-label')).toBe(false);
+    // An icon, never words: its name is its tooltip and what assistive technology reads.
+    expect(el.querySelector('.toolbar-button-label')).toBeNull();
+    expect(el.textContent?.trim()).toBe('');
+    expect(el.getAttribute('aria-label')).toBe('Add event');
+    expect(el.getAttribute('title')).toBe('Add event');
   });
 
-  it("uses Home Assistant's own translation of the label", async () => {
+  it("uses Home Assistant's own translation of its name", async () => {
     const localize = (key: string) =>
       key === 'ui.components.calendar.event.add' ? 'Aggiungi evento' : '';
     const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY }, { localize });
 
-    expect(button(card)!.querySelector('.toolbar-button-label')?.textContent).toBe(
-      'Aggiungi evento',
-    );
+    expect(button(card)!.getAttribute('aria-label')).toBe('Aggiungi evento');
+    expect(button(card)!.getAttribute('title')).toBe('Aggiungi evento');
   });
 
-  it('draws only the icon, still named, when Home Assistant has no label to give', async () => {
-    // Measured wide, so it is the missing string and not the width that drops the label.
+  it('is still named, in English, when Home Assistant has no words for it', async () => {
     const card = await mountWide(
       { entities: [WRITABLE], toolbar: ADD_ONLY },
       { localize: () => '' },
     );
     const el = button(card)!;
 
-    expect(el.classList.contains('icon-only')).toBe(true);
-    expect(el.querySelector('.toolbar-button-label')).toBeNull();
-    expect(el.textContent?.trim()).toBe('');
     expect(el.getAttribute('aria-label')).toBe('Add event');
     // English is the last resort for assistive technology, never a tooltip on screen.
     expect(el.hasAttribute('title')).toBe(false);
   });
 });
 
-describe('the add-event label follows the width of the card', () => {
+describe('the add-event button at any width', () => {
   /** What the button shows and what it is called, read off the DOM. */
   function shape(card: CardUnderTest) {
     const el = button(card)!;
     return {
-      label: el.querySelector('.toolbar-button-label')?.textContent ?? null,
-      iconOnly: el.classList.contains('icon-only'),
+      words: el.querySelector('.toolbar-button-label')?.textContent ?? null,
       ariaLabel: el.getAttribute('aria-label'),
       title: el.getAttribute('title'),
     };
   }
 
-  const LABELED = { label: 'Add event', iconOnly: false, ariaLabel: null, title: null };
-  const ICON_ONLY = { label: null, iconOnly: true, ariaLabel: 'Add event', title: 'Add event' };
+  const ICON = { words: null, ariaLabel: 'Add event', title: 'Add event' };
 
-  it('draws the icon alone, named, until the card has been measured', async () => {
+  it('is the same icon before the card is measured, on a narrow card and on a wide one', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    expect(shape(card)).toEqual(ICON_ONLY);
-  });
+    expect(shape(card)).toEqual(ICON);
 
-  it.each([
-    [479, ICON_ONLY],
-    [480, LABELED],
-    [900, LABELED],
-  ])('at %ipx draws %o', async (width, expected) => {
-    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    await measure(card, width);
-    expect(shape(card)).toEqual(expected);
-  });
-
-  it('drops the label again when the card narrows', async () => {
-    const card = await mountWide({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    expect(shape(card)).toEqual(LABELED);
-
-    await measure(card, 479);
-    expect(shape(card)).toEqual(ICON_ONLY);
-  });
-
-  it('decides on the measurement itself, before the view fit settles', async () => {
-    // `measure` awaits only the render, never the settle delay, so a label decided where
-    // the column fit is decided would still be missing here.
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
-    await measure(card, 600);
-
-    expect(vi.getTimerCount()).toBeGreaterThan(0);
-    expect(shape(card)).toEqual(LABELED);
+    for (const width of [200, 600, 2000]) {
+      await measure(card, width);
+      expect(shape(card), `${width}px`).toEqual(ICON);
+    }
   });
 
   it('does not re-render a card that has no toolbar for it', async () => {

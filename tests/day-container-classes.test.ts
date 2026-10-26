@@ -420,10 +420,11 @@ describe('theming.md card-mod selectors', () => {
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
     // With a title and room for labels in each view, untitled and icon-only once, and once
-    // with the date navigation, so every row and band class of the toolbar is drawn. The
-    // legend is a lane with a hidden calendar's chip wherever there is room for labels, and
-    // folded into its button and menu on the icon-only card; refresh turns on the band, and
-    // shows each way a refresh someone asked for can end on two of the others.
+    // with the date navigation, so every row and month class of the toolbar is drawn: the
+    // month as plain text without the navigation and as the picker's button with it, in its
+    // short form on the icon-only card. The legend is chips with a hidden calendar's wherever
+    // there is room for labels, and folded into its button and menu on the icon-only card;
+    // refresh shows each way a refresh someone asked for can end on two of the others.
     for (const [view, title, labeled, paging, refreshPhase] of [
       ['list', 'Family', true, false, 'idle'],
       ['column', 'Family', true, false, 'done'],
@@ -446,6 +447,13 @@ describe('theming.md card-mod selectors', () => {
           Render.renderFetchErrorNotice(['Ben'], 'en'),
           {
             labeled,
+            heading: {
+              text: labeled ? 'June 2026' : 'Jun 2026',
+              reserve: labeled ? ['January 2026', 'September 2026'] : ['Jan 2026', 'Sep 2026'],
+              full: ['January 2026', 'September 2026'],
+              short: !labeled,
+              range: 'Jun 17 – 23',
+            },
             viewSwitcher: {
               views: [
                 { view: 'list', label: 'List', available: true },
@@ -455,9 +463,21 @@ describe('theming.md card-mod selectors', () => {
               selected: view,
               onSelect: noop,
             },
-            // Lit beside labels, dimmed on the icon-only card, so both of its states are drawn.
-            reset: { label: 'Reset', active: labeled, onActivate: noop },
-            refresh: { label: 'Refresh', phase: refreshPhase, onActivate: noop },
+            // Lit beside labels, showing its check after a press on the grid card, and hidden on
+            // the icon-only card, so all three of its states are drawn.
+            reset: {
+              label: 'Reset',
+              active: labeled && view !== 'grid',
+              confirmation: view === 'grid' ? 'showing' : undefined,
+              onActivate: noop,
+            },
+            refresh: {
+              label: 'Refresh',
+              phase: refreshPhase,
+              // The turning case is a load the card started itself.
+              unasked: refreshPhase === 'turning',
+              onActivate: noop,
+            },
             addEvent: { label: 'Add event', onActivate: noop },
             legend: {
               calendars: [
@@ -471,13 +491,12 @@ describe('theming.md card-mod selectors', () => {
             },
             navigation: paging
               ? {
-                  range: 'Jun 17 – 23',
-                  widestRange: 'Sep 30 – Oct 6',
                   homeName: 'Today',
                   previousName: 'Previous',
                   nextName: 'Next',
                   inert: false,
                   pickerValue: '2026-06-17',
+                  homeConfirming: true,
                   onPrevious: noop,
                   onHome: noop,
                   onNext: noop,

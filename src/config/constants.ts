@@ -101,6 +101,25 @@ export const TIMING = {
   REFRESH_CONFIRMATION: 1500,
 
   /**
+   * How long the reset button shows its check after a press that did its work, before it hides,
+   * there being nothing left to undo. A little shorter than refresh's, since a reset shows its
+   * outcome on the card itself as well: the days, the layout and the calendars come back.
+   */
+  RESET_CONFIRMATION: 1000,
+
+  /**
+   * How long the home button shows a filled house after a press that brought the card back,
+   * as long as reset shows its check.
+   */
+  HOME_CONFIRMATION: 1000,
+
+  /**
+   * How long the reset button takes to fade out after its check, still showing the check. The
+   * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
+   */
+  RESET_FADE: 200,
+
+  /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.
    *
    * Home Assistant's sections grid lays a card out at its unconstrained width for at
@@ -136,37 +155,22 @@ export const UI = {
   POINTER_MOVE_TOLERANCE: 8,
 
   /**
-   * Card width, in CSS pixels, from which the header toolbar's controls carry a text label
-   * beside their icon. Narrower cards draw the icon alone, named for assistive technology.
-   * This one holds while the add button is the only control.
+   * Card width, in CSS pixels, from which the view switcher names its views in words rather than
+   * pictograms, with no command beside it in the action row. "List", "Columns" and "Grid" need a
+   * card of 242px; German needs 274px, Italian 300px and Lithuanian 330px. Measured in English,
+   * so the switcher shows its words wherever they fit there: a language whose words do not fit
+   * draws them once, finds the row overflowing and keeps the pictograms until the card is wider
+   * (`_syncToolbarLabelFit`), all before anything is painted.
    */
-  TOOLBAR_LABEL_MIN_WIDTH: 480,
+  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 248,
 
   /**
-   * The same, once the view switcher shares the bar. Its three labeled segments and a
-   * labeled add button take about 400px in English and more in German, so the title keeps
-   * room for a word or two only from here up. Labels are all or nothing across the bar.
+   * The width of each command in the action row, the folded filter, add, reset or refresh, all
+   * icons; and the gap between two controls. Both are the stylesheet's, so the width the
+   * switcher's words need is worked out exactly beside them.
    */
-  TOOLBAR_SWITCHER_LABEL_MIN_WIDTH: 640,
-
-  /**
-   * The same two, once the date navigation shares the band. Its track and the widest range
-   * take about 300px before any trailing control, so labels need that much more room. These
-   * are first guesses: a labeled band that still wraps onto a second row drops its labels
-   * until the card is wider (`_syncToolbarLabelFit`), so a guess too low costs one frame and
-   * never a broken layout.
-   */
-  TOOLBAR_BAND_LABEL_MIN_WIDTH: 600,
-  TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH: 840,
-
-  /**
-   * What each command beyond the first adds to those thresholds: refresh, or the legend
-   * folded into a button. Each fixed threshold allows for one, the add button it was measured
-   * with; a labeled refresh or "My calendars" is about a hundred pixels wider than its icon in
-   * English. A first guess under the same rule as the band's: labels that still do not fit
-   * are dropped until the card is wider (`_syncToolbarLabelFit`).
-   */
-  TOOLBAR_EXTRA_LABEL_MIN_WIDTH: 112,
+  TOOLBAR_COMMAND_WIDTH: 36,
+  TOOLBAR_COMMAND_GAP: 8,
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

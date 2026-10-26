@@ -8,6 +8,17 @@ import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
 /**
+ * The value the legend's dropdown offers for `toolbar.legend: false`. A dropdown's values are
+ * strings, so the form says `off` and the configuration never does: {@link normalizeFieldValue}
+ * turns it back into `false` on the way out, and `toolbarFormBlock` turns `false` into it on the
+ * way in.
+ */
+export const LEGEND_OFF = 'off';
+
+/** The legend's dropdown, in the order it lists them: off, then the two forms. */
+export const LEGEND_EDITOR_VALUES: ReadonlyArray<string> = [LEGEND_OFF, 'menu', 'chips'];
+
+/**
  * Normalizes one root option without turning an explicit clear into a default.
  *
  * @param key - Real configuration key
@@ -41,6 +52,9 @@ export function normalizeFieldValue(
   if (key === 'past_event_opacity') return normalizeRootValue(key, value);
   if (value === undefined || value === null) return value;
   if (path.length === 0) return normalizeRootValue(key, value);
+  if (path.length === 1 && path[0] === 'toolbar' && key === 'legend') {
+    return value === LEGEND_OFF ? false : value;
+  }
 
   const view = viewForBlockPath(path);
   const block = view === undefined ? undefined : ViewConfig.viewBlockFor(view);

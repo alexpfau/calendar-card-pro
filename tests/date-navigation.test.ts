@@ -1,14 +1,17 @@
 /**
- * The header toolbar's date navigation, on the real card.
+ * The header toolbar's heading row and date navigation, on the real card.
  *
- * It ships off, so every gate built from default config sees none of it; each case here turns
- * it on. The pure rules — page length, home, labels, DST — are in `paging.test.ts` and
- * `paging.dst.test.ts`. This file pins how the card joins them: where the controls sit, which
- * window each press fetches and where it is cached, that quick presses add up and only the last
- * page is drawn, that past events and `hide_when_empty` apply at home only, that editing is
- * inert and brings the card home, and that a view switch keeps the page without fetching.
+ * The toolbar ships hidden, so every gate built from default config sees none of it; each case
+ * here shows it. The pure rules — page length, home, labels, month headings, DST — are in
+ * `paging.test.ts` and the `*.dst.test.ts` files. This file pins how the card joins them: where
+ * the rows and controls sit, which month the heading names and when it shortens, which window
+ * each press fetches and where it is cached, that quick presses add up and only the last page
+ * is drawn, that past events and `hide_when_empty` apply at home only, that editing is inert
+ * and brings the card home, that a view switch keeps the page without fetching, and when the
+ * action row carries labels.
  */
 
+import { mdiHome, mdiHomeOutline } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -34,13 +37,27 @@ const NOW = new Date(2026, 5, 17, 10, 0);
 /** `Intl`'s range separator: an en dash between thin spaces. */
 const TO = '\u2009–\u2009';
 
+/**
+ * The date navigation and nothing else: every other control is on by default once the toolbar
+ * is shown, so each is turned off here and back on by the cases that want it.
+ */
+const NAVIGATION_ONLY: Types.ToolbarConfig = {
+  show: true,
+  navigation: true,
+  view_switcher: false,
+  add_event: false,
+  reset: false,
+  refresh: false,
+  legend: false,
+};
+
 /** Home is the week of June 15, Monday to Sunday. */
 const BASE: Partial<Types.Config> = {
   entities: ['calendar.anna'],
   days_to_show: 7,
   start_date: 'start_of_week',
   first_day_of_week: 'monday',
-  toolbar: { show: true, navigation: true, view_switcher: false, add_event: false },
+  toolbar: NAVIGATION_ONLY,
 };
 
 interface CardUnderTest extends HTMLElement {
@@ -54,6 +71,7 @@ interface CardUnderTest extends HTMLElement {
   _columnCount: number;
   _failureCountHint: number;
   _newEventDate(): Date;
+  requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -96,6 +114,13 @@ function eventsBetween(start: Date, end: Date): Types.CalendarEventData[] {
 
 const callApi = vi.fn();
 
+/**
+ * Answers a case is holding back, released after every case whatever its outcome. Requests are
+ * shared between cards asking for the same window, so one a failed case left open would be
+ * joined by the next case's card, which would then never load, and fail for nothing of its own.
+ */
+let held: Array<() => void> = [];
+
 /** Answer every request from the fixture, at once. */
 function answerFromFixture(): void {
   callApi.mockImplementation(async (_method: string, path: string) => {
@@ -117,7 +142,10 @@ function lastFetchedStart(): string {
   return starts[starts.length - 1];
 }
 
-function hass(localize?: (key: string) => string): Record<string, unknown> {
+function hass(
+  localize?: (key: string) => string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     states: {
       'calendar.anna': {
@@ -134,8 +162,10 @@ function hass(localize?: (key: string) => string): Record<string, unknown> {
         ({
           'ui.common.previous': 'Previous',
           'ui.common.next': 'Next',
+          'ui.common.reset': 'Reset',
           'ui.components.calendar.event.add': 'Add event',
         })[key] ?? key),
+    ...extra,
   };
 }
 
@@ -152,12 +182,16 @@ async function settle(card: CardUnderTest): Promise<void> {
 
 async function mount(
   overrides: Partial<Types.Config> = {},
-  options: { flag?: 'preview' | 'editMode'; localize?: (key: string) => string } = {},
+  options: {
+    flag?: 'preview' | 'editMode';
+    localize?: (key: string) => string;
+    hass?: Record<string, unknown>;
+  } = {},
 ): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(buildConfig({ ...BASE, ...overrides }));
   if (options.flag) card[options.flag] = true;
-  card.hass = hass(options.localize);
+  card.hass = hass(options.localize, options.hass);
   document.body.appendChild(card);
   await settle(card);
   return card;
@@ -169,6 +203,7 @@ async function measure(card: CardUnderTest, width: number): Promise<void> {
     observed.includes(card),
   );
   if (!observer) throw new Error('the card never asked to be observed');
+  layout.card = width;
   observer.callback([{ contentRect: { width } }]);
   vi.advanceTimersByTime(Constants.TIMING.WIDTH_SETTLE_DELAY);
   await settle(card);
@@ -185,9 +220,67 @@ async function press(card: CardUnderTest, which: 'previous' | 'home' | 'next'): 
   await settle(card);
 }
 
+/** The exact dates on screen, as the hidden live region holds them. */
 function range(card: CardUnderTest): string {
   return root(card).querySelector('.toolbar-range-text')!.textContent!.trim();
 }
+
+/** The month the heading shows. */
+function month(card: CardUnderTest): string {
+  return root(card).querySelector('.toolbar-month-text')!.textContent!.trim();
+}
+
+function monthButton(card: CardUnderTest): HTMLButtonElement {
+  return root(card).querySelector<HTMLButtonElement>('button.toolbar-month-button')!;
+}
+
+/** Pick a day in the date picker, as the browser reports it. */
+async function pick(card: CardUnderTest, day: string): Promise<void> {
+  const input = root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!;
+  input.value = day;
+  input.dispatchEvent(new Event('change'));
+  await settle(card);
+}
+
+/** The class names of an element's children, in order. */
+function childClasses(element: Element): string[] {
+  return Array.from(element.children).map((child) => child.className);
+}
+
+/** The text of each of an element's children, in order. */
+function childTexts(element: Element): string[] {
+  return Array.from(element.children).map((child) => child.textContent!);
+}
+
+/** Every month in full, and in English's short form, January first. */
+const MONTHS_2000 = [
+  'January 2000',
+  'February 2000',
+  'March 2000',
+  'April 2000',
+  'May 2000',
+  'June 2000',
+  'July 2000',
+  'August 2000',
+  'September 2000',
+  'October 2000',
+  'November 2000',
+  'December 2000',
+];
+const SHORT_MONTHS_2000 = [
+  'Jan 2000',
+  'Feb 2000',
+  'Mar 2000',
+  'Apr 2000',
+  'May 2000',
+  'Jun 2000',
+  'Jul 2000',
+  'Aug 2000',
+  'Sep 2000',
+  'Oct 2000',
+  'Nov 2000',
+  'Dec 2000',
+];
 
 /** The days whose events the card holds, as its own fixture names them. */
 function heldDays(card: CardUnderTest): string[] {
@@ -203,6 +296,112 @@ function persistedEntries(): string[] {
   );
 }
 
+//-----------------------------------------------------------------------------
+// LAYOUT STUBS
+//-----------------------------------------------------------------------------
+
+/**
+ * What the stubbed layout reports, in CSS pixels. Zero means "not laid out", which is all
+ * happy-dom ever reports, and what every case that installs no stub runs under.
+ *
+ * `card` is the card's width, which `measure` keeps in step with the width it delivers, and
+ * the heading row spans all of it, the month at its start. `probe` is the width of every month
+ * in full laid over one another, `navigation` the width of the arrows' group, and `chips` the
+ * width the chips need.
+ */
+const layout = { card: 0, probe: 0, navigation: 0, chips: 0 };
+
+/** The heading row's column gap, which the stubbed stylesheet reports. */
+const HEADING_GAP = 8;
+
+/** Describe the heading row to the card the way a browser would lay it out. */
+function stubHeadingLayout(): void {
+  const realRect = HTMLElement.prototype.getBoundingClientRect;
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    const box = (left: number, width: number) =>
+      ({
+        x: left,
+        y: 0,
+        left,
+        right: left + width,
+        width,
+        top: 0,
+        bottom: 40,
+        height: 40,
+      }) as DOMRect;
+    if (this.localName === 'calendar-card-pro-dev') return box(0, layout.card);
+    if (this.classList.contains('toolbar-heading')) return box(0, layout.card);
+    if (this.classList.contains('toolbar-month')) return box(0, layout.probe);
+    if (this.classList.contains('toolbar-month-probe')) return box(0, layout.probe);
+    if (this.classList.contains('date-navigation')) {
+      return box(layout.card - layout.navigation, layout.navigation);
+    }
+    if (this.classList.contains('legend-chips')) return box(0, layout.chips);
+    return realRect.call(this);
+  });
+  // The chips' box pads itself by 4px and gives it back with its margins, as the stylesheet
+  // draws it.
+  const realStyle = window.getComputedStyle.bind(window);
+  const stubbed: Record<string, Partial<CSSStyleDeclaration>> = {
+    'toolbar-heading': {
+      direction: 'ltr',
+      columnGap: `${HEADING_GAP}px`,
+      paddingLeft: '0px',
+      paddingRight: '0px',
+    },
+    'toolbar-month': { marginInlineStart: '0px' },
+    'toolbar-legend': {
+      marginLeft: '-4px',
+      marginRight: '-4px',
+      paddingLeft: '4px',
+      paddingRight: '4px',
+    },
+  };
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+    const style = realStyle(element, pseudo);
+    const name = Object.keys(stubbed).find((cls) =>
+      (element as HTMLElement).classList?.contains(cls),
+    );
+    return name ? ({ ...style, ...stubbed[name] } as CSSStyleDeclaration) : style;
+  });
+}
+
+/** The action row's width under `reportActionRowOverflow`. */
+const ACTION_ROW_WIDTH = 760;
+
+/**
+ * Describe the action row the way a browser would report it: as icons everything fits, and
+ * with the switcher's words, while `labeledOverflows` says so, every control reaches past the
+ * row's end.
+ */
+function reportActionRowOverflow(labeledOverflows: () => boolean): void {
+  const realRect = HTMLElement.prototype.getBoundingClientRect;
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    const box = (left: number, width: number) =>
+      ({
+        x: left,
+        y: 0,
+        left,
+        right: left + width,
+        width,
+        top: 0,
+        bottom: 36,
+        height: 36,
+      }) as DOMRect;
+    if (this.classList.contains('toolbar-actions')) return box(0, ACTION_ROW_WIDTH);
+    const row = this.closest('.toolbar-actions');
+    if (row && this.matches('.toolbar-button, .view-switcher')) {
+      const labeled = row.querySelector('.toolbar-button-label') !== null;
+      return labeled && labeledOverflows() ? box(ACTION_ROW_WIDTH - 60, 120) : box(0, 120);
+    }
+    return realRect.call(this);
+  });
+}
+
 const originalResizeObserver = globalThis.ResizeObserver;
 
 beforeEach(() => {
@@ -215,9 +414,13 @@ beforeEach(() => {
   EventUtils.clearPageStore();
   RecordingResizeObserver.instances = [];
   globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+  Object.assign(layout, { card: 0, probe: 0, navigation: 0, chips: 0 });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  held.forEach((release) => release());
+  held = [];
+  await new Promise((resolve) => setImmediate(resolve));
   document.body.innerHTML = '';
   vi.restoreAllMocks();
   globalThis.ResizeObserver = originalResizeObserver;
@@ -226,49 +429,82 @@ afterEach(() => {
 });
 
 describe('the date navigation', () => {
-  it('draws nothing of its own until asked for', async () => {
-    const card = await mount({ toolbar: { show: true, view_switcher: false } });
+  it('is on once the toolbar is shown, and draws nothing of its own when turned off', async () => {
+    const on = await mount({ toolbar: { show: true } });
+    expect(root(on).querySelector('.date-navigation')).not.toBeNull();
+    expect(root(on).querySelector('button.toolbar-month-button')).not.toBeNull();
 
-    expect(root(card).querySelector('.toolbar-leading')).toBeNull();
-    expect(root(card).querySelector('.header-container')!.className).toBe(
+    document.body.innerHTML = '';
+    const off = await mount({ toolbar: { show: true, navigation: false } });
+    expect(root(off).querySelector('.date-navigation')).toBeNull();
+    expect(root(off).querySelector('button.toolbar-month-button')).toBeNull();
+    expect(root(off).querySelector('.toolbar-date-input')).toBeNull();
+    expect(root(off).querySelector('.header-container')!.className).toBe(
       'header-container has-toolbar',
     );
   });
 
-  it('leads a band of its own under the title, the trailing controls at its end', async () => {
-    const card = await mount({ title: 'Family', toolbar: { ...BASE.toolbar, add_event: true } });
+  it('sets the month and the arrows in the heading row, last in the header, under the action row', async () => {
+    const card = await mount({
+      title: 'Family',
+      toolbar: { ...NAVIGATION_ONLY, add_event: true, reset: true },
+    });
     const header = root(card).querySelector('.header-container')!;
 
-    expect(header.className).toBe('header-container has-toolbar has-band');
-    expect(Array.from(header.children).map((child) => child.className)).toEqual([
+    expect(header.className).toBe('header-container has-toolbar');
+    expect(childClasses(header)).toEqual([
+      'card-toolbar toolbar-actions',
+      'card-toolbar toolbar-heading',
+    ]);
+    // The title moves into the heading row, a small label over the month: the two share one
+    // block, so the arrows can sit on the month's baseline whatever the title's height.
+    expect(childClasses(header.querySelector('.toolbar-heading')!)).toEqual([
+      'toolbar-identity',
+      'toolbar-heading-end',
+    ]);
+    expect(childClasses(header.querySelector('.toolbar-identity')!)).toEqual([
       'card-header',
-      'card-toolbar toolbar-band',
+      'toolbar-month with-picker',
     ]);
-    const band = header.querySelector('.toolbar-band')!;
-    expect(Array.from(band.children).map((child) => child.className)).toEqual([
-      'toolbar-leading',
-      'toolbar-trailing',
+    expect(childClasses(header.querySelector('.toolbar-heading-end')!)).toEqual([
+      'date-navigation',
     ]);
+    const actions = header.querySelector('.toolbar-actions')!;
+    expect(childClasses(actions)).toEqual(['toolbar-start', 'toolbar-end']);
+    expect(actions.querySelector('.date-navigation, .toolbar-month')).toBeNull();
   });
 
-  it('is the whole header without a title, after the placeholder card-mod styles find', async () => {
-    const card = await mount();
-    const header = root(card).querySelector('.header-container')!;
-
-    expect(Array.from(header.children).map((child) => child.className)).toEqual([
-      'card-header-placeholder',
-      'card-toolbar toolbar-band',
+  it('keeps the placeholder over the month without a title, and draws no empty action row', async () => {
+    const alone = await mount();
+    expect(childClasses(root(alone).querySelector('.header-container')!)).toEqual([
+      'card-toolbar toolbar-heading',
     ]);
-    expect(root(card).querySelector('.toolbar-trailing')).toBeNull();
+    expect(childClasses(root(alone).querySelector('.toolbar-identity')!)).toEqual([
+      'card-header-placeholder',
+      'toolbar-month with-picker',
+    ]);
+    expect(root(alone).querySelector('.toolbar-actions')).toBeNull();
+
+    document.body.innerHTML = '';
+    const withAdd = await mount({ toolbar: { ...NAVIGATION_ONLY, add_event: true } });
+    expect(childClasses(root(withAdd).querySelector('.header-container')!)).toEqual([
+      'card-toolbar toolbar-actions',
+      'card-toolbar toolbar-heading',
+    ]);
+    expect(
+      root(withAdd).querySelector('.toolbar-identity > .card-header-placeholder'),
+    ).not.toBeNull();
   });
 
   it('names its controls, and the dates on screen', async () => {
     const card = await mount();
     const [previous, home, next] = segments(card);
 
-    // One group for the dates, named by the dates it moves through.
-    const group = root(card).querySelector('.toolbar-leading')!;
+    // One group for the arrows, named by the dates it moves through. The row is none:
+    // it holds the card's heading, which a group named by the dates would mislabel.
+    const group = root(card).querySelector('.date-navigation')!;
     expect(group.getAttribute('role')).toBe('group');
+    expect(root(card).querySelector('.toolbar-heading')!.hasAttribute('role')).toBe(false);
     const labelledBy = group.getAttribute('aria-labelledby')!;
     expect(root(card).getElementById(labelledBy)!.textContent!.trim()).toBe(`Jun 15${TO}21`);
     expect(previous.getAttribute('aria-label')).toBe('Previous');
@@ -278,20 +514,83 @@ describe('the date navigation', () => {
     expect(home.getAttribute('aria-label')).toBe('Today');
     expect(home.getAttribute('title')).toBe('Today');
     expect(home.textContent!.trim()).toBe('');
+    expect(month(card)).toBe('June 2026');
     expect(range(card)).toBe(`Jun 15${TO}21`);
-    // Announced when it changes. The button holds the dates alone, so its pill is as wide as
-    // they are; an invisible copy of the widest label a week can have keeps the room beside it.
+    // The dates are announced when they change. The month button holds the month alone, and
+    // an invisible copy of every month keeps the room of the widest beside it, so paging
+    // never moves the arrows.
     expect(root(card).querySelector('.toolbar-range-text')!.getAttribute('aria-live')).toBe(
       'polite',
     );
-    const reserve = root(card).querySelector('.toolbar-range-reserve')!;
-    expect(reserve.textContent).toBe(`Jan 26${TO}Feb 1, 2000`);
-    expect(reserve.closest('.toolbar-range')).toBeNull();
-    expect(reserve.parentElement!.classList.contains('toolbar-range-anchor')).toBe(true);
-    for (const button of [...segments(card), root(card).querySelector('.toolbar-range')!]) {
+    const reserve = root(card).querySelector('.toolbar-month-reserve')!;
+    expect(reserve.getAttribute('aria-hidden')).toBe('true');
+    expect(childTexts(reserve)).toEqual(MONTHS_2000);
+    expect(reserve.closest('.toolbar-month-button')).toBeNull();
+    expect(reserve.parentElement!.className).toBe('toolbar-month with-picker');
+    for (const button of [...segments(card), monthButton(card)]) {
       expect(button.tagName).toBe('BUTTON');
       expect(button.getAttribute('type')).toBe('button');
     }
+  });
+
+  it("gives the exact dates as the month's tooltip and description, and says when they change", async () => {
+    const card = await mount();
+    const button = monthButton(card);
+    const track = root(card).querySelector('.date-navigation')!;
+    const live = root(card).querySelector('#toolbar-range-text')!;
+
+    expect(button.getAttribute('title')).toBe(`Jun 15${TO}21`);
+    expect(button.getAttribute('aria-describedby')).toBe('toolbar-range-text');
+    expect(track.getAttribute('aria-labelledby')).toBe('toolbar-range-text');
+    expect(live.className).toBe('toolbar-range-text');
+    expect(live.getAttribute('aria-live')).toBe('polite');
+    expect(live.textContent!.trim()).toBe(`Jun 15${TO}21`);
+
+    // A week later the month is the same, so the dates are all that tells the pages apart.
+    await press(card, 'next');
+    expect(month(card)).toBe('June 2026');
+    expect(monthButton(card).getAttribute('title')).toBe(`Jun 22${TO}28`);
+    expect(root(card).querySelector('#toolbar-range-text')!.textContent!.trim()).toBe(
+      `Jun 22${TO}28`,
+    );
+  });
+
+  it('draws the month as plain text without navigation, the dates in its tooltip', async () => {
+    const card = await mount({
+      toolbar: { ...NAVIGATION_ONLY, navigation: false, add_event: true },
+    });
+    const heading = root(card).querySelector('.toolbar-heading')!;
+
+    // The group at the row's end is drawn without navigation too, and holds nothing then.
+    expect(childClasses(heading)).toEqual(['toolbar-identity', 'toolbar-heading-end']);
+    expect(childClasses(heading.querySelector('.toolbar-identity')!)).toEqual([
+      'card-header-placeholder',
+      'toolbar-month',
+    ]);
+    expect(heading.querySelector('.toolbar-heading-end')!.children).toHaveLength(0);
+    const label = heading.querySelector('.toolbar-month-slot > span.toolbar-month-label')!;
+    expect(label.getAttribute('title')).toBe(`Jun 15${TO}21`);
+    expect(label.textContent!.trim()).toBe('June 2026');
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    // No arrows, so no group for them to be named in.
+    expect(heading.hasAttribute('aria-labelledby')).toBe(false);
+    expect(root(card).querySelector('[role="group"][aria-labelledby]')).toBeNull();
+    expect(root(card).querySelector('button.toolbar-month-button')).toBeNull();
+    expect(root(card).querySelector('.toolbar-date-input')).toBeNull();
+    expect(root(card).querySelector('.date-navigation')).toBeNull();
+  });
+
+  it('draws home as a house, named for where it leads', async () => {
+    const today = await mount();
+    const home = segments(today)[1];
+    expect(home.querySelector('path')!.getAttribute('d')).toBe(mdiHomeOutline);
+    expect(home.getAttribute('aria-label')).toBe('Today');
+
+    document.body.innerHTML = '';
+    const later = await mount({ start_date: 'today+7' });
+    const laterHome = segments(later)[1];
+    expect(laterHome.querySelector('path')!.getAttribute('d')).toBe(mdiHomeOutline);
+    expect(laterHome.getAttribute('aria-label')).toBe('Wed, Jun 24');
   });
 
   it('names the arrows in English for assistive technology alone when Home Assistant has no words', async () => {
@@ -392,11 +691,10 @@ describe('the date navigation', () => {
       (_method: string, path: string) =>
         new Promise((resolve) => {
           const query = new URLSearchParams(path.split('?')[1]);
-          pending.push({
-            start: query.get('start')!.slice(0, 10),
-            resolve: () =>
-              resolve(eventsBetween(new Date(query.get('start')!), new Date(query.get('end')!))),
-          });
+          const answer = () =>
+            resolve(eventsBetween(new Date(query.get('start')!), new Date(query.get('end')!)));
+          pending.push({ start: query.get('start')!.slice(0, 10), resolve: answer });
+          held.push(answer);
         }),
     );
 
@@ -417,6 +715,51 @@ describe('the date navigation', () => {
     await settle(card);
 
     expect(heldDays(card)[0]).toBe('2026-06-29');
+    expect(root(card).querySelector('.content-container')!.className).toBe('content-container');
+  });
+
+  it('names the month the page starts in, never the one it ends in', async () => {
+    const card = await mount();
+    expect(month(card)).toBe('June 2026');
+
+    await press(card, 'next');
+    await press(card, 'next');
+    expect(range(card)).toBe(`Jun 29${TO}Jul 5`);
+    expect(month(card)).toBe('June 2026');
+
+    await pick(card, '2026-12-02');
+    expect(range(card)).toBe(`Nov 30${TO}Dec 6`);
+    expect(month(card)).toBe('November 2026');
+  });
+
+  it('names the page asked for at once, over the days still dimmed below it', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'next');
+    expect(heldDays(card)[0]).toBe('2026-06-29');
+
+    callApi.mockImplementation(
+      (_method: string, path: string) =>
+        new Promise((resolve) => {
+          const query = new URLSearchParams(path.split('?')[1]);
+          held.push(() =>
+            resolve(eventsBetween(new Date(query.get('start')!), new Date(query.get('end')!))),
+          );
+        }),
+    );
+
+    await press(card, 'next');
+    expect(month(card)).toBe('July 2026');
+    expect(range(card)).toBe(`Jul 6${TO}12`);
+    expect(heldDays(card)[0]).toBe('2026-06-29');
+    expect(root(card).querySelector('.content-container')!.className).toBe(
+      'content-container page-pending',
+    );
+
+    held.splice(0).forEach((release) => release());
+    await settle(card);
+    expect(heldDays(card)[0]).toBe('2026-07-06');
+    expect(month(card)).toBe('July 2026');
     expect(root(card).querySelector('.content-container')!.className).toBe('content-container');
   });
 
@@ -467,9 +810,10 @@ describe('the date navigation', () => {
 
     await press(card, 'next');
     expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(month(card)).toBe('June 2026');
     expect(callApi.mock.calls.length).toBe(fetches);
 
-    root(card).querySelector<HTMLButtonElement>('.toolbar-range')!.click();
+    monthButton(card).click();
     expect(showPicker).not.toHaveBeenCalled();
 
     delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;
@@ -607,7 +951,7 @@ describe('the date navigation', () => {
     });
     const card = await mount();
 
-    root(card).querySelector<HTMLButtonElement>('.toolbar-range')!.click();
+    monthButton(card).click();
     expect(showPicker).toHaveBeenCalledOnce();
 
     const input = root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!;
@@ -618,6 +962,7 @@ describe('the date navigation', () => {
     input.dispatchEvent(new Event('change'));
     await settle(card);
     expect(range(card)).toBe(`Jul 6${TO}12`);
+    expect(month(card)).toBe('July 2026');
     expect(lastFetchedStart()).toBe('2026-07-06');
     // Hidden from assistive technology again once the picker has closed.
     expect(input.getAttribute('aria-hidden')).toBe('true');
@@ -642,14 +987,14 @@ describe('the date navigation', () => {
     const focus = vi.spyOn(HTMLInputElement.prototype, 'focus');
     const card = await mount();
 
-    root(card).querySelector<HTMLButtonElement>('.toolbar-range')!.click();
+    monthButton(card).click();
     expect(focus).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
 
     delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).showPicker;
   });
 
-  describe('a second press on the dates closes the picker', () => {
+  describe('a second press on the month closes the picker', () => {
     // Two browsers, two ways to close a picker. Chrome, measured: a press outside an open
     // picker closes it before the page sees the press, then hands the press to the page
     // anyway, and tells the page nothing else, so `:open` is already false when the button
@@ -691,9 +1036,9 @@ describe('the date navigation', () => {
       delete (HTMLInputElement.prototype as unknown as Record<string, unknown>).matches;
     });
 
-    /** A pointer's press on the dates: the browser closes an open picker, then the page hears it. */
-    function pressDates(card: CardUnderTest): void {
-      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+    /** A pointer's press on the month: the browser closes an open picker, then the page hears it. */
+    function pressMonth(card: CardUnderTest): void {
+      const button = monthButton(card);
       if (open === true) open = false;
       button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
       button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
@@ -708,37 +1053,37 @@ describe('the date navigation', () => {
     it('and the press after that opens it again', async () => {
       const card = await mount();
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledOnce();
       runFrames();
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledOnce();
       expect(open).toBe(false);
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
     });
 
     it('but not once the picker closed some other way', async () => {
       const card = await mount();
 
-      pressDates(card);
+      pressMonth(card);
       runFrames();
       // Escape, or the day already shown picked: no change event, the picker simply goes.
       open = false;
       runFrames();
       expect(frames).toEqual([]);
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
     });
 
-    it('nor from a key after a press that was dragged off the dates', async () => {
+    it('nor from a key after a press that was dragged off the month', async () => {
       const card = await mount();
-      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+      const button = monthButton(card);
 
-      pressDates(card);
+      pressMonth(card);
       runFrames();
       // The press closes the picker, then leaves the button: no click follows it.
       open = false;
@@ -757,19 +1102,19 @@ describe('the date navigation', () => {
       open = 'unknown';
       const card = await mount();
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledOnce();
       expect(focused(card)).toBe(input(card));
       // Exposed while it holds focus, and named by the dates it opens on.
       expect(input(card).hasAttribute('aria-hidden')).toBe(false);
       expect(input(card).getAttribute('aria-labelledby')).toBe('toolbar-range-text');
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledOnce();
       expect(focused(card)).toBeNull();
       expect(input(card).getAttribute('aria-hidden')).toBe('true');
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
       expect(frames).toEqual([]);
     });
@@ -778,19 +1123,19 @@ describe('the date navigation', () => {
       open = 'unknown';
       const card = await mount();
 
-      pressDates(card);
+      pressMonth(card);
       // What Safari does with a press outside: focus leaves the input, and the picker goes.
       input(card).blur();
       expect(input(card).getAttribute('aria-hidden')).toBe('true');
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
     });
 
-    it('picking a day closes it, and a keyboard gets its focus back on the dates', async () => {
+    it('picking a day closes it, and a keyboard gets its focus back on the month', async () => {
       open = 'unknown';
       const card = await mount();
-      const button = root(card).querySelector<HTMLButtonElement>('.toolbar-range')!;
+      const button = monthButton(card);
 
       button.focus();
       // Enter or Space on the button: a click with no pointer press before it.
@@ -809,12 +1154,12 @@ describe('the date navigation', () => {
       open = 'unknown';
       const card = await mount();
 
-      pressDates(card);
+      pressMonth(card);
       input(card).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       expect(focused(card)).toBeNull();
       expect(input(card).getAttribute('aria-hidden')).toBe('true');
 
-      pressDates(card);
+      pressMonth(card);
       expect(showPicker).toHaveBeenCalledTimes(2);
     });
   });
@@ -827,29 +1172,400 @@ describe('the date navigation', () => {
     expect(card._newEventDate().getTime()).toBe(new Date(2026, 5, 22).getTime());
   });
 
-  it('labels the trailing controls where the band has room, and never with labels off', async () => {
-    const labeled = await mount({ toolbar: { ...BASE.toolbar, add_event: true } });
-    await measure(labeled, 1400);
-    expect(root(labeled).querySelector('.toolbar-button-label')).not.toBeNull();
-
-    // Between the add button's own threshold and the band's, the band keeps icons.
-    await measure(labeled, 520);
-    expect(root(labeled).querySelector('.toolbar-button-label')).toBeNull();
-
-    document.body.innerHTML = '';
-    const icons = await mount({ toolbar: { ...BASE.toolbar, add_event: true, labels: false } });
-    await measure(icons, 1400);
-    expect(root(icons).querySelector('.toolbar-button-label')).toBeNull();
-    expect(root(icons).querySelector('.add-event-button')!.getAttribute('aria-label')).toBe(
-      'Add event',
-    );
-  });
-
   it('keeps the card off the button role while it holds the navigation', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
     expect(haCard.getAttribute('tabindex')).toBe('0');
+  });
+});
+
+//-----------------------------------------------------------------------------
+// HOME'S CONFIRMATION
+//-----------------------------------------------------------------------------
+
+describe('the filled house a press on home shows', () => {
+  const home = (card: CardUnderTest) => segments(card)[1];
+  const shows = (card: CardUnderTest) => ({
+    done: home(card).classList.contains('home-done'),
+    icon: home(card).querySelector('path')!.getAttribute('d'),
+  });
+  const FILLED = { done: true, icon: mdiHome };
+  const OUTLINE = { done: false, icon: mdiHomeOutline };
+
+  it('shows for a moment after a press that brought the card home', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(shows(card)).toEqual(FILLED);
+    // Still named for where it leads.
+    expect(home(card).getAttribute('aria-label')).toBe('Today');
+
+    vi.advanceTimersByTime(Constants.TIMING.HOME_CONFIRMATION - 1);
+    await settle(card);
+    expect(shows(card)).toEqual(FILLED);
+
+    vi.advanceTimersByTime(1);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('shows nothing for a press with the card already home', async () => {
+    const card = await mount();
+    await press(card, 'home');
+    // Such a press moves nothing and asks for no render, so render anyway: the house must not
+    // be waiting for the next one.
+    card.requestUpdate();
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('ends at once when the card pages away during it', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(shows(card)).toEqual(FILLED);
+
+    await press(card, 'next');
+    expect(shows(card)).toEqual(OUTLINE);
+    // And a timer left over from it changes nothing later.
+    vi.advanceTimersByTime(Constants.TIMING.HOME_CONFIRMATION);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it("is home's own: reset bringing the card home shows its check, not the house", async () => {
+    const card = await mount({ toolbar: { ...NAVIGATION_ONLY, reset: true } });
+    await press(card, 'next');
+    root(card).querySelector<HTMLButtonElement>('.reset-button')!.click();
+    await settle(card);
+
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+    expect(shows(card)).toEqual(OUTLINE);
+    expect(root(card).querySelector('.reset-button')!.classList).toContain('reset-done');
+  });
+
+  it('ends with the card leaving the page, so a card put back is never stuck on it', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    await press(card, 'home');
+    expect(shows(card)).toEqual(FILLED);
+
+    card.remove();
+    document.body.appendChild(card);
+    await settle(card);
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+
+  it('shows nothing while the card is being edited, when home moves nothing', async () => {
+    const card = await mount();
+    await press(card, 'next');
+    (card as unknown as { editMode: boolean }).editMode = true;
+    await settle(card);
+    await press(card, 'home');
+    expect(shows(card)).toEqual(OUTLINE);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE MONTH'S CAPITALS
+//-----------------------------------------------------------------------------
+
+describe("the controls beside the month, centered on the month's capitals", () => {
+  /** Where the stubbed layout puts the heading row, and the top and foot of the month's capitals. */
+  const geometry = { rowTop: 100, rowHeight: 60, paddingBottom: 0, capTop: 134.6, baseline: 151.7 };
+
+  beforeEach(() => {
+    Object.assign(geometry, {
+      rowTop: 100,
+      rowHeight: 60,
+      paddingBottom: 0,
+      capTop: 134.6,
+      baseline: 151.7,
+    });
+    const realRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const { rowTop, rowHeight, capTop, baseline } = geometry;
+      if (this.classList.contains('toolbar-heading')) {
+        return { top: rowTop, bottom: rowTop + rowHeight, height: rowHeight } as DOMRect;
+      }
+      if (this.classList.contains('toolbar-month-cap')) {
+        return { top: capTop, bottom: baseline, height: baseline - capTop } as DOMRect;
+      }
+      return realRect.call(this);
+    });
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      return (element as HTMLElement).classList?.contains('toolbar-heading')
+        ? ({ ...style, paddingBottom: `${geometry.paddingBottom}px` } as CSSStyleDeclaration)
+        : style;
+    });
+  });
+
+  const heading = (card: CardUnderTest): HTMLElement =>
+    root(card).querySelector<HTMLElement>('.toolbar-heading')!;
+  const middle = (card: CardUnderTest): string =>
+    heading(card).style.getPropertyValue('--calendar-card-heading-middle');
+
+  async function rerender(card: CardUnderTest): Promise<void> {
+    card.requestUpdate();
+    await settle(card);
+  }
+
+  it("writes how far the middle of the month's capitals stands above the row's foot", async () => {
+    const card = await mount({ title: 'Family' });
+    // The capitals run from 134.6 to 151.7, so their middle is at 143.15, 16.85 above the foot.
+    expect(middle(card)).toBe('16.85px');
+
+    // A larger title size puts the middle further from the foot.
+    Object.assign(geometry, { capTop: 126, baseline: 149.6 });
+    await rerender(card);
+    expect(middle(card)).toBe('22.20px');
+  });
+
+  it("measures from the row's content box, inside any padding a theme gives it", async () => {
+    geometry.paddingBottom = 4;
+    const card = await mount();
+    expect(middle(card)).toBe('12.85px');
+  });
+
+  it('measures the same height for a card scrolled above the viewport', async () => {
+    Object.assign(geometry, { rowTop: -300, capTop: -265.4, baseline: -248.3 });
+    const card = await mount();
+    expect(middle(card)).toBe('16.85px');
+  });
+
+  it('writes nothing for a row with no layout, leaving the stylesheet its stand-in', async () => {
+    Object.assign(geometry, { rowHeight: 0, capTop: 0, baseline: 0 });
+    const card = await mount();
+    expect(middle(card)).toBe('');
+
+    // Laid out later, it measures then.
+    Object.assign(geometry, { rowHeight: 60, capTop: 134.6, baseline: 151.7 });
+    await rerender(card);
+    expect(middle(card)).toBe('16.85px');
+  });
+
+  it('never sets them below the foot', async () => {
+    Object.assign(geometry, { capTop: 165, baseline: 180 });
+    const card = await mount();
+    expect(middle(card)).toBe('0.00px');
+  });
+
+  it('writes onto the row alone, which no render binds a style to', async () => {
+    const card = await mount();
+    expect(heading(card).getAttribute('style')).toBe('--calendar-card-heading-middle: 16.85px;');
+    // A render that changes nothing keeps it.
+    await rerender(card);
+    expect(middle(card)).toBe('16.85px');
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE MONTH'S SHORT FORM
+//-----------------------------------------------------------------------------
+
+describe("the month's short form", () => {
+  beforeEach(() => {
+    stubHeadingLayout();
+    Object.assign(layout, { probe: 300, navigation: 100 });
+  });
+
+  /** The card width from which every month in full fits beside the gap and the arrows. */
+  const fullFrom = (): number => layout.probe + HEADING_GAP + layout.navigation;
+
+  const heading = (card: CardUnderTest): Element => root(card).querySelector('.toolbar-heading')!;
+  const reserve = (card: CardUnderTest): Element =>
+    root(card).querySelector('.toolbar-month-reserve')!;
+  const probe = (card: CardUnderTest): Element => root(card).querySelector('.toolbar-month-probe')!;
+
+  it('shortens the month where every month in full does not fit beside the arrows, and only there', async () => {
+    const card = await mount();
+
+    await measure(card, fullFrom() - 1);
+    expect(heading(card).className).toBe('card-toolbar toolbar-heading short-month');
+    expect(month(card)).toBe('Jun 2026');
+    // The room kept is the widest short month's; the months in full are still there to measure.
+    expect(childTexts(reserve(card))).toEqual(SHORT_MONTHS_2000);
+    expect(childTexts(probe(card))).toEqual(MONTHS_2000);
+    // The dates stay exact whichever form the month takes.
+    expect(range(card)).toBe(`Jun 15${TO}21`);
+
+    await measure(card, fullFrom());
+    expect(heading(card).className).toBe('card-toolbar toolbar-heading');
+    expect(month(card)).toBe('June 2026');
+    expect(childTexts(reserve(card))).toEqual(MONTHS_2000);
+
+    await measure(card, fullFrom() - 1);
+    expect(month(card)).toBe('Jun 2026');
+  });
+
+  it("keeps the gap before the row's end without the arrows, where the end group stays empty", async () => {
+    // The group at the row's end is drawn without navigation too, so the month still loses the
+    // gap before it, and is shortened rather than cut off in the band of widths that gap costs.
+    const card = await mount({
+      toolbar: { ...NAVIGATION_ONLY, navigation: false, add_event: true },
+    });
+    expect(root(card).querySelector('.date-navigation')).toBeNull();
+
+    await measure(card, layout.probe + HEADING_GAP - 1);
+    expect(month(card)).toBe('Jun 2026');
+
+    await measure(card, layout.probe + HEADING_GAP);
+    expect(month(card)).toBe('June 2026');
+  });
+
+  it('never shortens the month while the chips show', async () => {
+    // The chips fit only where the month in full does too, so the two can only disagree in the
+    // frame between a resize and the legend's own pass, which waits a frame. Frames are run by
+    // hand here so that one can be looked at.
+    let frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const runFrames = async (card: CardUnderTest): Promise<void> => {
+      const due = frames;
+      frames = [];
+      for (const frame of due) frame(0);
+      await settle(card);
+    };
+    layout.chips = 60;
+    /** The width from which the chips fit: the month in full, the arrows and a gap either side. */
+    const chipsFrom = layout.probe + layout.navigation + 2 * HEADING_GAP + layout.chips;
+    expect(chipsFrom).toBeGreaterThan(fullFrom());
+
+    try {
+      const card = await mount({ toolbar: { ...NAVIGATION_ONLY, legend: 'chips' } });
+      await measure(card, chipsFrom + 100);
+      await runFrames(card);
+      expect(heading(card).className).toBe('card-toolbar toolbar-heading chips-shown');
+      expect(month(card)).toBe('June 2026');
+
+      // Narrowed past both widths: the chips are still drawn until their pass, and the month
+      // with them is in full, though it would be short without them.
+      await measure(card, fullFrom() - 1);
+      expect(heading(card).className).toBe('card-toolbar toolbar-heading chips-shown');
+      expect(root(card).querySelectorAll('.toolbar-heading .legend-chip')).toHaveLength(1);
+      expect(month(card)).toBe('June 2026');
+      expect(childTexts(reserve(card))).toEqual(MONTHS_2000);
+
+      // Their pass folds them into the button, and the month takes its short form at once.
+      await runFrames(card);
+      expect(root(card).querySelector('.legend-button')).not.toBeNull();
+      expect(heading(card).className).toBe('card-toolbar toolbar-heading short-month');
+      expect(month(card)).toBe('Jun 2026');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE ACTION ROW'S LABELS
+//-----------------------------------------------------------------------------
+
+describe("the view switcher's words", () => {
+  /** Add and reset beside the switcher, with the date navigation. */
+  const LABELED: Types.ToolbarConfig = {
+    show: true,
+    navigation: true,
+    view_switcher: true,
+    add_event: true,
+    reset: true,
+    refresh: false,
+    legend: false,
+  };
+
+  /** The switcher's own threshold, and add and reset each an icon beside it. */
+  const labeledFrom = (): number =>
+    Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + 2 * Constants.UI.TOOLBAR_COMMAND_WIDTH;
+
+  /** The words the action row draws, in order. */
+  function labels(card: CardUnderTest): string[] {
+    return Array.from(root(card).querySelectorAll('.toolbar-actions .toolbar-button-label')).map(
+      (label) => label.textContent!.trim(),
+    );
+  }
+
+  const ALL_LABELS = ['List', 'Columns', 'Grid'];
+
+  it('are drawn from their own threshold, whatever the navigation', async () => {
+    for (const navigation of [true, false]) {
+      document.body.innerHTML = '';
+      const card = await mount({ toolbar: { ...LABELED, navigation } });
+
+      await measure(card, labeledFrom() - 1);
+      expect(root(card).querySelector('.view-switcher'), `navigation ${navigation}`).not.toBeNull();
+      expect(labels(card), `navigation ${navigation}`).toEqual([]);
+
+      await measure(card, labeledFrom());
+      expect(labels(card), `navigation ${navigation}`).toEqual(ALL_LABELS);
+    }
+  });
+
+  describe('once they did not fit', () => {
+    // A retry would fit from the moment the words are dropped, so a retry would show.
+    let overflows: boolean;
+
+    beforeEach(() => {
+      overflows = true;
+      reportActionRowOverflow(() => overflows);
+    });
+
+    it('are not tried again for a page turned at the same width', async () => {
+      const card = await mount({ toolbar: LABELED });
+      const width = labeledFrom() + 48;
+
+      await measure(card, width);
+      expect(labels(card)).toEqual([]);
+      overflows = false;
+
+      await press(card, 'next');
+      expect(range(card)).toBe(`Jun 22${TO}28`);
+      expect(labels(card)).toEqual([]);
+
+      // The control: wider than the width they did not fit at, they are tried again.
+      await measure(card, width + 1);
+      expect(labels(card)).toEqual(ALL_LABELS);
+    });
+
+    it('are not tried again for a templated title ticking over at the same width', async () => {
+      const results: Array<(message: unknown) => void> = [];
+      const connection = {
+        subscribeMessage: (handler: (message: unknown) => void) => {
+          results.push(handler);
+          return Promise.resolve(() => undefined);
+        },
+      };
+      const card = await mount(
+        { title: '{{ states("sensor.family") }}', toolbar: LABELED },
+        { hass: { connection } },
+      );
+      const title = (): string =>
+        root(card).querySelector('.card-header')?.textContent?.trim() ?? '';
+      expect(results).toHaveLength(1);
+      results[0]({ result: 'Anna' });
+      await settle(card);
+      expect(title()).toBe('Anna');
+      const width = labeledFrom() + 48;
+
+      await measure(card, width);
+      expect(labels(card)).toEqual([]);
+      overflows = false;
+
+      results[0]({ result: 'Anna and Ben' });
+      await settle(card);
+      expect(title()).toBe('Anna and Ben');
+      expect(labels(card)).toEqual([]);
+
+      await measure(card, width + 1);
+      expect(labels(card)).toEqual(ALL_LABELS);
+    });
   });
 });

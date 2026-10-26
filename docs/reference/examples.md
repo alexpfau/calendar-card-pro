@@ -282,8 +282,9 @@ the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
 ## 📲 Reading & Adding Events on a Shared Tablet
 
 A tablet the whole household walks past should take a new plan and show any event in full,
-without a stray tap changing one. `toolbar` adds a layout switcher and an add button to the
-header, `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, and
+without a stray tap changing one. `toolbar` adds the card's own controls to the header: a
+calendar filter, an add button, a layout switcher, a reset button and arrows to page through the
+dates beside the month. `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, and
 the two `allow_event_*` options take Edit and Delete out of that dialog, so reading an event
 can never change it.
 

@@ -545,17 +545,16 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],
   ['all-day pill', { allday_badge: 'title' }],
-  // The header toolbar shares the title's row and sizes itself from the title's option, so
-  // it is drawn here beside the title it must not be nested in.
-  ['header toolbar', { toolbar: { show: true } }],
-  // The date navigation gives the toolbar a band of its own under the title, with the range
-  // as a button of its own text.
-  ['date navigation', { toolbar: { show: true, navigation: true } }],
-  // The legend's lane under the bar, its chips at the control size.
-  ['legend', { toolbar: { show: true, legend: true } }],
-  // The legend folded into a button, with the menu it opens, beside refresh. `renderCard`
-  // folds the legend whenever refresh is on, which is how this variant asks for it.
-  ['folded legend', { toolbar: { show: true, legend: true, refresh: true } }],
+  // The header toolbar: the title shrinks to a label over the month, which takes the title's
+  // option, so both are drawn here beside the controls they must not be nested in. Without
+  // the date navigation the month is plain text.
+  ['header toolbar', { toolbar: { show: true, navigation: false, legend: false } }],
+  // With the date navigation the month is a button of its own, beside the arrows.
+  ['date navigation', { toolbar: { show: true, navigation: true, legend: false } }],
+  // The legend's chips at the end of the heading row, at the control size.
+  ['legend', { toolbar: { show: true, navigation: true, legend: 'chips' } }],
+  // The legend folded into a button, with the menu it opens, beside refresh.
+  ['folded legend', { toolbar: { show: true, legend: 'menu', refresh: true } }],
 ];
 
 /**
@@ -665,10 +664,15 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       config.toolbar?.show
         ? {
             labeled: true,
+            heading: {
+              text: 'June 2026',
+              reserve: ['January 2026', 'September 2026'],
+              full: ['January 2026', 'September 2026'],
+              short: false,
+              range: 'Jun 17 – Jun 23',
+            },
             navigation: config.toolbar.navigation
               ? {
-                  range: 'Jun 17 – Jun 23',
-                  widestRange: 'Jan 26 – Feb 1, 2000',
                   homeName: 'Today',
                   previousName: 'Previous',
                   nextName: 'Next',
@@ -695,7 +699,7 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
                     { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
                   ],
                   name: 'My calendars',
-                  folded: config.toolbar.refresh === true,
+                  folded: config.toolbar.legend === 'menu',
                   inert: false,
                   onToggle: () => undefined,
                 }
@@ -949,12 +953,12 @@ describe('every piece of text is sized by its own option', () => {
     expect(sizedText(analyzeAll().runs)).toEqual({
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
-      // The date navigation's range, a control as well, and the invisible copy of its widest
-      // label that reserves the room beside the button rather than inside it: both at Home
-      // Assistant's control size, so the reserve is exactly as wide as the label it stands for.
-      'bdi in toolbar-range-text': ['--ha-font-size-m'],
       'calendar-label in summary': ['event_font_size'],
+      // The title is the card's headline without the toolbar. With it, the title is drawn in the
+      // heading row as a label over the month, at Home Assistant's control size, and the month
+      // takes the title's option.
       'card-header in header-container': ['title_font_size'],
+      'card-header in toolbar-identity': ['--ha-font-size-m'],
       'day in column-date-content': ['day_font_size'],
       'day in date-column': ['day_font_size'],
       'event-title in summary': ['event_font_size'],
@@ -963,8 +967,8 @@ describe('every piece of text is sized by its own option', () => {
       'grid-banner-title in event': ['event_font_size'],
       'grid-event-overflow-label in event': ['time_font_size'],
       // The legend's chips and the rows of the menu it folds into: controls, at Home
-      // Assistant's control size like the rest of the toolbar. The menu sets its own size,
-      // because in a title's row it is drawn inside a bar that takes the title's.
+      // Assistant's control size like the rest of the toolbar. The menu sets its own size, so
+      // nothing it sits inside can change it.
       'legend-chip-label in legend-chip': ['--ha-font-size-m'],
       'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
@@ -977,6 +981,11 @@ describe('every piece of text is sized by its own option', () => {
       'span in now-time': ['time_font_size'],
       'span in time-actual': ['time_font_size'],
       'span in time-text': ['time_font_size'],
+      // The month heading, the copies of every month that keep its room and the months it is
+      // measured by, and the dates read out beside it: all at the title's option, so the room
+      // kept and the room measured are exactly as wide as the month they stand for.
+      'span in toolbar-month-probe': ['title_font_size'],
+      'span in toolbar-month-reserve': ['title_font_size'],
       'time-countdown in time': ['time_font_size'],
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],
@@ -985,9 +994,9 @@ describe('every piece of text is sized by its own option', () => {
       'today-indicator in today-indicator-container': ['today_indicator_size'],
       // A control, not card text: it takes Home Assistant's own control size, so it reads
       // the same as the buttons around the card whatever the card's own sizes are.
-      'toolbar-button-label in toolbar-button': ['--ha-font-size-m'],
       'toolbar-button-label in view-switcher-segment': ['--ha-font-size-m'],
-      'toolbar-range-reserve in toolbar-range-anchor': ['--ha-font-size-m'],
+      'toolbar-month-text in toolbar-month-label': ['title_font_size'],
+      'toolbar-range-text in toolbar-month': ['title_font_size'],
       'weather-temp-high in weather': ['weather.date.font_size'],
       'week-number in column-week-number': ['week_number_font_size'],
       'week-number in week-number-cell': ['week_number_font_size'],

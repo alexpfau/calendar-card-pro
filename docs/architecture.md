@@ -47,7 +47,7 @@ src/
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
 │   ├── toolbar.ts                # Header toolbar and its controls
-│   ├── legend.ts                 # The calendar legend: its chips, folded button and menu
+│   ├── legend.ts                 # The calendar filter: its chips, its button and menu
 │   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── column.ts                 # The column view
@@ -181,98 +181,147 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a toolbar between the title and the events: the date
-navigation, the calendar legend, the view switcher, reset, refresh and the add-event button. The
-layout rule is fixed, so a control still to come slots in without moving the ones already
-there. `renderHeaderToolbar`
-in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
+The card's own controls live in a toolbar between the title and the events: the calendar
+filter, the add-event button, the view switcher, reset, refresh, and the date navigation beside the
+month. The layout rule is fixed, so a control still to come slots in without moving the ones
+already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
+`renderMainCardStructure` places it.
 
-- **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, and a
-  boolean per control. `resolveToolbar` in `config/config.ts` reads it member by member and
-  is the only reader, so a malformed value reads as that member's default. `show` defaults
-  off; the v5 controls default on inside a shown bar, and a control added later defaults
-  off, so a release never adds a control to a toolbar someone already set up: `navigation`,
-  `reset`, `refresh` and `legend` are those. `labels` is not a control and defaults on, which is what the bar has
-  always done. Every new control needs a `toolbar → key` row in the reference: `check:docs`
-  reconciles the block's defaults against those rows in both directions.
-
-- **It is conditional.** With no control enabled or available there is no toolbar and no
-  new DOM: the header renders byte for byte as it did before the toolbar existed. That is
-  why the header keeps a single child binding, since a second one, even rendering nothing,
-  adds a Lit marker and a text node, and why no default snapshot moved.
-- **Groups by purpose, in a fixed order.** The leading group is the dates: previous, home
-  and next on one track, then the range on screen, which opens a date picker. The trailing
-  group has two parts. First what the card shows: the view switch, then reset, which undoes
-  that and the rest of the device's choices and so closes the part. Then the commands on the
-  events: refresh, then add, which is always last. Refresh sits with add rather than before
-  the switch, because it is a command on the data, not a change of layout. Twice the usual gap
-  separates the two parts, so reset's U-turn and refresh's circular arrow never read as one
-  pair. It is a margin on the first command in `styles.ts`, not a wrapper, so the trailing
-  group stays one flat row of children for card-mod. The calendar legend is a filter, and gets
-  a lane of its own below the bar: one row of chips, which clips rather than scrolls. Where
-  the chips do not fit, the legend folds into a button that leads the trailing group, ahead of
-  the switch, and the lane goes.
-- **Trailing actions alone share the title's row.** With a title, a pending templated
-  title included, they sit at the inline end of the title's row inside
-  `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
-  beside them rather than pushing them below it, and the card gains no height. Without a
-  title they get a slim row of 48px, the bar and a 12px gap under it.
-- **The dates make the toolbar a band of its own.** With `navigation` the toolbar is
-  `.card-toolbar.toolbar-band`, and `.header-container` gains `.has-band` and wraps, so the
-  band takes the row under the title, or is the whole header without one. The dates lead and
-  the trailing group keeps to the inline end; where both do not fit, the trailing group wraps
-  onto a second row. The range button is as wide as its dates; behind it, in the same grid
-  cell, an invisible copy of the widest label a page of its length can have
-  (`widestRangeLabel`) keeps that much room, so the band wraps by the card's width and its
-  controls, never by the dates on screen, and a press never moves a control. That holds
-  because a label names its year at most once, and only where it is not the one assumed. The range can still shrink below that, so on a card too narrow for the dates it is
-  cut short rather than pushed past the edge. The range focuses the hidden date input to open
-  its picker, because Safari closes a picker only when its input loses focus. A press on the
-  range while that picker is showing closes it by taking the focus away, and opens nothing:
-  Chrome closes its picker itself and then hands the page the very press that closed it, so
-  the card follows the picker from the moment it opens one, until focus leaves the input, a
-  day is picked, Escape is pressed, or `:open` turns false, which it checks once a frame. The
-  input is exposed to assistive technology only while it holds that focus, and focus goes
-  back to the range button when the button had it. The band's 8px
-  inline start is the title's margin, so column and grid, which drop that margin, drop it
-  too. A view switch is drawn at once: Home Assistant's `ha-card` transitions every
-  property, the padding each view sets included, so the card limits it to colors and the
-  shadow. Layout is logical throughout, and the arrows are
-  mirrored under `:dir(rtl)`, where previous points right.
-- **card-mod selectors stay valid.** `.header-container > h1.card-header` and
-  `.card-header-placeholder` keep their element, classes and CSS. The toolbar follows them
-  inside `.header-container`, so the card's children and the `.header-container` +
-  `.content-container` adjacency are unchanged.
-- **A control never starts the card's gesture.** Each stops `pointerdown`, which arms the
-  card's tap and hold and captures the pointer, and `click`. So does the `.card-toolbar` box
-  itself (`renderHeaderToolbar`), because the switcher's gray track and the gaps between
-  controls are part of the bar but no button: a near miss there must not run `tap_action`
-  or `hold_action`. None stops `keydown`: the card already ignores keys aimed at anything
-  but itself, and stopping them would hide them from Home Assistant's own shortcuts.
-- **Labels follow the card's width, not the viewport's.** Above a width that depends on
-  which controls are drawn (the thresholds are below), a control carries its label beside
-  its icon; under it, the icon alone, named by `aria-label`. `labels: false` keeps every control an
-  icon at any width. The date navigation carries no labels: its home button is always an
-  icon, named by its tooltip, and the range is state rather than a control's name. The width is the card's own
-  `ResizeObserver` reading, acted on inside the callback so the first painted frame is
-  already right. A container query was rejected: it needs a `container-type` ancestor,
-  which could capture the `cqh` units grid view sizes against, and happy-dom cannot
-  evaluate one, so it could not be tested.
-- **Controls are native, and share one look.** Every control is a `<button>` styled from
-  theme variables rather than an `ha-*` element, so the card names no new Home Assistant
-  element: a neutral pill on a gray track, the text color washed into the card, with the
-  selected view raised out of it. A control under the pointer or pressed takes the card's
-  hover color, its accent, laid over the gray, as an untinted event does, and the theme's
-  primary color is kept for the focus ring.
-  Labels are all or nothing across the bar: from `UI.TOOLBAR_LABEL_MIN_WIDTH` with the add
-  button alone, from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (640px) with the switcher, and
-  never while Home Assistant offers no words for the add button. The thresholds assume a
-  short title; `_syncToolbarLabelFit` reads the render, and if the labeled bar overflows the
-  header it draws icons until the card is wider than that or the title, language or controls
-  change. It only ever drops labels, so it cannot oscillate. With the date navigation in the
-  band, labels start from `UI.TOOLBAR_BAND_LABEL_MIN_WIDTH` (600px), or
-  `UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH` (840px) with the switcher, and the same check
-  drops them when the labeled trailing group wraps under the dates: a label is not worth a row.
+- **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, a boolean per
+  control, and `legend`, which is `false`, `menu` or `chips`. `resolveToolbar` in
+  `config/config.ts` reads it member by member and is the only reader, so a malformed value reads
+  as that member's default; `legend: true` names no form and reads as `menu`. `show` defaults off;
+  inside a shown bar every control defaults on except `reset`, because v5 is the first release
+  with a toolbar and these are its first defaults. Reset is for a shared screen: elsewhere a
+  layout picked on the switcher is a preference, remembered until the card is edited, and a lit
+  reset button kept presenting it as something to undo. A control added in a later release defaults
+  off, so a release never adds a control to a toolbar someone already set up. Every control
+  needs a `toolbar → key` row in the reference:
+  `check:docs` reconciles the block's defaults against those rows in both directions.
+- **It is conditional.** With no control enabled or available there is no toolbar and no new DOM:
+  the header renders byte for byte as it did before the toolbar existed. That is why the header
+  keeps a single child binding, since a second one, even rendering nothing, adds a Lit marker and
+  a text node, and why no default snapshot moved.
+- **Two rows, the title in the second.** With a control, `.header-container.has-toolbar` holds
+  the action row (`.card-toolbar.toolbar-actions`), then the heading row
+  (`.card-toolbar.toolbar-heading`), right above the days. The title moves into the heading row:
+  `h1.card-header`, or `.card-header-placeholder` without a title, is the first child of
+  `.toolbar-identity`, a block it shares with the month, so the title is a small label directly
+  over it. It keeps its element and classes, and the `.header-container` + `.content-container`
+  adjacency is unchanged, but while the toolbar is drawn the child selector
+  `.header-container > h1.card-header` no longer reaches it; the descendant
+  `.header-container h1.card-header` does, with the toolbar on or off. One block is what lets the
+  arrows and the chips sit centered on the month's capitals (below) whatever the title's height, and
+  what keeps the month's hover off the title. The title is in the secondary text color, and the
+  month, the card's headline then, reads `title_font_size` and `title_color`. A long title wraps
+  within the block and adds nothing to its width (`contain: inline-size`), so it never takes room
+  from the chips. A templated title still pending keeps the `h1`, held one line tall, so the
+  month does not move when its value arrives.
+- **The action row groups by purpose.** A start group (`.toolbar-start`: the folded filter, then
+  add), the view switcher, and an end group (`.toolbar-end`: reset, then refresh). Both groups are
+  always drawn and share the room beside the switcher equally (`flex: 1 1 0` with a
+  `max-content` minimum), so the switcher sits in the middle of the card while both fit in half of
+  it, and between them when one does not; only a card too narrow for every icon on one line wraps
+  the end group onto a line of its own. Both groups space their icons alike, 8px apart. The row
+  is drawn only while it holds a control.
+- **The heading row names the month the page starts in.** `monthHeading` in `utils/paging.ts`
+  writes the month and year of the page's first day through `Intl` in the card's language,
+  capitalized where the month leads: one month, never two, so a week across a turn of the month is
+  named by its first. The exact dates, `rangeLabel`, are the heading's tooltip and a visually
+  hidden polite live region that describes the button and names the arrows' track, a group of its
+  own; the row is none, since it holds the card's heading. With navigation the
+  month is a button over a hidden native date input, which opens the browser's picker, and
+  previous, home (a house, because home is not always today, filled on the success wash for
+  `HOME_CONFIRMATION` after a press that brought the card back, `_pressHome`) and next stand
+  beside it, three
+  small round buttons in one group;
+  without navigation the month is plain text. The arrows keep to the row's end in every layout
+  (`.toolbar-heading-end`), so a press on next lands on the same spot page after page. While the
+  chips show they sit between, by the action row's rule: the title's block and the arrows' group
+  share the room beside them equally, so the chips are centered under the switcher while there is
+  room, and the block keeps the room of the month's widest name. Behind the month, in the same grid cell, every
+  month in the form drawn keeps the room of the widest, with tabular figures, so paging never
+  moves a control. The month button
+  focuses the hidden date input to open its picker, because Safari closes a picker only when its
+  input loses focus. A press on the month while that picker is showing closes it by taking the
+  focus away, and opens nothing: Chrome closes its picker itself and then hands the page the very
+  press that closed it, so the card follows the picker from the moment it opens one, until focus
+  leaves the input, a day is picked, Escape is pressed, or `:open` turns false, which it checks
+  once a frame. The input is exposed to assistive technology only while it holds that focus, and
+  focus goes back to the month button when the button had it. Layout is logical throughout, and
+  the arrows are mirrored under `:dir(rtl)`, where previous points right.
+- **The arrows and the chips are small, and centered on the month's capitals.** They are 24px
+  tall against the action row's 36px, with the chevrons filling 44% of their button and the chips
+  keeping Home Assistant's control text size, so beside a 24px month they are about as tall as
+  its capitals plus a little. A 36px pill with its bottom edge on the month's baseline rose about
+  19px above the letters, and its icons sat higher than their middle, which read as misaligned
+  however exactly it was aligned. The row aligns its items' feet, and `_syncHeadingMiddle` reads,
+  after every render, an empty box at the start of the month's words that is one capital tall
+  (`1cap`) and stands on their baseline (`.toolbar-month-cap`). It writes how far that box's
+  middle stands above the row's content foot as `--calendar-card-heading-middle`, straight onto
+  the row, which no render binds a style to, and the stylesheet raises the arrows' group and the
+  chips' box so their middles sit there. The height depends on the month's font and line alone,
+  never on where the controls sit, so writing it cannot move what it was measured from; 15px
+  stands in until the first measurement, and `0.7em` for a browser without the `cap` unit.
+- **The month shortens by measurement, never by the month on screen.** `_syncMonthFit` reads,
+  after every render, a hidden copy of every month in full laid over one another in the heading's
+  own font, and the room from the month's start to the row's end less the arrows. It turns that
+  into the card width from which the full form fits (`_monthFit`); below it every month takes the
+  language's short form, and the month is cut short where even that does not fit. The inputs never
+  depend on the form drawn, so it cannot oscillate, and the form never changes the card's height,
+  so it may act inside a resize. While the chips show the month is always in full: they are drawn
+  only where the full month leaves them room.
+- **The rows insets follow the title's.** In list each row is 8px in, the title's margin; column
+  and grid drop the title's margin, and the rows' 8px with it. A view switch is drawn at once:
+  Home Assistant's `ha-card` transitions every property, the padding each view sets included, so
+  the card limits it to colors and the shadow.
+- **A control never starts the card's gesture.** Each stops `pointerdown`, which arms the card's
+  tap and hold and captures the pointer, and `click`. So does each row's own box
+  (`renderHeaderToolbar`), because the switcher's gray track, the gaps between controls and the
+  plain month are part of a row but no button: a near miss there must not run `tap_action` or
+  `hold_action`. The title above the month is not guarded, and still runs them. None stops
+  `keydown`: the card already ignores keys aimed at anything but itself, and stopping them would
+  hide them from Home Assistant's own shortcuts.
+- **Every control has a 44px touch target.** Each answers a press 44px tall through an invisible
+  `::before` box that never overlaps a neighbor's: a 36px button in the action row grows 4px each
+  way; a 24px chip or arrow 10px up and down and 2px across, for their 5px and 4px gaps, the
+  first and last arrows 6px outward, with the chips' box padded as far so it does not clip them;
+  and a segment on the switcher's track 7px up and down, across only at the track's two ends, so
+  the segments inside stay 34px wide. The arrows answer 28px to 32px across, above the 24px that
+  accessibility guidelines set as the least. The month is the exception: its button is a pill exactly its
+  line tall, so its hover sits close around the words and never reaches the title above it. Its
+  target reaches 10px down, into the gap above the days, and only 2px up, so the title keeps its
+  line for the card's own tap action: about 41px tall at the default title size, and as wide as
+  the month and its caret.
+- **Each control is an icon or words, never both, and which is fixed.** The commands, the
+  folded filter, add, reset and refresh, are icons at every width, named by Home Assistant's own
+  words as their tooltips and `aria-label`, or in English for assistive technology alone where it
+  has none. The view switcher shows the words List, Columns and Grid where they fit beside the
+  commands and its pictograms where they do not, each then named by its word. The month and the
+  chips are words, the arrows and home icons. There is no option for it: a `labels` switch
+  existed during v5's development and was removed before release, because it added an editor
+  field, its strings in eleven languages, a reference row and tests for a preference that changed
+  only wide cards, while labeled commands hid the views' words whenever Home Assistant lacked a
+  word for a single command. The width is the card's own `ResizeObserver` reading, acted on
+  inside the callback so the first painted frame is already right. A container query was rejected: it needs a
+  `container-type` ancestor, which could capture the `cqh` units grid view sizes against, and
+  happy-dom cannot evaluate one, so it could not be tested.
+- **Controls are native, and share one look.** Every control is a `<button>` styled from theme
+  variables rather than an `ha-*` element, so the card names no new Home Assistant element: a
+  neutral pill on a gray track, the text color washed into the card, with the selected view raised
+  out of it. A control under the pointer or pressed takes the card's hover color, its accent, laid
+  over the gray, as an untinted event does, and the theme's primary color is kept for the focus
+  ring. The four `--calendar-card-toolbar-*` properties are declared on `.card-toolbar`, which
+  both rows are, so the chips and the filter's menu inside them take them too. The switcher's
+  words show from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (248px) for the switcher alone, plus
+  exactly the commands beside it: `UI.TOOLBAR_COMMAND_WIDTH` for each icon, `UI.TOOLBAR_COMMAND_GAP`
+  between two in a group, which `stylesheet.test.ts`
+  reconciles against the stylesheet. The base is measured in English, where the words need 242px;
+  German needs 274px and Lithuanian 330px. `_syncToolbarLabelFit` reads the render, and if the row
+  wrapped or overflows with the words it draws the pictograms until the card is wider than that
+  or the language or the controls change. It only ever drops the words, so it cannot oscillate,
+  and its signature is the row's own controls, so neither a templated title nor a page turn
+  retries words that did not fit.
 - **The view switcher changes the requested view, never the configuration.** `requestedView`
   is the device's choice, else `view`; the width fit (`_effectiveView`, `_columnCount`)
   always follows it, so nothing about a switch is new to the fitting code. A switch draws
@@ -336,7 +385,7 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   `tabindex="0"` while it has a `tap_action`: with the card itself focused, Enter and Space
   still run it, since `_handleKeyDown` leaves keys aimed at a child to the child. The
   ripple and the pointer `tap_action` stay too.
-- **The legend filters what is drawn, never what is loaded.** The hidden calendars are a set
+- **The calendar filter (`legend`) filters what is drawn, never what is loaded.** The hidden calendars are a set
   of entity ids, replaced rather than changed in place, and `_shownEvents` is `events` without
   theirs, memoized on the events, that set and whether the card is being edited, which shows
   every calendar. `groupedEvents`, `visibleEventCount` and the now-boundary timer read it, so
@@ -350,21 +399,25 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   entry, takes it up at once rather than writing its own stale set over it on its next press.
   `hide_when_empty` acts only while nothing is hidden, for the reason a page away from home
   never hides: the card would take the way back with it.
-- **The legend folds by measurement, never inside a resize.** `_syncLegendFit` reads the chips'
-  natural width against the lane's; when they overflow it the card records what they were drawn
-  with and the card width from which they fit by `UI.LEGEND_UNFOLD_MARGIN`, and draws the
-  button until then. After a render it only folds, at the width the legend was last judged at,
-  before anything is painted. A width change is judged a frame later (`_scheduleLegendFit`),
-  from a width only that pass moves (`_legendWidthPx`), so no render the resize observer causes
-  folds or unfolds it: either changes the card's height, and a height changed while the browser
-  delivers resize observations is logged as an error. For the same reason the header beside a
-  title is a two-column grid while it carries the lane rather than a wrapping row, which would
-  drop a still-labeled bar under the title for a frame. An unfold that still overflows folds
-  again from a wider width, so the two cannot alternate. That includes an unfold the lane
-  itself undoes: drawing it can make the page tall enough for a scrollbar, which narrows the
-  card under the chips, so a fold that follows an unconfirmed unfold folds from wider than the
-  width that unfold was tried at (`_legendUnfoldedAtPx`). A chip whose name the lane cut short
-  gets the name as its tooltip, measured after each render (`markShortenedChips`).
+- **`menu` is always the button; `chips` fold by measurement, never inside a resize.** Under
+  `legend: chips`, `_syncLegendFit` reads the chips' natural width against the room the heading
+  row leaves them (`_legendChipsRoom`): the row's content width less the widest month in full, the
+  arrows' track and the two gaps either side of the chips. It is worked out from those widths
+  rather than read from the chips' box, which never shrinks below nothing, so a month and arrows
+  that already overflow give a negative room and a true width to unfold from. When the chips do not fit the card records what they were drawn with
+  and the card width from which they fit by `UI.LEGEND_UNFOLD_MARGIN`, and draws exactly the `menu`
+  layout until then: the filter button back at the start of the action row, never part of the
+  chips. After a render it only folds, at the width the legend was last judged at, before anything
+  is painted. A width change is judged a frame later (`_scheduleLegendFit`), from a width only that
+  pass moves (`_legendWidthPx`), so no render the resize observer causes folds or unfolds it:
+  either can change the card's height, since the folded button may need an action row the card did
+  not draw, and a height changed while the browser delivers resize observations is logged as an
+  error. An unfold that still overflows folds again from a wider width, so the two cannot
+  alternate. That includes an unfold the chips themselves undo: drawing them can make the page tall
+  enough for a scrollbar, which narrows the card under the chips, so a fold that follows an
+  unconfirmed unfold folds from wider than the width that unfold was tried at
+  (`_legendUnfoldedAtPx`). A chip whose name was cut short gets the name as its tooltip, measured
+  after each render (`markShortenedChips`).
 - **The legend's menu is a modal `<dialog>` with one controller.** `showModal()` reaches the
   top layer, past `ha-card`'s `overflow: hidden`, in every browser Home Assistant serves; the
   popover API would need iOS 17 and Chrome 114. Because a modal makes the rest of the page
@@ -373,7 +426,8 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   the legend, drops it or starts editing, in `_applyVisibility` before the card hides, and on
   disconnect; the resize observer closes it too when the card changes width under it. Each
   update places it again, keeping how far its list was scrolled. `placeMenu` is pure: inline
-  end on the button's by the card's direction, inside the viewport, below or above by room.
+  start on the button's by the card's direction, since the button leads the action row, inside
+  the viewport, below or above by room.
   Focus is the browser's to return: closing a modal puts it back on the button, without
   scrolling, however the menu closed.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
@@ -381,21 +435,32 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
   able to force. The button is inert while editing like every toolbar control; the action runs
   wherever the card's tap and hold actions do.
-- **Reset undoes this device's choices, and is lit only while there is one.** `_differsFromConfiguration`
+- **Reset undoes this device's choices, and shows only while there is one.** `_differsFromConfiguration`
   is the page asked for (`_pageRequested`), the switcher's choice (`_viewChoice`), the hidden
   calendars, and `isExpanded` only where `hasCompactModeLimits` makes the expansion show; a
-  leftover flag in a layout without compact limits would light a button with nothing visible to
+  leftover flag in a layout without compact limits would show a button with nothing visible to
   undo. Never while editing, when every control is inert and the page, the view and the
   calendars already show the configuration; an expansion is left as it is. A press
   (`_resetToConfiguration`) forgets the configuration's entry in one write (`forgetChoice`),
   refits `view` the way a pick of it is fitted, announces the shown calendars on `window` as a
   legend press does, collapses the card, then goes home through `_goToPage`. The view goes first,
   because home's days follow the view on screen. Whether the button is drawn depends on the
-  configuration alone: `reset` with navigation, the switcher, the legend or an `expand` action,
-  so it never appears or disappears with the state it reports, and it never moves the controls
-  after it. Its name is `ui.common.reset`, which Home Assistant has carried only since 2026.2;
-  older, the label rule treats it as any control without a name and the whole bar stays icons,
-  which the docs state. It does nothing on its own clock; there is no idle timer.
+  configuration alone: `reset` with navigation, the switcher, the filter or an `expand` action.
+  With nothing to undo it is `.unavailable`, which the stylesheet hides with `visibility`, so it
+  keeps its room and never moves the controls beside it when it appears. A press that did its work
+  first shows a check on the success wash, as refresh does (`.reset-done`, `_confirmReset`), for
+  `RESET_CONFIRMATION`; then it fades out over `RESET_FADE` still showing the check, and takes
+  its U-turn back only once hidden. Swapping the icon first made the button flash back as itself
+  on the way out. A change made meanwhile shows it as itself again at once, and disconnecting
+  ends the check (`_settleResetConfirmation`), so a card put back is never stuck on it. Only a
+  keyboard's focus (`:focus-visible`) keeps a button with nothing to undo drawn, dimmed, so a
+  keyboard is never left on nothing; a pointer press focuses a button in some browsers, and kept
+  it showing until the next press elsewhere. A reset that is the only control in its row
+  (`.alone`) is always drawn, dimmed when there is nothing to undo, since hiding it would leave the
+  row an empty strip over the month, and in the editor's preview always. Its name is
+  `ui.common.reset`, which Home Assistant has carried only since 2026.2; older, the label rule
+  treats it as any control without a name and the whole bar stays icons, which the docs state.
+  Beyond that one check and its fade it keeps no clock; there is no idle timer.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
   then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,
@@ -403,7 +468,10 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   it answered, the outcome waits for `isLoading` to drop and reads that load's, since the
   requested one committed nothing. The button draws the phase, or the corner indicator
   where there is no button. A load the card starts itself never enters it: the button follows
-  `isLoading` alone and shows nothing after. A ticket bumped on disconnect retires a sequence in
+  `isLoading` alone and shows nothing after, and it is `.unasked`, so its icon starts turning only
+  after the 150ms the dimmed days wait (`.page-pending`). A page not loaded yet usually arrives
+  well inside that, and turned the icon for a few milliseconds, which read as a reload nobody
+  asked for. A ticket bumped on disconnect retires a sequence in
   flight, so a card put back is never stuck on a check.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's
@@ -586,11 +654,12 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     accessibility tree to avoid duplicate announcements
 
 - **toolbar.ts**:
-  - Renders the header toolbar and its controls — the date navigation, the view switcher,
-    reset, refresh and the add button — following the rule in _Header Toolbar_
+  - Renders the header toolbar's two rows and their controls — the add button, the view
+    switcher, reset and refresh, then the month heading and the date navigation — following the
+    rule in _Header Toolbar_
 
 - **legend.ts**:
-  - Renders the calendar legend's chips, and the button and menu they fold into, and runs
+  - Renders the calendar filter's chips, and the button and menu they fold into, and runs
     that menu: opening, placing and every way of closing it (see _Header Toolbar_)
 
 - **view-pictograms.ts**:
@@ -792,7 +861,8 @@ Provides core functionality across the card:
 - **paging.ts**:
   - The date navigation's rules, pure and over local calendar days: how many days a page
     covers, where home is, where the arrows and the date picker lead
-  - Names a page and its home button through `Intl`, so the toolbar needs no card string
+  - Names a page's month, its dates and its home button through `Intl`, so the toolbar needs
+    no card string
 
 - **helpers.ts**:
   - Provides color manipulation utilities
