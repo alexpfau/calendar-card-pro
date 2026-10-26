@@ -1148,9 +1148,10 @@ Every layout starts on the same day, because `start_date` stays shared. The card
 events for the longest count among the layouts it can show, once, and each layout draws the
 first of those days, so switching layouts never loads anything. With the view switcher that
 means every layout. Without it, it means the layout set in `view`, plus List when Columns or
-Grid falls back to it on a narrow card. That fallback draws List's own count, so a Columns
-card set to 5 days in `column:` shows the top-level `days_to_show` when it turns into a list
-on a phone. Set the top-level value as well if both should match.
+Grid falls back to it on a narrow card. That fallback draws List's own count —
+`list.days_to_show` when it is set, otherwise the top-level value — so a Columns card set to
+5 days in `column:` shows List's count when it turns into a list on a phone. Leave the
+column's own count unset if both should match.
 
 The rest of the card follows the layout on screen. The
 [date navigation](/features/layout-appearance#paging-through-dates) pages by that layout's

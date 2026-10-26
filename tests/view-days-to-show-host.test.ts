@@ -119,6 +119,12 @@ function fetchedWindows(): Array<[string, string]> {
   });
 }
 
+/** The window the card asked for last. */
+function lastFetchedWindow(): [string, string] {
+  const windows = fetchedWindows();
+  return windows[windows.length - 1];
+}
+
 function hass(): Record<string, unknown> {
   return {
     states: {
@@ -335,17 +341,37 @@ describe('hide_when_empty across the views a card can show', () => {
   });
 
   it('hides it when the view holding the event cannot be shown', async () => {
-    // No switcher, and a grid that cramps rather than falling back: the list is unreachable.
-    answerFromFixture(ONLY_THE_24TH);
+    // The event is loaded and the list would draw it, but the list is unreachable: no
+    // switcher, and a grid that cramps rather than falling back. Monday's 09:00 has ended by
+    // Wednesday 10:00, which this grid hides and the list shows, so only a check that
+    // looks at views the card cannot show would keep the card.
+    answerFromFixture(new Set(['2026-06-15']));
     const card = await mount({
       view: 'grid',
       hide_when_empty: true,
-      time_grid: { days_to_show: 7, min_days_fallback: 'cramp' },
+      show_past_events: true,
+      time_grid: { days_to_show: 7, min_days_fallback: 'cramp', show_past_events: false },
       toolbar: { show: true, navigation: false, view_switcher: false, add_event: false },
     });
     await measure(card, 1400);
 
+    expect(card.events.map((event) => event.summary)).toEqual(['Event 2026-06-15']);
     expect(card.hidden).toBe(true);
+  });
+
+  it('keeps it when that view can be shown after all', async () => {
+    // The control for the case above: the same card with the switcher, which makes the list
+    // reachable, and the list draws Monday's event.
+    answerFromFixture(new Set(['2026-06-15']));
+    const card = await mount({
+      view: 'grid',
+      hide_when_empty: true,
+      show_past_events: true,
+      time_grid: { days_to_show: 7, min_days_fallback: 'cramp', show_past_events: false },
+    });
+    await measure(card, 1400);
+
+    expect(card.hidden).toBe(false);
   });
 
   it('hides it when no view has anything', async () => {
@@ -370,19 +396,29 @@ describe('a per-view count fetches only when it moves the load', () => {
 
   it('redraws without a request when a shorter view changes', async () => {
     const card = await mount();
+    await measure(card, 1400);
     expect(reconfigure(card, { time_grid: { days_to_show: 3, show_past_events: true } })).toEqual(
       [],
     );
+    await settle(card);
+
+    await pick(card, 'grid');
+    expect(drawnDays(card)).toBe(3);
+    expect(callApi).toHaveBeenCalledTimes(1);
   });
 
   it('fetches when the longest view changes', async () => {
     const card = await mount();
     expect(reconfigure(card, { days_to_show: 21 })).toEqual(['network']);
+    await settle(card);
+    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-06']);
   });
 
   it('fetches when a view grows past the others', async () => {
     const card = await mount();
     expect(reconfigure(card, { column: { days_to_show: 21 } })).toEqual(['network']);
+    await settle(card);
+    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-06']);
   });
 
   it('fetches when turning the switcher off drops the longest view from reach', async () => {
