@@ -308,7 +308,7 @@
   "toolbar.show": "Visa verktygsfält",
   "toolbar.show.helper": "Slår på eller av hela verktygsfältet: kortets egna kontroller, överst på kortet. När det är på väljer alternativen nedan vad det visar.",
   "toolbar.labels": "Textetiketter",
-  "toolbar.labels.helper": "Visar varje kontrolls namn bredvid dess ikon när kortet är tillräckligt brett. Av behåller alla kontroller som ikoner, med namnet som verktygstips.",
+  "toolbar.labels.helper": "Visar namnen på layouterna i layoutväljaren och namnet på knappen ”Lägg till händelse” bredvid respektive ikon när kortet är tillräckligt brett. När alternativet är av visas bara ikonerna och namnen visas som verktygstips; datumen på skärmen visas fortfarande som text.",
   "toolbar.navigation": "Datumnavigering",
   "toolbar.navigation.helper": "Pilar för att bläddra bakåt och framåt genom dagarna, en knapp tillbaka till dagarna kortet öppnas med, och datumen som visas, som öppnar en datumväljare. Pilarna flyttar lika många dagar som kortet visar.",
   "toolbar.view_switcher": "Layoutväljare",

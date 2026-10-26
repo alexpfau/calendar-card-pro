@@ -539,8 +539,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'While it is on, the options below choose what it shows.',
   'toolbar.labels': 'Text Labels',
   'toolbar.labels.helper':
-    'Names each control beside its icon wherever the card is wide enough. Off keeps every ' +
-    'control an icon, with its name as a tooltip.',
+    "Names the view switcher's layouts and the add button beside their icons wherever the " +
+    'card is wide enough. Off keeps them icons, with their names as tooltips; the dates on ' +
+    'screen stay words.',
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
     'Arrows to page back and forward through the days, a button that returns to the days ' +

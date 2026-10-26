@@ -308,7 +308,7 @@
   "toolbar.show": "Pokaż pasek narzędzi",
   "toolbar.show.helper": "Włącza lub wyłącza cały pasek narzędzi: własne elementy sterujące karty, u góry karty. Gdy jest włączony, opcje poniżej określają, co pokazuje.",
   "toolbar.labels": "Etykiety tekstowe",
-  "toolbar.labels.helper": "Pokazuje nazwę każdego elementu sterującego obok jego ikony, gdy karta jest wystarczająco szeroka. Po wyłączeniu każdy element pozostaje ikoną, a jego nazwa pojawia się w podpowiedzi.",
+  "toolbar.labels.helper": "Pokazuje nazwy układów w przełączniku układu oraz nazwę przycisku „Dodaj wydarzenie” obok odpowiednich ikon, gdy karta jest wystarczająco szeroka. Po wyłączeniu wyświetlane są tylko ikony, a nazwy pojawiają się w podpowiedziach; daty na ekranie są nadal wyświetlane jako tekst.",
   "toolbar.navigation": "Nawigacja po datach",
   "toolbar.navigation.helper": "Strzałki do przewijania dni wstecz i do przodu, przycisk powrotu do dni, od których karta startuje, oraz widoczne daty, które otwierają wybór daty. Strzałki przesuwają o tyle dni, ile pokazuje karta.",
   "toolbar.view_switcher": "Przełącznik układu",

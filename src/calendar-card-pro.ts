@@ -3853,8 +3853,9 @@ class CalendarCardPro extends LitElement {
    * Home Assistant may have no words for the add button, which then stays an icon, and so
    * does the switcher beside it.
    *
-   * `toolbar.labels: false` keeps every control an icon at any width. With the date
-   * navigation in the band, labels need the room for it as well, and are drawn only while the
+   * `toolbar.labels: false` keeps the switcher and the add button icons at any width. The date
+   * navigation takes no labels either way: its home button is an icon and its dates are words.
+   * With it in the band, labels need the room for it as well, and are drawn only while the
    * whole band fits on one row (`_syncToolbarLabelFit`).
    *
    * @param addEvent - The add button this render draws, if any
