@@ -408,9 +408,10 @@ function renderEventTitle(
   // ordinary inline content again. A labeled title hid this, because the label makes the
   // title itself inline.
   //
-  // `dir="auto"` gives the words the title's own direction. Inline-blocks are ordered by
-  // the direction of the line around them, so on a right-to-left dashboard an English
-  // title read "landlord with Call" until the wrapper said which way its words run.
+  // The words take the title's own direction from `.event-title`, below. Inline-blocks
+  // are ordered by the direction of the line around them, so on a right-to-left dashboard
+  // an English title read "landlord with Call" until something said which way its words
+  // run.
   //
   // A run in a script written without spaces gets an inline element of its own. It breaks
   // between characters exactly as bare text does, and the element is what lets the title
@@ -418,7 +419,7 @@ function renderEventTitle(
   // run's text keeps the line going after the ellipsis. See cutGridTitleLines.
   const titleText =
     titleWords && !scrollTitles
-      ? html`<span class="title-words" dir="auto"
+      ? html`<span class="title-words"
           >${splitTitleWords(titleString ?? '').map((segment) =>
             segment.kind === 'word'
               ? html`<span class="title-word">${segment.text}</span>`
@@ -506,6 +507,17 @@ function renderEventTitle(
   }`;
   const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
 
+  // 🚨 On `.event-title`, not on `.title-words` inside it, and never on both. A grid title
+  // cut to one line ends where its *block* ends, so a title running against the dashboard
+  // (Hebrew on an English one, English on a Hebrew one) lost its beginning: Chromium showed
+  // "… הצוות", the end of the title, and WebKit, measuring the first letter at zero width,
+  // blanked it. Giving the block the title's direction moves the cut to the title's own
+  // end. It has to move rather than be copied, because `dir="auto"` skips any descendant
+  // carrying a `dir` of its own: with both set the outer element finds no letters, resolves
+  // to left-to-right, and blanks Hebrew on a Hebrew dashboard instead. Alignment stays on
+  // the dashboard's side; see the matching rule in styles.ts.
+  const titleDir = titleWords && !scrollTitles ? 'auto' : nothing;
+
   // 🚨 No whitespace between the last label and the title, and none inside the title before
   // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
   // collapses them into one visible word space after the label: about 3px on top of the
@@ -522,10 +534,11 @@ function renderEventTitle(
   // with; delete it, run npm run format and then npm test to see it.
   // prettier-ignore
   const title = hasLabel
-    ? html`${labels}<span class=${titleClass} style=${titleStyle}>${titleInner}</span>`
+    ? html`${labels}<span class=${titleClass} style=${titleStyle} dir=${titleDir}>${titleInner}</span>`
     : html`<span
           class=${titleClass}
           style=${titleStyle}
+          dir=${titleDir}
         >
           ${titleInner}
         </span>`;

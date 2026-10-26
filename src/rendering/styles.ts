@@ -3944,6 +3944,22 @@ export const cardStyles = css`
     display: inline;
   }
 
+  /* A grid title carries its own direction (dir="auto", see renderEventTitle in leaves.ts),
+     so that a title running against the dashboard is cut at its own end. That would also
+     move an uncut title to its own side, a Hebrew title hugging the right of a block on an
+     English dashboard, apart from the time beneath it. These keep it on the dashboard's
+     side, as every other line of the block is. text-align: match-parent says the same in
+     one line and does not work: Chromium resolves it against the title's own direction.
+     :dir() reads the document's dir attribute, which Home Assistant sets with its own
+     direction. A labeled title is inline, so the summary aligns it and these do nothing. */
+  .grid-event-disclosure .summary:dir(ltr) > .event-title {
+    text-align: left;
+  }
+
+  .grid-event-disclosure .summary:dir(rtl) > .event-title {
+    text-align: right;
+  }
+
   .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
