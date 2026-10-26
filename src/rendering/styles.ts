@@ -32,9 +32,9 @@ function gridTitleLineRung(configured: number, ladderMaximum: number): string {
  *
  * `home-assistant` is not a color. It asks each calendar for the color Home Assistant holds
  * for it, and the card itself is no calendar, so the shipped accent stands in, as it does for
- * a calendar without a color. Written through, the word voids every rule that reads it: the
- * focus rings vanished and the ripple's hover had no color, and with the washes mixing it a
- * toolbar control would lose its fill on hover rather than gain one.
+ * a calendar without a color. Written through, the word is no color to any rule that reads
+ * it: the focus rings vanished, the ripple was handed it as its hover color, and with the
+ * washes mixing it a toolbar control would lose its fill on hover rather than gain one.
  *
  * @param config Card configuration.
  * @returns `accent_color`, or the shipped accent where that is the `home-assistant`

@@ -2790,9 +2790,9 @@ describe("the card's own accent", () => {
 
   it('is the shipped accent where accent_color is the home-assistant sentinel, or empty', () => {
     // The sentinel asks each calendar for its color and is no color itself. Written through,
-    // it voids every rule that reads the property: the focus rings on the card and on events
-    // vanish, as they did from v4.1.0, and the ripple, an untinted event's wash and a toolbar
-    // control's hover fill lose their color, the last losing its fill instead of gaining one.
+    // it reaches every rule that reads the property as a word: the focus rings on the card and
+    // on events vanish, as they did from v4.1.0, and the ripple, an untinted event's wash and a
+    // toolbar control's hover fill are handed it as their color.
     const shipped = String(Config.DEFAULT_CONFIG.accent_color);
     expect(shipped).toBe('var(--primary-color, #03a9f4)');
     expect(accentColors('home-assistant')).toEqual([shipped, shipped, shipped]);
