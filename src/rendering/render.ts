@@ -110,19 +110,24 @@ export function renderMainCardStructure(
   // - no control: no toolbar, and the header exactly as it was before there was one. Hence
   //   a single binding below; a second, even one rendering nothing, adds a marker and a
   //   text node to the header.
-  // - trailing actions only (refresh and the view switch later, add always last): in the
-  //   title's row at its inline end, or in a slim row of their own when there is no title.
+  // - trailing actions only (a folded legend, the view switch, refresh, add always last): in
+  //   the title's row at its inline end, or in a slim row of their own when there is no title.
   // - with the date navigation: a band of its own between the title and the events, the
   //   dates leading and the trailing actions at its end, wrapping onto a second row where the
-  //   card is too narrow for both; a legend lane, later, below it.
+  //   card is too narrow for both.
+  // - the legend's lane, unless it is folded: a row of its own under all of them.
   // The toolbar stays inside `.header-container`, after the h1 or the
   // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
   const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
   const headerClass = !toolbarBlock
     ? 'header-container'
-    : toolbar.navigation
-      ? 'header-container has-toolbar has-band'
-      : 'header-container has-toolbar';
+    : [
+        'header-container has-toolbar',
+        toolbar.navigation ? 'has-band' : '',
+        Toolbar.drawsLegendLane(toolbar) ? 'has-legend' : '',
+      ]
+        .filter((cls) => cls !== '')
+        .join(' ');
   // Days about to give way to another page's are dimmed until its events arrive. A class
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
@@ -155,7 +160,8 @@ export function renderMainCardStructure(
     >
       ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${
-        isLoading
+        // The refresh button turns while the card loads, so the corner says nothing beside it.
+        isLoading && !toolbar.refresh
           ? html`
               <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
                 <div class="spinner" aria-hidden="true"></div>

@@ -551,6 +551,11 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   // The date navigation gives the toolbar a band of its own under the title, with the range
   // as a button of its own text.
   ['date navigation', { toolbar: { show: true, navigation: true } }],
+  // The legend's lane under the bar, its chips at the control size.
+  ['legend', { toolbar: { show: true, legend: true } }],
+  // The legend folded into a button, with the menu it opens, beside refresh. `renderCard`
+  // folds the legend whenever refresh is on, which is how this variant asks for it.
+  ['folded legend', { toolbar: { show: true, legend: true, refresh: true } }],
 ];
 
 /**
@@ -680,6 +685,21 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
               selected: view,
               onSelect: () => undefined,
             },
+            refresh: config.toolbar.refresh
+              ? { label: 'Refresh', busy: false, onActivate: () => undefined }
+              : undefined,
+            legend: config.toolbar.legend
+              ? {
+                  calendars: [
+                    { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
+                    { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
+                  ],
+                  name: 'My calendars',
+                  folded: config.toolbar.refresh === true,
+                  inert: false,
+                  onToggle: () => undefined,
+                }
+              : undefined,
             addEvent: { label: 'Add event', onActivate: () => undefined },
           }
         : undefined,
@@ -942,6 +962,11 @@ describe('every piece of text is sized by its own option', () => {
       'grid-axis-label in grid-axis': ['time_font_size'],
       'grid-banner-title in event': ['event_font_size'],
       'grid-event-overflow-label in event': ['time_font_size'],
+      // The legend's chips and the rows of the menu it folds into: controls, at Home
+      // Assistant's control size like the rest of the toolbar. The menu sets its own size,
+      // because in a title's row it is drawn inside a bar that takes the title's.
+      'legend-chip-label in legend-chip': ['--ha-font-size-m'],
+      'legend-menu-label in legend-menu-row': ['--ha-font-size-m'],
       'month in column-date-content': ['month_font_size'],
       'month in date-column': ['month_font_size'],
       'now-indicator in now-time': ['time_font_size'],

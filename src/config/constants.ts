@@ -145,6 +145,22 @@ export const UI = {
   TOOLBAR_BAND_LABEL_MIN_WIDTH: 600,
   TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH: 840,
 
+  /**
+   * What each command beyond the first adds to those thresholds: refresh, or the legend
+   * folded into a button. Each fixed threshold allows for one, the add button it was measured
+   * with; a labeled refresh or "My calendars" is about a hundred pixels wider than its icon in
+   * English. A first guess under the same rule as the band's: labels that still do not fit
+   * are dropped until the card is wider (`_syncToolbarLabelFit`).
+   */
+  TOOLBAR_EXTRA_LABEL_MIN_WIDTH: 112,
+
+  /**
+   * How much wider than its chips need the card must be before a folded legend draws them
+   * again. Layout widths are fractional and `clientWidth` is not, so without a margin a card
+   * resting exactly at the threshold could be judged to fit and then not.
+   */
+  LEGEND_UNFOLD_MARGIN: 2,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,

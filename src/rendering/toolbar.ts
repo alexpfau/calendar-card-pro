@@ -4,9 +4,10 @@
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
  * leading group for the dates (previous, home and next on one track, then the range on
- * screen, which opens a date picker), and a trailing group for the view switcher and the
- * commands (refresh, still to come, then add, always last). A calendar legend, when it
- * comes, gets a lane of its own below.
+ * screen, which opens a date picker), and a trailing group for the filter, the view switcher
+ * and the commands (refresh, then add, always last). The calendar legend is a filter, and
+ * gets a lane of its own below; where its chips do not fit, it folds into a button that
+ * leads the trailing group (`legend.ts`).
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
  * out of it, so the bar never competes with the events for attention. Color shows only on
@@ -14,9 +15,17 @@
  * pointer and while pressed, and the theme's primary color as the keyboard focus ring.
  */
 
-import { mdiCalendarToday, mdiChevronLeft, mdiChevronRight, mdiMenuDown, mdiPlus } from '@mdi/js';
+import {
+  mdiCalendarToday,
+  mdiChevronLeft,
+  mdiChevronRight,
+  mdiMenuDown,
+  mdiPlus,
+  mdiRefresh,
+} from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
+import { CalendarLegend, renderLegendButton, renderLegendLane } from './legend';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
 
@@ -28,6 +37,15 @@ import * as Types from '../config/types';
 export interface AddEventButton {
   /** Home Assistant's own words for the button, or undefined when it offers none. */
   label: string | undefined;
+  onActivate: () => void;
+}
+
+/** What the card hands the wrapper when it should draw the refresh button. */
+export interface RefreshButton {
+  /** Home Assistant's own word for it, or undefined when it offers none. */
+  label: string | undefined;
+  /** True while the card is loading: the icon turns, and a press does nothing. */
+  busy: boolean;
   onActivate: () => void;
 }
 
@@ -86,8 +104,12 @@ export interface HeaderToolbar {
   labeled?: boolean;
   /** The date navigation, which leads the bar and gives it a row of its own. */
   navigation?: DateNavigation;
-  /** The view switcher, just before add. */
+  /** The calendar legend: a lane under the bar, or folded, a button leading the trailing group. */
+  legend?: CalendarLegend;
+  /** The view switcher, after a folded legend. */
   viewSwitcher?: ViewSwitcher;
+  /** The refresh button, between the switcher and add. */
+  refresh?: RefreshButton;
   /** The add-event button, always the last control in the trailing group. */
   addEvent?: AddEventButton;
 }
@@ -107,6 +129,9 @@ const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
 /** The arrows' accessible names when Home Assistant has none, under the same rule. */
 const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
 const UNLOCALIZED_NEXT_NAME = 'Next';
+
+/** The refresh button's accessible name when Home Assistant has none, under the same rule. */
+const UNLOCALIZED_REFRESH_NAME = 'Refresh';
 
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
@@ -260,6 +285,49 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${mdiPlus}></path>
+    </svg>
+    ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
+  </button>`;
+}
+
+/**
+ * Render the refresh button.
+ *
+ * Its icon turns while the card loads, whatever started the load, and the card's corner
+ * spinner is left out meanwhile: it would sit right beside it saying the same thing. A press
+ * while the card loads does nothing (the card decides that), so the button keeps its look
+ * rather than flickering to disabled and back with every scheduled refresh. Named as the add
+ * button is.
+ *
+ * @param button - Button description from the card
+ * @param roomForLabel - Whether the card is wide enough to draw the label
+ * @returns The button
+ */
+function renderRefreshButton(button: RefreshButton, roomForLabel: boolean): TemplateResult {
+  const labeled = roomForLabel && button.label !== undefined;
+  const className = [
+    'toolbar-button',
+    'refresh-button',
+    labeled ? '' : 'icon-only',
+    button.busy ? 'busy' : '',
+  ]
+    .filter((cls) => cls !== '')
+    .join(' ');
+  const onClick = (ev: Event) => {
+    ev.stopPropagation();
+    button.onActivate();
+  };
+
+  return html`<button
+    type="button"
+    class=${className}
+    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_REFRESH_NAME)}
+    title=${labeled || button.label === undefined ? nothing : button.label}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiRefresh}></path>
     </svg>
     ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
@@ -467,18 +535,88 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
 }
 
 /**
- * Render the trailing group: the view switcher, then add, always last.
+ * The legend, when it is folded into a button in the trailing group.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns The legend, or undefined when it is drawn as a lane or not at all
+ */
+function foldedLegend(toolbar: HeaderToolbar): CalendarLegend | undefined {
+  return toolbar.legend?.folded ? toolbar.legend : undefined;
+}
+
+/**
+ * Whether the toolbar draws a trailing group.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns True when it holds at least one control
+ */
+function hasTrailing(toolbar: HeaderToolbar): boolean {
+  return Boolean(
+    foldedLegend(toolbar) || toolbar.viewSwitcher || toolbar.refresh || toolbar.addEvent,
+  );
+}
+
+/**
+ * Render the trailing group: a folded legend, the view switcher, refresh, then add, always
+ * last.
  *
  * @param toolbar - The controls the card wants
  * @param labeled - Whether the controls carry their labels
  * @returns The group, or nothing when it holds no control
  */
 function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResult | typeof nothing {
-  if (!toolbar.addEvent && !toolbar.viewSwitcher) return nothing;
+  if (!hasTrailing(toolbar)) return nothing;
+  const legend = foldedLegend(toolbar);
 
   return html`<div class="toolbar-trailing">
+    ${legend ? renderLegendButton(legend, labeled) : nothing}
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+    ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
     ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
+  </div>`;
+}
+
+/**
+ * Whether the toolbar draws the legend's lane under the bar.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns True when the legend is on and not folded
+ */
+export function drawsLegendLane(toolbar: HeaderToolbar): boolean {
+  return toolbar.legend !== undefined && !toolbar.legend.folded;
+}
+
+/**
+ * Render the bar itself, or nothing when it would hold no control.
+ *
+ * @param toolbar - The controls the card wants
+ * @param hasTitle - Whether the header draws a title, pending or not
+ * @returns The bar, or nothing
+ */
+function renderBar(toolbar: HeaderToolbar, hasTitle: boolean): TemplateResult | typeof nothing {
+  const labeled = toolbar.labeled === true;
+
+  if (toolbar.navigation) {
+    return html`<div
+      class="card-toolbar toolbar-band"
+      @pointerdown=${stopCardGesture}
+      @click=${stopCardGesture}
+    >
+      ${renderDateNavigation(toolbar.navigation)} ${renderTrailing(toolbar, labeled)}
+    </div>`;
+  }
+
+  if (!hasTrailing(toolbar)) return nothing;
+
+  // The press guard sits on the toolbar's own box as well as on each control, because the
+  // switcher's gray track and the gaps between controls are part of the bar but no button:
+  // a near miss there must do nothing, not run the card's tap or hold action.
+  return html`<div
+    class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
+  >
+    ${renderTrailing(toolbar, labeled)}
   </div>`;
 }
 
@@ -492,7 +630,8 @@ function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResul
  * a band of its own between the title and the events, the dates at its start and the
  * trailing group at its end; where the card is too narrow for both on one row, the
  * trailing group wraps onto a second one. Which row each group is on depends on the card's
- * width and the controls it holds, never on the dates it shows.
+ * width and the controls it holds, never on the dates it shows. The legend's lane, when it
+ * is not folded, comes last, on a row of its own under all of them.
  *
  * @param toolbar - The controls the card wants
  * @param hasTitle - Whether the header draws a title, pending or not
@@ -502,31 +641,18 @@ export function renderHeaderToolbar(
   toolbar: HeaderToolbar,
   hasTitle: boolean,
 ): TemplateResult | undefined {
-  if (!toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.navigation) return undefined;
-
-  const labeled = toolbar.labeled === true;
-
-  if (toolbar.navigation) {
-    return html`<div
-      class="card-toolbar toolbar-band"
-      @pointerdown=${stopCardGesture}
-      @click=${stopCardGesture}
-    >
-      ${renderDateNavigation(toolbar.navigation)} ${renderTrailing(toolbar, labeled)}
-    </div>`;
+  if (
+    !toolbar.addEvent &&
+    !toolbar.viewSwitcher &&
+    !toolbar.navigation &&
+    !toolbar.refresh &&
+    !toolbar.legend
+  ) {
+    return undefined;
   }
 
-  // The press guard sits on the toolbar's own box as well as on each control, because the
-  // switcher's gray track and the gaps between controls are part of the bar but no button:
-  // a near miss there must do nothing, not run the card's tap or hold action.
-  return html`<div
-    class=${hasTitle ? 'card-toolbar toolbar-in-title-row' : 'card-toolbar toolbar-own-row'}
-    @pointerdown=${stopCardGesture}
-    @click=${stopCardGesture}
-  >
-    <div class="toolbar-trailing">
-      ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
-      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
-    </div>
-  </div>`;
+  const bar = renderBar(toolbar, hasTitle);
+  if (!drawsLegendLane(toolbar)) return bar === nothing ? undefined : (bar as TemplateResult);
+
+  return html`${bar}${renderLegendLane(toolbar.legend!)}`;
 }

@@ -36,6 +36,7 @@ import * as Feedback from './interaction/feedback';
 import * as Dialogs from './interaction/ha-calendar-dialogs';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
+import * as Legend from './rendering/legend';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
@@ -291,6 +292,12 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
  * How `updateEvents` uses the cache and the network; its docblock has the table.
  */
 type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload';
+
+/** The controls a render draws in the header toolbar, before it decides on their labels. */
+type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
+
+/** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
+const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
 /**
  * Main Calendar Card Pro custom element.
@@ -694,6 +701,50 @@ class CalendarCardPro extends LitElement {
   private _viewChoice: Types.EffectiveView | null = null;
 
   /**
+   * The calendars this device hid with the legend, by entity id; only ever calendars the card
+   * shows. Replaced rather than changed in place, so the memo keyed on it (`_shownEvents`)
+   * notices every change.
+   */
+  private _hiddenCalendars: ReadonlySet<string> = NO_HIDDEN_CALENDARS;
+
+  /** `events` without the hidden calendars', and what it was filtered from. */
+  private _shownEventsCache: {
+    events: Types.CalendarEventData[];
+    hidden: ReadonlySet<string>;
+    shown: Types.CalendarEventData[];
+  } | null = null;
+
+  /**
+   * Set once the legend's chips did not fit on one row: what they were drawn with, and the
+   * card width from which they fit again. See `_syncLegendFit`.
+   */
+  private _legendFold: { signature: string; unfoldAtPx: number } | null = null;
+
+  /**
+   * The card width the legend's fold is judged at. Kept apart from `_toolbarWidthPx` and
+   * moved only by the legend's own pass, a frame after a resize, so a render the resize
+   * observer causes never folds or unfolds the legend: that changes the card's height, and a
+   * height changed while the browser delivers resize observations is reported as an error.
+   */
+  private _legendWidthPx: number | null = null;
+
+  private _legendFitRaf: number | null = null;
+
+  /** Counts fonts finishing loading while the legend is on, since a chip may change width. */
+  private _legendFontGeneration = 0;
+
+  private _legendFontsCleanup: (() => void) | null = null;
+
+  /** The label width the toolbar drawn last needs, which `_syncToolbarLabels` watches for. */
+  private _toolbarLabelMinWidthPx: number | null = null;
+
+  /** How `handleAction` runs the actions only the card knows. */
+  private readonly _cardActionCallbacks: Actions.CardActionCallbacks = {
+    expand: () => this.toggleExpanded(),
+    refresh: () => this._requestRefresh(),
+  };
+
+  /**
    * First day of the page the date navigation asked for, as `YYYY-MM-DD`, or null for home:
    * the window the card is configured to open with.
    *
@@ -882,13 +933,41 @@ class CalendarCardPro extends LitElement {
    */
   get groupedEvents(): Types.EventsByDay[] {
     return EventUtils.groupEventsByDay(
-      this.events,
+      this._shownEvents,
       this.effectiveConfig,
       this.isExpanded,
       this.effectiveLanguage,
       this.effectiveView,
       this.hass,
     );
+  }
+
+  /**
+   * The calendars the legend hides now: none while the card is being edited, which shows
+   * the card as configured, or while it has no legend.
+   */
+  private get _activeHiddenCalendars(): ReadonlySet<string> {
+    return this._wantsLegend && !this._isBeingEdited ? this._hiddenCalendars : NO_HIDDEN_CALENDARS;
+  }
+
+  /**
+   * The events the card draws: `events` without those of the calendars the legend hides.
+   *
+   * `events` itself while nothing is hidden, so every memo keyed on it keeps its hits. Taken
+   * before anything else is decided, so expiry, `days_of_week`, which copy of a duplicate wins,
+   * the compact limits and the empty days all see only the calendars shown. What was loaded —
+   * the cache, the page store, the failures — stays `events`.
+   */
+  private get _shownEvents(): Types.CalendarEventData[] {
+    const hidden = this._activeHiddenCalendars;
+    if (hidden.size === 0) return this.events;
+
+    const cache = this._shownEventsCache;
+    if (cache && cache.events === this.events && cache.hidden === hidden) return cache.shown;
+
+    const shown = this.events.filter((event) => !hidden.has(event._entityId ?? ''));
+    this._shownEventsCache = { events: this.events, hidden, shown };
+    return shown;
   }
 
   /**
@@ -1111,10 +1190,11 @@ class CalendarCardPro extends LitElement {
     // Expiry and relative date windows can change without new events or configuration.
     const evaluatedAt = Date.now();
     const cache = this._visibleCountCache;
+    const events = this._shownEvents;
 
     if (
       cache &&
-      cache.events === this.events &&
+      cache.events === events &&
       cache.config === this.config &&
       cache.view === view &&
       cache.language === language &&
@@ -1125,9 +1205,9 @@ class CalendarCardPro extends LitElement {
       return cache.count;
     }
 
-    const count = this.events.length
+    const count = events.length
       ? EventUtils.groupEventsByDay(
-          this.events,
+          events,
           this.effectiveConfig,
           true,
           language,
@@ -1137,7 +1217,7 @@ class CalendarCardPro extends LitElement {
       : 0;
 
     this._visibleCountCache = {
-      events: this.events,
+      events,
       config: this.config,
       view,
       language,
@@ -1203,6 +1283,13 @@ class CalendarCardPro extends LitElement {
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
+    Legend.closeLegendMenus(this.renderRoot);
+    this._legendFontsCleanup?.();
+    this._legendFontsCleanup = null;
+    if (this._legendFitRaf !== null) {
+      cancelAnimationFrame(this._legendFitRaf);
+      this._legendFitRaf = null;
+    }
 
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
@@ -1267,6 +1354,7 @@ class CalendarCardPro extends LitElement {
 
       if (typeof width === 'number' && width > 0) {
         this._syncToolbarLabels(width);
+        this._scheduleLegendFit();
         this._scheduleWidthMeasurement(width);
       }
 
@@ -1291,15 +1379,17 @@ class CalendarCardPro extends LitElement {
    * @param widthPx - Measured card width in CSS pixels
    */
   private _syncToolbarLabels(widthPx: number): void {
-    const band = (width: number | null): number =>
-      width === null
-        ? 0
-        : [
-            Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
-            Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
-            Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH,
-            Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH,
-          ].filter((threshold) => width >= threshold).length;
+    // The fixed thresholds, the one the bar drawn last needs, and the width a folded legend
+    // opens again from.
+    const thresholds = [
+      Constants.UI.TOOLBAR_LABEL_MIN_WIDTH,
+      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH,
+      Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH,
+      Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH,
+      this._toolbarLabelMinWidthPx,
+    ].filter((threshold): threshold is number => typeof threshold === 'number');
+    const band = (width: number | null): string =>
+      width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
     // Labels that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
@@ -1463,6 +1553,8 @@ class CalendarCardPro extends LitElement {
   private _syncNowBoundaryTimer(): void {
     const wanted =
       this.isConnected && this._wantsNowBoundary && document.visibilityState !== 'hidden';
+    // What is drawn, so a hidden calendar's events never wake the card.
+    const events = this._shownEvents;
 
     // An armed timer computed from these same events is still right until it fires: no
     // boundary lies between the moment it was computed and the one it waits for, and a
@@ -1470,14 +1562,14 @@ class CalendarCardPro extends LitElement {
     if (
       wanted &&
       this._nowBoundaryTimerId !== null &&
-      this._nowBoundaryEvents === this.events &&
+      this._nowBoundaryEvents === events &&
       this._nowBoundaryAt !== null &&
       this._nowBoundaryAt > Date.now()
     ) {
       return;
     }
 
-    const next = wanted ? EventUtils.nextEventBoundary(this.events, Date.now()) : null;
+    const next = wanted ? EventUtils.nextEventBoundary(events, Date.now()) : null;
 
     if (next === null) {
       this._stopNowBoundaryTimer();
@@ -1490,7 +1582,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopNowBoundaryTimer();
     this._nowBoundaryAt = next;
-    this._nowBoundaryEvents = this.events;
+    this._nowBoundaryEvents = events;
     // A second past the boundary, so the render reads the new state even if the timer fires
     // a little early, and capped so a boundary far ahead never meets setTimeout's 24.8-day
     // limit; the capped timer simply re-arms.
@@ -2202,6 +2294,12 @@ class CalendarCardPro extends LitElement {
 
   /** Resolve language before rendering so the current update uses the new strings. */
   protected willUpdate(changedProps: PropertyValues): void {
+    // A modal menu outliving its button would leave the page inert, so it closes before a
+    // render that takes the button away: the legend unfolding or going, or editing starting.
+    if (Legend.hasOpenLegendMenu(this.renderRoot) && !this._legendMenuMayStayOpen()) {
+      Legend.closeLegendMenus(this.renderRoot);
+    }
+
     if (
       changedProps.has('hass') ||
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
@@ -2295,6 +2393,8 @@ class CalendarCardPro extends LitElement {
     this._applyVisibility();
     this._syncTitleScroll();
     this._syncToolbarLabelFit();
+    this._syncLegendFit(false);
+    Legend.repositionLegendMenus(this.renderRoot);
   }
 
   //-----------------------------------------------------------------------------
@@ -2349,12 +2449,13 @@ class CalendarCardPro extends LitElement {
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
-    // Home only: a card paged to an empty week that hid itself would take with it the only way
-    // back.
+    // Home only, and only with every calendar shown: a card paged to an empty week, or emptied
+    // by the legend, that hid itself would take with it the only way back.
     const shouldHide =
       this.config.hide_when_empty === true &&
       this._pageRequested === null &&
       this._pageShown === null &&
+      this._activeHiddenCalendars.size === 0 &&
       !this.preview &&
       !this.editMode &&
       !isErrorState &&
@@ -2366,6 +2467,9 @@ class CalendarCardPro extends LitElement {
     }
 
     Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
+
+    // A menu open over a card about to hide would keep the page inert under nothing visible.
+    if (shouldHide) Legend.closeLegendMenus(this.renderRoot);
 
     this.hidden = shouldHide;
     this.style.display = shouldHide ? 'none' : '';
@@ -3019,7 +3123,7 @@ class CalendarCardPro extends LitElement {
       this.config.hold_action.action !== 'none'
     ) {
       Logger.debug('Executing hold action');
-      Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
+      Actions.handleAction(this, this.config, 'hold', this._cardActionCallbacks);
     } else if (!this._pointerMoved && !this._holdTriggered && tapTarget) {
       this._runEventTapAction(tapTarget.target);
     } else if (
@@ -3029,7 +3133,7 @@ class CalendarCardPro extends LitElement {
       this.config.tap_action.action !== 'none'
     ) {
       Logger.debug('Executing tap action');
-      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
+      Actions.handleAction(this, this.config, 'tap', this._cardActionCallbacks);
       ranCardTap = true;
     }
 
@@ -3160,7 +3264,7 @@ class CalendarCardPro extends LitElement {
         return;
       }
       ev.preventDefault();
-      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
+      Actions.handleAction(this, this.config, 'tap', this._cardActionCallbacks);
     }
   }
 
@@ -3299,7 +3403,7 @@ class CalendarCardPro extends LitElement {
     // measured column card back to the list view at an unchanged width and leave
     // it there until the next resize. Only seed from a fit that a real
     // measurement produced — the optimistic pre-measurement answer must not.
-    const replaced = this._syncViewChoice(config);
+    const replaced = this._syncDeviceChoice(config);
     // Any other configuration starts at home, as a reload does. The days on screen stay until
     // home's events are committed, so nothing is drawn under the wrong dates meanwhile.
     const leftPage = replaced && this._pageRequested !== null;
@@ -3352,18 +3456,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Adopts this device's remembered view for a newly set configuration.
+   * Adopts what this device remembers for a newly set configuration: the view its switcher
+   * picked, and the calendars its legend hides.
    *
-   * A different fingerprint is a different configuration, which is what resets every device
-   * to `view` after an edit. Nothing is deleted here: Home Assistant builds a fresh card for
-   * a changed configuration rather than handing it to the old one, so a card almost never
-   * learns which configuration it replaced. The cost is narrow and stated in the docs: a
-   * configuration changed back to exactly what it was finds the choice made for it again.
+   * Each half is read for itself, the view only while the switcher is on and the hidden
+   * calendars only while the legend is, so a card with a legend and no switcher remembers
+   * too. A different fingerprint is a different configuration, which is what resets every
+   * device to `view`, and to every calendar shown, after an edit. Nothing is deleted here:
+   * Home Assistant builds a fresh card for a changed configuration rather than handing it to
+   * the old one, so a card almost never learns which configuration it replaced. The cost is
+   * narrow and stated in the docs: a configuration changed back to exactly what it was finds
+   * the choice made for it again.
    *
    * @param rawConfig - Configuration exactly as Home Assistant passed it
    * @returns True when the configuration is a different one from the last
    */
-  private _syncViewChoice(rawConfig: unknown): boolean {
+  private _syncDeviceChoice(rawConfig: unknown): boolean {
     const fingerprint = ViewChoice.configFingerprint(rawConfig);
     if (fingerprint === this._configFingerprint) return false;
 
@@ -3371,6 +3479,13 @@ class CalendarCardPro extends LitElement {
     const remembered = this._wantsViewSwitcher ? ViewChoice.readViewChoice(fingerprint) : undefined;
     this._viewChoice =
       remembered !== undefined && remembered !== this.config.view ? remembered : null;
+
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const hidden = this._wantsLegend
+      ? ViewChoice.readHiddenCalendars(fingerprint).filter((id) => calendars.has(id))
+      : [];
+    this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
+    this._legendFold = null;
     return true;
   }
 
@@ -3700,7 +3815,7 @@ class CalendarCardPro extends LitElement {
    */
   handleAction(actionConfig: Types.ActionConfig): void {
     const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
-    Actions.handleAction(this, this.config, action, () => this.toggleExpanded());
+    Actions.handleAction(this, this.config, action, this._cardActionCallbacks);
   }
 
   //-----------------------------------------------------------------------------
@@ -3833,16 +3948,16 @@ class CalendarCardPro extends LitElement {
    * @returns The toolbar; with no control in it, no toolbar is drawn
    */
   private _headerToolbar(): Toolbar.HeaderToolbar {
-    const navigation = this._dateNavigation();
-    const addEvent = this._addEventButton();
-    const viewSwitcher = this._viewSwitcher();
-
-    return {
-      labeled: this._toolbarLabeledFor(addEvent, viewSwitcher, navigation),
-      navigation,
-      addEvent,
-      viewSwitcher,
+    const controls: ToolbarControls = {
+      navigation: this._dateNavigation(),
+      legend: this._legend(),
+      viewSwitcher: this._viewSwitcher(),
+      refresh: this._refreshButton(),
+      addEvent: this._addEventButton(),
     };
+    this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
+
+    return { labeled: this._toolbarLabeledFor(controls), ...controls };
   }
 
   /**
@@ -3850,30 +3965,23 @@ class CalendarCardPro extends LitElement {
    *
    * All or nothing, so the controls stay one family: the bar is labeled only when it is wide
    * enough for every control it draws, and only when every one of them has a label to show.
-   * Home Assistant may have no words for the add button, which then stays an icon, and so
-   * does the switcher beside it.
+   * Home Assistant may have no words for the add button, refresh or the folded legend, which
+   * then stays an icon, and so does everything beside it.
    *
    * `toolbar.labels: false` keeps every control an icon at any width. With the date
    * navigation in the band, labels need the room for it as well, and are drawn only while the
    * whole band fits on one row (`_syncToolbarLabelFit`).
    *
-   * @param addEvent - The add button this render draws, if any
-   * @param viewSwitcher - The view switcher this render draws, if any
-   * @param navigation - The date navigation this render draws, if any
+   * @param controls - The controls this render draws
    * @returns True to draw labels
    */
-  private _toolbarLabeledFor(
-    addEvent: Toolbar.AddEventButton | undefined,
-    viewSwitcher: Toolbar.ViewSwitcher | undefined,
-    navigation?: Toolbar.DateNavigation,
-  ): boolean {
-    if (this._toolbarWidthPx === null) return false;
+  private _toolbarLabeledFor(controls: ToolbarControls): boolean {
+    const minWidth = this._toolbarLabelMinWidth(controls);
+    if (this._toolbarWidthPx === null || minWidth === null) return false;
     if (!Config.resolveToolbar(this.config).labels) return false;
-    if (!addEvent && !viewSwitcher) return false;
-    if (addEvent && addEvent.label === undefined) return false;
 
     const overflowed = this._toolbarLabelsOverflowed;
-    const signature = this._toolbarLabelSignature(addEvent, viewSwitcher, navigation);
+    const signature = this._toolbarLabelSignature(controls);
     if (
       overflowed &&
       overflowed.signature === signature &&
@@ -3882,37 +3990,57 @@ class CalendarCardPro extends LitElement {
       return false;
     }
 
-    const minWidth = navigation
-      ? viewSwitcher
+    return this._toolbarWidthPx >= minWidth;
+  }
+
+  /**
+   * The card width from which the toolbar's controls carry labels, or null when they never do.
+   *
+   * The fixed thresholds each allow for one command beside the switcher and the dates, the add
+   * button they were measured with; every further one, refresh or the folded legend, needs
+   * `UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH` more. Null when there is nothing to label, the date
+   * navigation carrying none, or a control has no words to show.
+   *
+   * @param controls - The controls this render draws
+   * @returns A width in CSS pixels, or null
+   */
+  private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
+    const legendButton = controls.legend?.folded ? controls.legend : undefined;
+    const commands = [controls.addEvent, controls.refresh, legendButton].filter(
+      (control) => control !== undefined,
+    ).length;
+    if (commands === 0 && !controls.viewSwitcher) return null;
+    if (controls.addEvent && controls.addEvent.label === undefined) return null;
+    if (controls.refresh && controls.refresh.label === undefined) return null;
+    if (legendButton && legendButton.name === undefined) return null;
+
+    const base = controls.navigation
+      ? controls.viewSwitcher
         ? Constants.UI.TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH
         : Constants.UI.TOOLBAR_BAND_LABEL_MIN_WIDTH
-      : viewSwitcher
+      : controls.viewSwitcher
         ? Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH
         : Constants.UI.TOOLBAR_LABEL_MIN_WIDTH;
-    return this._toolbarWidthPx >= minWidth;
+    return base + Math.max(0, commands - 1) * Constants.UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH;
   }
 
   /**
    * What the labeled toolbar's fit beside the title depends on, other than the width.
    *
-   * @param addEvent - The add button this render draws, if any
-   * @param viewSwitcher - The view switcher this render draws, if any
-   * @param navigation - The date navigation this render draws, if any
+   * @param controls - The controls this render draws
    * @returns A string that changes whenever the labeled bar or the title beside it would
    */
-  private _toolbarLabelSignature(
-    addEvent: Toolbar.AddEventButton | undefined,
-    viewSwitcher: Toolbar.ViewSwitcher | undefined,
-    navigation?: Toolbar.DateNavigation,
-  ): string {
+  private _toolbarLabelSignature(controls: ToolbarControls): string {
     return [
       this.effectiveTitle ?? '',
       this.effectiveLanguage,
-      addEvent?.label ?? '',
-      viewSwitcher ? 'views' : '',
+      controls.addEvent?.label ?? '',
+      controls.viewSwitcher ? 'views' : '',
+      controls.refresh?.label ?? '',
+      controls.legend?.folded ? (controls.legend.name ?? '') : '',
       // The range's reserved width, not its words: the widest label changes with the language
       // and the page length, and the dates on screen never decide the layout.
-      navigation?.widestRange ?? '',
+      controls.navigation?.widestRange ?? '',
     ].join('\u0000');
   }
 
@@ -3950,11 +4078,10 @@ class CalendarCardPro extends LitElement {
       trailing.getBoundingClientRect().top > leading.getBoundingClientRect().bottom - 0.5;
     if (!overflows && !wraps) return;
 
-    const { addEvent, viewSwitcher, navigation } = this._headerToolbar();
     Logger.debug(`Toolbar labels do not fit at ${this._toolbarWidthPx}px`);
     this._toolbarLabelsOverflowed = {
       widthPx: this._toolbarWidthPx ?? 0,
-      signature: this._toolbarLabelSignature(addEvent, viewSwitcher, navigation),
+      signature: this._toolbarLabelSignature(this._headerToolbar()),
     };
     this.requestUpdate();
   }
@@ -3977,8 +4104,10 @@ class CalendarCardPro extends LitElement {
   private _hostsControls(toolbar: Toolbar.HeaderToolbar, drawsEventTarget: boolean): boolean {
     return (
       toolbar.navigation !== undefined ||
-      toolbar.addEvent !== undefined ||
+      toolbar.legend !== undefined ||
       toolbar.viewSwitcher !== undefined ||
+      toolbar.refresh !== undefined ||
+      toolbar.addEvent !== undefined ||
       drawsEventTarget
     );
   }
@@ -3997,14 +4126,31 @@ class CalendarCardPro extends LitElement {
       return nothing;
     }
 
-    const names = this._failedEntities.map((entityId) => {
-      const friendlyName = this.hass?.states?.[entityId]?.attributes?.friendly_name;
-      return typeof friendlyName === 'string' && friendlyName.trim() !== ''
-        ? friendlyName
-        : entityId;
-    });
+    const names = this._failedEntities.map((entityId) => this._calendarName(entityId));
 
     return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
+  }
+
+  /**
+   * A calendar's name as Home Assistant holds it, or its entity id where it holds none.
+   *
+   * @param entityId - The calendar
+   * @returns Its name
+   */
+  private _calendarName(entityId: string): string {
+    const friendlyName = this.hass?.states?.[entityId]?.attributes?.friendly_name;
+    return typeof friendlyName === 'string' && friendlyName.trim() !== '' ? friendlyName : entityId;
+  }
+
+  /**
+   * One of Home Assistant's own strings, in its language, or undefined where it has none.
+   *
+   * @param key - The string's key
+   * @returns The string
+   */
+  private _haString(key: string): string | undefined {
+    const text = this.hass?.localize?.(key);
+    return text && text !== key ? text : undefined;
   }
 
   /**
@@ -4102,17 +4248,13 @@ class CalendarCardPro extends LitElement {
     const now = new Date();
     const language = this.effectiveLanguage;
     const page = this._pageRange(this._pageRequested, now);
-    const localize = (key: string): string | undefined => {
-      const text = this.hass?.localize?.(key);
-      return text && text !== key ? text : undefined;
-    };
 
     return {
       range: Paging.rangeLabel(page, language, now),
       widestRange: Paging.widestRangeLabel(page.days, language),
       homeName: Paging.homeButtonName(this._homeRange(now), language, now),
-      previousName: localize('ui.common.previous'),
-      nextName: localize('ui.common.next'),
+      previousName: this._haString('ui.common.previous'),
+      nextName: this._haString('ui.common.next'),
       inert: this._isBeingEdited,
       pickerValue: Paging.pageKey(page.start),
       onPrevious: () => this._stepPage(-1),
@@ -4202,6 +4344,271 @@ class CalendarCardPro extends LitElement {
       return;
     }
     void this.updateEvents('page');
+  }
+
+  //-----------------------------------------------------------------------------
+  // REFRESH
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The refresh button, when the configuration asks for it.
+   *
+   * Named by Home Assistant's own word, as the add button is. While the card is being edited
+   * it is drawn and a press does nothing.
+   *
+   * @returns Button description for the wrapper, or undefined for none
+   */
+  private _refreshButton(): Toolbar.RefreshButton | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.refresh) return undefined;
+
+    return {
+      label: this._haString('ui.common.refresh'),
+      busy: this.isLoading,
+      onActivate: () => {
+        if (this._isBeingEdited) {
+          Logger.debug('Not refreshing from the toolbar while the card is being edited');
+          return;
+        }
+        this._requestRefresh();
+      },
+    };
+  }
+
+  /**
+   * Loads the events again because someone asked to: the refresh button, or a `refresh` tap
+   * or hold action.
+   *
+   * Does nothing while a load is under way, which the button shows by turning, so a second
+   * press never starts a second request beside the first. The guard is here rather than in
+   * `refreshEvents`, which a calendar write must still be able to force.
+   */
+  private _requestRefresh(): void {
+    if (this.isLoading) {
+      Logger.debug('Not refreshing: a load is already under way');
+      return;
+    }
+    Logger.debug('Refreshing on request');
+    void this.refreshEvents();
+  }
+
+  //-----------------------------------------------------------------------------
+  // LEGEND
+  //-----------------------------------------------------------------------------
+
+  /** Whether the configuration asks for the calendar legend. */
+  private get _wantsLegend(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    return toolbar.show && toolbar.legend;
+  }
+
+  /**
+   * The calendar legend, when the configuration asks for it.
+   *
+   * One entry per calendar, colored by its accent as its events are and named as Home
+   * Assistant names it. While the card is being edited every calendar is shown and nothing
+   * toggles. Folded when its chips did not fit on one row at this width (`_syncLegendFit`).
+   *
+   * @returns Legend description for the wrapper, or undefined for none
+   */
+  private _legend(): Legend.CalendarLegend | undefined {
+    if (!this._wantsLegend) return undefined;
+
+    const ids = Legend.legendCalendarIds(this.config.entities);
+    if (ids.length === 0) return undefined;
+
+    const hidden = this._activeHiddenCalendars;
+    const registryColors = EntityColors.entityColors();
+    const calendars = ids.map((id) => ({
+      id,
+      name: this._calendarName(id),
+      color: EventUtils.getEntityAccentColorWithOpacity(
+        id,
+        this.effectiveConfig,
+        undefined,
+        undefined,
+        registryColors,
+      ),
+      shown: !hidden.has(id),
+    }));
+
+    return {
+      calendars,
+      name: this._haString('ui.components.calendar.my_calendars'),
+      folded: this._legendFoldedFor(this._legendSignature(calendars)),
+      inert: this._isBeingEdited,
+      onToggle: (id) => this._toggleCalendar(id),
+    };
+  }
+
+  /**
+   * What the width of the legend's chips depends on, other than the card's width.
+   *
+   * @param calendars - The calendars the legend lists
+   * @returns A string that changes whenever the chips might change width
+   */
+  private _legendSignature(calendars: ReadonlyArray<Legend.LegendCalendar>): string {
+    return [
+      this.effectiveLanguage,
+      // The lane's inline padding follows the view.
+      this.effectiveView,
+      String(this._legendFontGeneration),
+      ...calendars.map((calendar) => `${calendar.id}\u0001${calendar.name}`),
+    ].join('\u0000');
+  }
+
+  /**
+   * Whether the legend is folded into a button now.
+   *
+   * Folded from the width at which its chips did not fit, drawn with the same calendars,
+   * names, language and view, until the card is wide enough for them by a margin. Anything
+   * else draws the chips, which `_syncLegendFit` then measures.
+   *
+   * @param signature - From `_legendSignature`
+   * @returns True to draw the button
+   */
+  private _legendFoldedFor(signature: string): boolean {
+    const fold = this._legendFold;
+    if (!fold || fold.signature !== signature) return false;
+    return this._legendWidthPx === null || this._legendWidthPx < fold.unfoldAtPx;
+  }
+
+  /**
+   * Whether an open legend menu still has its button after the coming render.
+   *
+   * @returns False when the legend is going, unfolding or the card is being edited
+   */
+  private _legendMenuMayStayOpen(): boolean {
+    if (!this._wantsLegend || this._isBeingEdited || this.hidden) return false;
+    return this._legend()?.folded === true;
+  }
+
+  /**
+   * Hides a calendar's events on this device, or shows them again, and remembers it there.
+   *
+   * Nothing is fetched: hidden calendars stay loaded, so this only redraws.
+   *
+   * @param id - The calendar's entity id
+   */
+  private _toggleCalendar(id: string): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not hiding calendars while the card is being edited');
+      return;
+    }
+    if (!this._wantsLegend) return;
+
+    const next = new Set(this._hiddenCalendars);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
+    if (this._configFingerprint !== null) {
+      ViewChoice.writeHiddenCalendars(this._configFingerprint, [...next]);
+    }
+    Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
+    this.requestUpdate();
+  }
+
+  /**
+   * Folds the legend into a button when its chips do not fit on one row, and, after a resize,
+   * draws them again once they fit.
+   *
+   * Reads the chips the last render drew, laid out: their natural width against the lane's.
+   * When they overflow it, the card remembers what they were drawn with and the card width
+   * from which they would fit by a small margin, and draws the button instead until the card
+   * is that wide, or the calendars, their names, the language, the view or a font change.
+   * Then the chips are drawn again and measured again. An unfold that still does not fit folds
+   * again from a wider width, so the two cannot alternate.
+   *
+   * After a render (`updated`) this only folds, at the width the legend was last judged at,
+   * and before anything is painted, so a card that cannot fit its chips never shows them cut
+   * off. Anything a width change decides waits for the pass a frame after the resize
+   * (`_scheduleLegendFit`): a fold or an unfold changes the card's height, which must not
+   * happen while the browser is delivering resize observations.
+   *
+   * Only ever reads layout that exists. Without it — a card not laid out yet, a section folded
+   * away, or a test environment with no layout engine — every box is empty, and nothing is
+   * concluded.
+   *
+   * @param mayUnfold - Whether the card width may move, which can draw the chips again
+   */
+  private _syncLegendFit(mayUnfold = true): void {
+    if (!this.isConnected || !this._wantsLegend) return;
+    this._watchLegendFonts();
+
+    const cardWidth = this.getBoundingClientRect().width;
+    if (cardWidth <= 0) return;
+    if (mayUnfold || this._legendWidthPx === null) {
+      this._legendWidthPx = cardWidth;
+    } else if (Math.abs(cardWidth - this._legendWidthPx) > 0.5) {
+      // A width the legend has not been judged at is a resize, and this render may be running
+      // inside the browser's delivery of it: the pass a frame later decides.
+      this._scheduleLegendFit();
+      return;
+    }
+
+    const lane = this.renderRoot.querySelector<HTMLElement>('.toolbar-legend');
+    const chips = lane?.querySelector<HTMLElement>('.legend-chips');
+    if (!lane || !chips) {
+      // Folded: draw the chips again if the card is now wide enough for them.
+      const drawnFolded = this.renderRoot.querySelector('.legend-button') !== null;
+      if (mayUnfold && drawnFolded && this._legend()?.folded === false) this.requestUpdate();
+      return;
+    }
+
+    const style = getComputedStyle(lane);
+    const available =
+      lane.clientWidth -
+      (parseFloat(style.paddingLeft) || 0) -
+      (parseFloat(style.paddingRight) || 0);
+    const needed = chips.getBoundingClientRect().width;
+    if (available <= 0 || needed <= 0 || needed <= available + 0.5) return;
+
+    const legend = this._legend();
+    if (!legend) return;
+
+    this._legendWidthPx = cardWidth;
+    this._legendFold = {
+      signature: this._legendSignature(legend.calendars),
+      unfoldAtPx: Math.ceil(cardWidth + needed - available) + Constants.UI.LEGEND_UNFOLD_MARGIN,
+    };
+    Logger.debug(
+      `Legend chips need ${Math.ceil(needed)}px of ${Math.floor(available)}px; folded until ` +
+        `${this._legendFold.unfoldAtPx}px`,
+    );
+    this.requestUpdate();
+  }
+
+  /**
+   * Runs `_syncLegendFit` in the next frame, once per frame, for a card whose width moved.
+   */
+  private _scheduleLegendFit(): void {
+    if (!this._wantsLegend || this._legendFitRaf !== null) return;
+    this._legendFitRaf = requestAnimationFrame(() => {
+      this._legendFitRaf = null;
+      this._syncLegendFit();
+    });
+  }
+
+  /**
+   * Re-measures the legend's chips whenever a font finishes loading, since a late web font can
+   * change their width without changing anything else. Held from the first measurement while
+   * the card is attached.
+   */
+  private _watchLegendFonts(): void {
+    if (this._legendFontsCleanup) return;
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    if (!fonts || typeof fonts.addEventListener !== 'function') return;
+
+    const onLoaded = () => {
+      if (!this.isConnected || !this._wantsLegend) return;
+      this._legendFontGeneration++;
+      this.requestUpdate();
+    };
+    fonts.addEventListener('loadingdone', onLoaded);
+    this._legendFontsCleanup = () => fonts.removeEventListener('loadingdone', onLoaded);
   }
 
   //-----------------------------------------------------------------------------

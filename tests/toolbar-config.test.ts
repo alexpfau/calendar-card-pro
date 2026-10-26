@@ -4,8 +4,8 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * the two v5 controls on inside it, so `toolbar: { show: true }` alone gives both, labels
- * where they fit, and the date navigation off, because a control added after v5's first two
- * must not appear in a toolbar someone already set up.
+ * where they fit, and the date navigation, refresh and the legend off, because a control
+ * added after v5's first two must not appear in a toolbar someone already set up.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -20,16 +20,20 @@ const DEFAULTS = {
   navigation: false,
   addEvent: true,
   viewSwitcher: true,
+  refresh: false,
+  legend: false,
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with the view switcher, the add button and labels on, navigation off', () => {
+  it('ships hidden, with the view switcher, the add button and labels on, the later controls off', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       labels: true,
       navigation: false,
       add_event: true,
       view_switcher: true,
+      refresh: false,
+      legend: false,
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);
   });
@@ -46,6 +50,12 @@ describe('the toolbar configuration', () => {
       show: true,
       navigation: true,
       labels: false,
+    });
+    expect(resolveToolbar({ toolbar: { show: true, refresh: true, legend: true } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      refresh: true,
+      legend: true,
     });
   });
 
@@ -66,7 +76,15 @@ describe('the toolbar configuration', () => {
 
   it('reads a value that is not a boolean as that member’s default', () => {
     const config = {
-      toolbar: { show: 'true', add_event: 0, view_switcher: null, navigation: 'yes', labels: 0 },
+      toolbar: {
+        show: 'true',
+        add_event: 0,
+        view_switcher: null,
+        navigation: 'yes',
+        labels: 0,
+        refresh: 'on',
+        legend: 1,
+      },
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);

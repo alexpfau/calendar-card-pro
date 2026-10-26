@@ -159,40 +159,48 @@ describe('handleAction resolves the entity more-info needs', () => {
   });
 });
 
-describe('handleAction keeps expand to itself', () => {
+describe("handleAction keeps the card's own actions to itself", () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
 
-  it('runs the callback and dispatches nothing', () => {
-    // `expand` is the card's own action and has no Home Assistant equivalent, so
-    // delegating it would reach a handler that does not know the name.
-    const expand = vi.fn();
+  it.each(['expand', 'refresh'] as const)(
+    'runs the %s callback, and only it, and dispatches nothing',
+    (action) => {
+      // `expand` and `refresh` are the card's own actions and have no Home Assistant
+      // equivalent, so delegating either would reach a handler that does not know the name.
+      const callbacks = { expand: vi.fn(), refresh: vi.fn() };
+      const { node, events } = listeningNode();
+
+      handleAction(node, config({ hold_action: { action } }), 'hold', callbacks);
+
+      expect(callbacks[action]).toHaveBeenCalledTimes(1);
+      expect(callbacks[action === 'expand' ? 'refresh' : 'expand']).not.toHaveBeenCalled();
+      expect(events).toHaveLength(0);
+    },
+  );
+
+  it.each(['expand', 'refresh'] as const)(
+    'does not delegate %s when no callback was supplied',
+    (action) => {
+      const { node, events } = listeningNode();
+
+      handleAction(node, config({ tap_action: { action } }), 'tap');
+
+      expect(events).toHaveLength(0);
+    },
+  );
+
+  it('does not run a callback for any other action', () => {
+    // The control for the pair above: the callbacks are passed on every real call site in
+    // `calendar-card-pro.ts`, so it has to be the action that selects one, not its presence.
+    const callbacks = { expand: vi.fn(), refresh: vi.fn() };
     const { node, events } = listeningNode();
 
-    handleAction(node, config({ tap_action: { action: 'expand' } }), 'tap', expand);
+    handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', callbacks);
 
-    expect(expand).toHaveBeenCalledTimes(1);
-    expect(events).toHaveLength(0);
-  });
-
-  it('does not delegate when no callback was supplied', () => {
-    const { node, events } = listeningNode();
-
-    handleAction(node, config({ tap_action: { action: 'expand' } }), 'tap');
-
-    expect(events).toHaveLength(0);
-  });
-
-  it('does not run the callback for any other action', () => {
-    // The control for the pair above: the callback is passed on every real call site in
-    // `calendar-card-pro.ts`, so it has to be the action that selects it, not its presence.
-    const expand = vi.fn();
-    const { node, events } = listeningNode();
-
-    handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', expand);
-
-    expect(expand).not.toHaveBeenCalled();
+    expect(callbacks.expand).not.toHaveBeenCalled();
+    expect(callbacks.refresh).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });
 });
@@ -209,7 +217,7 @@ describe('handleAction with nothing configured', () => {
     const expand = vi.fn();
     const { node, events } = listeningNode();
 
-    handleAction(node, missing, 'hold', expand);
+    handleAction(node, missing, 'hold', { expand });
 
     expect(events).toHaveLength(0);
     expect(expand).not.toHaveBeenCalled();
@@ -221,8 +229,8 @@ describe('handleAction with nothing configured', () => {
     const { node, events } = listeningNode();
     const expand = vi.fn();
 
-    handleAction(node, config({ tap_action: { action: 'none' } }), 'tap', expand);
-    handleAction(node, config({ hold_action: { action: 'none' } }), 'hold', expand);
+    handleAction(node, config({ tap_action: { action: 'none' } }), 'tap', { expand });
+    handleAction(node, config({ hold_action: { action: 'none' } }), 'hold', { expand });
 
     expect(events).toHaveLength(0);
     expect(expand).not.toHaveBeenCalled();

@@ -886,7 +886,9 @@ describe('editor filter: section headings', () => {
       'labels',
       'navigation',
       'view_switcher',
+      'refresh',
       'add_event',
+      'legend',
     ]);
     expect(headingNames(toolbar)).toEqual(['heading_toolbar']);
   });
