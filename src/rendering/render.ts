@@ -53,6 +53,29 @@ export function drawsEvent(
 //-----------------------------------------------------------------------------
 
 /**
+ * Render the corner's answer to a refresh someone asked for, on a card with no refresh
+ * button: the button's check, or its alert where a calendar could not be loaded, in place of
+ * the spinner that turned before it.
+ *
+ * A picture only, hidden from assistive technology: as a live region with nothing in it but
+ * an icon it would promise an announcement it never makes. A calendar that failed is named
+ * in words by the notice at the card's foot.
+ *
+ * @param outcome How the refresh ended
+ * @returns The corner indicator
+ */
+function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
+  return html`<div
+    class=${`loading-indicator ${Toolbar.REFRESH_PHASE_CLASS[outcome]}`}
+    aria-hidden="true"
+  >
+    <svg class="loading-indicator-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${Toolbar.REFRESH_PHASE_ICON[outcome]}></path>
+    </svg>
+  </div>`;
+}
+
+/**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
  * @param customStyles Custom style properties from configuration
@@ -68,6 +91,8 @@ export function drawsEvent(
  * @param toolbar The controls for the header toolbar; none draws no toolbar
  * @param hostsControls Whether the card draws interactive children of its own
  * @param contentPending Whether the days drawn are about to be replaced by another page's
+ * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
+ * refresh button does
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -94,6 +119,7 @@ export function renderMainCardStructure(
   toolbar: Toolbar.HeaderToolbar = {},
   hostsControls: boolean = false,
   contentPending: boolean = false,
+  refreshPhase: Toolbar.RefreshPhase = 'idle',
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -110,19 +136,24 @@ export function renderMainCardStructure(
   // - no control: no toolbar, and the header exactly as it was before there was one. Hence
   //   a single binding below; a second, even one rendering nothing, adds a marker and a
   //   text node to the header.
-  // - trailing actions only (refresh and the view switch later, add always last): in the
-  //   title's row at its inline end, or in a slim row of their own when there is no title.
+  // - trailing actions only (a folded legend, the view switch, refresh, add always last): in
+  //   the title's row at its inline end, or in a slim row of their own when there is no title.
   // - with the date navigation: a band of its own between the title and the events, the
   //   dates leading and the trailing actions at its end, wrapping onto a second row where the
-  //   card is too narrow for both; a legend lane, later, below it.
+  //   card is too narrow for both.
+  // - the legend's lane, unless it is folded: a row of its own under all of them.
   // The toolbar stays inside `.header-container`, after the h1 or the
   // `.card-header-placeholder`, so both keep the place card-mod styles find them in.
   const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, hasTitle);
   const headerClass = !toolbarBlock
     ? 'header-container'
-    : toolbar.navigation
-      ? 'header-container has-toolbar has-band'
-      : 'header-container has-toolbar';
+    : [
+        'header-container has-toolbar',
+        toolbar.navigation ? 'has-band' : '',
+        Toolbar.drawsLegendLane(toolbar) ? 'has-legend' : '',
+      ]
+        .filter((cls) => cls !== '')
+        .join(' ');
   // Days about to give way to another page's are dimmed until its events arrive. A class
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
@@ -155,13 +186,20 @@ export function renderMainCardStructure(
     >
       ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${
-        isLoading
-          ? html`
-              <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
-                <div class="spinner" aria-hidden="true"></div>
-              </div>
-            `
-          : nothing
+        // The refresh button turns while the card loads and shows how a refresh someone asked
+        // for ended, so the corner says nothing beside it. Without the button the corner does
+        // both (`refreshPhase`).
+        toolbar.refresh
+          ? nothing
+          : refreshPhase === 'done' || refreshPhase === 'failed'
+            ? renderRefreshOutcome(refreshPhase)
+            : isLoading || refreshPhase === 'turning'
+              ? html`
+                  <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                    <div class="spinner" aria-hidden="true"></div>
+                  </div>
+                `
+              : nothing
       }
 
       <!-- Title is always rendered with the same structure, even if empty.

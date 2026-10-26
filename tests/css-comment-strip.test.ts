@@ -279,25 +279,37 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(152_000);
-    // The grid polish fixes moved the ceiling last, from 149,000 to 152,000: the notes on why
+    expect(saved).toBeLessThan(156_000);
+    // The grid polish fixes moved the ceiling last, from 153,000 to 156,000: the notes on why
     // grid resets the two properties a time folded with its countdown reads, rather than the
     // declarations that read them, and what the clamp did to that row before; why a grid
     // title keeps the dashboard's side through :dir() when match-parent would say the same
     // in one line; and why a focused block cut off at the visible hours stops its bar at the
-    // ring rather than drawing the ring on a pseudo-element. The reading went 147,219 to
-    // 149,609, taken with stripComments after the last comment in the change was written.
+    // ring rather than drawing the ring on a pseudo-element. The reading went 151,046, dev's
+    // own once the legend and refresh button had landed, to 153,436, taken with stripComments
+    // after the last comment in the change was written.
     //
-    // The today tile's new shape and the card's hover color moved it before that, from 145,000
-    // to 149,000: the notes on why the tile's corners are written in em rather than percent, why
-    // its figures are proportional and the last pixel was left unmeasured, why centering its one
-    // line trimmed to the cap height centers the digits and why that makes the tile a block, why
-    // the column headers leave the tile out of their flex rule and drop its margins for a middle
-    // ground between the tile and the other days' numbers, why an untinted event washes in the
-    // card's hover color at twice the ripple's strength while a tinted one keeps its text color,
-    // why the toolbar lays that color over its gray rather than in place of it, and why the
-    // card's ripple stays still over the bar. The reading went 143,588 to 147,219, taken with
-    // stripComments after the last comment in the change was written.
+    // The calendar legend and the refresh button moved it before that, from 149,000 to 153,000:
+    // the notes on why the legend's lane clips rather than scrolls and pads itself for a focus
+    // ring, why the header beside a title becomes a grid rather than a wrapping row while the lane
+    // is drawn, why a chip is tinted from its calendar's accent and turns the toolbar's gray when
+    // hidden, why the menu floats on the top layer and sets its own font, why its backdrop stays
+    // clear and its surface is the theme's rather than the card's, why a long name is cut short,
+    // why the folded button carries a dot while a calendar is hidden, why the refresh icon turns
+    // in place of the corner spinner, and why the ripple stays still over the lane in a rule of
+    // its own. The reading went 147,219 to 150,527, taken with stripComments after the last
+    // comment in the change was written.
+    //
+    // The today tile's new shape and the card's hover color moved the ceiling before that, from
+    // 145,000 to 149,000: the notes on why the tile's corners are written in em rather than
+    // percent, why its figures are proportional and the last pixel was left unmeasured, why
+    // centering its one line trimmed to the cap height centers the digits and why that makes the
+    // tile a block, why the column headers leave the tile out of their flex rule and drop its
+    // margins for a middle ground between the tile and the other days' numbers, why an untinted
+    // event washes in the card's hover color at twice the ripple's strength while a tinted one
+    // keeps its text color, why the toolbar lays that color over its gray rather than in place of
+    // it, and why the card's ripple stays still over the bar. The reading went 143,588 to 147,219,
+    // taken with stripComments after the last comment in the change was written.
     //
     // The date navigation moved the ceiling before that, from 141,500 to 145,000: the notes on why the
     // band takes a row of its own and wraps its trailing group by the card's width rather than

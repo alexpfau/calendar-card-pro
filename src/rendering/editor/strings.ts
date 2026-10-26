@@ -552,10 +552,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Buttons in the toolbar for switching between List, Columns and Grid on the ' +
     'dashboard. Each device remembers its choice until this card is edited; the layout ' +
     'chosen above stays the one it opens in.',
+  'toolbar.refresh': 'Refresh Button',
+  'toolbar.refresh.helper':
+    'A button in the toolbar that loads the events again now, rather than at the next ' +
+    'scheduled refresh. Its icon turns while the card is loading.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper':
     "A button in the toolbar that opens Home Assistant's own new-event dialog. Shown " +
     "only when at least one of the card's calendars accepts new events.",
+  'toolbar.legend': 'Calendar Legend',
+  'toolbar.legend.helper':
+    'A chip for each calendar, in its color, under the toolbar. Tapping one hides that ' +
+    "calendar's events on this device, or shows them again; each device remembers its " +
+    'choice until this card is edited. Where the chips do not fit on one row, they fold ' +
+    'into a button that opens them as a menu.',
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',
@@ -851,6 +861,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // "Expand" does not — and Home Assistant now contributes a `Toggle` of its own two rows
   // below, for toggling an entity rather than the card.
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
+  // The card's other action: load the events again now, as the toolbar's refresh button does.
+  'card_action.option.refresh.label': 'Refresh Events',
   // The card's own dropdown rather than Home Assistant's action editor, so it names both of
   // its choices. "Nothing" is the word Home Assistant's action editor uses for `none` in the
   // two dropdowns above, and each translation takes Home Assistant's own word for it, so the

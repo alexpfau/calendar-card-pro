@@ -728,8 +728,15 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, always the last control. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, just before the add button. */
+  /** The List / Columns / Grid switcher, before refresh and add. */
   view_switcher?: boolean;
+  /** A button that loads the events again now, between the switcher and add. */
+  refresh?: boolean;
+  /**
+   * One chip per calendar, below the bar, that hides or shows its events on this device.
+   * Where the chips do not fit on one row they fold into a button that opens them as a menu.
+   */
+  legend?: boolean;
 }
 
 /** Weather configuration. */

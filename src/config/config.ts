@@ -173,15 +173,17 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_edit: true,
   allow_event_delete: true,
 
-  // Controls added after v5's first two default off (`navigation`), so a release never adds
-  // a control to a toolbar someone already set up. `labels` is not a control: on is what the
-  // toolbar has always done.
+  // Controls added after v5's first two default off (`navigation`, `refresh`, `legend`), so a
+  // release never adds a control to a toolbar someone already set up. `labels` is not a
+  // control: on is what the toolbar has always done.
   toolbar: {
     show: false,
     labels: true,
     navigation: false,
     add_event: true,
     view_switcher: true,
+    refresh: false,
+    legend: false,
   },
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
@@ -342,6 +344,8 @@ export interface ResolvedToolbar {
   navigation: boolean;
   addEvent: boolean;
   viewSwitcher: boolean;
+  refresh: boolean;
+  legend: boolean;
 }
 
 /**
@@ -369,6 +373,8 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     navigation: read('navigation'),
     addEvent: read('add_event'),
     viewSwitcher: read('view_switcher'),
+    refresh: read('refresh'),
+    legend: read('legend'),
   };
 }
 

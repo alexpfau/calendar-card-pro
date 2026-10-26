@@ -63,14 +63,16 @@ A grid block is only as tall as its event lasts, so no layout makes a half-hour 
 
 See [Tapping an Event](https://calendar-card-pro.alexpfau.com/features/actions#tapping-an-event) and [Add Event Button](https://calendar-card-pro.alexpfau.com/features/actions#add-event-button).
 
-### 🧰 A Toolbar to Page Through Dates & Switch Layouts
+### 🧰 A Toolbar to Page Through Dates, Switch Layouts & Hide Calendars
 
 - **`toolbar:`** - One switch for a toolbar in the card's header, and one for each control in it. The controls sit at the end of the title's row, or in a slim row of their own on a card without a title, or, with the date navigation, in a band of their own under the title. A card that leaves the toolbar off draws none
 - **Switch between List, Columns and Grid on the card** - The toolbar's view switcher lets a wall tablet change layout without the editor. Each device remembers its own choice until the card is edited, and `view` stays the layout the card opens with. A layout too wide for the card is dimmed, and switching never reloads events
 - **Page through the dates** - `navigation: true` adds arrows that move by as many days as the card shows, a button back to the days it opens with, and the dates on screen, which open the browser's date picker. Away from its own days the card shows events that have ended, so last week can be looked back on, and a reload or an edit brings it home. The 16 most recently shown pages are kept in memory while the dashboard is open, never in the browser's storage (#185)
-- **Icons alone, if you prefer** - The toolbar names the view switcher's layouts and the add button beside their icons wherever the card is wide enough; `labels: false` keeps them icons, with their names as tooltips
+- **Show and hide calendars** - `legend: true` puts a chip for each calendar under the toolbar, tinted in its color, so the legend is also the key to the colors below. A press hides that calendar's events on this device, until the card is edited, and another brings them back; nothing is fetched to do it. With `filter_duplicates` an event two calendars share stays, drawn from the calendar still shown. Where the chips do not fit they fold into one button that opens them as a menu (#608)
+- **Refresh when you want** - `refresh: true` adds a button that loads the events again now. Its icon turns for at least one full turn, then the button shows a green check for a moment, or a red alert where a calendar could not be loaded, so a press shows it worked however fast the network. `refresh` is also a card action, for a tap or a hold, which shows the same in the card's corner (#245)
+- **Icons alone, if you prefer** - The toolbar names its controls beside their icons wherever the card is wide enough; `labels: false` keeps them icons, with their names as tooltips
 
-See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar).
+See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar), [Showing & Hiding Calendars](https://calendar-card-pro.alexpfau.com/features/layout-appearance#showing-hiding-calendars) and [Refreshing the Events](https://calendar-card-pro.alexpfau.com/features/layout-appearance#refreshing-the-events).
 
 ### 📍 Today & Now at a Glance
 
@@ -225,6 +227,8 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#615](https://github.com/alexpfau/calendar-card-pro/issues/615) - A "Today" option in the day header by @EcoHeliGuy — answered by the date tile rather than the word, because "Today" and "Tomorrow" do not fit the list view's date column
 - [#670](https://github.com/alexpfau/calendar-card-pro/issues/670) - Always show today, even if empty by @vincentullmann — answered by `show_empty_today` (Thanks @vincentullmann, #669)
 - [#653](https://github.com/alexpfau/calendar-card-pro/issues/653) - Optional spacing between events in column and list view by @slikrik98 — answered by `event_gap`
+- [#608](https://github.com/alexpfau/calendar-card-pro/issues/608) - A calendar legend that hides and shows calendars by @maleyd — answered by `toolbar → legend`
+- [#245](https://github.com/alexpfau/calendar-card-pro/issues/245) - Refresh as a tap or hold action by @noxhirsch — answered by the `refresh` card action, and the toolbar's refresh button besides
 - [#264](https://github.com/alexpfau/calendar-card-pro/issues/264) - Spacing between events from different calendars on the same day by @Kaulhaaz. `event_gap` gives the spacing it asks for, but not the joined runs of one calendar's events its mock-up shows, so **do not close** it
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0

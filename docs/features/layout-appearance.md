@@ -141,8 +141,10 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 
 The card can carry a toolbar of its own controls in its header: arrows to
 [page through the dates](#paging-through-dates), a view switcher between the List, Columns and
-Grid layouts, and a button for adding events. One option turns the toolbar on, and the view
-switcher and the add button with it:
+Grid layouts, a button that [loads the events again](#refreshing-the-events), a button for
+adding events, and a [legend of the card's calendars](#showing-hiding-calendars) that hides or
+shows each one. One option turns the toolbar on, and the view switcher and the add button with
+it; the others are turned on one by one:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -158,9 +160,9 @@ The controls sit at the end of the title's row, so the card grows no taller; a c
 title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
 toolbar never competes with the events for attention. Color shows only on the control in use:
 the card's accent, as on the card's own hover, while the pointer is over it or it is pressed,
-and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps the view switcher and the add button icons at any width. The date navigation is unaffected: its home button is always an icon, and the dates on screen are always words.
+and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Every button beyond the first among add, refresh and a folded legend needs 112px more. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width. The date navigation and the legend's chips are unaffected: the home button is always an icon, and the dates on screen and the chips are always words.
 
-Either control can be turned off inside the block. `show: false` hides the whole toolbar and
+Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
 keeps those choices for when it is turned back on:
 
 ```yaml
@@ -259,6 +261,90 @@ switches.
 In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
 `view` and a press on the switcher does nothing. To try another layout there, change
 **Card Displays** in the editor.
+:::
+
+### Refreshing the Events
+
+`refresh: true` adds a button that loads the events again now, rather than at the next
+`refresh_interval`:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  refresh: true
+```
+
+It sits between the view switcher and the add button, named by Home Assistant's own "Refresh".
+It asks Home Assistant for every calendar on the card, even when the events the card holds are
+recent, which is how to pick up a change made somewhere else without reloading the dashboard.
+While the card loads, for whatever reason, the button's icon turns, and the small spinner the
+card otherwise shows in its corner is left out, since it would sit right beside it. After a press
+it turns for at least one full turn, however quickly the events arrive, so a fast network still
+shows that something happened. Then, for a moment, the button turns green and shows a check, or
+red with an alert where a calendar could not be loaded, and the card names that calendar at its
+foot as it always does. A press does nothing until the button is itself again, nor while the card
+is loading by itself.
+
+The same refresh is available as a [tap or hold action](/features/actions#refreshing-from-a-tap-or-hold),
+for a card that should not carry a button.
+
+### Showing & Hiding Calendars
+
+`legend: true` adds a row of chips under the toolbar, one for each calendar on the card, tinted
+in that calendar's color and named as Home Assistant names it:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - entity: calendar.anna
+    accent_color: '#e53935'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+  - calendar.family
+toolbar:
+  show: true
+  legend: true
+```
+
+The chips are the key to the colors on the events below, and each is also a switch: a press hides
+that calendar's events and turns its chip gray, and another press shows them again. A calendar
+listed twice, such as one split by `event_type`, has one chip, in the color of its first entry. A
+long name is cut short with an ellipsis, and shows in full as the chip's tooltip.
+
+Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
+and named if they fail to load, so a press redraws at once and costs no request. Everything that
+counts events counts only those of the calendars shown:
+
+- **Duplicates.** With `filter_duplicates`, an event two calendars share is drawn from the first
+  calendar shown, so hiding the one that drew it hands it to the next instead of removing it.
+- **Compact limits.** `compact_events_to_show` and `compact_days_to_show` are filled from the
+  calendars shown, so hiding one lets more of the others in.
+- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the legend
+  stays, with its chips, so the calendars can be brought back.
+
+Each device remembers which calendars it hides, the way the
+[view switcher](#switching-between-layouts) remembers its layout: in the browser, for this
+configuration of the card. A change to the card's configuration shows every calendar again on
+every device, and a configuration changed back to exactly what it was finds its hidden calendars
+again; opening the editor and closing it without a change forgets nothing. Two cards with the
+same configuration share their hidden calendars, and a press on either changes both at once.
+Paging and switching layouts keep them.
+
+Where the chips do not fit on one row, they fold into a single button at the start of the
+toolbar's controls, which opens them as a menu over the events, with a checkbox for each
+calendar. A press outside the menu, Escape, a scroll or a change in the card's width closes it. The button carries a dot while
+any calendar is hidden, so a folded legend still says the card is filtered. The chips come back
+once the card is wide enough for them again, as when a tablet is turned.
+
+::: tip Nothing Hides While You Edit
+In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
+chips and the menu button do nothing.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).

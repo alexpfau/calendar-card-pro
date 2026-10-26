@@ -79,13 +79,14 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles two actions itself — `expand` and `refresh` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
 | Action Type                       | Description                                       | Additional Parameters                                     |
 | --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
 | `expand`                          | Toggle between compact and full calendar view     | None                                                      |
+| `refresh`                         | Load the events again now                         | None                                                      |
 | `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below              |
 | `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
 | `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
@@ -112,12 +113,31 @@ To open the event you tapped instead, use [`event_tap_action`](#tapping-an-event
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming `expand` means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand` and `refresh` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
-A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand` and `details` have none.
+A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh` and `details` have none.
+
+### Refreshing From a Tap or Hold
+
+`refresh` loads the card's events again now, as the toolbar's
+[refresh button](/features/layout-appearance#refreshing-the-events) does, rather than at the next
+`refresh_interval`. On a wall tablet a hold is a good place for it, out of the way of everyday
+taps:
+
+```yaml
+hold_action:
+  action: refresh
+```
+
+It asks Home Assistant for every calendar on the card, even when the events it holds are recent,
+and shows that it did as the button does: the small spinner in the card's corner turns for at
+least one full turn, then gives way to a green check for a moment, or a red alert where a calendar
+could not be loaded. On a card that has the refresh button, the button shows it instead. A second
+tap or hold does nothing until that is over. Unlike the toolbar's controls it is not paused while
+you edit the card, any more than the card's other actions are.
 
 ## 🗒️ Tapping an Event
 
@@ -212,7 +232,7 @@ toolbar:
   view_switcher: false
 ```
 
-The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), always its last; `view_switcher: false` above leaves it alone there. It sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events, and with the [date navigation](/features/layout-appearance#paging-through-dates) on it sits at the end of the toolbar's band instead. On a card at least 480px wide it carries Home Assistant's own "Add event" label, 640px with the view switcher beside it (600px and 840px with the date navigation), and narrower than that it is a plus icon, with the label as its tooltip. If Home Assistant has no label to give, the button stays an icon at any width, and so does the view switcher beside it; `labels: false` keeps it an icon too.
+The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), always its last; `view_switcher: false` above leaves it alone there. It sits at the end of the title's row, so the card grows no taller; a card without a title gives it a slim row of its own above the events, and with the [date navigation](/features/layout-appearance#paging-through-dates) on it sits at the end of the toolbar's band instead. On a card at least 480px wide it carries Home Assistant's own "Add event" label, 640px with the view switcher beside it (600px and 840px with the date navigation, and 112px more for each of the refresh button and a folded legend), and narrower than that it is a plus icon, with the label as its tooltip. If Home Assistant has no label to give, the button stays an icon at any width, and so does the view switcher beside it; `labels: false` keeps it an icon too.
 
 The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above. Its calendar picker is Home Assistant's own, though, so it offers every calendar in Home Assistant that accepts new events, not only this card's, and the event is saved to whichever you pick. The new event is set for today when the days on screen include today, and for the first of them otherwise, so a card looking at next week, or paged to it, does not suggest today.
 

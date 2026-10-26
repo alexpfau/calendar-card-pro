@@ -87,6 +87,20 @@ export const TIMING = {
   REFRESH_MIN_DELAY: 1000,
 
   /**
+   * Shortest time the refresh button, or the corner spinner where there is no button, turns
+   * after someone asks for a refresh: one turn of the button's icon, which the stylesheet
+   * declares as `ccp-spin 1s`. On a fast network the load itself ends within a frame or two,
+   * which would leave the press with nothing to show for it.
+   */
+  REFRESH_MIN_TURN: 1000,
+
+  /**
+   * How long a refresh someone asked for shows how it ended, a check or an alert, before the
+   * button or the corner is itself again. Presses do nothing until then.
+   */
+  REFRESH_CONFIRMATION: 1500,
+
+  /**
    * Trailing delay, in milliseconds, between the last width measurement and acting on it.
    *
    * Home Assistant's sections grid lays a card out at its unconstrained width for at
@@ -144,6 +158,22 @@ export const UI = {
    */
   TOOLBAR_BAND_LABEL_MIN_WIDTH: 600,
   TOOLBAR_BAND_SWITCHER_LABEL_MIN_WIDTH: 840,
+
+  /**
+   * What each command beyond the first adds to those thresholds: refresh, or the legend
+   * folded into a button. Each fixed threshold allows for one, the add button it was measured
+   * with; a labeled refresh or "My calendars" is about a hundred pixels wider than its icon in
+   * English. A first guess under the same rule as the band's: labels that still do not fit
+   * are dropped until the card is wider (`_syncToolbarLabelFit`).
+   */
+  TOOLBAR_EXTRA_LABEL_MIN_WIDTH: 112,
+
+  /**
+   * How much wider than its chips need the card must be before a folded legend draws them
+   * again. Layout widths are fractional and `clientWidth` is not, so without a margin a card
+   * resting exactly at the threshold could be judged to fit and then not.
+   */
+  LEGEND_UNFOLD_MARGIN: 2,
 
   SEPARATOR_SPACING: {
     WEEK: 1,

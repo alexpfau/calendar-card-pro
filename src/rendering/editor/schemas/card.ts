@@ -18,9 +18,11 @@ export const CARD_ICON = mdiCardText;
  * its own that closes the panel. The heading is there to say what the switches under it
  * are: the first turns the whole toolbar on or off, and only while it is on is the rest
  * offered. Labels come next, because they apply to every control in the bar; then each
- * control with a switch of its own, in the order the toolbar draws them: navigation leads,
- * then the view switcher, then add, which is always last. Nothing may follow the toolbar's fields, because a heading claims
- * whatever comes after it; that is why the background sits above it rather than last.
+ * control with a switch of its own, in the order the toolbar is read: navigation leads,
+ * then the view switcher, refresh and add, which is always last in the bar, then the legend,
+ * whose chips sit in a lane under it. Nothing may follow the toolbar's fields, because a
+ * heading claims whatever comes after it; that is why the background sits above it rather
+ * than last.
  *
  * The heading stays while the toolbar is off, with Show Toolbar as the only field under it.
  * That reads close to the stutter a heading repeating its only field makes, and it is kept
@@ -41,7 +43,14 @@ export function buildCardSchema(ctx: SchemaCtx): HaFormSchema[] {
     blockScope('toolbar', [
       bool('show'),
       ...(toolbar.show
-        ? [bool('labels'), bool('navigation'), bool('view_switcher'), bool('add_event')]
+        ? [
+            bool('labels'),
+            bool('navigation'),
+            bool('view_switcher'),
+            bool('refresh'),
+            bool('add_event'),
+            bool('legend'),
+          ]
         : []),
     ]),
   ];

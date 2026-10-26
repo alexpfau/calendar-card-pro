@@ -18,9 +18,10 @@ export const ACTIONS_ICON = mdiGestureTapButton;
  * `expand` has been honored by `handleAction` since long before the editor was
  * schema-driven, but the v4 rebuild swapped a hand-written dropdown for HA's `ui_action`
  * selector and stopped offering it. The runtime kept working throughout, so this only
- * ever failed the people configuring the card through the UI.
+ * ever failed the people configuring the card through the UI. `refresh` loads the events
+ * again now, as the toolbar's refresh button does.
  */
-export const CARD_ACTIONS = ['expand'] as const;
+export const CARD_ACTIONS = ['expand', 'refresh'] as const;
 
 /**
  * Home Assistant's own action list, mirrored because there is no way to append to it.
