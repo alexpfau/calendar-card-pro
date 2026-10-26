@@ -889,6 +889,7 @@ describe('editor filter: section headings', () => {
       'labels',
       'navigation',
       'view_switcher',
+      'reset',
       'refresh',
       'add_event',
       'legend',

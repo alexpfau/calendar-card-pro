@@ -734,6 +734,7 @@ describe('the resolved toolbar the card reads', () => {
       navigation: false,
       addEvent: false,
       viewSwitcher: true,
+      reset: false,
       refresh: false,
       legend: false,
     });

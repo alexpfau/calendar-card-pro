@@ -718,6 +718,15 @@ export const cardStyles = css`
     fill: var(--error-color, #db4437);
   }
 
+  /* Reset with nothing to undo: still there, so the bar keeps its shape, dimmed as a layout too
+     wide for the card is, and with no hover or press wash, since a press does nothing. Specific
+     enough to hold over the hover and press rules, as the refresh outcomes are. */
+  .toolbar-button.reset-button.unavailable {
+    background: var(--calendar-card-toolbar-fill);
+    opacity: 0.38;
+    cursor: default;
+  }
+
   /* The folded legend carries a dot in the theme's primary color while it hides a calendar,
      so a card filtered behind a closed menu still says so. Ringed in the card's background,
      so it reads on the gray pill and off it. */

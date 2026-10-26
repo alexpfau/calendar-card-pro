@@ -455,6 +455,8 @@ describe('theming.md card-mod selectors', () => {
               selected: view,
               onSelect: noop,
             },
+            // Lit beside labels, dimmed on the icon-only card, so both of its states are drawn.
+            reset: { label: 'Reset', active: labeled, onActivate: noop },
             refresh: { label: 'Refresh', phase: refreshPhase, onActivate: noop },
             addEvent: { label: 'Add event', onActivate: noop },
             legend: {

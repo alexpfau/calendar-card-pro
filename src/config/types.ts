@@ -734,8 +734,14 @@ export interface ToolbarConfig {
   navigation?: boolean;
   /** The add-event button, always the last control. */
   add_event?: boolean;
-  /** The List / Columns / Grid switcher, before refresh and add. */
+  /** The List / Columns / Grid switcher, before reset, refresh and add. */
   view_switcher?: boolean;
+  /**
+   * A button that brings the card back to its configuration on this device: the days it opens
+   * with, `view`, every calendar shown and a compact card collapsed. Between the switcher and
+   * refresh; dimmed while there is nothing to undo.
+   */
+  reset?: boolean;
   /** A button that loads the events again now, between the switcher and add. */
   refresh?: boolean;
   /**

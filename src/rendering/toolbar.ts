@@ -5,8 +5,8 @@
  * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
  * leading group for the dates (previous, home and next on one track, then the range on
  * screen, which opens a date picker), and a trailing group for the filter, the view switcher
- * and the commands (refresh, then add, always last). The calendar legend is a filter, and
- * gets a lane of its own below; where its chips do not fit, it folds into a button that
+ * and the commands (reset, refresh, then add, always last). The calendar legend is a filter,
+ * and gets a lane of its own below; where its chips do not fit, it folds into a button that
  * leads the trailing group (`legend.ts`).
  *
  * Every control shares one look: a neutral pill on a gray track, the selected view raised
@@ -24,6 +24,7 @@ import {
   mdiMenuDown,
   mdiPlus,
   mdiRefresh,
+  mdiRestore,
 } from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
@@ -55,6 +56,18 @@ export interface RefreshButton {
   label: string | undefined;
   /** Where the refresh stands; in any phase but `idle`, a press does nothing. */
   phase: RefreshPhase;
+  onActivate: () => void;
+}
+
+/** What the card hands the wrapper when it should draw the reset button. */
+export interface ResetButton {
+  /** Home Assistant's own word for it, or undefined when it offers none. */
+  label: string | undefined;
+  /**
+   * True while the card shows something its configuration does not: a press then undoes it.
+   * False draws the button dimmed, and a press does nothing.
+   */
+  active: boolean;
   onActivate: () => void;
 }
 
@@ -117,7 +130,9 @@ export interface HeaderToolbar {
   legend?: CalendarLegend;
   /** The view switcher, after a folded legend. */
   viewSwitcher?: ViewSwitcher;
-  /** The refresh button, between the switcher and add. */
+  /** The reset button, between the switcher and refresh, leading the commands. */
+  reset?: ResetButton;
+  /** The refresh button, between reset and add. */
   refresh?: RefreshButton;
   /** The add-event button, always the last control in the trailing group. */
   addEvent?: AddEventButton;
@@ -141,6 +156,9 @@ const UNLOCALIZED_NEXT_NAME = 'Next';
 
 /** The refresh button's accessible name when Home Assistant has none, under the same rule. */
 const UNLOCALIZED_REFRESH_NAME = 'Refresh';
+
+/** The reset button's accessible name when Home Assistant has none, under the same rule. */
+const UNLOCALIZED_RESET_NAME = 'Reset';
 
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
@@ -294,6 +312,49 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${mdiPlus}></path>
+    </svg>
+    ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
+  </button>`;
+}
+
+/**
+ * Render the reset button.
+ *
+ * Drawn the same whether or not there is anything to undo, so it never moves the controls
+ * after it. With nothing to undo it is dimmed and `aria-disabled`, as a view the card is too
+ * narrow for is, and a press does nothing; it stays focusable, so focus does not jump away from
+ * it the moment a press has done its work. Named as the add button is.
+ *
+ * @param button - Button description from the card
+ * @param roomForLabel - Whether the card is wide enough to draw the label
+ * @returns The button
+ */
+function renderResetButton(button: ResetButton, roomForLabel: boolean): TemplateResult {
+  const labeled = roomForLabel && button.label !== undefined;
+  const className = [
+    'toolbar-button',
+    'reset-button',
+    labeled ? '' : 'icon-only',
+    button.active ? '' : 'unavailable',
+  ]
+    .filter((cls) => cls !== '')
+    .join(' ');
+  const onClick = (ev: Event) => {
+    ev.stopPropagation();
+    if (button.active) button.onActivate();
+  };
+
+  return html`<button
+    type="button"
+    class=${className}
+    aria-disabled=${button.active ? nothing : 'true'}
+    aria-label=${labeled ? nothing : (button.label ?? UNLOCALIZED_RESET_NAME)}
+    title=${labeled || button.label === undefined ? nothing : button.label}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiRestore}></path>
     </svg>
     ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
@@ -578,13 +639,17 @@ function foldedLegend(toolbar: HeaderToolbar): CalendarLegend | undefined {
  */
 function hasTrailing(toolbar: HeaderToolbar): boolean {
   return Boolean(
-    foldedLegend(toolbar) || toolbar.viewSwitcher || toolbar.refresh || toolbar.addEvent,
+    foldedLegend(toolbar) ||
+    toolbar.viewSwitcher ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.addEvent,
   );
 }
 
 /**
- * Render the trailing group: a folded legend, the view switcher, refresh, then add, always
- * last.
+ * Render the trailing group: a folded legend, the view switcher, reset, refresh, then add,
+ * always last.
  *
  * @param toolbar - The controls the card wants
  * @param labeled - Whether the controls carry their labels
@@ -597,6 +662,7 @@ function renderTrailing(toolbar: HeaderToolbar, labeled: boolean): TemplateResul
   return html`<div class="toolbar-trailing">
     ${legend ? renderLegendButton(legend, labeled) : nothing}
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
+    ${toolbar.reset ? renderResetButton(toolbar.reset, labeled) : nothing}
     ${toolbar.refresh ? renderRefreshButton(toolbar.refresh, labeled) : nothing}
     ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent, labeled) : nothing}
   </div>`;
@@ -671,6 +737,7 @@ export function renderHeaderToolbar(
     !toolbar.addEvent &&
     !toolbar.viewSwitcher &&
     !toolbar.navigation &&
+    !toolbar.reset &&
     !toolbar.refresh &&
     !toolbar.legend
   ) {
