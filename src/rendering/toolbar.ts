@@ -4,8 +4,9 @@
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. Controls come in groups, each in a fixed place: a
  * leading group for the dates (previous, home and next on one track, then the range on
- * screen, which opens a date picker), and a trailing group for the filter, the view switcher
- * and the commands (reset, refresh, then add, always last). The calendar legend is a filter,
+ * screen, which opens a date picker), and a trailing group in two parts: what the card shows
+ * (the filter, the view switcher, then reset, which undoes them), and past a wider gap the
+ * commands on the events (refresh, then add, always last). The calendar legend is a filter,
  * and gets a lane of its own below; where its chips do not fit, it folds into a button that
  * leads the trailing group (`legend.ts`).
  *
@@ -24,7 +25,7 @@ import {
   mdiMenuDown,
   mdiPlus,
   mdiRefresh,
-  mdiRestore,
+  mdiUndoVariant,
 } from '@mdi/js';
 import { TemplateResult, html, nothing, svg } from 'lit';
 
@@ -130,7 +131,7 @@ export interface HeaderToolbar {
   legend?: CalendarLegend;
   /** The view switcher, after a folded legend. */
   viewSwitcher?: ViewSwitcher;
-  /** The reset button, between the switcher and refresh, leading the commands. */
+  /** The reset button, after the switcher, closing what the card shows; refresh follows. */
   reset?: ResetButton;
   /** The refresh button, between reset and add. */
   refresh?: RefreshButton;
@@ -323,7 +324,8 @@ function renderAddEventButton(button: AddEventButton, roomForLabel: boolean): Te
  * Drawn the same whether or not there is anything to undo, so it never moves the controls
  * after it. With nothing to undo it is dimmed and `aria-disabled`, as a view the card is too
  * narrow for is, and a press does nothing; it stays focusable, so focus does not jump away from
- * it the moment a press has done its work. Named as the add button is.
+ * it the moment a press has done its work. Named as the add button is. Its icon is a U-turn,
+ * not a circular arrow: two circular arrows side by side read as one control turned round.
  *
  * @param button - Button description from the card
  * @param roomForLabel - Whether the card is wide enough to draw the label
@@ -354,7 +356,7 @@ function renderResetButton(button: ResetButton, roomForLabel: boolean): Template
     @click=${onClick}
   >
     <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d=${mdiRestore}></path>
+      <path d=${mdiUndoVariant}></path>
     </svg>
     ${labeled ? html`<span class="toolbar-button-label">${button.label}</span>` : nothing}
   </button>`;
@@ -648,8 +650,8 @@ function hasTrailing(toolbar: HeaderToolbar): boolean {
 }
 
 /**
- * Render the trailing group: a folded legend, the view switcher, reset, refresh, then add,
- * always last.
+ * Render the trailing group: a folded legend, the view switcher, reset, then refresh and add,
+ * always last, past the wider gap the stylesheet puts between the two parts.
  *
  * @param toolbar - The controls the card wants
  * @param labeled - Whether the controls carry their labels

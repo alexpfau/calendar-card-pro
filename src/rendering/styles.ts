@@ -388,6 +388,17 @@ export const cardStyles = css`
     gap: 8px;
   }
 
+  /* The trailing group holds two groups: what the card shows (a folded legend, the layouts,
+     reset) and the commands on the events (refresh, add). Twice the gap stands between them,
+     so reset and refresh never read as one pair. A margin on the first command rather than a
+     wrapper around each group, so the group keeps one flat row of children for card-mod. The
+     folded legend's menu sits beside its button, so it counts as part of the first group. */
+  .toolbar-trailing
+    > :is(.legend-button, .legend-menu, .view-switcher, .reset-button)
+    + :is(.refresh-button, .add-event-button) {
+    margin-inline-start: 8px;
+  }
+
   /* The band the date navigation brings. It takes a row of its own under the title, which is
      what the full basis does in the wrapping header, or is the whole header without one. The
      dates lead and the trailing group keeps to the inline end; where the card is too narrow

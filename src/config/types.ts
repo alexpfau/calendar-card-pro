@@ -738,8 +738,8 @@ export interface ToolbarConfig {
   view_switcher?: boolean;
   /**
    * A button that brings the card back to its configuration on this device: the days it opens
-   * with, `view`, every calendar shown and a compact card collapsed. Between the switcher and
-   * refresh; dimmed while there is nothing to undo.
+   * with, `view`, every calendar shown and a compact card collapsed. After the switcher, before
+   * the wider gap that sets refresh and add apart; dimmed while there is nothing to undo.
    */
   reset?: boolean;
   /** A button that loads the events again now, between the switcher and add. */

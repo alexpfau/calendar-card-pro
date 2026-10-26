@@ -157,7 +157,9 @@ toolbar:
 ```
 
 The controls sit at the end of the title's row, so the card grows no taller; a card without a
-title gives them a slim row of their own above the events. Each is a neutral gray pill, so the
+title gives them a slim row of their own above the events. Those that change what the card
+shows, the layouts and the reset button, come first; a wider gap sets refresh and the add
+button apart, since they act on the events. Each is a neutral gray pill, so the
 toolbar never competes with the events for attention. Color shows only on the control in use:
 the card's accent, as on the card's own hover, while the pointer is over it or it is pressed,
 and the theme's primary color as a ring around the one a keyboard has focused. On a card at least 640px wide the controls carry their names beside their icons, or 480px with the add button alone; with the [date navigation](#paging-through-dates) the band needs 840px, or 600px without the view switcher. Every button beyond the first among add, reset, refresh and a folded legend needs 112px more. Narrower, each is an icon with its name as a tooltip. A title too long to leave the names room keeps them as icons until the card is wider. `labels: false` keeps every control an icon at any width. The date navigation and the legend's chips are unaffected: the home button is always an icon, and the dates on screen and the chips are always words.
@@ -383,7 +385,9 @@ One press brings back all of these at once:
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button sits between the view switcher and refresh, named by Home Assistant's own "Reset".
+The button follows the view switcher, the last of the controls that change what the card
+shows, with a wider gap before refresh. It shows a U-turn arrow, and Home Assistant's own word
+"Reset" names it.
 While the card already shows how it is set up, the button is dimmed and a press does nothing,
 so a glance at it says whether someone left the card on a choice of their own. It is drawn only
 on a card with something it could undo: the date navigation, the view switcher, the legend, or an

@@ -202,13 +202,16 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   adds a Lit marker and a text node, and why no default snapshot moved.
 - **Groups by purpose, in a fixed order.** The leading group is the dates: previous, home
   and next on one track, then the range on screen, which opens a date picker. The trailing
-  group is the view switch, then the commands: reset, refresh, then add, which is always last.
-  Refresh sits with add rather than before the switch, because it is a command on the data,
-  not a change of layout. Reset leads the commands, right after the switch whose choice it
-  undoes. The calendar legend is a filter, and gets a lane of its own below
-  the bar: one row of chips, which clips rather than scrolls. Where the chips do not fit, the
-  legend folds into a button that leads the trailing group, ahead of the switch, and the lane
-  goes.
+  group has two parts. First what the card shows: the view switch, then reset, which undoes
+  that and the rest of the device's choices and so closes the part. Then the commands on the
+  events: refresh, then add, which is always last. Refresh sits with add rather than before
+  the switch, because it is a command on the data, not a change of layout. Twice the usual gap
+  separates the two parts, so reset's U-turn and refresh's circular arrow never read as one
+  pair. It is a margin on the first command in `styles.ts`, not a wrapper, so the trailing
+  group stays one flat row of children for card-mod. The calendar legend is a filter, and gets
+  a lane of its own below the bar: one row of chips, which clips rather than scrolls. Where
+  the chips do not fit, the legend folds into a button that leads the trailing group, ahead of
+  the switch, and the lane goes.
 - **Trailing actions alone share the title's row.** With a title, a pending templated
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps

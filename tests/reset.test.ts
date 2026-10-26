@@ -10,11 +10,15 @@
  * tells a twin card, and that editing leaves it inert and loses nothing.
  */
 
+import { mdiRefresh, mdiUndoVariant } from '@mdi/js';
+import { html, render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import { cardStyles } from '../src/rendering/styles';
+import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
 import {
   VIEW_CHOICE_STORAGE_KEY,
@@ -324,7 +328,7 @@ describe('the reset button', () => {
     expect(resetButton(hidden)).toBeNull();
   });
 
-  it('sits between the view switcher and refresh, leading the commands', async () => {
+  it('closes what the card shows, after the view switcher and before refresh', async () => {
     const card = await mount({ toolbar: { ...EVERYTHING, refresh: true, add_event: true } });
 
     expect(
@@ -387,6 +391,15 @@ describe('the reset button', () => {
     await measure(card, 2000);
     expect(resetButton(card)!.classList).toContain('icon-only');
     expect(root(card).querySelector('.refresh-button')!.classList).toContain('icon-only');
+  });
+
+  it("draws a U-turn, so it never reads as refresh's arrow turned round", async () => {
+    const card = await mount({ toolbar: { ...EVERYTHING, refresh: true } });
+    const iconOf = (selector: string) =>
+      root(card).querySelector(`${selector} path`)!.getAttribute('d');
+
+    expect(iconOf('.reset-button')).toBe(mdiUndoVariant);
+    expect(iconOf('.refresh-button')).toBe(mdiRefresh);
   });
 
   it('keeps a press from becoming a press on the card', async () => {
@@ -607,5 +620,68 @@ describe('reset beside other cards and while editing', () => {
 
     expect(drawnView(card)).toBe('grid');
     expect(lit(card)).toBe(true);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE GAP BETWEEN THE TWO GROUPS
+//-----------------------------------------------------------------------------
+
+describe('the trailing group', () => {
+  /** The stylesheet's rule that widens the gap, read from the stylesheet itself. */
+  function groupBreakRule(): { selector: string; body: string } {
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map(([, selector, body]) => ({ selector: selector.replace(/\s+/g, ' ').trim(), body }))
+      .filter(({ selector }) => /\.toolbar-trailing\s*>.*\+/.test(selector));
+    expect(rules).toHaveLength(1);
+    return rules[0];
+  }
+
+  const noop = (): void => {};
+  const BUTTONS = {
+    viewSwitcher: {
+      views: [
+        { view: 'list', label: 'List', available: true },
+        { view: 'grid', label: 'Grid', available: true },
+      ],
+      selected: 'list',
+      onSelect: noop,
+    },
+    reset: { label: 'Reset', active: true, onActivate: noop },
+    refresh: { label: 'Refresh', phase: 'idle', onActivate: noop },
+    addEvent: { label: 'Add event', onActivate: noop },
+    legend: {
+      calendars: [{ id: ANNA, name: 'Anna', color: 'red', shown: true }],
+      name: 'My calendars',
+      folded: true,
+      inert: false,
+      onToggle: noop,
+    },
+  } as const satisfies Toolbar.HeaderToolbar;
+
+  /** The trailing controls a toolbar draws, and which of them the wider gap lands on. */
+  function widened(controls: Array<keyof typeof BUTTONS>): string[] {
+    const toolbar = Object.fromEntries(controls.map((name) => [name, BUTTONS[name]]));
+    const container = document.createElement('div');
+    litRender(html`${Toolbar.renderHeaderToolbar(toolbar, true)}`, container);
+    const { selector } = groupBreakRule();
+    return Array.from(container.querySelectorAll('.toolbar-trailing > *'))
+      .filter((element) => element.matches(selector))
+      .map((element) => element.className.split(' ')[1]);
+  }
+
+  it('widens the gap by a second gap, and no more', () => {
+    expect(groupBreakRule().body.replace(/\s+/g, '')).toBe('margin-inline-start:8px;');
+  });
+
+  it('lands on the first command after what the card shows, and on nothing else', () => {
+    expect(widened(['viewSwitcher', 'reset', 'refresh', 'addEvent'])).toEqual(['refresh-button']);
+    expect(widened(['viewSwitcher', 'addEvent'])).toEqual(['add-event-button']);
+    expect(widened(['legend', 'refresh'])).toEqual(['refresh-button']);
+    expect(widened(['reset', 'addEvent'])).toEqual(['add-event-button']);
+    // One group alone has no boundary to mark.
+    expect(widened(['refresh', 'addEvent'])).toEqual([]);
+    expect(widened(['viewSwitcher', 'reset'])).toEqual([]);
   });
 });
