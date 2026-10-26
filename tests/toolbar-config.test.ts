@@ -4,14 +4,15 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * the two v5 controls on inside it, so `toolbar: { show: true }` alone gives both, labels
- * where they fit, and the date navigation off, because a control added after v5's first two
- * must not appear in a toolbar someone already set up.
+ * where they fit, and the date navigation, refresh and the legend off, because a control
+ * added after v5's first two must not appear in a toolbar someone already set up.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CONFIG, resolveToolbar } from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { toolbarFormBlock } from '../src/rendering/editor/value';
 
 /** What every member reads as when the block says nothing about it. */
 const DEFAULTS = {
@@ -20,16 +21,20 @@ const DEFAULTS = {
   navigation: false,
   addEvent: true,
   viewSwitcher: true,
+  refresh: false,
+  legend: false,
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with the view switcher, the add button and labels on, navigation off', () => {
+  it('ships hidden, with the view switcher, the add button and labels on, the later controls off', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       labels: true,
       navigation: false,
       add_event: true,
       view_switcher: true,
+      refresh: false,
+      legend: false,
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);
   });
@@ -46,6 +51,12 @@ describe('the toolbar configuration', () => {
       show: true,
       navigation: true,
       labels: false,
+    });
+    expect(resolveToolbar({ toolbar: { show: true, refresh: true, legend: true } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      refresh: true,
+      legend: true,
     });
   });
 
@@ -66,9 +77,36 @@ describe('the toolbar configuration', () => {
 
   it('reads a value that is not a boolean as that member’s default', () => {
     const config = {
-      toolbar: { show: 'true', add_event: 0, view_switcher: null, navigation: 'yes', labels: 0 },
+      toolbar: {
+        show: 'true',
+        add_event: 0,
+        view_switcher: null,
+        navigation: 'yes',
+        labels: 0,
+        refresh: 'on',
+        legend: 1,
+      },
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);
+  });
+});
+
+describe('the toolbar block the editor shows', () => {
+  it('shows every member at the value the card reads, each one flipped from its default', () => {
+    // Reconciled against the shipped block rather than listed: a member the form leaves out
+    // reaches its switch as `undefined`, which draws as off whatever the configuration says.
+    const flipped = Object.fromEntries(
+      Object.entries(DEFAULT_CONFIG.toolbar as Record<string, boolean>).map(([key, value]) => [
+        key,
+        !value,
+      ]),
+    );
+    const block = toolbarFormBlock({ ...DEFAULT_CONFIG, toolbar: flipped } as Types.Config);
+
+    expect(block).toEqual(flipped);
+    expect(Object.keys(block).sort()).toEqual(
+      ['add_event', 'labels', 'legend', 'navigation', 'refresh', 'show', 'view_switcher'].sort(),
+    );
   });
 });

@@ -1,11 +1,12 @@
 /**
- * The view the header toolbar's switcher last chose, remembered on this device.
+ * What this device chose with the header toolbar, remembered per card: the view the switcher
+ * last picked, and the calendars the legend hides.
  *
- * Never written to the configuration: `view` stays the layout the card opens in, and the
- * switcher only moves away from it on the device where someone pressed it. One
- * `localStorage` entry holds every card's choice, keyed by a fingerprint of that card's
- * configuration. A changed configuration has a different fingerprint, which is what resets
- * every device to the configured view after an edit.
+ * Never written to the configuration: `view` stays the layout the card opens in and every
+ * calendar is shown, and the toolbar only moves away from that on the device where someone
+ * pressed it. One `localStorage` entry holds every card's choice, keyed by a fingerprint of
+ * that card's configuration. A changed configuration has a different fingerprint, which is
+ * what resets every device to the configured view, and to every calendar shown, after an edit.
  *
  * Storage is optional everywhere here. A browser that refuses it — private mode, a full
  * quota, a policy — leaves the choice in memory for as long as the page lives, and nothing
@@ -22,7 +23,12 @@ import * as Types from '../config/types';
 /** The one `localStorage` key, shared by every card on every dashboard of this device. */
 export const VIEW_CHOICE_STORAGE_KEY = 'calendar_card_pro_view_choice';
 
-/** Bumped when the stored shape changes; an entry of any other version is ignored. */
+/**
+ * Bumped when the stored shape changes; an entry of any other version is ignored.
+ *
+ * Still 1 with the legend's `hidden` added beside `view`: both are optional, and an entry
+ * written before the legend existed is one with a view and no hidden calendars.
+ */
 const STORAGE_VERSION = 1;
 
 /**
@@ -38,8 +44,11 @@ const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
 //-----------------------------------------------------------------------------
 
 interface StoredChoice {
-  view: Types.EffectiveView;
-  /** When the choice was made, in milliseconds since the epoch; orders pruning. */
+  /** The view the switcher picked; absent to follow `view`. */
+  view?: Types.EffectiveView;
+  /** The calendars the legend hides, by entity id; absent while every calendar is shown. */
+  hidden?: string[];
+  /** When the choice was last changed, in milliseconds since the epoch; orders pruning. */
   at: number;
 }
 
@@ -122,7 +131,21 @@ function isView(value: unknown): value is Types.EffectiveView {
 }
 
 /**
+ * The entity ids in a stored `hidden`, or undefined when it holds none worth keeping.
+ *
+ * @param value - The stored value
+ * @returns Its strings, in order and without repeats
+ */
+function hiddenIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = [...new Set(value.filter((id): id is string => typeof id === 'string' && id !== ''))];
+  return ids.length > 0 ? ids : undefined;
+}
+
+/**
  * Every stored choice, with anything malformed dropped.
+ *
+ * A choice keeps whichever of its halves is valid. One with neither is dropped.
  *
  * @param storage - Where choices are kept
  * @returns Valid choices by fingerprint; empty when there are none or storage fails
@@ -144,9 +167,15 @@ function readAll(storage: ChoiceStorage | null): Record<string, StoredChoice> {
 
   const valid: Record<string, StoredChoice> = {};
   for (const [fingerprint, entry] of Object.entries(parsed.choices)) {
-    if (isConfigBlock(entry) && isView(entry.view) && typeof entry.at === 'number') {
-      valid[fingerprint] = { view: entry.view, at: entry.at };
-    }
+    if (!isConfigBlock(entry) || typeof entry.at !== 'number') continue;
+    const view = isView(entry.view) ? entry.view : undefined;
+    const hidden = hiddenIds(entry.hidden);
+    if (view === undefined && hidden === undefined) continue;
+    valid[fingerprint] = {
+      ...(view !== undefined ? { view } : {}),
+      ...(hidden !== undefined ? { hidden } : {}),
+      at: entry.at,
+    };
   }
 
   return valid;
@@ -178,6 +207,37 @@ function writeAll(storage: ChoiceStorage | null, choices: Record<string, StoredC
 }
 
 /**
+ * Changes one half of a configuration's choice and keeps the other, removing the choice once
+ * neither half is left.
+ *
+ * @param fingerprint - From {@link configFingerprint}
+ * @param patch - The half to change; undefined clears it
+ * @param storage - Where choices are kept
+ * @param now - The time the change is made
+ */
+function updateChoice(
+  fingerprint: string,
+  patch: Pick<StoredChoice, 'view'> | Pick<StoredChoice, 'hidden'>,
+  storage: ChoiceStorage | null,
+  now: number,
+): void {
+  const choices = readAll(storage);
+  const previous = choices[fingerprint];
+  const next: StoredChoice = { ...previous, ...patch, at: now };
+  if (next.view === undefined) delete next.view;
+  if (next.hidden === undefined || next.hidden.length === 0) delete next.hidden;
+
+  if (next.view === undefined && next.hidden === undefined) {
+    if (!previous) return;
+    delete choices[fingerprint];
+  } else {
+    choices[fingerprint] = next;
+  }
+
+  writeAll(storage, choices);
+}
+
+/**
  * The view this device last chose for a configuration.
  *
  * @param fingerprint - From {@link configFingerprint}
@@ -192,7 +252,8 @@ export function readViewChoice(
 }
 
 /**
- * Remembers a choice for a configuration, or forgets it when there is no view to keep.
+ * Remembers a view for a configuration, or forgets it when there is no view to keep. The
+ * calendars the legend hides for it are kept either way.
  *
  * @param fingerprint - From {@link configFingerprint}
  * @param view - The chosen view, or undefined to forget the choice
@@ -205,13 +266,37 @@ export function writeViewChoice(
   storage: ChoiceStorage | null = deviceStorage(),
   now: number = Date.now(),
 ): void {
-  const choices = readAll(storage);
-  if (view === undefined) {
-    if (!(fingerprint in choices)) return;
-    delete choices[fingerprint];
-  } else {
-    choices[fingerprint] = { view, at: now };
-  }
+  updateChoice(fingerprint, { view }, storage, now);
+}
 
-  writeAll(storage, choices);
+/**
+ * The calendars the legend hides on this device for a configuration.
+ *
+ * @param fingerprint - From {@link configFingerprint}
+ * @param storage - Where choices are kept
+ * @returns Entity ids, or an empty list when every calendar is shown
+ */
+export function readHiddenCalendars(
+  fingerprint: string,
+  storage: ChoiceStorage | null = deviceStorage(),
+): string[] {
+  return readAll(storage)[fingerprint]?.hidden ?? [];
+}
+
+/**
+ * Remembers which calendars the legend hides for a configuration; an empty list forgets it.
+ * The view chosen for it is kept either way.
+ *
+ * @param fingerprint - From {@link configFingerprint}
+ * @param hidden - Entity ids of the hidden calendars
+ * @param storage - Where choices are kept
+ * @param now - The time the choice is made
+ */
+export function writeHiddenCalendars(
+  fingerprint: string,
+  hidden: ReadonlyArray<string>,
+  storage: ChoiceStorage | null = deviceStorage(),
+  now: number = Date.now(),
+): void {
+  updateChoice(fingerprint, { hidden: hiddenIds(hidden) }, storage, now);
 }

@@ -420,13 +420,16 @@ describe('theming.md card-mod selectors', () => {
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
     // With a title and room for labels in each view, untitled and icon-only once, and once
-    // with the date navigation, so every row and band class of the toolbar is drawn.
-    for (const [view, title, labeled, paging] of [
-      ['list', 'Family', true, false],
-      ['column', 'Family', true, false],
-      ['grid', 'Family', true, false],
-      ['list', undefined, false, false],
-      ['list', 'Family', true, true],
+    // with the date navigation, so every row and band class of the toolbar is drawn. The
+    // legend is a lane with a hidden calendar's chip wherever there is room for labels, and
+    // folded into its button and menu on the icon-only card; refresh turns on the band, and
+    // shows each way a refresh someone asked for can end on two of the others.
+    for (const [view, title, labeled, paging, refreshPhase] of [
+      ['list', 'Family', true, false, 'idle'],
+      ['column', 'Family', true, false, 'done'],
+      ['grid', 'Family', true, false, 'failed'],
+      ['list', undefined, false, false, 'idle'],
+      ['list', 'Family', true, true, 'turning'],
     ] as const) {
       const container = document.createElement('div');
       litRender(
@@ -452,7 +455,18 @@ describe('theming.md card-mod selectors', () => {
               selected: view,
               onSelect: noop,
             },
+            refresh: { label: 'Refresh', phase: refreshPhase, onActivate: noop },
             addEvent: { label: 'Add event', onActivate: noop },
+            legend: {
+              calendars: [
+                { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
+                { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
+              ],
+              name: 'My calendars',
+              folded: !labeled,
+              inert: false,
+              onToggle: noop,
+            },
             navigation: paging
               ? {
                   range: 'Jun 17 – 23',

@@ -2790,7 +2790,9 @@ describe('editor: the Card & Header panel', () => {
         'labels',
         'navigation',
         'view_switcher',
+        'refresh',
         'add_event',
+        'legend',
       ]);
     }
   });

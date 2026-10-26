@@ -554,8 +554,10 @@ export const cardStyles = css`
      stays neutral, and the selected view stays raised rather than tinted.
 
      The toolbar's own custom properties are set here rather than on the card, and only
-     while there is a toolbar: none of this costs a card without one anything. */
-  .card-toolbar {
+     while there is a toolbar: none of this costs a card without one anything. The legend's
+     lane sits outside the bar, so it sets them for itself. */
+  .card-toolbar,
+  .toolbar-legend {
     --calendar-card-toolbar-fill: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
     --calendar-card-toolbar-fill-hover: color-mix(
       in srgb,
@@ -581,7 +583,8 @@ export const cardStyles = css`
      @supports because a var() inside a function the browser does not know invalidates the
      whole declaration instead of falling back to the one above it. */
   @supports (color: light-dark(#000, #fff)) {
-    .card-toolbar {
+    .card-toolbar,
+    .toolbar-legend {
       --calendar-card-toolbar-selected: light-dark(
         var(--calendar-card-background-color, var(--card-background-color)),
         color-mix(
@@ -679,6 +682,209 @@ export const cardStyles = css`
     height: 16px;
   }
 
+  /* While the card loads, the refresh button's icon turns, as the corner spinner it stands in
+     for does. */
+  .refresh-button.busy .toolbar-button-icon {
+    animation: ccp-spin 1s linear infinite;
+  }
+
+  /* A refresh someone asked for then shows how it ended, for a moment: a check where it went
+     well, an alert where a calendar could not be loaded. The button takes the color as a wash
+     as strong as a press, and the icon takes it in full. Specific enough to hold over the
+     hover and press rules, since the pointer that pressed it is usually still on it. */
+  .toolbar-button.refresh-button.refresh-done {
+    background: color-mix(
+      in srgb,
+      var(--success-color, #4caf50) 20%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  .toolbar-button.refresh-button.refresh-failed {
+    background: color-mix(
+      in srgb,
+      var(--error-color, #db4437) 20%,
+      var(--calendar-card-toolbar-fill)
+    );
+  }
+
+  .refresh-done .toolbar-button-icon,
+  .refresh-done .loading-indicator-icon {
+    fill: var(--success-color, #4caf50);
+  }
+
+  .refresh-failed .toolbar-button-icon,
+  .refresh-failed .loading-indicator-icon {
+    fill: var(--error-color, #db4437);
+  }
+
+  /* The folded legend carries a dot in the theme's primary color while it hides a calendar,
+     so a card filtered behind a closed menu still says so. Ringed in the card's background,
+     so it reads on the gray pill and off it. */
+  .legend-button {
+    position: relative;
+  }
+
+  .legend-button.filtered::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    inset-inline-end: 5px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--calendar-card-background-color, var(--card-background-color));
+  }
+
+  /* ===== CALENDAR LEGEND ===== */
+
+  /* The legend's lane: a row of its own under the title and the bar. One row only: chips that
+     do not fit fold into a button in the bar instead (_syncLegendFit in the card), so the lane
+     clips rather than scrolls, and its chips never move under a finger. It is padded on the
+     block axis and pulled back by as much, so a focus ring on a chip is not clipped with it.
+     The 8px inline start lines the chips up with the title, as the band does, and column and
+     grid drop it with the title's margin.
+
+     Beside the title, the header is a grid rather than a wrapping row. The first row then
+     behaves exactly as the header without a legend does: the title takes what the bar leaves,
+     and a word too long for that pushes the bar out rather than under it. A wrapping row would
+     drop the bar under the title for a frame whenever a narrower card still drew its labels,
+     and that change of height, made while the browser reports the resize, is logged as an
+     error. With the band the header already wraps, and the lane takes the full basis there. */
+  .header-container.has-legend:not(.has-band) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .toolbar-legend {
+    grid-column: 1 / -1;
+    flex: 1 0 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    overflow: hidden;
+    margin-block: -4px 8px;
+    padding-block: 4px;
+    padding-inline: 8px 4px;
+    cursor: default;
+  }
+
+  .legend-chips {
+    display: flex;
+    gap: 6px;
+    width: max-content;
+  }
+
+  /* A pill tinted in its calendar's accent, so the legend is the key to the colors on the
+     events below; a hidden calendar's turns the toolbar's gray. Mixed into transparent, so the
+     tint follows any card background a theme sets. */
+  .legend-chip {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 32px;
+    margin: 0;
+    padding: 0 12px;
+    border: none;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
+    color: var(--primary-text-color);
+    font-family: inherit;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .legend-chip.hidden-calendar {
+    background: var(--calendar-card-toolbar-fill);
+    color: var(--secondary-text-color);
+  }
+
+  /* A long name is cut short with an ellipsis, so one calendar cannot take the whole row; its
+     full name is the chip's tooltip then (markShortenedChips in rendering/legend.ts). */
+  .legend-chip-label {
+    min-width: 0;
+    max-width: 14em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* The menu a folded legend opens: a list floating over the events, drawn by the browser on
+     its top layer, which is why the card's clipping does not reach it. Placed beside its
+     button by placeMenu in rendering/legend.ts, and given a height there when it is taller
+     than the room. Its font is set for itself: in a title's row it sits inside a bar that
+     takes the title's size. Its surface is the theme's card background rather than this
+     card's own, which background_color may have made transparent, and a menu has to be
+     opaque to be read over the events. */
+  .legend-menu {
+    position: fixed;
+    inset: auto;
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: calc(100vw - 16px);
+    margin: 0;
+    padding: 6px;
+    overflow: auto;
+    border: none;
+    border-radius: var(--ha-card-border-radius, 12px);
+    background: var(--ha-card-background, var(--card-background-color, #fff));
+    color: var(--primary-text-color);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
+    font-family: inherit;
+    font-size: var(--ha-font-size-m, 14px);
+    font-weight: var(--ha-font-weight-normal, 400);
+    line-height: 1.4;
+  }
+
+  /* Nothing dims behind it: it is a menu, not a dialog asking for an answer. A press out there
+     closes it. */
+  .legend-menu::backdrop {
+    background: transparent;
+  }
+
+  .legend-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .legend-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
+    font-weight: var(--ha-font-weight-medium, 500);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .legend-menu-row.hidden-calendar {
+    background: var(--calendar-card-toolbar-fill);
+    color: var(--secondary-text-color);
+  }
+
+  .legend-menu-check {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--calendar-card-legend-color);
+    cursor: pointer;
+  }
+
+  .legend-menu-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   /* Hover only where there is a real pointer: on touch a hover state sticks after the
      tap. Pressed applies everywhere, and only for as long as the press lasts. */
   @media (hover: hover) {
@@ -697,6 +903,30 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
+  /* A shown calendar's chip or row deepens its own tint under the pointer and while pressed;
+     a hidden one's takes the toolbar's hover and press over its gray, as every control does. */
+  @media (hover: hover) {
+    .legend-chip:hover,
+    .legend-menu-row:hover {
+      background: color-mix(in srgb, var(--calendar-card-legend-color) 34%, transparent);
+    }
+
+    .legend-chip.hidden-calendar:hover,
+    .legend-menu-row.hidden-calendar:hover {
+      background: var(--calendar-card-toolbar-fill-hover);
+    }
+  }
+
+  .legend-chip:active,
+  .legend-menu-row:active {
+    background: color-mix(in srgb, var(--calendar-card-legend-color) 44%, transparent);
+  }
+
+  .legend-chip.hidden-calendar:active,
+  .legend-menu-row.hidden-calendar:active {
+    background: var(--calendar-card-toolbar-fill-pressed);
+  }
+
   /* The bar answers the pointer for itself, as an event does, so the card's ripple stays
      still while the pointer is anywhere on it. The ripple's hover follows the pointer
      anywhere inside ha-card, and the bar is no part of the card to tap: it keeps every press
@@ -708,19 +938,34 @@ export const cardStyles = css`
     --ha-ripple-hover-opacity: 0;
   }
 
+  /* The legend's lane keeps every press from the card too, gaps included, so the same holds
+     over it. A rule of its own, so a browser that rejects either selector keeps the other. */
+  ha-card:has(.toolbar-legend:hover) > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+  }
+
   .toolbar-button:focus,
   .view-switcher-segment:focus,
   .date-navigation-segment:focus,
-  .toolbar-range:focus {
+  .toolbar-range:focus,
+  .legend-chip:focus,
+  .legend-menu:focus {
     outline: none;
   }
 
   .toolbar-button:focus-visible,
   .view-switcher-segment:focus-visible,
   .date-navigation-segment:focus-visible,
-  .toolbar-range:focus-visible {
+  .toolbar-range:focus-visible,
+  .legend-chip:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
+  }
+
+  /* The row rings, not the box inside it, so the whole calendar reads as the focused one. */
+  .legend-menu-row:has(.legend-menu-check:focus-visible) {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
   }
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
@@ -2980,6 +3225,13 @@ export const cardStyles = css`
     animation: ccp-spin 0.8s linear infinite;
   }
 
+  /* Where the spinner gives way to the check or alert a refresh someone asked for ends in,
+     on a card with no refresh button to show it. */
+  .loading-indicator-icon {
+    width: 16px;
+    height: 16px;
+  }
+
   @keyframes ccp-spin {
     to {
       transform: rotate(360deg);
@@ -3003,6 +3255,13 @@ export const cardStyles = css`
 
   .calendar-card-pro.column-view .card-toolbar.toolbar-band {
     padding-inline-start: 0;
+  }
+
+  /* The legend's chips start at the content edge too, with the 4px a focus ring needs taken
+     from outside it rather than from the chips. */
+  .calendar-card-pro.column-view .toolbar-legend {
+    margin-inline-start: -4px;
+    padding-inline-start: 4px;
   }
 
   /* ===== COLUMN VIEW STYLES ===== */
@@ -3253,6 +3512,11 @@ export const cardStyles = css`
   /* As in column view: the band's 8px stands for the title's margin, gone here. */
   .calendar-card-pro.grid-view .card-toolbar.toolbar-band {
     padding-inline-start: 0;
+  }
+
+  .calendar-card-pro.grid-view .toolbar-legend {
+    margin-inline-start: -4px;
+    padding-inline-start: 4px;
   }
 
   /* One grid for the whole view. The four rows -- week numbers, day headers, the

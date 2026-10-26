@@ -709,19 +709,24 @@ export const VIEW_FORM_BLOCKS: Readonly<
  * `resolveToolbar`, so a malformed value shows as the default the card reads it as.
  * {@link stripToolbarDefaults} takes the defaults back out on write.
  *
+ * Every key of the shipped block, walked rather than listed: a key missing here reaches the
+ * form as `undefined`, which a switch draws as off whatever the configuration says, so a
+ * list kept by hand drew `refresh` and `legend` off until one was added to it.
+ *
  * @param config - Merged configuration, defaults already applied
  * @returns The block, with every option at its effective value
  */
 export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
-  const toolbar = Config.resolveToolbar(config);
+  const toolbar = Config.resolveToolbar(config) as unknown as Record<string, boolean>;
+  const resolvedName = (key: string): string =>
+    key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
-  return {
-    show: toolbar.show,
-    labels: toolbar.labels,
-    navigation: toolbar.navigation,
-    view_switcher: toolbar.viewSwitcher,
-    add_event: toolbar.addEvent,
-  };
+  return Object.fromEntries(
+    Object.keys(Config.DEFAULT_CONFIG.toolbar ?? {}).map((key) => [
+      key,
+      toolbar[resolvedName(key)],
+    ]),
+  );
 }
 
 /**

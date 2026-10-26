@@ -21,6 +21,7 @@
   "duplicate_accent_color.helper": "Accent colour for an event kept from two or more different calendars, in place of the first calendar’s. Left empty it keeps that calendar’s colour.",
   "title_color": "Title Colour",
   "background_color": "Background Colour",
+  "toolbar.legend.helper": "A chip for each calendar, in its colour, under the toolbar. Tapping one hides that calendar's events on this device, or shows them again; each device remembers its choice until this card is edited. Where the chips do not fit on one row, they fold into a button that opens them as a menu.",
   "weekday_color": "Weekday Colour",
   "day_color": "Day Number Colour",
   "month_color": "Month Colour",

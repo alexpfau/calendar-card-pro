@@ -734,6 +734,8 @@ describe('the resolved toolbar the card reads', () => {
       navigation: false,
       addEvent: false,
       viewSwitcher: true,
+      refresh: false,
+      legend: false,
     });
   });
 });

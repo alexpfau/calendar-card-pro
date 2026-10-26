@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
+import * as Constants from '../src/config/constants';
 import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
@@ -2843,6 +2844,66 @@ describe("the card's ripple over the toolbar", () => {
     // washing blue. Top level, so it is not gated on (hover: hover) like the controls' fill.
     expect(
       declared('ha-card:has(.card-toolbar:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
+    ).toBe('0');
+  });
+});
+
+describe('the legend and refresh', () => {
+  it('turns the refresh icon while the card loads, one turn in the shortest a press shows', () => {
+    // A press turns it for at least REFRESH_MIN_TURN, which is meant to be one whole turn.
+    expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation')).toBe(
+      `ccp-spin ${Constants.TIMING.REFRESH_MIN_TURN / 1000}s linear infinite`,
+    );
+  });
+
+  it('washes the button in the success or error color after a refresh, as strong as a press', () => {
+    expect(flat(declared('.toolbar-button.refresh-button.refresh-done', 'background'))).toBe(
+      'color-mix(in srgb, var(--success-color, #4caf50) 20%, var(--calendar-card-toolbar-fill))',
+    );
+    expect(flat(declared('.toolbar-button.refresh-button.refresh-failed', 'background'))).toBe(
+      'color-mix(in srgb, var(--error-color, #db4437) 20%, var(--calendar-card-toolbar-fill))',
+    );
+    expect(declared('.toolbar-button:active', 'background')).toBe(
+      'var(--calendar-card-toolbar-fill-pressed)',
+    );
+  });
+
+  it('colors the check and the alert, on the button and in the corner alike', () => {
+    for (const where of ['.toolbar-button-icon', '.loading-indicator-icon']) {
+      expect(declared(`.refresh-done ${where}`, 'fill')).toBe('var(--success-color, #4caf50)');
+      expect(declared(`.refresh-failed ${where}`, 'fill')).toBe('var(--error-color, #db4437)');
+    }
+  });
+
+  it('marks a folded legend that hides a calendar with a dot in the primary color', () => {
+    expect(declared('.legend-button.filtered::after', 'background')).toBe('var(--primary-color)');
+  });
+
+  it("tints a chip from its calendar's accent, and grays a hidden one", () => {
+    expect(declared('.legend-chip', 'background')).toBe(
+      'color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent)',
+    );
+    expect(declared('.legend-chip.hidden-calendar', 'background')).toBe(
+      'var(--calendar-card-toolbar-fill)',
+    );
+  });
+
+  it('cuts a long name short rather than letting one chip take the row', () => {
+    expect(declared('.legend-chip-label', 'max-width')).toBe('14em');
+    expect(declared('.legend-chip-label', 'overflow')).toBe('hidden');
+    expect(declared('.legend-chip-label', 'text-overflow')).toBe('ellipsis');
+  });
+
+  it("draws the menu on the theme's opaque card surface, not this card's own background", () => {
+    // `background_color` may make the card transparent; a menu over the events must not be.
+    expect(declared('.legend-menu', 'background')).toBe(
+      'var(--ha-card-background, var(--card-background-color, #fff))',
+    );
+  });
+
+  it('keeps the ripple still over the lane, as over the bar', () => {
+    expect(
+      declared('ha-card:has(.toolbar-legend:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
     ).toBe('0');
   });
 });
