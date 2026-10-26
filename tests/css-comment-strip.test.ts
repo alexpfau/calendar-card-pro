@@ -285,9 +285,10 @@ describe('stripComments', () => {
     // ring, why the header beside a title becomes a grid rather than a wrapping row while the lane
     // is drawn, why a chip is tinted from its calendar's accent and turns the toolbar's gray when
     // hidden, why the menu floats on the top layer and sets its own font, why its backdrop stays
-    // clear, why the folded button carries a dot while a calendar is hidden, why the refresh icon
-    // turns in place of the corner spinner, and why the ripple stays still over the lane in a rule
-    // of its own. The reading went 147,219 to 150,153, taken with stripComments after the last
+    // clear and its surface is the theme's rather than the card's, why a long name is cut short,
+    // why the folded button carries a dot while a calendar is hidden, why the refresh icon turns
+    // in place of the corner spinner, and why the ripple stays still over the lane in a rule of
+    // its own. The reading went 147,219 to 150,527, taken with stripComments after the last
     // comment in the change was written.
     //
     // The today tile's new shape and the card's hover color moved the ceiling before that, from

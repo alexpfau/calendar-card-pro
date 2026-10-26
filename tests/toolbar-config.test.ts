@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CONFIG, resolveToolbar } from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { toolbarFormBlock } from '../src/rendering/editor/value';
 
 /** What every member reads as when the block says nothing about it. */
 const DEFAULTS = {
@@ -88,5 +89,24 @@ describe('the toolbar configuration', () => {
     };
 
     expect(resolveToolbar(config as unknown as Pick<Types.Config, 'toolbar'>)).toEqual(DEFAULTS);
+  });
+});
+
+describe('the toolbar block the editor shows', () => {
+  it('shows every member at the value the card reads, each one flipped from its default', () => {
+    // Reconciled against the shipped block rather than listed: a member the form leaves out
+    // reaches its switch as `undefined`, which draws as off whatever the configuration says.
+    const flipped = Object.fromEntries(
+      Object.entries(DEFAULT_CONFIG.toolbar as Record<string, boolean>).map(([key, value]) => [
+        key,
+        !value,
+      ]),
+    );
+    const block = toolbarFormBlock({ ...DEFAULT_CONFIG, toolbar: flipped } as Types.Config);
+
+    expect(block).toEqual(flipped);
+    expect(Object.keys(block).sort()).toEqual(
+      ['add_event', 'labels', 'legend', 'navigation', 'refresh', 'show', 'view_switcher'].sort(),
+    );
   });
 });

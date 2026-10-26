@@ -465,6 +465,8 @@ describe('the event tap dropdown in the editor', () => {
       navigation: false,
       view_switcher: true,
       add_event: true,
+      refresh: false,
+      legend: false,
     });
 
     // The v5 controls and the labels arrive switched on, as the card reads them, the date
@@ -472,7 +474,15 @@ describe('the event tap dropdown in the editor', () => {
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
-      expect.arrayContaining(['show', 'labels', 'navigation', 'view_switcher', 'add_event']),
+      expect.arrayContaining([
+        'show',
+        'labels',
+        'navigation',
+        'view_switcher',
+        'refresh',
+        'add_event',
+        'legend',
+      ]),
     );
     expect(shown('toolbar')).toEqual({
       show: true,
@@ -480,7 +490,19 @@ describe('the event tap dropdown in the editor', () => {
       navigation: false,
       view_switcher: true,
       add_event: true,
+      refresh: false,
+      legend: false,
     });
+
+    // A control added later, off by default, reads back on once it is switched on: one flip.
+    await change('toolbar', { ...(shown('toolbar') as object), legend: true });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, legend: true },
+    });
+    expect((shown('toolbar') as Record<string, unknown>).legend).toBe(true);
+    await change('toolbar', { ...(shown('toolbar') as object), legend: false });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     await change('toolbar', { ...(shown('toolbar') as object), add_event: false });
     expect(last(reported)).toEqual({

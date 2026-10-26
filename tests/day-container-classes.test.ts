@@ -420,7 +420,9 @@ describe('theming.md card-mod selectors', () => {
     // notice naming a calendar that failed to load. Rendered once per view, because the
     // root carries the view's class.
     // With a title and room for labels in each view, untitled and icon-only once, and once
-    // with the date navigation, so every row and band class of the toolbar is drawn.
+    // with the date navigation, so every row and band class of the toolbar is drawn. The
+    // legend is a lane with a hidden calendar's chip wherever there is room for labels, and
+    // folded into its button and menu on the icon-only card; refresh turns on the band.
     for (const [view, title, labeled, paging] of [
       ['list', 'Family', true, false],
       ['column', 'Family', true, false],
@@ -452,7 +454,18 @@ describe('theming.md card-mod selectors', () => {
               selected: view,
               onSelect: noop,
             },
+            refresh: { label: 'Refresh', busy: paging, onActivate: noop },
             addEvent: { label: 'Add event', onActivate: noop },
+            legend: {
+              calendars: [
+                { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
+                { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
+              ],
+              name: 'My calendars',
+              folded: !labeled,
+              inert: false,
+              onToggle: noop,
+            },
             navigation: paging
               ? {
                   range: 'Jun 17 – 23',

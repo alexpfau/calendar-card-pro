@@ -47,6 +47,7 @@ src/
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
 │   ├── toolbar.ts                # Header toolbar and its controls
+│   ├── legend.ts                 # The calendar legend: its chips, folded button and menu
 │   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── column.ts                 # The column view
@@ -84,7 +85,7 @@ src/
     ├── title-motion.ts           # Pure per-title timing and cohort admission state
     ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
     ├── title-words.ts            # Splits grid titles so they wrap only at spaces
-    ├── view-choice.ts            # The view switcher's choice, remembered per device
+    ├── view-choice.ts            # The switcher's view and the legend's hidden calendars, per device
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── weather.ts                # Weather data fetching and processing
     └── weather-i18n.ts           # Condition text in the card's language
@@ -333,8 +334,11 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   shown. The cache, the page store, the request identity and the failure notice stay on
   `events`, so a press fetches nothing. The set is remembered beside the switcher's view, in the
   same `utils/view-choice.ts` entry, still version 1, and read for its own control: a card with a
-  legend and no switcher remembers too. `hide_when_empty` acts only while nothing is hidden,
-  for the reason a page away from home never hides: the card would take the way back with it.
+  legend and no switcher remembers too. A press is announced on `window`
+  (`LEGEND_CHANGED_EVENT`), so another card with the same configuration, which shares the
+  entry, takes it up at once rather than writing its own stale set over it on its next press.
+  `hide_when_empty` acts only while nothing is hidden, for the reason a page away from home
+  never hides: the card would take the way back with it.
 - **The legend folds by measurement, never inside a resize.** `_syncLegendFit` reads the chips'
   natural width against the lane's; when they overflow it the card records what they were drawn
   with and the card width from which they fit by `UI.LEGEND_UNFOLD_MARGIN`, and draws the
@@ -345,18 +349,25 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   delivers resize observations is logged as an error. For the same reason the header beside a
   title is a two-column grid while it carries the lane rather than a wrapping row, which would
   drop a still-labeled bar under the title for a frame. An unfold that still overflows folds
-  again from a wider width, so the two cannot alternate.
+  again from a wider width, so the two cannot alternate. That includes an unfold the lane
+  itself undoes: drawing it can make the page tall enough for a scrollbar, which narrows the
+  card under the chips, so a fold that follows an unconfirmed unfold folds from wider than the
+  width that unfold was tried at (`_legendUnfoldedAtPx`). A chip whose name the lane cut short
+  gets the name as its tooltip, measured after each render (`markShortenedChips`).
 - **The legend's menu is a modal `<dialog>` with one controller.** `showModal()` reaches the
   top layer, past `ha-card`'s `overflow: hidden`, in every browser Home Assistant serves; the
   popover API would need iOS 17 and Chrome 114. Because a modal makes the rest of the page
   inert, every way it ends goes through `closeMenu` in `rendering/legend.ts`, and the card
   closes it before anything takes its button away: in `willUpdate` before a render that unfolds
   the legend, drops it or starts editing, in `_applyVisibility` before the card hides, and on
-  disconnect. `placeMenu` is pure: inline end on the button's by the card's direction, inside
-  the viewport, below or above by room.
+  disconnect; the resize observer closes it too when the card changes width under it. Each
+  update places it again, keeping how far its list was scrolled. `placeMenu` is pure: inline
+  end on the button's by the card's direction, inside the viewport, below or above by room.
+  Focus is the browser's to return: closing a modal puts it back on the button, without
+  scrolling, however the menu closed.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
-  `_requestRefresh`, which does nothing while a load is under way and otherwise calls
-  `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
+  `_requestRefresh`, which does nothing while a load is under way or before the first has
+  finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
   able to force. The button is inert while editing like every toolbar control; the action runs
   wherever the card's tap and hold actions do.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
@@ -540,8 +551,12 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     accessibility tree to avoid duplicate announcements
 
 - **toolbar.ts**:
-  - Renders the header toolbar and its controls — the view switcher and the add button —
-    following the rule in _Header Toolbar_
+  - Renders the header toolbar and its controls — the date navigation, the view switcher,
+    refresh and the add button — following the rule in _Header Toolbar_
+
+- **legend.ts**:
+  - Renders the calendar legend's chips, and the button and menu they fold into, and runs
+    that menu: opening, placing and every way of closing it (see _Header Toolbar_)
 
 - **view-pictograms.ts**:
   - Draws the picture of each view once, for the editor's view picker and the toolbar's
@@ -765,8 +780,9 @@ Provides core functionality across the card:
     cache-busting query onto it (see _Two Files, One Card_)
 
 - **view-choice.ts**:
-  - Remembers the view switcher's choice per device, in one `localStorage` entry keyed by a
-    fingerprint of the raw configuration (see _Header Toolbar_)
+  - Remembers the view switcher's choice and the calendars the legend hides per device, in
+    one `localStorage` entry keyed by a fingerprint of the raw configuration (see _Header
+    Toolbar_)
 
 - **weather.ts**:
   - Fetches and processes forecast data, and matches forecasts to events

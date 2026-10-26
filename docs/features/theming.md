@@ -294,8 +294,7 @@ The controls are painted from four custom properties:
 
 The stylesheet declares them on `.card-toolbar` and `.toolbar-legend` themselves, so a theme or
 a rule on `ha-card` does not reach them. Each chip and menu row tints itself from
-`--calendar-card-legend-color`, which the card sets on it to the calendar's accent. Set them on `.card-toolbar`, with `ha-card` in front so the rule outweighs the
-card's own:
+`--calendar-card-legend-color`, which the card sets on it to the calendar's accent. Set them on both, with `ha-card` in front so the rule outweighs the card's own:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -306,7 +305,8 @@ toolbar:
   show: true
 card_mod:
   style: |
-    ha-card .card-toolbar {
+    ha-card .card-toolbar,
+    ha-card .toolbar-legend {
       --calendar-card-toolbar-fill: color-mix(in srgb, var(--primary-color) 15%, transparent);
       --calendar-card-toolbar-selected: var(--primary-color);
     }

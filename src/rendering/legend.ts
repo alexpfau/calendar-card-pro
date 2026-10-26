@@ -47,6 +47,19 @@ export interface CalendarLegend {
   onToggle: (id: string) => void;
 }
 
+/**
+ * What a card announces when its legend hides or shows a calendar, so another card with the
+ * same configuration, which shares the remembered choice, can take it up.
+ */
+export interface LegendChange {
+  /** The configuration's fingerprint, which keys the remembered choice. */
+  fingerprint: string;
+  /** Every calendar now hidden. */
+  hidden: ReadonlyArray<string>;
+  /** The card that changed it, which ignores its own announcement. */
+  source: unknown;
+}
+
 /** Why the menu closed, which decides whether focus goes back to its button. */
 type CloseReason = 'escape' | 'backdrop' | 'button' | 'scroll' | 'resize' | 'gone';
 
@@ -75,6 +88,9 @@ export interface MenuPlacement {
  * `aria-label`, under the toolbar's rule for English fallbacks.
  */
 const UNLOCALIZED_LEGEND_NAME = 'Calendars';
+
+/** The window event a {@link LegendChange} travels on. */
+export const LEGEND_CHANGED_EVENT = 'calendar-card-pro-legend-changed';
 
 /** Room kept between the menu and the viewport's edges, and between it and its button. */
 const MENU_VIEWPORT_INSET = 8;
@@ -141,12 +157,15 @@ const openMenus = new Map<HTMLDialogElement, OpenMenu>();
  * Places an open menu beside its button.
  *
  * The maximum height is cleared before the menu is measured, so a menu once squeezed grows
- * back where there is room again.
+ * back where there is room again. Clearing it leaves nothing to scroll, which resets the
+ * menu's scroll position, so that is put back afterwards: this runs after every update of the
+ * card, a tick in the menu included, and must not throw a long list back to its top.
  *
  * @param dialog - The open menu
  * @param opener - Its button
  */
 function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
+  const scrollTop = dialog.scrollTop;
   dialog.style.maxHeight = '';
   const menu = dialog.getBoundingClientRect();
   const view = dialog.ownerDocument.defaultView;
@@ -160,6 +179,7 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
   dialog.style.left = `${placement.left}px`;
   dialog.style.top = `${placement.top}px`;
   if (placement.maxHeight !== undefined) dialog.style.maxHeight = `${placement.maxHeight}px`;
+  dialog.scrollTop = scrollTop;
 }
 
 /**
@@ -182,8 +202,14 @@ function closeMenu(dialog: HTMLDialogElement, reason: CloseReason): void {
 }
 
 /**
- * Everything closing a menu does, whichever way it closed: listeners go, the button says the
- * menu is closed, and focus goes back to the button when someone closed the menu on purpose.
+ * Everything closing a menu does, whichever way it closed: listeners go, and the button says
+ * the menu is closed.
+ *
+ * Focus is the browser's to return. Closing a modal dialog puts focus back where it was before
+ * the dialog opened, the button, without scrolling, however the dialog closed. Focusing the
+ * button here as well, after a close someone asked for, covers a browser that does not; after
+ * a scroll, a resize or the button going away, nothing is asked of focus beyond what the
+ * browser does.
  *
  * @param dialog - The menu that closed
  */
@@ -194,7 +220,7 @@ function finishClose(dialog: HTMLDialogElement): void {
   open.stop();
   open.opener.setAttribute('aria-expanded', 'false');
 
-  // Escape arrives as the dialog's own cancel and close, with no reason recorded.
+  // Escape is the dialog's own cancel and close, so it arrives with no reason recorded.
   const reason = open.reason ?? 'escape';
   const deliberate = reason === 'escape' || reason === 'backdrop' || reason === 'button';
   if (deliberate && open.opener.isConnected) open.opener.focus({ preventScroll: true });
@@ -403,10 +429,6 @@ export function renderLegendButton(legend: CalendarLegend, labeled: boolean): Te
       ev.clientY <= box.bottom;
     if (!inside) closeMenu(dialog, 'backdrop');
   };
-  const onCancel = (ev: Event) => {
-    const open = openMenus.get(ev.currentTarget as HTMLDialogElement);
-    if (open) open.reason ??= 'escape';
-  };
 
   return html`<button
       type="button"
@@ -428,7 +450,6 @@ export function renderLegendButton(legend: CalendarLegend, labeled: boolean): Te
       aria-label=${name}
       @pointerdown=${stopCardGesture}
       @click=${onDialogClick}
-      @cancel=${onCancel}
     >
       <div class="legend-menu-list" role="group" aria-label=${name}>
         ${legend.calendars.map(
@@ -472,4 +493,26 @@ export function legendCalendarIds(entities: ReadonlyArray<string | { entity: str
     if (typeof id === 'string' && id !== '' && !ids.includes(id)) ids.push(id);
   }
   return ids;
+}
+
+/**
+ * Names, in a tooltip, each chip whose name the lane cut short.
+ *
+ * A chip is only as wide as a long name allows (`.legend-chip-label`), so a long name ends in
+ * an ellipsis. Its full name then shows on hover. Read after a render, from layout: a name
+ * that fits needs no tooltip repeating it, and only layout can say which those are. Without
+ * layout every box is empty and nothing changes.
+ *
+ * @param root - The card's shadow root
+ */
+export function markShortenedChips(root: ParentNode): void {
+  for (const label of root.querySelectorAll<HTMLElement>('.legend-chip-label')) {
+    const chip = label.closest('.legend-chip');
+    if (!chip) continue;
+    if (label.scrollWidth > label.clientWidth + 0.5) {
+      chip.setAttribute('title', label.textContent ?? '');
+    } else {
+      chip.removeAttribute('title');
+    }
+  }
 }

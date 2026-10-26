@@ -310,7 +310,8 @@ toolbar:
 
 The chips are the key to the colors on the events below, and each is also a switch: a press hides
 that calendar's events and turns its chip gray, and another press shows them again. A calendar
-listed twice, such as one split by `event_type`, has one chip, in the color of its first entry.
+listed twice, such as one split by `event_type`, has one chip, in the color of its first entry. A
+long name is cut short with an ellipsis, and shows in full as the chip's tooltip.
 
 Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
 and named if they fail to load, so a press redraws at once and costs no request. Everything that
@@ -325,13 +326,15 @@ counts events counts only those of the calendars shown:
 
 Each device remembers which calendars it hides, the way the
 [view switcher](#switching-between-layouts) remembers its layout: in the browser, for this
-configuration of the card. Editing the card shows every calendar again on every device, and a
-configuration changed back to exactly what it was finds its hidden calendars again. Paging and
-switching layouts keep them.
+configuration of the card. A change to the card's configuration shows every calendar again on
+every device, and a configuration changed back to exactly what it was finds its hidden calendars
+again; opening the editor and closing it without a change forgets nothing. Two cards with the
+same configuration share their hidden calendars, and a press on either changes both at once.
+Paging and switching layouts keep them.
 
 Where the chips do not fit on one row, they fold into a single button at the start of the
 toolbar's controls, which opens them as a menu over the events, with a checkbox for each
-calendar. A press outside the menu, Escape or a scroll closes it. The button carries a dot while
+calendar. A press outside the menu, Escape, a scroll or a change in the card's width closes it. The button carries a dot while
 any calendar is hidden, so a folded legend still says the card is filtered. The chips come back
 once the card is wide enough for them again, as when a tablet is turned.
 

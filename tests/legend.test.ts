@@ -253,18 +253,21 @@ async function press(card: CardUnderTest, id: string): Promise<void> {
 
 /**
  * What the stubbed layout reports: the card's width, the lane's content width and the chips'
- * natural width. Zero means "not laid out", which is all happy-dom ever reports.
+ * natural width. Zero means "not laid out", which is all happy-dom ever reports. `scrollbar`
+ * is the width a page scrollbar takes from the card, and from its lane, while the lane is
+ * drawn: what a lane tall enough to make the page scroll does in a browser.
  */
-const layout = { card: 0, lane: 0, chips: 0 };
+const layout = { card: 0, lane: 0, chips: 0, scrollbar: 0 };
 
 function stubLayout(): void {
   const realRect = HTMLElement.prototype.getBoundingClientRect;
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
+    const laneDrawn = this.shadowRoot?.querySelector('.toolbar-legend') != null;
     const width =
       this.localName === 'calendar-card-pro-dev'
-        ? layout.card
+        ? layout.card - (laneDrawn ? layout.scrollbar : 0)
         : this.classList.contains('legend-chips')
           ? layout.chips
           : undefined;
@@ -274,7 +277,7 @@ function stubLayout(): void {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
     this: HTMLElement,
   ) {
-    return this.classList.contains('toolbar-legend') ? layout.lane : 0;
+    return this.classList.contains('toolbar-legend') ? layout.lane - layout.scrollbar : 0;
   });
   const realStyle = window.getComputedStyle.bind(window);
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
@@ -298,7 +301,7 @@ beforeEach(() => {
   EventUtils.clearPageStore();
   RecordingResizeObserver.instances = [];
   globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
-  Object.assign(layout, { card: 0, lane: 0, chips: 0 });
+  Object.assign(layout, { card: 0, lane: 0, chips: 0, scrollbar: 0 });
 });
 
 afterEach(() => {
@@ -606,6 +609,30 @@ describe('the hidden calendars a device remembers', () => {
     ]);
   });
 
+  it('are shared at once by another card with the same configuration', async () => {
+    // Two cards with one configuration share one remembered choice. Each takes up what the
+    // other hides, so neither writes a stale set over the other's on its next press.
+    const first = await mount();
+    const second = await mount();
+
+    await press(first, BEN);
+    expect(chip(second, BEN).getAttribute('aria-pressed')).toBe('false');
+    expect(titles(second)).not.toContain('Football');
+
+    await press(second, ANNA);
+    expect(readHiddenCalendars(configFingerprint(configFor()))).toEqual([BEN, ANNA]);
+    expect(chip(first, ANNA).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('are not taken up from a card with another configuration', async () => {
+    const first = await mount();
+    const other = await mount({ title: 'Family' });
+
+    await press(first, BEN);
+
+    expect(chip(other, BEN).getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('are not read for a card without the legend', async () => {
     const config = configFor({ toolbar: { show: true, add_event: false, view_switcher: false } });
     writeHiddenCalendars(configFingerprint(config), [BEN]);
@@ -641,7 +668,7 @@ describe('a legend too wide for one row', () => {
     return mount({ title: 'Family', toolbar: FOLDING, ...overrides });
   }
 
-  it('folds into a button leading the trailing group, before it is painted', async () => {
+  it('folds into a button leading the trailing group, in the render after the measurement', async () => {
     const card = await mountFolded();
 
     expect(root(card).querySelector('.toolbar-legend')).toBeNull();
@@ -716,6 +743,47 @@ describe('a legend too wide for one row', () => {
     vi.advanceTimersToNextFrame();
     await settle(card);
     expect(legendButton(card)).not.toBeNull();
+  });
+
+  it('does not unfold again at a width where drawing the chips narrowed the card', async () => {
+    // Drawing the lane makes the page tall enough for a 15px scrollbar, which narrows the card
+    // under the chips it just drew. They fold, the scrollbar goes, the card is as wide as
+    // before, and without this they would unfold again, every other frame, for good.
+    const card = await mountFolded();
+    const unfoldAt = 380 + (500 - 360) + Constants.UI.LEGEND_UNFOLD_MARGIN;
+    const frames = async () => {
+      for (let frame = 0; frame < 6; frame += 1) {
+        vi.advanceTimersToNextFrame();
+        await settle(card);
+      }
+    };
+    layout.scrollbar = 15;
+
+    // Wide enough for the chips without the scrollbar, and not with it.
+    layout.lane = unfoldAt - 20;
+    await measure(card, unfoldAt);
+    await frames();
+    expect(legendButton(card)).not.toBeNull();
+
+    // Wide enough with it: drawn, and they stay.
+    layout.lane = unfoldAt + 18 - 20;
+    await measure(card, unfoldAt + 18);
+    await frames();
+    expect(legendButton(card)).toBeNull();
+    expect(root(card).querySelector('.toolbar-legend')).not.toBeNull();
+  });
+
+  it('names a chip whose name is cut short in a tooltip, and no other', async () => {
+    stubLayout();
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.textContent?.trim() === 'Ben' ? 300 : 0;
+    });
+    const card = await mount({ title: 'Family' });
+
+    expect(chip(card, BEN).getAttribute('title')).toBe('Ben');
+    expect(chip(card, ANNA).hasAttribute('title')).toBe(false);
   });
 
   it('folds a card narrowed below its chips a frame after the resize', async () => {
@@ -805,8 +873,11 @@ describe('the menu a folded legend opens', () => {
 
   it('opens as a modal list of every calendar, each a checkbox', async () => {
     const card = await mountFolded();
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal');
     await open(card);
 
+    // Modal, because that is what reaches the top layer past the card's clipping.
+    expect(showModal).toHaveBeenCalledTimes(1);
     expect(dialog(card).open).toBe(true);
     expect(button(card).getAttribute('aria-expanded')).toBe('true');
     expect(dialog(card).getAttribute('aria-label')).toBe('My calendars');
@@ -834,6 +905,60 @@ describe('the menu a folded legend opens', () => {
     expect(dialog(card)).toBe(node);
     expect(node.open).toBe(true);
     expect(button(card).classList).toContain('filtered');
+  });
+
+  it("is placed beside its button, its end on the button's", async () => {
+    const card = await mountFolded();
+    // Own properties, which shadow the prototype-wide stub `mountFolded` installs.
+    Object.defineProperty(button(card), 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 300, top: 50, right: 336, bottom: 86, width: 36, height: 36 }),
+    });
+    Object.defineProperty(dialog(card), 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({ left: 0, top: 0, right: 200, bottom: 150, width: 200, height: 150 }),
+    });
+
+    await open(card);
+
+    expect([dialog(card).style.left, dialog(card).style.top]).toEqual(['136px', '90px']);
+  });
+
+  it('keeps where a long list was scrolled to when the card updates under it', async () => {
+    const card = await mountFolded();
+    await open(card);
+    let scrolled = 120;
+    Object.defineProperty(dialog(card), 'scrollTop', {
+      configurable: true,
+      get: () => scrolled,
+      set: (value: number) => {
+        scrolled = value;
+      },
+    });
+    // A real menu measured with its height cleared has nothing to scroll, and is back at its
+    // top by the time it is measured.
+    Object.defineProperty(dialog(card), 'getBoundingClientRect', {
+      configurable: true,
+      value: () => {
+        scrolled = 0;
+        return { left: 0, top: 0, right: 200, bottom: 600, width: 200, height: 600 };
+      },
+    });
+
+    card.hass = hass();
+    await settle(card);
+
+    expect(scrolled).toBe(120);
+  });
+
+  it('closes when the card changes width under it', async () => {
+    const card = await mountFolded();
+    await measure(card, 380);
+    await open(card);
+
+    await measure(card, 381);
+
+    expect(dialog(card).open).toBe(false);
   });
 
   it('stays open through an update that has nothing to do with it', async () => {

@@ -2847,6 +2847,46 @@ describe("the card's ripple over the toolbar", () => {
   });
 });
 
+describe('the legend and refresh', () => {
+  it('turns the refresh icon while the card loads', () => {
+    expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation')).toBe(
+      'ccp-spin 1s linear infinite',
+    );
+  });
+
+  it('marks a folded legend that hides a calendar with a dot in the primary color', () => {
+    expect(declared('.legend-button.filtered::after', 'background')).toBe('var(--primary-color)');
+  });
+
+  it("tints a chip from its calendar's accent, and grays a hidden one", () => {
+    expect(declared('.legend-chip', 'background')).toBe(
+      'color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent)',
+    );
+    expect(declared('.legend-chip.hidden-calendar', 'background')).toBe(
+      'var(--calendar-card-toolbar-fill)',
+    );
+  });
+
+  it('cuts a long name short rather than letting one chip take the row', () => {
+    expect(declared('.legend-chip-label', 'max-width')).toBe('14em');
+    expect(declared('.legend-chip-label', 'overflow')).toBe('hidden');
+    expect(declared('.legend-chip-label', 'text-overflow')).toBe('ellipsis');
+  });
+
+  it("draws the menu on the theme's opaque card surface, not this card's own background", () => {
+    // `background_color` may make the card transparent; a menu over the events must not be.
+    expect(declared('.legend-menu', 'background')).toBe(
+      'var(--ha-card-background, var(--card-background-color, #fff))',
+    );
+  });
+
+  it('keeps the ripple still over the lane, as over the bar', () => {
+    expect(
+      declared('ha-card:has(.toolbar-legend:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
+    ).toBe('0');
+  });
+});
+
 describe('the today tile', () => {
   const em = (value: string) => {
     const match = /^(\d*\.?\d+)em$/.exec(value);

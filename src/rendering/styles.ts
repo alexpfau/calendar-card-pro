@@ -774,11 +774,22 @@ export const cardStyles = css`
     color: var(--secondary-text-color);
   }
 
+  /* A long name is cut short with an ellipsis, so one calendar cannot take the whole row; its
+     full name is the chip's tooltip then (markShortenedChips in rendering/legend.ts). */
+  .legend-chip-label {
+    min-width: 0;
+    max-width: 14em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* The menu a folded legend opens: a list floating over the events, drawn by the browser on
      its top layer, which is why the card's clipping does not reach it. Placed beside its
      button by placeMenu in rendering/legend.ts, and given a height there when it is taller
      than the room. Its font is set for itself: in a title's row it sits inside a bar that
-     takes the title's size. */
+     takes the title's size. Its surface is the theme's card background rather than this
+     card's own, which background_color may have made transparent, and a menu has to be
+     opaque to be read over the events. */
   .legend-menu {
     position: fixed;
     inset: auto;
@@ -790,7 +801,7 @@ export const cardStyles = css`
     overflow: auto;
     border: none;
     border-radius: var(--ha-card-border-radius, 12px);
-    background: var(--card-background-color, #fff);
+    background: var(--ha-card-background, var(--card-background-color, #fff));
     color: var(--primary-text-color);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
     font-family: inherit;

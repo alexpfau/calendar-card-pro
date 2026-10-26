@@ -553,6 +553,24 @@ class CalendarCardPro extends LitElement {
    * The announcing card is skipped: it refreshed before it announced. Refreshes for the
    * announced write's generation, as the announcer did, so they can share its request.
    */
+  /**
+   * Takes up the calendars another card hid with its legend, when that card has this card's
+   * configuration and so shares its remembered choice. Without it the two would disagree on
+   * screen, and the next press on either would write its own stale set over the other's.
+   *
+   * @param ev - The legend's change, naming the configuration and the calendars now hidden
+   */
+  private readonly _handleLegendChanged = (ev: Event): void => {
+    const detail = (ev as CustomEvent<Legend.LegendChange>).detail;
+    if (!detail || detail.source === this || !this._wantsLegend) return;
+    if (detail.fingerprint !== this._configFingerprint) return;
+
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const hidden = detail.hidden.filter((id) => calendars.has(id));
+    this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
+    this.requestUpdate();
+  };
+
   private readonly _handleCalendarsChanged = (ev: Event): void => {
     const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
     if (!detail || detail.source === this) return;
@@ -727,6 +745,14 @@ class CalendarCardPro extends LitElement {
    * height changed while the browser delivers resize observations is reported as an error.
    */
   private _legendWidthPx: number | null = null;
+
+  /**
+   * The card width at which the legend last unfolded, until a measurement at that width
+   * confirms the chips fit. A fold that follows before then folds from wider than this, so a
+   * lane that itself narrows the card cannot fold and unfold for good: drawing it can make the
+   * page tall enough for a scrollbar, which narrows the card under the chips it just drew.
+   */
+  private _legendUnfoldedAtPx: number | null = null;
 
   private _legendFitRaf: number | null = null;
 
@@ -1265,6 +1291,7 @@ class CalendarCardPro extends LitElement {
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
 
     window.addEventListener(CalendarChanges.CALENDARS_CHANGED_EVENT, this._handleCalendarsChanged);
+    window.addEventListener(Legend.LEGEND_CHANGED_EVENT, this._handleLegendChanged);
 
     this._syncEntityColors();
 
@@ -1331,6 +1358,7 @@ class CalendarCardPro extends LitElement {
       CalendarChanges.CALENDARS_CHANGED_EVENT,
       this._handleCalendarsChanged,
     );
+    window.removeEventListener(Legend.LEGEND_CHANGED_EVENT, this._handleLegendChanged);
 
     EntityColors.releaseEntityColors(this._onEntityColorsChanged);
 
@@ -1353,6 +1381,10 @@ class CalendarCardPro extends LitElement {
       const width = entries[0]?.contentRect?.width;
 
       if (typeof width === 'number' && width > 0) {
+        // The card moved under an open menu, which is placed by where its button was.
+        if (this._toolbarWidthPx !== null && Math.abs(width - this._toolbarWidthPx) > 0.5) {
+          Legend.closeLegendMenus(this.renderRoot);
+        }
         this._syncToolbarLabels(width);
         this._scheduleLegendFit();
         this._scheduleWidthMeasurement(width);
@@ -2394,6 +2426,7 @@ class CalendarCardPro extends LitElement {
     this._syncTitleScroll();
     this._syncToolbarLabelFit();
     this._syncLegendFit(false);
+    Legend.markShortenedChips(this.renderRoot);
     Legend.repositionLegendMenus(this.renderRoot);
   }
 
@@ -4380,11 +4413,12 @@ class CalendarCardPro extends LitElement {
    * or hold action.
    *
    * Does nothing while a load is under way, which the button shows by turning, so a second
-   * press never starts a second request beside the first. The guard is here rather than in
+   * press never starts a second request beside the first, nor before the card's first load
+   * has drawn anything. The guard is here rather than in
    * `refreshEvents`, which a calendar write must still be able to force.
    */
   private _requestRefresh(): void {
-    if (this.isLoading) {
+    if (this.isLoading || this.isInitialLoad) {
       Logger.debug('Not refreshing: a load is already under way');
       return;
     }
@@ -4506,6 +4540,12 @@ class CalendarCardPro extends LitElement {
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
       ViewChoice.writeHiddenCalendars(this._configFingerprint, [...next]);
+      const change: Legend.LegendChange = {
+        fingerprint: this._configFingerprint,
+        hidden: [...next],
+        source: this,
+      };
+      window.dispatchEvent(new CustomEvent(Legend.LEGEND_CHANGED_EVENT, { detail: change }));
     }
     Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
     this.requestUpdate();
@@ -4554,7 +4594,10 @@ class CalendarCardPro extends LitElement {
     if (!lane || !chips) {
       // Folded: draw the chips again if the card is now wide enough for them.
       const drawnFolded = this.renderRoot.querySelector('.legend-button') !== null;
-      if (mayUnfold && drawnFolded && this._legend()?.folded === false) this.requestUpdate();
+      if (mayUnfold && drawnFolded && this._legend()?.folded === false) {
+        this._legendUnfoldedAtPx = cardWidth;
+        this.requestUpdate();
+      }
       return;
     }
 
@@ -4564,16 +4607,22 @@ class CalendarCardPro extends LitElement {
       (parseFloat(style.paddingLeft) || 0) -
       (parseFloat(style.paddingRight) || 0);
     const needed = chips.getBoundingClientRect().width;
-    if (available <= 0 || needed <= 0 || needed <= available + 0.5) return;
+    if (available <= 0 || needed <= 0) return;
+    if (needed <= available + 0.5) {
+      this._legendUnfoldedAtPx = null;
+      return;
+    }
 
     const legend = this._legend();
     if (!legend) return;
 
+    const fitsFrom = Math.ceil(cardWidth + needed - available) + Constants.UI.LEGEND_UNFOLD_MARGIN;
     this._legendWidthPx = cardWidth;
     this._legendFold = {
       signature: this._legendSignature(legend.calendars),
-      unfoldAtPx: Math.ceil(cardWidth + needed - available) + Constants.UI.LEGEND_UNFOLD_MARGIN,
+      unfoldAtPx: Math.max(fitsFrom, (this._legendUnfoldedAtPx ?? 0) + 1),
     };
+    this._legendUnfoldedAtPx = null;
     Logger.debug(
       `Legend chips need ${Math.ceil(needed)}px of ${Math.floor(available)}px; folded until ` +
         `${this._legendFold.unfoldAtPx}px`,
