@@ -398,10 +398,17 @@ what it already holds unless they are due for a refresh anyway.
 The card never goes back by itself. A layout and hidden calendars stay until someone presses
 the button or the card is edited, and a page until then or a reload.
 
+::: warning Its Name Needs Home Assistant 2026.2
+The button takes its name from Home Assistant, which has had a word for "Reset" since 2026.2.
+On an older version it has no name to show, so it is an icon without a tooltip, and every other
+control in the toolbar stays an icon too, as the toolbar does wherever Home Assistant lacks a
+control's name.
+:::
+
 ::: tip Nothing Resets While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the card shows how it is set up,
-so the button is dimmed and does nothing. What each device remembers is kept for when editing
-ends.
+In the card editor's preview, and on a dashboard in edit mode, the button is dimmed and does
+nothing, like every other control in the toolbar there. What each device remembers is kept for
+when editing ends.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).

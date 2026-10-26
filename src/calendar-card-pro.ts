@@ -4980,7 +4980,9 @@ class CalendarCardPro extends LitElement {
   /**
    * Whether the card shows something its configuration does not, on this device: a page away
    * from home, a layout picked with the switcher, a hidden calendar, or a compact card
-   * expanded. Never while it is being edited, which shows the configuration.
+   * expanded. Never while it is being edited, when every control is inert: the page, the
+   * layout and the calendars show the configuration then, and an expansion is left as it is
+   * for when editing ends.
    *
    * The page is the one asked for, so a press answers at once while home loads. An expansion
    * counts only where it shows: a card expanded as a list and switched to a layout without

@@ -382,14 +382,17 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   is the page asked for (`_pageRequested`), the switcher's choice (`_viewChoice`), the hidden
   calendars, and `isExpanded` only where `hasCompactModeLimits` makes the expansion show; a
   leftover flag in a layout without compact limits would light a button with nothing visible to
-  undo. Never while editing, which already shows the configuration. A press
+  undo. Never while editing, when every control is inert and the page, the view and the
+  calendars already show the configuration; an expansion is left as it is. A press
   (`_resetToConfiguration`) forgets the configuration's entry in one write (`forgetChoice`),
   refits `view` the way a pick of it is fitted, announces the shown calendars on `window` as a
   legend press does, collapses the card, then goes home through `_goToPage`. The view goes first,
   because home's days follow the view on screen. Whether the button is drawn depends on the
   configuration alone: `reset` with navigation, the switcher, the legend or an `expand` action,
   so it never appears or disappears with the state it reports, and it never moves the controls
-  after it. It does nothing on its own clock; there is no idle timer.
+  after it. Its name is `ui.common.reset`, which Home Assistant has carried only since 2026.2;
+  older, the label rule treats it as any control without a name and the whole bar stays icons,
+  which the docs state. It does nothing on its own clock; there is no idle timer.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
   then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,
