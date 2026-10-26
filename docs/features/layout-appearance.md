@@ -145,7 +145,7 @@ switcher between the List, Columns and Grid layouts, a button that
 [resets the card](#resetting-the-card) to how it is set up, arrows to
 [page through the dates](#paging-through-dates), and a button that
 [loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
-control in it except refresh:
+control in it except refresh and reset:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -158,8 +158,8 @@ toolbar:
 ```
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
-the calendar filter and the add button at its start, the view switcher in its middle, and the
-reset button at its end, with refresh after it when it is on. The row under it names the month
+the calendar filter and the add button at its start, the view switcher in its middle, and reset
+and refresh at its end when they are on. The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. A card without a title has no label over the
@@ -397,7 +397,7 @@ chips and the filter button do nothing.
 
 The reset button undoes, in one press, every choice made on this device. It is for a card
 several people share, such as a wall tablet, where a week someone paged to or a calendar someone
-hid would otherwise stay for whoever walks up next. It is on whenever the toolbar is:
+hid would otherwise stay for whoever walks up next. It is off unless you turn it on:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -407,7 +407,11 @@ entities:
   - calendar.ben
 toolbar:
   show: true
+  reset: true
 ```
+
+On a card only you use, leave it off: a layout you pick on the view switcher is your preference
+for that device, and the button would otherwise keep offering to undo it.
 
 One press brings back all of these at once:
 

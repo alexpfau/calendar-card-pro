@@ -3,9 +3,10 @@
  *
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
- * and once shown, everything a shared screen needs on: the date navigation, the view switcher,
- * reset, add and the calendar filter as a menu. Refresh alone is
- * off, since it only matters where events change somewhere else between refreshes.
+ * and once shown, what anyone looking at a calendar needs on: the date navigation, the view
+ * switcher, add and the calendar filter as a menu. Refresh is off, since it only matters where
+ * events change somewhere else between refreshes, and so is reset, which is for a screen several
+ * people share.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -21,19 +22,19 @@ const DEFAULTS = {
   navigation: true,
   addEvent: true,
   viewSwitcher: true,
-  reset: true,
+  reset: false,
   refresh: false,
   legend: 'menu',
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with every control on once shown except refresh, and the filter as a menu', () => {
+  it('ships hidden, with every control on once shown except refresh and reset, and the filter as a menu', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       navigation: true,
       add_event: true,
       view_switcher: true,
-      reset: true,
+      reset: false,
       refresh: false,
       legend: 'menu',
     });
@@ -62,10 +63,10 @@ describe('the toolbar configuration', () => {
       refresh: true,
       legend: 'chips',
     });
-    expect(resolveToolbar({ toolbar: { show: true, reset: false, legend: false } })).toEqual({
+    expect(resolveToolbar({ toolbar: { show: true, reset: true, legend: false } })).toEqual({
       ...DEFAULTS,
       show: true,
-      reset: false,
+      reset: true,
       legend: false,
     });
   });

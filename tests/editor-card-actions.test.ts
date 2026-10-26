@@ -463,14 +463,14 @@ describe('the event tap dropdown in the editor', () => {
       show: false,
       navigation: true,
       view_switcher: true,
-      reset: true,
+      reset: false,
       add_event: true,
       refresh: false,
       legend: 'menu',
     });
 
-    // Every control but refresh arrives switched on, as the card reads them, the filter as a
-    // menu, and nothing but the switch is written.
+    // Every control but refresh and reset arrives switched on, as the card reads them, the
+    // filter as a menu, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
@@ -488,13 +488,13 @@ describe('the event tap dropdown in the editor', () => {
       show: true,
       navigation: true,
       view_switcher: true,
-      reset: true,
+      reset: false,
       add_event: true,
       refresh: false,
       legend: 'menu',
     });
 
-    // The one control off by default reads back on once it is switched on: one flip.
+    // A control off by default reads back on once it is switched on: one flip.
     await change('toolbar', { ...(shown('toolbar') as object), refresh: true });
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],

@@ -264,7 +264,7 @@ describe('the view switcher', () => {
   });
 
   it('sits in the middle of the action row: filter and add before it, reset and refresh after', async () => {
-    const card = await mount({ toolbar: { show: true, refresh: true } });
+    const card = await mount({ toolbar: { show: true, reset: true, refresh: true } });
     const root = card.shadowRoot!;
     const actions = root.querySelector('.toolbar-actions')!;
     const kinds = (parent: Element) => Array.from(parent.children).map(kind);
@@ -1031,13 +1031,13 @@ describe('the resolved toolbar the card reads', () => {
       refresh: false,
       legend: false,
     });
-    // What it switches off: a shown toolbar draws every control but refresh by default.
+    // What it switches off: a shown toolbar draws every control but refresh and reset by default.
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
       navigation: true,
       addEvent: true,
       viewSwitcher: true,
-      reset: true,
+      reset: false,
       refresh: false,
       legend: 'menu',
     });

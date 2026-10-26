@@ -173,17 +173,19 @@ export const DEFAULT_CONFIG: Types.Config = {
   allow_event_edit: true,
   allow_event_delete: true,
 
-  // The toolbar ships hidden; shown, it draws what a shared screen needs and nothing it does
-  // not: every control on except `refresh`, which only matters where events change somewhere
-  // else between refreshes. v5 is the first release with a toolbar, so these are its first
-  // defaults. A control added in a later release defaults off, so a release never adds a
-  // control to a toolbar someone already set up.
+  // The toolbar ships hidden; shown, it draws what anyone looking at a calendar needs: every
+  // control on except two. `refresh` only matters where events change somewhere else between
+  // refreshes. `reset` is for a screen several people share: elsewhere a layout picked on the
+  // switcher is a preference, which a lit reset button would keep presenting as something to
+  // undo. v5 is the first release with a toolbar, so these are its first defaults. A control
+  // added in a later release defaults off, so a release never adds a control to a toolbar
+  // someone already set up.
   toolbar: {
     show: false,
     navigation: true,
     add_event: true,
     view_switcher: true,
-    reset: true,
+    reset: false,
     refresh: false,
     legend: 'menu',
   },

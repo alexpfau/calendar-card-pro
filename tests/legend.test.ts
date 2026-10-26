@@ -938,7 +938,10 @@ describe('chips too wide for the heading row', () => {
     stubLayout();
     Object.assign(layout, { card: ALL_LABELS, probe: row.probe, chips: row.chips });
     const mountWith = async (legend: Types.ToolbarConfig['legend']) => {
-      const card = await mount({ title: 'Family', toolbar: { show: true, refresh: true, legend } });
+      const card = await mount({
+        title: 'Family',
+        toolbar: { show: true, reset: true, refresh: true, legend },
+      });
       await measure(card, ALL_LABELS);
       await nextFrame(card);
       return card;

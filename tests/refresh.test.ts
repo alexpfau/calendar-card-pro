@@ -234,7 +234,7 @@ describe('the refresh button', () => {
   it('sits last in the action row, at its end after reset', async () => {
     const card = await mount({
       entities: [{ entity: 'calendar.anna' }],
-      toolbar: { show: true, refresh: true },
+      toolbar: { show: true, reset: true, refresh: true },
     });
     // Two views must fit for a switcher, and a writable calendar for add.
     card.hass = {
