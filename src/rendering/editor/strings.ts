@@ -532,46 +532,33 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.card.helper': 'The card itself, and the title and toolbar above its events.',
   title: 'Title',
   'title.helper':
-    'Anything containing {{ or {% is rendered by Home Assistant as a template and ' +
-    'keeps itself up to date. With the toolbar shown, the title is a small label over the ' +
-    'month, and the title font size and color style the month instead.',
+    'Text containing {{ or {% is a Home Assistant template and updates by itself. With the ' +
+    "toolbar shown, the title's size and color apply to the month.",
   title_font_size: 'Title Font Size',
   title_color: 'Title Color',
   background_color: 'Background Color',
   'toolbar.show': 'Show Toolbar',
-  'toolbar.show.helper':
-    "Turns the whole toolbar on or off: the card's own controls, in two rows above its " +
-    'events, the lower one naming the month on screen. While it is on, the options below ' +
-    'choose what it shows.',
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
-    "Arrows at the end of the month's row to page back and forward through the days, with a " +
-    'button between them that returns to the days the card opens with. The month then opens a ' +
-    'date picker. The arrows move by as many days as the card shows.',
+    'Arrows to page through the days, a button back to the days the card opens with, and a ' +
+    'date picker on the month.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper':
-    'Buttons in the toolbar for switching between List, Columns and Grid on the ' +
-    'dashboard. Each device remembers its choice until this card is edited; the layout ' +
-    'chosen above stays the one it opens in.',
+    'Switch between List, Columns and Grid on the dashboard. Each device remembers its choice.',
   'toolbar.reset': 'Reset Button',
   'toolbar.reset.helper':
-    'A button in the toolbar that undoes what was changed on this device: the card goes back ' +
-    'to the days and the layout it opens with, shows every calendar again and collapses an ' +
-    'expanded view. Hidden while there is nothing to undo, keeping its place.',
+    "For a shared screen. One press undoes this device's changes to the days, the layout, the " +
+    'calendars and an expanded view.',
   'toolbar.refresh': 'Refresh Button',
   'toolbar.refresh.helper':
-    'A button in the toolbar that loads the events again now, rather than at the next ' +
-    'scheduled refresh. Its icon turns while the card is loading.',
+    'Loads the events again now, rather than at the next scheduled refresh.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper':
-    "A button in the toolbar that opens Home Assistant's own new-event dialog. Shown " +
-    "only when at least one of the card's calendars accepts new events.",
+    "Opens Home Assistant's new-event dialog. Shown when a calendar on the card accepts new events.",
   'toolbar.legend': 'Calendar Filter',
   'toolbar.legend.helper':
-    "Hides or shows each calendar's events on this device; each device remembers its choice " +
-    'until this card is edited. Menu puts a button in the toolbar that opens a checkbox for ' +
-    "each calendar. Chips puts a chip for each calendar, in its color, in the month's row, " +
-    'and falls back to the menu wherever they do not all fit.',
+    "Hides each calendar's events on this device. Menu opens a checkbox per calendar; Chips shows " +
+    'them beside the month, or the menu where they do not fit.',
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
