@@ -198,6 +198,10 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - **A calendar that never answered stopped the card refreshing** - Every later refresh waited on the request still open for it, until the page was reloaded. A calendar now has 30 seconds to answer before it counts as failed
 - **A reload could hide a calendar that had failed** - An incomplete result was cached as if it were whole, so for the rest of the refresh interval the card showed the remaining calendars and logged nothing at all
 
+### Visual Editor
+
+- **Searching for an option's YAML name missed some controls** - The editor's search finds a control by the option name used in the configuration reference, but not where the control is named differently from the option it writes: `time_24h`, `show_week_numbers`, `remove_location_country` and `entities` found nothing. Every option name now finds the control that writes it
+
 ## Related Issues
 
 - [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Configurable time-grid ruling, events positioned by start time, and seven day columns on a full-width card by @rozrabiak; Grid completes the time-axis request left open after Column shipped

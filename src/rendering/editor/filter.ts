@@ -68,6 +68,12 @@ export function toFilterCriteria(data: Readonly<Record<string, unknown>>): Filte
  */
 export interface FilterCtx extends SchemaCtx {
   criteria: FilterCriteria;
+  /**
+   * Whether the fields being matched configure the card or one calendar. Both arrive with
+   * an empty data path, and a derived control maps to its keys differently in each, so the
+   * matcher cannot work it out from the node. `filterEntitySchema` sets it; absent means card.
+   */
+  scope?: 'card' | 'entity';
 }
 
 /**
@@ -156,6 +162,18 @@ function searchableText(
   if ('type' in node && node.type === 'expandable' && node.titleKey !== undefined) {
     text.push(node.title, EditorLocalize.lookup(ctx.language, `${node.titleKey}.helper`));
     return text;
+  }
+
+  // A derived control is named for the editor rather than for the YAML — `time_format`
+  // writes `time_24h`, the calendar picker writes `entities` — so a key copied out of the
+  // configuration reference has to find the control that writes it, not only one named
+  // after it. Taken from the same mappings the editor writes through, so the next derived
+  // control is searchable without being listed here.
+  const writes =
+    ctx.scope === 'entity' ? entityConfigKeys(node.name) : configKeysForField(node.name);
+  for (const key of writes) {
+    if (key === node.name) continue;
+    text.push(key, EditorLocalize.qualifiedKey(key, dataPath));
   }
 
   text.push(
@@ -612,15 +630,16 @@ export function filterEntitySchema(
   const relevant = withholdInertFields(schema, ctx.workspace ?? ctx.view, 'entity');
   if (!isFiltering(ctx.criteria)) return relevant;
 
-  const named = queryOf(ctx) !== '' && matchesEntity(entry, ctx);
+  const entityCtx: FilterCtx = { ...ctx, scope: 'entity' };
+  const named = queryOf(entityCtx) !== '' && matchesEntity(entry, entityCtx);
 
   return pruneLoneHeadings(
     filterNodes(
       relevant,
-      ctx,
+      entityCtx,
       (node, nodePath) =>
         isHeading(node) ||
-        ((named || matchesQuery(node, nodePath, ctx)) &&
+        ((named || matchesQuery(node, nodePath, entityCtx)) &&
           (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node))),
       path,
       [],
