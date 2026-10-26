@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(149_000);
-    // The today tile's new shape and the card's hover color moved the ceiling last, from 145,000
+    expect(saved).toBeLessThan(152_000);
+    // The grid polish fixes moved the ceiling last, from 149,000 to 152,000: the notes on why
+    // grid resets the two properties a time folded with its countdown reads, rather than the
+    // declarations that read them, and what the clamp did to that row before; why a grid
+    // title keeps the dashboard's side through :dir() when match-parent would say the same
+    // in one line; and why a focused block cut off at the visible hours stops its bar at the
+    // ring rather than drawing the ring on a pseudo-element. The reading went 147,219 to
+    // 149,609, taken with stripComments after the last comment in the change was written.
+    //
+    // The today tile's new shape and the card's hover color moved it before that, from 145,000
     // to 149,000: the notes on why the tile's corners are written in em rather than percent, why
     // its figures are proportional and the last pixel was left unmeasured, why centering its one
     // line trimmed to the cap height centers the digits and why that makes the tile a block, why
