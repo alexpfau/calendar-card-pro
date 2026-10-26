@@ -4002,7 +4002,8 @@ export const cardStyles = css`
 
      Blockifying the span in grid restores the ellipsis and costs nothing, because the
      clamp it replaces cannot act here: display: block is what -webkit-line-clamp needs and
-     does not get, so the time_max_lines clamp is off in grid whatever the option says.
+     does not get, so this path's time_max_lines clamp is off in grid whatever the option
+     says. The other path, a time folded with its countdown, is reset in the next rule.
 
      🚨 That used to be argued from white-space instead -- "nowrap pins this text to one
      line, so no line count above one is reachable" -- and the wrapped rung made the
@@ -4035,6 +4036,22 @@ export const cardStyles = css`
   .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
     display: block;
     text-overflow: ellipsis;
+  }
+
+  /* time_max_lines has a second clamp path the rule above never reaches. With a countdown
+     showing, the time sits inside .time-text and is clamped by the .time-text > span rule,
+     whose display and line count both come from these two properties. Grid lets that span
+     wrap (white-space: normal, so the countdown can break inside itself), and a -webkit-box
+     time there threw the fit ladder off: at time_max_lines: 1 the row was measured as not
+     fitting and hidden, so a block with a countdown lost its time entirely, at any width.
+
+     Resetting the properties to what time_max_lines: 0 writes, rather than overriding the
+     two declarations that read them, keeps both paths in one place and leaves every grid
+     row exactly as it renders with the option unset. That is what makes the option inert
+     here, which is how VIEW_SCOPE describes it. */
+  .grid-event-disclosure {
+    --calendar-card-time-display: inline;
+    --calendar-card-time-max-lines: none;
   }
 
   /* The event starts before or ends after the visible band. */

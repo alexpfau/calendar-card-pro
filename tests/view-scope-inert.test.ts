@@ -273,3 +273,92 @@ describe('event_spacing in grid', () => {
     }
   });
 });
+
+describe('time_max_lines in grid', () => {
+  /**
+   * The option clamps the time through two selectors, and grid has to defeat both. The
+   * plain time span is blockified, which `-webkit-line-clamp` cannot act on. A time folded
+   * with its countdown sits in `.time-text`, where display and line count both come from
+   * custom properties, so grid resets those on the block instead. Before that reset, a
+   * clamp of 1 there hid the whole time row of any block showing a countdown.
+   *
+   * happy-dom resolves no cascade, so this reads the stylesheet: the two clamp rules, the
+   * grid rules that answer them, and that the reset writes what an unset option writes.
+   * The browser-level proof — grid byte-identical at 0 and 1 with countdowns on, list not —
+   * was taken in Chromium and WebKit.
+   */
+  const rules = stripComments(Styles.cardStyles.cssText);
+
+  /** The declarations of the first rule whose selector list is exactly `selector`. */
+  function body(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    const header = new RegExp(`(?:^|[}])\\s*${escaped}\\s*\\{`).exec(rules);
+    expect(header, `no rule for ${selector}`).not.toBeNull();
+
+    const start = header!.index + header![0].length;
+    return rules.slice(start, rules.indexOf('}', start));
+  }
+
+  it('clamps the folded time through the two custom properties', () => {
+    const folded = body('.time .time-actual .time-text > span');
+
+    expect(folded).toContain('display: var(--calendar-card-time-display)');
+    expect(folded).toContain('-webkit-line-clamp: var(--calendar-card-time-max-lines)');
+  });
+
+  it('resets both properties on the grid block to what an unset option writes', () => {
+    const reset = body('.grid-event-disclosure');
+    const unset = Styles.generateCustomPropertiesObject(buildConfig({ time_max_lines: 0 }));
+    const set = Styles.generateCustomPropertiesObject(buildConfig({ time_max_lines: 1 }));
+
+    // The control: the option really does change both properties, so matching the unset
+    // values is a statement about something.
+    expect(set['--calendar-card-time-display']).not.toBe(unset['--calendar-card-time-display']);
+    expect(set['--calendar-card-time-max-lines']).not.toBe(unset['--calendar-card-time-max-lines']);
+
+    expect(reset).toContain(
+      `--calendar-card-time-display: ${unset['--calendar-card-time-display']}`,
+    );
+    expect(reset).toContain(
+      `--calendar-card-time-max-lines: ${unset['--calendar-card-time-max-lines']}`,
+    );
+  });
+
+  it('blockifies the plain time span, which the clamp cannot act on', () => {
+    const plain = body(
+      '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)',
+    );
+
+    expect(plain).toContain('display: block');
+  });
+
+  it('wraps every grid time row in the block that carries the reset', () => {
+    // A timed event a day ahead, so it draws a time row and, with show_countdown on in
+    // BASE, the folded countdown whose clamp path the reset exists for.
+    const timed: Types.CalendarEventData = {
+      start: { dateTime: `${day(1)}T10:00:00` },
+      end: { dateTime: `${day(1)}T11:00:00` },
+      summary: 'Ben piano lesson',
+      _entityId: 'calendar.personal',
+    };
+    const config = buildConfig({ view: 'grid', ...BASE });
+    const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+    const days = EventUtils.groupEventsByDay([timed], config, false, 'en', 'grid');
+    const container = document.createElement('div');
+    litRender(Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, NOW), container);
+
+    const rows = [...container.querySelectorAll('.time')];
+    expect(rows.length, 'no time rows in the grid tree to check').toBeGreaterThan(0);
+    expect(
+      container.querySelector('.time-text .time-countdown'),
+      'no folded countdown, so the path the reset is for was not rendered',
+    ).not.toBeNull();
+
+    for (const row of rows) {
+      expect(
+        row.closest('.grid-event-disclosure'),
+        'a grid time row outside the block',
+      ).not.toBeNull();
+    }
+  });
+});

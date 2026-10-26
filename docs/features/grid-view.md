@@ -880,5 +880,10 @@ or column row and the space between one row and the next, while a grid block set
 padding and is placed by its own time. The editor omits both in Grid; `day_spacing` still
 sets the gutter between day columns.
 
+`time_max_lines` does nothing here. Grid fits each block's time row itself, giving up the
+clock icon, then a single line, then the end time and finally the row as a block runs out of
+room, as [What a Block Shows](#what-a-block-shows) describes. The editor omits it in Grid.
+Title, location and description line limits still apply.
+
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** — the same options in the configuration reference.
 **→ [Grid-Only Options in the configuration reference](/reference/configuration#grid-only-options)** — full option table.

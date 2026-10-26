@@ -487,7 +487,7 @@ description_max_lines: 3 # Allow descriptions up to three lines
 A calendar label stays inline before the title and shares its line limit, rather than
 taking a separate row above the clamped text. This also applies to merged-calendar labels.
 
-Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in list and column view. Grid follows the title, location and description limits too, but fits its time row to each block itself, as [What a Block Shows](/features/grid-view#what-a-block-shows) describes. Each option can be overridden inside a `list:`, `column:` or `time_grid:` block to clamp differently per view:
+Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in list and column view. Grid follows the title, location and description limits too, but fits its time row to each block itself, as [What a Block Shows](/features/grid-view#what-a-block-shows) describes, so `time_max_lines` does nothing there. Each option can be overridden inside a `list:` or `column:` block to clamp differently per view, and the title, location and description limits inside a `time_grid:` block too:
 
 ```yaml
 title_max_lines: 0 # Unlimited in list view
