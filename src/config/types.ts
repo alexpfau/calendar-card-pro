@@ -718,10 +718,11 @@ export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
   /**
-   * Whether the view switcher's layouts and the add button carry a text label beside their
-   * icons when the card has room for it. Off keeps them icons, named by their tooltips. The
-   * date navigation is unaffected: its home button is always an icon and its dates are
-   * always words.
+   * Whether the toolbar's buttons — the switcher's layouts, refresh, add and a folded
+   * legend's button — carry a text label beside their icons when the card has room for it.
+   * Off keeps them icons, named by their tooltips. The date navigation and the legend's
+   * chips are unaffected: the home button is always an icon, and the dates and the chips
+   * are always words.
    */
   labels?: boolean;
   /** Previous, home and next, and the range on screen, which opens a date picker. First. */

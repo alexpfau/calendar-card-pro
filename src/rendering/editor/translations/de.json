@@ -308,7 +308,7 @@
   "toolbar.show": "Symbolleiste anzeigen",
   "toolbar.show.helper": "Schaltet die ganze Symbolleiste ein oder aus: Bedienelemente der Karte selbst, oben auf der Karte. Ist sie an, legen die Optionen darunter fest, was sie zeigt.",
   "toolbar.labels": "Beschriftungen",
-  "toolbar.labels.helper": "Zeigt die Namen der Layouts im Layout-Umschalter und den Namen des Knopfs „Termin hinzufügen“ neben den jeweiligen Symbolen an, wenn die Karte breit genug ist. Ist die Option ausgeschaltet, werden nur die Symbole angezeigt und die Namen erscheinen als Tooltips; die angezeigten Daten werden weiterhin als Text dargestellt.",
+  "toolbar.labels.helper": "Wenn die Karte breit genug ist, werden in der Symbolleiste die Namen der Layouts, der Knöpfe „Aktualisieren“ und „Termin hinzufügen“ sowie des Knopfs, zu dem die Chips der Legende zusammengefasst werden, neben den jeweiligen Symbolen angezeigt. Ist die Option ausgeschaltet, werden nur die Symbole angezeigt und die Namen erscheinen als Tooltips. Die Datumsnavigation und die Chips der Legende sehen in beiden Fällen gleich aus.",
   "toolbar.navigation": "Datumsnavigation",
   "toolbar.navigation.helper": "Pfeile, um durch die Tage vor- und zurückzublättern, ein Knopf zurück zu den Tagen, mit denen die Karte startet, und die angezeigten Daten, die eine Datumsauswahl öffnen. Die Pfeile springen um so viele Tage, wie die Karte zeigt.",
   "toolbar.view_switcher": "Layout-Umschalter",

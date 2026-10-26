@@ -308,7 +308,7 @@
   "toolbar.show": "Zobraziť panel nástrojov",
   "toolbar.show.helper": "Zapne alebo vypne celý panel nástrojov: vlastné ovládacie prvky karty v jej hornej časti. Keď je zapnutý, možnosti nižšie určujú, čo zobrazuje.",
   "toolbar.labels": "Textové štítky",
-  "toolbar.labels.helper": "Zobrazí názvy rozložení v prepínači rozloženia a názov tlačidla „Pridať udalosť“ vedľa príslušných ikon, keď je karta dostatočne široká. Po vypnutí sa zobrazia iba ikony a názvy sa zobrazia ako tipy; dátumy na obrazovke sa naďalej zobrazujú ako text.",
+  "toolbar.labels.helper": "Zobrazí názvy tlačidiel panela nástrojov vedľa ich ikon, keď je karta dostatočne široká: rozložení, „Obnoviť“, „Pridať udalosť“ a tlačidla, do ktorého sa zbalí legenda. Po vypnutí sa zobrazia iba ikony a názvy sa zobrazia ako tipy. Navigácia podľa dátumu a tlačidlá legendy vyzerajú v oboch prípadoch rovnako.",
   "toolbar.navigation": "Navigácia podľa dátumu",
   "toolbar.navigation.helper": "Šípky na listovanie dňami dozadu a dopredu, tlačidlo späť na dni, s ktorými sa karta otvára, a zobrazené dátumy, ktoré otvoria výber dátumu. Šípky sa posunú o toľko dní, koľko karta zobrazuje.",
   "toolbar.view_switcher": "Prepínač rozloženia",

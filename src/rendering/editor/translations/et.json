@@ -308,7 +308,7 @@
   "toolbar.show": "Näita tööriistariba",
   "toolbar.show.helper": "Lülitab kogu tööriistariba sisse või välja: kaardi enda juhtelemendid kaardi ülaosas. Kui see on sees, valivad allolevad valikud, mida see näitab.",
   "toolbar.labels": "Tekstisildid",
-  "toolbar.labels.helper": "Näitab paigutuse vahetaja paigutuste nimesid ja nupu „Lisa sündmus“ nime nende ikoonide kõrval, kui kaart on piisavalt lai. Kui valik on välja lülitatud, kuvatakse ainult ikoonid ja nimed kuvatakse kohtspikritena; ekraanil olevad kuupäevad kuvatakse endiselt tekstina.",
+  "toolbar.labels.helper": "Kui kaart on piisavalt lai, kuvatakse tööriistaribal paigutuste, nuppude „Värskenda“ ja „Lisa sündmus“ ning koondatud legendi nupu nimed vastavate ikoonide kõrval. Kui valik on välja lülitatud, kuvatakse nupud ainult ikoonidena ja nende nimed kohtspikritena. Kuupäevade navigeerimine ja legendi nupud näevad mõlemal juhul ühesugused välja.",
   "toolbar.navigation": "Kuupäevade navigeerimine",
   "toolbar.navigation.helper": "Nooled päevade kaupa edasi ja tagasi liikumiseks, nupp, mis viib tagasi päevadele, millega kaart avaneb, ning ekraanil olevad kuupäevad, mis avavad kuupäevavalija. Nooled liiguvad nii mitu päeva, kui kaart näitab.",
   "toolbar.view_switcher": "Paigutuse vahetaja",

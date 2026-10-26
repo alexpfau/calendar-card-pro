@@ -308,7 +308,7 @@
   "toolbar.show": "Rodyti įrankių juostą",
   "toolbar.show.helper": "Įjungia arba išjungia visą įrankių juostą: pačios kortelės valdiklius kortelės viršuje. Kai ji įjungta, toliau esančios parinktys nustato, ką ji rodo.",
   "toolbar.labels": "Teksto etiketės",
-  "toolbar.labels.helper": "Rodo išdėstymo perjungiklio išdėstymų ir mygtuko „Pridėti įvykį“ pavadinimus šalia jų piktogramų, kai kortelė pakankamai plati. Išjungus jie lieka piktogramomis, o jų pavadinimai rodomi kaip patarimai; ekrane rodomos datos lieka tekstu.",
+  "toolbar.labels.helper": "Rodo įrankių juostos mygtukų pavadinimus šalia jų piktogramų, kai kortelė pakankamai plati: išdėstymų, „Atnaujinti“, „Pridėti įvykį“ ir mygtuko, į kurį sutraukiama legenda. Išjungus jie lieka piktogramomis, o jų pavadinimai rodomi kaip patarimai. Naršymas pagal datas ir legendos mygtukai abiem atvejais atrodo vienodai.",
   "toolbar.navigation": "Naršymas pagal datas",
   "toolbar.navigation.helper": "Rodyklės dienoms slinkti atgal ir pirmyn, mygtukas, grąžinantis į dienas, kuriomis kortelė atidaroma, ir ekrane rodomos datos, kurios atveria datos parinkiklį. Rodyklės paslenka tiek dienų, kiek rodo kortelė.",
   "toolbar.view_switcher": "Išdėstymo perjungiklis",
