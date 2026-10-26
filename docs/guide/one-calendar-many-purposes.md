@@ -27,7 +27,7 @@ That makes it a short list rather than a week: three days, today first, in the d
 
 ## 🗂️ Calendars & Event Blocks
 
-Most calendar cards treat a calendar as one thing: you add it, and it contributes all of its events, styled one way. This card takes the other approach where it has to. The six calendars of [The Weekly Grid](/guide/family-calendar#calendars-event-blocks) go into it, as eight blocks:
+A calendar does not have to be one thing that contributes all of its events, styled one way. Where it has to, this card lists a calendar more than once, as blocks that each pick their own events and style. The six calendars of [The Weekly Grid](/guide/family-calendar#calendars-event-blocks) go into it, as eight blocks:
 
 | Calendar                | Holds                                                       | Blocks |
 | ----------------------- | ----------------------------------------------------------- | ------ |

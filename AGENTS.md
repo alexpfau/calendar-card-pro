@@ -827,13 +827,16 @@ covered — card-mod above all, which the theming docs depend on. And the design
 the card the original design was built with; that is attribution, and it stays as written.
 
 `check:docs` enforces this as Check 33, over every file git tracks or would add. It rejects
-a listed card's name in any spelling, a `custom:` type other than this card's, a GitHub
-link to a repository named like a card, and a few wordings that rank this card against
-others. The names are kept as SHA-256 digests, so the gate does not itself name what it
-forbids; `node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one.
-Each credit site is pinned to its exact count, so a second mention beside the credit fails,
-and so does a credit that is reworded away. Pull request bodies and commit messages are
-outside every gate, so the rule applies there by hand.
+a listed card's name written as a slug, words joined by a hyphen or underscore in any case,
+or as a title, every word capitalized, even across a line break. A lowercase phrase is
+description rather than a name and passes, and so does a name run together into one word.
+It also rejects a `custom:` type other than this card's, a GitHub link to a repository
+named like a card, and a few wordings that rank this card against others. The names are
+kept as SHA-256 digests, so the gate does not itself name what it forbids;
+`node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one. Each credit
+site is pinned to its exact count, so a second mention beside the credit fails, and so does
+a credit that is reworded away. Pull request bodies and commit messages are outside every
+gate, and generic wordings are too varied to list, so the rule applies there by hand.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
@@ -1083,16 +1086,15 @@ source before repeating either direction. One practical consequence: replacing a
 HACS-installed `.js` by hand also needs its `.js.gz` deleted, or the browser keeps receiving
 the old file.
 
-**A HACS plugin release can take three shapes.** Most cards never have to decide what to
-attach, because most do not code-split:
+**A HACS plugin release can take three shapes, and only a code-split build has to choose
+between them.**
 
-- **One bundled file.** A single asset, so the problem never arises. This is what most
-  cards ship, and it is worth remembering that splitting the editor out made this card an
-  exception.
-- **Attach every chunk and absorb the cost.** A code-split build can attach the card, a
-  zip and every hashed chunk it emits — editors, engines, one file per language — and every
-  HACS user then downloads all of them, used or not. Nothing in `hacs.json` narrows that
-  (see below), so the cost is simply paid.
+- **One bundled file.** A single asset, so there is nothing to choose. Splitting the editor
+  out is what took this card off this shape.
+- **Attach every chunk and absorb the cost.** This card's shape, with two chunks: the card
+  and its editor. A build that splits further attaches every hashed chunk it emits —
+  editors, engines, one file per language — and every HACS user then downloads all of them,
+  used or not. Nothing in `hacs.json` narrows that (see below), so the cost is simply paid.
 - **Deliver through the repository tree and attach nothing.** Commit `dist/` and publish
   releases with **zero** assets. `gather_files_to_download()` appends assets then returns
   `if files:` — _conditionally_ — so a release with no assets falls through to the tree

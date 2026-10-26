@@ -3354,11 +3354,11 @@ function checkAbsoluteSiteLinks(docs) {
 // Check 33 — no third-party card is named, linked or compared against
 // ---------------------------------------------------------------------------
 //
-// The rule is the maintainer's: the repository does not cite, credit, compare against or
-// link to another Home Assistant card, anywhere — docs, comments, tests, fixtures, scripts
-// or AGENTS.md. A design is explained on its own terms. Home Assistant's own cards, panels
-// and frontend components are not third-party and stay out of scope, and so do themes and
-// plugins that are not cards.
+// The rule is the maintainer's: the repository does not cite, compare against or link to
+// another Home Assistant card, anywhere — docs, comments, tests, fixtures, scripts or
+// AGENTS.md. A design is explained on its own terms. The one exception is the design credit
+// (`CARD_NAME_ALLOWED`). Home Assistant's own cards, panels and frontend components are not
+// third-party and stay out of scope, and so do themes and plugins that are not cards.
 //
 // Unlike most checks here, this one reads every file git knows about, because a mention in
 // a test comment ships in every clone just as one in the docs does.
@@ -3376,21 +3376,27 @@ const CARD_NAME_MAX_WORDS = 3;
  *
  * A list of the names in plain text would itself be the kind of mention this check
  * forbids, so each entry is the first 16 hex digits of the SHA-256 of the name's key:
- * lowercase, words joined by single hyphens (`cardNameKey`). The scan builds the same key
- * from every run of adjacent words, so a name in this set matches however it is written —
- * as a slug, as a title, or as a title wrapped across two lines.
+ * lowercase, words joined by single hyphens (`cardNameKey`). A name matches in the two
+ * forms a name takes: as a slug, words joined by a hyphen or an underscore in any case, and
+ * as a title, words separated by whitespace with every one capitalized, so a title wrapped
+ * across two lines still counts. A trailing `cards` also matches its singular. A lowercase
+ * phrase never matches, because written that way the words are description rather than a
+ * name; that is what keeps a YAML `auto` that ends one line from joining the key that
+ * starts the next.
  *
  * Print the entry for a new name with `node scripts/check-docs.mjs --digest "<name>"`,
- * which keys it with the same function the scan uses. Prefer the most distinctive form of
- * a name: an entry that is one everyday word flags ordinary prose. A name whose spaced
- * form is ordinary words, or the name of one of Home Assistant's own cards, belongs in
- * `CARD_SLUG_DIGESTS` instead.
+ * which keys it with the same function the scan uses. A name whose title is also the name
+ * of one of Home Assistant's own cards belongs in `CARD_SLUG_DIGESTS` instead. Two cases are
+ * deliberately not caught: a name run together into one word, and one longer than
+ * `CARD_NAME_MAX_WORDS`.
  */
 const CARD_NAME_DIGESTS = new Set([
-  '5ef2c394d5b63e41',
+  '6abe00db58e4d5de',
+  '07aa26ae60dc35d0',
   'bae56b6a312d5b40',
   '4ed1b9270b346def',
   'b665d68fd621a969',
+  '7fc530a88f7a62e6',
   '42a47feb2f6a6b74',
   'bce01c35ba404ceb',
   '973e334c73ef2c3c',
@@ -3400,24 +3406,20 @@ const CARD_NAME_DIGESTS = new Set([
   'd48f973d104a82a0',
   '8512af6015802752',
   '3725a1d1c7616a53',
+  'bf1aae7c257257e0',
+  'd79a156956ddc23a',
+  '412e72f0531e4632',
   '877ed1f6d2738d3f',
   '7783a5bd24e18499',
 ]);
 
 /**
- * Third-party cards matched only when written as a hyphenated slug.
+ * Third-party cards matched only when written as a slug.
  *
- * Same digests as `CARD_NAME_DIGESTS`, for names whose spaced form means something else
- * here. One of them is, word for word, the name of a card Home Assistant ships, which the
- * documentation may name freely; the others read as ordinary description when spaced.
+ * Same digests as `CARD_NAME_DIGESTS`, for a name whose title is, word for word, the name
+ * of a card Home Assistant ships, which the documentation may name freely.
  */
-const CARD_SLUG_DIGESTS = new Set([
-  '04302151e66830a3',
-  '7fc530a88f7a62e6',
-  'd79a156956ddc23a',
-  'bf1aae7c257257e0',
-  '412e72f0531e4632',
-]);
+const CARD_SLUG_DIGESTS = new Set(['04302151e66830a3']);
 
 /**
  * Where a listed card may still be named, and exactly how many times.
@@ -3449,12 +3451,16 @@ const CARD_NAME_ALLOWED = new Map([
  * repository, which is why that phrase is not here.
  */
 const CARD_COMPARISON_PATTERNS = [
-  /\b(?:comparable|competing|competitor(?:['’]?s)?|rival|popular)\s+(?:(?:ha|home\s+assistant|hacs|lovelace|dashboard|custom|calendar)\s+)?cards?\b/gi,
-  /\bother\s+(?:hacs|multi-file|custom|community|lovelace)\s+cards\b/gi,
+  /\b(?:comparable|competing|competitor(?:['’]?s)?|rival|popular)\s+(?:(?:ha|home\s+assistant|hacs|lovelace|dashboard|custom|calendar)\s+)?cards?(?![\w-])/gi,
+  /\bother\s+(?:hacs|multi-file|custom|community|lovelace)\s+cards(?![\w-])/gi,
 ];
 
-/** A `custom:` card type other than this card's own, release or dev build. */
-const FOREIGN_CARD_TYPE = /\bcustom:(?!calendar-card-pro(?:-dev)?\b)[a-z0-9_]+(?:-[a-z0-9_]+)+/gi;
+/**
+ * A `custom:` card type other than this card's own, release or dev build. card-mod's own
+ * wrapper type is exempt, because card-mod is a styling plugin rather than a card.
+ */
+const FOREIGN_CARD_TYPE =
+  /\bcustom:(?!(?:calendar-card-pro(?:-dev)?|mod-card)\b)[a-z0-9_]+(?:-[a-z0-9_]+)+/gi;
 
 /** A GitHub link, captured as owner and repository. */
 const GITHUB_REPO_LINK = /\b(?:github\.com|raw\.githubusercontent\.com)\/([\w.-]+)\/([\w.-]+)/gi;
@@ -3536,24 +3542,25 @@ function checkThirdPartyCards() {
 
   const lineAt = (text, index) => text.slice(0, index).split('\n').length;
   const allowedSeen = new Map();
-  const ADJACENT = /^[\s_-]+$/;
+  const SLUG_GAP = /^[-_]$/;
+  const TITLE_GAP = /^\s+$/;
 
   for (const path of files) {
     const text = readFileSync(join(ROOT, path), 'utf8');
-    const lower = text.toLowerCase();
 
-    // Word boundaries, and whether each word runs straight on into the next one.
+    // Words, the text between each word and the next, and whether each word could start a
+    // title. Taken from the text as written, because the case is part of what makes a name.
+    const words = [];
     const starts = [];
-    const ends = [];
-    for (const word of lower.matchAll(/[a-z0-9]+/g)) {
+    for (const word of text.matchAll(/[A-Za-z0-9]+/g)) {
+      words.push(word[0]);
       starts.push(word.index);
-      ends.push(word.index + word[0].length);
     }
-    const gaps = starts.map((_, i) => lower.slice(ends[i], starts[i + 1] ?? ends[i]));
-    const runsOn = gaps.map((gap, i) => i + 1 < starts.length && ADJACENT.test(gap));
+    const gaps = words.map((word, i) => text.slice(starts[i] + word.length, starts[i + 1]));
+    const capitalized = words.map((word) => !/^[a-z]/.test(word));
 
     const nameFound = (i, key, digest) => {
-      const line = lineAt(lower, starts[i]);
+      const line = lineAt(text, starts[i]);
       if (CARD_NAME_ALLOWED.get(digest)?.has(path)) {
         const site = `${digest} ${path}`;
         allowedSeen.set(site, [...(allowedSeen.get(site) ?? []), line]);
@@ -3565,17 +3572,23 @@ function checkThirdPartyCards() {
       );
     };
 
-    for (let i = 0; i < starts.length; i++) {
-      let key = lower.slice(starts[i], ends[i]);
+    for (let i = 0; i < words.length; i++) {
+      let key = words[i].toLowerCase();
       let slug = true;
+      let title = capitalized[i];
       for (let n = 1; ; n++) {
-        const digest = cardNameDigest(key);
-        if (CARD_NAME_DIGESTS.has(digest) || (slug && CARD_SLUG_DIGESTS.has(digest))) {
-          nameFound(i, key, digest);
+        const keys = key.endsWith('-cards') ? [key, key.slice(0, -1)] : [key];
+        for (const candidate of keys) {
+          const digest = cardNameDigest(candidate);
+          const named = CARD_NAME_DIGESTS.has(digest) && (slug || title);
+          if (named || (slug && CARD_SLUG_DIGESTS.has(digest))) nameFound(i, candidate, digest);
         }
-        if (n === CARD_NAME_MAX_WORDS || !runsOn[i + n - 1]) break;
-        slug &&= gaps[i + n - 1] === '-';
-        key += `-${lower.slice(starts[i + n], ends[i + n])}`;
+        const gap = gaps[i + n - 1];
+        if (n === CARD_NAME_MAX_WORDS || i + n >= words.length) break;
+        slug &&= SLUG_GAP.test(gap);
+        title &&= TITLE_GAP.test(gap) && capitalized[i + n];
+        if (!slug && !title) break;
+        key += `-${words[i + n].toLowerCase()}`;
       }
     }
 
@@ -3587,9 +3600,11 @@ function checkThirdPartyCards() {
     }
 
     for (const match of text.matchAll(GITHUB_REPO_LINK)) {
-      const name = match[2].replace(/\.git$/i, '');
+      // A sentence can end right after the link, and a clone URL carries `.git`.
+      const name = match[2].replace(/\.+$/, '').replace(/\.git$/i, '');
       const repo = `${match[1]}/${name}`;
-      if (!/card/i.test(name) || repo.toLowerCase() === 'alexpfau/calendar-card-pro') continue;
+      if (!/card/i.test(name) || /(?:^|-)card-mod$/i.test(name)) continue;
+      if (repo.toLowerCase() === 'alexpfau/calendar-card-pro') continue;
       error(
         `${path}:${lineAt(text, match.index)} links to the card repository ${repo}. The ` +
           `repository does not link to other cards.`,
