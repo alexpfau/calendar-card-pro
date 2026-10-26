@@ -2990,11 +2990,10 @@ describe('the toolbar layout', () => {
     expect(declared('.card-toolbar.toolbar-actions', 'flex-wrap')).toBe('wrap');
   });
 
-  it('keeps twice the gap between reset and refresh', () => {
+  it('spaces reset and refresh as it spaces the filter and add, with no wider gap', () => {
     expect(declared('.card-toolbar.toolbar-actions', 'gap')).toBe('8px');
-    expect(declared('.toolbar-end > .reset-button + .refresh-button', 'margin-inline-start')).toBe(
-      '8px',
-    );
+    expect(declared('.toolbar-end', 'gap')).toBe(declared('.toolbar-start', 'gap'));
+    expect(rulesFor('.toolbar-end > .reset-button + .refresh-button')).toEqual([]);
   });
 
   it('keeps the arrows at the row end in every layout, and centers the chips like the switcher', () => {
@@ -3107,7 +3106,6 @@ describe('the toolbar layout', () => {
       declared('.card-toolbar.toolbar-actions', 'gap'),
       declared('.toolbar-start', 'gap'),
       declared('.toolbar-end', 'gap'),
-      declared('.toolbar-end > .reset-button + .refresh-button', 'margin-inline-start'),
     ]) {
       expect(gap).toBe(`${Constants.UI.TOOLBAR_COMMAND_GAP}px`);
     }

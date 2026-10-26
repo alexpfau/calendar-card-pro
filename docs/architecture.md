@@ -220,9 +220,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   always drawn and share the room beside the switcher equally (`flex: 1 1 0` with a
   `max-content` minimum), so the switcher sits in the middle of the card while both fit in half of
   it, and between them when one does not; only a card too narrow for every icon on one line wraps
-  the end group onto a line of its own. Twice the usual gap separates reset from refresh, so the
-  U-turn and the circular arrow never read as one control. The row is drawn only while it holds a
-  control.
+  the end group onto a line of its own. Both groups space their icons alike, 8px apart. The row
+  is drawn only while it holds a control.
 - **The heading row names the month the page starts in.** `monthHeading` in `utils/paging.ts`
   writes the month and year of the page's first day through `Intl` in the card's language,
   capitalized where the month leads: one month, never two, so a week across a turn of the month is
@@ -312,7 +311,7 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   both rows are, so the chips and the filter's menu inside them take them too. The switcher's
   words show from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` (248px) for the switcher alone, plus
   exactly the commands beside it: `UI.TOOLBAR_COMMAND_WIDTH` for each icon, `UI.TOOLBAR_COMMAND_GAP`
-  between two in a group and twice that between reset and refresh, which `stylesheet.test.ts`
+  between two in a group, which `stylesheet.test.ts`
   reconciles against the stylesheet. The base is measured in English, where the words need 242px;
   German needs 274px and Lithuanian 330px. `_syncToolbarLabelFit` reads the render, and if the row
   wrapped or overflows with the words it draws the pictograms until the card is wider than that

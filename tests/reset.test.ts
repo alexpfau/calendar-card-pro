@@ -374,7 +374,7 @@ describe('the reset button', () => {
       'legend-menu',
       'toolbar-button add-event-button',
     ]);
-    // Side by side, reset first: the stylesheet's wider gap goes between exactly these two.
+    // Side by side, reset first, spaced as the filter and add at the start are.
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',

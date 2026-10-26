@@ -160,8 +160,8 @@ export const UI = {
 
   /**
    * The width of each command in the action row, the folded filter, add, reset or refresh, all
-   * icons; and the gap between two controls, which reset and refresh have twice of. Both are the
-   * stylesheet's, so the width the switcher's words need is worked out exactly beside them.
+   * icons; and the gap between two controls. Both are the stylesheet's, so the width the
+   * switcher's words need is worked out exactly beside them.
    */
   TOOLBAR_COMMAND_WIDTH: 36,
   TOOLBAR_COMMAND_GAP: 8,

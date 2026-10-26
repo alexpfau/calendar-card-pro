@@ -4139,8 +4139,7 @@ class CalendarCardPro extends LitElement {
    *
    * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
    * beside it add their two groups' widths exactly: the folded filter and add at the start, reset
-   * and refresh at the end, each an icon, with a gap between two in a group and twice that
-   * between reset and refresh.
+   * and refresh at the end, each an icon, with a gap between two in a group.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
@@ -4153,12 +4152,7 @@ class CalendarCardPro extends LitElement {
     const end = [controls.reset, controls.refresh];
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    return (
-      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
-      group(count(start)) +
-      group(count(end)) +
-      (count(end) === 2 ? gap : 0)
-    );
+    return Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + group(count(start)) + group(count(end));
   }
 
   /**

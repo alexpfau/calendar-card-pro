@@ -310,7 +310,6 @@ toolbar:
 ```
 
 It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".
-A wider gap sets the two apart, so their arrows never read as one control.
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
 While the card loads, for whatever reason, the button's icon turns, and the small spinner the
@@ -416,7 +415,7 @@ One press brings back all of these at once:
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button sits at the end of the top row, with a wider gap before refresh when that is on. It
+The button sits at the end of the top row, before refresh when that is on. It
 shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
 how it is set up, the button is hidden, and it appears the moment something is changed, so a
 glance at the card says whether someone left it on a choice of their own. It keeps its place while

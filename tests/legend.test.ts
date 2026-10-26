@@ -911,12 +911,12 @@ describe('chips too wide for the heading row', () => {
 
   /**
    * The width at which the switcher names its views in words beside the fullest action row: four
-   * commands (the folded filter, add, reset and refresh), three gaps between them.
+   * commands (the folded filter, add, reset and refresh), a gap within each of its two groups.
    */
   const ALL_LABELS =
     Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
     4 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
-    3 * Constants.UI.TOOLBAR_COMMAND_GAP;
+    2 * Constants.UI.TOOLBAR_COMMAND_GAP;
 
   it.each([
     {

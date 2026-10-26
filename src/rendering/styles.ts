@@ -403,12 +403,6 @@ export const cardStyles = css`
     justify-content: flex-end;
   }
 
-  /* Twice the gap stands between reset and refresh, so the U-turn and the circular arrow
-     never read as one control turned round. */
-  .toolbar-end > .reset-button + .refresh-button {
-    margin-inline-start: 8px;
-  }
-
   /* The heading row, last above the days: the title over the month at its start, the date
      navigation at its end, in every layout, so a press on next lands on the same spot page after
      page.

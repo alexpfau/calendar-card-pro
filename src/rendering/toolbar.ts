@@ -749,8 +749,8 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
  *
  * The start and the end are groups of their own, there even when empty, so the stylesheet
  * can share the room left beside the switcher out equally between them and the switcher sits
- * in the middle of the card while there is room for that. Twice the usual gap stands between
- * reset and refresh, so the U-turn and the circular arrow never read as one control.
+ * in the middle of the card while there is room for that. Both groups space their icons alike,
+ * so the end reads as the start does.
  *
  * The press guard sits on the row's own box as well as on each control, because the
  * switcher's gray track and the gaps between controls are part of the row but no button: a

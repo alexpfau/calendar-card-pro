@@ -799,7 +799,7 @@ describe('words or pictograms', () => {
 
   /**
    * The switcher's words need its own width, and every command beside it its icon, with a gap
-   * between two in a group and twice that between reset and refresh. The date navigation and
+   * between two in a group. The date navigation and
    * the filter's chips are the heading row's, and count for nothing here. Each width is written
    * out rather than worked out, so a change to the rule shows up as a change to this table.
    */
@@ -822,10 +822,10 @@ describe('words or pictograms', () => {
     [
       'the switcher, reset and refresh',
       { view_switcher: true, reset: true, refresh: true },
-      WITH_SWITCHER + 2 * ICON + 2 * GAP,
+      WITH_SWITCHER + 2 * ICON + GAP,
       5,
     ],
-    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 3 * GAP, 7],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 2 * GAP, 7],
     [
       'the switcher and add, the filter drawn as chips',
       { view_switcher: true, add_event: true, legend: 'chips' },
