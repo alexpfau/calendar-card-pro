@@ -8,6 +8,8 @@
  * Run with `node scripts/check-docs.mjs`; add `--strict` to make warnings fatal.
  */
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1816,6 +1818,7 @@ function report(counts) {
       `${counts.inertOptions} view-inert options reconciled, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
+      `${counts.thirdParty} files checked for third-party cards, ` +
       `config format v${counts.configVersion} documented, ` +
       `release surfaces checked against v${counts.version}.\n`,
   );
@@ -3347,7 +3350,302 @@ function checkAbsoluteSiteLinks(docs) {
   return checked;
 }
 
+// ---------------------------------------------------------------------------
+// Check 33 — no third-party card is named, linked or compared against
+// ---------------------------------------------------------------------------
+//
+// The rule is the maintainer's: the repository does not cite, credit, compare against or
+// link to another Home Assistant card, anywhere — docs, comments, tests, fixtures, scripts
+// or AGENTS.md. A design is explained on its own terms. Home Assistant's own cards, panels
+// and frontend components are not third-party and stay out of scope, and so do themes and
+// plugins that are not cards.
+//
+// Unlike most checks here, this one reads every file git knows about, because a mention in
+// a test comment ships in every clone just as one in the docs does.
+
+/**
+ * The longest card name the digest list can hold, in words.
+ *
+ * Every run of up to this many adjacent words is hashed, so a longer name would never be
+ * looked up. `--digest` refuses one rather than print an entry that can never match.
+ */
+const CARD_NAME_MAX_WORDS = 3;
+
+/**
+ * Third-party cards the repository must not name, as digests rather than names.
+ *
+ * A list of the names in plain text would itself be the kind of mention this check
+ * forbids, so each entry is the first 16 hex digits of the SHA-256 of the name's key:
+ * lowercase, words joined by single hyphens (`cardNameKey`). The scan builds the same key
+ * from every run of adjacent words, so a name in this set matches however it is written —
+ * as a slug, as a title, or as a title wrapped across two lines.
+ *
+ * Print the entry for a new name with `node scripts/check-docs.mjs --digest "<name>"`,
+ * which keys it with the same function the scan uses. Prefer the most distinctive form of
+ * a name: an entry that is one everyday word flags ordinary prose. A name whose spaced
+ * form is ordinary words, or the name of one of Home Assistant's own cards, belongs in
+ * `CARD_SLUG_DIGESTS` instead.
+ */
+const CARD_NAME_DIGESTS = new Set([
+  '5ef2c394d5b63e41',
+  'bae56b6a312d5b40',
+  '4ed1b9270b346def',
+  'b665d68fd621a969',
+  '42a47feb2f6a6b74',
+  'bce01c35ba404ceb',
+  '973e334c73ef2c3c',
+  '7ec747f4cebae9d7',
+  '98fe11c359860718',
+  '4ecd7b1ec833cb00',
+  'd48f973d104a82a0',
+  '8512af6015802752',
+  '3725a1d1c7616a53',
+  '877ed1f6d2738d3f',
+  '7783a5bd24e18499',
+]);
+
+/**
+ * Third-party cards matched only when written as a hyphenated slug.
+ *
+ * Same digests as `CARD_NAME_DIGESTS`, for names whose spaced form means something else
+ * here. One of them is, word for word, the name of a card Home Assistant ships, which the
+ * documentation may name freely; the others read as ordinary description when spaced.
+ */
+const CARD_SLUG_DIGESTS = new Set([
+  '04302151e66830a3',
+  '7fc530a88f7a62e6',
+  'd79a156956ddc23a',
+  'bf1aae7c257257e0',
+  '412e72f0531e4632',
+]);
+
+/**
+ * Where a listed card may still be named, and exactly how many times.
+ *
+ * The design credit names the card the original calendar design was built with. That is
+ * attribution, not comparison, and it stays. Each credit site is pinned to its count in
+ * both directions: a second mention beside the credit fails, and so does a credit that is
+ * reworded or removed, because the entry then no longer describes the file. The pin is also
+ * the check's positive control — a matcher that silently stopped working would find no
+ * credit and fail here instead of reporting a clean run.
+ */
+const CARD_NAME_ALLOWED = new Map([
+  [
+    '04302151e66830a3',
+    new Map([
+      ['NOTICE', 1],
+      ['README.md', 2],
+      ['docs/index.md', 2],
+      ['src/calendar-card-pro.ts', 1],
+    ]),
+  ],
+]);
+
+/**
+ * Wordings that measure this card against other cards without naming one.
+ *
+ * Written with `\s+` between their words so that they do not match their own source. A
+ * second Calendar Card Pro on the same page is the usual meaning of "another card" in this
+ * repository, which is why that phrase is not here.
+ */
+const CARD_COMPARISON_PATTERNS = [
+  /\b(?:comparable|competing|competitor(?:['’]?s)?|rival|popular)\s+(?:(?:ha|home\s+assistant|hacs|lovelace|dashboard|custom|calendar)\s+)?cards?\b/gi,
+  /\bother\s+(?:hacs|multi-file|custom|community|lovelace)\s+cards\b/gi,
+];
+
+/** A `custom:` card type other than this card's own, release or dev build. */
+const FOREIGN_CARD_TYPE = /\bcustom:(?!calendar-card-pro(?:-dev)?\b)[a-z0-9_]+(?:-[a-z0-9_]+)+/gi;
+
+/** A GitHub link, captured as owner and repository. */
+const GITHUB_REPO_LINK = /\b(?:github\.com|raw\.githubusercontent\.com)\/([\w.-]+)\/([\w.-]+)/gi;
+
+/**
+ * The key a card name is hashed under: lowercase, its words joined by single hyphens.
+ *
+ * @param text - A card name in any spelling
+ * @returns Its key
+ */
+function cardNameKey(text) {
+  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).join('-');
+}
+
+const cardNameDigests = new Map();
+
+/**
+ * The digest a key is listed under in `CARD_NAME_DIGESTS`, memoized because the same
+ * phrases recur across the whole tree.
+ *
+ * @param key - A key from `cardNameKey`
+ * @returns The first 16 hex digits of its SHA-256
+ */
+function cardNameDigest(key) {
+  let digest = cardNameDigests.get(key);
+  if (digest === undefined) {
+    digest = createHash('sha256').update(key).digest('hex').slice(0, 16);
+    cardNameDigests.set(key, digest);
+  }
+  return digest;
+}
+
+/**
+ * Every text file in the repository: tracked, or new and not ignored.
+ *
+ * Listed through git rather than by walking the tree, so build output, `node_modules` and
+ * local tooling that `.gitignore` excludes are never read. `package-lock.json` is generated
+ * by npm and holds nothing a person wrote, and binaries are recognized by a NUL byte.
+ *
+ * @returns Paths relative to the root, with forward slashes
+ */
+function repositoryTextFiles() {
+  let listing;
+  try {
+    listing = execFileSync(
+      'git',
+      ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+  } catch (cause) {
+    console.error(`Check 33 needs git to list the repository's files: ${cause.message}`);
+    process.exit(2);
+  }
+
+  return listing
+    .split('\0')
+    .filter((path) => path && path !== 'package-lock.json')
+    .filter((path) => existsSync(join(ROOT, path)) && statSync(join(ROOT, path)).isFile())
+    .filter((path) => !readFileSync(join(ROOT, path)).subarray(0, 8000).includes(0));
+}
+
+/**
+ * Flags any mention of a third-party card: by name, by `custom:` type, by a link to its
+ * repository, or by a wording that compares this card against others.
+ *
+ * @returns How many files were read
+ */
+function checkThirdPartyCards() {
+  const files = repositoryTextFiles();
+  // A git listing that came back short would make every rule below pass vacuously.
+  if (files.length < 100) {
+    console.error(`Check 33 found only ${files.length} text files. The git listing is stale.`);
+    process.exit(2);
+  }
+
+  const lineAt = (text, index) => text.slice(0, index).split('\n').length;
+  const allowedSeen = new Map();
+  const ADJACENT = /^[\s_-]+$/;
+
+  for (const path of files) {
+    const text = readFileSync(join(ROOT, path), 'utf8');
+    const lower = text.toLowerCase();
+
+    // Word boundaries, and whether each word runs straight on into the next one.
+    const starts = [];
+    const ends = [];
+    for (const word of lower.matchAll(/[a-z0-9]+/g)) {
+      starts.push(word.index);
+      ends.push(word.index + word[0].length);
+    }
+    const gaps = starts.map((_, i) => lower.slice(ends[i], starts[i + 1] ?? ends[i]));
+    const runsOn = gaps.map((gap, i) => i + 1 < starts.length && ADJACENT.test(gap));
+
+    const nameFound = (i, key, digest) => {
+      const line = lineAt(lower, starts[i]);
+      if (CARD_NAME_ALLOWED.get(digest)?.has(path)) {
+        const site = `${digest} ${path}`;
+        allowedSeen.set(site, [...(allowedSeen.get(site) ?? []), line]);
+        return;
+      }
+      error(
+        `${path}:${line} names a third-party card ("${key}"). The repository does not ` +
+          `name, link or compare against other cards; explain the design on its own terms.`,
+      );
+    };
+
+    for (let i = 0; i < starts.length; i++) {
+      let key = lower.slice(starts[i], ends[i]);
+      let slug = true;
+      for (let n = 1; ; n++) {
+        const digest = cardNameDigest(key);
+        if (CARD_NAME_DIGESTS.has(digest) || (slug && CARD_SLUG_DIGESTS.has(digest))) {
+          nameFound(i, key, digest);
+        }
+        if (n === CARD_NAME_MAX_WORDS || !runsOn[i + n - 1]) break;
+        slug &&= gaps[i + n - 1] === '-';
+        key += `-${lower.slice(starts[i + n], ends[i + n])}`;
+      }
+    }
+
+    for (const match of text.matchAll(FOREIGN_CARD_TYPE)) {
+      error(
+        `${path}:${lineAt(text, match.index)} uses the card type \`${match[0]}\`. Only this ` +
+          `card's own type may appear.`,
+      );
+    }
+
+    for (const match of text.matchAll(GITHUB_REPO_LINK)) {
+      const name = match[2].replace(/\.git$/i, '');
+      const repo = `${match[1]}/${name}`;
+      if (!/card/i.test(name) || repo.toLowerCase() === 'alexpfau/calendar-card-pro') continue;
+      error(
+        `${path}:${lineAt(text, match.index)} links to the card repository ${repo}. The ` +
+          `repository does not link to other cards.`,
+      );
+    }
+
+    for (const pattern of CARD_COMPARISON_PATTERNS) {
+      for (const match of text.matchAll(pattern)) {
+        error(
+          `${path}:${lineAt(text, match.index)} compares against other cards ` +
+            `("${match[0].replace(/\s+/g, ' ')}"). Explain the design on its own terms.`,
+        );
+      }
+    }
+  }
+
+  for (const [digest, sites] of CARD_NAME_ALLOWED) {
+    for (const [path, expected] of sites) {
+      const lines = allowedSeen.get(`${digest} ${path}`) ?? [];
+      if (lines.length !== expected) {
+        error(
+          `${path}: the design credit should name its card ${expected} time(s), found ` +
+            `${lines.length}${lines.length ? ` (line ${lines.join(', ')})` : ''}. Only the ` +
+            `credit may name it; if the credit itself changed, update CARD_NAME_ALLOWED.`,
+        );
+      }
+    }
+  }
+
+  return files.length;
+}
+
+/**
+ * `--digest "<name>"`: print the digest entry for a card name, for either digest set.
+ *
+ * @param name - The name, in any spelling
+ * @returns Process exit code
+ */
+function printCardNameDigest(name) {
+  const key = cardNameKey(name ?? '');
+  const words = key ? key.split('-').length : 0;
+  if (words === 0 || words > CARD_NAME_MAX_WORDS) {
+    console.error(
+      `Pass a name of 1 to ${CARD_NAME_MAX_WORDS} words; a longer one needs ` +
+        `CARD_NAME_MAX_WORDS raised first, or the scan never looks it up.`,
+    );
+    return 2;
+  }
+  console.log(`'${cardNameDigest(key)}',`);
+  return 0;
+}
+
 function main() {
+  const digestFlag = process.argv.indexOf('--digest');
+  if (digestFlag !== -1) process.exit(printCardNameDigest(process.argv[digestFlag + 1]));
+
   const defaults = readDefaults();
   const rows = readReferenceRows();
   const fields = readConfigFields();
@@ -3398,6 +3696,7 @@ function main() {
   const inertOptions = checkNoEffectLists(viewScope);
   const citations = checkCitations();
   const languages = checkLanguageCounts();
+  const thirdParty = checkThirdPartyCards();
 
   process.exit(
     report({
@@ -3422,6 +3721,7 @@ function main() {
       inertOptions,
       languages,
       readmeAnchors,
+      thirdParty,
       configVersion,
       version,
     }),

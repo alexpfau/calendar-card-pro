@@ -36,12 +36,10 @@ import {
  * long. That is not a rounding artifact — it is a whole slot, in a view whose entire
  * purpose is putting events at the right height.
  *
- * This is not hypothetical. A widely-used HA calendar card surveyed while this module
- * was designed (`Uko/multiday-calendar-card`) places events with the elapsed-ms form
- * and draws its now-line with the wall-clock form, so on a transition day its line and
- * its events sit an hour apart. Cited as evidence that the bug is reachable in real
- * code rather than as criticism — the reason it survives there is the reason this file
- * exists here: a suite pinned to a single non-transitioning zone cannot see it.
+ * Nothing stops one view from mixing the two. Place the events with the elapsed-ms form
+ * and draw the now-line with the wall-clock form, and on a transition day the line and
+ * the events sit an hour apart while every test stays green, because a suite pinned to a
+ * single non-transitioning zone cannot see the difference. That is why this file exists.
  *
  * Transition days are **discovered at run time** rather than hardcoded, because the
  * northern and southern zones transition in opposite months and no single date is a

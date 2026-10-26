@@ -813,6 +813,28 @@ Two things are deliberately **not** covered by this. `@author Alex Pfau` in
 are the repository's own address; both stay. The rule is about example _data_, not about
 the project's identity.
 
+🚨 **Never name, link to or measure this card against another card.** No third-party Home
+Assistant card appears anywhere in the repository — not in the docs, the release notes,
+code comments, tests, fixtures, scripts or this file. That is the maintainer's rule, and it
+holds even where a comparison would be the quickest way to make a point: explain a design
+on its own terms, by saying what a choice costs rather than who else made it. The release
+shapes described under _Release process_ are the worked example.
+
+Three things are outside the rule. Home Assistant's own cards, its Calendar panel and its
+frontend components are not third-party. Themes and plugins that are not cards are not
+covered — card-mod above all, which the theming docs depend on. And the design credit in
+`README.md`, `docs/index.md`, `NOTICE` and the header of `src/calendar-card-pro.ts` names
+the card the original design was built with; that is attribution, and it stays as written.
+
+`check:docs` enforces this as Check 33, over every file git tracks or would add. It rejects
+a listed card's name in any spelling, a `custom:` type other than this card's, a GitHub
+link to a repository named like a card, and a few wordings that rank this card against
+others. The names are kept as SHA-256 digests, so the gate does not itself name what it
+forbids; `node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one.
+Each credit site is pinned to its exact count, so a second mention beside the credit fails,
+and so does a credit that is reworded away. Pull request bodies and commit messages are
+outside every gate, so the rule applies there by hand.
+
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
 Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
@@ -1061,22 +1083,21 @@ source before repeating either direction. One practical consequence: replacing a
 HACS-installed `.js` by hand also needs its `.js.gz` deleted, or the browser keeps receiving
 the old file.
 
-**How other multi-file cards handle this, surveyed across ten popular ones.** The short
-answer is that almost none of them face it, because almost none code-split:
+**A HACS plugin release can take three shapes.** Most cards never have to decide what to
+attach, because most do not code-split:
 
-- **One bundled file** — mushroom, button-card, apexcharts-card, plotly-graph-card,
-  mini-graph-card, light-entity-card. A single asset, so the problem never arises. This is
-  the overwhelming majority, and it is worth remembering that splitting the editor out put
-  this card in a minority of two.
-- **Attach everything and absorb the cost** — advanced-camera-card ships **53** assets: the
-  card, a zip, and 51 hashed chunks (`editor-*.js`, `engine-frigate-*.js`, `lang-de-*.js`
-  …). Every HACS user downloads all 53. Its `hacs.json` is minimal. It simply does not
-  optimize this.
-- **Deliver through the repository tree and attach nothing** — Bubble-Card commits `dist/`
-  (66 files) and publishes releases with **zero** assets. `gather_files_to_download()`
-  appends assets then returns `if files:` — _conditionally_ — so a release with no assets
-  falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
-  file in it with no extension filter.
+- **One bundled file.** A single asset, so the problem never arises. This is what most
+  cards ship, and it is worth remembering that splitting the editor out made this card an
+  exception.
+- **Attach every chunk and absorb the cost.** A code-split build can attach the card, a
+  zip and every hashed chunk it emits — editors, engines, one file per language — and every
+  HACS user then downloads all of them, used or not. Nothing in `hacs.json` narrows that
+  (see below), so the cost is simply paid.
+- **Deliver through the repository tree and attach nothing.** Commit `dist/` and publish
+  releases with **zero** assets. `gather_files_to_download()` appends assets then returns
+  `if files:` — _conditionally_ — so a release with no assets falls through to the tree
+  path, which for a `plugin` walks `dist/` and downloads every file in it with no
+  extension filter.
 
 That third route was once weighed as the way to put `.gz` files in front of HACS users,
 since the tree path does not filter by extension. It is not needed for that: HACS writes its
@@ -1543,8 +1564,8 @@ Three things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
-  defaults into the user's YAML — the bug the nearest comparable card shipped twice, the
-  second time introduced by its own move to `ha-form`.
+  defaults into the user's YAML — the classic failure of an `ha-form` editor, and one that
+  moving an existing editor onto `ha-form` tends to introduce rather than remove.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and

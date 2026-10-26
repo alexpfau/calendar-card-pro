@@ -2347,8 +2347,9 @@ describe('the now line (#325)', () => {
   it('positions the line as a percentage, like the events', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 
-    // Same arithmetic as a block starting at the same instant — which is the point. The
-    // two disagreeing by an hour on a DST day is a live defect in another card.
+    // Same arithmetic as a block starting at the same instant — which is the point. A line
+    // placed one way and the blocks another sit an hour apart on a DST day; see
+    // `grid-geometry.dst.test.ts`.
     expect(container.querySelector<HTMLElement>('.grid-now-line')!.style.top).toMatch(/%$/);
   });
 
