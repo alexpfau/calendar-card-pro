@@ -2793,6 +2793,7 @@ describe('editor: the Card & Header panel', () => {
         'labels',
         'navigation',
         'view_switcher',
+        'reset',
         'refresh',
         'add_event',
         'legend',

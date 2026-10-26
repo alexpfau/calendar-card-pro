@@ -13,6 +13,7 @@
  * pinned here, and the layout it rests on was checked in Chromium and WebKit.
  */
 
+import { mdiCalendarFilter } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -686,6 +687,8 @@ describe('a legend too wide for one row', () => {
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-label')).toBe('My calendars');
     expect(button.getAttribute('title')).toBe('My calendars');
+    // A calendar with a funnel: it says what it filters, where a bare funnel did not.
+    expect(button.querySelector('path')!.getAttribute('d')).toBe(mdiCalendarFilter);
   });
 
   it('concludes nothing from a card that is not laid out', async () => {

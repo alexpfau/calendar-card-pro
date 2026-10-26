@@ -544,7 +544,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.labels': 'Text Labels',
   'toolbar.labels.helper':
     "Names the toolbar's buttons beside their icons wherever the card is wide enough: the " +
-    'layouts, refresh, add event and the button a folded legend becomes. Off keeps them ' +
+    'layouts, reset, refresh, add event and the button a folded legend becomes. Off keeps them ' +
     "icons, with their names as tooltips. The date navigation and the legend's chips look " +
     'the same either way.',
   'toolbar.navigation': 'Date Navigation',
@@ -557,6 +557,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Buttons in the toolbar for switching between List, Columns and Grid on the ' +
     'dashboard. Each device remembers its choice until this card is edited; the layout ' +
     'chosen above stays the one it opens in.',
+  'toolbar.reset': 'Reset Button',
+  'toolbar.reset.helper':
+    'A button in the toolbar that undoes what was changed on this device: the card goes back ' +
+    'to the days and the layout it opens with, shows every calendar again and collapses an ' +
+    'expanded view. Dimmed while there is nothing to undo.',
   'toolbar.refresh': 'Refresh Button',
   'toolbar.refresh.helper':
     'A button in the toolbar that loads the events again now, rather than at the next ' +

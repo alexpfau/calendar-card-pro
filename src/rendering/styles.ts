@@ -388,6 +388,17 @@ export const cardStyles = css`
     gap: 8px;
   }
 
+  /* The trailing group holds two groups: what the card shows (a folded legend, the layouts,
+     reset) and the commands on the events (refresh, add). Twice the gap stands between them,
+     so reset and refresh never read as one pair. A margin on the first command rather than a
+     wrapper around each group, so the group keeps one flat row of children for card-mod. The
+     folded legend's menu sits beside its button, so it counts as part of the first group. */
+  .toolbar-trailing
+    > :is(.legend-button, .legend-menu, .view-switcher, .reset-button)
+    + :is(.refresh-button, .add-event-button) {
+    margin-inline-start: 8px;
+  }
+
   /* The band the date navigation brings. It takes a row of its own under the title, which is
      what the full basis does in the wrapping header, or is the whole header without one. The
      dates lead and the trailing group keeps to the inline end; where the card is too narrow
@@ -716,6 +727,15 @@ export const cardStyles = css`
   .refresh-failed .toolbar-button-icon,
   .refresh-failed .loading-indicator-icon {
     fill: var(--error-color, #db4437);
+  }
+
+  /* Reset with nothing to undo: still there, so the bar keeps its shape, dimmed as a layout too
+     wide for the card is, and with no hover or press wash, since a press does nothing. Specific
+     enough to hold over the hover and press rules, as the refresh outcomes are. */
+  .toolbar-button.reset-button.unavailable {
+    background: var(--calendar-card-toolbar-fill);
+    opacity: 0.38;
+    cursor: default;
   }
 
   /* The folded legend carries a dot in the theme's primary color while it hides a calendar,

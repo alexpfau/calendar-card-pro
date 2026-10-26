@@ -4,7 +4,7 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * the two v5 controls on inside it, so `toolbar: { show: true }` alone gives both, labels
- * where they fit, and the date navigation, refresh and the legend off, because a control
+ * where they fit, and the date navigation, reset, refresh and the legend off, because a control
  * added after v5's first two must not appear in a toolbar someone already set up.
  */
 
@@ -21,6 +21,7 @@ const DEFAULTS = {
   navigation: false,
   addEvent: true,
   viewSwitcher: true,
+  reset: false,
   refresh: false,
   legend: false,
 };
@@ -33,6 +34,7 @@ describe('the toolbar configuration', () => {
       navigation: false,
       add_event: true,
       view_switcher: true,
+      reset: false,
       refresh: false,
       legend: false,
     });
@@ -57,6 +59,11 @@ describe('the toolbar configuration', () => {
       show: true,
       refresh: true,
       legend: true,
+    });
+    expect(resolveToolbar({ toolbar: { show: true, reset: true } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      reset: true,
     });
   });
 
@@ -83,6 +90,7 @@ describe('the toolbar configuration', () => {
         view_switcher: null,
         navigation: 'yes',
         labels: 0,
+        reset: 'yes',
         refresh: 'on',
         legend: 1,
       },
@@ -106,7 +114,16 @@ describe('the toolbar block the editor shows', () => {
 
     expect(block).toEqual(flipped);
     expect(Object.keys(block).sort()).toEqual(
-      ['add_event', 'labels', 'legend', 'navigation', 'refresh', 'show', 'view_switcher'].sort(),
+      [
+        'add_event',
+        'labels',
+        'legend',
+        'navigation',
+        'refresh',
+        'reset',
+        'show',
+        'view_switcher',
+      ].sort(),
     );
   });
 });

@@ -4076,6 +4076,7 @@ class CalendarCardPro extends LitElement {
       navigation: this._dateNavigation(),
       legend: this._legend(),
       viewSwitcher: this._viewSwitcher(),
+      reset: this._resetButton(),
       refresh: this._refreshButton(),
       addEvent: this._addEventButton(),
     };
@@ -4122,8 +4123,8 @@ class CalendarCardPro extends LitElement {
    * The card width from which the toolbar's controls carry labels, or null when they never do.
    *
    * The fixed thresholds each allow for one command beside the switcher and the dates, the add
-   * button they were measured with; every further one, refresh or the folded legend, needs
-   * `UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH` more. Null when there is nothing to label, the date
+   * button they were measured with; every further one, reset, refresh or the folded legend,
+   * needs `UI.TOOLBAR_EXTRA_LABEL_MIN_WIDTH` more. Null when there is nothing to label, the date
    * navigation carrying none, or a control has no words to show.
    *
    * @param controls - The controls this render draws
@@ -4131,11 +4132,12 @@ class CalendarCardPro extends LitElement {
    */
   private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
     const legendButton = controls.legend?.folded ? controls.legend : undefined;
-    const commands = [controls.addEvent, controls.refresh, legendButton].filter(
+    const commands = [controls.addEvent, controls.reset, controls.refresh, legendButton].filter(
       (control) => control !== undefined,
     ).length;
     if (commands === 0 && !controls.viewSwitcher) return null;
     if (controls.addEvent && controls.addEvent.label === undefined) return null;
+    if (controls.reset && controls.reset.label === undefined) return null;
     if (controls.refresh && controls.refresh.label === undefined) return null;
     if (legendButton && legendButton.name === undefined) return null;
 
@@ -4161,6 +4163,7 @@ class CalendarCardPro extends LitElement {
       this.effectiveLanguage,
       controls.addEvent?.label ?? '',
       controls.viewSwitcher ? 'views' : '',
+      controls.reset?.label ?? '',
       controls.refresh?.label ?? '',
       controls.legend?.folded ? (controls.legend.name ?? '') : '',
       // The range's reserved width, not its words: the widest label changes with the language
@@ -4231,6 +4234,7 @@ class CalendarCardPro extends LitElement {
       toolbar.navigation !== undefined ||
       toolbar.legend !== undefined ||
       toolbar.viewSwitcher !== undefined ||
+      toolbar.reset !== undefined ||
       toolbar.refresh !== undefined ||
       toolbar.addEvent !== undefined ||
       drawsEventTarget
@@ -4704,15 +4708,26 @@ class CalendarCardPro extends LitElement {
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
       ViewChoice.writeHiddenCalendars(this._configFingerprint, [...next]);
-      const change: Legend.LegendChange = {
-        fingerprint: this._configFingerprint,
-        hidden: [...next],
-        source: this,
-      };
-      window.dispatchEvent(new CustomEvent(Legend.LEGEND_CHANGED_EVENT, { detail: change }));
     }
+    this._announceHiddenCalendars([...next]);
     Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
     this.requestUpdate();
+  }
+
+  /**
+   * Tells every other card with this configuration which calendars it hides now. They share
+   * the remembered set, and take this one up at once (`_handleLegendChanged`).
+   *
+   * @param hidden - Entity ids of the calendars hidden now
+   */
+  private _announceHiddenCalendars(hidden: string[]): void {
+    if (this._configFingerprint === null) return;
+    const change: Legend.LegendChange = {
+      fingerprint: this._configFingerprint,
+      hidden,
+      source: this,
+    };
+    window.dispatchEvent(new CustomEvent(Legend.LEGEND_CHANGED_EVENT, { detail: change }));
   }
 
   /**
@@ -4934,6 +4949,117 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`Switched to ${view}, drawn as ${fit.view}/${fit.columns}`);
     this._effectiveView = fit.view;
     this._columnCount = fit.columns;
+    this.requestUpdate();
+  }
+
+  //-----------------------------------------------------------------------------
+  // RESET
+  //-----------------------------------------------------------------------------
+
+  /** Whether a tap or hold expands the card, the one way it can be expanded. */
+  private get _hasExpandAction(): boolean {
+    const tapAction: Types.ActionConfig | null | undefined = this.config.tap_action;
+    const holdAction: Types.ActionConfig | null | undefined = this.config.hold_action;
+    return tapAction?.action === 'expand' || holdAction?.action === 'expand';
+  }
+
+  /**
+   * Whether the configuration asks for the reset button, and the card has something it could
+   * ever undo: the date navigation, the view switcher, the legend or an `expand` action.
+   * Without any of them the button could only ever be dimmed, so it is not drawn.
+   *
+   * Decided by the configuration alone, never by what the card shows, so the button never
+   * comes and goes and never moves the controls after it.
+   */
+  private get _wantsReset(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.reset) return false;
+    return toolbar.navigation || toolbar.viewSwitcher || toolbar.legend || this._hasExpandAction;
+  }
+
+  /**
+   * Whether the card shows something its configuration does not, on this device: a page away
+   * from home, a layout picked with the switcher, a hidden calendar, or a compact card
+   * expanded. Never while it is being edited, when every control is inert: the page, the
+   * layout and the calendars show the configuration then, and an expansion is left as it is
+   * for when editing ends.
+   *
+   * The page is the one asked for, so a press answers at once while home loads. An expansion
+   * counts only where it shows: a card expanded as a list and switched to a layout without
+   * compact limits keeps the flag and draws nothing different, and a lit button with nothing
+   * to undo on screen would read as broken. A reset clears that flag too.
+   */
+  private get _differsFromConfiguration(): boolean {
+    if (this._isBeingEdited) return false;
+    return (
+      this._pageRequested !== null ||
+      this._viewChoice !== null ||
+      this._activeHiddenCalendars.size > 0 ||
+      (this.isExpanded && this.hasCompactModeLimits())
+    );
+  }
+
+  /**
+   * The reset button, when the configuration asks for it.
+   *
+   * Named by Home Assistant's own word, as refresh is. Dimmed while the card shows its
+   * configuration, which it always does while it is being edited.
+   *
+   * @returns Button description for the wrapper, or undefined for none
+   */
+  private _resetButton(): Toolbar.ResetButton | undefined {
+    if (!this._wantsReset) return undefined;
+
+    return {
+      label: this._haString('ui.common.reset'),
+      active: this._differsFromConfiguration,
+      onActivate: () => this._resetToConfiguration(),
+    };
+  }
+
+  /**
+   * Brings the card back to its configuration on this device: the days it opens with, `view`,
+   * every calendar shown and a compact card collapsed. Forgets the layout and the calendars
+   * remembered for this configuration, in one write.
+   *
+   * Every other card with this configuration shares that memory, and takes up the calendars
+   * shown at once, as after a legend press. Its layout stays until it is reset itself, reloaded
+   * or edited, since the switcher's choice is never announced.
+   *
+   * The view goes first: home's days follow the view on screen. Nothing is fetched for the view
+   * or the calendars; home is drawn from its cache, and fetched only where it is due or a
+   * calendar changed while the card was away.
+   */
+  private _resetToConfiguration(): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not resetting while the card is being edited');
+      return;
+    }
+    if (!this._wantsReset) return;
+
+    Logger.debug('Resetting to the configuration');
+    if (this._configFingerprint !== null) {
+      ViewChoice.forgetChoice(this._configFingerprint);
+    }
+
+    if (this._viewChoice !== null) {
+      this._viewChoice = null;
+      const fit = ViewConfig.resolveColumnFitIfPicked(
+        this.requestedView,
+        this.config,
+        this._measuredWidthPx,
+      );
+      this._effectiveView = fit.view;
+      this._columnCount = fit.columns;
+    }
+
+    if (this._hiddenCalendars.size > 0) {
+      this._hiddenCalendars = NO_HIDDEN_CALENDARS;
+      this._announceHiddenCalendars([]);
+    }
+
+    this.isExpanded = false;
+    this._goToPage(null);
     this.requestUpdate();
   }
 }

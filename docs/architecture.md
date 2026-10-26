@@ -182,7 +182,7 @@ result after every build.
 ## 🧰 Header Toolbar
 
 The card's own controls live in a toolbar between the title and the events: the date
-navigation, the calendar legend, the view switcher, refresh and the add-event button. The
+navigation, the calendar legend, the view switcher, reset, refresh and the add-event button. The
 layout rule is fixed, so a control still to come slots in without moving the ones already
 there. `renderHeaderToolbar`
 in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
@@ -192,7 +192,7 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   is the only reader, so a malformed value reads as that member's default. `show` defaults
   off; the v5 controls default on inside a shown bar, and a control added later defaults
   off, so a release never adds a control to a toolbar someone already set up: `navigation`,
-  `refresh` and `legend` are those. `labels` is not a control and defaults on, which is what the bar has
+  `reset`, `refresh` and `legend` are those. `labels` is not a control and defaults on, which is what the bar has
   always done. Every new control needs a `toolbar → key` row in the reference: `check:docs`
   reconciles the block's defaults against those rows in both directions.
 
@@ -202,12 +202,16 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   adds a Lit marker and a text node, and why no default snapshot moved.
 - **Groups by purpose, in a fixed order.** The leading group is the dates: previous, home
   and next on one track, then the range on screen, which opens a date picker. The trailing
-  group is the view switch, then the commands: refresh, then add, which is always last.
-  Refresh sits with add rather than before the switch, because it is a command on the data,
-  not a change of layout. The calendar legend is a filter, and gets a lane of its own below
-  the bar: one row of chips, which clips rather than scrolls. Where the chips do not fit, the
-  legend folds into a button that leads the trailing group, ahead of the switch, and the lane
-  goes.
+  group has two parts. First what the card shows: the view switch, then reset, which undoes
+  that and the rest of the device's choices and so closes the part. Then the commands on the
+  events: refresh, then add, which is always last. Refresh sits with add rather than before
+  the switch, because it is a command on the data, not a change of layout. Twice the usual gap
+  separates the two parts, so reset's U-turn and refresh's circular arrow never read as one
+  pair. It is a margin on the first command in `styles.ts`, not a wrapper, so the trailing
+  group stays one flat row of children for card-mod. The calendar legend is a filter, and gets
+  a lane of its own below the bar: one row of chips, which clips rather than scrolls. Where
+  the chips do not fit, the legend folds into a button that leads the trailing group, ahead of
+  the switch, and the lane goes.
 - **Trailing actions alone share the title's row.** With a title, a pending templated
   title included, they sit at the inline end of the title's row inside
   `.header-container`, which becomes a flex row (`.has-toolbar`) so a long title wraps
@@ -377,6 +381,21 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be
   able to force. The button is inert while editing like every toolbar control; the action runs
   wherever the card's tap and hold actions do.
+- **Reset undoes this device's choices, and is lit only while there is one.** `_differsFromConfiguration`
+  is the page asked for (`_pageRequested`), the switcher's choice (`_viewChoice`), the hidden
+  calendars, and `isExpanded` only where `hasCompactModeLimits` makes the expansion show; a
+  leftover flag in a layout without compact limits would light a button with nothing visible to
+  undo. Never while editing, when every control is inert and the page, the view and the
+  calendars already show the configuration; an expansion is left as it is. A press
+  (`_resetToConfiguration`) forgets the configuration's entry in one write (`forgetChoice`),
+  refits `view` the way a pick of it is fitted, announces the shown calendars on `window` as a
+  legend press does, collapses the card, then goes home through `_goToPage`. The view goes first,
+  because home's days follow the view on screen. Whether the button is drawn depends on the
+  configuration alone: `reset` with navigation, the switcher, the legend or an `expand` action,
+  so it never appears or disappears with the state it reports, and it never moves the controls
+  after it. Its name is `ui.common.reset`, which Home Assistant has carried only since 2026.2;
+  older, the label rule treats it as any control without a name and the whole bar stays icons,
+  which the docs state. It does nothing on its own clock; there is no idle timer.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
   then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,
@@ -568,7 +587,7 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 
 - **toolbar.ts**:
   - Renders the header toolbar and its controls — the date navigation, the view switcher,
-    refresh and the add button — following the rule in _Header Toolbar_
+    reset, refresh and the add button — following the rule in _Header Toolbar_
 
 - **legend.ts**:
   - Renders the calendar legend's chips, and the button and menu they fold into, and runs

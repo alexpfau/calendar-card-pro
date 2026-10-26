@@ -7,6 +7,7 @@
  * pressed it. One `localStorage` entry holds every card's choice, keyed by a fingerprint of
  * that card's configuration. A changed configuration has a different fingerprint, which is
  * what resets every device to the configured view, and to every calendar shown, after an edit.
+ * The toolbar's reset forgets the choice on the one device where it is pressed.
  *
  * Storage is optional everywhere here. A browser that refuses it — private mode, a full
  * quota, a policy — leaves the choice in memory for as long as the page lives, and nothing
@@ -299,4 +300,21 @@ export function writeHiddenCalendars(
   now: number = Date.now(),
 ): void {
   updateChoice(fingerprint, { hidden: hiddenIds(hidden) }, storage, now);
+}
+
+/**
+ * Forgets everything this device chose for a configuration, the view and the hidden calendars
+ * together, in one write. What the toolbar's reset does to storage.
+ *
+ * @param fingerprint - From {@link configFingerprint}
+ * @param storage - Where choices are kept
+ */
+export function forgetChoice(
+  fingerprint: string,
+  storage: ChoiceStorage | null = deviceStorage(),
+): void {
+  const choices = readAll(storage);
+  if (!Object.prototype.hasOwnProperty.call(choices, fingerprint)) return;
+  delete choices[fingerprint];
+  writeAll(storage, choices);
 }

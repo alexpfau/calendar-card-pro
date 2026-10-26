@@ -14,7 +14,7 @@
  * resize, the card hiding or folding open again, closes it through one path.
  */
 
-import { mdiFilterVariant } from '@mdi/js';
+import { mdiCalendarFilter } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
@@ -441,7 +441,7 @@ export function renderLegendButton(legend: CalendarLegend, labeled: boolean): Te
       @click=${onClick}
     >
       <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d=${mdiFilterVariant}></path>
+        <path d=${mdiCalendarFilter}></path>
       </svg>
       ${withLabel ? html`<span class="toolbar-button-label">${legend.name}</span>` : nothing}
     </button>

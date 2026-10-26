@@ -16,6 +16,7 @@ import {
   VIEW_CHOICE_STORAGE_KEY,
   canonicalJson,
   configFingerprint,
+  forgetChoice,
   readHiddenCalendars,
   readViewChoice,
   writeHiddenCalendars,
@@ -239,6 +240,66 @@ describe('the calendars the legend hides', () => {
       expect(() => writeHiddenCalendars('a', ['calendar.ben'], storage)).not.toThrow();
       expect(() => readHiddenCalendars('a', storage)).not.toThrow();
       expect(() => writeHiddenCalendars('a', [], storage)).not.toThrow();
+    },
+  );
+});
+
+describe('forgetting a choice', () => {
+  it('drops both halves of one configuration in one write, and keeps every other', () => {
+    const storage = memoryStorage();
+    writeViewChoice('a', 'grid', storage, 1);
+    writeHiddenCalendars('a', ['calendar.ben'], storage, 2);
+    writeViewChoice('b', 'column', storage, 3);
+    const writes: string[] = [];
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (key, value) => {
+      writes.push(key);
+      setItem(key, value);
+    };
+
+    forgetChoice('a', storage);
+
+    expect(writes).toEqual([VIEW_CHOICE_STORAGE_KEY]);
+    expect(readViewChoice('a', storage)).toBeUndefined();
+    expect(readHiddenCalendars('a', storage)).toEqual([]);
+    expect(readViewChoice('b', storage)).toBe('column');
+  });
+
+  it('removes the entry once nothing is left in it', () => {
+    const storage = memoryStorage();
+    writeHiddenCalendars('a', ['calendar.ben'], storage);
+
+    forgetChoice('a', storage);
+
+    expect(storage.items.has(VIEW_CHOICE_STORAGE_KEY)).toBe(false);
+  });
+
+  it('writes nothing for a configuration with no choice', () => {
+    const storage = memoryStorage();
+    writeViewChoice('b', 'column', storage);
+    const before = storage.items.get(VIEW_CHOICE_STORAGE_KEY);
+    // Counted rather than made to throw: a failing write is swallowed by design.
+    const calls: string[] = [];
+    storage.setItem = (key) => void calls.push(`set ${key}`);
+    storage.removeItem = (key) => void calls.push(`remove ${key}`);
+
+    forgetChoice('a', storage);
+    // A name every plain object answers to, which is not a choice.
+    forgetChoice('constructor', storage);
+
+    expect(calls).toEqual([]);
+    expect(storage.items.get(VIEW_CHOICE_STORAGE_KEY)).toBe(before);
+  });
+
+  it.each(['getItem', 'setItem', 'removeItem'] as const)(
+    'survives storage that refuses %s',
+    (call) => {
+      const storage = memoryStorage();
+      writeViewChoice('a', 'grid', storage);
+      const refusing = memoryStorage({ [call]: true });
+      refusing.items.set(VIEW_CHOICE_STORAGE_KEY, storage.items.get(VIEW_CHOICE_STORAGE_KEY)!);
+
+      expect(() => forgetChoice('a', refusing)).not.toThrow();
     },
   );
 });
