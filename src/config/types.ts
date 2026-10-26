@@ -820,6 +820,13 @@ export interface CalendarEventData {
   /** Original start of a split List/Column occurrence, preserving its anniversary year. */
   _sourceStart?: CalendarEventData['start'];
   /**
+   * Original end of a split List/Column occurrence, the partner of `_sourceStart`.
+   *
+   * A day of a timed event split across several measures its progress bar over the whole
+   * event, so each segment has to know where the event ends as well as where it began.
+   */
+  _sourceEnd?: CalendarEventData['end'];
+  /**
    * Set on grid-owned timed segments that keep the original event's start time.
    *
    * Grid view splits timed multi-day events into per-day timed blocks instead of using the

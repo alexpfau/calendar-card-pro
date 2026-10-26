@@ -150,10 +150,11 @@ describe('event times follow the local zone, not UTC', () => {
     it('treats an event across local midnight as spanning two days', () => {
       const formatted = formatEventTime(timedEvent(localStart, localEnd), config, 'en');
 
-      // `until` is the multi-day marker and the single-day branch cannot emit it:
-      // that branch produces a bare `start - end` and nothing else. Comparing UTC days
-      // would take it and print `23:30 - 0:30`.
-      expect(formatted).toContain('until');
+      // Naming the end day is what the multi-day branch does and the single-day branch
+      // cannot: that branch produces a bare `start - end` and nothing else. The event starts
+      // on FROZEN_NOW's day, so the end reads "ends tomorrow". Comparing UTC days would take
+      // the single-day branch and print `23:30 - 0:30`.
+      expect(formatted).toContain('ends tomorrow');
       expect(formatted).toContain(wallClock(localStart).time);
       expect(formatted).not.toBe(`${wallClock(localStart).time} - ${wallClock(localEnd).time}`);
     });

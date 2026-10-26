@@ -191,6 +191,8 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - **An event with a missing or backwards end** - A timed event that ended before it started read `12:00 - 11:00`, and one that arrived with no end vanished with nothing on screen or in the log. Both now show at their start time, the way a reminder does. An all-day event whose end is not after its start is no longer shown in list view, which already left it out of column view
 - **Calendar pictures had no text alternative** - A screen reader met an unnamed image in front of the title. A person's picture (`label: person.anna`) now carries the person's name from Home Assistant, and any other picture is marked as decoration, like icon and emoji labels
 - **Language changes waited for another update** - Changing the card language or Home Assistant's language now updates the rendered dates and event text in the first repaint
+- **A timed event ending tomorrow read "until ends tomorrow"** - Left unsplit, an event from 22:30 to 0:30 the next day read "22:30 until ends tomorrow at 0:30", and the same in other languages ("22:30 bis endet morgen um 0:30"). It now reads "22:30, ends tomorrow at 0:30", the way an all-day event reads "All day, ends tomorrow"
+- **A split event's progress bar started again at midnight and skipped the days between** - With `split_multiday_events` on, the first and last day of a running timed event each measured their own part of the day, so the bar emptied at midnight, and the days in between, shown as all-day, had no bar at all. Today's row now carries the bar on every day of the event and fills it over the whole event
 
 ### Loading & Refreshing
 

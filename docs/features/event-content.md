@@ -849,4 +849,6 @@ column:
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.
 
+An event running over several days fills its bar over the whole event. Split across days by [`split_multiday_events`](/features/multi-day-events), it draws the bar on today's row only, including a middle day shown as all-day, so the bar keeps growing from day to day.
+
 Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

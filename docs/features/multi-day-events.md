@@ -33,6 +33,10 @@ This feature is especially useful for:
 
 Because each row stands for a day rather than for the event as a whole, a [countdown](/features/event-content#countdown-display) on a split row counts to that row's own start. Tomorrow's row reads "tomorrow," later rows use date-based relative wording, and a timed row starting later today uses clock units. A holiday starting tomorrow therefore reads "tomorrow," "in 2 days," "in 3 days," and so on, whether or not the original event had a start time. Distant rows keep natural phrases such as "in a month" or "in a year." Rows already under way have no countdown.
 
+A [progress bar](/features/event-content#progress-bar-display) works the other way round: it measures the event, not the row. While the event runs, today's row carries the bar, the middle days included, and fills it over the whole event, so it keeps growing from one day's row to the next instead of starting again at midnight.
+
+Left unsplit, a timed event shows its whole span on its first day: an event from 22:30 to 0:30 the next day reads "22:30, ends tomorrow at 0:30", and one running on to Friday "9:00 until Friday, Oct 23 at 17:00".
+
 The option can be applied globally to all calendars or controlled separately for each calendar entity.
 
 This is the `split_multiday_events` option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

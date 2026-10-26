@@ -1428,6 +1428,7 @@ export function groupEventsByDay(
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
         _sourceStart: event._sourceStart,
+        _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
@@ -1861,6 +1862,7 @@ function formatAllDayDate(date: Date): string {
 function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEventData[] {
   const segments: Types.CalendarEventData[] = [];
   const sourceStart = event._sourceStart ?? event.start;
+  const sourceEnd = event._sourceEnd ?? event.end;
 
   if (event.start.date && event.end.date) {
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
@@ -1880,6 +1882,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         end: { date: nextDateStr },
         _isMultiDaySegment: true,
         _sourceStart: sourceStart,
+        _sourceEnd: sourceEnd,
       };
 
       segments.push(segment);
@@ -1902,6 +1905,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
         _sourceStart: sourceStart,
+        _sourceEnd: sourceEnd,
         _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
@@ -1929,6 +1933,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
           _sourceStart: sourceStart,
+          _sourceEnd: sourceEnd,
           _splitFromTimedEvent: true,
         };
 
@@ -1942,6 +1947,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           end: { dateTime: endDateTime.toISOString() },
           _isMultiDaySegment: true,
           _sourceStart: sourceStart,
+          _sourceEnd: sourceEnd,
           _splitFromTimedEvent: true,
         };
         segments.push(lastDaySegment);
@@ -2467,17 +2473,68 @@ export function nextEventBoundary(
 }
 
 /**
+ * The stretch of time one rendered row stands for, or `null` when it stands for none.
+ *
+ * Usually the event's own start and end. A middle day of a timed event split across
+ * several is the exception: splitting rewrites it as all-day for the day it occupies, so
+ * its slice is that local day.
+ */
+function progressSlice(event: Types.CalendarEventData): [Date, Date] | null {
+  if (event._isEmptyDay) return null;
+  if (event.start.dateTime && event.end.dateTime) {
+    return [new Date(event.start.dateTime), new Date(event.end.dateTime)];
+  }
+  if (event._splitFromTimedEvent && event.start.date && event.end.date) {
+    return [
+      FormatUtils.parseAllDayDate(event.start.date),
+      FormatUtils.parseAllDayDate(event.end.date),
+    ];
+  }
+  return null;
+}
+
+/**
+ * The whole event a row is one day of, when it is a day of a timed event.
+ *
+ * List and column stamp a split segment with its source start and end; grid keeps its own
+ * provenance on `_gridSource`. Anything else, an all-day source included, has no wider span
+ * than the row itself.
+ */
+function progressSource(event: Types.CalendarEventData): [Date, Date] | null {
+  const source =
+    event._gridSource ??
+    (event._splitFromTimedEvent ? { start: event._sourceStart, end: event._sourceEnd } : null);
+  const start = source?.start?.dateTime;
+  const end = source?.end?.dateTime;
+  return start && end ? [new Date(start), new Date(end)] : null;
+}
+
+/**
  * Calculate progress percentage for a running event
+ *
+ * A row shows progress while the part of the event it stands for is under way, and fills
+ * over the whole event. So an event split across days draws one bar, on today's row, that
+ * only ever grows: the middle day of a three-day event is as far along as the event is,
+ * not 0% at midnight, and it shows a bar at all, which it did not while it read as all-day.
+ * Rows for the other days of a running event draw none, as before.
+ *
+ * Deliberately not `isEventCurrentlyRunning`, which also decides the "Now" label: a middle
+ * day still reads "All day", and an all-day row is never marked "Now".
  *
  * @param event Calendar event to calculate progress for
  * @returns Progress percentage (0-100) or null if event is not running
  */
 export function calculateEventProgress(event: Types.CalendarEventData): number | null {
-  if (!isEventCurrentlyRunning(event)) return null;
+  const slice = progressSlice(event);
+  if (!slice) return null;
 
   const now = new Date();
-  const startDateTime = new Date(event.start.dateTime!);
-  const endDateTime = new Date(event.end.dateTime!);
+  // Written positively: an unparseable date compares false both ways, and must not pass.
+  if (!(now >= slice[0] && now < slice[1])) return null;
+
+  const source = progressSource(event);
+  const [startDateTime, endDateTime] =
+    source && source[1].getTime() > source[0].getTime() ? source : slice;
 
   const totalDuration = endDateTime.getTime() - startDateTime.getTime();
   const elapsedTime = now.getTime() - startDateTime.getTime();

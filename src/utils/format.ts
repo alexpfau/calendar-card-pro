@@ -1025,6 +1025,16 @@ function formatMultiDayTime(
 
   if (today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
+    // "Ends tomorrow at 0:30" is a sentence of its own, so joining it after `multiDay`
+    // ("until") read "22:30 until ends tomorrow at 0:30". It takes a comma instead, the way
+    // the all-day label does ("All day, ends tomorrow"), which needs no new string in any
+    // language. A later end keeps `multiDay`, since a date reads naturally after it.
+    if (
+      endDate.toDateString() === today.toDateString() ||
+      endDate.toDateString() === tomorrow.toDateString()
+    ) {
+      return `${startTimeStr}, ${endPart}`;
+    }
     return `${startTimeStr} ${translations.multiDay} ${endPart}`;
   } else {
     if (
