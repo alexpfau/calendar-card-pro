@@ -718,9 +718,18 @@ Anything the block does not mention keeps its top-level value, except for the th
 options listed below. In the visual editor, choose the Grid workspace to edit these
 values directly without changing Card Displays.
 
-Options that decide which events the card loads, such as `days_to_show` and `start_date`,
-are card-wide and ignored inside `time_grid:`; see
+Options that decide which events the card loads, such as `start_date` and `entities`, are
+card-wide and ignored inside `time_grid:`; see
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+`days_to_show` is the exception, so a grid can show one week while the list shows two:
+
+```yaml
+days_to_show: 14
+time_grid:
+  days_to_show: 7
+```
+
+See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 
 ### A Full Week Without Dimming
 

@@ -190,6 +190,7 @@ toolbar:
 
 The arrows move by as many days as the card shows, a week here. Columns and Grid draw fewer
 days on a narrow card, and the arrows then move by the days drawn, so no day is ever skipped.
+A layout with its own `days_to_show` pages by its own count.
 The button between them returns to the days the card opens with, the window its
 [`start_date`](/features/start-date-offset) sets. It is a calendar icon, named "Today" in its
 tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
@@ -214,7 +215,8 @@ A few things work differently away from the days the card opens with:
 
 Where you are is never saved. A reload, a change to the card's configuration and a dashboard
 entering edit mode all bring the card back to its own days, and a page stays on its dates at
-midnight while those move on. Switching layouts keeps the page, and loads nothing. Each page's
+midnight while those move on. Switching layouts keeps the page's first day, shows the new
+layout's own number of days from it, and loads nothing. Each page's
 events are fetched the first time it is shown and kept in memory while the dashboard is open,
 the 16 most recent pages, never in the browser's storage. Paging back over a recent page is
 instant and leaves nothing behind; an older one is fetched again.
@@ -239,9 +241,12 @@ with identical configurations share one choice. A browser keeps at most 50 choic
 the oldest first, and a browser that refuses storage keeps the choice only while the page
 stays open.
 
-Every layout draws from the same dates. `days_to_show` and `start_date` are shared by all three,
-so a switch changes how the days are arranged rather than which dates they span, and the card
-does not reload its events to switch. List draws every day; Columns and Grid draw as many as
+Every layout starts on the same date, and the card does not reload its events to switch.
+`start_date` is shared by all three. `days_to_show` is too, unless a layout sets its own in
+its block — say 14 days in List and 7 in Grid. The card then loads the longest of them once
+and each layout draws the first of those days; see
+[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+List draws every one of its days; Columns and Grid draw as many as
 fit the card's width, as close to today as the range allows, or from the first day of a page
 the date navigation has moved to. Options set for one layout in its own `list:`,
 `column:` or `time_grid:` block come with it.

@@ -1104,9 +1104,12 @@ have no shared meaning and are not offered in All Layouts. Legacy List-only root
 remain supported as described below.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
-them: the ones that decide which events are loaded, such as `entities` and `days_to_show`,
+them: the ones that decide which events are loaded, such as `entities` and `start_date`,
 and `toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete`. See
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+`days_to_show` is the exception: it decides what is loaded, and each layout can still have
+its own — see
+[Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
 ::: tip Older Configurations Keep Working
 Before v5 there was no `list:` block, so list options were written at the top level. They
@@ -1121,6 +1124,41 @@ to edit shared values or a named layout to edit only its block. Explicit shared 
 whose defaults differ by layout remain in saved YAML even when they match the card default.
 Switching the displayed layout to Grid in the editor can copy those choices into
 `time_grid:` to preserve them; this is an editor action, not different YAML precedence.
+
+### Showing a Different Number of Days in Each Layout
+
+`days_to_show` can be set in each layout's block, so a family card can look two weeks ahead
+as a list and show this week on the grid:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.ben
+start_date: start_of_week
+days_to_show: 14 # List, and Columns, which sets none of its own
+time_grid:
+  days_to_show: 7 # Grid shows this week only
+toolbar:
+  show: true
+  view_switcher: true
+```
+
+Every layout starts on the same day, because `start_date` stays shared. The card loads the
+events for the longest count among the layouts it can show, once, and each layout draws the
+first of those days, so switching layouts never loads anything. With the view switcher that
+means every layout. Without it, it means the layout set in `view`, plus List when Columns or
+Grid falls back to it on a narrow card. That fallback draws List's own count, so a Columns
+card set to 5 days in `column:` shows the top-level `days_to_show` when it turns into a list
+on a phone. Set the top-level value as well if both should match.
+
+The rest of the card follows the layout on screen. The
+[date navigation](/features/layout-appearance#paging-through-dates) pages by that layout's
+days, and switching layouts while paged keeps the first day and shows the new layout's count
+from it. Columns and Grid shed days on a narrow card from their own count, and Columns'
+`min_days_to_show` defaults to its own count. `hide_when_empty` hides the card only when none
+of the layouts it can show has an event, so a week with nothing on the grid does not hide a
+card whose list has something next week.
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
