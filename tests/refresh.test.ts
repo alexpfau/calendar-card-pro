@@ -513,6 +513,9 @@ describe('what a refresh someone asked for shows', () => {
     expect(corner(card)!.querySelector('.spinner')).toBeNull();
     expect(corner(card)!.classList).toContain('refresh-done');
     expect(iconOf(corner(card))).toBe(mdiCheck);
+    // A picture only: a live region holding nothing but an icon would announce nothing.
+    expect(corner(card)!.getAttribute('aria-hidden')).toBe('true');
+    expect(corner(card)!.hasAttribute('role')).toBe(false);
 
     await advance(card, CONFIRMATION);
     expect(corner(card)).toBeNull();
@@ -542,6 +545,87 @@ describe('what a refresh someone asked for shows', () => {
     await advance(card, TURN);
     expect(refreshButton(card)!.classList).toContain('refresh-done');
     expect(corner(card)).toBeNull();
+  });
+
+  it('waits out a load that replaced it, and shows how that one went', async () => {
+    // The last load failed one calendar, so an outcome read before any load answered this
+    // press would be an alert.
+    failOneCalendar();
+    const card = await mount();
+    expect(root(card).querySelector('.fetch-error-text')!.textContent).toContain('calendar.ben');
+    holdAnswers();
+
+    refreshButton(card)!.click();
+    await settle(card);
+    // A calendar written to elsewhere: its refresh does not join the press's request, and
+    // replaces it.
+    void (card as unknown as { refreshEvents(after: number): Promise<void> }).refreshEvents(
+      EventUtils.advanceWriteGeneration(),
+    );
+    await settle(card);
+    expect(held.length).toBe(4);
+
+    // The press's own requests answer; nothing they carry reaches the card.
+    held.splice(0, 2).forEach((release) => release());
+    await advance(card, TURN * 2);
+    expect(card.isLoading).toBe(true);
+    expect(refreshButton(card)!.classList).toContain('busy');
+
+    held.splice(0).forEach((release) => release());
+    await settle(card);
+    await advance(card, 0);
+    expect(refreshButton(card)!.classList).toContain('refresh-done');
+  });
+
+  it('ignores a press during a load the card started itself, by button or action', async () => {
+    const card = await mount({ tap_action: { action: 'refresh' } });
+    holdAnswers();
+    void (card as unknown as { refreshEvents(): Promise<void> }).refreshEvents();
+    await settle(card);
+    const during = callApi.mock.calls.length;
+
+    refreshButton(card)!.click();
+    card.handleAction(card.config.tap_action);
+    await settle(card);
+
+    expect(callApi.mock.calls.length).toBe(during);
+    held.forEach((release) => release());
+    await settle(card);
+    await advance(card, TURN);
+    expect(refreshButton(card)!.className).not.toMatch(/refresh-done|refresh-failed/);
+  });
+
+  it('ignores a press before the card has loaded anything', async () => {
+    // Without Home Assistant there is nothing to load yet, and nothing is loading.
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig(buildConfig(BASE));
+    document.body.appendChild(card);
+    await settle(card);
+    expect(card.isLoading).toBe(false);
+
+    refreshButton(card)!.click();
+    await settle(card);
+    expect(refreshButton(card)!.classList).not.toContain('busy');
+    await advance(card, TURN);
+    expect(refreshButton(card)!.className).not.toMatch(/busy|refresh-done|refresh-failed/);
+  });
+
+  it('is over when the card leaves the page mid-load, so its answer shows nothing', async () => {
+    const card = await mount();
+    holdAnswers();
+    refreshButton(card)!.click();
+    await settle(card);
+
+    card.remove();
+    document.body.appendChild(card);
+    await settle(card);
+    held.splice(0).forEach((release) => release());
+    await settle(card);
+
+    for (let step = 0; step < 3; step += 1) {
+      await advance(card, TURN);
+      expect(refreshButton(card)!.className).not.toMatch(/busy|refresh-done|refresh-failed/);
+    }
   });
 
   it('is over when the card leaves the page, so it comes back ready', async () => {

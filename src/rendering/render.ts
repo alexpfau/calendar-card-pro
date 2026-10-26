@@ -57,14 +57,17 @@ export function drawsEvent(
  * button: the button's check, or its alert where a calendar could not be loaded, in place of
  * the spinner that turned before it.
  *
+ * A picture only, hidden from assistive technology: as a live region with nothing in it but
+ * an icon it would promise an announcement it never makes. A calendar that failed is named
+ * in words by the notice at the card's foot.
+ *
  * @param outcome How the refresh ended
  * @returns The corner indicator
  */
 function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
   return html`<div
     class=${`loading-indicator ${Toolbar.REFRESH_PHASE_CLASS[outcome]}`}
-    role="status"
-    aria-live="polite"
+    aria-hidden="true"
   >
     <svg class="loading-indicator-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d=${Toolbar.REFRESH_PHASE_ICON[outcome]}></path>

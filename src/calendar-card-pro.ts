@@ -737,6 +737,12 @@ class CalendarCardPro extends LitElement {
   /** The timer that moves `_refreshPhase` on to its next step. */
   private _refreshPhaseTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /**
+   * A refresh someone asked for whose load another replaced before it answered, waiting for
+   * that load to end before it shows how it went (`_requestRefresh`).
+   */
+  private _refreshAwaitsLoad: { ticket: number; startedAt: number } | null = null;
+
   /** `events` without the hidden calendars', and what it was filtered from. */
   private _shownEventsCache: {
     events: Types.CalendarEventData[];
@@ -2370,6 +2376,7 @@ class CalendarCardPro extends LitElement {
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
     this._syncMidnightTimer();
+    this._syncReplacedRefresh();
     this._syncNowBoundaryTimer();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
     // draws re-measures neither, and neither does the now line's repaint. A resize reaches
@@ -4434,6 +4441,10 @@ class CalendarCardPro extends LitElement {
    * without the minimum a press would show nothing at all. A load the card starts by itself
    * shows only while it lasts, with nothing after.
    *
+   * The outcome is the one on screen. Where another load replaced this one before it answered
+   * (a page turned, the card was edited, a calendar was written to), this one commits nothing,
+   * so the sequence keeps turning until the card is done loading, and reads that load's.
+   *
    * Does nothing until all of that is over, nor while any load is under way, so a second
    * press never starts a second request beside the first, nor before the card's first load
    * has drawn anything. The guard is here rather than in `refreshEvents`, which a calendar
@@ -4452,22 +4463,49 @@ class CalendarCardPro extends LitElement {
     const ticket = ++this._refreshTicket;
     const startedAt = Date.now();
     this._setRefreshPhase('turning');
-    void this.refreshEvents()
+    const load = this.refreshEvents();
+    // `updateEvents` takes its own ticket before it first awaits, so this is that ticket.
+    const generation = this._eventRequestGeneration;
+    void load
       .then(
-        () => this._hasFetchError,
+        () => false,
         () => true,
       )
-      .then((failed) => {
+      .then((rejected) => {
         if (ticket !== this._refreshTicket) return;
-        const turnLeft = Math.max(0, Constants.TIMING.REFRESH_MIN_TURN - (Date.now() - startedAt));
-        this._refreshPhaseTimer = setTimeout(() => {
-          this._setRefreshPhase(failed ? 'failed' : 'done');
-          this._refreshPhaseTimer = setTimeout(
-            () => this._settleRefreshPhase(),
-            Constants.TIMING.REFRESH_CONFIRMATION,
-          );
-        }, turnLeft);
+        if (generation !== this._eventRequestGeneration && this.isLoading) {
+          this._refreshAwaitsLoad = { ticket, startedAt };
+          return;
+        }
+        this._showRefreshOutcome(startedAt, rejected || this._hasFetchError);
       });
+  }
+
+  /**
+   * Show how a refresh someone asked for ended, once it has turned for its minimum, and then
+   * end it.
+   *
+   * @param startedAt - When it was asked for
+   * @param failed - Whether a calendar could not be loaded
+   */
+  private _showRefreshOutcome(startedAt: number, failed: boolean): void {
+    const turnLeft = Math.max(0, Constants.TIMING.REFRESH_MIN_TURN - (Date.now() - startedAt));
+    this._refreshPhaseTimer = setTimeout(() => {
+      this._setRefreshPhase(failed ? 'failed' : 'done');
+      this._refreshPhaseTimer = setTimeout(
+        () => this._settleRefreshPhase(),
+        Constants.TIMING.REFRESH_CONFIRMATION,
+      );
+    }, turnLeft);
+  }
+
+  /** Show how a refresh ended whose load was replaced, once the card is done loading. */
+  private _syncReplacedRefresh(): void {
+    const awaiting = this._refreshAwaitsLoad;
+    if (!awaiting || this.isLoading) return;
+    this._refreshAwaitsLoad = null;
+    if (awaiting.ticket !== this._refreshTicket) return;
+    this._showRefreshOutcome(awaiting.startedAt, this._hasFetchError);
   }
 
   /**
@@ -4486,6 +4524,7 @@ class CalendarCardPro extends LitElement {
    */
   private _settleRefreshPhase(): void {
     this._refreshTicket++;
+    this._refreshAwaitsLoad = null;
     clearTimeout(this._refreshPhaseTimer);
     this._refreshPhaseTimer = undefined;
     if (this._refreshPhase !== 'idle') this._setRefreshPhase('idle');

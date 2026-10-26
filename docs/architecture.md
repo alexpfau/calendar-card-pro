@@ -373,7 +373,9 @@ in `rendering/toolbar.ts` draws it, and `renderMainCardStructure` places it.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
   then `done` or `failed` (read from `_hasFetchError`) for `REFRESH_CONFIRMATION`, then `idle`,
-  and ignores every request until then. The button draws the phase, or the corner indicator
+  and ignores every request until then. Where another load replaced the requested one before
+  it answered, the outcome waits for `isLoading` to drop and reads that load's, since the
+  requested one committed nothing. The button draws the phase, or the corner indicator
   where there is no button. A load the card starts itself never enters it: the button follows
   `isLoading` alone and shows nothing after. A ticket bumped on disconnect retires a sequence in
   flight, so a card put back is never stuck on a check.
