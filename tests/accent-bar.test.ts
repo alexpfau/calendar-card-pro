@@ -308,6 +308,24 @@ describe('the stylesheet', () => {
     });
   });
 
+  it("stops a clipped grid bar at the focus ring's inner edge while the block has focus", () => {
+    // The ring is the block's own outline, which paints under the bar. At a clipped edge the
+    // bar runs to the edge and crossed the ring there; with focus it stops where the ring
+    // ends instead. Tied to the ring's own width so the two cannot drift apart.
+    const ring = declarations('.event-interactive:focus-visible');
+    const width = ring.outline.split(' ')[0];
+
+    expect(ring['outline-offset']).toBe(`-${width}`);
+    expect(
+      declarations('.grid-event.clipped-top.event-interactive:focus-visible > .event-accent-bar'),
+    ).toEqual({ 'inset-block-start': width });
+    expect(
+      declarations(
+        '.grid-event.clipped-bottom.event-interactive:focus-visible > .event-accent-bar',
+      ),
+    ).toEqual({ 'inset-block-end': width });
+  });
+
   it('positions the list cell and the column event for the bar, and nothing else', () => {
     // Scoped: on .event it would also position grid banners and the +N block, and change
     // the order they paint in.

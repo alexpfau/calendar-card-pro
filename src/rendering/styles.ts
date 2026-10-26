@@ -3085,9 +3085,12 @@ export const cardStyles = css`
      event's own outline. An element's outline paints under its positioned children, and an
      untinted bar is a positioned child flush on the edge the ring runs along, so the bar
      covered that side of the ring in the calendar's color. List view already draws its ring
-     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides and crosses
-     it only at an edge where the event is cut off, for the bar's own width, so grid keeps the
-     outline. The event is the pseudo-element's containing block (see td.event above). */
+     this way, on .event-button::after. A grid bar sits 3px inside the ring's sides, and at
+     an edge where the event is cut off it stops short of the ring while the block has
+     focus (see .grid-event.clipped-top), so grid keeps the outline. Grid's pseudo-elements
+     are the continuation marks, both of them on a block cut off at both ends, which leaves
+     none for a ring. The event is the pseudo-element's containing block (see td.event
+     above). */
   .column-events > .event-interactive:focus-visible {
     outline: none;
   }
@@ -4208,6 +4211,22 @@ export const cardStyles = css`
     display: inline;
   }
 
+  /* A grid title carries its own direction (dir="auto", see renderEventTitle in leaves.ts),
+     so that a title running against the dashboard is cut at its own end. That would also
+     move an uncut title to its own side, a Hebrew title hugging the right of a block on an
+     English dashboard, apart from the time beneath it. These keep it on the dashboard's
+     side, as every other line of the block is. text-align: match-parent says the same in
+     one line and does not work: Chromium resolves it against the title's own direction.
+     :dir() reads the document's dir attribute, which Home Assistant sets with its own
+     direction. A labeled title is inline, so the summary aligns it and these do nothing. */
+  .grid-event-disclosure .summary:dir(ltr) > .event-title {
+    text-align: left;
+  }
+
+  .grid-event-disclosure .summary:dir(rtl) > .event-title {
+    text-align: right;
+  }
+
   .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
@@ -4266,7 +4285,8 @@ export const cardStyles = css`
 
      Blockifying the span in grid restores the ellipsis and costs nothing, because the
      clamp it replaces cannot act here: display: block is what -webkit-line-clamp needs and
-     does not get, so the time_max_lines clamp is off in grid whatever the option says.
+     does not get, so this path's time_max_lines clamp is off in grid whatever the option
+     says. The other path, a time folded with its countdown, is reset in the next rule.
 
      🚨 That used to be argued from white-space instead -- "nowrap pins this text to one
      line, so no line count above one is reachable" -- and the wrapped rung made the
@@ -4299,6 +4319,22 @@ export const cardStyles = css`
   .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
     display: block;
     text-overflow: ellipsis;
+  }
+
+  /* time_max_lines has a second clamp path the rule above never reaches. With a countdown
+     showing, the time sits inside .time-text and is clamped by the .time-text > span rule,
+     whose display and line count both come from these two properties. Grid lets that span
+     wrap (white-space: normal, so the countdown can break inside itself), and a -webkit-box
+     time there threw the fit ladder off: at time_max_lines: 1 the row was measured as not
+     fitting and hidden, so a block with a countdown lost its time entirely, at any width.
+
+     Resetting the properties to what time_max_lines: 0 writes, rather than overriding the
+     two declarations that read them, keeps both paths in one place and leaves every grid
+     row exactly as it renders with the option unset. That is what makes the option inert
+     here, which is how VIEW_SCOPE describes it. */
+  .grid-event-disclosure {
+    --calendar-card-time-display: inline;
+    --calendar-card-time-max-lines: none;
   }
 
   /* The event starts before or ends after the visible band. */
@@ -4375,6 +4411,20 @@ export const cardStyles = css`
     inset-block-end: 0;
     border-end-start-radius: 0;
     border-end-end-radius: 0;
+  }
+
+  /* A grid block keeps its focus ring as its own outline, inset 2px, and the outline paints
+     under the block's positioned children. The bar sits 3px clear of it everywhere but a
+     clipped edge, where it runs on to the edge itself and crossed the ring there for its own
+     width. While the block has keyboard focus the bar stops at the ring's inner edge
+     instead; the ring is what has to read as whole then. The 2px is the ring's width
+     (.event-interactive:focus-visible), not the bar's inset. */
+  .grid-event.clipped-top.event-interactive:focus-visible > .event-accent-bar {
+    inset-block-start: 2px;
+  }
+
+  .grid-event.clipped-bottom.event-interactive:focus-visible > .event-accent-bar {
+    inset-block-end: 2px;
   }
 
   .grid-event-disclosure .time,

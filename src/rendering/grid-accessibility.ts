@@ -85,8 +85,11 @@ export function gridEventAccessibleName(
     weather?.showTemp ? `${weather.forecast.temperature}\u00b0` : '',
     weather?.showUvIndex ? `UV${weather.forecast.uv_index}` : '',
     weather?.conditionText,
-    original.progressPercentage !== null && config.show_progress_bar
-      ? `${Math.round(original.progressPercentage)}%`
+    // The block's own percentage, not the source's: rebuilt from the whole event, the
+    // source counts as running on every day it covers, so every day's block would
+    // announce it. The block measures the same whole event, on today's block only.
+    parts.progressPercentage !== null && config.show_progress_bar
+      ? `${Math.round(parts.progressPercentage)}%`
       : '',
   ];
   return words

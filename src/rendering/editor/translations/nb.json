@@ -308,7 +308,7 @@
   "toolbar.show": "Vis verktøylinje",
   "toolbar.show.helper": "Slår hele verktøylinjen av eller på: kortets egne kontroller, øverst på kortet. Når den er på, velger valgene nedenfor hva den viser.",
   "toolbar.labels": "Tekstetiketter",
-  "toolbar.labels.helper": "Viser navnet på hver kontroll ved siden av ikonet når kortet er bredt nok. Av holder alle kontroller som ikoner, med navnet som verktøytips.",
+  "toolbar.labels.helper": "Viser navnene på knappene i verktøylinjen ved siden av ikonene når kortet er bredt nok: layoutene, «Oppdater», «Legg til hendelse» og knappen forklaringen samles i. Når alternativet er slått av, vises bare ikonene, mens navnene vises som verktøytips. Datonavigasjonen og forklaringens brikker ser like ut uansett.",
   "toolbar.navigation": "Datonavigasjon",
   "toolbar.navigation.helper": "Piler for å bla bakover og fremover gjennom dagene, en knapp tilbake til dagene kortet åpner med, og datoene som vises, som åpner en datovelger. Pilene flytter like mange dager som kortet viser.",
   "toolbar.view_switcher": "Layoutvelger",

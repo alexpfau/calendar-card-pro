@@ -91,7 +91,7 @@ function block(geometry: Geometry): HTMLElement {
     )
     .join('');
   const titleMarkup = pieces.length
-    ? '<span class="title-words" dir="auto"><!--?lit$1$-->' +
+    ? '<span class="title-words"><!--?lit$1$-->' +
       pieces
         .map(([kind, value]) =>
           kind === 'word'
@@ -107,7 +107,7 @@ function block(geometry: Geometry): HTMLElement {
     '<div class="grid-event-disclosure"><div class="event-content">' +
     `<div class="summary-row" style="--calendar-card-grid-title-eligible: ${geometry.eligible === false ? 0 : 1}">` +
     `<div class="summary${geometry.scroll ? ' summary-scroll' : ''}" style="width: ${width}px; ${FONT}">` +
-    `${labelMarkup}<span class="event-title">${titleMarkup}</span></div></div>` +
+    `${labelMarkup}<span class="event-title"${pieces.length ? ' dir="auto"' : ''}>${titleMarkup}</span></div></div>` +
     '<div class="location"><span>Main Street 5</span></div>' +
     '</div></div>';
 

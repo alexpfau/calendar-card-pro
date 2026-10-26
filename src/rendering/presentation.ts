@@ -184,8 +184,12 @@ export function buildEventPresentation(
   }
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
-  const progressPercentage =
-    isRunning && config.show_progress_bar ? EventUtils.calculateEventProgress(event) : null;
+  // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is
+  // not "running" for the Now label below, but its day is part of an event under way and
+  // carries the bar. `calculateEventProgress` answers null for every row that has none.
+  const progressPercentage = config.show_progress_bar
+    ? EventUtils.calculateEventProgress(event)
+    : null;
 
   // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
   // them — so a day full of all-day entries does not turn into a column of "Now" labels.

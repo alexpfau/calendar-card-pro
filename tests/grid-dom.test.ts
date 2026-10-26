@@ -2456,12 +2456,36 @@ describe('grid titles that wrap at spaces', () => {
     const wrappers = title.querySelectorAll(':scope > .title-words');
 
     expect(wrappers).toHaveLength(1);
-    // The words are ordered by the line's direction unless the wrapper states their own, so
+    // The words are ordered by the line's direction unless something states their own, so
     // an English title on a right-to-left dashboard would read "office Home" without it.
-    expect(wrappers[0].getAttribute('dir')).toBe('auto');
+    // The title states it, and the wrapper must not: `dir="auto"` skips a descendant with a
+    // `dir` of its own, so with both set the title would find no letters and resolve to
+    // left-to-right, cutting a Hebrew title at its beginning on every dashboard.
+    expect(title.getAttribute('dir')).toBe('auto');
+    expect(wrappers[0].hasAttribute('dir')).toBe(false);
     expect(title.querySelectorAll(':scope > .title-word')).toHaveLength(0);
     expect(wrappers[0].querySelectorAll(':scope > .title-word')).toHaveLength(2);
     expect(wrappers[0].textContent).toBe('Home office');
+  });
+
+  it("keeps a title on the dashboard's side while it carries its own direction", () => {
+    // `dir="auto"` would align an uncut Hebrew title to the right of an English block. The
+    // explicit side follows the dashboard instead; `match-parent` would say the same and
+    // Chromium resolves it against the title's own direction, so it is not used.
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = (selector: string) => {
+      const start = css.indexOf(`${selector} {`);
+      expect(start, `no rule for ${selector}`).toBeGreaterThan(-1);
+      return css.slice(start, css.indexOf('}', start));
+    };
+
+    expect(rule('.grid-event-disclosure .summary:dir(ltr) > .event-title')).toContain(
+      'text-align: left',
+    );
+    expect(rule('.grid-event-disclosure .summary:dir(rtl) > .event-title')).toContain(
+      'text-align: right',
+    );
+    expect(css).not.toContain('match-parent');
   });
 
   it('leaves a run in a script written without spaces to the browser', () => {

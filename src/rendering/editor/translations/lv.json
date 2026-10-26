@@ -308,7 +308,7 @@
   "toolbar.show": "Rādīt rīkjoslu",
   "toolbar.show.helper": "Ieslēdz vai izslēdz visu rīkjoslu: pašas kartes vadīklas kartes augšdaļā. Kad tā ir ieslēgta, zemāk esošās opcijas nosaka, ko tā rāda.",
   "toolbar.labels": "Teksta etiķetes",
-  "toolbar.labels.helper": "Rāda katras vadīklas nosaukumu blakus tās ikonai, ja karte ir pietiekami plata. Izslēgtā stāvoklī katra vadīkla paliek ikona, un tās nosaukums parādās kā rīka padoms.",
+  "toolbar.labels.helper": "Rāda rīkjoslas pogu nosaukumus blakus to ikonām, ja karte ir pietiekami plata: izkārtojumu, „Atsvaidzināt“, „Pievienot notikumu“ un pogas, kurā tiek sakļauta leģenda. Ja opcija ir izslēgta, tiek rādītas tikai ikonas un nosaukumi tiek parādīti kā rīka padomi. Datumu navigācija un leģendas pogas abos gadījumos izskatās vienādi.",
   "toolbar.navigation": "Datumu navigācija",
   "toolbar.navigation.helper": "Bultiņas, lai pāršķirtu dienas uz priekšu un atpakaļ, poga, kas atgriež pie dienām, ar kurām karte atveras, un ekrānā redzamie datumi, kas atver datuma atlasītāju. Bultiņas pārvietojas par tik dienām, cik karte rāda.",
   "toolbar.view_switcher": "Izkārtojuma pārslēdzējs",

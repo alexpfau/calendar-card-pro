@@ -718,8 +718,11 @@ export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
   /**
-   * Whether controls carry a text label beside their icon when the card has room for it.
-   * Off keeps every control an icon, named by its tooltip.
+   * Whether the toolbar's buttons — the switcher's layouts, refresh, add and a folded
+   * legend's button — carry a text label beside their icons when the card has room for it.
+   * Off keeps them icons, named by their tooltips. The date navigation and the legend's
+   * chips are unaffected: the home button is always an icon, and the dates and the chips
+   * are always words.
    */
   labels?: boolean;
   /** Previous, home and next, and the range on screen, which opens a date picker. First. */
@@ -826,6 +829,13 @@ export interface CalendarEventData {
   _isMultiDaySegment?: boolean;
   /** Original start of a split List/Column occurrence, preserving its anniversary year. */
   _sourceStart?: CalendarEventData['start'];
+  /**
+   * Original end of a split List/Column occurrence, the partner of `_sourceStart`.
+   *
+   * A day of a timed event split across several measures its progress bar over the whole
+   * event, so each segment has to know where the event ends as well as where it began.
+   */
+  _sourceEnd?: CalendarEventData['end'];
   /**
    * Set on grid-owned timed segments that keep the original event's start time.
    *

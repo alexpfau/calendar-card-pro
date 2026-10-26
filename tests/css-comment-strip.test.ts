@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(153_000);
-    // The calendar legend and the refresh button moved the ceiling last, from 149,000 to 153,000:
+    expect(saved).toBeLessThan(156_000);
+    // The grid polish fixes moved the ceiling last, from 153,000 to 156,000: the notes on why
+    // grid resets the two properties a time folded with its countdown reads, rather than the
+    // declarations that read them, and what the clamp did to that row before; why a grid
+    // title keeps the dashboard's side through :dir() when match-parent would say the same
+    // in one line; and why a focused block cut off at the visible hours stops its bar at the
+    // ring rather than drawing the ring on a pseudo-element. The reading went 151,046, dev's
+    // own once the legend and refresh button had landed, to 153,436, taken with stripComments
+    // after the last comment in the change was written.
+    //
+    // The calendar legend and the refresh button moved it before that, from 149,000 to 153,000:
     // the notes on why the legend's lane clips rather than scrolls and pads itself for a focus
     // ring, why the header beside a title becomes a grid rather than a wrapping row while the lane
     // is drawn, why a chip is tinted from its calendar's accent and turns the toolbar's gray when

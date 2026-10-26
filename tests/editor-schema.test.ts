@@ -933,6 +933,9 @@ describe('editor: applicability', () => {
       // A grid block is placed by its time and kept apart by the grid's own layout; only
       // the list and column renderers emit the class that draws the gap.
       event_gap: ['column', 'list'],
+      // Grid blockifies the plain time span and resets the properties the folded-countdown
+      // span reads, so neither clamp path acts there.
+      time_max_lines: ['column', 'list'],
     });
 
     expect(

@@ -362,6 +362,12 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // --calendar-card-event-gap, and the class that draws the gap is only emitted by the list
   // and column renderers.
   event_gap: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid neutralizes both of the option's clamp paths: the plain time span is blockified,
+  // and `.grid-event-disclosure` resets the two properties the folded-countdown span reads
+  // to what an unset option writes. Before that reset a clamp on the folded span hid the
+  // whole time row. tests/view-scope-inert.test.ts pins both.
+  time_max_lines: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**

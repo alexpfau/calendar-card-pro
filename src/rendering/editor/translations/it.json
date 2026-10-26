@@ -308,7 +308,7 @@
   "toolbar.show": "Mostra barra strumenti",
   "toolbar.show.helper": "Attiva o disattiva l'intera barra strumenti: comandi della scheda stessa, in cima alla scheda. Quando è attiva, le opzioni qui sotto scelgono cosa mostra.",
   "toolbar.labels": "Etichette di testo",
-  "toolbar.labels.helper": "Mostra il nome di ogni comando accanto alla sua icona quando la scheda è abbastanza larga. Se disattivate, ogni comando resta un'icona e il suo nome compare come suggerimento.",
+  "toolbar.labels.helper": "Quando la scheda è abbastanza larga, nella barra strumenti vengono mostrati accanto alle rispettive icone i nomi dei layout, dei pulsanti Aggiorna e Aggiungi evento e del pulsante in cui si raccolgono i chip della legenda. Quando l'opzione è disattivata, vengono visualizzate solo le icone e i nomi compaiono come suggerimenti. La navigazione per date e i chip della legenda restano uguali in entrambi i casi.",
   "toolbar.navigation": "Navigazione per date",
   "toolbar.navigation.helper": "Frecce per scorrere i giorni avanti e indietro, un pulsante per tornare ai giorni con cui la scheda si apre e le date sullo schermo, che aprono un selettore di data. Le frecce si spostano di tanti giorni quanti ne mostra la scheda.",
   "toolbar.view_switcher": "Selettore di layout",
