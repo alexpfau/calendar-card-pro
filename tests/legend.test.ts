@@ -101,6 +101,7 @@ const LEGEND_ONLY: Types.ToolbarConfig = {
   reset: false,
   view_switcher: false,
   add_event: false,
+  refresh: false,
 };
 
 const BASE: Partial<Types.Config> = {

@@ -465,12 +465,12 @@ describe('the event tap dropdown in the editor', () => {
       view_switcher: true,
       reset: false,
       add_event: true,
-      refresh: false,
+      refresh: true,
       legend: 'menu',
     });
 
-    // Every control but refresh and reset arrives switched on, as the card reads them, the
-    // filter as a menu, and nothing but the switch is written.
+    // Every control but reset arrives switched on, as the card reads them, the filter as a
+    // menu, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
@@ -490,18 +490,27 @@ describe('the event tap dropdown in the editor', () => {
       view_switcher: true,
       reset: false,
       add_event: true,
-      refresh: false,
+      refresh: true,
       legend: 'menu',
     });
 
-    // A control off by default reads back on once it is switched on: one flip.
-    await change('toolbar', { ...(shown('toolbar') as object), refresh: true });
+    // The one control off by default reads back on once it is switched on: one flip.
+    await change('toolbar', { ...(shown('toolbar') as object), reset: true });
     expect(last(reported)).toEqual({
       entities: ['calendar.anna'],
-      toolbar: { show: true, refresh: true },
+      toolbar: { show: true, reset: true },
     });
-    expect((shown('toolbar') as Record<string, unknown>).refresh).toBe(true);
+    expect((shown('toolbar') as Record<string, unknown>).reset).toBe(true);
+    await change('toolbar', { ...(shown('toolbar') as object), reset: false });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
+
+    // And one on by default is written only once switched off.
     await change('toolbar', { ...(shown('toolbar') as object), refresh: false });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, refresh: false },
+    });
+    await change('toolbar', { ...(shown('toolbar') as object), refresh: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     // The filter's dropdown holds strings, so it says `off` where the configuration says

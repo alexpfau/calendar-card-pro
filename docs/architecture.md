@@ -191,10 +191,10 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   control, and `legend`, which is `false`, `menu` or `chips`. `resolveToolbar` in
   `config/config.ts` reads it member by member and is the only reader, so a malformed value reads
   as that member's default; `legend: true` names no form and reads as `menu`. `show` defaults off;
-  inside a shown bar every control defaults on except `refresh` and `reset`, because v5 is the
-  first release with a toolbar and these are its first defaults. Reset is for a shared screen:
-  elsewhere a layout picked on the switcher is a preference, remembered until the card is
-  edited, and a lit reset button kept presenting it as something to undo. A control added in a later release defaults
+  inside a shown bar every control defaults on except `reset`, because v5 is the first release
+  with a toolbar and these are its first defaults. Reset is for a shared screen: elsewhere a
+  layout picked on the switcher is a preference, remembered until the card is edited, and a lit
+  reset button kept presenting it as something to undo. A control added in a later release defaults
   off, so a release never adds a control to a toolbar someone already set up. Every control
   needs a `toolbar → key` row in the reference:
   `check:docs` reconciles the block's defaults against those rows in both directions.

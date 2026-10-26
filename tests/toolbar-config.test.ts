@@ -4,9 +4,8 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * and once shown, what anyone looking at a calendar needs on: the date navigation, the view
- * switcher, add and the calendar filter as a menu. Refresh is off, since it only matters where
- * events change somewhere else between refreshes, and so is reset, which is for a screen several
- * people share.
+ * switcher, add, refresh and the calendar filter as a menu. Reset alone is off, since it is for
+ * a screen several people share.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -23,19 +22,19 @@ const DEFAULTS = {
   addEvent: true,
   viewSwitcher: true,
   reset: false,
-  refresh: false,
+  refresh: true,
   legend: 'menu',
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with every control on once shown except refresh and reset, and the filter as a menu', () => {
+  it('ships hidden, with every control on once shown except reset, and the filter as a menu', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       navigation: true,
       add_event: true,
       view_switcher: true,
       reset: false,
-      refresh: false,
+      refresh: true,
       legend: 'menu',
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);

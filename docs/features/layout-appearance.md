@@ -145,7 +145,7 @@ switcher between the List, Columns and Grid layouts, a button that
 [resets the card](#resetting-the-card) to how it is set up, arrows to
 [page through the dates](#paging-through-dates), and a button that
 [loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
-control in it except refresh and reset:
+control in it except reset:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -158,8 +158,8 @@ toolbar:
 ```
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
-the calendar filter and the add button at its start, the view switcher in its middle, and reset
-and refresh at its end when they are on. The row under it names the month
+the calendar filter and the add button at its start, the view switcher in its middle, and
+refresh at its end, after reset when that is on. The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. A card without a title has no label over the
@@ -297,8 +297,8 @@ In the card editor's preview, and on a dashboard in edit mode, the card shows it
 
 ### Refreshing the Events
 
-`refresh: true` adds a button that loads the events again now, rather than at the next
-`refresh_interval`:
+The refresh button loads the events again now, rather than at the next `refresh_interval`. It
+is on whenever the toolbar is, and `refresh: false` takes it away:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -308,7 +308,7 @@ entities:
   - calendar.ben
 toolbar:
   show: true
-  refresh: true
+  refresh: false
 ```
 
 It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".

@@ -55,6 +55,7 @@ const SWITCHER_ONLY: Types.ToolbarConfig = {
   add_event: false,
   navigation: false,
   reset: false,
+  refresh: false,
   legend: false,
 };
 
@@ -1031,14 +1032,14 @@ describe('the resolved toolbar the card reads', () => {
       refresh: false,
       legend: false,
     });
-    // What it switches off: a shown toolbar draws every control but refresh and reset by default.
+    // What it switches off: a shown toolbar draws every control but reset by default.
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
       navigation: true,
       addEvent: true,
       viewSwitcher: true,
       reset: false,
-      refresh: false,
+      refresh: true,
       legend: 'menu',
     });
   });

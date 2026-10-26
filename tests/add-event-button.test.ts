@@ -39,6 +39,7 @@ const ADD_ONLY: Types.ToolbarConfig = {
   view_switcher: false,
   navigation: false,
   reset: false,
+  refresh: false,
   legend: false,
 };
 

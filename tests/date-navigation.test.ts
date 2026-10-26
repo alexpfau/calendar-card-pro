@@ -47,6 +47,7 @@ const NAVIGATION_ONLY: Types.ToolbarConfig = {
   view_switcher: false,
   add_event: false,
   reset: false,
+  refresh: false,
   legend: false,
 };
 
@@ -1477,6 +1478,7 @@ describe("the view switcher's words", () => {
     view_switcher: true,
     add_event: true,
     reset: true,
+    refresh: false,
     legend: false,
   };
 
