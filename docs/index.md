@@ -6,8 +6,8 @@ hero:
   text: A calendar card for Home Assistant
   tagline: Sleek, fast and highly customizable — display upcoming events beautifully.
   image:
-    src: https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header.png
-    alt: Calendar Card Pro
+    src: https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png
+    alt: "Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar"
   actions:
     - theme: brand
       text: Get started
