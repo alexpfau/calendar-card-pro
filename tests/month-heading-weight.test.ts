@@ -1,6 +1,6 @@
 /**
  * The toolbar's month heading sets the month's own name bold and the year regular, as a desktop
- * calendar does: "**November** 2026", "2026년 **11월**", "2026年**11**月".
+ * calendar does: "**November** 2026", "2026년 **11월**", "2026年**11月**".
  *
  * Which run is the month comes from `Intl.DateTimeFormat.prototype.formatToParts`, so these walk
  * every card language rather than a few: the order and the separators are each language's own,
@@ -77,6 +77,7 @@ function drawHeading(
 describe("the month heading's runs", () => {
   it("mark exactly Intl's month part, in every card language, and leave the rest as written", () => {
     const wrong: string[] = [];
+    const units: string[] = [];
     let checked = 0;
     for (const language of CARD_LANGUAGES) {
       for (const form of FORMS) {
@@ -85,15 +86,29 @@ describe("the month heading's runs", () => {
           const format = new Intl.DateTimeFormat(language, { month: form, year: 'numeric' });
           const parts = format.formatToParts(date);
           const locale = format.resolvedOptions().locale;
-          const intlMonth = parts.find((part) => part.type === 'month')!.value;
+          const at = parts.findIndex((part) => part.type === 'month');
+          const intlMonth = parts[at].value;
+          // A month written as a number takes the unit written straight after it, letters only:
+          // Chinese 月, never the "." or "/" of a numeric date.
+          const next = parts[at + 1];
+          const unit =
+            /^[0-9]+$/.test(intlMonth) && next?.type === 'literal'
+              ? [...next.value]
+                  .filter((_, i, chars) =>
+                    chars.slice(0, i + 1).every((char) => /\p{L}/u.test(char)),
+                  )
+                  .join('')
+              : '';
           const expectedMonth =
-            parts[0].type === 'month'
+            (at === 0
               ? intlMonth.charAt(0).toLocaleUpperCase(locale) + intlMonth.slice(1)
-              : intlMonth;
+              : intlMonth) + unit;
           const expectedRest = parts
-            .filter((part) => part.type !== 'month')
-            .map((part) => part.value)
+            .map((part, i) =>
+              i === at ? '' : i === at + 1 ? part.value.slice(unit.length) : part.value,
+            )
             .join('');
+          if (unit) units.push(`${language} ${form}: ${unit}`);
 
           const runs = Paging.monthHeadingParts(date, language, form);
           const months = runs.filter((run) => run.month);
@@ -118,6 +133,14 @@ describe("the month heading's runs", () => {
     expect(CARD_LANGUAGES).toHaveLength(36);
     expect(checked).toBe(36 * 2 * 12);
     expect(wrong).toEqual([]);
+    // Which languages write a month unit as a literal of its own, pinned by value, so a unit that
+    // stops being absorbed, or a separator that starts to be, cannot pass unnoticed.
+    expect([...new Set(units)]).toEqual([
+      'zh-CN long: 月',
+      'zh-CN short: 月',
+      'zh-TW long: 月',
+      'zh-TW short: 月',
+    ]);
   });
 
   it("follow each language's own order", () => {
@@ -129,7 +152,12 @@ describe("the month heading's runs", () => {
     expect(runs('de', 'short')).toEqual(['[Nov.]', ' 2026']);
     expect(runs('hu')).toEqual(['2026. ', '[november]']);
     expect(runs('ko')).toEqual(['2026년 ', '[11월]']);
-    expect(runs('zh-CN')).toEqual(['2026年', '[11]', '月']);
+    expect(runs('zh-CN')).toEqual(['2026年', '[11月]']);
+    expect(runs('zh-TW', 'short')).toEqual(['2026年', '[11月]']);
+    // A number's separators are no unit, so they stay with the year.
+    expect(runs('bg', 'short')).toEqual(['[11]', '.2026 г.']);
+    expect(runs('sk', 'short')).toEqual(['[11]', '/2026']);
+    expect(runs('lt', 'short')).toEqual(['2026-', '[11]']);
     expect(runs('vi')).toEqual(['[Tháng 11]', ' năm 2026']);
   });
 });

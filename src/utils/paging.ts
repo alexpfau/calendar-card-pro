@@ -335,6 +335,9 @@ function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
   return format;
 }
 
+/** The letters that open a literal, which after a month written as a number are its unit: 月. */
+const MONTH_UNIT = /^\p{L}+/u;
+
 /** One run of a month heading's words: the month's own name, or what stands around it. */
 export interface MonthHeadingPart {
   text: string;
@@ -358,7 +361,11 @@ export type MonthHeadingText = ReadonlyArray<MonthHeadingPart>;
  *
  * Which run is the month comes from `Intl`'s own parts, never from where a word stands, since
  * the order is the language's: "2026년 11월" ends with it, and "2026年11月" holds it between two
- * literals. The parts only mark the boundaries. Their literals are not always `format`'s, which
+ * literals. Where the month is a bare number, the letters written straight after it are its unit
+ * and count as the month: Chinese writes 月 as a literal of its own, where Korean's 월 is already
+ * part of the month, and "2026年11月" has its month in "11月" all the same. A space or punctuation
+ * after the number ("11.2026 г.", "11/2026") is no unit and stays apart. The parts only mark
+ * the boundaries. Their literals are not always `format`'s, which
  * writes a plain space where they write a no-break one in Russian, Ukrainian and Bulgarian, so
  * the words are `format`'s, cut at the parts' lengths, and read exactly as they always have. An
  * engine whose parts do not add up to its own text gets the words in one plain run.
@@ -385,15 +392,24 @@ export function monthHeadingParts(
   }
 
   const runs: MonthHeadingPart[] = [];
-  let offset = 0;
-  for (const part of parts) {
-    const run = text.slice(offset, offset + part.value.length);
-    offset += part.value.length;
-    const month = part.type === 'month';
+  const push = (run: string, month: boolean) => {
+    if (!run) return;
     const last = runs[runs.length - 1];
-    if (last && !last.month && !month) last.text += run;
+    if (last && last.month === month) last.text += run;
     else runs.push({ text: run, month });
-  }
+  };
+  let offset = 0;
+  parts.forEach((part, i) => {
+    let run = text.slice(offset, offset + part.value.length);
+    offset += part.value.length;
+    const previous = parts[i - 1];
+    if (part.type === 'literal' && previous?.type === 'month' && /^\d+$/.test(previous.value)) {
+      const unit = MONTH_UNIT.exec(run)?.[0] ?? '';
+      push(unit, true);
+      run = run.slice(unit.length);
+    }
+    push(run, part.type === 'month');
+  });
   return runs;
 }
 
