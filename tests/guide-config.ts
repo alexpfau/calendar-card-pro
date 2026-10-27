@@ -1,14 +1,14 @@
 /**
- * Reads the worked examples out of the walkthrough pages, so a test can run the card a page
- * publishes rather than a copy of it.
+ * Reads the cards out of the Family Hub and Family Agenda story pages, so a test can run
+ * the card a page publishes rather than a copy of it.
  *
  * 🚨 **The pages are the fixtures.** A second copy of a card in a test file is one more thing
  * to keep in step, and the bug being guarded against is precisely that a page and the code,
  * or two pages, drift apart. A copy would keep passing while the published page went wrong.
  *
- * The parser understands only the subset the pages use: flat card-level keys, one level of
- * nesting for a block such as `list:` or `time_grid:`, and an `entities:` block sequence of
- * flat mappings. It is deliberately not a YAML implementation, and it rejects rather than
+ * The parser understands only the subset the pages use: flat card-level keys, nested
+ * mappings such as `list:`, `time_grid:` or `weather: event:`, and an `entities:` block
+ * sequence of flat mappings. It is deliberately not a YAML implementation, and it rejects rather than
  * guesses: a line that fits none of those shapes is an error, not something to skip.
  */
 import { readFileSync } from 'node:fs';
@@ -16,8 +16,17 @@ import { join } from 'node:path';
 
 import { expect } from 'vitest';
 
-export const GRID_GUIDE = join(__dirname, '..', 'docs', 'guide', 'family-calendar.md');
+export const HUB_GUIDE = join(__dirname, '..', 'docs', 'guide', 'family-calendar.md');
 export const AGENDA_GUIDE = join(__dirname, '..', 'docs', 'guide', 'one-calendar-many-purposes.md');
+
+/** Every page in the docs' Example Stories group that prints a card, in sidebar order. */
+export const STORY_GUIDES = [
+  HUB_GUIDE,
+  AGENDA_GUIDE,
+  ...['now-and-next', 'today-and-tomorrow', 'birthdays-and-holidays', 'bin-day'].map((page) =>
+    join(__dirname, '..', 'docs', 'guide', `${page}.md`),
+  ),
+];
 
 export type GuideBlock = Record<string, string | number | boolean>;
 
@@ -61,7 +70,8 @@ export function readGuideCard(path: string): GuideCard {
   const config: Record<string, unknown> = {};
   const entities: GuideBlock[] = [];
   let inEntities = false;
-  let nested: Record<string, unknown> | null = null;
+  // The open mappings under a card-level key, innermost last, each with its key's indent.
+  let nested: { indent: number; map: Record<string, unknown> }[] = [];
 
   for (const line of cards[0].split('\n')) {
     if (!line.trim() || /^\s*#/.test(line)) continue;
@@ -70,20 +80,21 @@ export function readGuideCard(path: string): GuideCard {
     // `entities:` list when card-level keys follow it, as `time_grid:` does on the grid page.
     if (/^entities:\s*$/.test(line)) {
       inEntities = true;
-      nested = null;
+      nested = [];
       continue;
     }
     const open = line.match(/^([a-z_]+):\s*$/);
     if (open) {
       inEntities = false;
-      nested = {};
-      config[open[1]] = nested;
+      const map: Record<string, unknown> = {};
+      config[open[1]] = map;
+      nested = [{ indent: 0, map }];
       continue;
     }
     const top = line.match(/^([a-z_]+):\s*(.+)$/);
     if (top) {
       inEntities = false;
-      nested = null;
+      nested = [];
       config[top[1]] = scalar(top[2]);
       continue;
     }
@@ -100,10 +111,19 @@ export function readGuideCard(path: string): GuideCard {
         entities[entities.length - 1][field[1]] = scalar(field[2]);
         continue;
       }
-    } else if (nested) {
-      const inner = line.match(/^\s+([a-z_]+):\s*(.+)$/);
+    } else if (nested.length > 0) {
+      const inner = line.match(/^(\s+)([a-z_]+):\s*(.*)$/);
       if (inner) {
-        nested[inner[1]] = scalar(inner[2]);
+        const indent = inner[1].length;
+        while (nested.length > 1 && indent <= nested[nested.length - 1].indent) nested.pop();
+        const parent = nested[nested.length - 1].map;
+        if (inner[3] === '') {
+          const map: Record<string, unknown> = {};
+          parent[inner[2]] = map;
+          nested.push({ indent, map });
+        } else {
+          parent[inner[2]] = scalar(inner[3]);
+        }
         continue;
       }
     }

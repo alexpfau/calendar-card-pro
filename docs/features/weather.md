@@ -31,7 +31,7 @@ weather:
     color: 'var(--secondary-text-color)'
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_weather.png" alt="Weather Integration" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_weather_v5.png" alt="A four-day list card with a weather icon and high temperature under each date and the forecast temperature beside each event" width="600"><br>
 
 This flexible configuration allows you to create a personalized experience that shows exactly the weather information you need, where you need it.
 

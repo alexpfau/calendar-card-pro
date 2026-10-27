@@ -1,15 +1,16 @@
 /**
- * The Filtered Agenda walkthrough's worked example, run through the real pipeline.
+ * The Family Agenda story's card, run through the real pipeline.
  *
- * `docs/guide/one-calendar-many-purposes.md` is the walkthrough that combines eight
+ * `docs/guide/one-calendar-many-purposes.md` is the story that combines eight
  * per-calendar blocks with the card-level all-day options, and it makes specific, checkable
  * promises about what the card draws: that a birthday reads `Grandma (70)` under a 🎂 label,
  * that the trash collection retires at 11:00, that a work event without the marker reads
  * `Busy` beside Ben's face, and that nothing is drawn twice.
  *
- * Nothing pinned any of that. `check:docs` validates that the option *names* in a yaml block
- * exist and that a block claiming to be a card has an `entities:` list — it never runs one.
- * So every claim on that page could go false from a source change with all nine gates green.
+ * Nothing pinned any of that. `check:docs` validates that a block claiming to be a card is
+ * complete and has an `entities:` list, and `tests/example-stories.test.ts` that its option
+ * names are ones the card reads, but neither runs one. So every claim on that page could go
+ * false from a source change with all nine gates green.
  *
  * 🚨 **The config is read out of the page, not copied into this file** — see
  * `tests/guide-config.ts`. Editing the yaml in the guide therefore changes what this suite
@@ -18,8 +19,8 @@
  * first test pins its denominator — eight blocks over six calendars, carrying the specific
  * keys the page teaches.
  *
- * The page and The Weekly Grid describe one family's week, and
- * `tests/family-walkthroughs.test.ts` holds the two pages to that. This suite is about what
+ * The page and the Family Hub describe one family's week, and
+ * `tests/family-stories.test.ts` holds the two pages to that. This suite is about what
  * this card does with the events it is given.
  */
 import { readFileSync } from 'node:fs';
@@ -27,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
-import { AGENDA_GUIDE, GRID_GUIDE, readGuideCard } from './guide-config';
+import { AGENDA_GUIDE, HUB_GUIDE, readGuideCard } from './guide-config';
 import type * as Types from '../src/config/types';
 import { fetchEventData, groupEventsByDay } from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
@@ -175,7 +176,7 @@ function withoutKey(pick: (block: Record<string, unknown>) => boolean, key: stri
   });
 }
 
-describe('the Filtered Agenda example behaves as the page describes', () => {
+describe('the Family Agenda card behaves as the page describes', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', memoryStorage());
     vi.useFakeTimers();
@@ -188,8 +189,8 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
   });
 
   it('reads a config off the page matching the shape the prose claims', () => {
-    // The page says "The six calendars of The Weekly Grid go into it, as eight blocks": the
-    // work and family calendars twice each, every other calendar once. Pinned by value rather
+    // The page says "The Family Hub's calendars go in, with Ben's work calendar added, as
+    // eight blocks": the work and family calendars twice each, every other calendar once. Pinned by value rather
     // than by walking what was parsed, so losing a block fails here instead of quietly
     // shrinking every assertion below it.
     expect(GUIDE_ENTITIES).toHaveLength(8);
@@ -208,17 +209,18 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
 
     // The options the page teaches, each on the block that teaches it. A page rewritten to
     // drop one of these is no longer the page this suite is describing.
-    expect(blocksOf('calendar.anna')[0]).toMatchObject({ label: '/local/demo/anna.png' });
+    expect(blocksOf('calendar.anna')[0]).toMatchObject({ label: 'person.anna' });
     expect(blocksOf('calendar.work')[0]).toMatchObject({
       filter_field: 'description',
       allowlist: '#family',
-      label: '/local/demo/ben.png',
+      label: 'person.ben',
     });
     expect(blocksOf('calendar.work')[1]).toMatchObject({
       filter_field: 'description',
       blocklist: '#family',
       replace_with: 'Busy',
-      label: '/local/demo/ben.png',
+      label: 'person.ben',
+      show_location: false,
     });
     expect(blocksOf('calendar.family')[0]).toMatchObject({
       allowlist: 'birthday',
@@ -231,18 +233,23 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
       allday_expires_at: '11:00',
       label: '🗑️',
     });
+    // No `view`: the page says the card reads "three days, today first, in the default list
+    // layout", and the switcher is off, so the default is the only layout it ever draws.
+    expect(GUIDE_CONFIG.view).toBeUndefined();
     expect(GUIDE_CONFIG).toMatchObject({
-      view: 'list',
+      days_to_show: 3,
       filter_duplicates: true,
       duplicate_accent_color: '#ffb74d',
-      event_background_opacity: 10,
-      list: { today_indicator_position: '50% 8%' },
+      event_background_opacity: 12,
+      event_gap: '6px',
+      event_color: 'accent',
       allday_badge: 'title',
       allday_badge_style: 'filled',
       show_single_allday_time: false,
       show_location_allday: false,
-      today_indicator: 'Today',
-      today_indicator_size: '13px',
+      toolbar: { show: true, view_switcher: false },
+      event_tap_action: { action: 'details' },
+      list: { date_vertical_alignment: 'top', day_separator_width: '1px' },
     });
 
     // 🚨 The page's legend is the COLOR, not the shape: a gold capsule is the family's only
@@ -309,7 +316,7 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
       } as unknown as Partial<Types.Config>)
     ).filter((r) => r.entity === 'calendar.family' && r.label === '🎂');
     expect(unrewritten.map((r) => r.title)).toEqual(["🎂 Grandma's birthday (70)"]);
-    for (const page of [GRID_GUIDE, AGENDA_GUIDE]) {
+    for (const page of [HUB_GUIDE, AGENDA_GUIDE]) {
       expect(readFileSync(page, 'utf8')).toContain("_🎂 Grandma's birthday (70)_");
     }
   });
@@ -341,21 +348,21 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
     expect(rows.some((r) => r.title.includes('Design review'))).toBe(false);
     expect(rows.some((r) => r.title.includes('Roadmap review'))).toBe(false);
 
-    // "An event with no description at all counts as not matching, so an allowlist drops it
-    // and a blocklist keeps it." Two Busy rows: the one with a private description and the
+    // "An event with no description counts as not matching, so an allowlist drops it and a
+    // blocklist keeps it." Two Busy rows: the one with a private description and the
     // one carrying no description at all. One row here would mean the tip is wrong in the
     // damaging direction — an event silently visible to nobody.
     expect(rows.filter((r) => r.title === 'Busy')).toHaveLength(2);
 
-    // "A Busy row then says who is busy without saying what with": both halves carry Ben's
-    // face, so the marker changes the title and nothing else.
-    expect(rows.map((r) => r.label)).toEqual(Array(3).fill('/local/demo/ben.png'));
+    // "Both keep the gray and Ben's face, so only the title tells them apart": the marker
+    // changes the title and nothing else.
+    expect(rows.map((r) => r.label)).toEqual(Array(3).fill('person.ben'));
   });
 
   it("draws a plan on two people's calendars once, as filter_duplicates promises", async () => {
-    // "The zoo trip on Thursday is on Ben's and Leo's [...] filter_duplicates: true draws it
-    // once, with every face in front of the title, and duplicate_accent_color colors it the
-    // Family calendar's gold." The same event goes on both calendars; the control proves the
+    // "The zoo trip on Thursday is on Ben's and Leo's calendars [...] filter_duplicates: true
+    // draws each once, with every face in front of the title, and duplicate_accent_color
+    // colors it the Family calendar's gold." The same event goes on both calendars; the control proves the
     // merge is filter_duplicates and not the fixture.
     const zoo = {
       summary: 'Zoo 🦒',
@@ -384,8 +391,8 @@ describe('the Filtered Agenda example behaves as the page describes', () => {
   });
 
   it('keeps the work calendar off the weekend', async () => {
-    // The page sets `days_of_week: weekdays` on both work blocks: "A work calendar that keeps
-    // talking on Sunday is noise on a family screen." The documented `days_to_show: 3` runs
+    // The page sets `days_of_week: weekdays` on both work blocks, which "keeps a work calendar
+    // that talks on Sunday off a family screen." The documented `days_to_show: 3` runs
     // Wed–Fri and never reaches a weekend, so this arm widens the window to Saturday. That is
     // a deviation from the page's value, stated here rather than silently made, because the
     // option is otherwise untestable from this fixture.

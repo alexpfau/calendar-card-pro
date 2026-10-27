@@ -108,7 +108,7 @@ The same applies when a calendar cannot be reached. A failed request leaves the 
 
 ## 🏷️ The All-Day Badge
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title_v5.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
 By default an all-day event says so in words, on the same line as the clock icon. The all-day
 badge draws that fact as a rounded pill in the calendar accent color instead, the way most
@@ -442,7 +442,7 @@ year gets the new count.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 
-[A Family Calendar: The Weekly Grid](/guide/family-calendar#a-birthday-that-counts-itself) shows it on a grid card, where the age rides along in an all-day banner that has room for nothing but the title.
+The [Birthdays & Holidays](/guide/birthdays-and-holidays) story builds a whole card around it, and the [Family Hub](/guide/family-calendar#a-birthday-that-counts-itself) shows it on a grid card, where the age rides along in an all-day banner that has room for nothing but the title.
 
 ### Writing the Marker
 

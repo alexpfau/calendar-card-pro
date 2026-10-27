@@ -4,7 +4,9 @@ Grid view places the days side by side on an hour axis, so an event sits at the 
 starts and is as tall as it is long. It is the same agenda the other two layouts show,
 measured against a clock instead of listed.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png" alt="Calendar Card Pro v5 — lists, columns, and now hour by hour"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A family's week in grid view on a wall tablet, under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours and a forecast in each date header"><br>
+
+The [Family Hub](/guide/family-calendar) story: a fully configured grid card on a wall tablet. The YAML below is all it takes to switch a card to grid.
 
 Set it with `view`. The default, `list`, stacks each day above the next.
 
@@ -28,8 +30,9 @@ column, and a single day makes a compact "what's left of today" card.
 Three days on a dashboard column, from one calendar. Every event keeps a single accent
 color, and the lanes stay wide enough for each block to show its title and its time.
 
-For the other end of the scale, a whole week on a wall tablet,
-[A Family Calendar: The Weekly Grid](/guide/family-calendar) builds one card step by step.
+For the other end of the scale, the [Family Hub](/guide/family-calendar) story puts a whole
+family's week on a wall tablet, and [Today & Tomorrow](/guide/today-and-tomorrow) shows two
+days by the hour on anything from a phone to a kitchen tablet.
 
 ## 🕒 Choosing the Hours the Card Shows
 
@@ -649,10 +652,10 @@ time_grid:
 Grid view uses the same responsive width fallback as column view, but with grid-specific
 options inside `time_grid:`:
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="The same week grid card at a narrower width, showing fewer days"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="A seven-day grid card at a narrower width, showing five of its days"><br>
 
-The same card as the full week, given less room. Days are surrendered one at a time rather
-than all at once, so the card stays useful as it narrows.
+A seven-day card given room for five. Days are surrendered one at a time rather than all at
+once, so the card stays useful as it narrows.
 
 ```yaml
 view: grid

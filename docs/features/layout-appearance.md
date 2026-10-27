@@ -157,6 +157,10 @@ toolbar:
   show: true
 ```
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="One card with its toolbar at two widths: a phone in List with pictograms for the layouts and a Reset button, and a dashboard section in Grid with the calendars folded into the filter button"><br>
+
+The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. On the phone the switcher shows pictograms, and Reset appears once the layout has been switched; in the section the calendar chips fold into the filter button. On the wall, with room for them, they are chips.
+
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
 the calendar filter and the add button at its start, the view switcher in its middle, and
 refresh at its end, after reset when that is on. The row under it names the month
@@ -508,7 +512,7 @@ column:
 
 `event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`. In the editor, **Event Gap** sits in the **Layout** panel between **Day Spacing** and **Event Spacing**, in every workspace except Grid.
 
-In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; [Separate Events With a Rule Between Days](/reference/examples#separate-events-with-a-rule-between-days) shows the two together.
+In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; the [Family Agenda](/guide/one-calendar-many-purposes#one-voice-for-the-whole-card) story shows the two together.
 
 ## 📅 Week Numbers & Visual Separators
 
@@ -534,7 +538,7 @@ month_separator_width: '3px' # Line between months
 month_separator_color: '#03a9f4'
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers.png" alt="Week Numbers" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers_v5.png" alt="Week Numbers" width="600"><br>
 
 `week_number_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do, and the pill is sized from it: 2.5
@@ -724,9 +728,9 @@ today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons 
 today_indicator_size: 6px # Size of icons, emojis and images; the tile ignores it (default)
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="Today Indicator" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="A three-day list card with today's date on a tinted tile, a progress bar on the event under way and countdowns on the events still to come" width="600"><br>
 
-The indicator is precisely positioned and always properly centered on the coordinates specified, making it ideal for creating visual emphasis on today's date.
+Above is the default tile, tinted with `today_indicator_color`. Every other style is drawn over the date column instead, and only those take a size and, in list view, a position.
 
 Available indicator types:
 
