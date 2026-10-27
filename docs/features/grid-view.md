@@ -772,11 +772,11 @@ the top-level default, and **Grid Default** is what grid view uses instead:
 | `day_separator_color`      | string  | `var(--secondary-text-color)` | Half-strength `var(--divider-color)` |
 | `day_spacing`              | string  | `10px`                        | `1px`                                |
 | `event_font_size`          | string  | `14px`                        | `12px`                               |
-| `event_color`              | string  | `--primary-text-color`        | `accent`                             |
-| `time_color`               | string  | `--secondary-text-color`      | `accent`                             |
-| `location_color`           | string  | `--secondary-text-color`      | `accent`                             |
-| `description_color`        | string  | `--secondary-text-color`      | `accent`                             |
-| `progress_bar_color`       | string  | `--secondary-text-color`      | `accent`                             |
+| `event_color`              | string  | `var(--primary-text-color)`   | `accent`                             |
+| `time_color`               | string  | `var(--secondary-text-color)` | `accent`                             |
+| `location_color`           | string  | `var(--secondary-text-color)` | `accent`                             |
+| `description_color`        | string  | `var(--secondary-text-color)` | `accent`                             |
+| `progress_bar_color`       | string  | `var(--secondary-text-color)` | `accent`                             |
 | `progress_bar_width`       | string  | _per placement_               | `100%`                               |
 
 These defaults take precedence even when you explicitly set a different top-level value.

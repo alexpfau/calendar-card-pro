@@ -1,5 +1,5 @@
 /**
- * The header toolbar: the card's own controls, between the title and the events.
+ * The header toolbar: the card's own controls, in the header above the events.
  *
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. With one it is two rows. The action row holds what acts

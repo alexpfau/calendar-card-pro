@@ -105,7 +105,7 @@ vertical_line_width: '3px' # Width of the accent bar beside each event
 
 The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0, the default in list and column view, events have no background color; grid view [starts at 20](/features/grid-view#options-that-start-from-a-different-default). Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and every event has its own accent bar inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the day's edge: the bars of touching events join into one line, changing color where one calendar's event meets another's, and only the day's top and bottom ends are rounded. To give each event a bar of its own without a background, set [`event_gap`](#gaps-between-events); even `1px` does it.
 
-`vertical_line_width` sets how wide the bar is, and `0px` hides it. It takes a CSS length, and `thin`, `medium` and `thick`, which mean `1px`, `3px` and `5px`; anything else falls back to `2px`. The bar's ends are rounded at any width and in every view, and grid view draws it 3px inside each block.
+`vertical_line_width` sets how wide the bar is, and `0px` hides it. It takes a CSS length, and `thin`, `medium` and `thick`, which mean `1px`, `3px` and `5px`, and `none`, which hides it like `0px`; anything else falls back to `2px`. The bar's ends are rounded at any width and in every view, and grid view draws it 3px inside each block.
 
 `title_font_size` takes any CSS font size, as the
 [date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
@@ -163,7 +163,8 @@ refresh at its end, after reset when that is on. The row under it names the mont
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. A card without a title has no label over the
-month. With the toolbar off, the header is exactly what it always was.
+month. The top row is left out while it holds no control, and a toolbar with every control
+turned off draws nothing at all. With the toolbar off, the header is exactly what it always was.
 
 Each control is a neutral gray pill, so the toolbar never competes with the events for
 attention. Color shows only on the control in use: the card's accent, as on the card's own
@@ -444,9 +445,8 @@ the button or the card is edited, and a page until then or a reload.
 
 ::: warning Its Name Needs Home Assistant 2026.2
 The button takes its name from Home Assistant, which has had a word for "Reset" since 2026.2.
-On an older version it has no name to show, so it is an icon without a tooltip, and every other
-control in the toolbar stays an icon too, as the toolbar does wherever Home Assistant lacks a
-control's name.
+On an older version it is the same icon without a tooltip, and screen readers hear it in
+English. Nothing else in the toolbar changes.
 :::
 
 ::: tip Nothing Resets While You Edit

@@ -257,12 +257,13 @@ of the editor while its control, its helper text and its translations all stay p
 were pinned, and one of those (`view`) only because `VIEWS` drives the renderer as well.
 
 `checkEditorOptions` closes it in both directions, and the interesting part is how it gets
-the key. It cannot be modeled: **four** shapes are live — the node's own name (`view`), its
-group-qualified name (`column.min_days_fallback`), the per-calendar prefix
-(`entity.show_time`), and a key that is not the node's name at all, because
-`unionPickerField` labels the picker for a union option through the synthetic mode field
-standing in for it, so a node _named_ `show_week_numbers` resolves `week_number_mode.option.*`.
-The built schema has thrown that key away. So the schema is built under a sentinel language
+the key. It is not modeled: **three** shapes are live — the node's own name (`view`, or
+`week_number_mode`, the synthetic field standing in for `show_week_numbers`), its
+group-qualified name (`column.min_days_fallback`), and the per-calendar prefix
+(`entity.show_time`) — and nothing stops a fourth, a control labeled through a key that is not
+its name at all. Until v5 the per-view exception picker did exactly that: `unionPickerField`
+labeled a node _named_ `show_week_numbers` through `week_number_mode.option.*`, a key the built
+schema had thrown away. So the schema is built under a sentinel language
 that echoes every key back instead of resolving it, and each option's `label` is then
 literally the key the editor asked for. Reconciling on **keys** rather than on per-control
 sets of values is also what removes the need for an exception list: card-wide `event_type`
@@ -354,34 +355,43 @@ round-trip unchanged** (since 3.9, one shape does not; see below), and it breaks
 `</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
-uses it at **three** sites — the day-header weather badge, the event weather badge, and
-the folded time/countdown spans — each added after `npm run format` reintroduced the
-exact spaces a fix had just removed and turned five tests red. Locate them with
-`grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line number; two of
-the three moved the last time someone edited a comment above them. If you find one and
+uses it at **nine** sites, most of them under a comment naming the whitespace it protects; the
+original three were each added after `npm run format` reintroduced the exact spaces a fix had
+just removed and turned five tests red. Two more directives there are the Prettier 3.9 ones described below.
+Locate them with `grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line
+number; they move whenever someone edits a comment above them. If you find one and
 wonder whether it is still needed, run the experiment rather than reasoning about it —
 delete it, **run `npm run format`**, then `npm test`. The format step is the whole
 experiment: without it the directive's removal changes nothing and the whole suite still
 passes, which reads as "safe to delete" and is not.
 
-🚨 **Run it per site, because the three no longer answer the same way.** This paragraph
-used to say "it is" — that all three are still load-bearing — and that is now true of
-two. Measured one at a time on the tip, each with the format step:
+🚨 **Run it per site, because the nine do not answer the same way.** This section once
+listed three sites and said all three were load-bearing, and both halves went stale. Measured
+one at a time on the v5 tip, each with the format step, against an unmutated control that
+passed every test:
 
-| site                        | on removal + `npm run format` |
-| --------------------------- | ----------------------------- |
-| day-header weather badge    | 6 tests fail                  |
-| event weather badge         | 4 tests fail                  |
-| folded time/countdown spans | **suite stays green**         |
+| site, by the symbol it guards                  | on removal + `npm run format`                |
+| ---------------------------------------------- | -------------------------------------------- |
+| day-header weather badge (`renderDateWeather`) | 6 tests fail                                 |
+| title (`title`)                                | 30 tests fail                                |
+| summary row (`renderEventTitle`)               | 27 tests fail                                |
+| event weather badge (`renderEventWeather`)     | 4 tests fail                                 |
+| title pill (`titleContent`)                    | **suite stays green**                        |
+| split time (`timeValue`)                       | **suite stays green**                        |
+| all-day badge (`allDayBadgeEl`)                | **suite stays green**; Prettier changes none |
+| folded time/countdown spans (`timeText`)       | **suite stays green**                        |
+| Now run (`timeContent`)                        | **suite stays green**; Prettier changes none |
 
-The third is not a dead directive, and deleting it on that result would be the trap this
-section is about arriving from the other side. Prettier _does_ reformat that site — but
-it reformats it as `<span class="time-text"\n  >`, breaking **inside** the tag, which is
-the `</span\n><span` asymmetry two paragraphs up doing its job. No text node appears, so
-the DOM is identical and no snapshot moves. What the directive buys there is the source
-reading as the single line the browser sees, instead of the `>`-on-its-own-line form that
-is exactly what the comment above it is warning against. Keep it; it is documentation
-that happens to also be a guard, and the two other sites prove the guard is real.
+A green row does not make a directive dead, and deleting one on that result alone would be the
+trap this section is about arriving from the other side. Prettier _does_ reformat three of the
+five, and the folded spans show how: `<span class="time-text"\n  >`, breaking **inside** the
+tag, which is the `</span\n><span` asymmetry two paragraphs up doing its job. No text node
+appears, so the DOM is identical and no snapshot moves. What the directive buys there is the
+source reading as the single line the browser sees, instead of the `>`-on-its-own-line form
+that is exactly what the comment above it is warning against. The all-day badge's and the Now
+run's directives change nothing today, because Prettier leaves those templates as they are;
+they are there for a version that would not. Keep them; they are documentation that happens to
+also be a guard, and the four red rows prove the guard is real.
 
 🚨 **Since Prettier 3.9, a template with a multi-line `${…}` in it does not round-trip.**
 3.9 puts such an interpolation on lines of its own (Prettier PR 18380), which
@@ -1607,7 +1617,7 @@ worth knowing before anyone "restores" interleaving. Only three things read the 
   A second block of the same id finds every signature already in `seen` and contributes
   nothing, **whatever its `event_type`** — so priority under `filter_duplicates` is fixed
   by where an id **first** appears, and multiplicity is structurally invisible to it.
-- `fetchEvents` skips an id already in `fetchedEntityIds`.
+- `fetchEvents` requests each id once (`uniqueEntityIds`), in first-occurrence order.
 - `getPrimaryEntityId` reads `entities[0]`.
 
 First-occurrence order preserves all three, so `[a, b, c, b]` collapsing to `[a, b, b, c]`

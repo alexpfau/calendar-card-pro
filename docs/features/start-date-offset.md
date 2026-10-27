@@ -78,7 +78,7 @@ can make the start of the week look empty, so pair `start_of_week` with `show_pa
 there to see the full week. Grid view shows past events by default and needs nothing.
 :::
 
-When using `start_date` with `days_to_show`, the calendar will display exactly that number of days starting from the specified date:
+When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
 
 ```yaml
 start_date: '2025-07-01'

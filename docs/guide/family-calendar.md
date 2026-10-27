@@ -183,6 +183,7 @@ toolbar:
   view_switcher: false # this tablet is always a week on the hour axis
   navigation: false # and always this week
   legend: false # with every calendar on it
+  refresh: false # and refreshing on its own schedule
 ```
 
 That puts an add button in a row of its own above the week, and turns the title into a small label over the month. The card grows by those rows, so on a screen with no room to spare take a few pixels off `hour_height` to keep the axis on it. The button opens Home Assistant's own new-event dialog with the first calendar that accepts new events preselected, which is Anna's if hers does, because it is listed first. The dialog's picker offers the others, so a visit or a birthday goes on the Family calendar from there. See [Add Event Button](/features/actions#add-event-button).

@@ -74,7 +74,7 @@ Your text is kept exactly as written. It is never translated, trimmed or migrate
 
 The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
-If you would rather the card disappear completely instead of showing "No events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
+If you would rather the card disappear completely instead of showing "No events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display on the days it opens with, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. An empty today from `show_empty_today` is the same kind of placeholder, so a card whose only row is that one still hides too. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
@@ -83,6 +83,13 @@ filters, but before display-only limits. A card can therefore remain visible whe
 qualifying events fall outside Grid's drawn hours, on days dropped by responsive density,
 or beyond a compact limit. Those limits change what is drawn, not whether the date range
 has events.
+
+Three things keep a card visible that would otherwise hide. A card the
+[date navigation](/features/layout-appearance#paging-through-dates) has paged away from its
+own days stays, so its arrows can bring it back. A card with a calendar hidden by the
+[calendar filter](/features/layout-appearance#showing-hiding-calendars) stays, with its filter.
+And with a [different number of days in each layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout),
+the card hides only when none of the layouts it can show has an event.
 
 When past events are hidden, the card disappears once its last event has finished, without
 waiting for another calendar fetch. In list and column view, and in grid view while its now
