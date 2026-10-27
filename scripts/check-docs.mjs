@@ -3416,13 +3416,11 @@ const CARD_NAME_DIGESTS = new Set([
 ]);
 
 /**
- * Third-party cards matched only as a slug of their own.
+ * Third-party cards matched only as a slug.
  *
  * Same digests as `CARD_NAME_DIGESTS`, for names whose prose form means something else
  * here. One is, word for word, the name of a card Home Assistant ships, which the
- * documentation may name freely; the others are an ordinary verb and noun. Home Assistant's
- * frontend also builds its own card's elements on that same slug (`hui-` before it), so a
- * match joined to the word before it is part of a longer slug and does not count.
+ * documentation may name freely; the others are an ordinary verb and noun.
  */
 const CARD_SLUG_DIGESTS = new Set(['04302151e66830a3', 'bf1aae7c257257e0', '412e72f0531e4632']);
 
@@ -3477,11 +3475,21 @@ const GITHUB_REPO_LINK =
 /** A repository name whose last word is `card`. */
 const CARD_REPO_NAME = /(?:^|[-_.])cards?$/i;
 
-/** Whitespace between two words of a name in prose: at most one line break. */
-const PROSE_GAP = /^[ \t]*(?:\r?\n[ \t]*)?$/;
+/**
+ * Whitespace between two words of a name in prose: at most one line break. Any other
+ * whitespace counts, a no-break space included.
+ */
+const PROSE_GAP = /^[^\S\r\n]*(?:\r?\n[^\S\r\n]*)?$/;
 
 /** The single character between two words of a slug. */
 const SLUG_GAP = /^[-_]$/;
+
+/**
+ * The prefix of Home Assistant's own Lovelace elements. Its frontend names a card's
+ * elements by adding it to the card's slug, and one of its cards shares a name with a
+ * listed one, so a slug that continues one of these elements is never third-party.
+ */
+const HA_ELEMENT_PREFIX = 'hui';
 
 /**
  * The key a card name is hashed under: lowercase, its words joined by single hyphens.
@@ -3549,7 +3557,8 @@ function findCardNames(text, named, slugOnly) {
 
   const found = [];
   for (let i = 0; i < words.length; i++) {
-    const joinedBefore = i > 0 && SLUG_GAP.test(gaps[i - 1]);
+    const haElement =
+      i > 0 && SLUG_GAP.test(gaps[i - 1]) && words[i - 1].toLowerCase() === HA_ELEMENT_PREFIX;
     let key = words[i].toLowerCase();
     let slug = true;
     // Whether every gap so far is prose whitespace and every word before the last one is
@@ -3563,8 +3572,10 @@ function findCardNames(text, named, slugOnly) {
       for (const candidate of candidates) {
         const digest = cardNameDigest(candidate);
         const asName = named.has(digest) && (slug || prose);
-        const asSlug = slug && !joinedBefore && slugOnly.has(digest);
-        if (asName || asSlug) found.push({ index: starts[i], key: candidate, digest });
+        const asSlug = slug && slugOnly.has(digest);
+        if ((asName || asSlug) && !(slug && haElement)) {
+          found.push({ index: starts[i], key: candidate, digest });
+        }
       }
       if (n === CARD_NAME_MAX_WORDS || i + n >= words.length) break;
       slug &&= SLUG_GAP.test(gaps[i + n - 1]);
@@ -3607,7 +3618,8 @@ function selfTestCardMatchers() {
     ['a phrase with a lowercase word', 'Zz probe card', probe, none, 0],
     ['lowercase prose', 'a zz probe card', probe, none, 0],
     ['a slug-only name as a slug', 'Zz Probe Card or zz-probe-card', none, probe, 1],
-    ['a slug-only name inside a longer slug', 'hui-zz-probe-card', none, probe, 0],
+    ['a slug-only name in a longer slug', 'lovelace-zz-probe-card', none, probe, 1],
+    ["a slug in a Home Assistant element's name", 'hui-zz-probe-card-editor', probe, probe, 0],
   ];
   for (const [label, sample, named, slugOnly, expected] of cases) {
     const found = findCardNames(sample, named, slugOnly).length;
@@ -3682,7 +3694,7 @@ function checkThirdPartyCards() {
   const lineAt = (text, index) => text.slice(0, index).split('\n').length;
   const named = (text) => findCardNames(text, CARD_NAME_DIGESTS, CARD_SLUG_DIGESTS);
   const allowedSeen = new Map();
-  const creditLines = new Map();
+  const creditStrays = new Map();
 
   for (const path of paths) {
     for (const { key } of named(path)) {
@@ -3701,10 +3713,11 @@ function checkThirdPartyCards() {
         const lineDigest = cardNameDigest(cardNameKey(lines[line - 1]));
         if (lineDigest === credit.line) {
           const site = `${digest} ${path}`;
-          allowedSeen.set(site, (allowedSeen.get(site) ?? 0) + 1);
+          allowedSeen.set(site, [...(allowedSeen.get(site) ?? []), line]);
           continue;
         }
-        creditLines.set(`${digest} ${path}`, `line ${line}, digest '${lineDigest}'`);
+        const site = `${digest} ${path}`;
+        creditStrays.set(site, [...(creditStrays.get(site) ?? []), { line, lineDigest }]);
       }
       error(
         `${path}:${line} names a third-party card ("${key}"). The repository does not ` +
@@ -3739,16 +3752,29 @@ function checkThirdPartyCards() {
 
   for (const [digest, sites] of CARD_NAME_ALLOWED) {
     for (const [path, { count }] of sites) {
-      const seen = allowedSeen.get(`${digest} ${path}`) ?? 0;
+      const onCredit = allowedSeen.get(`${digest} ${path}`) ?? [];
+      const seen = onCredit.length;
       if (seen === count) continue;
-      const moved = creditLines.get(`${digest} ${path}`);
+      const strays = creditStrays.get(`${digest} ${path}`) ?? [];
+      const offLines = [...new Map(strays.map((s) => [s.line, s.lineDigest]))];
+      let advice;
+      if (seen > count) {
+        advice =
+          `They are on lines ${onCredit.join(', ')}, each reading as the credit. The extra ` +
+          'mentions have to go; raise the count only if the credit itself now names the card ' +
+          'more often.';
+      } else if (offLines.length) {
+        advice =
+          `Mentions off the pinned line: ` +
+          offLines.map(([line, lineDigest]) => `line ${line} (digest '${lineDigest}')`).join(', ') +
+          `. Every one of them fails on its own. If one of those lines is the credit, edited ` +
+          `on purpose, pin that line's digest in CARD_NAME_ALLOWED; never pin any other.`;
+      } else {
+        advice = 'Restore the credit, or update CARD_NAME_ALLOWED if it was removed on purpose.';
+      }
       error(
         `${path}: the design credit should name its card ${count} time(s) on its own ` +
-          `line, found ${seen}. ` +
-          (moved
-            ? `A mention at ${moved} is not on the pinned line; if that line is the ` +
-              `credit, edited on purpose, pin that digest in CARD_NAME_ALLOWED.`
-            : 'Restore the credit, or update CARD_NAME_ALLOWED if it was removed on purpose.'),
+          `line, found ${seen}. ${advice}`,
       );
     }
   }

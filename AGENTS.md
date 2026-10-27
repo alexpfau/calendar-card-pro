@@ -829,20 +829,22 @@ the card the original design was built with; that is attribution, and it stays a
 `check:docs` enforces this as Check 33, over the path of every file git tracks or would add
 and the contents of every text one but the lockfile. It rejects a listed card's name
 written as a slug, words joined by a hyphen or underscore in any case, or as a name in
-prose, every word capitalized except perhaps a closing `card`, even where it wraps onto
-the next line inside a comment. A phrase with a lowercase word in it is description rather
-than a name and passes, and so does a one-word name, a name run together into one word, or
-one split by a blank line. A few names whose prose form is ordinary English, or the name of one of Home
-Assistant's own cards, are matched only as slugs, so in prose they are on you. The check
-also rejects a `custom:` type and a GitHub repository whose last word is `card` (card-mod's
-wrapper aside), and a few wordings that rank this card against others. The names are kept
-as SHA-256 digests, so the gate does not itself name what it forbids;
-`node scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one, and a
-self-test on a made-up name proves the matchers before the scan runs. The credit is exempt
-only on its own line, pinned by a digest of that line and by its count, so a mention
-anywhere else fails and so does an edit to the credit; the error prints the digest to pin
-if the edit was meant. Pull request bodies and commit messages are outside every gate, and
-generic wordings are too varied to list, so the rule applies there by hand.
+prose, every word capitalized except perhaps a closing `card`, even where it wraps onto the
+next line inside a comment. A phrase with a lowercase word in it is description rather than
+a name and passes, and so does a one-word name, a name run together into one word, or one
+split by a blank line. A few names whose prose form is ordinary English, or the name of one
+of Home Assistant's own cards, are matched only as slugs, so in prose they are on you, and
+a slug that continues one of Home Assistant's own `hui-` element names never counts. The
+check also rejects a `custom:` type and a GitHub repository whose last word is `card`
+(card-mod's wrapper aside), and a few wordings that rank this card against others. The
+names are kept as SHA-256 digests, so the gate does not itself name what it forbids; `node
+scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one, and a self-test
+on a made-up name proves the matchers before the scan runs. The credit is exempt only on
+its own line, pinned by a digest of that line and by its count, so a mention anywhere else
+fails and so does an edit to the credit; the error lists every mention off that line with
+its line digest, so an intended edit can be pinned again. Pull request bodies and commit
+messages are outside every gate, and generic wordings are too varied to list, so the rule
+applies there by hand.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
