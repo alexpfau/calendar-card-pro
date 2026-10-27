@@ -1494,7 +1494,6 @@ function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string,
     config_version: CURRENT_CONFIG_VERSION,
     entities: [...entities],
     days_to_show: 3,
-    show_location: true,
   };
 }
 
@@ -1522,8 +1521,9 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * The three configs differ only by `view` and, for the grid, `show_location` — none of
- * which is fetch-affecting, so they share one event-cache key. Changing a member of
+ * The three configs differ only by `view`, which is not fetch-affecting, so they share one
+ * event-cache key. The grid preview hides locations through grid's own default
+ * (`TIME_GRID_DEFAULT_OVERRIDES`), not through a value of its own. Changing a member of
  * `FETCH_TIME_KEYS` in any of them would make each picker preview issue its own calendar
  * request.
  *
@@ -1575,12 +1575,6 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'grid',
-        // The one deliberate divergence between the three previews. A time-grid block is
-        // read by its position and height, and a full postal address is several lines that
-        // push everything else out of a lunchtime meeting — so the grid preview shows the
-        // title and the clock and stops there. `show_location` is render-time, so this
-        // costs nothing: all three still resolve to one cache key and one calendar request.
-        show_location: false,
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

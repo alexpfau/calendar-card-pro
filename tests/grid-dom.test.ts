@@ -3293,7 +3293,11 @@ describe('the grid reuses the shared leaves', () => {
     // not be a direct child of the content box.
     const container = renderGrid(
       [{ ...timed(18, '09:00', '12:00', 'Long review'), location: 'Room 2' }],
-      buildConfig({ view: 'grid', show_location: true, show_progress_bar: true }),
+      buildConfig({
+        view: 'grid',
+        show_progress_bar: true,
+        time_grid: { show_location: true },
+      }),
     );
     const content = requireElement(container, '.grid-event-disclosure .event-content');
     const summary = requireElement(content, '.summary-row');

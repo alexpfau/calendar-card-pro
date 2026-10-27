@@ -226,10 +226,11 @@ these top-level values behave as follows:
 | ------------------------- | ----------------- | ----------------- | ----------------- |
 | `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  |
 | `show_past_events: false` | Hides past events | Hides past events | Keeps past events |
+| `show_location: true`     | Shows locations   | Shows locations   | Hides locations   |
 
 Set the corresponding value in `column:` or `time_grid:` to change that view, or use
 its editor workspace. Grid also substitutes its own styling defaults, even when you
-set a different top-level value. All thirteen are listed in
+set a different top-level value. All fourteen are listed in
 [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 Column's two substitutions are listed in
 [Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).

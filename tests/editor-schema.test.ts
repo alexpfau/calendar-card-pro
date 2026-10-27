@@ -980,6 +980,15 @@ describe('editor: applicability', () => {
     expect(helper).toContain('Time grid starts this option from true');
   });
 
+  it('notes that grid view hides locations by default', () => {
+    const helper = computeHelper('en', 'grid', {
+      name: 'show_location',
+      selector: { boolean: {} },
+    });
+
+    expect(helper).toContain('Time grid starts this option from false');
+  });
+
   it('agrees with appliesToView', () => {
     expect(appliesToView('date_vertical_alignment', 'list')).toBe(true);
     expect(appliesToView('date_vertical_alignment', 'column')).toBe(false);
