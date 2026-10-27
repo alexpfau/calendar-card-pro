@@ -152,11 +152,7 @@ Where the calendar's [integration allows it](/features/actions#what-each-integra
 
 ### A Fixed Week on a Dedicated Wall
 
-A tablet that only ever shows the week can drop the switcher and hold the calendar week, Monday to Sunday. This is the card this page first published:
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_family_week.png" alt="A wall tablet showing one family's week in grid view, Monday to Sunday on an hour axis: each person's events in their own color with their face beside the title, shared plans in gold, work hours in gray, all-day banners above the hours, and a green line marking the current time on Wednesday afternoon"><br>
-
-The fixed-week setup, with no toolbar, on a dark theme on Wednesday afternoon. The faces are round pictures from `/local/demo/`, and Ben's working hours say only _Work_, as the next variation sets up.
+A tablet that only ever shows the week can drop the toolbar and hold the calendar week, Monday to Sunday, as this page's first card did.
 
 Add these lines to the card, replace its `time_grid:` block with this one, and delete its `toolbar:`, `list:` and `column:` blocks:
 
