@@ -112,7 +112,7 @@ Home Assistant stores a person's photo square, and the card draws it as stored, 
 
 Family lunch is on Anna's, Ben's and Leo's calendars at once. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once instead of three times, with the face of every calendar it came from, in the order the calendars are listed. Copies count as one plan when their title, start, end and location all match, which is what you get when the same event is added to each calendar.
 
-[`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) recolors those merged blocks in the Family calendar's own gold, deliberately: on a family card, a plan on more than one person's calendar is a family plan. So gold means the family wherever the event lives. The grandparents' visit is on the Family calendar, the zoo trip on Ben's and Leo's, and date night on Anna's and Ben's. All three are gold, and nobody filed them anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-filtered-agenda) uses the same gold, so a shared plan looks the same on every screen.
+[`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) recolors those merged blocks in the Family calendar's own gold, deliberately: on a family card, a plan on more than one person's calendar is a family plan. So gold means the family wherever the event lives. The grandparents' visit is on the Family calendar, the zoo trip on Ben's and Leo's, and date night on Anna's and Ben's. All three are gold, and nobody filed them anywhere special. The [Family Agenda](/guide/one-calendar-many-purposes#shared-plans-in-the-family-agenda) uses the same gold, so a shared plan looks the same on every screen.
 
 ### A Birthday That Counts Itself
 
@@ -147,8 +147,6 @@ The wall is a 1280 × 800 tablet. A [panel view](https://www.home-assistant.io/d
 `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, with its description, its location, which the grid leaves off its blocks, and how it repeats. The dialog shows the event as the calendar stores it, so Grandma's birthday appears there without her age. See [Tapping an Event](/features/actions#tapping-an-event).
 
 Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the dialog also offers **Edit** and **Delete**: a Local Calendar both, a Google calendar only Delete. Neither appears on a merged shared plan, where one copy cannot speak for the others. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card.
-
-So the dialog also shows whatever the card hides, such as a rewritten title or a hidden location. `event_tap_action` applies to the whole card, not to one calendar, so a card with a private calendar on it needs the dialog off, as [A Private Work Calendar](#a-private-work-calendar) explains.
 
 ## 🔀 Variations
 
@@ -196,10 +194,6 @@ entities:
 ```
 
 [`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) replaces every title with _Work_, and Ben's face says whose it is. The gray is quieter than his own blue on purpose, because the working day is background. Grid hides locations already, but List and Columns show them, so `show_location: false` keeps a meeting room off the phone, and `show_description: false` keeps an agenda off even if descriptions are turned on for the whole card.
-
-::: warning A Tap Shows the Real Meeting
-Remove `event_tap_action` from the card. The dialog would show the meeting's real title, location and description, and it cannot be turned off for one calendar. To keep details on the tablet, put the work calendar on a card of its own.
-:::
 
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 

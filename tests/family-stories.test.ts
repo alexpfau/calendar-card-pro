@@ -123,8 +123,8 @@ describe('the two family stories describe one family', () => {
   });
 
   it('open the details dialog on a tap on both displays', () => {
-    // Both pages explain what the dialog shows, and the agenda's privacy section is written
-    // around it being on. A card that dropped it would leave that prose describing nothing.
+    // Both pages explain what the dialog shows and how to take Edit and Delete out of it. A card
+    // that dropped it would leave that prose describing nothing.
     for (const card of Object.values(CARDS)) {
       expect(card.config.event_tap_action).toEqual({ action: 'details' });
     }

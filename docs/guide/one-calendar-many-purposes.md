@@ -156,8 +156,6 @@ An event with no description counts as **not matching**, so an allowlist drops i
 
 ::: warning A Title Is Not the Only Thing That Leaks
 `show_location: false` does real work on the _Busy_ block, because locations show by default and _Meeting Room 2_ gives the game away. `show_description: false` changes nothing yet, but keeps the block safe the day you turn [`show_description`](/reference/configuration#core-settings) on card-wide.
-
-All of that hides Ben's meetings **on the screen** only. A tap opens [Home Assistant's own dialog](/features/actions#tapping-an-event), which shows the event as the calendar stores it, so a tap on _Busy_ shows the real title, location and description. `event_tap_action` is card-wide, so no block can opt out. Where nobody should read Ben's meetings from the hall tablet, [remove it](#keeping-bens-meetings-private), or keep the work calendar off this card.
 :::
 
 ### Why This Works
@@ -186,8 +184,6 @@ The lines above `entities:` apply to every block at once, and that is the point:
 
 ::: warning Tidying Is Not Privacy
 `show_location_allday: false` and the _Busy_ block's `show_location: false` look identical on screen and are not the same decision. The card-level one is housekeeping. The per-calendar one is a privacy control, and it has to stay, because work events are timed and the all-day option never touches them. `show_description_allday` sits on the same fault line.
-
-Neither reaches the details dialog, which the card-wide `event_tap_action` opens for every event, _Busy_ included, and which shows the event as stored. Tidy the screen with the card-level option, protect it with the per-calendar one, and protect the event itself with [no tap action](#keeping-bens-meetings-private).
 :::
 
 ## 🔀 Variations
@@ -220,13 +216,13 @@ list:
 
 The position is a share of the day's height, so on a day with one event the word can still touch the date.
 
-### Keeping Ben's Meetings Private
+### Read Only on a Shared Screen
 
-Delete `event_tap_action` from the card, and a tap on an event does nothing, so the _Busy_ rows keep their secret everywhere. If you keep the dialog, `allow_event_edit: false` and `allow_event_delete: false` at least take [Edit and Delete](/features/actions#narrowing-what-the-dialog-offers) out of it on a screen everyone shares.
+The dialog offers [Edit and Delete](/features/actions#narrowing-what-the-dialog-offers) where the calendar allows them. On a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take them out.
 
 ## 🔀 Combining the Techniques
 
-### Shared Plans in the Filtered Agenda
+### Shared Plans in the Family Agenda
 
 The zoo trip on Thursday is on Ben's and Leo's calendars, date night on Friday on Anna's and Ben's, and the birthday lunch on Saturday on all three. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws each once, with every face in front of the title, and [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors it the Family calendar's gold. The copies have to match exactly, in title, start, end and location. As on the Family Hub, a plan on more than one person's calendar is a family plan; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family).
 
