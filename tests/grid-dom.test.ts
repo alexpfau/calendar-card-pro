@@ -2457,12 +2457,14 @@ describe('the now line (#325)', () => {
 
     it('gives today a plane carrying the line position, and the block under way its top', () => {
       // FROZEN_NOW is 10:00 on the 17th. Review and Interview are under way; Standup ended
-      // just before, close enough that the 14px floor draws it across the line, and Retro has
-      // not begun. Only a block whose own time holds now repeats the line.
+      // just before, close enough that the 14px floor draws it across the line; Check-in ends
+      // exactly now, the boundary a test in percentages got wrong for some times; and Retro
+      // has not begun. Only a block whose own time holds now repeats the line.
       const container = renderGrid([
         timed(17, '09:00', '12:00', 'Review'),
         timed(17, '09:30', '11:00', 'Interview'),
         timed(17, '09:50', '09:55', 'Standup'),
+        timed(17, '09:55', '10:00', 'Check-in'),
         timed(17, '10:30', '11:00', 'Retro'),
         timed(18, '09:00', '12:00', 'Workshop'),
       ]);
@@ -2479,7 +2481,13 @@ describe('the now line (#325)', () => {
 
       const titleOf = (block: Element) => block.querySelector('.event-title')?.textContent?.trim();
       const blocks = [...plane.querySelectorAll(':scope > .grid-event')];
-      expect(blocks.map(titleOf).sort()).toEqual(['Interview', 'Retro', 'Review', 'Standup']);
+      expect(blocks.map(titleOf).sort()).toEqual([
+        'Check-in',
+        'Interview',
+        'Retro',
+        'Review',
+        'Standup',
+      ]);
       for (const block of blocks) {
         const underWay = ['Review', 'Interview'].includes(titleOf(block) ?? '');
         const top = /^([\d.]+)%$/.exec(property(block, '--calendar-card-grid-block-top'))?.[1];
@@ -2522,7 +2530,9 @@ describe('the now line (#325)', () => {
     });
 
     it('repeats nothing when the line is switched off or the time is outside the band', () => {
-      const events = [timed(17, '09:00', '12:00', 'Review')];
+      // Under way at 10:00 and reaching into the 14:00-18:00 band, so both cases draw a block
+      // that a renderer ignoring the band could wrongly mark.
+      const events = [timed(17, '09:00', '15:00', 'Review')];
       for (const time_grid of [
         { show_now_line: false },
         { start_time: '14:00', end_time: '18:00' },
@@ -2534,6 +2544,7 @@ describe('the now line (#325)', () => {
 
         expect(container.querySelectorAll('.grid-day-plane-now')).toHaveLength(0);
         expect(container.querySelectorAll('.grid-event-now')).toHaveLength(0);
+        expect(container.querySelectorAll('.grid-day-body.today .grid-event').length).toBe(1);
         for (const block of container.querySelectorAll('.grid-event')) {
           expect(property(block, '--calendar-card-grid-block-top-cqh')).toBe('');
         }

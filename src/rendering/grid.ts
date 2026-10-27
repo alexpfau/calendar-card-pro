@@ -799,9 +799,9 @@ function cascadeHorizontal(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether the block is a tap target of its own
  * @param dayLabelId - The id of the day's header, which describes a tappable block
- * @param nowPct - Where its column draws the now line, as a share of the band, or `null`
- *   where it draws none. A block whose own time span holds that point repeats the line over
- *   its fill (see `.grid-event-now`)
+ * @param nowMin - The minute its column draws the now line at, or `null` where it draws
+ *   none. A block whose own time span holds that minute repeats the line over its fill (see
+ *   `.grid-event-now`)
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -815,7 +815,7 @@ function renderTimedEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
-  nowPct: number | null = null,
+  nowMin: number | null = null,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -823,11 +823,10 @@ function renderTimedEvent(
   const tint = presentation.entityAccentBackgroundColor;
   // By its time span, not its drawn box: the 14px floor can stretch a block that has ended or
   // not yet begun across the line, and marking one of those as under way would say something
-  // false, through a past block's dimmed title at that.
-  const underWay =
-    nowPct !== null &&
-    placement.topPct <= nowPct &&
-    nowPct < placement.topPct + placement.heightPct;
+  // false, through a past block's dimmed title at that. In minutes, the units both sides are
+  // made in: the same test in percentages rounds differently on each side and kept some
+  // ended events marked for their last minute.
+  const underWay = nowMin !== null && event.startMin <= nowMin && nowMin < event.endMin;
 
   // A raised block hides what is beneath it, and it does so with a backdrop of its own,
   // drawn just before it in the same box: the card, the weekend tint and the hour rules,
@@ -1712,6 +1711,7 @@ function renderDayBody(
   const nowMinute = new Date(now);
   nowMinute.setSeconds(0, 0);
   const nowPct = showNowLine && isToday ? Grid.computeNowLinePct(nowMinute, band) : null;
+  const nowMin = nowPct === null ? null : Grid.minutesFromMidnight(nowMinute);
   const nowTop = styleMap({ top: `${nowPct}%` });
 
   // The line goes before the plane and the dot after it: positioned elements with no
@@ -1756,7 +1756,7 @@ function renderDayBody(
                   hass,
                   eventsTappable,
                   dayLabelId,
-                  nowPct,
+                  nowMin,
                 )
               : nothing;
           },
