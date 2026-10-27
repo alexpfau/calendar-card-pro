@@ -4,7 +4,9 @@ Grid view places the days side by side on an hour axis, so an event sits at the 
 starts and is as tall as it is long. It is the same agenda the other two layouts show,
 measured against a clock instead of listed.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png" alt="Calendar Card Pro v5 — lists, columns, and now hour by hour"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A family's week in grid view on a wall tablet, under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours and a forecast in each date header"><br>
+
+The [Family Hub](/guide/family-calendar) story: a fully configured grid card on a wall tablet. The YAML below is all it takes to switch a card to grid.
 
 Set it with `view`. The default, `list`, stacks each day above the next.
 

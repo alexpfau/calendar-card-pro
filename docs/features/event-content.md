@@ -108,7 +108,7 @@ The same applies when a calendar cannot be reached. A failed request leaves the 
 
 ## 🏷️ The All-Day Badge
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title_v5.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
 By default an all-day event says so in words, on the same line as the clock icon. The all-day
 badge draws that fact as a rounded pill in the calendar accent color instead, the way most

@@ -2,7 +2,7 @@
 
 Configure the card with Home Assistant's visual editor and see a live preview as you edit.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor.png" alt="The visual editor in dark mode: the Card Displays choice, the layout being edited, search, and the collapsible panels, beside a live preview of the card"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v5.png" alt="The visual editor in dark mode: the Card Displays choice, the layout being edited, search, and the collapsible panels, beside a live preview of the card"><br>
 
 The v5 editor shown above, with the card's preview beside it. **Card Displays** is set to List, so **Editing Settings For** starts on List too; [Options for the Selected View](#options-for-the-selected-view) explains the two.
 

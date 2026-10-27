@@ -5,7 +5,9 @@ rather than down it. It is the same agenda the list layout shows, rotated — yo
 labels and colors carry over as they are, apart from
 [two options that start from a different default](#options-that-start-from-a-different-default).
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_column_view.png" alt="Calendar Card Pro v4 — the week, side by side"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_columns.png" alt="A family's week in column view on a wall tablet, one tinted column per day under a two-row toolbar with the layout switcher set to Columns, finished events faded"><br>
+
+The [Family Hub](/guide/family-calendar) story on its wall tablet, switched to Columns. The YAML below is all it takes to switch a card to columns.
 
 Set it with `view`. The default, `list`, stacks each day above the next.
 
@@ -248,7 +250,9 @@ Left unset entirely, each layout keeps the width that suits it — which is usua
 
 Both are visible above: the running event on the left carries the bar on its own row, and
 every later event carries a countdown after its time. No event has both, because no event
-can be running and still to come.
+can be running and still to come. That card also turns on the
+[toolbar](/features/layout-appearance#header-toolbar), with its calendar filter, add, the
+layout switcher and paging, and opens an event's details on a tap.
 
 ## ↔️ Spacing Between Days
 
