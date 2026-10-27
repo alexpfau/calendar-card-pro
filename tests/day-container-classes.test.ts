@@ -11,6 +11,7 @@ import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as Paging from '../src/utils/paging';
 
 /**
  * The day container's state classes are public API.
@@ -72,6 +73,16 @@ const WEEKEND_SPAN: Types.CalendarEventData[] = [
 
 /** `days_to_show` must reach Monday the 22nd, six days past the frozen Wednesday. */
 const SPAN_CONFIG = { days_to_show: 10 };
+
+/**
+ * A month of 2026's heading in English, as the card hands it to the toolbar.
+ *
+ * @param month - Zero-based month
+ * @param form - The month in full or short
+ * @returns The heading, in runs
+ */
+const monthHeading = (month: number, form: Paging.MonthForm = 'long'): Paging.MonthHeadingText =>
+  Paging.monthHeadingParts(new Date(2026, month, 1), 'en', form);
 
 /**
  * Column view ships `show_empty_days: true` (`COLUMN_DEFAULT_OVERRIDES` in `view.ts`)
@@ -448,9 +459,9 @@ describe('theming.md card-mod selectors', () => {
           {
             labeled,
             heading: {
-              text: labeled ? 'June 2026' : 'Jun 2026',
-              reserve: labeled ? ['January 2026', 'September 2026'] : ['Jan 2026', 'Sep 2026'],
-              full: ['January 2026', 'September 2026'],
+              text: monthHeading(5, labeled ? 'long' : 'short'),
+              reserve: [0, 8].map((month) => monthHeading(month, labeled ? 'long' : 'short')),
+              full: [0, 8].map((month) => monthHeading(month)),
               short: !labeled,
               range: 'Jun 17 – 23',
             },
@@ -528,9 +539,9 @@ describe('theming.md card-mod selectors', () => {
         {
           labeled: true,
           heading: {
-            text: 'June 2026',
-            reserve: ['January 2026', 'September 2026'],
-            full: ['January 2026', 'September 2026'],
+            text: monthHeading(5),
+            reserve: [0, 8].map((month) => monthHeading(month)),
+            full: [0, 8].map((month) => monthHeading(month)),
             short: false,
             range: 'Jun 17 – 23',
           },

@@ -2991,6 +2991,20 @@ describe('the toolbar layout', () => {
     expect(declared('.toolbar-month', 'font-variant-numeric')).toBe('tabular-nums');
   });
 
+  it("sets the month's name bold and its year regular, in every copy alike", () => {
+    expect(declared('.toolbar-month-name', 'font-weight')).toBe('var(--ha-font-weight-bold, 700)');
+    expect(declared('.toolbar-month', 'font-weight')).toBe('var(--ha-font-weight-normal, 400)');
+    // The heading, the room kept and the months measured all mark the name with the same class,
+    // so a weight set anywhere but on the heading or that class would make one copy wider than
+    // the others, and the room kept or the width measured wrong.
+    const weighted = RULES.filter(
+      (rule) =>
+        rule.selectors.some((selector) => selector.includes('toolbar-month')) &&
+        /(^|;)\s*font-weight\s*:/.test(rule.body),
+    ).map((rule) => rule.selectors.join(', '));
+    expect(weighted).toEqual(['.toolbar-month', '.toolbar-month-name']);
+  });
+
   it('centers the switcher by sharing the room beside it equally between the two groups', () => {
     for (const group of ['.toolbar-start', '.toolbar-end']) {
       expect(declared(group, 'flex'), group).toBe('1 1 0');

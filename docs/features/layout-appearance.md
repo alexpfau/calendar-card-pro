@@ -162,8 +162,9 @@ the calendar filter and the add button at its start, the view switcher in its mi
 refresh at its end, after reset when that is on. The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
-`title_color` style it rather than the title. A card without a title has no label over the
-month. The top row is left out while it holds no control, and a toolbar with every control
+`title_color` style it rather than the title. Its month's name is bold and the year beside it
+regular, in whichever order the card's language writes them. A card without a title has no label
+over the month. The top row is left out while it holds no control, and a toolbar with every control
 turned off draws nothing at all. With the toolbar off, the header is exactly what it always was.
 
 Each control is a neutral gray pill, so the toolbar never competes with the events for

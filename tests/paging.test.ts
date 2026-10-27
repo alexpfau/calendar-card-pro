@@ -211,13 +211,15 @@ describe('the month heading', () => {
   });
 
   it('lists every month of one year in each form, January first, for the room it keeps', () => {
-    const headings = Paging.monthHeadings('en');
+    const headings = Paging.monthHeadings('en').map(Paging.monthHeadingText);
     expect(headings).toHaveLength(12);
     expect(headings[0]).toBe('January 2000');
     expect(headings[8]).toBe('September 2000');
-    expect(Paging.monthHeadings('en', 'short')[8]).toBe('Sep 2000');
+    expect(Paging.monthHeadingText(Paging.monthHeadings('en', 'short')[8])).toBe('Sep 2000');
     expect(Paging.monthHeadings('de', 'long')).toEqual(
-      Array.from({ length: 12 }, (_, month) => Paging.monthHeading(new Date(2000, month, 1), 'de')),
+      Array.from({ length: 12 }, (_, month) =>
+        Paging.monthHeadingParts(new Date(2000, month, 1), 'de'),
+      ),
     );
   });
 });

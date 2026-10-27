@@ -335,9 +335,22 @@ function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
   return format;
 }
 
+/** The letters that open a literal, which after a month written as a number are its unit: 月. */
+const MONTH_UNIT = /^\p{L}+/u;
+
+/** One run of a month heading's words: the month's own name, or what stands around it. */
+export interface MonthHeadingPart {
+  text: string;
+  /** True for the month's name, which the toolbar sets bold; the year and the rest stay regular. */
+  month: boolean;
+}
+
+/** A month heading as runs, in reading order, which joined give its words. */
+export type MonthHeadingText = ReadonlyArray<MonthHeadingPart>;
+
 /**
- * Name the month a page starts in, with its year, as the toolbar's heading: "November 2026",
- * or in the short form "Nov 2026".
+ * Name the month a page starts in, with its year, as the toolbar's heading, in runs that tell
+ * the month's name from the rest: "November" and " 2026", or in the short form "Nov" and " 2026".
  *
  * Always the month of the first day, never two: the week of Nov 30 – Dec 6 reads "November
  * 2026", as a desktop calendar's week view does. `Intl` writes it in the card's language, in the
@@ -346,23 +359,83 @@ function monthFormat(language: string, form: MonthForm): Intl.DateTimeFormat {
  * month it is capitalized in that language's own casing, as a heading is; a label that starts
  * with the year ("2026 m. lapkritis") is left as `Intl` writes it, since its month is mid-phrase.
  *
+ * Which run is the month comes from `Intl`'s own parts, never from where a word stands, since
+ * the order is the language's: "2026년 11월" ends with it, and "2026年11月" holds it between two
+ * literals. Where the month is a bare number, the letters written straight after it are its unit
+ * and count as the month: Chinese writes 月 as a literal of its own, where Korean's 월 is already
+ * part of the month, and "2026年11月" has its month in "11月" all the same. A space or punctuation
+ * after the number ("11.2026 г.", "11/2026") is no unit and stays apart. The parts only mark
+ * the boundaries. Their literals are not always `format`'s, which
+ * writes a plain space where they write a no-break one in Russian, Ukrainian and Bulgarian, so
+ * the words are `format`'s, cut at the parts' lengths, and read exactly as they always have. An
+ * engine whose parts do not add up to its own text gets the words in one plain run.
+ *
+ * @param date - Any day of the month, usually the first day on screen
+ * @param language - Card language
+ * @param form - The month in full or short
+ * @returns The heading, in runs
+ */
+export function monthHeadingParts(
+  date: Date,
+  language: string,
+  form: MonthForm = 'long',
+): MonthHeadingText {
+  const format = monthFormat(language, form);
+  const parts = format.formatToParts(date);
+  let text = format.format(date);
+  if (parts[0]?.type === 'month') {
+    const locale = format.resolvedOptions().locale;
+    text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+  }
+  if (parts.reduce((length, part) => length + part.value.length, 0) !== text.length) {
+    return [{ text, month: false }];
+  }
+
+  const runs: MonthHeadingPart[] = [];
+  const push = (run: string, month: boolean) => {
+    if (!run) return;
+    const last = runs[runs.length - 1];
+    if (last && last.month === month) last.text += run;
+    else runs.push({ text: run, month });
+  };
+  let offset = 0;
+  parts.forEach((part, i) => {
+    let run = text.slice(offset, offset + part.value.length);
+    offset += part.value.length;
+    const previous = parts[i - 1];
+    if (part.type === 'literal' && previous?.type === 'month' && /^\d+$/.test(previous.value)) {
+      const unit = MONTH_UNIT.exec(run)?.[0] ?? '';
+      push(unit, true);
+      run = run.slice(unit.length);
+    }
+    push(run, part.type === 'month');
+  });
+  return runs;
+}
+
+/**
+ * The month heading's words, as one string: `monthHeadingParts` joined.
+ *
  * @param date - Any day of the month, usually the first day on screen
  * @param language - Card language
  * @param form - The month in full or short
  * @returns The heading
  */
 export function monthHeading(date: Date, language: string, form: MonthForm = 'long'): string {
-  const format = monthFormat(language, form);
-  // The parts only say what leads: their literals are not always `format`'s, which writes a
-  // plain space where they write a no-break one in Russian, Ukrainian and Bulgarian.
-  const text = format.format(date);
-  if (format.formatToParts(date)[0]?.type !== 'month') return text;
-
-  const locale = format.resolvedOptions().locale;
-  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+  return monthHeadingText(monthHeadingParts(date, language, form));
 }
 
-const monthHeadingSets = new Map<string, ReadonlyArray<string>>();
+/**
+ * Join a month heading's runs into its words.
+ *
+ * @param heading - The heading, in runs
+ * @returns Its words
+ */
+export function monthHeadingText(heading: MonthHeadingText): string {
+  return heading.map((part) => part.text).join('');
+}
+
+const monthHeadingSets = new Map<string, ReadonlyArray<MonthHeadingText>>();
 
 /**
  * Every month's heading in one year, in one form and language, so the toolbar can keep the room
@@ -374,14 +447,17 @@ const monthHeadingSets = new Map<string, ReadonlyArray<string>>();
  *
  * @param language - Card language
  * @param form - The month in full or short
- * @returns Twelve headings, January first
+ * @returns Twelve headings, in runs, January first
  */
-export function monthHeadings(language: string, form: MonthForm = 'long'): ReadonlyArray<string> {
+export function monthHeadings(
+  language: string,
+  form: MonthForm = 'long',
+): ReadonlyArray<MonthHeadingText> {
   const key = `${language}|${form}`;
   let headings = monthHeadingSets.get(key);
   if (!headings) {
     headings = Array.from({ length: 12 }, (_, month) =>
-      monthHeading(new Date(2000, month, 1), language, form),
+      monthHeadingParts(new Date(2000, month, 1), language, form),
     );
     monthHeadingSets.set(key, headings);
   }

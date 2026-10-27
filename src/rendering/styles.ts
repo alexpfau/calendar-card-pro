@@ -578,6 +578,15 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* The month's own name, bold, with the year beside it at the heading's regular weight, so the
+     month reads first, as a desktop calendar sets it. Home Assistant's bold, the weight its own
+     headings take. Every copy of the heading marks its month so, the reserve and the months the
+     card measures too, so the room kept and the width measured are those of the words drawn; a
+     rule on this class reaches them all at once. */
+  .toolbar-month-name {
+    font-weight: var(--ha-font-weight-bold, 700);
+  }
+
   .toolbar-month-icon {
     flex: none;
     width: 24px;
