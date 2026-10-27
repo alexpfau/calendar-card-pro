@@ -8,9 +8,13 @@ Anna, Ben and their baby son Leo are an invented family with a tablet on the kit
 
 The kitchen wall, a 1280 × 800 tablet in grid view. Anna is pink, Ben is blue and Leo is green, each face in front of its events, and anything on more than one of their calendars is gold.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card three times: a phone in List showing three days and a Reset button, a narrow dashboard section in Grid showing three days with the calendar chips folded into the filter button, and the wall tablet in Columns showing a tinted week with finished events faded"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_columns.png" alt="The same wall tablet switched to Columns: one column of tinted boxes per day under the toolbar, the switcher set to Columns, the morning's finished events faded and a Reset button beside refresh"><br>
 
-One card, three screens: a phone switched to List, with Reset offering to undo the switch; a dashboard section in Grid; and the wall switched to Columns.
+The same wall, switched to Columns on the toolbar. Each day is a column of tinted boxes, the morning's finished events fade, and Reset offers to undo the switch.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="The same card twice more: on a phone switched to List, showing three days with a Reset button, and in a dashboard section in Grid, showing three days with the calendar chips folded into the filter button"><br>
+
+And the same card on a phone, switched to List, and in a dashboard section, where Grid shows three days and the calendar chips fold into the filter button.
 
 ## 📋 Copy the Card
 

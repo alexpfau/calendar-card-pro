@@ -157,9 +157,9 @@ toolbar:
   show: true
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="One card with its toolbar at three widths: a phone in List with pictograms for the layouts, a dashboard section in Grid with the calendars folded into the filter button, and a wall tablet in Columns with a chip for each calendar"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="One card with its toolbar at two widths: a phone in List with pictograms for the layouts and a Reset button, and a dashboard section in Grid with the calendars folded into the filter button"><br>
 
-The [Family Hub](/guide/family-calendar) at three widths. Where its calendar chips do not fit they fold into the filter button, the switcher shows pictograms on a phone, and Reset appears once the layout has been switched.
+The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. On the phone the switcher shows pictograms, and Reset appears once the layout has been switched; in the section the calendar chips fold into the filter button. On the wall, with room for them, they are chips.
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
 the calendar filter and the add button at its start, the view switcher in its middle, and
