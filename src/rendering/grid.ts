@@ -799,6 +799,9 @@ function cascadeHorizontal(
  * @param hass - Home Assistant instance
  * @param eventsTappable - Whether the block is a tap target of its own
  * @param dayLabelId - The id of the day's header, which describes a tappable block
+ * @param nowMin - The minute its column draws the now line at, or `null` where it draws
+ *   none. A block whose own time span holds that minute repeats the line over its fill (see
+ *   `.grid-event-now`)
  * @returns Rendered block
  */
 function renderTimedEvent(
@@ -812,11 +815,18 @@ function renderTimedEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  nowMin: number | null = null,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
   const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const tint = presentation.entityAccentBackgroundColor;
+  // By its time span, not its drawn box: the 14px floor can stretch a block that has ended or
+  // not yet begun across the line, and marking one of those as under way would say something
+  // false, through a past block's dimmed title at that. In minutes, the units both sides are
+  // made in: the same test in percentages rounds differently on each side and kept some
+  // ended events marked for their last minute.
+  const underWay = nowMin !== null && event.startMin <= nowMin && nowMin < event.endMin;
 
   // A raised block hides what is beneath it, and it does so with a backdrop of its own,
   // drawn just before it in the same box: the card, the weekend tint and the hour rules,
@@ -857,11 +867,16 @@ function renderTimedEvent(
         'clipped-bottom': placement.clippedBottom,
         'grid-event-raised': horizontal.raised,
         'grid-event-content-limited': horizontal.contentLimited,
+        'grid-event-now': underWay,
         'event-interactive': tap !== undefined,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
         ...horizontal.style,
+        // The block's top once more, in the plane's container units, which is what its own
+        // copy of the now line is positioned against. A percentage cannot say it there: in
+        // background-position it means the block. The same number as the top above.
+        ...(underWay ? { '--calendar-card-grid-block-top-cqh': `${placement.topPct}cqh` } : {}),
         '--calendar-card-event-accent-bar-color': presentation.entityAccentColor,
         backgroundColor: tint,
         ...presentation.accentTextProperties,
@@ -1696,12 +1711,15 @@ function renderDayBody(
   const nowMinute = new Date(now);
   nowMinute.setSeconds(0, 0);
   const nowPct = showNowLine && isToday ? Grid.computeNowLinePct(nowMinute, band) : null;
+  const nowMin = nowPct === null ? null : Grid.minutesFromMidnight(nowMinute);
   const nowTop = styleMap({ top: `${nowPct}%` });
 
   // The line goes before the plane and the dot after it: positioned elements with no
   // z-index paint in document order, so the blocks cover the line the way they let the
-  // hour rules show through, while the dot keeps its own z-index above them. See
-  // `.grid-now-line` in the stylesheet.
+  // hour rules show through, while the dot keeps its own z-index above them. The block under
+  // way then draws the line again inside itself, over its own fill and under its own text,
+  // from the position the plane carries in container units. See `.grid-now-line` and
+  // `.grid-event-now` in the stylesheet.
   return html`
     <div
       class=${classMap({
@@ -1716,7 +1734,10 @@ function renderDayBody(
           ? nothing
           : html`<div class="grid-now-line" aria-hidden="true" style=${nowTop}></div>`
       }
-      <div class="grid-day-plane">
+      <div
+        class=${classMap({ 'grid-day-plane': true, 'grid-day-plane-now': nowPct !== null })}
+        style=${styleMap(nowPct === null ? {} : { '--calendar-card-grid-now-y': `${nowPct}cqh` })}
+      >
         ${repeat(
           blocks,
           ({ event }, index) => `${event._entityId}-${event.summary}-${index}`,
@@ -1735,6 +1756,7 @@ function renderDayBody(
                   hass,
                   eventsTappable,
                   dayLabelId,
+                  nowMin,
                 )
               : nothing;
           },
