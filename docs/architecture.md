@@ -181,9 +181,9 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a toolbar between the title and the events: the calendar
-filter, the add-event button, the view switcher, reset, refresh, and the date navigation beside the
-month. The layout rule is fixed, so a control still to come slots in without moving the ones
+The card's own controls live in a two-row header above the events: the calendar filter, the
+add-event button, the view switcher, reset and refresh on the first row, and the date navigation
+at the end of the month's row under it, with the title as a small label over the month. The layout rule is fixed, so a control still to come slots in without moving the ones
 already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
 `renderMainCardStructure` places it.
 
@@ -359,7 +359,7 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   on screen (`pageSpan`): the view on screen's own `days_to_show`, or the columns drawn while
   column or grid drops some,
   in which case a page draws from its own first day rather than from today. Presses accumulate
-  on the requested page; the range answers at once, while the days below stay those of the page
+  on the requested page; the month heading and its dates answer at once, while the days below stay those of the page
   whose events `events` holds (`_pageShown`), dimmed, until the new page's land, so one
   window's events are never drawn under another's dates. The request generation discards the
   responses of pages passed by.
@@ -458,8 +458,9 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   it showing until the next press elsewhere. A reset that is the only control in its row
   (`.alone`) is always drawn, dimmed when there is nothing to undo, since hiding it would leave the
   row an empty strip over the month, and in the editor's preview always. Its name is
-  `ui.common.reset`, which Home Assistant has carried only since 2026.2; older, the label rule
-  treats it as any control without a name and the whole bar stays icons, which the docs state.
+  `ui.common.reset`, which Home Assistant has carried only since 2026.2; older, the button has no
+  tooltip and is named "Reset" in English for assistive technology alone
+  (`UNLOCALIZED_RESET_NAME`), and nothing else in the bar changes, which the docs state.
   Beyond that one check and its fade it keeps no clock; there is no idle timer.
 - **A refresh someone asked for is shown even when it is instant.** `_requestRefresh` steps
   `_refreshPhase` through `turning`, for at least `REFRESH_MIN_TURN` and as long as the load,
@@ -999,17 +1000,18 @@ graph TD
      calendar changed. Given a write's generation, it joins a request started since that
      write; given none, it joins nothing
 
-Every load above names one of the five modes `updateEvents` takes (`LoadMode`); its
+Every load above names one of the six modes `updateEvents` takes (`LoadMode`); its
 docblock holds the last two columns of this table. Every mode but `reload` joins a matching
 request already in flight rather than stopping at the cache.
 
-| Mode        | Used by                                                  | Draws the cache                | Asks Home Assistant when                                                                  |
-| ----------- | -------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `navigate`  | the card appearing, or configured before it first loaded | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
-| `cache`     | the refresh timer, a returning tab, the midnight timer   | only if not due                | nothing fresh is cached                                                                   |
-| `reprocess` | a per-calendar edit                                      | anything up to 24 h old        | nothing is cached at all                                                                  |
-| `network`   | a later configuration change, the grid day rollover      | no                             | always, joining a matching request under way                                              |
-| `reload`    | `refreshEvents()`, after a write                         | no                             | always, never joining a request from before the write                                     |
+| Mode        | Used by                                                                                             | Draws the cache                | Asks Home Assistant when                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `navigate`  | the card appearing, or configured before it first loaded                                            | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
+| `page`      | turning to another page with the date navigation, or back home (`_loadPage`)                        | anything up to 24 h old, first | nothing cached, or the cache due                                                          |
+| `cache`     | the refresh timer, a returning tab, the midnight timer                                              | only if not due                | nothing fresh is cached                                                                   |
+| `reprocess` | a per-calendar edit                                                                                 | anything up to 24 h old        | nothing is cached at all                                                                  |
+| `network`   | a later configuration change, the grid day rollover, going home after a calendar changed while away | no                             | always, joining a matching request under way                                              |
+| `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action                       | no                             | always, never joining a request from before the write                                     |
 
 ### Interaction Flow
 
@@ -1194,8 +1196,9 @@ The card implements a multi-level caching strategy:
 
 1. **Event Data Caching**:
    - Calendar events are cached in localStorage
-   - Cache key includes entities, days to show, start date and — for a week-relative
-     start date — the resolved first day of the week
+   - Cache key includes entities, the loaded span (the longest `days_to_show` among the views
+     the card can show, `loadedDaysToShow`), start date, the card version and — for a
+     week-relative start date — the resolved first day of the week
    - The key covers only what shapes the Home Assistant request. Render-side options
      such as `show_past_events` and `filter_duplicates` are reapplied on every read,
      so toggling one re-renders from cache instead of refetching

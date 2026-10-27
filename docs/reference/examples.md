@@ -283,8 +283,10 @@ the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)**
 
 A tablet the whole household walks past should take a new plan and show any event in full,
 without a stray tap changing one. `toolbar` adds the card's own controls to the header: a
-calendar filter, an add button, a layout switcher, a reset button and arrows to page through the
-dates beside the month. `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, and
+calendar filter, an add button, a layout switcher, a refresh button and arrows to page through
+the dates at the end of the month's row. `reset: true` adds one more, which only a shared screen
+needs: a button that puts the card back the way it is set up after someone has paged, switched
+the layout or hidden a calendar. `event_tap_action: details` opens a tapped event in Home Assistant's own dialog, and
 the two `allow_event_*` options take Edit and Delete out of that dialog, so reading an event
 can never change it.
 
@@ -301,6 +303,7 @@ entities:
 days_to_show: 5
 toolbar:
   show: true
+  reset: true # puts the card back after someone else's taps
 event_tap_action:
   action: details
 allow_event_edit: false

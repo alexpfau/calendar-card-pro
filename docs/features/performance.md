@@ -12,7 +12,7 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
 ## ⚡ Loading & Refreshing
 
 - **Cached events first.** When the card appears, on a page load, when you open a
-  dashboard or when you switch back to a view, it draws the events it last loaded, up to
+  dashboard or when you switch back to a dashboard view, it draws the events it last loaded, up to
   24 hours old, without waiting for Home Assistant.
 - **A background refetch on appearing.** With `refresh_on_navigate` on, which is the
   default, the card then asks Home Assistant again and swaps in the answer, unless its data
@@ -33,9 +33,12 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   first time they are shown and kept in memory, shared by the cards on the page, for the 16
   most recent pages. They are never written to the browser's storage, so a tablet paging all
   week leaves nothing behind.
+- **When you ask.** The toolbar's [refresh button](/features/layout-appearance#refreshing-the-events),
+  or a [`refresh` tap or hold action](/features/actions#refreshing-from-a-tap-or-hold), asks Home
+  Assistant for every calendar now, however recent the events the card holds.
 
 ```yaml
-# A wall tablet that should not refetch on every view switch
+# A wall tablet that should not refetch every time its dashboard is opened
 refresh_interval: 15
 refresh_on_navigate: false
 ```

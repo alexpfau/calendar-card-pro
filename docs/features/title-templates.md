@@ -8,6 +8,8 @@ title: "{{ now().strftime('%-d %B %Y') }}" # 14 March 2025
 
 No separate option enables this. Any title containing `{{` or `{%` is rendered as a template; everything else is used exactly as written.
 
+With the [header toolbar](/features/layout-appearance#header-toolbar) shown, the title is the small label over the month, and a template works there the same way.
+
 ## 🧩 What You Can Do With It
 
 - **Show the current date or time**

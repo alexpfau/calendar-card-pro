@@ -567,7 +567,7 @@ value first if a calendar is not retiring when you expect it to.
 
 ::: warning It Only Applies While Past Events Are Hidden
 `allday_expires_at` decides _when_ an all-day event becomes past. Whether past events are
-drawn at all is [`show_past_events`](/reference/configuration#core-settings), which
+drawn at all is [`show_past_events`](/reference/configuration#event-column), which
 defaults to `false`. With `show_past_events: true` the card is being asked to show what is
 over, so this option has nothing left to do and the event stays.
 :::

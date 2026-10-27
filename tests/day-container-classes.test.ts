@@ -510,6 +510,38 @@ describe('theming.md card-mod selectors', () => {
       );
       collect(container);
     }
+    // A shared screen turning a page: reset alone in its row, so `.alone`, and the days
+    // dimmed while the next page's events load, so `.page-pending`.
+    const turning = document.createElement('div');
+    litRender(
+      Render.renderMainCardStructure(
+        {},
+        'Family',
+        html`<div></div>`,
+        HANDLERS,
+        false,
+        false,
+        'list',
+        false,
+        false,
+        Render.renderFetchErrorNotice(['Ben'], 'en'),
+        {
+          labeled: true,
+          heading: {
+            text: 'June 2026',
+            reserve: ['January 2026', 'September 2026'],
+            full: ['January 2026', 'September 2026'],
+            short: false,
+            range: 'Jun 17 – 23',
+          },
+          reset: { label: 'Reset', active: true, onActivate: noop },
+        },
+        true,
+        true,
+      ),
+      turning,
+    );
+    collect(turning);
     return union;
   }
 

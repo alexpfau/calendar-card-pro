@@ -83,21 +83,21 @@ Calendar Card Pro handles two actions itself — `expand` and `refresh` — and 
 
 The commonly used ones:
 
-| Action Type                       | Description                                       | Additional Parameters                                     |
-| --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
-| `expand`                          | Toggle between compact and full calendar view     | None                                                      |
-| `refresh`                         | Load the events again now                         | None                                                      |
-| `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below              |
-| `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
-| `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
-| `perform-action` / `call-service` | Call any Home Assistant action (service)          | `service: domain.service`, `service_data: { key: value }` |
-| `toggle`                          | Toggle the target entity                          | None                                                      |
-| `assist`                          | Open the Assist dialog                            | None                                                      |
-| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through                    |
-| `none`                            | Disable the action                                | None                                                      |
+| Action Type                       | Description                                       | Additional Parameters                              |
+| --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
+| `expand`                          | Toggle between compact and full calendar view     | None                                               |
+| `refresh`                         | Load the events again now                         | None                                               |
+| `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below       |
+| `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                  |
+| `url`                             | Open external URL or internal page                | `url_path: https://example.com`                    |
+| `perform-action` / `call-service` | Call any Home Assistant action (service)          | `perform_action: domain.service`, `data`, `target` |
+| `toggle`                          | Toggle the target entity                          | None                                               |
+| `assist`                          | Open the Assist dialog                            | None                                               |
+| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through             |
+| `none`                            | Disable the action                                | None                                               |
 
 ::: tip Both Action Names Work
-Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
+Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations. The same goes for its keys: the older `service` and `service_data` still work in place of `perform_action` and `data`.
 :::
 
 ::: info Tap & Hold Act on the Whole Card
@@ -171,11 +171,11 @@ Two things on the card are not events, so a tap on them is a tap on the card: th
 Keyboard users reach each event with Tab and open it with Enter or Space, and screen readers announce each event as a button, described by its day, so two events with the same title on different days can be told apart.
 
 ::: tip A Tap on an Event Is Not a Tap on the Card
-With `event_tap_action: details`, tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
+With `event_tap_action: details`, tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on the [header toolbar's](/features/layout-appearance#header-toolbar) controls or the space between them. A hold is always the card's: holding an event runs `hold_action`, exactly as holding anywhere else does. In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
 :::
 
 ::: info The Card Stays on the Keyboard
-A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. It keeps its place in the Tab order, though: with the card itself focused, Enter or Space runs its `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. The same holds while the [add-event button](#add-event-button) is shown. A card with no event to tap, such as one showing only "No events", stays a button as before.
+A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. It keeps its place in the Tab order, though: with the card itself focused, Enter or Space runs its `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) is shown. A card with no event to tap, such as one showing only "No events", stays a button as before.
 :::
 
 ## ✏️ Editing & Deleting Events
@@ -242,7 +242,7 @@ The button does not trigger the card's `tap_action` or `hold_action`, so it can 
 :::
 
 ::: warning Hidden With the Card
-`hide_when_empty` still hides the whole card when there is nothing to show, button included. Leave it off on a card you rely on for adding events.
+`hide_when_empty` still hides the whole card when there is nothing to show on the days it opens with, button included. Leave it off on a card you rely on for adding events.
 :::
 
 ## 🧩 Home Assistant's Own Dialogs

@@ -729,8 +729,8 @@ export interface ToolbarConfig {
   /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
   show?: boolean;
   /**
-   * Previous, home and next beside the month heading, which then opens a date picker. Off
-   * leaves the month as plain text.
+   * Previous, home and next at the end of the month heading's row; the month then opens a
+   * date picker. Off leaves the month as plain text.
    */
   navigation?: boolean;
   /** The add-event button, at the start of the action row, after the filter. */
@@ -747,7 +747,7 @@ export interface ToolbarConfig {
   refresh?: boolean;
   /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
-   * button opening a checkbox per calendar; `chips`, a chip per calendar at the end of the
+   * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
   legend?: false | ToolbarLegendMode;
