@@ -94,6 +94,25 @@ function slugify(str: string): string {
     .toLowerCase();
 }
 
+/**
+ * The Example Stories, in sidebar order. One complete card per page, each for a place in a
+ * home. Family Hub and Family Agenda keep the /guide/ URLs they were published under as
+ * walkthroughs, because the release notes and the README link to them, and the newer stories
+ * sit beside them; the overview keeps /reference/examples for the same reason. Because the
+ * URLs share no prefix, the top nav's highlight for the group is built from this list rather
+ * than from a path pattern, so a story added here is highlighted without a second edit.
+ */
+const EXAMPLE_STORIES = [
+  { text: 'Overview', link: '/reference/examples' },
+  { text: 'Family Hub', link: '/guide/family-calendar' },
+  { text: 'Family Agenda', link: '/guide/one-calendar-many-purposes' },
+  { text: 'Now & Next', link: '/guide/now-and-next' },
+  { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },
+  { text: 'Birthdays & Holidays', link: '/guide/birthdays-and-holidays' },
+  { text: 'Bin Day', link: '/guide/bin-day' },
+];
+const EXAMPLE_STORIES_MATCH = `^(${EXAMPLE_STORIES.map((story) => story.link).join('|')})$`;
+
 export default defineConfig({
   ...PREVIEW_PAGE_DATA,
   title: PREVIEW ? 'Calendar Card Pro (Preview)' : 'Calendar Card Pro',
@@ -157,15 +176,22 @@ export default defineConfig({
   themeConfig: {
     search: { provider: 'local' },
 
+    // One entry per sidebar section, in the sidebar's order: Guide, Example Stories, the three
+    // feature groups as Features, Reference and Project. What's New sits in the Guide group and
+    // has an entry of its own as well, so Guide lights only for the two pages it leads to.
     nav: [
-      // The stories overview sits in the Example Stories group beside the /guide/ stories,
-      // so it lights Guide rather than Reference, although its URL is under /reference/.
-      { text: 'Guide', link: '/guide/installation', activeMatch: '^/(guide/|reference/examples)' },
-      { text: 'Features', link: '/features/editor', activeMatch: '/features/' },
+      { text: 'Guide', link: '/guide/installation', activeMatch: '^/guide/(installation|usage)$' },
+      { text: 'Example Stories', link: '/reference/examples', activeMatch: EXAMPLE_STORIES_MATCH },
+      { text: 'Features', link: '/features/editor', activeMatch: '^/features/' },
       {
         text: 'Reference',
         link: '/reference/configuration',
         activeMatch: '^/reference/(?!examples)',
+      },
+      {
+        text: 'Project',
+        link: '/contributing',
+        activeMatch: '^/(contributing|architecture|RELEASE_NOTES)$',
       },
       { text: "What's New", link: '/guide/whats-new' },
     ],
@@ -180,23 +206,7 @@ export default defineConfig({
           { text: "What's New", link: '/guide/whats-new' },
         ],
       },
-      {
-        // One complete card per page, each for a place in a home. Family Hub and Family Agenda
-        // keep the /guide/ URLs they were published under as walkthroughs, because the release
-        // notes and the README link to them, and the newer stories sit beside them. The
-        // overview keeps /reference/examples for the same reason.
-        text: 'Example Stories',
-        collapsed: false,
-        items: [
-          { text: 'Overview', link: '/reference/examples' },
-          { text: 'Family Hub', link: '/guide/family-calendar' },
-          { text: 'Family Agenda', link: '/guide/one-calendar-many-purposes' },
-          { text: 'Now & Next', link: '/guide/now-and-next' },
-          { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },
-          { text: 'Birthdays & Holidays', link: '/guide/birthdays-and-holidays' },
-          { text: 'Bin Day', link: '/guide/bin-day' },
-        ],
-      },
+      { text: 'Example Stories', collapsed: false, items: EXAMPLE_STORIES },
       {
         text: 'Essentials',
         collapsed: false,
