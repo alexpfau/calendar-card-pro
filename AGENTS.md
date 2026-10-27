@@ -813,6 +813,39 @@ Two things are deliberately **not** covered by this. `@author Alex Pfau` in
 are the repository's own address; both stay. The rule is about example _data_, not about
 the project's identity.
 
+🚨 **Never name, link to or measure this card against another card.** No third-party Home
+Assistant card appears anywhere in the repository — not in the docs, the release notes,
+code comments, tests, fixtures, scripts or this file. That is the maintainer's rule, and it
+holds even where a comparison would be the quickest way to make a point: explain a design
+on its own terms, by saying what a choice costs rather than who else made it. The release
+shapes described under _Release process_ are the worked example.
+
+Three things are outside the rule. Home Assistant's own cards, its Calendar panel and its
+frontend components are not third-party. Themes and plugins that are not cards are not
+covered — card-mod above all, which the theming docs depend on. And the design credit in
+`README.md`, `docs/index.md`, `NOTICE` and the header of `src/calendar-card-pro.ts` names
+the card the original design was built with; that is attribution, and it stays as written.
+
+`check:docs` enforces this as Check 33, over the path of every file git tracks or would add
+and the contents of every text one but the lockfile. It rejects a listed card's name
+written as a slug, words joined by a hyphen or underscore in any case, or as a name in
+prose, every word capitalized except perhaps a closing `card`, even where it wraps onto the
+next line inside a comment. A phrase with a lowercase word in it is description rather than
+a name and passes, and so does a one-word name, a name run together into one word, or one
+split by a blank line. A few names whose prose form is ordinary English, or the name of one
+of Home Assistant's own cards, are matched only as slugs, so in prose they are on you, and
+a slug inside one of Home Assistant's own `hui-` element names never counts. The check also
+rejects a `custom:` type and a GitHub repository whose last word is `card` (card-mod's
+wrapper aside), and a few wordings that rank this card against others. The names are kept
+as SHA-256 digests, so the gate does not itself name what it forbids; `node
+scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one, and a self-test
+on a made-up name proves the matchers before the scan runs. The credit is exempt only on
+its own line, pinned by a digest of that line and by its count, so a mention anywhere else
+fails and so does an edit to the credit; the error lists every mention off that line with
+its line digest, so an intended edit can be pinned again. Pull request bodies and commit
+messages are outside every gate, and generic wordings are too varied to list, so the rule
+applies there by hand.
+
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
 Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
@@ -1061,22 +1094,20 @@ source before repeating either direction. One practical consequence: replacing a
 HACS-installed `.js` by hand also needs its `.js.gz` deleted, or the browser keeps receiving
 the old file.
 
-**How other multi-file cards handle this, surveyed across ten popular ones.** The short
-answer is that almost none of them face it, because almost none code-split:
+**A HACS plugin release can take three shapes, and only a code-split build has to choose
+between them.**
 
-- **One bundled file** — mushroom, button-card, apexcharts-card, plotly-graph-card,
-  mini-graph-card, light-entity-card. A single asset, so the problem never arises. This is
-  the overwhelming majority, and it is worth remembering that splitting the editor out put
-  this card in a minority of two.
-- **Attach everything and absorb the cost** — advanced-camera-card ships **53** assets: the
-  card, a zip, and 51 hashed chunks (`editor-*.js`, `engine-frigate-*.js`, `lang-de-*.js`
-  …). Every HACS user downloads all 53. Its `hacs.json` is minimal. It simply does not
-  optimize this.
-- **Deliver through the repository tree and attach nothing** — Bubble-Card commits `dist/`
-  (66 files) and publishes releases with **zero** assets. `gather_files_to_download()`
-  appends assets then returns `if files:` — _conditionally_ — so a release with no assets
-  falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
-  file in it with no extension filter.
+- **One bundled file.** A single asset, so there is nothing to choose. Splitting the editor
+  out is what took this card off this shape.
+- **Attach every chunk and absorb the cost.** This card's shape, with two chunks: the card
+  and its editor. A build that splits further attaches every hashed chunk it emits —
+  editors, engines, one file per language — and every HACS user then downloads all of them,
+  used or not. Nothing in `hacs.json` narrows that (see below), so the cost is simply paid.
+- **Deliver through the repository tree and attach nothing.** Commit `dist/` and publish
+  releases with **zero** assets. `gather_files_to_download()` appends assets then returns
+  `if files:` — _conditionally_ — so a release with no assets falls through to the tree
+  path, which for a `plugin` walks `dist/` and downloads every file in it with no
+  extension filter.
 
 That third route was once weighed as the way to put `.gz` files in front of HACS users,
 since the tree path does not filter by extension. It is not needed for that: HACS writes its
@@ -1543,8 +1574,8 @@ Three things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
-  defaults into the user's YAML — the bug the nearest comparable card shipped twice, the
-  second time introduced by its own move to `ha-form`.
+  defaults into the user's YAML — the classic failure of an `ha-form` editor, and one that
+  moving an existing editor onto `ha-form` tends to introduce rather than remove.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and

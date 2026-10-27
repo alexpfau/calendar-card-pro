@@ -1,6 +1,6 @@
 # Installation
 
-Calendar Card Pro installs like any other custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
+Calendar Card Pro installs the standard way for a custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
 
 ## 📦 HACS Installation (Recommended)
 

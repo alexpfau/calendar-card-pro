@@ -1970,7 +1970,7 @@ This major release completely reimagines Calendar Card Pro with a new architectu
 ### Improved Theme & Card-Mod Compatibility
 
 - **Native Theme Support**: Properly integrates with all Home Assistant themes
-- **Standard Card Structure**: Uses standard ha-card structure making card-mod work exactly like other cards
+- **Standard Card Structure**: Uses standard ha-card structure making card-mod work exactly as it does on Home Assistant's built-in cards
 
 ## 🎉 New Features
 
