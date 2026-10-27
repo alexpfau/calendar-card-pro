@@ -13,8 +13,8 @@ hero:
       text: Get started
       link: /guide/installation
     - theme: alt
-      text: See a family calendar
-      link: /guide/family-calendar
+      text: See example stories
+      link: /reference/examples
     - theme: alt
       text: Configuration reference
       link: /reference/configuration

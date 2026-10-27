@@ -721,7 +721,7 @@ entities:
 Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
 in front of the title and turns gold — the faces say whose it is, the gold says at a glance
 that it is shared. This is Friday and Saturday of the family's week from the
-[walkthroughs](/guide/family-calendar), in their colors, where gold is also the Family
+[Family Hub](/guide/family-calendar) story, in their colors, where gold is also the Family
 calendar's. Only Anna's and Ben's calendars are on this card, so the birthday lunch that
 shows three faces there shows two here.
 
@@ -738,7 +738,7 @@ accent. Any CSS color works, including a theme variable such as `var(--success-c
 unset and a shared row keeps the first-listed calendar's color, exactly as every release before
 v4.2 did.
 
-[A Family Calendar: The Weekly Grid](/guide/family-calendar#gold-means-the-whole-family) sets
+The [Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets
 `duplicate_accent_color` to the Family calendar's own color, so an event on more than one
 person's calendar reads as a family event, the same as one on the Family calendar itself.
 
@@ -849,8 +849,9 @@ Three per-calendar options do it. `replace_field` names which field to rewrite a
 to the title; `replace_pattern` is what to find, as a regular expression; `replace_with` is
 what to put there.
 
-[A Family Calendar: The Filtered Agenda](/guide/one-calendar-many-purposes) puts `replace_pattern` and
-`replace_with` to work in a single card, alongside the filters above.
+The [Family Agenda](/guide/one-calendar-many-purposes) story puts `replace_pattern` and
+`replace_with` to work in a single card, alongside the filters above, and
+[Bin Day](/guide/bin-day) uses `replace_pattern` to strip the prefix a waste feed puts on every title.
 
 ### What Each Combination Does
 

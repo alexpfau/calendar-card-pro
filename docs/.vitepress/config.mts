@@ -158,9 +158,15 @@ export default defineConfig({
     search: { provider: 'local' },
 
     nav: [
-      { text: 'Guide', link: '/guide/installation', activeMatch: '/guide/' },
+      // The stories overview sits in the Example Stories group beside the /guide/ stories,
+      // so it lights Guide rather than Reference, although its URL is under /reference/.
+      { text: 'Guide', link: '/guide/installation', activeMatch: '^/(guide/|reference/examples)' },
       { text: 'Features', link: '/features/editor', activeMatch: '/features/' },
-      { text: 'Reference', link: '/reference/configuration', activeMatch: '/reference/' },
+      {
+        text: 'Reference',
+        link: '/reference/configuration',
+        activeMatch: '^/reference/(?!examples)',
+      },
       { text: "What's New", link: '/guide/whats-new' },
     ],
 
@@ -175,13 +181,20 @@ export default defineConfig({
         ],
       },
       {
-        // Whole cards built step by step, one problem each. The pages stay under /guide/
-        // because their URLs are already published in the release notes and the README.
-        text: 'Walkthroughs',
+        // One complete card per page, each for a place in a home. Family Hub and Family Agenda
+        // keep the /guide/ URLs they were published under as walkthroughs, because the release
+        // notes and the README link to them, and the newer stories sit beside them. The
+        // overview keeps /reference/examples for the same reason.
+        text: 'Example Stories',
         collapsed: false,
         items: [
-          { text: 'Family Calendar: Weekly Grid', link: '/guide/family-calendar' },
-          { text: 'Family Calendar: Filtered Agenda', link: '/guide/one-calendar-many-purposes' },
+          { text: 'Overview', link: '/reference/examples' },
+          { text: 'Family Hub', link: '/guide/family-calendar' },
+          { text: 'Family Agenda', link: '/guide/one-calendar-many-purposes' },
+          { text: 'Now & Next', link: '/guide/now-and-next' },
+          { text: 'Today & Tomorrow', link: '/guide/today-and-tomorrow' },
+          { text: 'Birthdays & Holidays', link: '/guide/birthdays-and-holidays' },
+          { text: 'Bin Day', link: '/guide/bin-day' },
         ],
       },
       {
@@ -218,10 +231,7 @@ export default defineConfig({
       {
         text: 'Reference',
         collapsed: false,
-        items: [
-          { text: 'Configuration Options', link: '/reference/configuration' },
-          { text: 'Examples', link: '/reference/examples' },
-        ],
+        items: [{ text: 'Configuration Options', link: '/reference/configuration' }],
       },
       {
         text: 'Project',

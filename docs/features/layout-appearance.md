@@ -508,7 +508,7 @@ column:
 
 `event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`. In the editor, **Event Gap** sits in the **Layout** panel between **Day Spacing** and **Event Spacing**, in every workspace except Grid.
 
-In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; [Separate Events With a Rule Between Days](/reference/examples#separate-events-with-a-rule-between-days) shows the two together.
+In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; the [Family Agenda](/guide/one-calendar-many-purposes#one-voice-for-the-whole-card) story shows the two together.
 
 ## 📅 Week Numbers & Visual Separators
 

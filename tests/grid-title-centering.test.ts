@@ -100,7 +100,7 @@ function pass(...geometries: Geometry[]): HTMLElement[] {
 const TALL_AND_NARROW: Geometry = { height: 90, width: 55, lines: 2 };
 
 /**
- * The same event in `example_grid_week.png`, where the week's narrower columns make the
+ * The same event on a seven-day grid, where the week's narrower columns make the
  * block about 52px wide and 180px tall and the dead space grows to roughly 60px a side.
  * Worth pinning beside the capture above rather than reasoning that a larger block must
  * refuse if a smaller one does: it is the same branch, but the claim is cheap to test.

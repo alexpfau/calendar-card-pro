@@ -28,8 +28,9 @@ column, and a single day makes a compact "what's left of today" card.
 Three days on a dashboard column, from one calendar. Every event keeps a single accent
 color, and the lanes stay wide enough for each block to show its title and its time.
 
-For the other end of the scale, a whole week on a wall tablet,
-[A Family Calendar: The Weekly Grid](/guide/family-calendar) builds one card step by step.
+For the other end of the scale, the [Family Hub](/guide/family-calendar) story puts a whole
+family's week on a wall tablet, and [Today & Tomorrow](/guide/today-and-tomorrow) shows two
+days by the hour on anything from a phone to a kitchen tablet.
 
 ## 🕒 Choosing the Hours the Card Shows
 

@@ -8,7 +8,8 @@ explained and demonstrated — where an option needs more than one line, this pa
 to the page that owns it.
 
 ::: tip Looking for a Starting Point?
-[Usage](/guide/usage) has two complete, copy-pasteable configurations. Snippets on this
+[Usage](/guide/usage) has a complete first card, and each of the
+[Example Stories](/reference/examples) is a whole card to copy and adapt. Snippets on this
 site show only the options under discussion, so they are fragments rather than whole
 cards.
 :::

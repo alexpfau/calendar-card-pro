@@ -30,7 +30,7 @@ always matches the latest release.
 | 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage)                             | Add the card and configure it visually        |
 | ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor)      | Weather, templates, layout, actions, and more |
 | 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option           |
-| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples)                   | Ready-made configurations to copy             |
+| 💡 [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples)            | Complete cards for real setups, ready to copy |
 | 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                 |
 
 <p>&nbsp;</p>
@@ -141,7 +141,7 @@ show_month: false
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
 
-**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colors and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
+**➡️ From here, the [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples) show complete cards to copy, from a family's week on a wall tablet to a small tile on a phone. [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) covers adding and configuring the card, and every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration).**
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
