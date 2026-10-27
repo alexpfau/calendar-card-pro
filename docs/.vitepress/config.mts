@@ -168,7 +168,7 @@ export default defineConfig({
       {
         property: 'og:image',
         content:
-          'https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header.png',
+          'https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing_og.png',
       },
     ],
   ],

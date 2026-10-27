@@ -7,8 +7,9 @@
  *
  * VitePress sizes the hero image for a roughly square logo: it reserves a fixed
  * square container (320px, 392px at >=640px) and absolutely positions the image
- * inside it, capped at 192/256/320px. Our hero image is header.png, a 2000x800
- * banner (2.5:1), so those caps rendered it at just 256x102 floating inside a
+ * inside it, capped at 192/256/320px. Our hero image is a banner, not a logo:
+ * header_landing.png, 2032x1499 (about 4:3), and header.png, 2000x800 (2.5:1),
+ * before it. Those caps rendered the 2.5:1 one at just 256x102 floating inside a
  * 392x392 box - small, and surrounded by dead space.
  *
  * Instead we let the banner behave like an ordinary responsive image: take it

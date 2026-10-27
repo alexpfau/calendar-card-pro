@@ -4,7 +4,7 @@
 
 [![hacs][hacs-img]][hacs-url] [![GitHub Release][github-release-img]][github-release-url] [![Downloads][github-downloads-img]][github-release-url] [![Downloads@latest][github-latest-downloads-img]][github-release-url]
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header.png" alt="Calendar Card Pro Preview" width="100%">
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png" alt="Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar" width="100%">
 
 ## ☕ Support This Project
 
