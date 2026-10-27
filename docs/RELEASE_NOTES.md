@@ -6,6 +6,8 @@ title: Release Notes
 
 ![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)
 
+<!-- VIDEO-LINK-V5: on release day, replace this comment with one line linking Smart-Live's v5 video (in German), for example: 🎬 Smart-Live made a video about v5: [title](link) -->
+
 **Grid view for your calendar, and a card you can act on.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
 
 A few defaults change whichever layout you use, so they come first. 👇
@@ -65,7 +67,7 @@ See [Tapping an Event](https://calendar-card-pro.alexpfau.com/features/actions#t
 
 ### 🧰 A Toolbar to Page Through Dates, Switch Layouts & Hide Calendars
 
-- **The card's own controls, in its header** - `toolbar: { show: true }` adds two rows above the events: first the actions, with the calendar filter and the add button at the start, the view switcher in the middle and refresh at the end, then the month on screen with the arrows at its end. Every control is on except reset, and each can be turned off. The card's title becomes a small label over the month, which takes `title_font_size` and `title_color` in its place; a card-mod rule written `.header-container h1.card-header` still reaches the title. A card that leaves the toolbar off looks as it always has
+- **The card's own controls, in its header** - `toolbar: { show: true }` adds two rows above the events: first the actions, with the calendar filter and the add button at the start, the view switcher in the middle and refresh at the end, then the month on screen, its name in bold, with the arrows at its end. Every control is on except reset, and each can be turned off. The card's title becomes a small label over the month, which takes `title_font_size` and `title_color` in its place; a card-mod rule written `.header-container h1.card-header` still reaches the title. A card that leaves the toolbar off looks as it always has
 - **Switch between List, Columns and Grid on the card** - The toolbar's view switcher lets a wall tablet change layout without the editor. Each device remembers its own choice until the card is edited, and `view` stays the layout the card opens with. A layout too wide for the card is dimmed, and switching never reloads events
 - **A different number of days in each layout** - `days_to_show` can be set in `list:`, `column:` or `time_grid:`, so a card can look two weeks ahead as a list and show this week on the grid. Every layout starts on the same day, and the card loads the longest of them once, so switching still never reloads. See [Showing a Different Number of Days in Each Layout](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-different-number-of-days-in-each-layout)
 - **Page through the dates** - Arrows at the end of the month's row move by as many days as the card shows, and the house between them goes back to the days the card opens with. The month opens the browser's date picker; it names the month the first day on screen falls in, and the exact dates are its tooltip and what a screen reader hears. Away from its own days the card shows events that have ended, so last week can be looked back on, and a reload or an edit brings it home. Pages are kept in memory while the dashboard is open, never in the browser's storage (#185)
@@ -147,6 +149,19 @@ See [Performance & Caching](https://calendar-card-pro.alexpfau.com/features/perf
 
 The card now speaks Korean (`ko`), its 36th language: dates, relative times and every message in full, and the visual editor in part, with English filling in the rest string by string (Thanks @onesounds, #662).
 
+### 📚 Example Stories
+
+Starting from a blank card means knowing the options before you know what you want. The documentation now opens on six complete cards instead, each built for a real place in a home and the question it answers there. Every story shows the card, gives you its YAML to copy and says what each part adds, so you can start from the closest one and adapt it.
+
+- **Family Hub** - The whole family's week on a wall tablet, in grid view with the toolbar, a chip for each calendar and everyone's face in front of their events, and the same card on a phone
+- **Family Agenda** - The next three days from calendars that mix several kinds of event: whose birthday it is, whether the trash goes out, who is out tonight and who is busy, without showing what the work meetings are about
+- **Now & Next** - What is on now and what comes next, in a small tile that opens up on a tap
+- **Today & Tomorrow** - Where the day stands, hour by hour, on a phone, a dashboard section or a portrait tablet
+- **Birthdays & Holidays** - Two months ahead, with each birthday's age and when the next school break starts and ends
+- **Bin Day** - Which bin goes out tonight, each one's next pickup only, in half a dashboard section
+
+See [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples).
+
 ## 🐛 Bug Fixes
 
 These fixes address behavior present in v4.2, including the shared processing and lifecycle paths the new Grid view uses.
@@ -214,7 +229,7 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#624](https://github.com/alexpfau/calendar-card-pro/issues/624) - The Google Calendar day @1Cedric1 showed, with overlapping events drawn on top of one another — answered by the default `overlap_layout: cascade`. Already closed as a duplicate of #300, so comment only
 - [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view by @junkiness — answered by `show_now_line`
 - [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The original issue/proposal by @lenaxia, whose design and configuration choices informed Grid. This is not a merged pull request or full parity with the proposal; **do not close** it as fully implemented. The event-detail popup and the paging it proposed ship here too, through `event_tap_action` (#241) and the toolbar's date navigation (#185)
-- [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
+- [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered by `scroll_long_titles`, scoped to the title as the issue proposed
 - [#176](https://github.com/alexpfau/calendar-card-pro/issues/176) - Asked for newest-first sorting on a calendar kept as a log by @iKaew, and in the discussion for a way to switch off the 60% dimming on past events. `past_event_opacity` answers the second in full; sorting newest first is untouched, so **do not close** it
 - [#621](https://github.com/alexpfau/calendar-card-pro/issues/621) - The week rule ignoring `first_day_of_week: sunday`, reported by @A-Talmor against Asia/Jerusalem. Both halves are answered: the week separator is fixed, and the weekend now follows the country set under Settings → System → Home information, so a home in Israel gets Friday and Saturday rather than Sunday, whatever language Home Assistant runs in
 - [#620](https://github.com/alexpfau/calendar-card-pro/issues/620) - The today indicator taking over the column header when `today_indicator_size` was written as `6 px`, reported by @codetalker78
@@ -224,7 +239,7 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#45](https://github.com/alexpfau/calendar-card-pro/issues/45) - Add an event from the card, using Home Assistant's create-event dialog — answered by the toolbar's add button (Thanks @GContaldi, #663)
 - [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) - Tap an event to see its details by @elindse — answered by `event_tap_action: details`. Passing an event's fields to a custom tap action, asked in the discussion, moves to an issue of its own
 - [#298](https://github.com/alexpfau/calendar-card-pro/issues/298) - Delete an event from the card by @borgqueenx — answered by the event dialog's Delete, wherever the calendar's integration allows it (Thanks @GContaldi, #668)
-- [#604](https://github.com/alexpfau/calendar-card-pro/issues/604) - Event details & editing by @alexpfau. Reading, adding, changing and deleting an event are answered; links in locations and descriptions (issue 306) are not, so **do not close** it
+- [#604](https://github.com/alexpfau/calendar-card-pro/issues/604) - Event details & editing by @alexpfau. Reading, adding, changing and deleting an event are answered; links in locations and descriptions (issue 306) and attendees are not, so **do not close** it
 - [#615](https://github.com/alexpfau/calendar-card-pro/issues/615) - A "Today" option in the day header by @EcoHeliGuy — answered by the date tile rather than the word, because "Today" and "Tomorrow" do not fit the list view's date column
 - [#619](https://github.com/alexpfau/calendar-card-pro/issues/619) - Making today easy to find in a week view by @codetalker78 — the date tile answers the problem; the separate text styles for past, today and future dates it proposes are not part of v5, so **do not close** it
 - [#670](https://github.com/alexpfau/calendar-card-pro/issues/670) - Always show today, even if empty by @vincentullmann — answered by `show_empty_today` (Thanks @vincentullmann, #669)
