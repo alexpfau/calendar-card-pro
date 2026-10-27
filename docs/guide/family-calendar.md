@@ -84,7 +84,6 @@ time_grid:
   min_days_to_show: 7
   show_now_line: true
   past_event_opacity: 100
-  show_location: false
   hour_height: 40px
   event_font_size: 13px
 ```
@@ -127,7 +126,7 @@ Ben's work calendar is on the card for one reason: so the family can see when he
 
 The gray is quieter than his own blue on purpose. His own events, such as soccer on Tuesday evening or the morning run, are the ones the family plans around, and the working day is background.
 
-The two `show_*` lines on the work calendar keep its locations and descriptions off the screen whatever the rest of the card says. Today they change nothing you can see: descriptions are hidden by default, and `show_location: false` under `time_grid` already takes the location off every block. They are there for the day someone turns either one on for the whole card, because a meeting room or an agenda gives away what the title no longer does, and a setting on the calendar outranks the card's. If a work calendar needs to share some of its events and hide the rest, split it in two, as [A Mixed Calendar in the Weekly Grid](#a-mixed-calendar-in-the-weekly-grid) does.
+The two `show_*` lines on the work calendar keep its locations and descriptions off the screen whatever the rest of the card says. Today they change nothing you can see: descriptions are hidden by default, and grid view hides every block's location by default too. They are there for the day someone turns either one on for the whole card, in `time_grid:` for the location, because a meeting room or an agenda gives away what the title no longer does, and a setting on the calendar outranks the card's. If a work calendar needs to share some of its events and hide the rest, split it in two, as [A Mixed Calendar in the Weekly Grid](#a-mixed-calendar-in-the-weekly-grid) does.
 
 ::: warning A Tap Shows the Real Event
 [`event_tap_action: details`](/features/actions#tapping-an-event) opens a tapped event in Home Assistant's own dialog, which shows the event as the calendar stores it. A tap on a _Work_ block would show the meeting's real title, location and description. `event_tap_action` is set for the whole card, not per calendar, so leave it off this card, or show the work calendar on a card without it.

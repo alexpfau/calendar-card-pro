@@ -1210,6 +1210,12 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * time and location rows are measured in pixels of BLOCK height rather than of type — so a
  * smaller title does not move a rung, it just leaves more room inside the one it is in.
  *
+ * `show_location` is off. A block is read by its position and height, and a location is
+ * often a full address of several lines that pushes the time out of a short meeting, so a
+ * grid shows the title and the clock. The location is not lost: with
+ * `event_tap_action: details` a tap opens the event's details, which show it, and
+ * `time_grid: { show_location: true }` draws it in the block again.
+ *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
  * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
@@ -1231,6 +1237,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   time_color: EntityColors.ACCENT_TEXT_SENTINEL,
   progress_bar_width: '100%',
   show_empty_days: true,
+  show_location: false,
   show_past_events: true,
 };
 

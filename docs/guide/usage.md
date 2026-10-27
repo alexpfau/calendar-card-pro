@@ -20,7 +20,7 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events — so you can skip straight to step 4. Nothing needs to be enabled for this.
 
-Three starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side, and **Calendar Card Pro - Time Grid** for the [grid layout](/features/grid-view), which places them on an hour axis. The grid one also hides locations, which crowd a block on the axis. They are otherwise identical, so picking one and changing your mind later costs nothing more than switching `view`, plus turning `show_location` back on if you started from the grid.
+Three starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side, and **Calendar Card Pro - Time Grid** for the [grid layout](/features/grid-view), which places them on an hour axis. The three are identical apart from `view`, so picking one and changing your mind later costs nothing more than switching it. Grid hides locations by default, since they crowd a block on the axis; `time_grid: { show_location: true }` brings them back.
 :::
 
 ## 🚀 Your First Card

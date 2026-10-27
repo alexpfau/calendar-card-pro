@@ -106,6 +106,10 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
       verdict: 'inherits',
       why: 'Inherits the unset sentinel, which the stylesheet resolves per placement — 80% in column, where a row has no boundary of its own and a full width would read as an underline. Grid needs a concrete 100% because a block is a box with an edge.',
     },
+    show_location: {
+      verdict: 'inherits',
+      why: 'A column row is a full-height text row, as a list row is, so a location fits under the title and the card-wide answer stands. Grid hides it because a block is read by its position and height, and an address of several lines pushes the time out of a short meeting.',
+    },
     show_past_events: {
       verdict: 'inherits',
       why: 'A suppression the user asked for, and column has no reason to refuse it. Grid diverges to keep the morning from emptying as the day passes, which is a property of a fixed time axis that column does not have.',

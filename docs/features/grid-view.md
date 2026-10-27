@@ -630,13 +630,14 @@ The accessible name follows the card language without changing the visual conten
 inherited language or normal wrapping.
 
 ::: tip Keep Detail Rows Short
-Grid blocks have less room than list rows. If you show time, location and description in
-the grid, cap the optional detail rows to one or two lines so the title stays readable:
+Grid blocks have less room than list rows. If you show location and description in the
+grid, cap the optional detail rows to one or two lines so the title stays readable. Grid
+hides locations by default, so turn them on inside `time_grid:`:
 
 ```yaml
-show_location: true
 show_description: true
 time_grid:
+  show_location: true
   location_max_lines: 1
   description_max_lines: 2
 ```
@@ -708,13 +709,13 @@ the card renders as a grid, exactly like `column:` does for the column layout:
 
 ```yaml
 view: grid
-show_location: true
+show_description: true
 time_grid:
-  show_location: false
+  show_description: false
   title_max_lines: 2
 ```
 
-Anything the block does not mention keeps its top-level value, except for the thirteen
+Anything the block does not mention keeps its top-level value, except for the fourteen
 options listed below. In the visual editor, choose the Grid workspace to edit these
 values directly without changing Card Displays.
 
@@ -760,13 +761,14 @@ switch.
 
 ## 🔀 Options That Start From a Different Default
 
-Thirteen shared options do not inherit their top-level value in grid view. **Default** is
+Fourteen shared options do not inherit their top-level value in grid view. **Default** is
 the top-level default, and **Grid Default** is what grid view uses instead:
 
 | Option                     | Type    | Default                       | Grid Default                         |
 | -------------------------- | ------- | ----------------------------- | ------------------------------------ |
 | `event_background_opacity` | number  | `0`                           | `20`                                 |
 | `show_empty_days`          | boolean | `false`                       | `true`                               |
+| `show_location`            | boolean | `true`                        | `false`                              |
 | `show_past_events`         | boolean | `false`                       | `true`                               |
 | `day_separator_width`      | string  | `0px`                         | `1px`                                |
 | `day_separator_color`      | string  | `var(--secondary-text-color)` | Half-strength `var(--divider-color)` |
@@ -801,7 +803,11 @@ Opening an already-Grid card does not rewrite its configuration.
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
 a day of axis, so empty days are shown. A finished meeting earlier today is still part of
-today's hour-by-hour shape, so past events stay visible. Day separators are also on by
+today's hour-by-hour shape, so past events stay visible. Locations are hidden: a block is
+read by its position and height, and a location is often a full address of several lines
+that pushes the time out of a short meeting. With
+[`event_tap_action: details`](/features/actions#tapping-an-event), a tap on a block opens the
+event's details, location included. Day separators are also on by
 default, and ship the same divider gray the hour rules ship, so the vertical and horizontal
 lines carry the same weight and the shared axis reads as one grid — they are separate
 options, so that agreement is a default rather than a mechanism. The progress bar fills

@@ -85,7 +85,8 @@ afterEach(() => vi.useRealTimers());
 
 describe('timed Grid accessible information', () => {
   it('names short blocks without extra tab stops or duplicate visual descendants', () => {
-    const { container } = fixture();
+    // Grid draws no location by default, so the block asks for one to name it.
+    const { container } = fixture({ time_grid: { show_location: true } });
     const block = container.querySelector('.grid-event')!;
     const group = accessibleGroup(block);
     expect(block.hasAttribute('role')).toBe(false);
@@ -99,6 +100,16 @@ describe('timed Grid accessible information', () => {
     expect(group.getAttribute('aria-label')).toContain('10:00 - 10:05');
     expect(group.getAttribute('aria-label')).toContain(source.location);
     expect(group.getAttribute('aria-label')).toContain(source.description);
+  });
+
+  it("leaves the location out of the name where grid's own default leaves it out of the block", () => {
+    const { container } = fixture();
+    const block = container.querySelector('.grid-event')!;
+    const label = accessibleGroup(block).getAttribute('aria-label')!;
+    expect(label).toContain(source.summary);
+    expect(label).toContain('10:00 - 10:05');
+    expect(label).not.toContain(source.location!);
+    expect(block.querySelector('.location')).toBeNull();
   });
 
   it.each(['', 'en', 'he'])(

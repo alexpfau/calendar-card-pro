@@ -437,6 +437,7 @@ describe('resolveEffectiveConfig', () => {
         time_color: 'accent',
         progress_bar_width: '100%',
         show_empty_days: true,
+        show_location: false,
         show_past_events: true,
       });
     });

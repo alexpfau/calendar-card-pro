@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
 import { getEntitySuggestion } from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { resolveEffectiveConfig } from '../src/config/view';
 import { generateDeterministicId } from '../src/utils/helpers';
 
 /**
@@ -84,12 +86,25 @@ describe('getEntitySuggestion', () => {
       expect(suggestions?.[0].config.grid_options).not.toBe(suggestions?.[2].config.grid_options);
     });
 
-    it('shows the clock but not the address in the time grid', () => {
-      // The one deliberate divergence between the three. A postal address is several lines
-      // in a block read by its position and height, so the grid preview stops at the clock.
-      expect(suggestions?.[0].config.show_location).toBe(true);
-      expect(suggestions?.[1].config.show_location).toBe(true);
-      expect(suggestions?.[2].config.show_location).toBe(false);
+    it("shows the clock but not the address in the time grid, through grid's own default", () => {
+      // A postal address is several lines in a block read by its position and height, so
+      // the grid preview stops at the clock. Grid's own default does that, so no recipe
+      // writes the option at all: YAML that said `show_location: true` above a grid that
+      // draws no locations would read as a lie.
+      const views = (suggestions ?? []).map((suggestion) => {
+        const { view, show_location } = suggestion.config as Partial<Types.Config>;
+        const config = buildConfig({ ...(suggestion.config as Partial<Types.Config>) });
+        return {
+          view: view ?? 'list',
+          written: show_location,
+          drawn: resolveEffectiveConfig(config, view ?? 'list').show_location,
+        };
+      });
+      expect(views).toEqual([
+        { view: 'list', written: undefined, drawn: true },
+        { view: 'column', written: undefined, drawn: true },
+        { view: 'grid', written: undefined, drawn: false },
+      ]);
     });
   });
 
@@ -101,8 +116,8 @@ describe('getEntitySuggestion', () => {
    * `generateDeterministicId`, which hashes entities, `days_to_show`,
    * `start_date` and `first_day_of_week` — and on none of those do the recipes
    * differ. Give one variant its own `days_to_show` and every pick silently
-   * becomes three real calendar API requests instead of one. The grid recipe's
-   * `show_location: false` is safe precisely because it is not among them.
+   * becomes three real calendar API requests instead of one. The recipes differ only by
+   * `view`, which is safe precisely because it is not among them.
    *
    * Pass every current input. `show_past_events` was dropped from the key in
    * #461 and `first_day_of_week` added; a call that still names the first and

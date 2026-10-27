@@ -210,7 +210,6 @@ days_to_show: 7
 title: This Week
 time_grid:
   min_days_to_show: 3
-  show_location: false
   max_simultaneous_events: 2
   end_time: '23:30'
 ```

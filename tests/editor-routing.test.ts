@@ -833,7 +833,19 @@ describe('entity subforms resolve show_location against the layer being edited',
     const { editor } = await mountLocationCard();
     await openWorkspace(editor, 'column');
     expect(hasLocationIcon(editor)).toBe(true);
+  });
+
+  it('hides the location icon in grid, whose own default draws no locations, until its block draws them', async () => {
+    const { editor } = await mountLocationCard();
     await openWorkspace(editor, 'grid');
-    expect(hasLocationIcon(editor)).toBe(true);
+    expect(hasLocationIcon(editor)).toBe(false);
+
+    const { editor: shown } = await mount({
+      view: 'list',
+      show_location: true,
+      time_grid: { show_location: true },
+    });
+    await openWorkspace(shown, 'grid');
+    expect(hasLocationIcon(shown)).toBe(true);
   });
 });
