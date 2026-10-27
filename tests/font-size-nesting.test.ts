@@ -43,6 +43,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
+import * as Paging from '../src/utils/paging';
 
 //-----------------------------------------------------------------------------
 // THE STYLESHEET
@@ -665,9 +666,11 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
         ? {
             labeled: true,
             heading: {
-              text: 'June 2026',
-              reserve: ['January 2026', 'September 2026'],
-              full: ['January 2026', 'September 2026'],
+              text: Paging.monthHeadingParts(new Date(2026, 5, 1), 'en'),
+              reserve: [0, 8].map((month) =>
+                Paging.monthHeadingParts(new Date(2026, month, 1), 'en'),
+              ),
+              full: [0, 8].map((month) => Paging.monthHeadingParts(new Date(2026, month, 1), 'en')),
               short: false,
               range: 'Jun 17 – Jun 23',
             },
@@ -986,6 +989,11 @@ describe('every piece of text is sized by its own option', () => {
       // kept and the room measured are exactly as wide as the month they stand for.
       'span in toolbar-month-probe': ['title_font_size'],
       'span in toolbar-month-reserve': ['title_font_size'],
+      // The month's own name, bold, in the heading and in both copies: sized like the rest of
+      // its heading, so a bold name never measures at another size than the one drawn.
+      'toolbar-month-name in toolbar-month-probe': ['title_font_size'],
+      'toolbar-month-name in toolbar-month-reserve': ['title_font_size'],
+      'toolbar-month-name in toolbar-month-text': ['title_font_size'],
       'time-countdown in time': ['time_font_size'],
       'time-countdown in time-text': ['time_font_size'],
       'time-end in time-actual': ['time_font_size'],

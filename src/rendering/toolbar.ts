@@ -40,6 +40,7 @@ import { TemplateResult, html, nothing, svg } from 'lit';
 import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
+import type { MonthHeadingText } from '../utils/paging';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -113,17 +114,17 @@ export interface ViewSwitcher {
 /** What the card hands the wrapper for the month heading, drawn whenever the toolbar is. */
 export interface MonthHeading {
   /** The month and year the page on screen starts in, in the form drawn. */
-  text: string;
+  text: MonthHeadingText;
   /**
    * Every month's heading in the form drawn. The heading keeps the room of the widest, so
    * paging changes the words and never moves a control.
    */
-  reserve: ReadonlyArray<string>;
+  reserve: ReadonlyArray<MonthHeadingText>;
   /**
    * Every month in full, which the card measures to decide whether the full form fits
    * (`_syncMonthFit`), whichever form is drawn.
    */
-  full: ReadonlyArray<string>;
+  full: ReadonlyArray<MonthHeadingText>;
   /** True while the short form is drawn, because the full one does not fit. */
   short: boolean;
   /**
@@ -598,14 +599,29 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
 }
 
 /**
- * Render each label in a set, laid over one another by the stylesheet, so the set is as wide
- * as the widest of them.
+ * Render a month heading's words, the month's name in a span of its own, which the stylesheet
+ * sets bold, and the year and whatever stands around it as plain text. Only inline markup, so
+ * the words read, and are announced, exactly as the string they join into.
  *
- * @param labels - The labels
- * @returns One span per label
+ * @param heading - The heading, in runs
+ * @returns The words
  */
-function renderOverlaid(labels: ReadonlyArray<string>): TemplateResult[] {
-  return labels.map((label) => html`<span>${label}</span>`);
+function renderHeadingText(heading: MonthHeadingText): Array<TemplateResult | string> {
+  return heading.map((part) =>
+    part.month ? html`<span class="toolbar-month-name">${part.text}</span>` : part.text,
+  );
+}
+
+/**
+ * Render each heading in a set, laid over one another by the stylesheet, so the set is as wide
+ * as the widest of them. Each is drawn as the visible heading is, its month as heavy, so the
+ * widest copy is as wide as the month it stands for.
+ *
+ * @param headings - The headings, in runs
+ * @returns One span per heading
+ */
+function renderOverlaid(headings: ReadonlyArray<MonthHeadingText>): TemplateResult[] {
+  return headings.map((heading) => html`<span>${renderHeadingText(heading)}</span>`);
 }
 
 /**
@@ -651,7 +667,7 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
       <span class="toolbar-month-slot">
         <span class="toolbar-month-label" title=${heading.range}
           ><bdi class="toolbar-month-text"
-            ><span class="toolbar-month-cap"></span>${heading.text}</bdi
+            ><span class="toolbar-month-cap"></span>${renderHeadingText(heading.text)}</bdi
           ></span
         >
       </span>
@@ -711,7 +727,7 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
       >
         <span class="toolbar-month-label"
           ><bdi class="toolbar-month-text"
-            ><span class="toolbar-month-cap"></span>${heading.text}</bdi
+            ><span class="toolbar-month-cap"></span>${renderHeadingText(heading.text)}</bdi
           ><svg class="toolbar-month-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d=${mdiMenuDown}></path></svg
         ></span>

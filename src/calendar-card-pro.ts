@@ -4378,7 +4378,7 @@ class CalendarCardPro extends LitElement {
     const form: Paging.MonthForm = short ? 'short' : 'long';
 
     return {
-      text: Paging.monthHeading(page.start, language, form),
+      text: Paging.monthHeadingParts(page.start, language, form),
       reserve: Paging.monthHeadings(language, form),
       full: Paging.monthHeadings(language, 'long'),
       short,
