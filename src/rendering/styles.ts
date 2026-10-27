@@ -3896,7 +3896,9 @@ export const cardStyles = css`
 
        .grid-weekend    plain grid item   the tint, behind everything
        .grid-rules      plain grid item   the hour lines
-       .grid-day-body   position relative the blocks, above both (in .grid-day-plane)
+       .grid-day-body   position relative the now line, then the blocks above all three (in
+                                          .grid-day-plane); the block under way
+                                          repaints it over its own fill
        .grid-separator  z-index 1         the vertical day rules, above the blocks
        .grid-allday-band z-index 2        banners paint over the rules crossing the band
        .grid-boundary   z-index 3         the band's own rules, never covered by a banner
@@ -5271,14 +5273,18 @@ export const cardStyles = css`
   /* Inside today's column only, so it says where today has got to rather than drawing
      a line across days it makes no claim about.
 
-     Beneath the blocks, like the hour rules, and for the same reason: a line drawn over a
-     block at text height read as a strikethrough, so a meeting in progress looked canceled.
-     No z-index is what puts it there, not an oversight. It sits before .grid-day-plane in
-     the day body, and positioned boxes without one paint in document order, so every block
+     Beneath the blocks, like the hour rules, which is what this element is for: the line
+     where no block is, in the gaps between them and across the column's empty hours. No
+     z-index is what puts it there, not an oversight. It sits before .grid-day-plane in the
+     day body, and positioned boxes without one paint in document order, so every block
      paints after it. That leaves it above the weekend tint and the hour rules, which are
      not positioned, and below the vertical day rules at z-index 1, which only meet it at
-     the column's edges. A block drawn on top of another repaints its own ground and hides
-     the line along its width, just as it hides the block beneath.
+     the column's edges.
+
+     Within the width of the event under way, that block draws the line itself, over its own
+     fill and under its own text: see .grid-event-now below. Beneath the blocks alone, a tint
+     dimmed the line and a raised block's backdrop hid it outright, so the very event under
+     way stood between the reader and the line.
 
      Its color is now_color, the same property a running event's time reads in list and
      column view, so the card has one color for "now" in every view. */
@@ -5288,6 +5294,58 @@ export const cardStyles = css`
     height: 2px;
     background: var(--calendar-card-now-color, #34d399);
     pointer-events: none;
+  }
+
+  /* The now line again, inside the block that is under way, painted as that block's own
+     background image: over the block's fill and, being background, under everything the block
+     draws on top of it -- its title, time and other text, its labels, progress bar, accent bar,
+     raised outline, continuation dashes and keyboard focus ring. So the line stays in view
+     across the event under way, a raised one included, and is never drawn across its glyphs,
+     which is what read as a strikethrough when a line went over a block at text height.
+
+     Only a block whose own time span holds the current minute, which the renderer marks
+     .grid-event-now. Its drawn box is not the test: the 14px floor stretches a short block
+     that has already ended, or not yet begun, across the line, and drawing it there would
+     mark that event as under way, through a past block's dimmed title at that.
+
+     🚨 A layer of each block, not one line ordered between all the fills and all the texts,
+     and that is load-bearing twice. A single text layer would have to sit above every fill,
+     so the text of a short event, which the floor draws past its end, would print over the
+     block after it. And it would need every block to be no stacking context, while engines
+     that applied layout containment with container-type, as the specification once required
+     (see .grid-day-plane), make one of every block -- the line would go over the text there
+     after all. As a background, each block stays one piece and keeps its paint order.
+
+     Positioned like the backdrop's copy of the rules: the line's place and the block's top in
+     the plane's container units, the top restated with the clamp .grid-event computes. Behind
+     @supports because an engine without container units would drop the position and draw the
+     copy at the top of the block; there the line simply stays beneath the blocks, as before.
+
+     What this leaves: the hover and pressed washes are inset shadows, which paint over a
+     background image, so they tint the line inside the block they wash. A translucent
+     now_color reads stronger inside the block, where the copy lands on the original seen
+     through the fill. Forced colors and printing without backgrounds drop the copy, as they
+     drop the line itself. And .grid-now-line styles only the part between blocks, so the
+     line is restyled through now_color, not through that class. */
+  @supports (background-position: 0 calc(1cqh - clamp(0px, 1cqh, 100cqh))) {
+    .grid-day-plane-now > .grid-event-now {
+      background-image: linear-gradient(
+        var(--calendar-card-now-color, #34d399),
+        var(--calendar-card-now-color, #34d399)
+      );
+      background-repeat: no-repeat;
+      background-size: 100% 2px;
+      background-position: 0
+        calc(
+          var(--calendar-card-grid-now-y) - clamp(
+              0px,
+              calc(
+                var(--calendar-card-grid-block-top-cqh) + var(--calendar-card-grid-block-gap-above)
+              ),
+              calc(100cqh - min(var(--calendar-card-grid-block-floor), 100cqh))
+            )
+        );
+    }
   }
 
   /* The dot that marks which column the line belongs to. Its own element, after the plane

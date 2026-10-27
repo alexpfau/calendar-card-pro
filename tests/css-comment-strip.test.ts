@@ -279,8 +279,18 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(159_000);
-    // The two-row header moved the ceiling last, from 156,000 to 159,000: the notes on why the
+    expect(saved).toBeLessThan(162_000);
+    // The now line drawn again inside the block under way moved the ceiling last, from 159,000
+    // to 162,000: the notes on why the line beneath the blocks now only covers the gaps, why the
+    // block under way repaints it as its own background -- over its fill and under everything
+    // it draws -- and only that block, judged by its time and not by its floored box; why not
+    // one line between a layer of fills and a layer of text, which the 14px floor and engines
+    // that still contained layout with container-type would each have broken; and how the copy
+    // is placed in the plane's container units behind a feature check. The reading went
+    // 157,978, dev's own, to 160,775, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // The two-row header moved the ceiling before that, from 156,000 to 159,000: the notes on why the
     // title moves into the heading row as a label over the month, and why a long title there
     // adds nothing to the block's width; why the arrows and the chips are raised by a measured
     // distance rather than aligned on the baseline by CSS, and why the stand-in is a length and

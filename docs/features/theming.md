@@ -244,17 +244,23 @@ element classes with no state attached.
 [Grid view](/features/grid-view) splits a day into the two containers above, and draws its
 events as positioned blocks with classes of their own:
 
-| Class                  | Element                                                      | Also carries                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.grid-event`          | a timed event's block                                        | `.event`; `.past-event`; `.clipped-top` or `.clipped-bottom` where the event runs past the visible hours; `.grid-event-raised` while drawn over an earlier one |
-| `.grid-banner`         | an all-day event, in the band above the time axis            | `.event`; `.past-event`; `.continues-before` or `.continues-after` where it runs past the visible days                                                         |
-| `.grid-event-overflow` | the `+N` block standing in for events that did not fit       | `.event`, `.grid-event`                                                                                                                                        |
-| `.grid-now-line`       | the now line across today's `.grid-day-body`, in `now_color` | —                                                                                                                                                              |
+| Class                  | Element                                                                  | Also carries                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.grid-event`          | a timed event's block                                                    | `.event`; `.past-event`; `.clipped-top` or `.clipped-bottom` where the event runs past the visible hours; `.grid-event-raised` while drawn over an earlier one |
+| `.grid-banner`         | an all-day event, in the band above the time axis                        | `.event`; `.past-event`; `.continues-before` or `.continues-after` where it runs past the visible days                                                         |
+| `.grid-event-overflow` | the `+N` block standing in for events that did not fit                   | `.event`, `.grid-event`                                                                                                                                        |
+| `.grid-now-line`       | the now line in today's `.grid-day-body`, between events, in `now_color` | —                                                                                                                                                              |
 
 Because the `+N` block is a `.grid-event` too, `.grid-event:not(.grid-event-overflow)` selects
 real events only. A banner can span several days, so it sits in the all-day band rather than
 in any day's `.grid-day-body`, and a day selector does not reach it; select it as
 `.grid-banner`.
+
+`.grid-now-line` is only the part of the now line between events. Inside the event under way,
+which carries `.grid-event-now`, the line is that event's own background, drawn in `now_color`
+from the same position, so it sits over the event's color and under its text. To recolor or
+restyle the line, set `now_color` rather than styling `.grid-now-line`, or the two parts will
+not match.
 
 ### Header Toolbar Classes
 

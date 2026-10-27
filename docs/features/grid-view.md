@@ -311,9 +311,11 @@ thinning the labels keeps a long day readable without making the card taller.
 A line marks the current time on today's column, and only there. It is drawn from the same
 arithmetic as the events, so it cannot drift away from them.
 
-The line runs beneath events, the way the hour lines do, so it never crosses an event's text
-like a strikethrough. A dot at the column's edge stays on top and marks where it is even when
-an event covers most of the line.
+The line runs across the event blocks, over their color and under everything written on them.
+The title, time, labels, progress bar and the calendar's colored bar all stay on top, so the
+line never strikes through an event's text, and it stays in view across the event under way,
+even one drawn over a longer event. A dot at the column's edge marks which column it belongs
+to.
 
 ```yaml
 now_color: '#34d399' # The card's color for now, which the line takes (default)

@@ -2420,13 +2420,180 @@ describe('the now line (#325)', () => {
     const body = renderGrid([timed(17, '09:30', '11:00', 'Quarterly review')]).querySelector(
       '.grid-day-body.today',
     )!;
-    const children = [...body.children].map((child) => child.className);
+    const children = [...body.children].map((child) => [...child.classList].join(' '));
 
-    expect(children).toEqual(['grid-now-line', 'grid-day-plane', 'grid-now-dot']);
+    expect(children).toEqual([
+      'grid-now-line',
+      'grid-day-plane grid-day-plane-now',
+      'grid-now-dot',
+    ]);
     const line = body.querySelector<HTMLElement>('.grid-now-line')!;
     const dot = body.querySelector<HTMLElement>('.grid-now-dot')!;
     expect(dot.style.top).toBe(line.style.top);
     expect(dot.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  // The line beneath the blocks shows only where no block is. The block under way draws it
+  // again as its own background, over its fill and under its text, which keeps every block one
+  // piece in the paint order. See `.grid-event-now` in the stylesheet.
+  describe('drawn again inside the block under way', () => {
+    const property = (element: Element | null | undefined, name: string) =>
+      (element as HTMLElement | null | undefined)?.style.getPropertyValue(name) ?? '';
+    const COPY = '.grid-day-plane-now > .grid-event-now';
+    // The stylesheet without its comments and with its whitespace collapsed, so a rule is
+    // found by its whole selector list and a declaration matched whatever Prettier did to it.
+    const CSS = cardStyles.cssText
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')');
+    const ruleBody = (selectorList: string) => {
+      const escaped = selectorList.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?:^|[{}])\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(CSS)?.[1] ?? '';
+    };
+    const declared = (selectorList: string, name: string) =>
+      new RegExp(`(?:^|;)\\s*${name}:\\s*([^;]+)`).exec(ruleBody(selectorList))?.[1].trim() ?? '';
+    const swap = (text: string, from: string, to: string) => text.split(from).join(to);
+
+    it('gives today a plane carrying the line position, and the block under way its top', () => {
+      // FROZEN_NOW is 10:00 on the 17th. Review and Interview are under way; Standup ended
+      // just before, close enough that the 14px floor draws it across the line, and Retro has
+      // not begun. Only a block whose own time holds now repeats the line.
+      const container = renderGrid([
+        timed(17, '09:00', '12:00', 'Review'),
+        timed(17, '09:30', '11:00', 'Interview'),
+        timed(17, '09:50', '09:55', 'Standup'),
+        timed(17, '10:30', '11:00', 'Retro'),
+        timed(18, '09:00', '12:00', 'Workshop'),
+      ]);
+      const today = container.querySelector('.grid-day-body.today')!;
+      const plane = today.querySelector(':scope > .grid-day-plane')!;
+      const linePct = /^([\d.]+)%$/.exec(
+        today.querySelector<HTMLElement>('.grid-now-line')!.style.top,
+      )?.[1];
+
+      expect(linePct, 'no percentage top on the line').toBeDefined();
+      expect(plane.classList.contains('grid-day-plane-now')).toBe(true);
+      // The same number the line is placed by, so the copy cannot sit apart from the original.
+      expect(property(plane, '--calendar-card-grid-now-y')).toBe(`${linePct}cqh`);
+
+      const titleOf = (block: Element) => block.querySelector('.event-title')?.textContent?.trim();
+      const blocks = [...plane.querySelectorAll(':scope > .grid-event')];
+      expect(blocks.map(titleOf).sort()).toEqual(['Interview', 'Retro', 'Review', 'Standup']);
+      for (const block of blocks) {
+        const underWay = ['Review', 'Interview'].includes(titleOf(block) ?? '');
+        const top = /^([\d.]+)%$/.exec(property(block, '--calendar-card-grid-block-top'))?.[1];
+        expect(top, 'no percentage top on the block').toBeDefined();
+        expect(block.classList.contains('grid-event-now'), titleOf(block)).toBe(underWay);
+        expect(property(block, '--calendar-card-grid-block-top-cqh'), titleOf(block)).toBe(
+          underWay ? `${top}cqh` : '',
+        );
+      }
+
+      // Another day carries neither: no line there, so nothing to repeat.
+      const other = [...container.querySelectorAll('.grid-day-body:not(.today) .grid-day-plane')];
+      expect(other.length).toBeGreaterThan(0);
+      for (const otherPlane of other) {
+        expect(otherPlane.classList.contains('grid-day-plane-now')).toBe(false);
+        expect(property(otherPlane, '--calendar-card-grid-now-y')).toBe('');
+        for (const block of otherPlane.querySelectorAll('.grid-event')) {
+          expect(block.classList.contains('grid-event-now')).toBe(false);
+          expect(property(block, '--calendar-card-grid-block-top-cqh')).toBe('');
+        }
+      }
+    });
+
+    it('never marks a +N strip: it has no fill, so the line beneath already shows through', () => {
+      const container = renderGrid(
+        [1, 2, 3, 4].map((n) => timed(17, '09:30', '11:00', `Call ${n}`)),
+        buildConfig({
+          view: 'grid',
+          days_to_show: 3,
+          time_grid: { overlap_layout: 'columns', max_simultaneous_events: 2 },
+        }),
+      );
+      const strips = container.querySelectorAll('.grid-day-body.today .grid-event-overflow');
+
+      expect(strips.length).toBeGreaterThan(0);
+      for (const strip of strips) {
+        expect(strip.classList.contains('grid-event-now')).toBe(false);
+      }
+      expect(container.querySelectorAll('.grid-day-body.today .grid-event-now').length).toBe(2);
+    });
+
+    it('repeats nothing when the line is switched off or the time is outside the band', () => {
+      const events = [timed(17, '09:00', '12:00', 'Review')];
+      for (const time_grid of [
+        { show_now_line: false },
+        { start_time: '14:00', end_time: '18:00' },
+      ]) {
+        const container = renderGrid(
+          events,
+          buildConfig({ view: 'grid', days_to_show: 3, time_grid }),
+        );
+
+        expect(container.querySelectorAll('.grid-day-plane-now')).toHaveLength(0);
+        expect(container.querySelectorAll('.grid-event-now')).toHaveLength(0);
+        for (const block of container.querySelectorAll('.grid-event')) {
+          expect(property(block, '--calendar-card-grid-block-top-cqh')).toBe('');
+        }
+      }
+    });
+
+    it('paints the copy in the color and thickness of the line, as the block background', () => {
+      // A background, because that is what puts it over the block's fill and under
+      // everything the block draws on top; and the same color and height as `.grid-now-line`.
+      // The stylesheet states both twice, so this checks the two copies against each other.
+      const color = declared('.grid-now-line', 'background');
+      const height = declared('.grid-now-line', 'height');
+
+      expect(color).toBe('var(--calendar-card-now-color, #34d399)');
+      expect(declared(COPY, 'background-image')).toBe(`linear-gradient(${color}, ${color})`);
+      expect(declared(COPY, 'background-size')).toBe(`100% ${height}`);
+      expect(declared(COPY, 'background-repeat')).toBe('no-repeat');
+    });
+
+    it('keeps the copy behind a feature check, so an engine without container units skips it', () => {
+      // Without the guard such an engine drops only the position, and draws the copy at the
+      // top of the block instead. The guard tests the very construct the position uses.
+      expect(CSS).toContain(
+        `@supports (background-position: 0 calc(1cqh - clamp(0px, 1cqh, 100cqh))) { ${COPY} {`,
+      );
+    });
+
+    it('positions the copy by the very clamp that places the block', () => {
+      // The copy has to land where the block's own top puts the block, or the line steps at
+      // every block edge. So the block's top is restated in container units, and this
+      // reconciles the two expressions term for term: a change to the block's placement that
+      // is not carried over to the copy fails here.
+      const position = declared(COPY, 'background-position');
+      const prefix = '0 calc(var(--calendar-card-grid-now-y) - ';
+      expect(position.startsWith(prefix), position).toBe(true);
+      expect(position.endsWith(')')).toBe(true);
+      const copied = position.slice(prefix.length, -1).trim();
+      const blockTop = declared('.grid-event, .grid-event-backdrop', 'top');
+
+      expect(blockTop).toContain('clamp(');
+      expect(
+        swap(
+          swap(
+            swap(
+              copied,
+              'var(--calendar-card-grid-block-top-cqh)',
+              'var(--calendar-card-grid-block-top)',
+            ),
+            'min(var(--calendar-card-grid-block-floor), 100cqh)',
+            'var(--calendar-card-grid-block-min-height)',
+          ),
+          '100cqh',
+          '100%',
+        ),
+      ).toBe(blockTop);
+      // ...and the substitution above is honest: the block's min-height is the same `min()`.
+      expect(
+        declared('.grid-event, .grid-event-backdrop', '--calendar-card-grid-block-min-height'),
+      ).toBe('min(var(--calendar-card-grid-block-floor), 100%)');
+    });
   });
 });
 
