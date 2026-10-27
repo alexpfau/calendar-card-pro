@@ -834,10 +834,10 @@ next line inside a comment. A phrase with a lowercase word in it is description 
 a name and passes, and so does a one-word name, a name run together into one word, or one
 split by a blank line. A few names whose prose form is ordinary English, or the name of one
 of Home Assistant's own cards, are matched only as slugs, so in prose they are on you, and
-a slug that continues one of Home Assistant's own `hui-` element names never counts. The
-check also rejects a `custom:` type and a GitHub repository whose last word is `card`
-(card-mod's wrapper aside), and a few wordings that rank this card against others. The
-names are kept as SHA-256 digests, so the gate does not itself name what it forbids; `node
+a slug inside one of Home Assistant's own `hui-` element names never counts. The check also
+rejects a `custom:` type and a GitHub repository whose last word is `card` (card-mod's
+wrapper aside), and a few wordings that rank this card against others. The names are kept
+as SHA-256 digests, so the gate does not itself name what it forbids; `node
 scripts/check-docs.mjs --digest "<name>"` prints the entry for a new one, and a self-test
 on a made-up name proves the matchers before the scan runs. The credit is exempt only on
 its own line, pinned by a digest of that line and by its count, so a mention anywhere else

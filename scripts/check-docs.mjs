@@ -3486,8 +3486,9 @@ const SLUG_GAP = /^[-_]$/;
 
 /**
  * The prefix of Home Assistant's own Lovelace elements. Its frontend names a card's
- * elements by adding it to the card's slug, and one of its cards shares a name with a
- * listed one, so a slug that continues one of these elements is never third-party.
+ * elements by putting it before the card's slug, sometimes with more words between, and its
+ * cards share words with listed names, so a slug anywhere inside one of these elements is
+ * never third-party.
  */
 const HA_ELEMENT_PREFIX = 'hui';
 
@@ -3554,11 +3555,15 @@ function findCardNames(text, named, slugOnly) {
   const gaps = words.map((word, i) => scan.slice(starts[i] + word.length, starts[i + 1]));
 
   const capitalized = (word) => !/^[a-z]/.test(word);
+  // Where the run of slug-joined words each word belongs to begins.
+  const runStart = [];
+  for (let i = 0; i < words.length; i++) {
+    runStart[i] = i > 0 && SLUG_GAP.test(gaps[i - 1]) ? runStart[i - 1] : i;
+  }
 
   const found = [];
   for (let i = 0; i < words.length; i++) {
-    const haElement =
-      i > 0 && SLUG_GAP.test(gaps[i - 1]) && words[i - 1].toLowerCase() === HA_ELEMENT_PREFIX;
+    const haElement = runStart[i] < i && words[runStart[i]].toLowerCase() === HA_ELEMENT_PREFIX;
     let key = words[i].toLowerCase();
     let slug = true;
     // Whether every gap so far is prose whitespace and every word before the last one is
@@ -3620,6 +3625,7 @@ function selfTestCardMatchers() {
     ['a slug-only name as a slug', 'Zz Probe Card or zz-probe-card', none, probe, 1],
     ['a slug-only name in a longer slug', 'lovelace-zz-probe-card', none, probe, 1],
     ["a slug in a Home Assistant element's name", 'hui-zz-probe-card-editor', probe, probe, 0],
+    ["a slug deeper in a Home Assistant element's name", 'hui-xx-zz-probe-card', none, probe, 0],
   ];
   for (const [label, sample, named, slugOnly, expected] of cases) {
     const found = findCardNames(sample, named, slugOnly).length;
