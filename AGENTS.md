@@ -355,7 +355,7 @@ round-trip unchanged** (since 3.9, one shape does not; see below), and it breaks
 `</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
-uses it at **nine** sites, each under a comment naming the whitespace it protects; the
+uses it at **nine** sites, most of them under a comment naming the whitespace it protects; the
 original three were each added after `npm run format` reintroduced the exact spaces a fix had
 just removed and turned five tests red. Two more directives there are the Prettier 3.9 ones described below.
 Locate them with `grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line
@@ -378,19 +378,20 @@ passed every test:
 | event weather badge (`renderEventWeather`)     | 4 tests fail                                 |
 | title pill (`titleContent`)                    | **suite stays green**                        |
 | split time (`timeValue`)                       | **suite stays green**                        |
-| all-day badge (`allDayBadgeEl`)                | **suite stays green**                        |
+| all-day badge (`allDayBadgeEl`)                | **suite stays green**; Prettier changes none |
 | folded time/countdown spans (`timeText`)       | **suite stays green**                        |
 | Now run (`timeContent`)                        | **suite stays green**; Prettier changes none |
 
-None of the green five is a dead directive, and deleting one on that result would be the trap
-this section is about arriving from the other side. Prettier _does_ reformat four of them, and
-the folded spans show how: `<span class="time-text"\n  >`, breaking **inside** the tag, which is the `</span\n><span` asymmetry two paragraphs up doing its job. No text node
+A green row does not make a directive dead, and deleting one on that result alone would be the
+trap this section is about arriving from the other side. Prettier _does_ reformat three of the
+five, and the folded spans show how: `<span class="time-text"\n  >`, breaking **inside** the
+tag, which is the `</span\n><span` asymmetry two paragraphs up doing its job. No text node
 appears, so the DOM is identical and no snapshot moves. What the directive buys there is the
 source reading as the single line the browser sees, instead of the `>`-on-its-own-line form
-that is exactly what the comment above it is warning against. The Now run's directive changes
-nothing today, because Prettier leaves that template as it is; it is there for a version that
-would not. Keep them; they are documentation that happens to also be a guard, and the four red
-rows prove the guard is real.
+that is exactly what the comment above it is warning against. The all-day badge's and the Now
+run's directives change nothing today, because Prettier leaves those templates as they are;
+they are there for a version that would not. Keep them; they are documentation that happens to
+also be a guard, and the four red rows prove the guard is real.
 
 🚨 **Since Prettier 3.9, a template with a multi-line `${…}` in it does not round-trip.**
 3.9 puts such an interpolation on lines of its own (Prettier PR 18380), which

@@ -181,9 +181,11 @@ result after every build.
 
 ## 🧰 Header Toolbar
 
-The card's own controls live in a two-row header above the events: the calendar filter, the
-add-event button, the view switcher, reset and refresh on the first row, and the date navigation
-at the end of the month's row under it, with the title as a small label over the month. The layout rule is fixed, so a control still to come slots in without moving the ones
+The card's own controls live in a header of one or two rows above the events. The first row,
+drawn only while it holds a control, carries the calendar filter's button, the add-event button,
+the view switcher, reset and refresh; the month's row under it carries the title as a small label
+over the month, the filter's chips in its middle where they all fit, and the date navigation at
+its end. The layout rule is fixed, so a control still to come slots in without moving the ones
 already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
 `renderMainCardStructure` places it.
 
