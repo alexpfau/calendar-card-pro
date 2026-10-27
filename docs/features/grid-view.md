@@ -650,10 +650,10 @@ time_grid:
 Grid view uses the same responsive width fallback as column view, but with grid-specific
 options inside `time_grid:`:
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="The same week grid card at a narrower width, showing fewer days"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_grid_week_medium.png" alt="A seven-day grid card at a narrower width, showing five of its days"><br>
 
-The same card as the full week, given less room. Days are surrendered one at a time rather
-than all at once, so the card stays useful as it narrows.
+A seven-day card given room for five. Days are surrendered one at a time rather than all at
+once, so the card stays useful as it narrows.
 
 ```yaml
 view: grid
