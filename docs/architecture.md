@@ -429,7 +429,15 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   disconnect; the resize observer closes it too when the card changes width under it. Each
   update places it again, keeping how far its list was scrolled. `placeMenu` is pure: inline
   start on the button's by the card's direction, since the button leads the action row, inside
-  the viewport, below or above by room.
+  the viewport, below or above by room. It floats over the events, so it has to be opaque, and
+  a theme made for a wallpaper makes the card background it is painted in see-through. So each
+  time it is placed, `paintMenuSurface` reads that background off the open menu and, only where
+  it is see-through, paints the menu inline in that background laid over the theme's page color,
+  and that over black or white by the text color (`opaqueMenuSurface`, pure). An opaque theme's
+  menu is left exactly as the stylesheet paints it, which is what keeps the default theme
+  pixel-identical: a second background layer under an opaque one would not. Measured, it changes
+  the rendered pixels by up to 31 levels in WebKit. A gradient whose every stop is opaque counts
+  as opaque, and is left alone for the same reason.
   Focus is the browser's to return: closing a modal puts it back on the button, without
   scrolling, however the menu closed.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call

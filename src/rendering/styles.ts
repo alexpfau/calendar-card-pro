@@ -1034,9 +1034,11 @@ export const cardStyles = css`
      its top layer, which is why the card's clipping does not reach it. Placed beside its
      button by placeMenu in rendering/legend.ts, and given a height there when it is taller
      than the room. Its font is set for itself, so nothing it sits inside can change it. Its
-     surface is the theme's card background rather than this
-     card's own, which background_color may have made transparent, and a menu has to be
-     opaque to be read over the events. */
+     surface is the theme's card background rather than this card's own, which
+     background_color may have made transparent. A menu has to be opaque to be read over the
+     events, and a theme made for a wallpaper makes its card background see-through, so where
+     it is, paintMenuSurface in rendering/legend.ts paints the menu over the theme's page color
+     instead. Where it is opaque, this rule is all there is. */
   .legend-menu {
     position: fixed;
     inset: auto;

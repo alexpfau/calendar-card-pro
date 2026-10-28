@@ -1410,4 +1410,167 @@ describe("the menu the legend's button opens", () => {
     card.remove();
     expect(again.open).toBe(false);
   });
+
+  /** The colors a theme gives the menu, as the browser computes them on the dialog. */
+  interface MenuColors {
+    surface: string;
+    ink: string;
+    page: string;
+    image?: string;
+  }
+
+  /**
+   * Compute the menu's colors from a theme, as a browser would: the dialog's background and
+   * text, and the page color on the probe the menu resolves it on, a `span` it puts inside
+   * itself for a moment. happy-dom resolves no theme variables, so those are stubbed;
+   * everything else computes as it does.
+   */
+  function themeTheMenu(card: CardUnderTest, colors: MenuColors): void {
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      if (element.parentNode === dialog(card) && element.tagName === 'SPAN') {
+        return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
+      }
+      if (element !== dialog(card)) return style;
+      return {
+        ...style,
+        backgroundColor: colors.surface,
+        backgroundImage: colors.image ?? 'none',
+        color: colors.ink,
+      } as CSSStyleDeclaration;
+    });
+  }
+
+  /**
+   * A 2D canvas that reads back the one color painted on it, for the `#rrggbb`, `rgb()` and
+   * `rgba()` forms a browser serializes a computed color in. happy-dom has no canvas; a value
+   * it cannot read leaves the previous fill style in place, as a browser's canvas does.
+   */
+  function stubCanvas(): void {
+    let fillStyle = '#000000';
+    let pixel = [0, 0, 0, 0];
+    const read = (value: string): number[] | undefined => {
+      const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
+      if (hex) return [...hex.slice(1).map((pair) => parseInt(pair, 16)), 255];
+      const fn = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/.exec(value);
+      if (!fn) return undefined;
+      return [Number(fn[1]), Number(fn[2]), Number(fn[3]), Math.round(Number(fn[4] ?? 1) * 255)];
+    };
+    const context = {
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(value: string) {
+        if (read(value)) fillStyle = value;
+      },
+      clearRect: () => {
+        pixel = [0, 0, 0, 0];
+      },
+      fillRect: () => {
+        pixel = read(fillStyle)!;
+      },
+      getImageData: () => ({ data: Uint8ClampedArray.from(pixel) }),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as RenderingContext,
+    );
+  }
+
+  /** A card background at 40% over a dark gray page, with white text. */
+  const SEE_THROUGH: MenuColors = {
+    surface: 'rgba(10, 10, 10, 0.4)',
+    ink: 'rgb(255, 255, 255)',
+    page: '#2c2c2e',
+  };
+
+  /** Home Assistant's default dark theme. */
+  const OPAQUE: MenuColors = {
+    surface: 'rgb(28, 28, 28)',
+    ink: 'rgb(225, 225, 225)',
+    page: '#111111',
+  };
+
+  it("paints itself opaque, over the page color, where the theme's card background is see-through", async () => {
+    // The menu floats over the events, with nothing of the wallpaper or the blur such a theme
+    // puts behind its cards, so a see-through surface shows the events through every row.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, SEE_THROUGH);
+
+    await open(card);
+
+    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+  });
+
+  it("leaves an opaque theme's menu exactly as the stylesheet paints it", async () => {
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, OPAQUE);
+
+    await open(card);
+
+    expect(dialog(card).style.backgroundColor).toBe('');
+  });
+
+  it('leaves a card background that is an opaque gradient as it is', async () => {
+    // The computed background color under a gradient is transparent whether the gradient is
+    // or not, so it is the stops that say this one covers the menu.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, {
+      ...OPAQUE,
+      surface: 'rgba(0, 0, 0, 0)',
+      image: 'linear-gradient(rgb(18, 52, 86), rgb(254, 220, 186))',
+    });
+
+    await open(card);
+
+    expect(dialog(card).style.backgroundColor).toBe('');
+  });
+
+  it('lays the page color under a card background that is a see-through gradient', async () => {
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, {
+      ...OPAQUE,
+      surface: 'rgba(0, 0, 0, 0)',
+      image: 'linear-gradient(rgb(18, 52, 86), rgba(0, 0, 0, 0.5))',
+    });
+
+    await open(card);
+
+    // The gradient stays, painted over the page color.
+    expect(dialog(card).style.backgroundColor).toBe('rgb(17, 17, 17)');
+  });
+
+  it('follows a theme changed while it is open, at the next update', async () => {
+    const card = await mountMenu();
+    stubCanvas();
+    const colors = { ...SEE_THROUGH };
+    themeTheMenu(card, colors);
+    await open(card);
+    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+
+    Object.assign(colors, OPAQUE);
+    card.hass = hass();
+    await settle(card);
+    expect(dialog(card).style.backgroundColor).toBe('');
+
+    Object.assign(colors, { surface: 'rgba(128, 128, 128, 0.3)', page: 'rgb(84, 80, 76)' });
+    card.hass = hass();
+    await settle(card);
+    expect(dialog(card).style.backgroundColor).toBe('rgb(97, 94, 92)');
+  });
+
+  it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    const card = await mountMenu();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    themeTheMenu(card, SEE_THROUGH);
+
+    await open(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(dialog(card).style.backgroundColor).toBe('');
+  });
 });

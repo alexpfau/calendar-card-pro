@@ -2911,8 +2911,10 @@ describe('the legend and refresh', () => {
     expect(declared('.legend-chip-label', 'text-overflow')).toBe('ellipsis');
   });
 
-  it("draws the menu on the theme's opaque card surface, not this card's own background", () => {
+  it("draws the menu on the theme's card surface, not this card's own background", () => {
     // `background_color` may make the card transparent; a menu over the events must not be.
+    // Where the theme's card surface is see-through, `paintMenuSurface` in `legend.ts` paints
+    // the menu opaque inline; everywhere else this declaration is the whole of it.
     expect(declared('.legend-menu', 'background')).toBe(
       'var(--ha-card-background, var(--card-background-color, #fff))',
     );
