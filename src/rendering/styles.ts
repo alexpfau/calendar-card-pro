@@ -1974,9 +1974,12 @@ export const cardStyles = css`
   }
 
   /* The gutter itself. Separated from the rule above so the box model stays in one place
-     and only the separation is conditional. */
+     and only the separation is conditional. At the inline end, like the rows' gutter below:
+     a right margin is the leading edge in a right-to-left card, which pushed the text away
+     from the accent bar and, once only one of the two carried it, out of line with the
+     other. */
   .summary:not(:only-child) {
-    margin-right: 12px;
+    margin-inline-end: 12px;
   }
 
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
@@ -2297,7 +2300,9 @@ export const cardStyles = css`
     align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
     margin-top: 2px;
-    margin-right: 12px;
+    /* At the inline end, so a right-to-left row starts where its title does; see the
+       title's gutter above. */
+    margin-inline-end: 12px;
   }
 
   /* The first row under the title, whichever it is, sits directly under it, with no margin of

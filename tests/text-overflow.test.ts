@@ -45,11 +45,11 @@ describe('title overflow', () => {
     // is on the row, and nothing else is on the row unless weather is in title placement.
     // Unconditional, it read in a narrow grid block as text held 12px off the right edge
     // while sitting hard against the left.
-    expect(ruleBody('.summary:not(:only-child)')).toMatch(/margin-right:\s*12px/);
+    expect(ruleBody('.summary:not(:only-child)')).toMatch(/margin-inline-end:\s*12px/);
     expect(
       ruleBody('.summary'),
       'the unconditional rule carries the box model, not the separation',
-    ).not.toMatch(/margin-right/);
+    ).not.toMatch(/margin-(right|inline)/);
   });
 
   it('leaves no horizontal margin on .event-title', () => {
@@ -116,7 +116,7 @@ describe('metadata row overflow', () => {
     // .time/.location/.description are flex boxes, so their margin sits outside the box
     // and cannot inflate min-content -- the mirror image of the .summary case above, and
     // the reason this defect needed a different fix from the title one.
-    expect(ruleBody('.time,\n  .location,\n  .description')).toMatch(/margin-right:\s*12px/);
+    expect(ruleBody('.time,\n  .location,\n  .description')).toMatch(/margin-inline-end:\s*12px/);
     expect(ruleBody(SHARED)).not.toMatch(/margin-(right|left|inline)/);
   });
 });
