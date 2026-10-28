@@ -12,7 +12,9 @@
  * layer, so `ha-card`'s `overflow: hidden` cannot clip it, in every browser Home Assistant
  * still serves; the popover API would need a newer one. A modal dialog makes the rest of the
  * page inert while it is open, so every way it can end, a press outside, Escape, a scroll, a
- * resize, the card hiding or folding open again, closes it through one path.
+ * resize, the card hiding or folding open again, closes it through one path. Floating over the
+ * events, it has to be opaque even where a theme's card background is not, so its surface is
+ * painted here when it opens (`opaqueMenuSurface`).
  */
 
 import { mdiCalendarFilter } from '@mdi/js';
@@ -83,6 +85,9 @@ export interface MenuPlacement {
   maxHeight: number | undefined;
 }
 
+/** A color as a canvas reads it back: red, green, blue and alpha, each 0–255. */
+export type Rgba = readonly [number, number, number, number];
+
 //-----------------------------------------------------------------------------
 // CONSTANTS
 //-----------------------------------------------------------------------------
@@ -99,6 +104,20 @@ export const LEGEND_CHANGED_EVENT = 'calendar-card-pro-legend-changed';
 /** Room kept between the menu and the viewport's edges, and between it and its button. */
 const MENU_VIEWPORT_INSET = 8;
 const MENU_GAP = 4;
+
+/**
+ * A fill style a canvas is given before a color it is asked to read, so a color it cannot
+ * parse, and so leaves the fill style alone, is told apart from one it can.
+ */
+const UNREAD_FILL = '#010203';
+
+/** A color as a browser serializes one in a computed gradient: a color function, hex, or keyword. */
+const COLOR_TOKEN =
+  /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\)|#[0-9a-f]{3,8}\b|\btransparent\b/gi;
+
+/** A background image whose opacity its colors cannot tell: an image, or an unresolved stop. */
+const UNREADABLE_IMAGE =
+  /\b(?:url|image|image-set|cross-fade|element|paint|color-mix)\(|\bcurrentcolor\b/i;
 
 //-----------------------------------------------------------------------------
 // PLACEMENT
@@ -139,6 +158,138 @@ export function placeMenu(
   }
   const height = Math.max(0, above);
   return { left, top: anchor.top - MENU_GAP - height, maxHeight: height };
+}
+
+//-----------------------------------------------------------------------------
+// SURFACE
+//-----------------------------------------------------------------------------
+
+/**
+ * The color an open menu is painted, where the theme's card background would let the events
+ * show through it.
+ *
+ * The stylesheet paints the menu in the theme's card background. A theme made for a
+ * wallpaper makes that see-through, and relies on the wallpaper, and often a blur, behind its
+ * cards. The menu floats over the events with neither, so there a see-through surface shows
+ * the events through every row. Such a surface is laid over the theme's page color, which is
+ * what the theme's text is made to be read on, and that over black under light text or white
+ * under dark text, so the result is opaque whatever the page color is. An opaque surface is
+ * left to the stylesheet, so an opaque theme's menu is exactly what it was.
+ *
+ * Neither the color scheme nor the card background can say which way a theme leans: a light
+ * mode can set white text on a dark page, under a gray card. The text can.
+ *
+ * @param surface - The menu's background color as the stylesheet resolves it
+ * @param page - The theme's page color, when there is one to read
+ * @param ink - The menu's text color, when there is one to read
+ * @returns An opaque `rgb()` color, or undefined where the surface is opaque already
+ */
+export function opaqueMenuSurface(
+  surface: Rgba,
+  page: Rgba | undefined,
+  ink: Rgba | undefined,
+): string | undefined {
+  if (surface[3] === 255) return undefined;
+
+  const lightInk = ink !== undefined && 0.2126 * ink[0] + 0.7152 * ink[1] + 0.0722 * ink[2] > 127.5;
+  let under: number[] = lightInk ? [0, 0, 0] : [255, 255, 255];
+  for (const layer of [page, surface]) {
+    if (!layer) continue;
+    const alpha = layer[3] / 255;
+    under = under.map((channel, i) => layer[i] * alpha + channel * (1 - alpha));
+  }
+  const [red, green, blue] = under.map(Math.round);
+  return `rgb(${red}, ${green}, ${blue})`;
+}
+
+/**
+ * Reads a color the browser has resolved, by painting it on a 1×1 canvas and reading the pixel
+ * back, so any syntax the browser paints is read alike. Undefined for a color the canvas cannot
+ * parse. A canvas resolves nothing against an element, so `currentColor` would read as black
+ * there; every color given to it is a computed value for that reason.
+ *
+ * @param context - A 2D context on a 1×1 canvas
+ * @param color - The color, as CSS
+ * @returns Its channels and alpha
+ */
+function readColor(context: CanvasRenderingContext2D, color: string): Rgba | undefined {
+  context.fillStyle = UNREAD_FILL;
+  context.fillStyle = color;
+  if (context.fillStyle === UNREAD_FILL) return undefined;
+  context.clearRect(0, 0, 1, 1);
+  context.fillRect(0, 0, 1, 1);
+  const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+  return [red, green, blue, alpha];
+}
+
+/**
+ * The colors of the gradients a menu's background image is made of.
+ *
+ * A theme's card background may be a gradient rather than a color, and then the computed
+ * background color is transparent whether the gradient is or not. Its stops say which: a
+ * gradient whose every stop is opaque covers the menu, and is left as it is. An image, or a
+ * stop the browser left unresolved, says nothing of the sort.
+ *
+ * @param image - The computed `background-image`
+ * @returns The stops' colors, an empty list for no image, or undefined where they cannot be read
+ */
+export function gradientColors(image: string): string[] | undefined {
+  if (image === '' || image === 'none') return [];
+  if (UNREADABLE_IMAGE.test(image)) return undefined;
+  return image.match(COLOR_TOKEN) ?? undefined;
+}
+
+/**
+ * The theme's page color, as the browser resolves it inside the menu. Read off a hidden probe,
+ * because the custom property's own value is only its text: written with `light-dark()` or
+ * `currentColor`, it is not yet a color a canvas can paint. Transparent where the theme sets
+ * none.
+ *
+ * @param dialog - The open menu
+ * @returns The resolved color
+ */
+function pageColor(dialog: HTMLDialogElement): string {
+  const probe = dialog.ownerDocument.createElement('span');
+  probe.style.display = 'none';
+  probe.style.backgroundColor = 'var(--primary-background-color)';
+  dialog.append(probe);
+  const color = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  return color;
+}
+
+/**
+ * Gives an open menu an opaque surface where its theme's is see-through, and takes it away
+ * again where the theme's is opaque (see {@link opaqueMenuSurface}).
+ *
+ * The surface is read from the menu itself, so a theme changed since the menu last opened, and
+ * a card-mod rule on `.legend-menu`, are both what is read. A card-mod rule marked `!important`
+ * still wins over the color set here, so a menu someone made see-through on purpose stays so.
+ * It runs whenever the menu is placed, so a theme changed while the menu is open is followed at
+ * the card's next update. A surface that cannot be read leaves the menu as the stylesheet
+ * paints it, and so does a browser without a 2D canvas.
+ *
+ * @param dialog - The open menu
+ */
+function paintMenuSurface(dialog: HTMLDialogElement): void {
+  dialog.style.removeProperty('background-color');
+  const canvas = dialog.ownerDocument.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return;
+
+  const style = getComputedStyle(dialog);
+  const surface = readColor(context, style.backgroundColor);
+  if (!surface) return;
+  const stops = gradientColors(style.backgroundImage);
+  if (stops?.length && stops.every((stop) => readColor(context, stop)?.[3] === 255)) return;
+  const color = opaqueMenuSurface(
+    surface,
+    readColor(context, pageColor(dialog)),
+    readColor(context, style.color),
+  );
+  if (color) dialog.style.backgroundColor = color;
 }
 
 //-----------------------------------------------------------------------------
@@ -245,8 +396,9 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
     return;
   }
   // In the same task as showModal, so the menu is never painted where the browser first puts
-  // it, in the middle of the viewport.
+  // it, in the middle of the viewport, nor see-through for a frame.
   positionMenu(dialog, opener);
+  paintMenuSurface(dialog);
   opener.setAttribute('aria-expanded', 'true');
 
   const view = dialog.ownerDocument.defaultView ?? window;
@@ -287,8 +439,8 @@ export function closeLegendMenus(root: ParentNode): void {
 }
 
 /**
- * Places every legend menu open inside a card beside its button again, after the card has
- * re-rendered. A menu whose button is gone closes.
+ * Places every legend menu open inside a card beside its button again, and paints its surface
+ * again, after the card has re-rendered. A menu whose button is gone closes.
  *
  * @param root - The card's shadow root
  */
@@ -298,6 +450,7 @@ export function repositionLegendMenus(root: ParentNode): void {
       closeMenu(dialog, 'gone');
     } else if (root.contains(dialog)) {
       positionMenu(dialog, open.opener);
+      paintMenuSurface(dialog);
     }
   }
 }
