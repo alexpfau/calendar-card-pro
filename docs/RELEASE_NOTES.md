@@ -237,7 +237,7 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#603](https://github.com/alexpfau/calendar-card-pro/issues/603) - Choosing day or night weather icons from the forecast's own `is_daytime`, with the 18:00 to 06:00 rule kept as the fallback, requested by @jonaspinall
 - [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) - Page through weeks from the card, with a Today button by @brandher — answered by `toolbar → navigation`: arrows, a button home and a date picker
 - [#45](https://github.com/alexpfau/calendar-card-pro/issues/45) - Add an event from the card, using Home Assistant's create-event dialog — answered by the toolbar's add button (Thanks @GContaldi, #663)
-- [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) - Tap an event to see its details by @elindse — answered by `event_tap_action: details`. Passing an event's fields to a custom tap action, asked in the discussion, moves to an issue of its own
+- [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) - Tap an event to see its details by @elindse — answered by `event_tap_action: details`. Passing an event's fields to a custom tap action, asked in the discussion, moves to an issue of its own (issue 692)
 - [#298](https://github.com/alexpfau/calendar-card-pro/issues/298) - Delete an event from the card by @borgqueenx — answered by the event dialog's Delete, wherever the calendar's integration allows it (Thanks @GContaldi, #668)
 - [#604](https://github.com/alexpfau/calendar-card-pro/issues/604) - Event details & editing by @alexpfau. Reading, adding, changing and deleting an event are answered; links in locations and descriptions (issue 306) and attendees are not, so **do not close** it
 - [#615](https://github.com/alexpfau/calendar-card-pro/issues/615) - A "Today" option in the day header by @EcoHeliGuy — answered by the date tile rather than the word, because "Today" and "Tomorrow" do not fit the list view's date column
@@ -247,6 +247,7 @@ Switching dashboard tabs disconnects a card without destroying it, and some of i
 - [#608](https://github.com/alexpfau/calendar-card-pro/issues/608) - A calendar legend that hides and shows calendars by @maleyd — answered by `toolbar → legend`
 - [#245](https://github.com/alexpfau/calendar-card-pro/issues/245) - Refresh as a tap or hold action by @noxhirsch — answered by the `refresh` card action, and the toolbar's refresh button besides
 - [#264](https://github.com/alexpfau/calendar-card-pro/issues/264) - Spacing between events from different calendars on the same day by @Kaulhaaz. `event_gap` gives the spacing it asks for, but not the joined runs of one calendar's events its mock-up shows, so **do not close** it
+- [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a shared event its own color by @Bastian007, which v4.2.0 answered for the accent bar with `duplicate_accent_color`. @dw1562 then asked for the event's text to take that color too — answered by `event_color: accent`, which on a shared event follows `duplicate_accent_color`. Already closed, so comment only
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.2.0...v5.0.0
 
