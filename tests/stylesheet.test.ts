@@ -2036,7 +2036,7 @@ describe('card stylesheet', () => {
         body.match(/-webkit-mask-image:/g),
         'the prefixed form is load-bearing on Chrome 117',
       ).toHaveLength(1);
-      expect(body.match(new RegExp(erased.replace(/[()-]/g, '\\$&'), 'g'))).toHaveLength(2);
+      expect(body.split(erased).length - 1).toBe(2);
     });
 
     it('clears each band rule by its own width, at any width the user picks', () => {

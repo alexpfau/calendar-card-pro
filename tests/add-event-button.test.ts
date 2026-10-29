@@ -290,9 +290,7 @@ describe('add-event button rendering', () => {
 
     expect(row.className).toBe('header-container has-toolbar');
     expect(row.children).toHaveLength(2);
-    expect(title.outerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
-      '<h1 class="card-header">Family</h1>',
-    );
+    expect(markup(title)).toBe('<h1 class="card-header"><!--?lit$-->Family</h1>');
     expect(actions.className).toBe('card-toolbar toolbar-actions');
     expect(heading.className).toBe('card-toolbar toolbar-heading');
     // The button leads the row; the switcher's place in its middle and the end stay empty.
