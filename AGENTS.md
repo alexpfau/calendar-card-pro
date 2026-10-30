@@ -1259,10 +1259,10 @@ and serves `docs/.vitepress/dist` as static assets.
 - **It builds only on push to `main`.** Pushing to `dev` produces no Workers check run at
   all, so nothing on `dev` is ever live. **Merging the `dev` → `main` PR _is_ the deploy** —
   there is no separate publish step and no tag involved.
-- **Previews are a second Worker, published by hand.** `docs-preview.yml` builds a chosen
-  ref, `dev` by default, and deploys it to the Worker `calendar-card-pro-preview`, which
-  serves <https://dev.calendar-card-pro.alexpfau.com>. It never runs on push, so it spends
-  no Workers Builds minutes. Run it from the Actions tab or with
+- **Previews are a second Worker, published by hand.** `docs-preview.yml` builds a branch or
+  tag of this repository, `dev` by default, and deploys it to the Worker
+  `calendar-card-pro-preview`, which serves <https://dev.calendar-card-pro.alexpfau.com>. It
+  never runs on push, so it spends no Workers Builds minutes. Run it from the Actions tab or with
   `gh workflow run docs-preview.yml -f ref=dev`. The build is the production one with three
   differences, all confined to that run. `DOCS_PREVIEW=1` makes `config.mts` label the title
   "(Preview)", add a robots meta tag, and point the docs' raw.githubusercontent.com image
@@ -1270,7 +1270,13 @@ and serves `docs/.vitepress/dist` as static assets.
   A generated `_headers` file sends `X-Robots-Tag: noindex, nofollow`. The release notes'
   absolute links are rewritten to the preview host. It runs as two jobs split on trust:
   `build` runs the ref's code and holds no secret, and `deploy` holds the Cloudflare token,
-  never checks out or installs the ref, and publishes only `build`'s artifact. The Wrangler
+  never checks out or installs the ref, and publishes only `build`'s artifact. **`build`
+  resolves the name against this repository's own branches and tags and checks out that
+  exact commit, refusing a fork's pull request ref or a bare commit id**, and it keeps no npm
+  cache. A workflow started by hand writes to the default branch's Actions cache, which CI
+  and the release build restore, so it must never run code from outside the repository.
+  That is what CodeQL alerts 8 and 9 (`actions/cache-poisoning/poisonable-step`) were
+  about. Do not widen the input back to arbitrary refs. The Wrangler
   config in that artifact is generated from `wrangler.jsonc` with only the name, hostname and
   asset path replaced; `build` refuses to write one that would land on the production Worker
   or hostname, and `deploy` checks it again against an allowlist before deploying. **Never

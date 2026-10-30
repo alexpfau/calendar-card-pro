@@ -10,16 +10,17 @@ name: Docs Preview
 # this file reached `main` ahead of the release that carries everything else from `dev`.
 #
 # Two jobs, split on trust. `build` runs the chosen ref's code (its dependencies' install
-# scripts, its VitePress config) and so never sees a secret. `deploy` holds the Cloudflare
-# token, never checks out or installs the ref, and publishes only the artifact `build`
-# produced, after checking its Wrangler config itself rather than trusting it.
+# scripts, its VitePress config) and so never sees a secret, and it accepts only a branch or
+# tag of this repository, never a fork's code. `deploy` holds the Cloudflare token, never
+# checks out or installs the ref, and publishes only the artifact `build` produced, after
+# checking its Wrangler config itself rather than trusting it.
 #
 # Run it from the Actions tab, or: gh workflow run docs-preview.yml -f ref=dev
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch, tag or commit to build
+        description: Branch or tag of this repository to build
         required: true
         default: dev
 
@@ -47,19 +48,64 @@ jobs:
     outputs:
       sha: ${{ steps.stage.outputs.sha }}
     steps:
+      # A preview builds only what this repository already holds: one of its own branches or
+      # tags, resolved here to the exact commit the checkout below fetches. Anything else is
+      # refused, a fork's pull request (`refs/pull/N/head`) and a bare commit id above all,
+      # since GitHub serves a fork's commits through this repository too. That matters
+      # because a workflow started by hand runs with write access to the default branch's
+      # Actions cache, which CI and the release build read; code pushed to this repository
+      # comes from someone who already has write access, and a fork's does not.
+      - name: Resolve the ref to a commit of this repository
+        id: resolve
+        run: |
+          if [ -z "$REF" ]; then
+            echo "::error::Name a branch or tag of this repository."
+            exit 1
+          fi
+          listing=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" \
+            "refs/heads/$REF" "refs/tags/$REF" "refs/tags/$REF^{}")
+          # ls-remote matches patterns by their tail, so `dev` also finds `feature/dev`;
+          # only an exact name counts. A peeled entry is an annotated tag's commit.
+          read -r branch tag peeled < <(printf '%s\n' "$listing" | awk \
+            -v b="refs/heads/$REF" -v t="refs/tags/$REF" -v p="refs/tags/$REF^{}" '
+              $2 == b { branch = $1 }
+              $2 == t { tag = $1 }
+              $2 == p { peeled = $1 }
+              END { print (branch ? branch : "-"), (tag ? tag : "-"), (peeled ? peeled : "-") }')
+          if [ "$branch" != "-" ] && [ "$tag" != "-" ]; then
+            echo "::error::'$REF' is both a branch and a tag here. Rename one, then run again."
+            exit 1
+          elif [ "$branch" != "-" ]; then
+            commit=$branch
+          elif [ "$peeled" != "-" ]; then
+            commit=$peeled
+          elif [ "$tag" != "-" ]; then
+            commit=$tag
+          else
+            echo "::error::'$REF' is not a branch or tag of $GITHUB_REPOSITORY. Previews build only this repository's own refs, never a fork's pull request or a bare commit."
+            exit 1
+          fi
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+            echo "::error::Unexpected commit id '$commit' for '$REF'."
+            exit 1
+          fi
+          echo "Building $REF at $commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ steps.resolve.outputs.commit }}
           persist-credentials: false
 
       # Same pin as ci.yml and the Cloudflare build image. ci.yml fails any workflow that
-      # hardcodes a Node version instead.
+      # hardcodes a Node version instead. No `cache: npm`, unlike ci.yml: its post step would
+      # save this run's npm cache into the default branch's scope, which is the cache CI and
+      # the release build restore.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
