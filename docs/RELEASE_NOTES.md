@@ -8,7 +8,9 @@ title: Release Notes
 
 <!-- VIDEO-LINK-V5: on release day, replace this comment with one line linking Smart-Live's v5 video (in German), for example: 🎬 Smart-Live made a video about v5: [title](link) -->
 
-**Grid view for your calendar, and a card you can act on.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
+**This one changes what Calendar Card Pro is.** 🎉 v5 brings grid view to your calendar and makes the card something you can act on, and with that it answers more than twenty feature requests, some of them open since March 2025. A lot of work went into it, and I wanted it to be truly polished on release day rather than soon after. Thank you to everyone who asked, waited, tested and contributed along the way.
+
+Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
 
 A few defaults change whichever layout you use, so they come first. 👇
 
@@ -85,7 +87,7 @@ See [Header Toolbar](https://calendar-card-pro.alexpfau.com/features/layout-appe
 
 See [Today Indicator](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator), [The Now Indicator](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) and [Showing Today When It Is Empty](https://calendar-card-pro.alexpfau.com/features/event-content#showing-today-when-it-is-empty).
 
-### 🎨 Your Theme's Accent, Drawn Like macOS Calendar
+### 🎨 Your Theme's Accent & a Rounded Accent Bar
 
 - **The card takes its accent from your theme** - A calendar without a color of its own, the today tile, the week-number pills and the week separators all follow your theme's primary color, so a custom theme no longer gets a fixed blue it did not ask for. So do the washes on an event and on a toolbar control under the pointer or pressed, as the card's own hover always has; an event with a background tint keeps its faint wash of its text color
 - **A rounded accent bar beside every event** - The colored bar beside an event has rounded ends in every view. Untinted, a day's touching events share one line that changes color where one calendar's event meets another's, so a busy day in one calendar still reads as one block. With `event_background_opacity` above 0, each event's bar sits inside its own tinted box, clear of the rounded corners. `vertical_line_width` sets how wide it is
