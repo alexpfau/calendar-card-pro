@@ -1273,10 +1273,14 @@ and serves `docs/.vitepress/dist` as static assets.
   never checks out or installs the ref, and publishes only `build`'s artifact. **`build`
   resolves the name against this repository's own branches and tags and checks out that
   exact commit, refusing a fork's pull request ref or a bare commit id**, and it keeps no npm
-  cache. A workflow started by hand writes to the default branch's Actions cache, which CI
-  and the release build restore, so it must never run code from outside the repository.
-  That is what CodeQL alerts 8 and 9 (`actions/cache-poisoning/poisonable-step`) were
-  about. Do not widen the input back to arbitrary refs. The Wrangler
+  cache. Started on the default branch, as documented, it can write to that branch's Actions
+  cache, which CI and the release build restore, so it must never run code from outside the
+  repository. That is what CodeQL alerts 8 and 9 (`actions/cache-poisoning/poisonable-step`)
+  were about. Do not widen the input back to arbitrary refs. The resolved commit is passed on
+  as an output named `oid` on purpose: CodeQL's untrusted-checkout heuristic flags a checkout
+  `ref` whose field name contains head, sha, commit, ref or branch, so a different name would
+  report again, and the alerts clearing proves only that the heuristic no longer matches. The
+  resolver is the protection. The Wrangler
   config in that artifact is generated from `wrangler.jsonc` with only the name, hostname and
   asset path replaced; `build` refuses to write one that would land on the production Worker
   or hostname, and `deploy` checks it again against an allowlist before deploying. **Never

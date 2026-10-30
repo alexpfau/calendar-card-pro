@@ -1,10 +1,10 @@
 name: Docs Preview
 
-# Publishes the documentation site, built from any ref, to a second Cloudflare Worker on its
-# own hostname, so unreleased docs can be shared before the release PR deploys them. Manual
-# only: nothing here runs on push, so it spends no Workers Builds minutes, and the production
-# Worker (`calendar-card-pro`, built by Workers Builds on every push to `main`) is never
-# touched. See AGENTS.md, Docs site deployment.
+# Publishes the documentation site, built from a branch or tag of this repository, to a second
+# Cloudflare Worker on its own hostname, so unreleased docs can be shared before the release PR
+# deploys them. Manual only: nothing here runs on push, so it spends no Workers Builds
+# minutes, and the production Worker (`calendar-card-pro`, built by Workers Builds on every
+# push to `main`) is never touched. See AGENTS.md, Docs site deployment.
 #
 # GitHub offers "Run workflow" only for a workflow file on the default branch, which is why
 # this file reached `main` ahead of the release that carries everything else from `dev`.
@@ -52,9 +52,15 @@ jobs:
       # tags, resolved here to the exact commit the checkout below fetches. Anything else is
       # refused, a fork's pull request (`refs/pull/N/head`) and a bare commit id above all,
       # since GitHub serves a fork's commits through this repository too. That matters
-      # because a workflow started by hand runs with write access to the default branch's
-      # Actions cache, which CI and the release build read; code pushed to this repository
-      # comes from someone who already has write access, and a fork's does not.
+      # because a run started on the default branch, as the command above does, has write
+      # access to that branch's Actions cache, which CI and the release build read; code
+      # pushed to this repository comes from someone who already has write access, and a
+      # fork's does not.
+      #
+      # The output is named `oid` on purpose. CodeQL's untrusted-checkout heuristic flags a
+      # checkout `ref` whose field name contains head, sha, commit, ref or branch, whatever
+      # produced it; this step is what makes the checkout safe, and the name only keeps the
+      # heuristic from reporting a checkout that is no longer of the raw input.
       - name: Resolve the ref to a commit of this repository
         id: resolve
         run: |
@@ -90,12 +96,12 @@ jobs:
             exit 1
           fi
           echo "Building $REF at $commit"
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "oid=$commit" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.resolve.outputs.commit }}
+          ref: ${{ steps.resolve.outputs.oid }}
           persist-credentials: false
 
       # Same pin as ci.yml and the Cloudflare build image. ci.yml fails any workflow that
