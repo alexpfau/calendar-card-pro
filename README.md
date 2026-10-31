@@ -151,7 +151,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 ### Latest Release: v5.0
 
-<!-- VIDEO-LINK-V5: on release day, replace this comment with one line linking Smart-Live's v5 video (in German), for example: 🎬 Smart-Live made a video about v5: [title](link) -->
+🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 - 🗓️ **Grid View**: Set [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs. An event that starts inside a longer one is drawn on top of it, the way your calendar app draws a day, all-day events span their dates in a band above the axis, and a line marks the current time on today's column
 - 🧰 **A Toolbar on the Card**: [`toolbar: { show: true }`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar) adds the card's own controls to its header: page through the dates, switch between List, Columns and Grid, show or hide each calendar, and refresh, each device remembering its own choices. `reset: true` adds a button that puts a shared wall tablet back the way it is set up

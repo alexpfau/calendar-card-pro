@@ -6,7 +6,7 @@ title: Release Notes
 
 ![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)
 
-<!-- VIDEO-LINK-V5: on release day, replace this comment with one line linking Smart-Live's v5 video (in German), for example: 🎬 Smart-Live made a video about v5: [title](link) -->
+🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 **This one changes what Calendar Card Pro is.** 🎉 v5 brings grid view to your calendar and makes the card something you can act on, and with that it answers more than twenty feature requests, some of them open since March 2025. A lot of work went into it, and I wanted it to be truly polished on release day rather than soon after. Thank you to everyone who asked, waited, tested and contributed along the way.
 
