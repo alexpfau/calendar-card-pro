@@ -10,7 +10,7 @@ title: Release Notes
 
 Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
 
-🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+🎬 Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 A few defaults change whichever layout you use, so they come first. 👇
 
