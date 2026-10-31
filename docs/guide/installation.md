@@ -13,7 +13,7 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 1. Ensure **[HACS](https://hacs.xyz/docs/setup/download)** is installed in Home Assistant.
 2. Open **HACS** and search for **Calendar Card Pro**, or use the button above.
 3. Open it and select **Download**.
-4. **Clear your browser cache** and reload Home Assistant.
+4. **Reload** Home Assistant in your browser, and clear the browser cache if an older version still shows.
 
 ## 📂 Manual Installation
 
@@ -23,8 +23,8 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 ### Steps
 
 1. **Download** both files from the latest release:  
-   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest) and
-   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest)
+   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/calendar-card-pro.js) and
+   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/editor.js)
 
 2. **Put both files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
@@ -39,7 +39,7 @@ url: /local/calendar-card-pro/calendar-card-pro.js
 type: module
 ```
 
-5. **Clear cache & refresh** your browser to apply changes.
+5. **Refresh** your browser. After a later update, clear its cache as well, or the old version can stay loaded.
 
 ::: warning Both Files, In Their Own Folder
 The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
