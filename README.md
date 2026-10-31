@@ -6,6 +6,14 @@
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png" alt="Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar" width="100%">
 
+## 🎬 Video Review
+
+[![Watch the v5 video review on YouTube](https://img.shields.io/badge/Watch_the_v5_Video_Review-Smart--Live%2C_in_German-c4302b?style=for-the-badge&logo=youtube&logoColor=white&labelColor=282828)](https://youtu.be/ptXdis8WHXo)
+
+Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+
+<p>&nbsp;</p>
+
 ## ☕ Support This Project
 
 If you find **Calendar Card Pro** useful, consider supporting its development:
