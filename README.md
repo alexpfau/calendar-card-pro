@@ -29,14 +29,12 @@ Smart-Live has the exclusive first video review of v5, in German: [Calendar Card
 
 Every option, feature and worked example lives on the searchable **[documentation site](https://calendar-card-pro.alexpfau.com)**.
 
-|                                                                                            |                                                          |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation)               | Set the card up via HACS or manually                     |
-| 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage)                             | Add the card and configure it visually                   |
-| ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor)      | Layouts, the toolbar, weather, actions, theming and more |
-| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option                      |
-| 💡 [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples)            | Complete cards for real setups, ready to copy            |
-| 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                            |
+- 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation) — set the card up via HACS or manually
+- 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) — add the card and configure it visually
+- ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor) — layouts, the toolbar, weather, actions, theming and more
+- 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) — complete reference for every option
+- 💡 [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples) — complete cards for real setups, ready to copy
+- 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) — full history of every release
 
 <p>&nbsp;</p>
 
