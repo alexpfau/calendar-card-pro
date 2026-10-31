@@ -7,6 +7,7 @@ import * as EntityColors from './entity-colors';
 import * as EntityIcons from './entity-icons';
 import * as EventAge from './event-age';
 import * as FormatUtils from './format';
+import * as Grid from './grid';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
@@ -23,35 +24,213 @@ import * as Localize from '../translations/localize';
 //-----------------------------------------------------------------------------
 
 /**
- * Raw fetches that have been started but not yet settled, keyed by cache key.
+ * How a caller wants the network used.
  *
- * Three independent paths start the first load — `setConfig()`, `connectedCallback()`
- * and the `updated()` arm that fires when `hass` arrives — and Home Assistant assigns
- * both the config and `hass` before it appends the card, so all three run before any
- * of them has written the cache. Without this map one configured calendar produced
- * three round-trips. The editor's two live previews are the same shape: they share a
- * cache key by design, but a shared key only helps once an entry exists.
+ * - `cache` — serve a fresh cache entry; otherwise fetch, joining a matching request
+ *   already in flight.
+ * - `network` — skip the cache and fetch, still joining a matching request in flight.
+ * - `reload` — skip the cache and do not join a request that may have started before a
+ *   calendar changed, because it may already be carrying the old answer. Meant for the
+ *   moment after a write. Named for one write (see `advanceWriteGeneration`), it joins a
+ *   request started since that write, so every card refreshing for it shares one request
+ *   per signature; named for none, it always starts its own.
+ */
+export type EventLoad = 'cache' | 'network' | 'reload';
+
+/**
+ * Where a window's cache entry lives.
+ *
+ * - `persistent` — `localStorage`, for the window a card opens with, so the next visit draws
+ *   on its first frame.
+ * - `page` — memory only, for a window reached by paging. Every page a card visits is a
+ *   window of its own, and a wall tablet paging for a week would otherwise leave hundreds of
+ *   entries in a store shared with Home Assistant that nothing ever reads again. The paged
+ *   position is never kept across a reload either, so nothing is lost.
+ */
+export type CacheStore = 'persistent' | 'page';
+
+/** Entries the page store holds before it drops the one used longest ago. */
+const PAGE_STORE_LIMIT = 16;
+
+/**
+ * Cache entries for paged windows, least recently used first, each with the write
+ * generation its request started at.
+ *
+ * Module state, so every card on the page shares it, as they share `localStorage`.
+ */
+const pageStore = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
+
+/**
+ * Forget every paged window. For tests; a calendar write retires entries on its own.
+ */
+export function clearPageStore(): void {
+  pageStore.clear();
+}
+
+/**
+ * Read a cache entry from either store.
+ *
+ * A paged entry older than a calendar write made since its request started is dropped
+ * rather than drawn: the write may have touched it, and unlike the window a card opens with,
+ * no card on the page refreshes it. The write generation lives on `globalThis`, so this holds
+ * for writes made through another copy of the card as well.
+ *
+ * @param store Where the entry lives
+ * @param key Cache key
+ * @returns The entry, or null
+ */
+function readStoredEntry(store: CacheStore, key: string): Types.CacheEntry | null {
+  if (store === 'persistent') return readCacheEntry(key);
+
+  const held = pageStore.get(key);
+  if (!held) return null;
+
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+  if (
+    held.writeGeneration !== currentWriteGeneration() ||
+    Date.now() - held.entry.timestamp >= maxStaleMs
+  ) {
+    pageStore.delete(key);
+    return null;
+  }
+
+  // Most recently used last, so the oldest is the first to go.
+  pageStore.delete(key);
+  pageStore.set(key, held);
+  return held.entry;
+}
+
+/**
+ * Write a cache entry to either store.
+ *
+ * @param store Where the entry lives
+ * @param key Cache key
+ * @param entry Entry to store
+ * @param writeGeneration The write generation its request started at
+ */
+function writeStoredEntry(
+  store: CacheStore,
+  key: string,
+  entry: Types.CacheEntry,
+  writeGeneration: number,
+): void {
+  if (store === 'persistent') {
+    writeCacheEntry(key, entry);
+    return;
+  }
+
+  pageStore.delete(key);
+  pageStore.set(key, { entry, writeGeneration });
+  while (pageStore.size > PAGE_STORE_LIMIT) {
+    pageStore.delete(pageStore.keys().next().value as string);
+  }
+}
+
+/**
+ * One raw request that has started but not yet settled.
+ *
+ * It resolves to the cache entry it built rather than to a finished result, because what
+ * a result says about the next attempt depends on the config of each card that joined
+ * the request, not only on the one that started it.
+ */
+interface InFlightRequest {
+  promise: Promise<Types.CacheEntry>;
+  /** The write generation when the request started: it carries every write up to that one. */
+  writeGeneration: number;
+}
+
+/**
+ * Where the page keeps its write generation: a counter of the calendar writes made through
+ * Home Assistant's dialogs, which `reload` compares requests against.
+ *
+ * On `globalThis` rather than in this module, because a development build and an installed
+ * release on one dashboard each carry their own copy of this module while hearing each
+ * other's announcements (see `CALENDARS_CHANGED_EVENT`). Two counters would make one copy's
+ * generation meaningless against the other copy's requests, and a card could join a request
+ * started before the write it is refreshing for. A registered symbol is the same in both.
+ */
+const WRITE_GENERATION_KEY = Symbol.for('calendar-card-pro.write-generation');
+
+/**
+ * The page's current write generation.
+ *
+ * @returns Writes recorded so far, 0 before the first
+ */
+function currentWriteGeneration(): number {
+  return (globalThis as unknown as Record<symbol, number | undefined>)[WRITE_GENERATION_KEY] ?? 0;
+}
+
+/**
+ * Record that a dialog wrote to a calendar, and return the write's generation.
+ *
+ * Called once per write, by the card whose dialog saved it, which hands the number to every
+ * card it tells. A `reload` naming it then joins a request started since the write, and only
+ * such a request: the first card to ask for a signature starts one, every other card asking
+ * for that signature joins it, and a later write supersedes it by advancing the generation.
+ *
+ * @returns The new generation
+ */
+export function advanceWriteGeneration(): number {
+  const generation = currentWriteGeneration() + 1;
+  (globalThis as unknown as Record<symbol, number>)[WRITE_GENERATION_KEY] = generation;
+  return generation;
+}
+
+/**
+ * Raw fetches that have been started but not yet settled, keyed by request signature:
+ * the cache key plus the resolved window.
+ *
+ * Several paths can start a load at once — a card appearing, a second card sharing its
+ * calendars, the editor's two live previews, which share a cache key by design — and
+ * none of them can see the others' requests until one has written the cache. Without
+ * this map each paid its own round-trip.
+ *
+ * The window is part of the key because the cache key is not: `today` resolves to a new
+ * date at midnight while the key stays the same, and a request for the new day must not
+ * join one still carrying yesterday's.
  *
  * Only the raw payload is shared. Each caller still processes it against its own live
  * config, so joining a request never leaks another caller's display options.
  */
-const inFlightRawFetches = new Map<string, Promise<Types.EventFetchResult>>();
+const inFlightRawFetches = new Map<string, InFlightRequest>();
 
 /**
- * Fetch calendar event data with caching support
+ * Sequence number of the newest request started for each cache key.
+ *
+ * Two requests for one key can overlap once a `reload` refuses to join an older one, and
+ * whichever settles last would otherwise win the cache. Only the newest may write it.
+ */
+const latestRequestSeq = new Map<string, number>();
+let requestSeq = 0;
+
+/** Everything that identifies one request for the current config. */
+interface ResolvedRequest {
+  cacheKey: string;
+  firstDayOfWeek: number;
+  window: { start: Date; end: Date };
+  signature: string;
+  store: CacheStore;
+}
+
+/**
+ * Resolve the cache key, first weekday and window a config asks for right now.
+ *
+ * The store is part of the signature: a paged window and a card configured to open on that
+ * same window share a cache key, but one is kept in memory and the other on disk, and a
+ * request started for one must not decide what the other keeps.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
  * @param instanceId Component instance ID for caching
- * @param force Whether to force API refresh
- * @returns Promise resolving to calendar event data array
+ * @param store Where the window's cache entry lives
+ * @returns The request identity
  */
-export async function fetchEventData(
+function resolveRequest(
   hass: Types.Hass,
   config: Types.Config,
   instanceId: string,
-  force = false,
-): Promise<Types.EventFetchResult> {
+  store: CacheStore = 'persistent',
+): ResolvedRequest {
   // Resolved before the key is built, not after. `first_day_of_week: 'system'` is a
   // single config string that resolves to a different weekday per user profile, so
   // keying on the raw value gave a Sunday-start and a Monday-start week one shared
@@ -66,77 +245,404 @@ export async function fetchEventData(
     firstDayOfWeek,
   );
 
-  const isManualPageReload = isManualPageLoad();
-  if (!force) {
-    const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
-    if (cachedEvents) {
-      Logger.info(`Using ${cachedEvents.length} events from cache`);
-      return {
-        events: processRawEvents(cachedEvents, config, firstDayOfWeek),
-        failedEntities: [],
-      };
+  const window = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
+
+  return {
+    cacheKey,
+    firstDayOfWeek,
+    window,
+    signature: `${store}|${cacheKey}|${window.start.toISOString()}|${window.end.toISOString()}`,
+    store,
+  };
+}
+
+/**
+ * Read the cached events for a config, processed and ready to draw, without touching the
+ * network.
+ *
+ * Synchronous on purpose: a card that has data on disk can draw it on its very first
+ * render instead of flashing its loading state for one frame.
+ *
+ * Returns data up to `MAX_STALE_HOURS` old. Whether it is current enough to stop there is
+ * a separate question, answered by `due`.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @param store Where the window's cache entry lives
+ * @returns The snapshot, or null when nothing paintable is cached
+ */
+export function readEventSnapshot(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+  store: CacheStore = 'persistent',
+): Types.EventSnapshot | null {
+  const request = resolveRequest(hass, config, instanceId, store);
+  const entry = readStoredEntry(store, request.cacheKey);
+  if (!entry) return null;
+
+  const now = Date.now();
+
+  return {
+    ...resultFromEntry(entry, paintableEvents(entry, now), config, request.firstDayOfWeek),
+    due: isEntryDue(entry, config, request.window, now),
+    inFlight: inFlightRawFetches.has(request.signature),
+  };
+}
+
+/**
+ * Fetch calendar event data with caching support
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @param load How to use the cache and requests already in flight
+ * @param failureCountHint Consecutive failures the caller has seen for this query, used
+ *   when no cache entry records them (storage unavailable)
+ * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
+ *   `advanceWriteGeneration`. Ignored by every other load
+ * @param store Where the window's cache entry lives
+ * @returns Promise resolving to calendar event data array
+ */
+export async function fetchEventData(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+  load: EventLoad = 'cache',
+  failureCountHint = 0,
+  afterWrite?: number,
+  store: CacheStore = 'persistent',
+): Promise<Types.EventFetchResult> {
+  const request = resolveRequest(hass, config, instanceId, store);
+
+  if (load === 'cache') {
+    const entry = readStoredEntry(store, request.cacheKey);
+    const now = Date.now();
+    if (entry && !isEntryDue(entry, config, request.window, now)) {
+      Logger.info(`Using ${entry.events.length} events from cache`);
+      return resultFromEntry(entry, paintableEvents(entry, now), config, request.firstDayOfWeek);
     }
   }
 
-  let rawFetch = inFlightRawFetches.get(cacheKey);
+  let rawFetch = inFlightRawFetches.get(request.signature);
+  if (rawFetch && load === 'reload') {
+    // Only a request started since the write carries it. With no write named, none does.
+    const sinceWrite = afterWrite !== undefined && rawFetch.writeGeneration >= afterWrite;
+    if (!sinceWrite) rawFetch = undefined;
+  }
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    rawFetch = fetchRawEvents(hass, config, cacheKey, firstDayOfWeek);
-    inFlightRawFetches.set(cacheKey, rawFetch);
+    rawFetch = startRawFetch(hass, config, request, failureCountHint);
   }
 
-  const { events: fetchedEvents, failedEntities } = await rawFetch;
+  const entry = await rawFetch.promise;
 
-  return { events: processRawEvents(fetchedEvents, config, firstDayOfWeek), failedEntities };
+  return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+}
+
+/**
+ * Turn a cache entry into a result for one caller.
+ *
+ * Everything that depends on the caller's config is worked out here, per caller: two cards
+ * sharing a request can still have different refresh intervals, and each must keep its own.
+ *
+ * @param entry Cache entry, freshly written or read back
+ * @param rawEvents The entry's events that may be drawn
+ * @param config The caller's configuration
+ * @param firstDayOfWeek Resolved first day of the week
+ * @returns The caller's result
+ */
+function resultFromEntry(
+  entry: Types.CacheEntry,
+  rawEvents: Types.CalendarEventData[],
+  config: Types.Config,
+  firstDayOfWeek: number,
+): Types.EventFetchResult {
+  return {
+    events: processRawEvents(rawEvents, config, firstDayOfWeek),
+    failedEntities: [...(entry.failedEntities ?? [])],
+    fetchedAt: entry.timestamp,
+    loadedAt: oldestLoad(entry, rawEvents),
+    nextAttemptAt: nextAttemptAt(entry, config),
+  };
+}
+
+/**
+ * When the longest-unrefreshed calendar among some events last loaded successfully.
+ *
+ * Kept events of a failing calendar are as old as that calendar's last success, not as
+ * the attempt that carried them forward, and the 24-hour bound is measured from there.
+ *
+ * @param entry Cache entry the events come from
+ * @param rawEvents Events to date
+ * @returns Epoch milliseconds
+ */
+function oldestLoad(entry: Types.CacheEntry, rawEvents: Types.CalendarEventData[]): number {
+  let oldest = entry.timestamp;
+  for (const entityId of new Set(rawEvents.map((event) => event._entityId))) {
+    if (!entityId) continue;
+    const loadedAt = lastSuccessOf(entry, entityId);
+    if (loadedAt !== undefined && loadedAt < oldest) oldest = loadedAt;
+  }
+  return oldest;
+}
+
+/**
+ * Register and start one raw request.
+ *
+ * The map entry is the request's own object, so `finally` removes it only while it is
+ * still the registered one: a `reload` that replaced it must not be unregistered by the
+ * request it replaced settling first.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param request Resolved request identity
+ * @param failureCountHint Consecutive failures the caller has seen for this query
+ * @returns The registered request
+ */
+function startRawFetch(
+  hass: Types.Hass,
+  config: Types.Config,
+  request: ResolvedRequest,
+  failureCountHint: number,
+): InFlightRequest {
+  const seq = ++requestSeq;
+  latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
+
+  const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
+  inFlight.promise = fetchRawEvents(
+    hass,
+    config,
+    request,
+    seq,
+    failureCountHint,
+    inFlight.writeGeneration,
+  ).finally(() => {
+    if (inFlightRawFetches.get(request.signature) === inFlight) {
+      inFlightRawFetches.delete(request.signature);
+    }
+  });
+  inFlightRawFetches.set(request.signature, inFlight);
+
+  return inFlight;
 }
 
 /**
  * Perform one API round-trip and cache its raw payload.
  *
- * Returns the events exactly as the API supplied them; callers apply their own config.
- * The in-flight entry is cleared in `finally` so a failure cannot pin a stale promise
- * and block every later attempt at the same window.
+ * Returns the events exactly as the API supplied them, plus the kept events of any
+ * calendar that failed; callers apply their own config.
+ *
+ * Success is judged per calendar, never by event count: a calendar that answered with no
+ * events succeeded, and one that failed beside it makes this a partial failure even though
+ * nothing at all came back.
+ *
+ * Any failure is written to the cache, a total one included. Leaving the previous entry in
+ * place would let every other card sharing the key read it as healthy and stay silent.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
- * @param cacheKey Key under which to cache the raw payload
- * @param firstDayOfWeek Resolved first day of the week, used to build the time window
- * @returns Promise resolving to the raw events and any entities that failed
+ * @param request Resolved request identity
+ * @param seq This request's sequence number
+ * @param failureCountHint Consecutive failures the caller has seen for this query, used only
+ *   when no cache entry records them
+ * @param writeGeneration The write generation the request started at
+ * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
   hass: Types.Hass,
   config: Types.Config,
-  cacheKey: string,
-  firstDayOfWeek: number,
-): Promise<Types.EventFetchResult> {
-  try {
-    Logger.info('Fetching events from API');
-    const entities = config.entities.map((e) =>
-      typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-    );
+  request: ResolvedRequest,
+  seq: number,
+  failureCountHint: number,
+  writeGeneration: number,
+): Promise<Types.CacheEntry> {
+  Logger.info('Fetching events from API');
+  const entities = config.entities.map((e) =>
+    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+  );
 
-    const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
-    const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
+  const { events: fetchedEvents, failedEntities } = await fetchEvents(
+    hass,
+    entities,
+    request.window,
+  );
 
-    if (fetchedEvents.length > 0) {
-      cacheEvents(cacheKey, fetchedEvents);
-    } else if (failedEntities.length > 0) {
-      Logger.warn(
-        `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
-      );
-    } else {
-      const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
-      Logger.info(
-        `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
-      );
-      cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+  const now = Date.now();
+  const previous = readStoredEntry(request.store, request.cacheKey);
+  const failed = new Set(failedEntities);
+  const entityIds = uniqueEntityIds(config.entities);
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+
+  const lastSuccess: Record<string, number> = {};
+  const events = [...fetchedEvents];
+
+  for (const entityId of entityIds) {
+    if (!failed.has(entityId)) {
+      lastSuccess[entityId] = now;
+      continue;
     }
 
-    return { events: fetchedEvents, failedEntities };
-  } finally {
-    inFlightRawFetches.delete(cacheKey);
+    const lastLoaded = previous ? lastSuccessOf(previous, entityId) : undefined;
+    if (lastLoaded === undefined || now - lastLoaded >= maxStaleMs) continue;
+
+    lastSuccess[entityId] = lastLoaded;
+    events.push(...previous!.events.filter((event) => event._entityId === entityId));
   }
+
+  const entry: Types.CacheEntry = {
+    events,
+    timestamp: now,
+    window: { start: request.window.start.toISOString(), end: request.window.end.toISOString() },
+    lastSuccess,
+  };
+
+  if (failed.size > 0) {
+    // The entry is the shared record. The caller's own count is only a stand-in for when
+    // there is no entry at all — storage unavailable — and must never outvote one: a card
+    // that saw an outage, then only ever drew another card's healthy entry, still carries
+    // the old count, and letting it win would start the next outage at a 30-minute wait.
+    const previousCount = previous
+      ? previous.failedEntities?.length
+        ? (previous.failureCount ?? 1)
+        : 0
+      : failureCountHint;
+    const failureCount = previousCount + 1;
+    entry.failedEntities = entityIds.filter((id) => failed.has(id));
+    entry.failureCount = failureCount;
+    entry.retryAt = now + retryDelayMs(failureCount, config);
+
+    const kept = events.length - fetchedEvents.length;
+    Logger.warn(
+      `${failed.size} of ${entityIds.length} calendar(s) failed to load (attempt ${failureCount}); ` +
+        `keeping ${kept} previously loaded event(s), retrying in ${Math.round((entry.retryAt - now) / 1000)}s`,
+    );
+  } else if (events.length === 0) {
+    entry.ttlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+    Logger.info(
+      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+    );
+  }
+
+  if (latestRequestSeq.get(`${request.store}|${request.cacheKey}`) === seq) {
+    writeStoredEntry(request.store, request.cacheKey, entry, writeGeneration);
+  } else {
+    Logger.info('A newer request for the same calendars has started; not caching this response');
+  }
+
+  return entry;
+}
+
+/**
+ * Configured calendar ids, each once, in the order they first appear.
+ *
+ * @param entities Configured calendars
+ * @returns Unique entity ids
+ */
+function uniqueEntityIds(entities: Array<string | Types.EntityConfig>): string[] {
+  return [...new Set(entities.map((e) => (typeof e === 'string' ? e : e.entity)))];
+}
+
+/**
+ * When a calendar last loaded successfully, according to a cache entry.
+ *
+ * @param entry Cache entry
+ * @param entityId Calendar entity id
+ * @returns Epoch milliseconds, or undefined when the entry never held it
+ */
+function lastSuccessOf(entry: Types.CacheEntry, entityId: string): number | undefined {
+  const recorded = entry.lastSuccess?.[entityId];
+  if (typeof recorded === 'number') return recorded;
+  if (entry.lastSuccess) return undefined;
+  // Written without per-calendar bookkeeping: everything in it loaded at `timestamp`.
+  return entry.failedEntities?.includes(entityId) ? undefined : entry.timestamp;
+}
+
+/**
+ * Delay before the next attempt after `failureCount` consecutive failed attempts.
+ *
+ * @param failureCount Consecutive failed attempts, 1 for the first
+ * @param config Card configuration, for the refresh interval that caps the delay
+ * @returns Delay in milliseconds
+ */
+function retryDelayMs(failureCount: number, config: Types.Config): number {
+  const initial = Constants.CACHE.RETRY_INITIAL_SECONDS * 1000;
+  const exponent = Math.min(Math.max(failureCount - 1, 0), 20);
+  return Math.min(initial * 2 ** exponent, getCacheDuration(config));
+}
+
+/**
+ * When the card should next ask Home Assistant for the payload in an entry.
+ *
+ * A healthy entry is due one refresh interval after it was written. Its own shorter TTL
+ * (an empty result) is deliberately ignored here: that TTL decides whether a card that
+ * appears refetches, but polling an empty calendar every 15 seconds would cost far more
+ * than it could ever catch.
+ *
+ * @param entry Cache entry
+ * @param config Card configuration
+ * @returns Epoch milliseconds
+ */
+function nextAttemptAt(entry: Types.CacheEntry, config: Types.Config | undefined): number {
+  const interval = entry.timestamp + getCacheDuration(config);
+  if (entry.failedEntities?.length) {
+    // The shared retry deadline, but never later than this caller's own interval: the
+    // backoff was capped by whichever card's interval started the failing request.
+    return typeof entry.retryAt === 'number' ? Math.min(entry.retryAt, interval) : entry.timestamp;
+  }
+  return interval;
+}
+
+/**
+ * Whether a cache entry is worth a network attempt now.
+ *
+ * @param entry Cache entry
+ * @param config Card configuration
+ * @param window Window the config asks for now
+ * @param now Current time in epoch milliseconds
+ * @returns True when the entry should be refetched
+ */
+function isEntryDue(
+  entry: Types.CacheEntry,
+  config: Types.Config | undefined,
+  window: { start: Date; end: Date } | undefined,
+  now: number,
+): boolean {
+  if (
+    window &&
+    entry.window &&
+    (entry.window.start !== window.start.toISOString() ||
+      entry.window.end !== window.end.toISOString())
+  ) {
+    return true;
+  }
+
+  if (entry.failedEntities?.length) {
+    return now >= nextAttemptAt(entry, config);
+  }
+
+  const ttl =
+    typeof entry.ttlMs === 'number' && entry.ttlMs > 0 ? entry.ttlMs : getCacheDuration(config);
+  return now - entry.timestamp >= ttl;
+}
+
+/**
+ * The events of an entry that may still be drawn: those of calendars that loaded
+ * successfully within `MAX_STALE_HOURS`.
+ *
+ * @param entry Cache entry
+ * @param now Current time in epoch milliseconds
+ * @returns Raw events
+ */
+function paintableEvents(entry: Types.CacheEntry, now: number): Types.CalendarEventData[] {
+  const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+  return entry.events.filter((event) => {
+    if (!event._entityId) return true;
+    const loadedAt = lastSuccessOf(entry, event._entityId) ?? entry.timestamp;
+    return now - loadedAt < maxStaleMs;
+  });
 }
 
 function processRawEvents(
@@ -167,7 +673,33 @@ function processRawEvents(
 }
 
 /**
- * Drop events that are missing a start or an end.
+ * The fields of a fetched event that Home Assistant's event dialogs read, as fetched.
+ *
+ * Taken at the last point before the event is reshaped: `keepWellFormedEvents` stamps it on
+ * an event whose end it repairs, and `processEvents` on every other one, before splitting
+ * rewrites the interval and grouping rewrites the text. A missing or `null` end is kept
+ * absent.
+ *
+ * @param event - Event as returned by Home Assistant
+ * @returns Its untouched dialog fields
+ */
+function sourceEvent(event: Types.CalendarEventData): Types.SourceEvent {
+  return {
+    start: event.start,
+    end: Helpers.isConfigBlock(event.end) ? event.end : undefined,
+    summary: event.summary,
+    location: event.location,
+    description: event.description,
+    uid: event.uid,
+    recurrence_id: event.recurrence_id,
+    rrule: event.rrule,
+    status: event.status,
+  };
+}
+
+/**
+ * Drop events with unusable dates or text before they reach the shared pipeline, and turn a
+ * timed event with a missing or backwards end into an instant.
  *
  * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
  * `start` and `end` without checking they are there, because Home Assistant's calendar API
@@ -176,17 +708,99 @@ function processRawEvents(
  * while grouping does not cost that one event a row: it costs the whole card, taking every
  * other calendar's events down with it.
  *
- * Applied at both entry points, because they are reachable independently: the fetch path
- * processes events before they are ever grouped, while `groupEventsByDay` deduplicates
- * whatever it is handed before any of that filtering has run.
+ * A timed event whose end is missing, `null`, empty, or an instant before its start still
+ * says when it happens, so it is kept as an instant at its start: List shows the start time
+ * alone and Grid draws the reminder marker (#625). Before this the views disagreed — List
+ * printed "12:00 - 11:00" for a backwards event and Grid dropped it, and a missing end was
+ * dropped by both with a warning only the development build logs. The comparison is of
+ * parsed instants, so a DST fall-back event whose wall clock only looks backwards
+ * (`01:30+02:00` to `01:15+01:00`) is untouched. Returned as a copy: the original is also
+ * the cache's, and other cards read it. The copy carries `_source`, stamped from the event
+ * before its end was rewritten.
+ *
+ * An all-day event has no instant to fall back on, so one whose end is missing or not after
+ * its start is dropped. That used to depend on the view and on `show_past_events`: Grid
+ * dropped it, List and Column could keep it.
+ *
+ * Applied at both entry points, because they are reachable independently: grouping must
+ * also reject malformed input before deriving daily occurrences or comparing duplicates.
  *
  * @param events Events to check
- * @returns Only those events with both a start and an end
+ * @returns Events with matching, parseable endpoints and string-valued text
  */
 function keepWellFormedEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
 ): Types.CalendarEventData[] {
-  return events.filter((event) => Boolean(event.start) && Boolean(event.end));
+  let repaired = 0;
+  const valid = events.flatMap((event): Types.CalendarEventData[] => {
+    if (!event || !Helpers.isConfigBlock(event.start)) return [];
+    // Absent or `null` is a missing end; anything else that is not an object is malformed.
+    if (event.end != null && !Helpers.isConfigBlock(event.end)) return [];
+
+    const end = Helpers.isConfigBlock(event.end) ? event.end : undefined;
+    const fields = [
+      event.start.date,
+      event.start.dateTime,
+      end?.date,
+      end?.dateTime,
+      event.summary,
+      event.location,
+      event.description,
+    ];
+    if (fields.some((value) => value != null && typeof value !== 'string')) return [];
+
+    if (event.start.dateTime) {
+      const startMs = Date.parse(event.start.dateTime);
+      if (event.start.date || end?.date || !Number.isFinite(startMs)) return [];
+
+      // An end that is there but cannot be read is malformed, not missing.
+      if (end?.dateTime) {
+        const endMs = Date.parse(end.dateTime);
+        if (!Number.isFinite(endMs)) return [];
+        if (endMs >= startMs) return [event];
+      }
+
+      repaired++;
+      // Stamped here, before the end is rewritten, because this is the last point that
+      // still knows what Home Assistant sent. Stamped afterwards, the event-detail
+      // dialog's Edit would write the synthesized end back into the calendar.
+      return [
+        {
+          ...event,
+          end: { dateTime: event.start.dateTime },
+          _source: event._source ?? sourceEvent(event),
+        },
+      ];
+    }
+
+    if (!end || end.dateTime) return [];
+    const days = [event.start.date, end.date];
+    if (
+      !days.every(
+        (value) =>
+          typeof value === 'string' &&
+          FormatUtils.getLocalDateKey(FormatUtils.parseAllDayDate(value)) === value,
+      )
+    ) {
+      return [];
+    }
+
+    return end.date! > event.start.date! ? [event] : [];
+  });
+
+  const malformedCount = events.length - valid.length;
+  if (malformedCount > 0) {
+    Logger.warn(
+      `Ignoring ${malformedCount} malformed calendar event(s): expected matching, parseable start/end values and string text fields`,
+    );
+  }
+  if (repaired > 0) {
+    Logger.warn(
+      `Showing ${repaired} timed event(s) whose end is missing or before their start at their start time`,
+    );
+  }
+
+  return valid;
 }
 
 /**
@@ -206,12 +820,14 @@ function keepWellFormedEvents(
  * @param events Events to deduplicate
  * @param config Card configuration, already resolved for the view being rendered
  * @param enabled Whether `filter_duplicates` is on for this view
+ * @param signatureFor Original event identity and the eligible display occurrence to compare
  * @returns The surviving events, with merged rows carrying `_mergedFrom`
  */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
   enabled: boolean,
+  signatureFor: (event: Types.CalendarEventData) => string = generateEventSignature,
 ): Types.CalendarEventData[] {
   if (!enabled || events.length < 2) {
     return events;
@@ -227,7 +843,7 @@ function deduplicateEvents(
     for (const event of events) {
       if (event._entityId !== entityId) continue;
 
-      const signature = generateEventSignature(event);
+      const signature = signatureFor(event);
 
       // Recorded *before* the duplicate test below, because a copy about to be dropped is
       // precisely what this has to remember. One entry per distinct calendar, taken from
@@ -250,7 +866,7 @@ function deduplicateEvents(
   const survivors: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    const signature = generateEventSignature(event);
+    const signature = signatureFor(event);
 
     // The same test the previous `filter` made, negated: drop a copy only when some other
     // copy of its signature was kept. An event whose calendar is not in `entities` reaches
@@ -277,11 +893,9 @@ function deduplicateEvents(
 // list changes whenever either does and `serializeEntities` already forces a reprocess —
 // belt and braces, but the render-time read is the load-bearing half.
 //
-// They run **after** `processMultiDayEvents`, which is the opposite of where
-// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
-// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
-// *class* must precede it. These two read an event's *day* instead, which only exists once
-// the splitter has decided how many days the event occupies.
+// They run after daily coverage is resolved: List/Column use `processMultiDayEvents`,
+// while Grid uses `splitGridEventByDay` to keep every timed segment timed. Event-class
+// filtering runs earlier, before the List splitter can reshape a timed middle day.
 
 /**
  * Which day a grouped event is drawn on.
@@ -359,8 +973,8 @@ function parseTimeOfDay(
  * absent. It is reported once per distinct value, because this runs per event and a silent
  * typo is a support question nobody can answer.
  *
- * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
- * refresh interval, so an event retires on the first render after its moment passes.
+ * Nothing schedules a render at the returned instant. An event retires on the first
+ * render after its moment passes.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated
@@ -419,12 +1033,22 @@ function resolveDaysOfWeek(
 /**
  * Whether a day satisfies one calendar's `days_of_week`.
  *
+ * Which days are the weekend is resolved from the country set in Home Assistant, or its
+ * language when no country is set, not fixed at Saturday and Sunday — see
+ * {@link FormatUtils.isWeekendDate}, which the weekend colors and shading read too so the
+ * filter and the styling cannot disagree about a Friday.
+ *
  * @param displayDate The day the row would land on
  * @param filter The calendar's resolved filter
+ * @param hass Home Assistant, whose country and language decide which days are the weekend
  * @returns True when the row may stay
  */
-function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
-  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+function dayPassesWeekFilter(
+  displayDate: Date,
+  filter: Types.DaysOfWeekFilter,
+  hass?: FormatUtils.WeekendSource | null,
+): boolean {
+  return FormatUtils.isWeekendDate(displayDate, hass) === (filter === 'weekends');
 }
 
 /**
@@ -435,7 +1059,8 @@ function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter):
  * @param isExpanded Whether the card is in expanded mode
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
- * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
+ * @param hass Home Assistant, whose locale lets `first_day_of_week: system` follow it and
+ *   whose country and language tell `days_of_week` which days are the weekend
  * @returns Day buckets containing the matching events
  */
 export function groupEventsByDay(
@@ -444,7 +1069,7 @@ export function groupEventsByDay(
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
-  hassLocale?: { language?: string; first_weekday?: string },
+  hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Types.EventsByDay[] {
   // Resolved once, at the boundary, so every read below is view-aware without each
   // one having to remember to ask for itself. Roughly a dozen override-capable
@@ -456,45 +1081,48 @@ export function groupEventsByDay(
   // on its own terms rather than to fix a live defect.
   const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
 
-  const events = deduplicateEvents(
-    keepWellFormedEvents(rawEvents),
-    config,
-    config.filter_duplicates,
-  );
+  const events = keepWellFormedEvents(rawEvents);
 
   const showEmptyDays = config.show_empty_days;
 
-  const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
-
-  // Always run the splitter and let `shouldSplitEvent` decide per event, rather
-  // than gating the call on the card-level value. A per-entity
-  // `split_multiday_events: true` has to win over a card-level `false`, and a
-  // gate here would never consult it. In column view `viewForcesMultidaySplit`
-  // ignores the per-entity opt-out instead, so later days of a multi-day event
-  // cannot vanish from their columns.
-  const splitEvents = processMultiDayEvents(
-    events,
-    config,
-    ViewConfig.viewForcesMultidaySplit(effectiveView),
-  );
+  // Expand only shapes list view. compactLimitsApply already required that, but the
+  // empty-day filter and the empty-day synthesis arm keyed on bare `isExpanded`, so a
+  // leftover true after list → column/grid still widened an empty calendar from one day
+  // to the full window when `show_empty_days` was false — the same layout change A3-D
+  // forbade from the expand gesture itself. Scope every expand branch the same way.
+  const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
+  const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
   const referenceDate = getStartDateReference(
     config,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale),
   );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
 
-  // Upper bound of the configured window. Multi-day events are split into
-  // per-day segments just above, and a segment can land past the window when an
-  // event starts inside it but runs beyond. Splitting used to happen at fetch
-  // time, where `processRawEvents` trimmed those segments before they were ever
-  // grouped; now that it is view-scoped and happens here, the same bound has to
-  // be applied here. Without it `days_to_show` — a `.slice()` over days that
-  // have events, not a date range — would fill with days past the window.
+  // Upper bound of the window this view draws. Multi-day events become per-day segments
+  // below, and a segment can land past the window when an event starts inside it but runs
+  // beyond; and the load can be longer than this view, because it spans the longest view
+  // the card can show. See the bound applied in the filter below.
   const windowEnd = new Date(referenceStart);
   windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
+
+  // Grid needs occupied dates before any per-day filter or empty-day omission.
+  // Its splitter keeps timed middle days timed and all-day banner identity intact.
+  const sourceSignatures = new Map<Types.CalendarEventData, string>();
+  const displayDays = new Map<Types.CalendarEventData, string>();
+  const splitEvents = events.flatMap((event) => {
+    const occurrences =
+      ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
+        ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
+        : processMultiDayEvents([event], config);
+    if (config.filter_duplicates) {
+      const signature = generateEventSignature(event);
+      occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
+    }
+    return occurrences;
+  });
 
   const now = new Date();
 
@@ -522,13 +1150,16 @@ export function groupEventsByDay(
 
     if (!startDate || !endDate) return false;
 
-    // Upper window bound, segments only. Whole events are already bounded at
-    // fetch time by `processRawEvents`; segments are not, because they are
-    // created here rather than there. An event starting inside the window but
-    // running past it yields segments beyond the window, and `days_to_show` is
-    // a `.slice()` over days that have events rather than a date range, so
-    // those segments would push real days out of the card.
-    if (event._isMultiDaySegment && startDate >= windowEnd) return false;
+    // Upper window bound, for every occurrence. Segments are created here rather than at
+    // fetch time, so `processRawEvents` never saw them: an event starting inside the window
+    // but running past it yields segments beyond the window. And since v5 a whole event can
+    // lie past it too, because the card loads the longest `days_to_show` among its views and
+    // this one may draw fewer. Either way `days_to_show` is a `.slice()` over days that have
+    // events rather than a date range, so an occurrence past the window would push real days
+    // out of the card — or, with empty days hidden, fill a seven-day view from days eight to
+    // fourteen. Where the view draws every loaded day this is the fetch-side trim again, at
+    // the same boundary, so it removes nothing that reached this far.
+    if (startDate >= windowEnd) return false;
 
     // Only the third term below decides anything for events this card can actually
     // receive. An event starting inside the window, or after it, necessarily also ends
@@ -573,7 +1204,10 @@ export function groupEventsByDay(
         ? undefined
         : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
 
-      if (isAllDayEvent && now >= allDayExpiryInstant(endDate, configuredExpiry)) {
+      const allDayEnd = event._gridSource?.end.date
+        ? Grid.addDays(FormatUtils.parseAllDayDate(event._gridSource.end.date), -1)
+        : endDate;
+      if (isAllDayEvent && now >= allDayExpiryInstant(allDayEnd, configuredExpiry)) {
         return false;
       }
     }
@@ -582,18 +1216,54 @@ export function groupEventsByDay(
 
     if (
       daysOfWeek &&
-      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek, hass)
     ) {
       return false;
     }
 
+    if (config.filter_duplicates) {
+      displayDays.set(
+        event,
+        FormatUtils.getLocalDateKey(resolveDisplayDate(startDate, endDate, referenceStart)),
+      );
+    }
     return true;
   });
 
+  // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
+  // calendar also discards the eligible copy behind it. Compare original intervals, not
+  // sliced endpoints: distinct multi-day events can share an identical middle day.
+  const firstEligible = new Map<string, Types.CalendarEventData>();
+  if (config.filter_duplicates && effectiveView !== 'grid') {
+    for (const event of upcomingEvents) {
+      const signature = sourceSignatures.get(event)!;
+      const previous = firstEligible.get(signature);
+      if (
+        !previous ||
+        getEntityIndex(event._entityId, config) < getEntityIndex(previous._entityId, config)
+      ) {
+        firstEligible.set(signature, event);
+      }
+    }
+  }
+  const visibleEvents = deduplicateEvents(
+    upcomingEvents,
+    config,
+    config.filter_duplicates,
+    (event) => {
+      const signature = sourceSignatures.get(event)!;
+      const first = firstEligible.get(signature);
+      // An eligible unsplit winner represents the whole event. A lower-priority calendar
+      // opting into splitting must not add its own rows beside that winner.
+      const wholeEvent = first !== undefined && !first._isMultiDaySegment;
+      return JSON.stringify([signature, wholeEvent ? null : displayDays.get(event)]);
+    },
+  );
+
   const eventsByDay: Record<string, Types.EventsByDay> = {};
 
-  if (upcomingEvents.length > 0) {
-    upcomingEvents.forEach((event) => {
+  if (visibleEvents.length > 0) {
+    visibleEvents.forEach((event) => {
       const isAllDayEvent = !event.start.dateTime;
 
       let startDate: Date | null;
@@ -659,8 +1329,16 @@ export function groupEventsByDay(
       // `split_multiday_events: false` an ongoing event's display date is clamped to the
       // window start, which moves every day — so reading the display date would make the
       // count change from one day to the next while the card just sits there.
+      const sourceStart = event._gridSource?.start ?? event._sourceStart;
+      const occurrenceStart = sourceStart?.dateTime
+        ? new Date(sourceStart.dateTime)
+        : sourceStart?.date
+          ? FormatUtils.parseAllDayDate(sourceStart.date)
+          : startDate;
       const ageCount =
-        markerYear === null ? null : EventAge.resolveAgeCount(startDate.getFullYear(), markerYear);
+        markerYear === null
+          ? null
+          : EventAge.resolveAgeCount(occurrenceStart.getFullYear(), markerYear);
 
       const summary = event.summary || '';
 
@@ -745,15 +1423,20 @@ export function groupEventsByDay(
         // segments escape that because `splitMultiDayEvent` copies with a spread;
         // the display copies do not.
         _mergedFrom: event._mergedFrom,
+        _source: event._source,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
+        _sourceStart: event._sourceStart,
+        _sourceEnd: event._sourceEnd,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
+        _gridSource: event._gridSource,
       });
     });
   }
 
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass?.locale);
 
   Object.values(eventsByDay).forEach((day) => {
     const dayDate = new Date(day.timestamp);
@@ -844,7 +1527,7 @@ export function groupEventsByDay(
     }
   }
 
-  if (!isExpanded && !showEmptyDays) {
+  if (!expandApplies && !showEmptyDays) {
     days = days.filter(
       (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
     );
@@ -941,18 +1624,38 @@ export function groupEventsByDay(
     }
   }
 
-  if (showEmptyDays || days.length === 0) {
+  // Today, and only today, when empty days are otherwise hidden and today sits in
+  // the window. Absent means the fill below runs exactly as it always has.
+  //
+  // The window is `days_to_show` from the start date, not `effectiveDaysToShow`: a compact
+  // day limit counts days that have events rather than marking out a range of dates, so it
+  // says nothing about whether today is one the card covers.
+  //
+  // Empty means empty before the compact limits ran. They can drop today's events from a
+  // collapsed card whose window starts before today, and the fill must not then report a
+  // day as free that expanding the card shows is not.
+  let emptyToday: Date | undefined;
+  if (config.show_empty_today && !showEmptyDays) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const offset = FormatUtils.getCalendarDayDiff(referenceStart, today);
+    const hasEvents = Boolean(eventsByDay[FormatUtils.getLocalDateKey(today)]);
+    if (offset >= 0 && offset < config.days_to_show && !hasEvents) emptyToday = today;
+  }
+
+  const eventDayCount = days.length;
+
+  if (showEmptyDays || days.length === 0 || emptyToday) {
     const translations = Localize.getTranslations(language);
 
     const customEmptyText = config.empty_day_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    const startDateForEmptyDays = new Date(referenceDate);
+    let startDateForEmptyDays = new Date(referenceDate);
 
     let endDateForEmptyDays: Date;
 
-    if (isExpanded) {
+    if (expandApplies) {
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     } else if (days.length === 0) {
@@ -977,6 +1680,14 @@ export function groupEventsByDay(
       // a reader could distinguish from the default.
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
+    }
+
+    // Collapse the range the loop already walks, rather than filling it and then
+    // throwing the other days away. A blank card's single start-date row becomes
+    // today the same way, when today is the day in range.
+    if (emptyToday) {
+      startDateForEmptyDays = new Date(emptyToday);
+      endDateForEmptyDays = new Date(emptyToday);
     }
 
     const existingDayKeys = new Set(
@@ -1024,7 +1735,10 @@ export function groupEventsByDay(
     days = allDays;
   }
 
-  return days.slice(0, effectiveDaysToShow);
+  // The extra day is the empty today just inserted. It does not spend a
+  // `days_to_show` slot, so an event day the cap already kept stays kept.
+  const addedToday = emptyToday && days.length > eventDayCount ? 1 : 0;
+  return days.slice(0, effectiveDaysToShow + addedToday);
 }
 
 function getEntityIndex(entityId: string | undefined, config: Types.Config): number {
@@ -1048,12 +1762,6 @@ function processEvents(
   const processedEvents: Types.CalendarEventData[] = [];
 
   const wellFormed = keepWellFormedEvents(events);
-  const malformedCount = events.length - wellFormed.length;
-  if (malformedCount > 0) {
-    Logger.warn(
-      `Ignoring ${malformedCount} calendar event(s) missing a start or end; the calendar integration returned an incomplete payload`,
-    );
-  }
 
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1065,6 +1773,8 @@ function processEvents(
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
         ...event,
+        // A repaired event already carries the stamp, taken before its end was rewritten.
+        _source: event._source ?? sourceEvent(event),
         _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
       };
       decorated._entityLabel = getEntityLabel(entityId, config, decorated);
@@ -1080,7 +1790,7 @@ function processEvents(
   // view-scoped override can never undo it — `column: { split_multiday_events:
   // false }` was silently defeated whenever the top-level value was `true`.
   // `groupEventsByDay` resolves the option per view and splits there instead,
-  // which also avoids materialising segments that fall outside the window.
+  // which also avoids materializing segments that fall outside the window.
   Logger.debug(`Processed ${processedEvents.length} events after filtering`);
   return processedEvents;
 }
@@ -1088,12 +1798,11 @@ function processEvents(
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  ignorePerEntityOverride = false,
 ): Types.CalendarEventData[] {
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    if (!shouldSplitEvent(event, config, ignorePerEntityOverride)) {
+    if (!shouldSplitEvent(event, config)) {
       result.push(event);
       continue;
     }
@@ -1131,13 +1840,8 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   return false;
 }
 
-function shouldSplitEvent(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-  ignorePerEntityOverride = false,
-): boolean {
+function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config): boolean {
   if (
-    !ignorePerEntityOverride &&
     event._entityId &&
     event._matchedConfig &&
     typeof event._matchedConfig.split_multiday_events !== 'undefined'
@@ -1157,6 +1861,8 @@ function formatAllDayDate(date: Date): string {
 
 function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEventData[] {
   const segments: Types.CalendarEventData[] = [];
+  const sourceStart = event._sourceStart ?? event.start;
+  const sourceEnd = event._sourceEnd ?? event.end;
 
   if (event.start.date && event.end.date) {
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
@@ -1175,6 +1881,8 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { date: currentDateStr },
         end: { date: nextDateStr },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
+        _sourceEnd: sourceEnd,
       };
 
       segments.push(segment);
@@ -1186,12 +1894,8 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const firstDayEnd = new Date(startDateTime);
     firstDayEnd.setHours(23, 59, 59, 999);
 
-    // An event that ends at exactly local midnight occupies no time on the following
-    // day, so it is not multi-day. Testing against the last millisecond of the start
-    // day treated it as one and pushed a zero-length segment (start === end) into the
-    // next day's bucket, which surfaced as a phantom entry there. Testing against the
-    // next day's first millisecond instead keeps the event whole and preserves the end
-    // time the user actually set, rather than truncating it to 23:59:59.999.
+    // Midnight opens the next date but occupies no time there. Keep a one-day event
+    // whole, preserving its actual end instead of replacing it with 23:59:59.999.
     const nextDayStart = new Date(firstDayEnd.getTime() + 1);
 
     if (nextDayStart < endDateTime) {
@@ -1200,6 +1904,8 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
+        _sourceEnd: sourceEnd,
         _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
@@ -1226,20 +1932,26 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
+          _sourceEnd: sourceEnd,
           _splitFromTimedEvent: true,
         };
 
         segments.push(middleDaySegment);
       }
 
-      const lastDaySegment: Types.CalendarEventData = {
-        ...event,
-        start: { dateTime: lastDayStart.toISOString() },
-        end: { dateTime: endDateTime.toISOString() },
-        _isMultiDaySegment: true,
-        _splitFromTimedEvent: true,
-      };
-      segments.push(lastDaySegment);
+      if (endDateTime > lastDayStart) {
+        const lastDaySegment: Types.CalendarEventData = {
+          ...event,
+          start: { dateTime: lastDayStart.toISOString() },
+          end: { dateTime: endDateTime.toISOString() },
+          _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
+          _sourceEnd: sourceEnd,
+          _splitFromTimedEvent: true,
+        };
+        segments.push(lastDaySegment);
+      }
     } else {
       segments.push({ ...event });
     }
@@ -1486,7 +2198,12 @@ function resolveAccentColor(
     return fromHomeAssistant ?? Config.DEFAULT_CONFIG.accent_color;
   }
 
-  return config.accent_color;
+  // The visual editor can clear a card-wide color to `null`. List and column normally
+  // leave event backgrounds transparent, so that malformed value stayed dormant there;
+  // grid's non-zero background opacity sends it through `convertToRGBA`, where a null
+  // color cannot be parsed. Treat an empty color like the missing per-calendar value
+  // above and fall back to the shipped accent.
+  return config.accent_color || Config.DEFAULT_CONFIG.accent_color;
 }
 
 /**
@@ -1532,7 +2249,7 @@ export function getEntityLabel(
  * follows it.
  *
  * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
- * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
+ * `renderLabel` draws nothing at all. That is the same nothing an unlabeled calendar draws,
  * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
  * title as though a label were there. It mirrors the colors' own fall-through, where a
  * calendar the registry has no color for renders the color it would have had anyway. A
@@ -1559,7 +2276,7 @@ export function resolveEntityLabel(
 
   // An explicit shape outranks either stand-in, so `label_type: text` still renders the words.
   // `getLabelType` reads each as the shape it resolves *to* — the sentinel as an icon, a
-  // person as an image — precisely so this is the only way to say otherwise; honouring it
+  // person as an image — precisely so this is the only way to say otherwise; honoring it
   // here as well is what keeps the two halves telling one story.
   const declared = getEntitySetting(entityId, 'label_type', config, event);
   if (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image')) {
@@ -1567,7 +2284,7 @@ export function resolveEntityLabel(
   }
 
   // 🚨 `label` here, `entityId` one line down, and the two are different entities. The icon
-  // belongs to the calendar being labelled, so it is looked up by the calendar's own id; the
+  // belongs to the calendar being labeled, so it is looked up by the calendar's own id; the
   // picture belongs to the *person the label names*, which is a different entity that the
   // calendar knows nothing about. Passing `entityId` to both reads as tidy and finds nothing,
   // because a calendar carries no `entity_picture` — so the failure looks like the option
@@ -1578,11 +2295,42 @@ export function resolveEntityLabel(
 }
 
 /**
+ * The text alternative for a calendar's label picture.
+ *
+ * A picture taken from `label: person.anna` shows whose event it is, which nothing else in
+ * the row says, so it is named after that person as Home Assistant holds them. Any other
+ * picture is a configured image whose meaning only its author knows, and an empty `alt`
+ * marks it as decorative, the way the icon and emoji labels already read: a screen reader
+ * then skips it rather than announcing a file name. A missing `alt` was axe's only critical
+ * finding on the card.
+ *
+ * Render time, like `resolveEntityLabel`, so renaming the person in Home Assistant renames
+ * the picture with it.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance, which holds the person's name
+ * @returns The person's name, or `''`
+ */
+export function resolveLabelAlt(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string {
+  const label = getEntityLabel(entityId, config, event);
+  if (!label || !PersonPictures.isPersonEntityId(label)) return '';
+  const name = hass?.states?.[label]?.attributes?.friendly_name;
+  return typeof name === 'string' ? name.trim() : '';
+}
+
+/**
  * Resolve one label per calendar that contributed a copy of a merged duplicate.
  *
  * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
  * labels to draw. That second case is deliberate: with one label the row renders through
- * the single-label path it always did, so a merge involving an unlabelled calendar looks
+ * the single-label path it always did, so a merge involving an unlabeled calendar looks
  * exactly as it looks today rather than showing the label of a calendar that did not win.
  *
  * @param event Event to describe, carrying `_mergedFrom` if it is a merged row
@@ -1626,6 +2374,7 @@ export function resolveMergedLabels(
       value,
       iconColor: getEntitySetting(calendar.entityId, 'label_icon_color', config, asContributor),
       type: getEntitySetting(calendar.entityId, 'label_type', config, asContributor),
+      alt: resolveLabelAlt(calendar.entityId, config, asContributor, hass),
     });
   }
 
@@ -1686,17 +2435,106 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
 }
 
 /**
+ * The next instant at which a timed event starts or ends, after `now`.
+ *
+ * Those are the instants at which list and column view change with no new data: an event
+ * becomes "now", stops being it, or turns past (dimmed, or gone under
+ * `show_past_events: false`). So is the next local midnight while a timed event runs through
+ * it, where a split event's segments hand over. All-day events are left out — their
+ * boundaries are local midnights, when the whole day grouping moves, which is a refresh
+ * rather than a repaint.
+ *
+ * @param events Events the card holds
+ * @param now Instant to measure from, in milliseconds
+ * @returns The next boundary in milliseconds, or `null` when no timed event has one ahead
+ */
+export function nextEventBoundary(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  now: number,
+): number | null {
+  let next: number | null = null;
+  const today = new Date(now);
+  const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+
+  for (const event of events) {
+    if (event._isEmptyDay || !event.start?.dateTime || !event.end?.dateTime) continue;
+
+    const start = new Date(event.start.dateTime).getTime();
+    const end = new Date(event.end.dateTime).getTime();
+    // An event running through midnight changes there too when split_multiday_events splits
+    // it: one day's segment ends and the next day's begins, though the event does neither.
+    const crossings = start < midnight && end > midnight ? [start, end, midnight] : [start, end];
+    for (const at of crossings) {
+      if (at > now && (next === null || at < next)) next = at;
+    }
+  }
+
+  return next;
+}
+
+/**
+ * The stretch of time one rendered row stands for, or `null` when it stands for none.
+ *
+ * Usually the event's own start and end. A middle day of a timed event split across
+ * several is the exception: splitting rewrites it as all-day for the day it occupies, so
+ * its slice is that local day.
+ */
+function progressSlice(event: Types.CalendarEventData): [Date, Date] | null {
+  if (event._isEmptyDay) return null;
+  if (event.start.dateTime && event.end.dateTime) {
+    return [new Date(event.start.dateTime), new Date(event.end.dateTime)];
+  }
+  if (event._splitFromTimedEvent && event.start.date && event.end.date) {
+    return [
+      FormatUtils.parseAllDayDate(event.start.date),
+      FormatUtils.parseAllDayDate(event.end.date),
+    ];
+  }
+  return null;
+}
+
+/**
+ * The whole event a row is one day of, when it is a day of a timed event.
+ *
+ * List and column stamp a split segment with its source start and end; grid keeps its own
+ * provenance on `_gridSource`. Anything else, an all-day source included, has no wider span
+ * than the row itself.
+ */
+function progressSource(event: Types.CalendarEventData): [Date, Date] | null {
+  const source =
+    event._gridSource ??
+    (event._splitFromTimedEvent ? { start: event._sourceStart, end: event._sourceEnd } : null);
+  const start = source?.start?.dateTime;
+  const end = source?.end?.dateTime;
+  return start && end ? [new Date(start), new Date(end)] : null;
+}
+
+/**
  * Calculate progress percentage for a running event
+ *
+ * A row shows progress while the part of the event it stands for is under way, and fills
+ * over the whole event. So an event split across days draws one bar, on today's row, that
+ * only ever grows: the middle day of a three-day event is as far along as the event is,
+ * not 0% at midnight, and it shows a bar at all, which it did not while it read as all-day.
+ * Rows for the other days of a running event draw none, as before.
+ *
+ * Deliberately not `isEventCurrentlyRunning`, which also decides the "Now" label: a middle
+ * day still reads "All day", and an all-day row is never marked "Now".
  *
  * @param event Calendar event to calculate progress for
  * @returns Progress percentage (0-100) or null if event is not running
  */
 export function calculateEventProgress(event: Types.CalendarEventData): number | null {
-  if (!isEventCurrentlyRunning(event)) return null;
+  const slice = progressSlice(event);
+  if (!slice) return null;
 
   const now = new Date();
-  const startDateTime = new Date(event.start.dateTime!);
-  const endDateTime = new Date(event.end.dateTime!);
+  // Written positively: an unparseable date compares false both ways, and must not pass.
+  if (!(now >= slice[0] && now < slice[1])) return null;
+
+  const source = progressSource(event);
+  const [startDateTime, endDateTime] =
+    source && source[1].getTime() > source[0].getTime() ? source : slice;
 
   const totalDuration = endDateTime.getTime() - startDateTime.getTime();
   const elapsedTime = now.getTime() - startDateTime.getTime();
@@ -1715,58 +2553,87 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 
 /**
  * Fetch calendar events from Home Assistant API
+ *
+ * All calendars are requested at once, so a load takes as long as the slowest calendar
+ * rather than the sum of all of them, and one slow calendar no longer holds back the
+ * request of every calendar listed after it. Results are still assembled in config order,
+ * so nothing downstream sees a difference.
+ *
+ * Each request is bounded by `CALENDAR_FETCH_TIMEOUT`. A calendar that does not answer in
+ * time counts as failed; its late response, if one ever arrives, is ignored.
+ *
+ * @param hass Home Assistant instance
+ * @param entities Configured calendars; a calendar listed more than once is fetched once
+ * @param timeWindow Window to request
+ * @returns The events of every calendar that answered, and the ids of those that did not
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
-): Promise<Types.EventFetchResult> {
+): Promise<Pick<Types.EventFetchResult, 'events' | 'failedEntities'>> {
+  const entityIds = uniqueEntityIds(entities);
+  const query = `start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
+
+  const outcomes = await Promise.all(
+    entityIds.map(async (entityId) => {
+      const path = `calendars/${entityId}?${query}`;
+      Logger.info(`Fetching calendar events with path: ${path}`);
+
+      try {
+        const events = await withTimeout(
+          hass.callApi('GET', path),
+          Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+          `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
+        );
+
+        if (!events || !Array.isArray(events)) {
+          Logger.warn(`Invalid response for ${entityId}`);
+          return { entityId, events: null };
+        }
+
+        return {
+          entityId,
+          events: (events as Types.CalendarEventData[]).map((event) => ({
+            ...event,
+            _entityId: entityId,
+          })),
+        };
+      } catch (error) {
+        Logger.error(`Failed to fetch events for ${entityId}:`, error);
+        return { entityId, events: null };
+      }
+    }),
+  );
+
   const allEvents: Types.CalendarEventData[] = [];
   const failedEntities: string[] = [];
 
-  const fetchedEntityIds = new Set<string>();
-
-  for (const entityConfig of entities) {
-    if (fetchedEntityIds.has(entityConfig.entity)) {
-      continue;
-    }
-
-    try {
-      const path = `calendars/${entityConfig.entity}?start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
-      Logger.info(`Fetching calendar events with path: ${path}`);
-
-      const events = await hass.callApi('GET', path);
-
-      if (!events || !Array.isArray(events)) {
-        Logger.warn(`Invalid response for ${entityConfig.entity}`);
-        failedEntities.push(entityConfig.entity);
-        continue;
-      }
-
-      const processedEvents = (events as Types.CalendarEventData[]).map(
-        (event: Types.CalendarEventData) => ({
-          ...event,
-          _entityId: entityConfig.entity,
-        }),
-      );
-
-      allEvents.push(...processedEvents);
-
-      fetchedEntityIds.add(entityConfig.entity);
-    } catch (error) {
-      Logger.error(`Failed to fetch events for ${entityConfig.entity}:`, error);
-      failedEntities.push(entityConfig.entity);
-
-      try {
-        Logger.info(
-          'Available hass API methods:',
-          Object.keys(hass).filter((k) => typeof hass[k as keyof Types.Hass] === 'function'),
-        );
-      } catch {}
+  for (const outcome of outcomes) {
+    if (outcome.events) {
+      allEvents.push(...outcome.events);
+    } else {
+      failedEntities.push(outcome.entityId);
     }
   }
 
   return { events: allEvents, failedEntities };
+}
+
+/**
+ * Reject a promise that has not settled within `ms`.
+ *
+ * @param promise Promise to bound
+ * @param ms Timeout in milliseconds
+ * @param message Error message on timeout
+ * @returns The promise's own outcome, or a rejection after `ms`
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -1861,44 +2728,23 @@ export function getTimeWindow(
   return { start, end };
 }
 
-/**
- * Determine whether the current page load is a manual reload.
- *
- * @returns True when browser navigation metadata identifies a reload
- */
-export function isManualPageLoad(): boolean {
-  if (window.performance && window.performance.navigation) {
-    return window.performance.navigation.type === 1; // reload
-  }
-
-  if (window.performance && window.performance.getEntriesByType) {
-    const navEntries = window.performance.getEntriesByType('navigation');
-    if (navEntries.length > 0 && 'type' in navEntries[0]) {
-      return (navEntries[0] as { type: string }).type === 'reload';
-    }
-  }
-
-  return false;
-}
-
 //-----------------------------------------------------------------------------
 // CACHE MANAGEMENT FUNCTIONS
 //-----------------------------------------------------------------------------
 
 /**
- * Read cached event data if it is still valid.
+ * Read cached event data if it is still fresh: within its lifetime and with no calendar
+ * failing.
  *
  * @param key Cache key
  * @param config Card configuration
- * @param isManualPageReload Whether this check happens during a manual reload
- * @returns Cached events, or null when absent or expired
+ * @returns Cached events, or null when absent, due for a refetch or unusable
  */
 export function getCachedEvents(
   key: string,
   config?: Types.Config,
-  isManualPageReload: boolean = false,
 ): Types.CalendarEventData[] | null {
-  const cacheEntry = getValidCacheEntry(key, config, isManualPageReload);
+  const cacheEntry = getValidCacheEntry(key, config);
   if (cacheEntry) {
     return [...cacheEntry.events];
   }
@@ -1918,20 +2764,31 @@ export function cacheEvents(
   events: Types.CalendarEventData[],
   ttlMs?: number,
 ): boolean {
+  const cacheEntry: Types.CacheEntry = {
+    events,
+    timestamp: Date.now(),
+  };
+
+  if (typeof ttlMs === 'number' && ttlMs > 0) {
+    cacheEntry.ttlMs = ttlMs;
+  }
+
+  return writeCacheEntry(key, cacheEntry);
+}
+
+/**
+ * Write a complete cache entry to localStorage.
+ *
+ * @param key Cache key
+ * @param entry Entry to store
+ * @returns True when the entry can be read back
+ */
+function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
   try {
-    Logger.info(`Caching ${events.length} events`);
-    const cacheEntry: Types.CacheEntry = {
-      events,
-      timestamp: Date.now(),
-    };
+    Logger.info(`Caching ${entry.events.length} events`);
+    localStorage.setItem(key, JSON.stringify(entry));
 
-    if (typeof ttlMs === 'number' && ttlMs > 0) {
-      cacheEntry.ttlMs = ttlMs;
-    }
-
-    localStorage.setItem(key, JSON.stringify(cacheEntry));
-
-    return getValidCacheEntry(key) !== null;
+    return readCacheEntry(key) !== null;
   } catch (e) {
     Logger.error('Failed to cache calendar events:', e);
     return false;
@@ -2017,18 +2874,16 @@ function isCacheEntryShape(value: unknown): value is Types.CacheEntry {
 }
 
 /**
- * Parse and validate a cache entry.
+ * Parse and validate a cache entry, however old, as long as it may still be drawn.
+ *
+ * An entry past its lifetime is kept, because a card that appears draws it while the
+ * refetch runs. Only an entry older than `MAX_STALE_HOURS`, or one that is malformed, is
+ * removed.
  *
  * @param key Cache key
- * @param config Card configuration
- * @param isManualPageReload Whether this validation happens during a manual reload
- * @returns Valid cache entry, or null when missing, malformed or expired
+ * @returns The entry, or null when missing, malformed or too old to draw
  */
-export function getValidCacheEntry(
-  key: string,
-  config?: Types.Config,
-  isManualPageReload: boolean = false,
-): Types.CacheEntry | null {
+export function readCacheEntry(key: string): Types.CacheEntry | null {
   try {
     const item = localStorage.getItem(key);
     if (!item) return null;
@@ -2048,28 +2903,14 @@ export function getValidCacheEntry(
       return null;
     }
 
-    const cache = parsed;
-    const now = Date.now();
-
-    let cacheDuration;
-
-    if (typeof cache.ttlMs === 'number' && cache.ttlMs > 0) {
-      cacheDuration = cache.ttlMs;
-    } else if (isManualPageReload && config?.refresh_on_navigate) {
-      cacheDuration = Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000;
-    } else {
-      cacheDuration = getCacheDuration(config);
-    }
-
-    const isValid = now - cache.timestamp < cacheDuration;
-
-    if (!isValid) {
+    const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+    if (Date.now() - parsed.timestamp >= maxStaleMs) {
       localStorage.removeItem(key);
-      Logger.info(`Cache expired and removed for ${key}`);
+      Logger.info(`Cache older than ${Constants.CACHE.MAX_STALE_HOURS}h removed for ${key}`);
       return null;
     }
 
-    return cache;
+    return parsed;
   } catch (e) {
     Logger.warn('Cache error:', e);
     try {
@@ -2077,6 +2918,26 @@ export function getValidCacheEntry(
     } catch {}
     return null;
   }
+}
+
+/**
+ * Parse and validate a cache entry that is still fresh: within its lifetime, and with no
+ * calendar failing past its retry deadline.
+ *
+ * @param key Cache key
+ * @param config Card configuration
+ * @returns Valid cache entry, or null when missing, malformed or due for a refetch
+ */
+export function getValidCacheEntry(key: string, config?: Types.Config): Types.CacheEntry | null {
+  const entry = readCacheEntry(key);
+  if (!entry) return null;
+
+  if (isEntryDue(entry, config, undefined, Date.now())) {
+    Logger.info(`Cache due for a refresh for ${key}`);
+    return null;
+  }
+
+  return entry;
 }
 
 /**
@@ -2106,7 +2967,20 @@ function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Da
 /**
  * Calculate the week number using the majority-day rule.
  *
+ * ISO weeks are anchored on Monday, so on a Sunday-start card a plain ISO number leaves
+ * Sunday in the outgoing week and breaks the week before Monday instead of before Sunday.
+ * Rolling Sunday forward onto the following Monday's number puts the boundary where the
+ * configured first day says it belongs, and gives the week the six days that are already
+ * the majority of it.
+ *
+ * The method is resolved through {@link FormatUtils.resolveWeekNumberMethod} rather than
+ * read off the config, because `show_week_numbers: null` hides the number while still
+ * computing one, and it computes it as ISO. Branching on the raw value skipped the
+ * correction for exactly that case — the one where the rule is the only thing marking the
+ * week, so nothing on screen contradicted it (#621).
+ *
  * @param date Date to calculate from
+ * @param config Card configuration
  * @param firstDayOfWeek First day of the week, where 0 is Sunday
  * @returns Week number adjusted for majority ownership
  */
@@ -2117,7 +2991,9 @@ export function calculateWeekNumberWithMajorityRule(
 ): number | null {
   let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 
-  if (config.show_week_numbers === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
+  const method = FormatUtils.resolveWeekNumberMethod(config.show_week_numbers);
+
+  if (method === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
     const nextDay = new Date(date);
     nextDay.setDate(nextDay.getDate() + 1);
     weekNumber = FormatUtils.getISOWeekNumber(nextDay);

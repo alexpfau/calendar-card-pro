@@ -1,11 +1,13 @@
 /**
  * View-independent event presentation for Calendar Card Pro.
  *
- * Both list and column views use these derived values so event content cannot drift.
+ * List, column and grid views all use these derived values so event content cannot drift.
  */
 
+import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
 import * as Types from '../config/types';
+import { getNowString } from '../translations/dayjs';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
@@ -19,9 +21,24 @@ interface EventPresentation {
 
   isPastEvent: boolean;
 
+  /**
+   * Whether the event is under way and the card marks it as "now": a timed event between its
+   * start and its end, with `show_now_indicator` on. Drives the `event-now` class, which
+   * colors the time row; the label itself travels in `contentParts.nowLabel`.
+   */
+  isNow: boolean;
+
   entityAccentColor: string;
 
   entityAccentBackgroundColor: string;
+
+  /**
+   * Custom properties the event element sets so its own text reads the calendar accent.
+   *
+   * Empty unless a governed color option holds the `accent` sentinel, and empty for an
+   * empty-day row whatever the config says.
+   */
+  accentTextProperties: Readonly<Record<string, string>>;
 
   contentParts: EventContentParts;
 }
@@ -48,7 +65,29 @@ export function buildEventPresentation(
 
   let isPastEvent = false;
 
-  if (!isEmptyDay) {
+  if (isEmptyDay) {
+    // An empty-day placeholder is not an event and has no interval. `groupEventsByDay`
+    // builds it with `start.date === end.date ===` the date it is drawn on, so the only
+    // question it can answer is whether that displayed local date has already ended.
+    //
+    // 🚨 This branch exists so the placeholder never reaches the real all-day branch
+    // below, and that is not tidiness. A real all-day event's `end.date` is EXCLUSIVE,
+    // so that branch subtracts a day to find the last date the event occupies. Run a
+    // placeholder through it and the subtraction names the day BEFORE the one on
+    // screen — which makes `today > endDate` true for today's own notice and dims it
+    // from the moment it appears. Deleting this branch and dropping the `!isEmptyDay`
+    // guard is the obvious-looking simplification and it is the one thing here that is
+    // immediately visible to every user.
+    //
+    // `parseAllDayDate` rather than `new Date(dateString)`: the latter reads the date
+    // as UTC, which lands a day early for every user behind UTC. Both halves are
+    // pinned in `tests/past-empty-day-opacity.dst.test.ts`.
+    //
+    // Derived at render time, like real-event dimming. No midnight timer is added, so a
+    // notice changes state on the next ordinary repaint after its date ends rather than
+    // exactly at midnight.
+    isPastEvent = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) < today : false;
+  } else {
     const isAllDayEvent = !event.start.dateTime;
 
     if (isAllDayEvent) {
@@ -145,8 +184,17 @@ export function buildEventPresentation(
   }
 
   const isRunning = EventUtils.isEventCurrentlyRunning(event);
-  const progressPercentage =
-    isRunning && config.show_progress_bar ? EventUtils.calculateEventProgress(event) : null;
+  // Not gated on `isRunning`: a middle day of a split timed event reads as all-day, so it is
+  // not "running" for the Now label below, but its day is part of an event under way and
+  // carries the bar. `calculateEventProgress` answers null for every row that has none.
+  const progressPercentage = config.show_progress_bar
+    ? EventUtils.calculateEventProgress(event)
+    : null;
+
+  // All-day events never run in this sense — `isEventCurrentlyRunning` answers false for
+  // them — so a day full of all-day entries does not turn into a column of "Now" labels.
+  const nowLabel =
+    isRunning && config.show_now_indicator && !isEmptyDay ? getNowString(language) : null;
 
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
@@ -196,7 +244,7 @@ export function buildEventPresentation(
   // disagree about which events qualify.
   //
   // `!isEmptyDay` is the one guard the two positions do NOT share, and leaving it out shipped
-  // a pill around "No upcoming events". An empty day is a placeholder the card invents for a
+  // a pill around the empty-day notice. An empty day is a placeholder the card invents for a
   // day with nothing on it, not an event, and it carries a date-only start — so it looks
   // exactly like an all-day event to `allDayLabel` and qualified. The time position never
   // showed it because a badge is only PLACED inside the `shouldShowTime` branch and that
@@ -239,23 +287,28 @@ export function buildEventPresentation(
 
   const contentParts: EventContentParts = {
     eventTime,
+    eventTimeEnd: eventTimeParts.end,
     allDayBadge,
     titlePill,
     eventLocation,
     locationIcon,
     eventDescription,
     entityLabel: EventUtils.resolveEntityLabel(event._entityId, config, event, hass),
+    entityLabelAlt: EventUtils.resolveLabelAlt(event._entityId, config, event, hass),
     mergedLabels: EventUtils.resolveMergedLabels(event, config, hass),
     shouldShowTime,
     countdownStr,
     progressPercentage,
+    nowLabel,
   };
 
   return {
     isEmptyDay,
     isPastEvent,
+    isNow: nowLabel !== null,
     entityAccentColor,
     entityAccentBackgroundColor,
+    accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
     contentParts,
   };
 }

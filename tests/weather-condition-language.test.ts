@@ -209,7 +209,7 @@ describe('weather conditions follow the card language', () => {
 
   /**
    * Home Assistant identifies the two written forms of Chinese by script subtag, and
-   * answers an unrecognised code with **English rather than an error** — so a wrong
+   * answers an unrecognized code with **English rather than an error** — so a wrong
    * code here is invisible at runtime. Measured against 2026.8.1: `zh-Hans` returns
    * Chinese, `zh-CN` and `zh-cn` return English.
    */
@@ -219,7 +219,7 @@ describe('weather conditions follow the card language', () => {
       expect(toHaLanguage('zh-tw')).toBe('zh-Hant');
     });
 
-    it('capitalises the region, because the match is case-sensitive', () => {
+    it('capitalizes the region, because the match is case-sensitive', () => {
       expect(toHaLanguage('en-gb')).toBe('en-GB');
     });
 
@@ -254,8 +254,8 @@ describe('weather conditions follow the card language', () => {
      * illustration: the casing rule handles it, and the card would still fetch German on
      * a German instance, because `pt-br` is not one of its 35 languages.
      *
-     * Both halves are worth pinning. The mapping generalises, and adding a language to
-     * the card is what makes the generalisation reachable — not a change here.
+     * Both halves are worth pinning. The mapping generalizes, and adding a language to
+     * the card is what makes the generalization reachable — not a change here.
      */
     it('maps a region the card does not ship, but cannot route to it', () => {
       expect(toHaLanguage('pt-br')).toBe('pt-BR');
@@ -271,7 +271,7 @@ describe('weather conditions follow the card language', () => {
   /**
    * The words are an enhancement over an icon and a temperature that render without
    * any of this. Every failure keeps the row and loses the improvement — which means
-   * falling back to exactly the behaviour that shipped before the fix.
+   * falling back to exactly the behavior that shipped before the fix.
    */
   describe('degrades to the instance language rather than throwing', () => {
     it('survives an instance with no WebSocket command API', async () => {
@@ -500,7 +500,7 @@ describe('weather conditions follow the card language', () => {
     });
 
     /**
-     * The limit of both diagnostics, pinned as behaviour rather than left in a comment.
+     * The limit of both diagnostics, pinned as behavior rather than left in a comment.
      *
      * Home Assistant fills gaps per **key**, so an untranslated condition arrives as a
      * present key holding the English string. The structural check sees 15/15 and says

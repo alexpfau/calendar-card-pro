@@ -18,6 +18,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { memoryStorage } from './memory-storage';
 import '../src/calendar-card-pro';
 
 interface CardUnderTest extends HTMLElement {
@@ -65,6 +66,11 @@ async function render(
   await card.updateComplete;
   return card;
 }
+
+// A fresh cache per test; see `memory-storage.ts`.
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+});
 
 describe('effectiveLanguage', () => {
   beforeEach(() => {

@@ -14,15 +14,15 @@
  * - `rejected` matches at a word start, case-insensitively, anywhere in the value, so it
  *   catches compounds — the way to enforce a term that has no key of its own.
  *
- * `NOUN_CAPS_LANGUAGES` are the languages whose own orthography capitalises nouns, and
+ * `NOUN_CAPS_LANGUAGES` are the languages whose own orthography capitalizes nouns, and
  * which are therefore exempt from the sentence-case check on multi-word labels.
  *
- * Held here rather than in a document because a checked artefact that only prose defines
+ * Held here rather than in a document because a checked artifact that only prose defines
  * is one the checker cannot be trusted to still be reading: this file is imported, so a
  * rename or a shape change is a load error rather than a silently empty termbase.
  */
 
-/** Languages whose orthography capitalises nouns, exempt from the sentence-case check. */
+/** Languages whose orthography capitalizes nouns, exempt from the sentence-case check. */
 export const NOUN_CAPS_LANGUAGES = ['de'];
 
 /**
@@ -33,7 +33,7 @@ export const NOUN_CAPS_LANGUAGES = ['de'];
 export const GLOSSARY_TERMS = [
   {
     // Added after German drifted between two nouns for one thing inside a single helper --
-    // labelled `Ganztags-Badge`, described as `eine abgerundete Pille`, then back to `das
+    // labeled `Ganztags-Badge`, described as `eine abgerundete Pille`, then back to `das
     // Badge` in the next string. `Pille` is a medicine tablet in German and carries none of
     // English "pill"'s UI sense, so the helper read as "highlights all-day events with a
     // rounded tablet". Nothing could catch it: this file had no entry for the term, and
@@ -561,17 +561,18 @@ export const GLOSSARY_TERMS = [
   },
   {
     name: 'accent',
-    sense: 'the accent colour',
+    // The heading covers the bar, fill, and text treatment, not just its color selector.
+    sense: 'visual emphasis from the event bar, background fill, and text',
     decided: {
-      de: 'Akzentfarbe',
-      et: 'Esiletõstmise värv',
+      de: 'Akzent',
+      et: 'Esiletõstmine',
       it: 'Accento',
       lt: 'Akcentas',
       lv: 'Akcents',
-      nb: 'Aksentfarge',
+      nb: 'Aksent',
       pl: 'Akcent',
       sk: 'Zvýraznenie',
-      sv: 'Accentfärg',
+      sv: 'Framhävning',
     },
     rejected: {},
   },

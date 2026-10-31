@@ -619,7 +619,7 @@ function main() {
         `dist/${file}`,
         'does not contain import.meta.url. The card locates the editor relative to its own ' +
           'module URL, and esbuild lowers import.meta to the literal {} unless ' +
-          "supported: { 'import-meta': true } is set (target es2017 predates it) — so " +
+          "supported: { 'import-meta': true } is set or the target is es2020 or later — so " +
           'import.meta.url is undefined and the editor can never be fetched. Nothing else in the ' +
           'project can see this: it typechecks, builds, lints and tests clean',
       );

@@ -18,9 +18,13 @@
   "allDay": "整天",
   "multiDay": "直到",
   "at": "在",
+  "viewList": "列表",
+  "viewColumns": "列",
+  "viewGrid": "网格",
   "endsToday": "今天结束",
   "endsTomorrow": "明天结束",
-  "noEvents": "没有即将到来的活动",
+  "noEvents": "没有活动",
   "loading": "正在加载日历事件...",
-  "error": "错误：找不到日历实体或配置不正确"
+  "error": "错误：找不到日历实体或配置不正确",
+  "loadFailed": "无法加载："
 }

@@ -10,7 +10,7 @@
  *
  *  1. **The differential.** Reproduce the old string-matching implementation verbatim and
  *     assert the new date-derived predicate agrees with it, over every shipped language and
- *     a spread of event shapes. This is the "behaviour is identical" proof — it can fail,
+ *     a spread of event shapes. This is the "behavior is identical" proof — it can fail,
  *     which is what makes it evidence rather than decoration.
  *
  *  2. **The falsifier.** Show the old implementation was genuinely reachable by a false

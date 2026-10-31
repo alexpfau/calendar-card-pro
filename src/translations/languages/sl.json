@@ -5,9 +5,13 @@
   "allDay": "cel dan",
   "multiDay": "do",
   "at": "ob",
+  "viewList": "Seznam",
+  "viewColumns": "Stolpci",
+  "viewGrid": "Mreža",
   "endsToday": "konča se danes",
   "endsTomorrow": "konča se jutri",
-  "noEvents": "Ni planiranih dogodkov",
+  "noEvents": "Ni dogodkov",
   "loading": "Nalagam dogodke...",
-  "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana."
+  "error": "Napaka: Entiteta ni bila najdena ali pa je nepravilno konfigurirana.",
+  "loadFailed": "Nalaganje ni uspelo:"
 }

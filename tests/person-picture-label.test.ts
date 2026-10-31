@@ -58,7 +58,7 @@ function hassWith(picture?: string): Types.Hass {
   } as unknown as Types.Hass;
 }
 
-describe('recognising a person entity id', () => {
+describe('recognizing a person entity id', () => {
   it('matches a person', () => {
     for (const id of ['person.anna', 'person.a', 'person.ben_2', 'person.jean_luc']) {
       expect(isPersonEntityId(id), id).toBe(true);
@@ -243,7 +243,7 @@ describe('resolving one calendar’s label', () => {
    * 🚨 The one asymmetry this feature can get backwards, and the falsifier for it.
    *
    * The icon sentinel resolves from the **calendar's own** entity id, because the icon belongs
-   * to the calendar being labelled. A person's picture belongs to a **different entity** — the
+   * to the calendar being labeled. A person's picture belongs to a **different entity** — the
    * one the `label` names — so it must be looked up by the label value.
    *
    * This fixture is built to fail the mistake rather than to pass the fix: the *calendar*
@@ -268,7 +268,7 @@ describe('resolving one calendar’s label', () => {
 
   /**
    * The fall-through, and it is `undefined` rather than the raw id on purpose: `renderLabel`
-   * draws nothing at all for a falsy label, which is the same nothing an unlabelled calendar
+   * draws nothing at all for a falsy label, which is the same nothing an unlabeled calendar
    * draws. Returning `person.anna` would print the entity id, which is the defect this feature
    * exists to remove.
    */
@@ -304,7 +304,7 @@ describe('resolving one calendar’s label', () => {
     );
   });
 
-  /** A calendar labelled anything else is untouched by any of this. */
+  /** A calendar labeled anything else is untouched by any of this. */
   it.each([
     ['a word', 'Work'],
     ['an mdi icon', 'mdi:briefcase'],
@@ -314,7 +314,7 @@ describe('resolving one calendar’s label', () => {
   });
 });
 
-describe('rendering a calendar labelled with a person', () => {
+describe('rendering a calendar labeled with a person', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FROZEN_NOW);

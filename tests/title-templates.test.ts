@@ -6,11 +6,11 @@ import * as Templates from '../src/utils/templates';
 /**
  * The title-template subsystem had no test call sites at all: a sweep of seven
  * mutations across `src/utils/templates.ts` — dropping `{%` detection, dropping
- * `{{` detection, removing the resubscribe dedup guard, neutralising both
+ * `{{` detection, removing the resubscribe dedup guard, neutralizing both
  * stale-version guards, skipping the version bump in `destroy()`, and deleting
  * the teardown error handling — left the entire suite green. That covers every
  * branch a user can reach through `title:`, which the card consults at five
- * separate call sites, so a template that stopped being recognised or a stale
+ * separate call sites, so a template that stopped being recognized or a stale
  * render that overwrote a newer one would have shipped silently.
  *
  * These tests pin the two syntaxes documented in `docs/features/title-templates.md`

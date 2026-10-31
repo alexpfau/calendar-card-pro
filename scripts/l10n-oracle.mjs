@@ -143,7 +143,7 @@ export const TERMS = [
 // ---------------------------------------------------------------------------
 
 /**
- * Collects every artefact's rendering of every term, per language.
+ * Collects every artifact's rendering of every term, per language.
  *
  * @returns One record per term: the HA evidence with Rule 1 applied, and our own
  *   editor's current rendering of the keys whose English *is* the term.

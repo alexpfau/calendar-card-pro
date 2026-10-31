@@ -7,22 +7,73 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Activation from './activation';
+import { gridDrawsEvent } from './grid';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as Toolbar from './toolbar';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 /**
- * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call sites in the card's view dispatch read as a symmetrical pair rather than pulling from different modules.
+ * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
  */
 export { renderColumnGroupedEvents } from './column';
+export { renderGridGroupedEvents } from './grid';
+
+/**
+ * Whether a view draws at least one event for these days, rather than only empty-day
+ * placeholders, a grid `+N` block or nothing at all.
+ *
+ * Asked before the content renders, because the card decides from it whether `ha-card`
+ * hosts tap targets, and so whether it may still present itself as a button. List and
+ * column views draw every event their days hold; grid view draws a subset, which
+ * `gridDrawsEvent` works out.
+ *
+ * @param view - The view that renders the days
+ * @param days - The days it renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for that view
+ * @returns True when at least one event is drawn
+ */
+export function drawsEvent(
+  view: Types.EffectiveView,
+  days: Types.EventsByDay[],
+  config: Types.Config,
+): boolean {
+  if (view === 'grid') return gridDrawsEvent(days, config);
+  return days.some((day) => day.events.some((event) => !event._isEmptyDay));
+}
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
 //-----------------------------------------------------------------------------
+
+/**
+ * Render the corner's answer to a refresh someone asked for, on a card with no refresh
+ * button: the button's check, or its alert where a calendar could not be loaded, in place of
+ * the spinner that turned before it.
+ *
+ * A picture only, hidden from assistive technology: as a live region with nothing in it but
+ * an icon it would promise an announcement it never makes. A calendar that failed is named
+ * in words by the notice at the card's foot.
+ *
+ * @param outcome How the refresh ended
+ * @returns The corner indicator
+ */
+function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
+  return html`<div
+    class=${`loading-indicator ${Toolbar.REFRESH_PHASE_CLASS[outcome]}`}
+    aria-hidden="true"
+  >
+    <svg class="loading-indicator-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${Toolbar.REFRESH_PHASE_ICON[outcome]}></path>
+    </svg>
+  </div>`;
+}
 
 /**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
@@ -34,6 +85,14 @@ export { renderColumnGroupedEvents } from './column';
  * @param isLoading Flag to mark the card as busy while events load
  * @param titlePending True while a templated title awaits its first value
  * @param effectiveView The view actually being rendered, after any width fallback
+ * @param hasTapAction Whether the card has a keyboard-accessible tap action
+ * @param hasHoldAction Whether the card has a pointer hold action
+ * @param notice The fetch-failure notice, drawn after the content
+ * @param toolbar The controls for the header toolbar; none draws no toolbar
+ * @param hostsControls Whether the card draws interactive children of its own
+ * @param contentPending Whether the days drawn are about to be replaced by another page's
+ * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
+ * refresh button does
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -42,43 +101,101 @@ export function renderMainCardStructure(
   content: TemplateResult,
   handlers: {
     keyDown: (ev: KeyboardEvent) => void;
+    keyUp: (ev: KeyboardEvent) => void;
+    click: (ev: MouseEvent) => void;
     pointerDown: (ev: PointerEvent) => void;
+    pointerMove: (ev: PointerEvent) => void;
     pointerUp: (ev: PointerEvent) => void;
-    pointerCancel: (ev: Event) => void;
-    pointerLeave: (ev: Event) => void;
+    pointerCancel: (ev: PointerEvent) => void;
+    pointerLeave: (ev: PointerEvent) => void;
+    lostPointerCapture: (ev: PointerEvent) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
+  hasTapAction: boolean = false,
+  hasHoldAction: boolean = false,
+  notice: TemplateResult | typeof nothing = nothing,
+  toolbar: Toolbar.HeaderToolbar = {},
+  hostsControls: boolean = false,
+  contentPending: boolean = false,
+  refreshPhase: Toolbar.RefreshPhase = 'idle',
 ): TemplateResult {
+  const isPointerInteractive = hasTapAction || hasHoldAction;
+  // A button may not contain another. While the card hosts controls of its own it stops
+  // presenting itself as one to assistive technology, but keeps its tab stop: keys aimed
+  // at the card itself still run its tap action, and those aimed at a control inside it
+  // are the control's. A pointer tap anywhere off the controls still runs the tap action
+  // too, which is why the ripple and cursor stay.
+  const isCardButton = hasTapAction && !hostsControls;
+  const hasTitle = Boolean(title || titlePending);
+  const titleBlock = hasTitle
+    ? html`<h1 class="card-header">${title}</h1>`
+    : html`<div class="card-header-placeholder"></div>`;
+  // The header toolbar rule:
+  // - no control: no toolbar, and the header exactly as it was before there was one. Hence
+  //   a single binding below; a second, even one rendering nothing, adds a marker and a
+  //   text node to the header.
+  // - with a control: two rows above the events. The action row (a folded filter and add,
+  //   the view switch, reset and refresh) when it holds a control, then the heading row: the
+  //   title as a small label over the month the page starts in, the date navigation, and the
+  //   filter's chips where they all fit.
+  // With a toolbar the title moves into the heading row, as a small label over the month,
+  // keeping its element and classes inside `.header-container`; `.header-container
+  // h1.card-header` still finds it, `.header-container > h1.card-header` only without one.
+  const toolbarBlock = Toolbar.renderHeaderToolbar(toolbar, titleBlock);
+  const headerClass = toolbarBlock ? 'header-container has-toolbar' : 'header-container';
+  // Days about to give way to another page's are dimmed until its events arrive. A class
+  // only while that is so, so the container reads as it always has otherwise.
+  const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
-  const cardClasses = ['calendar-card-pro', ViewConfig.viewCssClass(effectiveView)]
+  const cardClasses = [
+    'calendar-card-pro',
+    ViewConfig.viewCssClass(effectiveView),
+    isPointerInteractive ? 'card-interactive' : '',
+  ]
     .filter((cls) => cls !== '')
     .join(' ');
 
+  // The header's binding stands on a line of its own, as it did before there was a toolbar, so a
+  // card without one keeps the same whitespace on either side of its title, byte for byte.
+  // Prettier treats the space at a block element's edges as insignificant and pulls the binding
+  // onto the div's line, so this template is kept as written; match its style by hand.
+  // prettier-ignore
   return html`
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex="0"
+      tabindex=${hasTapAction ? '0' : nothing}
+      role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
+      @keyup=${handlers.keyUp}
+      @click=${handlers.click}
       @pointerdown=${handlers.pointerDown}
+      @pointermove=${handlers.pointerMove}
       @pointerup=${handlers.pointerUp}
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}
+      @lostpointercapture=${handlers.lostPointerCapture}
     >
-      <ha-ripple></ha-ripple>
-
+      ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${
-        isLoading
-          ? html`
-              <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
-                <div class="spinner" aria-hidden="true"></div>
-              </div>
-            `
-          : nothing
+        // The refresh button turns while the card loads and shows how a refresh someone asked
+        // for ended, so the corner says nothing beside it. Without the button the corner does
+        // both (`refreshPhase`).
+        toolbar.refresh
+          ? nothing
+          : refreshPhase === 'done' || refreshPhase === 'failed'
+            ? renderRefreshOutcome(refreshPhase)
+            : isLoading || refreshPhase === 'turning'
+              ? html`
+                  <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                    <div class="spinner" aria-hidden="true"></div>
+                  </div>
+                `
+              : nothing
       }
 
       <!-- Title is always rendered with the same structure, even if empty.
@@ -89,17 +206,36 @@ export function renderMainCardStructure(
            text, so a template resolving to an empty string collapses back to
            the zero-height placeholder rather than leaving an empty heading
            taking up space forever. -->
-      <div class="header-container">
-        ${
-          title || titlePending
-            ? html`<h1 class="card-header">${title}</h1>`
-            : html`<div class="card-header-placeholder"></div>`
-        }
+      <div class=${headerClass}>
+        ${toolbarBlock ?? titleBlock}
       </div>
 
       <!-- Content container is always present -->
-      <div class="content-container">${content}</div>
+      <div class=${contentClass}>${content}</div>
+      ${notice}
     </ha-card>
+  `;
+}
+
+/**
+ * Render the line naming the calendars that could not be loaded.
+ *
+ * A label followed by the names rather than a sentence with a slot in it, so it reads
+ * naturally in every language without the card needing an interpolation mechanism. The
+ * label carries its own colon, because the punctuation differs by language.
+ *
+ * @param names Display names of the calendars that failed
+ * @param language Language code for translations
+ * @returns Template result for the notice
+ */
+export function renderFetchErrorNotice(names: string[], language: string): TemplateResult {
+  const translations = Localize.getTranslations(language);
+
+  return html`
+    <div class="fetch-error" role="status">
+      <ha-icon class="fetch-error-icon" icon="mdi:alert-circle-outline"></ha-icon>
+      <span class="fetch-error-text">${translations.loadFailed} ${names.join(', ')}</span>
+    </div>
   `;
 }
 
@@ -267,7 +403,7 @@ function renderWeekRow(
     : Constants.UI.SEPARATOR_SPACING.WEEK;
 
   // The row carries half the separator spacing below it, and pulls up by whatever the
-  // day table's own margin already contributed, so the rule lands centred on the gap.
+  // day table's own margin already contributed, so the rule lands centered on the gap.
   const rowStyle = {
     marginTop: isFirstWeek ? '0px' : ViewConfig.scaleLength(config.day_spacing, multiplier / 2 - 1),
     marginBottom: ViewConfig.scaleLength(config.day_spacing, multiplier / 2),
@@ -315,6 +451,9 @@ function renderWeekRow(
  * @param config Card configuration
  * @param language - Language code for translations
  * @param isToday Whether the date is today
+ * @param weatherForecasts Fetched forecasts, if any
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered date column
  */
 function renderDateColumn(
@@ -323,10 +462,11 @@ function renderDateColumn(
   language: string,
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
 
-  return Leaves.renderDateContent(date, config, language, isToday, weatherContent);
+  return Leaves.renderDateContent(date, config, language, isToday, weatherContent, hass);
 }
 
 /**
@@ -337,6 +477,7 @@ function renderDateColumn(
  * @param language - Language code for translations
  * @param prevDay - Previous day data for determining separators
  * @param boundaryInfo - Information about week and month boundaries
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns TemplateResult for the day
  */
 export function renderDay(
@@ -347,12 +488,13 @@ export function renderDay(
   boundaryInfo?: { isNewWeek: boolean; isNewMonth: boolean },
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
-  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp));
+  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass);
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -363,6 +505,9 @@ export function renderDay(
   const hasWeekSeparator =
     isWeekBoundary &&
     (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
+
+  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+  const eventGap = ViewConfig.hasEventGap(config);
 
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
@@ -392,20 +537,54 @@ export function renderDay(
         tomorrow: isTomorrow,
         'future-day': !isToday,
         weekend: isWeekendDay,
+        'with-event-gap': eventGap,
       })}
     >
       ${repeat(
         day.events,
         (event, index) => `${event._entityId}-${event.summary}-${index}`,
-        (event, index) =>
-          renderEvent(event, day, index, config, language, isToday, weatherForecasts, hass),
+        (event, index) => {
+          const row = renderEvent(
+            event,
+            day,
+            index,
+            config,
+            language,
+            isToday,
+            weatherForecasts,
+            hass,
+            eventsTappable,
+            dayLabelId,
+          );
+
+          return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
+        },
       )}
     </table>
   `;
 }
 
 /**
+ * The row that holds two of a day's events apart while `event_gap` is set.
+ *
+ * A table row takes no margin, and spacing the rows with `border-spacing` also pads above
+ * the first row and below the last, which moves the day itself and every separator whose
+ * distance is derived from `day_spacing`. A row of its own keeps the gap inside the day. It
+ * fills the event column only, because the day's date cell spans it, and it is hidden from
+ * assistive technology because it holds nothing to read.
+ *
+ * @returns The gap row
+ */
+function renderEventGapRow(): TemplateResult {
+  return html`<tr class="event-gap-row" aria-hidden="true">
+    <td class="event-gap-cell"></td>
+  </tr>`;
+}
+
+/**
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
+ *
+ * @param eventsTappable - Whether each event is a tap target of its own
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -413,6 +592,7 @@ export function renderGroupedEvents(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -461,10 +641,50 @@ export function renderGroupedEvents(
 
       return html`
         ${separator}
-        ${renderDay(day, config, language, prevDay, boundaryInfo, weatherForecasts, hass)}
+        ${renderDay(
+          day,
+          config,
+          language,
+          prevDay,
+          boundaryInfo,
+          weatherForecasts,
+          hass,
+          eventsTappable,
+        )}
       `;
     })}
   `;
+}
+
+/**
+ * A list event's content, inside the button that makes the event a tap target when it is one.
+ *
+ * Not the cell itself: in a table exposed as one, ARIA in HTML keeps a `<td>` a cell, and a
+ * cell given `role="button"` stops being the row's cell. So the button is an element of its
+ * own, drawn only while events are tap targets, which leaves the default markup exactly as it
+ * was. The cell carries `event-tappable` meanwhile, which is what lets the button answer for
+ * the whole cell; see `.event-button` in `styles.ts`.
+ *
+ * @param content - The event's rendered content
+ * @param tap - The event's tap target, or undefined when it is not one
+ * @param dayLabelId - The id of the day's date cell, which describes the button
+ * @returns The content, wrapped in the button when the event is a tap target
+ */
+function renderEventButton(
+  content: TemplateResult,
+  tap: Activation.EventTapTarget | undefined,
+  dayLabelId: string | undefined,
+): TemplateResult {
+  if (!tap) return content;
+  return html`<div
+    class="event-button event-interactive"
+    role="button"
+    tabindex="0"
+    aria-describedby=${dayLabelId ?? nothing}
+    .calendarCardEventTap=${tap}
+  >
+    ${content}
+  </div>`;
 }
 
 /**
@@ -475,6 +695,9 @@ export function renderGroupedEvents(
  * @param index - Event index within the day
  * @param config - Card configuration
  * @param language - Language code for translations
+ * @param eventsTappable - Whether the event is a tap target of its own
+ * @param dayLabelId - The id the day's date cell carries while events are tap targets, by
+ *   which each event names its day
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -486,15 +709,20 @@ function renderEvent(
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
   const isMiddle = !isFirst && !isLast;
+  // The day's date cell spans the gap rows between its events as well as the events.
+  const rowSpan = ViewConfig.hasEventGap(config) ? day.events.length * 2 - 1 : day.events.length;
 
   const eventClasses = {
     event: true,
@@ -502,6 +730,8 @@ function renderEvent(
     'event-middle': isMiddle,
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
+    'event-tappable': tap !== undefined,
+    'event-now': presentation.isNow,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -514,21 +744,29 @@ function renderEvent(
         ? html`
             <td
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
-              rowspan="${day.events.length}"
+              rowspan="${rowSpan}"
               style="position: relative;"
+              id=${dayLabelId ?? nothing}
             >
-              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts)}
+              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
               ${Leaves.renderTodayIndicator(config, isToday)}
             </td>
           `
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+        style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+          presentation.accentTextProperties,
+        )}"
       >
-        ${Leaves.renderEventContent(event, config, presentation.contentParts, {
-          weatherForecasts,
-        })}
+        ${Leaves.renderAccentBar()}
+        ${renderEventButton(
+          Leaves.renderEventContent(event, config, presentation.contentParts, {
+            weatherForecasts,
+          }),
+          tap,
+          dayLabelId,
+        )}
       </td>
     </tr>
   `;

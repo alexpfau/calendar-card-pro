@@ -23,6 +23,7 @@ import 'dayjs/locale/hr';
 import 'dayjs/locale/hu';
 import 'dayjs/locale/is';
 import 'dayjs/locale/it';
+import 'dayjs/locale/ko';
 import 'dayjs/locale/lt';
 import 'dayjs/locale/lv';
 import 'dayjs/locale/nb';
@@ -62,6 +63,31 @@ export function getRelativeUnitString(value: number, unit: 'day' | 'hour', local
     relativeUnitFormatters.set(cacheKey, formatter);
   }
   return formatter.format(value, unit);
+}
+
+const nowLabels = new Map<string, string>();
+
+/**
+ * The language's own word for "now", capitalized to stand at the start of a label.
+ *
+ * `Intl.RelativeTimeFormat` with `numeric: 'auto'` formats zero seconds as that word —
+ * "now", "jetzt", "maintenant", "現在" — so the label costs no entry in the card's 36
+ * translation files. Where a browser ships no relative-time data for a language it answers
+ * in English rather than failing. Measured in Playwright's Chromium, whose reduced ICU
+ * answers in English for Icelandic and Nynorsk; Node's full ICU carries both.
+ *
+ * @param locale Language code
+ * @returns The capitalized word for "now"
+ */
+export function getNowString(locale: string): string {
+  const mappedLocale = mapLocale(locale);
+  let label = nowLabels.get(mappedLocale);
+  if (label === undefined) {
+    const word = new Intl.RelativeTimeFormat(mappedLocale, { numeric: 'auto' }).format(0, 'second');
+    label = word.charAt(0).toLocaleUpperCase(mappedLocale) + word.slice(1);
+    nowLabels.set(mappedLocale, label);
+  }
+  return label;
 }
 
 /**
@@ -107,6 +133,7 @@ function mapLocale(locale: string): string {
     'hu',
     'is',
     'it',
+    'ko',
     'lt',
     'lv',
     'nb',

@@ -13,9 +13,13 @@
   "allDay": "ganztägig",
   "multiDay": "bis",
   "at": "um",
+  "viewList": "Liste",
+  "viewColumns": "Spalten",
+  "viewGrid": "Zeitraster",
   "endsToday": "endet heute",
   "endsTomorrow": "endet morgen",
-  "noEvents": "Keine anstehenden Termine",
+  "noEvents": "Keine Termine",
   "loading": "Kalendereinträge werden geladen...",
-  "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert"
+  "error": "Fehler: Kalender-Entität nicht gefunden oder falsch konfiguriert",
+  "loadFailed": "Laden fehlgeschlagen:"
 }

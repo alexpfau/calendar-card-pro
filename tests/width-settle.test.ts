@@ -13,7 +13,7 @@ import {
  * Width measurement settling.
  *
  * Every other view test in this suite exercises the pure resolvers. This one has to
- * instantiate the real custom element, because the behaviour under test is not a
+ * instantiate the real custom element, because the behavior under test is not a
  * decision — it is *when* the decision is taken, which lives entirely in the host's
  * `ResizeObserver` plumbing.
  *
@@ -73,7 +73,7 @@ interface CardUnderTest extends HTMLElement {
  * straddle
  * is deliberate rather than an accident of the current defaults.
  *
- * The edge is *not* the raw threshold: the Schmitt trigger is centred, so a first
+ * The edge is *not* the raw threshold: the Schmitt trigger is centered, so a first
  * measurement is judged against threshold + VIEW_SWITCH_HYSTERESIS_PX / 2. Asserting
  * against the raw threshold would leave this file passing while the straddle it needs
  * had already collapsed.

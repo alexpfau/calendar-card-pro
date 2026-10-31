@@ -12,11 +12,13 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import * as Activation from './activation';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 //-----------------------------------------------------------------------------
 // DAY BOUNDARIES
@@ -99,7 +101,7 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
 }
 
 /**
- * Render one vertical rule, centred in the gutter to the inline-start of a column.
+ * Render one vertical rule, centered in the gutter to the inline-start of a column.
  *
  * The separator overlays the column's grid cell and is pulled into the gutter, so
  * enabling a rule paints the boundary without moving any columns.
@@ -148,6 +150,8 @@ function renderColumnSeparator(
  * @param language - Language code for translations
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether the event is a tap target of its own
+ * @param dayLabelId - The id of the day's header, which describes a tappable event
  * @returns Rendered event
  */
 function renderColumnEvent(
@@ -158,8 +162,11 @@ function renderColumnEvent(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
+  dayLabelId?: string,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
@@ -170,6 +177,8 @@ function renderColumnEvent(
     'event-middle': !isFirst && !isLast,
     'event-last': isLast,
     'past-event': presentation.isPastEvent,
+    'event-interactive': tap !== undefined,
+    'event-now': presentation.isNow,
   };
 
   // Column view places two of these differently from list view: the countdown rides the
@@ -178,8 +187,15 @@ function renderColumnEvent(
   return html`
     <div
       class=${classMap(eventClasses)}
-      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+      style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+        presentation.accentTextProperties,
+      )}"
+      role=${tap ? 'button' : nothing}
+      tabindex=${tap ? '0' : nothing}
+      aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
+      .calendarCardEventTap=${tap}
     >
+      ${Leaves.renderAccentBar()}
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
         weatherForecasts,
         weatherPlacement: 'row',
@@ -204,6 +220,7 @@ function renderColumnEvent(
  * @param columnIndex - Zero-based track this column occupies
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns Rendered day column
  */
 function renderDayColumn(
@@ -213,29 +230,20 @@ function renderDayColumn(
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
+  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
 
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
-
   const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
-    ? nothing
-    : html`<div
-        class="column-header-separator"
-        style=${styleMap({
-          borderTopWidth: separatorWidth,
-          borderTopColor: separatorColor,
-          borderTopStyle: 'solid',
-        })}
-      ></div>`;
-
-  const todayIndicator = Leaves.renderTodayIndicator(config, isToday, 'inline');
-  const hasInlineIndicator = todayIndicator !== nothing;
+    ? null
+    : { width: separatorWidth, color: separatorColor };
 
   return html`
     <div
@@ -248,24 +256,34 @@ function renderDayColumn(
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}
     >
-      <div class="column-day-header">
-        <div
-          class=${classMap({
-            'column-date-content': true,
-            'with-today-indicator': hasInlineIndicator,
-          })}
-        >
-          ${todayIndicator}
-          ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
-        </div>
-      </div>
-      ${headerSeparator}
-      <div class="column-events">
+      ${Leaves.renderSharedDayHeader(
+        dayDate,
+        config,
+        language,
+        isToday,
+        weatherContent,
+        headerSeparator,
+        hass,
+        dayLabelId,
+      )}
+      <div
+        class=${ViewConfig.hasEventGap(config) ? 'column-events with-event-gap' : 'column-events'}
+      >
         ${repeat(
           day.events,
           (event, index) => `${event._entityId}-${event.summary}-${index}`,
           (event, index) =>
-            renderColumnEvent(event, day, index, config, language, weatherForecasts, hass),
+            renderColumnEvent(
+              event,
+              day,
+              index,
+              config,
+              language,
+              weatherForecasts,
+              hass,
+              eventsTappable,
+              dayLabelId,
+            ),
         )}
       </div>
     </div>
@@ -292,18 +310,7 @@ function renderColumnWeekNumber(
   visible: boolean,
   columnIndex: number,
 ): TemplateResult {
-  return html`
-    <div
-      class="column-week-number"
-      style=${styleMap({
-        gridColumn: String(columnIndex + 1),
-        gridRow: '1',
-        ...(visible ? {} : { visibility: 'hidden' }),
-      })}
-    >
-      <div class="week-number">${weekNumber ?? ''}</div>
-    </div>
-  `;
+  return Leaves.renderDayWeekNumber(weekNumber, visible, columnIndex + 1);
 }
 
 /**
@@ -345,6 +352,7 @@ function buildWeekRows(
  * @param language - Language code for translations
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
+ * @param eventsTappable - Whether each event is a tap target of its own
  * @returns Rendered column grid
  */
 export function renderColumnGroupedEvents(
@@ -353,6 +361,7 @@ export function renderColumnGroupedEvents(
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
+  eventsTappable = false,
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -377,7 +386,7 @@ export function renderColumnGroupedEvents(
     >
       ${weekRows}
       ${days.map((day, index) =>
-        renderDayColumn(day, config, language, index, weatherForecasts, hass),
+        renderDayColumn(day, config, language, index, weatherForecasts, hass, eventsTappable),
       )}
       ${separators}
     </div>

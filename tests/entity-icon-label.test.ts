@@ -56,7 +56,7 @@ describe('the sentinel itself', () => {
    * Assistant" — and a user who learns the word for one should not have to learn a second.
    * Changing either spelling should be a deliberate act that fails here first.
    */
-  it('is spelled exactly like the accent colour sentinel', () => {
+  it('is spelled exactly like the accent color sentinel', () => {
     expect(ENTITY_ICON_SENTINEL).toBe(ENTITY_COLOR_SENTINEL);
   });
 
@@ -139,7 +139,7 @@ describe('resolving one calendar’s label', () => {
 
   /**
    * The fall-through, and the reason it is `undefined` rather than an empty icon. `renderLabel`
-   * draws nothing at all for a falsy label, which is the same nothing an unlabelled calendar
+   * draws nothing at all for a falsy label, which is the same nothing an unlabeled calendar
    * draws; an `ha-icon` with no icon in it is a sized, empty box that indents the title as
    * though a label were there.
    */
@@ -155,7 +155,7 @@ describe('resolving one calendar’s label', () => {
     expect(resolve(ENTITY, hassWith('mdi:briefcase'))).toBeUndefined();
   });
 
-  it('honours an explicit text shape over the sentinel', () => {
+  it('honors an explicit text shape over the sentinel', () => {
     expect(
       resolve(
         { entity: ENTITY, label: ENTITY_ICON_SENTINEL, label_type: 'text' },
@@ -232,7 +232,7 @@ describe('rendering a calendar that follows Home Assistant', () => {
     );
   });
 
-  it('still tints the inherited icon with the calendar’s own colour', () => {
+  it('still tints the inherited icon with the calendar’s own color', () => {
     const el = renderLabelElement(
       { entity: ENTITY, label: ENTITY_ICON_SENTINEL, label_icon_color: 'red' },
       hassWith('mdi:briefcase'),
@@ -383,7 +383,7 @@ describe('the editor’s icon source round trip', () => {
   /**
    * Leaving `home_assistant`, the form hands back the stored value — which *is* the sentinel.
    * Carried through, it would store the sentinel again, derive straight back to
-   * `home_assistant`, and make "Custom icon" unselectable. That is the trap the accent colour
+   * `home_assistant`, and make "Custom icon" unselectable. That is the trap the accent color
    * fell into and documents; this is the same one, one field over.
    */
   it('starts a custom icon from the one it was inheriting', () => {

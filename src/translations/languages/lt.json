@@ -13,9 +13,13 @@
   "allDay": "visą dieną",
   "multiDay": "iki",
   "at": "į",
+  "viewList": "Sąrašas",
+  "viewColumns": "Stulpeliai",
+  "viewGrid": "Laiko tinklelis",
   "endsToday": "baigiasi šiandien",
   "endsTomorrow": "baigiasi rytoj",
   "noEvents": "Nėra įvykių",
   "loading": "Įkeliami kalendoriaus įvykiai...",
-  "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas"
+  "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas",
+  "loadFailed": "Nepavyko įkelti:"
 }

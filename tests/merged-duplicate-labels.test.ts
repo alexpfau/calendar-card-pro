@@ -26,7 +26,7 @@
  *   correct everywhere else. Measured — replacing the resolved comparison with a configured
  *   one fails that case and leaves the same-icon case green.
  * - **The single-label fallback** is carried by the case where the calendar that *wins* the
- *   merge is the unlabelled one. The obvious arrangement — winner labelled, loser not —
+ *   merge is the unlabeled one. The obvious arrangement — winner labeled, loser not —
  *   cannot see the mutation, and neither can a markup comparison, because a one-element list
  *   renders byte-identically. Both were measured before this case was written.
  * - **The per-view isolation** case is the only one that fails if the stamp is written onto the
@@ -241,7 +241,7 @@ describe('labels on a merged duplicate', () => {
    * row rendering as it always has and the row promoting a label belonging to a calendar
    * whose color it is not wearing.
    *
-   * The obvious version of this test — winner labelled, loser not — cannot see the mutation
+   * The obvious version of this test — winner labeled, loser not — cannot see the mutation
    * at all, and neither can a comparison of the rendered markup. Both were measured: routing
    * a single label through the list produces byte-identical DOM, so there is no marker
    * argument here, only a behavioral one.
@@ -368,10 +368,18 @@ describe('the accent color of a merged duplicate', () => {
       ...extra,
     });
 
-  /** The inline `border-inline-start` color the row draws its accent bar with. */
+  /** The inline color the row hands its accent bar, which the bar is painted in. */
   function accentOf(container: HTMLElement, index = 0): string {
-    const cell = [...container.querySelectorAll('[style*="border-inline-start"]')][index];
-    return (cell?.getAttribute('style') ?? '').match(/border-inline-start:[^;]*/)?.[0] ?? '';
+    const cell = [
+      ...container.querySelectorAll('[style*="--calendar-card-event-accent-bar-color"]'),
+    ][index];
+    // The bar is there to read it, as the cell's first child.
+    expect(cell?.firstElementChild?.className).toBe('event-accent-bar');
+    return (
+      (cell?.getAttribute('style') ?? '').match(
+        /--calendar-card-event-accent-bar-color:[^;]*/,
+      )?.[0] ?? ''
+    );
   }
 
   it('recolors a row merged across two calendars, and still draws both labels', () => {

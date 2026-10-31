@@ -71,13 +71,14 @@ following Monday. A bare weekday is shorthand for `today+<weekday>`.
 | Two weeks from next Tuesday                           | `tuesday+2w`        |
 
 ::: warning Pair This With show_past_events
-`start_of_week` resolves to a past date for most of the week. Because `show_past_events`
-defaults to `false`, already-finished timed events on the earlier days are hidden, which can
-make the start of the week look empty. Pair `start_of_week` with `show_past_events: true` to
-see the full week. (All-day events are always shown.)
+`start_of_week` resolves to a past date for most of the week. In the list and column views
+`show_past_events` defaults to `false`, so what has already finished on the earlier days is
+hidden: a timed event once it ends, and an all-day event from midnight after its last day. That
+can make the start of the week look empty, so pair `start_of_week` with `show_past_events: true`
+there to see the full week. Grid view shows past events by default and needs nothing.
 :::
 
-When using `start_date` with `days_to_show`, the calendar will display exactly that number of days starting from the specified date:
+When using `start_date` with `days_to_show`, the calendar shows that number of days starting from the specified date. A layout can set its own count in its block ([Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout)), and Columns and Grid may draw fewer on a narrow card:
 
 ```yaml
 start_date: '2025-07-01'
@@ -108,6 +109,8 @@ show_past_events: true # otherwise the days already gone look empty
 
 Swap the anchor for `start_of_week+7` to get next week, or `start_of_week-7` for last week. Nothing else changes.
 
+In column or grid view, a card that drops days to fit a narrow width starts at today rather than at the start of the week, and moves back only once too few days are left in the week to fill it — see [Fitting Narrow Cards](/features/grid-view#fitting-narrow-cards).
+
 **A weekend view** ([#276](https://github.com/alexpfau/calendar-card-pro/issues/276)) — jumps ahead to the coming Saturday and shows both weekend days:
 
 ```yaml
@@ -133,5 +136,9 @@ Anchoring each card to `start_of_week` is what keeps the row in calendar order: 
 
 - **Fixed date range**: Using a specific date for `start_date` creates a static calendar view that always shows the same range
 - **Dynamic date range**: Using relative offsets creates a "floating" window that automatically adjusts as time passes
+
+Either way, `start_date` sets the days the card opens with. The toolbar's
+[date navigation](/features/layout-appearance#paging-through-dates) can page away from them,
+and its home button always returns to them, today or not.
 
 `start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

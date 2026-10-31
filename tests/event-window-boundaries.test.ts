@@ -10,7 +10,7 @@
  *
  * The bounds are *half-open*: the lower bound includes its instant, the upper bound
  * excludes it. That asymmetry is the whole point, and it is why each test below pairs
- * the boundary instant with its neighbour on the other side -- an assertion that an
+ * the boundary instant with its neighbor on the other side -- an assertion that an
  * event is absent proves nothing on its own, because a card rendering nothing at all
  * would satisfy it.
  */
@@ -82,7 +82,7 @@ describe('event window boundaries', () => {
       hass,
       buildConfig({ days_to_show: 3 }),
       'boundary-upper',
-      true,
+      'network',
     );
 
     expect(result.events.map((event) => event.summary)).toEqual(['inside']);
@@ -128,7 +128,7 @@ describe('event window boundaries', () => {
   });
 
   it('control: drops an event that ends one millisecond before the reference day', () => {
-    // The neighbour on the other side of the same bound. Without this the test above
+    // The neighbor on the other side of the same bound. Without this the test above
     // would pass just as happily against a card that had stopped filtering at all.
     const config = buildConfig({ show_past_events: true, days_to_show: 3 });
     const start = new Date(midnight(-1));

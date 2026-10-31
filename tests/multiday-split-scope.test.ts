@@ -1,8 +1,10 @@
+import { render } from 'lit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import { renderGridGroupedEvents } from '../src/rendering/grid';
 import * as EventUtils from '../src/utils/events';
 
 /**
@@ -108,7 +110,7 @@ describe('multi-day splitting is resolved per view', () => {
     ).resolves.toBe(3);
   });
 
-  it('honours the column escape hatch even when the top-level option is on', async () => {
+  it('honors the column escape hatch even when the top-level option is on', async () => {
     // The regression: `true` at fetch time used to pre-split the event, and no
     // later stage could put it back together.
     const config = buildConfig({
@@ -121,7 +123,7 @@ describe('multi-day splitting is resolved per view', () => {
     await expect(daysShowing(conference, config, 'column', 'col-escape')).resolves.toBe(1);
   });
 
-  it('honours the column escape hatch when the top-level option is off', async () => {
+  it('honors the column escape hatch when the top-level option is off', async () => {
     const config = buildConfig({
       view: 'column',
       column: { split_multiday_events: false },
@@ -139,6 +141,62 @@ describe('multi-day splitting is resolved per view', () => {
 
     await expect(daysShowing(conference, config, 'list', 'entity-on')).resolves.toBe(3);
   });
+
+  it('honors a per-entity opt-out in column view too', async () => {
+    // Column used to ignore per-entity precedence outright. The card-level escape hatch
+    // could always produce the same unsplit layout for every calendar at once, so the
+    // rule only ever forbade the mixed form — and the editor went on offering the
+    // control, storing the answer and dropping it.
+    const config = buildConfig({
+      view: 'column',
+      entities: [{ entity: 'calendar.personal', split_multiday_events: false }],
+    });
+
+    await expect(daysShowing(conference, config, 'column', 'col-entity-off')).resolves.toBe(1);
+  });
+
+  it('lets a per-entity opt-in win over the column escape hatch', async () => {
+    // The control for the case above, and the one that separates "precedence is per
+    // calendar" from "column stopped splitting". Column's divergent default is `true`,
+    // so the block has to say `false` for the entity value to be the only thing left
+    // that can split it.
+    const config = buildConfig({
+      view: 'column',
+      column: { split_multiday_events: false },
+      entities: [{ entity: 'calendar.personal', split_multiday_events: true }],
+    });
+
+    await expect(daysShowing(conference, config, 'column', 'col-entity-on')).resolves.toBe(3);
+  });
+
+  it.each([true, false])(
+    'uses Grid coverage rather than List splitting set to %s',
+    async (split) => {
+      const config = buildConfig({
+        view: 'grid',
+        split_multiday_events: split,
+        entities: [{ entity: 'calendar.personal', split_multiday_events: split }],
+      });
+
+      const { events } = await EventUtils.fetchEventData(
+        fakeHass([conference]),
+        config,
+        `grid-${split}`,
+      );
+      const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+      const days = EventUtils.groupEventsByDay(events, effective, false, 'en', 'grid');
+      const occurrences = days.flatMap((day) => day.events.filter((event) => !event._isEmptyDay));
+      expect(occurrences).toHaveLength(3);
+      expect(new Set(occurrences.map((event) => event._gridSource)).size).toBe(1);
+      expect(occurrences[0]._gridSource).toEqual({ start: conference.start, end: conference.end });
+      const container = document.createElement('div');
+      render(renderGridGroupedEvents(days, effective, 'en'), container);
+      expect(container.querySelectorAll('.grid-banner')).toHaveLength(1);
+      expect(container.querySelector<HTMLElement>('.grid-banner')?.style.gridColumn).toBe(
+        '2 / span 3',
+      );
+    },
+  );
 
   it('drops segments that fall past the requested window', async () => {
     // Segments used to be created upstream of the fetch-time window filter and

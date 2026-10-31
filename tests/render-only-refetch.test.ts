@@ -68,7 +68,7 @@ describe('render-only options do not reshape the calendar request', () => {
       off.hass,
       buildConfig({ show_past_events: false }) as Types.Config,
       'off',
-      true,
+      'network',
     );
 
     const on = fakeHass();
@@ -76,7 +76,7 @@ describe('render-only options do not reshape the calendar request', () => {
       on.hass,
       buildConfig({ show_past_events: true }) as Types.Config,
       'on',
-      true,
+      'network',
     );
 
     expect(off.paths).toHaveLength(1);
@@ -95,13 +95,13 @@ describe('render-only options do not reshape the calendar request', () => {
         shortWindow.hass,
         buildConfig({ days_to_show: 3 }) as Types.Config,
         'short',
-        true,
+        'network',
       ),
       EventUtils.fetchEventData(
         longWindow.hass,
         buildConfig({ days_to_show: 5 }) as Types.Config,
         'long',
-        true,
+        'network',
       ),
     ]).then(() => {
       expect(shortWindow.paths[0]).not.toBe(longWindow.paths[0]);
@@ -115,13 +115,13 @@ describe('render-only options do not reshape the calendar request', () => {
       hass,
       buildConfig({ show_past_events: false }) as Types.Config,
       'same',
-      false,
+      'cache',
     );
     await EventUtils.fetchEventData(
       hass,
       buildConfig({ show_past_events: true }) as Types.Config,
       'same',
-      false,
+      'cache',
     );
 
     expect(paths).toHaveLength(1);
@@ -136,13 +136,13 @@ describe('render-only options do not reshape the calendar request', () => {
       hass,
       buildConfig({ days_to_show: 3 }) as Types.Config,
       'same2',
-      false,
+      'cache',
     );
     await EventUtils.fetchEventData(
       hass,
       buildConfig({ days_to_show: 5 }) as Types.Config,
       'same2',
-      false,
+      'cache',
     );
 
     expect(paths).toHaveLength(2);

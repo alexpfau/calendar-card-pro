@@ -84,7 +84,8 @@ function offeredOptions(): Map<string, string[]> {
       if (!options) continue;
 
       const values = found.get(node.name) ?? new Set<string>();
-      for (const option of options) values.add(typeof option === 'string' ? option : option.value);
+      for (const option of options)
+        values.add(typeof option === 'string' ? option : String(option.value));
       found.set(node.name, values);
     }
   }

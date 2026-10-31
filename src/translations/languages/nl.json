@@ -13,9 +13,13 @@
   "allDay": "hele dag",
   "multiDay": "tot",
   "at": "om",
+  "viewList": "Lijst",
+  "viewColumns": "Kolommen",
+  "viewGrid": "Rooster",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
-  "noEvents": "Geen afspraken gepland",
+  "noEvents": "Geen afspraken",
   "loading": "Kalender afspraken laden...",
-  "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd"
+  "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
+  "loadFailed": "Laden mislukt:"
 }

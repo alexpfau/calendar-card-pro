@@ -1,10 +1,11 @@
 /**
- * The card-level Events panel must offer the styling controls that apply in the view the
- * card renders, not the ones that would apply in list view.
+ * The card-level Events panel must offer the styling controls that apply in the workspace
+ * being edited, not the ones that would apply in List.
  *
  * 🚨 Every `show_*` flag gating a styling group is a `COLUMN_OVERRIDE_KEYS` member, so a
  * card carrying a `column:` block renders one thing and configures another. Reading
- * `ctx.config` directly answered for the card; `resolveViewOption` answers for the view.
+ * `ctx.config` directly answered for the card; `resolveWorkspaceOption` selects the view
+ * values or the shared root, according to the editor's destination.
  *
  * The harmful direction is the narrative case at the foot of this file: locations render in
  * column view and every control for styling them is absent from the editor, so the user can
@@ -73,7 +74,7 @@ const GATES = [
  * Read as text because the call site leaves no runtime trace: the resolved values reach
  * `eventsSchema` as bare booleans, so nothing importable says which keys produced them.
  *
- * @returns Every key passed to `resolveViewOption` inside the builder
+ * @returns Every key passed to `resolveWorkspaceOption` inside the builder
  */
 function resolvedGateKeys(): string[] {
   const source = readFileSync(
@@ -84,12 +85,12 @@ function resolvedGateKeys(): string[] {
 
   if (!block) throw new Error('buildEventsSchema not found in events.ts — fix this scan');
 
-  const keys = [...block[0].matchAll(/resolveViewOption\(\s*ctx\.config,\s*'([a-z0-9_]+)'/g)].map(
-    (match) => match[1],
-  );
+  const keys = [
+    ...block[0].matchAll(/resolveWorkspaceOption\(\s*ctx\.config,\s*'([a-z0-9_]+)'/g),
+  ].map((match) => match[1]);
 
   if (keys.length === 0) {
-    throw new Error('no resolveViewOption calls found in buildEventsSchema — fix this scan');
+    throw new Error('no resolveWorkspaceOption calls found in buildEventsSchema — fix this scan');
   }
 
   return keys;
@@ -120,7 +121,7 @@ function split(gate: string, card: boolean, column: boolean): Types.Config {
 
 describe('card-level Events panel resolves its gates per view', () => {
   it('resolves exactly the gates this file drives', () => {
-    // Both directions. A sixth `resolveViewOption` with no row here is an untested gate; a
+    // Both directions. A new `resolveWorkspaceOption` with no row here is an untested gate; a
     // row whose key stopped being resolved is a test asserting nothing.
     expect([...resolvedGateKeys()].sort()).toEqual([...GATES.map((g) => g.gate)].sort());
   });

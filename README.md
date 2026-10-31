@@ -4,7 +4,7 @@
 
 [![hacs][hacs-img]][hacs-url] [![GitHub Release][github-release-img]][github-release-url] [![Downloads][github-downloads-img]][github-release-url] [![Downloads@latest][github-latest-downloads-img]][github-release-url]
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header.png" alt="Calendar Card Pro Preview" width="100%">
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png" alt="Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar" width="100%">
 
 ## ☕ Support This Project
 
@@ -30,7 +30,7 @@ always matches the latest release.
 | 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage)                             | Add the card and configure it visually        |
 | ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor)      | Weather, templates, layout, actions, and more |
 | 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option           |
-| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples)                   | Ready-made configurations to copy             |
+| 💡 [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples)            | Complete cards for real setups, ready to copy |
 | 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                 |
 
 <p>&nbsp;</p>
@@ -50,12 +50,14 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🎨 **Sleek & Minimalist Design** – Clean, modern, and visually appealing layout.
 - ✅ **Multi-Calendar Support** – Display multiple calendars with unique styling.
 - 📅 **Compact & Expandable Views** – Adaptive views to suit different dashboard needs.
+- 🗓️ **List, Columns & Grid** – Three layouts, with a [switcher on the card](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar) to change between them.
+- ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card through [Home Assistant's own dialogs](https://calendar-card-pro.alexpfau.com/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
 - ⚙️ **Visual Configuration Editor** – Intuitive interface for effortless card setup.
 - 🔧 **Highly Customizable** – Fine-tune layout, colors, event details, and behavior.
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
-- ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
+- ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 35 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
 
 ### 🔗 Dependencies
 
@@ -69,17 +71,16 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 
 ### 📦 HACS Installation (Recommended)
 
-The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**.
+The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**. It is listed in the HACS default repositories, so there is no custom repository to add.
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexpfau&repository=calendar-card-pro&category=plugin)
 
 #### Steps:
 
 1. Ensure **[HACS](https://hacs.xyz/docs/setup/download)** is installed in Home Assistant.
-2. Go to **HACS → Frontend → Custom Repositories**.
-3. Add this repository: `https://github.com/alexpfau/calendar-card-pro` as type `Dashboard`
-4. Install **Calendar Card Pro** from HACS.
-5. **Clear your browser cache** and reload Home Assistant.
+2. Open **HACS** and search for **Calendar Card Pro**, or use the button above.
+3. Open it and select **Download**.
+4. **Clear your browser cache** and reload Home Assistant.
 
 ### 📂 Manual Installation
 
@@ -140,7 +141,7 @@ show_month: false
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
 
-**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colors and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
+**➡️ From here, the [Example Stories](https://calendar-card-pro.alexpfau.com/reference/examples) show complete cards to copy, from a family's week on a wall tablet to a small tile on a phone. [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) covers adding and configuring the card, and every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration).**
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
@@ -148,7 +149,18 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v4.2
+### Latest Release: v5.0
+
+🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+
+- 🗓️ **Grid View**: Set [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs. An event that starts inside a longer one is drawn on top of it, the way your calendar app draws a day, all-day events span their dates in a band above the axis, and a line marks the current time on today's column
+- 🧰 **A Toolbar on the Card**: [`toolbar: { show: true }`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar) adds the card's own controls to its header: page through the dates, switch between List, Columns and Grid, show or hide each calendar, and refresh, each device remembering its own choices. `reset: true` adds a button that puts a shared wall tablet back the way it is set up
+- 👆 **Add, Open, Change & Delete Events**: an add button opens Home Assistant's own new-event dialog, and [`event_tap_action: details`](https://calendar-card-pro.alexpfau.com/features/actions#tapping-an-event) opens a tapped event in full, with Edit and Delete wherever the calendar allows them
+- 📍 **Today & Now at a Glance**: today's date sits on a [soft tile](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator), an event under way is [marked "Now" in green](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator), and accents follow your theme's primary color instead of a fixed blue. ⚠️ All three are on by default, and the accent bar beside each event is now [`.event-accent-bar`](https://calendar-card-pro.alexpfau.com/features/theming), so a card-mod rule styling `border-left` on `.event` no longer reaches it. The [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) say how to keep the v4 look
+- 📚 **Example Stories**: [six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples), each built for a real place in a home, from a family's wall tablet to a bin-day tile, with the YAML to copy and what each part adds
+- ⚡ **Your Events the Moment the Dashboard Opens**: cached events draw straight away while the card checks for news in the background, every calendar is requested at once, `refresh_interval` is kept instead of doubled, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
+
+### v4.2
 
 - 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every contributing calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) instead of only the first; set `duplicate_accent_color` to give shared events a color of their own
 - 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) now say "tomorrow" for the next date and stop skipping days between later dates; same-day starts keep clock countdowns, while distant dates retain natural month/year wording
@@ -167,20 +179,12 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 ### v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](https://calendar-card-pro.alexpfau.com/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
-- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#column-view-exceptions)
+- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#view-exceptions)
 - ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
 - ⚡ **Fewer Round-Trips on Every Page Load**: One card load asked Home Assistant for the same events up to four times; requests are now deduplicated, and two display-only switches no longer discard a valid cache entry
 - 🌍 **Eleven Editor Languages**: Nine newly translated in full — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — alongside US and British English, with per-string fallback so a partial translation still renders
 - 🐛 **Dates, Clocks and Week Numbers**: [Week numbers](https://calendar-card-pro.alexpfau.com/features/layout-appearance#week-numbers-visual-separators) were wrong for one date in seven outside UTC, the clock format disagreed with Home Assistant's own locale data for 33 of its 64 languages, and `first_day_of_week: system` returned Monday to everyone
 - ⚠️ **Breaking**: Manual installs now copy [two files](https://calendar-card-pro.alexpfau.com/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](https://calendar-card-pro.alexpfau.com/features/theming#weather-custom-properties) instead of inline styles
-
-### v3.6
-
-- 📚 **A Documentation Site**: The full manual now lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com) — a page per feature, a [complete configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and [ready-made examples](https://calendar-card-pro.alexpfau.com/reference/examples)
-- 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list replaced the whole calendar with a red error box; malformed entries are now discarded
-- 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired — edits now apply immediately
-- 🐛 **Disappearing and Ellipsised Text**: Titles gained a `…` when nothing had been truncated, and long words in descriptions and locations were clipped mid-character with no warning
-- 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 
@@ -201,11 +205,11 @@ Then open a Pull Request against the `dev` branch.
 
 - 📋 [Contributing guide](https://calendar-card-pro.alexpfau.com/contributing) — full workflow, coding standards, and how to add a translation
 - 🏗️ [Architecture documentation](https://calendar-card-pro.alexpfau.com/architecture) — module responsibilities, data flow, and performance design
-- 🌍 **Adding a translation?** The card speaks [35 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 11 — new ones are always welcome.
+- 🌍 **Adding a translation?** The card speaks [36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
 
 💡 Got a feature request? **Open a GitHub Issue** or start a **discussion**!
 
-### 🏆 Acknowledgements
+### 🏆 Acknowledgments
 
 - **Original design inspiration** from [Calendar Add-on & Calendar Designs](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) by **[@kdw2060](https://github.com/kdw2060)**.
 - **Interaction patterns** inspired by Home Assistant's [Tile Card](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts), which is licensed under the [Apache License 2.0](https://github.com/home-assistant/frontend/blob/dev/LICENSE.md).
@@ -217,7 +221,7 @@ Calendar Card Pro is released under the [MIT License](./LICENSE). Full third-par
 
  <!--Badges-->
 
-[hacs-img]: https://img.shields.io/badge/HACS-Custom-orange.svg
+[hacs-img]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
 [hacs-url]: https://github.com/alexpfau/calendar-card-pro/actions/workflows/hacs-validate.yml
 [github-release-img]: https://img.shields.io/github/release/alexpfau/calendar-card-pro.svg
 [github-downloads-img]: https://img.shields.io/github/downloads/alexpfau/calendar-card-pro/total.svg

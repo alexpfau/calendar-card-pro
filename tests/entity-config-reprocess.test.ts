@@ -2,7 +2,7 @@
  * Per-calendar configuration edits must reprocess the cached payload.
  *
  * `hasConfigChanged()` reduces `entities` to a sorted list of entity **IDs**, which is
- * the right question to ask about the *API request* — changing a calendar's colour does
+ * the right question to ask about the *API request* — changing a calendar's color does
  * not move the fetch window. But `setConfig()` used that single boolean to decide
  * whether to do anything at all, so an edit that changed only a per-calendar option fell
  * through to "no work required".
@@ -20,9 +20,8 @@
  * `filterEventsForEntity()` during the same processing pass, so an event the user just
  * excluded stays on screen.
  *
- * The fix does not need an API call. `updateEvents(false)` reaches `fetchEventData`,
- * which on a cache hit calls `processRawEvents(cachedEvents, config, …)` with the
- * **current** config — and neither the cache key nor `_instanceId` contains anything but
+ * The fix does not need an API call. `updateEvents('reprocess')` reads the cached payload
+ * and runs `processRawEvents(cachedEvents, config, …)` with the **current** config — and neither the cache key nor `_instanceId` contains anything but
  * entity IDs, so the edit cannot invalidate the entry it needs. Reprocessing is free.
  *
  * These tests pin the classification rather than the rendered output, because the
@@ -40,7 +39,7 @@ import '../src/calendar-card-pro';
 
 interface CardUnderTest extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
-  updateEvents(force?: boolean): Promise<void>;
+  updateEvents(mode?: string | boolean): Promise<void>;
 }
 
 /**
@@ -152,16 +151,16 @@ describe('per-calendar configuration changes reprocess cached events', () => {
       );
 
       expect(spy).toHaveBeenCalledTimes(1);
-      // `false` is the whole point: the raw payload is still valid, only the decoration
-      // derived from it is stale. Passing `true` here would work but would spend an API
-      // call on every colour tweak in the editor.
-      expect(spy).toHaveBeenCalledWith(false);
+      // `reprocess` is the whole point: the raw payload is still valid, only the
+      // decoration derived from it is stale. `network` here would work but would spend an
+      // API call on every color tweak in the editor.
+      expect(spy).toHaveBeenCalledWith('reprocess');
     },
   );
 
   it('still forces a refetch when the entity itself changes', () => {
     // The control for the branch above. If the classification collapsed back into one
-    // boolean, this would start reporting `false` and the card would render whatever the
+    // mode, this would start reporting `reprocess` and the card would render whatever the
     // previous calendar's cache entry happened to hold.
     const spy = reconfigure(
       { entities: [{ entity: 'calendar.one' }] },
@@ -169,12 +168,12 @@ describe('per-calendar configuration changes reprocess cached events', () => {
     );
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith(true);
+    expect(spy).toHaveBeenCalledWith('network');
   });
 
   it('does no work when only a presentational option changes', () => {
     // The control that stops the fix from degenerating into "reprocess on every
-    // setConfig", which would restore correctness by throwing away the memoisation the
+    // setConfig", which would restore correctness by throwing away the memoization the
     // card depends on to stay cheap under card-mod.
     const spy = reconfigure({ show_location: true }, { show_location: false });
 
@@ -211,7 +210,7 @@ describe('per-calendar configuration changes reprocess cached events', () => {
     );
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith(false);
+    expect(spy).toHaveBeenCalledWith('reprocess');
   });
 });
 
@@ -313,10 +312,10 @@ describe('card-level processing-time options reprocess cached events', () => {
      * Every module-level function, mapped to its body.
      *
      * Brace counting starts only after the parameter list closes. An inline type literal in
-     * a signature — `hassLocale?: { language?: string }` — otherwise opens and closes a brace
-     * on the signature line, so a naive counter ends the slice before the body begins and
-     * returns an empty function. That failure is silent: an empty body yields no reads and
-     * agrees with any registration at all, which is what the body-length assertion below
+     * a signature — `timeWindow: { start: Date; end: Date }` — otherwise opens and closes a
+     * brace on the signature line, so a naive counter ends the slice before the body begins
+     * and returns an empty function. That failure is silent: an empty body yields no reads
+     * and agrees with any registration at all, which is what the body-length assertion below
      * exists to catch.
      */
     const bodies = new Map<string, string>();
@@ -436,15 +435,15 @@ describe('card-level processing-time options reprocess cached events', () => {
       const spy = reconfigure({ [option]: 'all_day' }, { [option]: 'timed' });
 
       expect(spy).toHaveBeenCalledTimes(1);
-      // `false`, not `true`: the payload is still valid, only the filtering derived from
-      // it is stale. A refetch here would spend an API call on a dropdown change.
-      expect(spy).toHaveBeenCalledWith(false);
+      // `reprocess`, not `network`: the payload is still valid, only the filtering derived
+      // from it is stale. A refetch here would spend an API call on a dropdown change.
+      expect(spy).toHaveBeenCalledWith('reprocess');
     },
   );
 
   it('does no work when a card-level processing-time option is reapplied unchanged', () => {
     // The control that stops the branch above from degenerating into "reprocess on every
-    // setConfig", which would restore correctness by throwing away the memoisation.
+    // setConfig", which would restore correctness by throwing away the memoization.
     const spy = reconfigure({ event_type: 'timed' }, { event_type: 'timed' });
 
     expect(spy).not.toHaveBeenCalled();

@@ -5,8 +5,8 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — roughly 45 KB raw and about 17 KB gzipped off
- * the eagerly-loaded card, which is around two-thirds of the stylesheet.
+ * string literal that no minifier touches — roughly 62 KB raw off the eagerly-loaded card,
+ * which is around two-thirds of the stylesheet.
  *
  * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
  * count.** The same author, in the same session, has written an exact one three times and
@@ -150,8 +150,8 @@ describe('stripComments', () => {
   // inside .event-title rather than replacing it, and why its single-line clamp is not
   // title_max_lines. That reading was 59,026 chars of which 38,294 were comment, 64.9%.
   //
-  // Rebased once more when the badge's vertical centring was measured properly. The old note
-  // claimed the ink was centred to within a fifth of a pixel; a fourteen-size pixel sweep
+  // Rebased once more when the badge's vertical centering was measured properly. The old note
+  // claimed the ink was centered to within a fifth of a pixel; a fourteen-size pixel sweep
   // showed a systematic +0.027em bias, reported from a live card. The replacement records the
   // measurement, the residual that baseline snapping leaves behind, and why the trim block
   // exists rather than a more precise padding value -- the last of which is the sort of thing
@@ -167,25 +167,102 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for tinted's ring naming --badge-solid instead of currentColor.
+  // The ceiling last moved for two things at once: the wrapped rung's follow-up, and the
+  // end time's baseline reset.
+  //
+  // The reset is one declaration and about a fifth of the note, which is the ratio this
+  // band exists to allow. `vertical-align: baseline` on an element whose rule already says
+  // `display: inline` reads as redundant -- both are the initial value, and nothing in the
+  // two declarations hints that either is overriding anything. What makes it necessary is a
+  // rule two thousand lines away setting `inline-block` and `middle` together on every span
+  // in the row, and the fact that taking the display back does not take the alignment back
+  // with it. Without the note the obvious tidy-up is to delete the line, which silently
+  // restores a 0.625px split through the middle of every clock reading in the view. The
+  // measurement is in there too, because a sub-pixel defect that 74 of 74 rows showed and
+  // no reviewer noticed is one that will be argued away again otherwise.
+  //
+  // The wrapped rung's follow-up is the ellipsis the blockified `.time-end` needs, plus the
+  // correction of two paragraphs the rung had quietly falsified. All the expensive kind.
+  // The ellipsis note records a measurement no declaration can carry -- line one ellipsizes
+  // on its own because its text becomes an anonymous block inside a span that already
+  // declares one, while line two sheared through a colon until it got `overflow` *and*
+  // `text-overflow` of its own, `text-overflow` alone being measurably not enough because
+  // the `hidden` that makes an ellipsis possible sits on `.time-actual` and does not
+  // inherit. The corrected paragraphs are worse to leave wrong than to carry: one had
+  // justified replacing the `time_max_lines` clamp with block+ellipsis on the grounds that
+  // "no line count above one is reachable", which the rung made false, and the other told
+  // the next reader that the ladder never blockifies `.time-end` -- the one element this
+  // rung blockifies. A reader who believes either goes on to make a change the declarations
+  // cannot argue with.
+  //
+  // The ceiling before that moved for the fit ladder's wrapped rung, and the note it carries
+  // is almost entirely an explanation of why the rule is `display: block` and not a
+  // `white-space` change. A reader reaching for the obvious fix finds three hazards none of
+  // the declarations can mention: `overflow-wrap: break-word` is inherited from `.summary`,
+  // so a naive wrap shatters digits into `10:0` / `0 -` rather than failing to fit; the
+  // separator is its own token between two spaces, so a browser-decided break orphans the
+  // dash at some widths and not others; and the rule works *because* `.time-end` is inline
+  // by default, a fact the rule beside it warns about as a bug. Turning that element into a
+  // block box strips the separator's leading space, which is the one thing that makes the
+  // second line read `- 12:00` -- so the same behavior is a defect one rung up and the
+  // mechanism here. There is nowhere but a comment to say that, and a later reader
+  // "simplifying" it to `white-space: normal` would ship unreadable clock times.
+  //
+  // The ceiling before that moved for the grid time row's fit ladder, which replaced the
+  // width rung described in the paragraph below. The notes are the expensive kind twice over.
+  // `grid-time-fit.ts` carries its own reasoning as TypeScript comment and does not land
+  // here at all; what lands here is the rung's note having to explain an absence -- why the
+  // rung asks about height and says nothing about width, when width is exactly the axis
+  // that broke -- plus the ellipsis rule's note being rewritten from a defense into a
+  // backstop, which is a status no declaration can record. An ellipsis is also not neutral
+  // inside a clock reading, and "10:00 - 1…" on an event ending at 12:00 reads as a
+  // different meeting rather than as a truncated one; that is the fact the ladder is built
+  // around and there is nowhere but a comment to put it.
+  //
+  // The ceiling before that moved for the grid time row's width rung and the ellipsis that
+  // goes with
+  // it. That rung is gone now -- the paragraph is kept because the ceiling it bought was
+  // never given back, not because the rule is still there. Two notes, and neither fact was
+  // readable from the declarations they sat on. `min-width:
+  // 60px` cannot say that a grid block's two axes are independent -- height is duration times
+  // hour_height, width is day width over the concurrent column count -- so a rung asked only
+  // about height revealed a time row into blocks a third its width, where it was sliced
+  // through a glyph rather than ellipsized. Nor can it say that 60 is measured rather than
+  // chosen: it is the clock icon's 18px plus "10:00" plus the ellipsis, taken in Chromium at
+  // the shipped 12px, and an earlier reading of the same number was out by a third because the
+  // rig was appended outside the grid's ancestry and inherited a 16px font. The ellipsis rule's
+  // note is the other kind -- it records why the three text-overflow: ellipsis declarations a
+  // few rules above it are inert, which is the only thing standing between the new rule and a
+  // later reader deleting it as a duplicate of them.
+  //
+  // The ceiling before that moved for the scrolling label reset widening to every label kind. The
+  // rule is one declaration and its note is a paragraph, because what it records cannot be
+  // read off `padding-bottom: 0`: a flex row centers BOXES, so the title's own bottom padding
+  // sat its glyphs one pixel above a prose or emoji label's while both boxes measured
+  // perfectly centered. Element geometry cannot see that defect at all -- only text ranges
+  // can -- which is exactly why it survived a prior fix that exempted icons and pictures and
+  // stopped there. The note also records why an unlabeled title deliberately keeps the
+  // padding, which otherwise reads as an oversight in the selector.
+  //
+  // The ceiling before that moved for tinted's ring naming --badge-solid instead of currentColor.
   // Two rules wrote the identical declaration and painted different rings, because
-  // currentColor resolves against each rule's own colour -- a difference that is invisible in
+  // currentColor resolves against each rule's own color -- a difference that is invisible in
   // the source and cost a live-card report to find. A comment is the only place that can say
   // so, since the declaration now looks arbitrary rather than corrective.
   //
   // The ceiling before that moved for tinted's ring going to full strength. The rule is three
   // declarations and its comment is most of a page, because the thing worth recording is not
   // what it draws but why the measured 40% was abandoned: the sweep that produced it varied
-  // only chromatic accents, and weakening a colour preserves its hue where weakening BLACK
-  // does not, so 40% black reads as grey rather than as a softer black. That is a fact about
+  // only chromatic accents, and weakening a color preserves its hue where weakening BLACK
+  // does not, so 40% black reads as gray rather than as a softer black. That is a fact about
   // the sweep's blind spot, not about the CSS, and nothing in the declaration hints at it.
   //
-  // The ceiling before that moved for the badge's colour axis. `neutral` went from a class of its
+  // The ceiling before that moved for the badge's color axis. `neutral` went from a class of its
   // own to a source that any of the four shapes can be drawn in, and the block that does it
   // is three declarations carrying about two kilobytes of comment -- because everything
   // deciding it is invisible from the CSS. Why the source is a published token and not
   // `currentColor` is the load-bearing one: three treatments would work either way and
-  // `filled` would draw a pill filled with the colour of its own letters, which no
+  // `filled` would draw a pill filled with the color of its own letters, which no
   // declaration in the block hints at. That is the trade this plugin exists to make, so the
   // ceiling moves rather than the comment being cut.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
@@ -202,9 +279,285 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(55_000);
+    expect(saved).toBeLessThan(162_000);
+    // The now line drawn again inside the block under way moved the ceiling last, from 159,000
+    // to 162,000: the notes on why the line beneath the blocks now only covers the gaps, why the
+    // block under way repaints it as its own background -- over its fill and under everything
+    // it draws -- and only that block, judged by its time and not by its floored box; why not
+    // one line between a layer of fills and a layer of text, which the 14px floor and engines
+    // that still contained layout with container-type would each have broken; and how the copy
+    // is placed in the plane's container units behind a feature check. The reading went
+    // 157,978, dev's own, to 160,775, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // The two-row header moved the ceiling before that, from 156,000 to 159,000: the notes on why the
+    // title moves into the heading row as a label over the month, and why a long title there
+    // adds nothing to the block's width; why the arrows and the chips are raised by a measured
+    // distance rather than aligned on the baseline by CSS, and why the stand-in is a length and
+    // never a share of the title's size; why the month's hover is a pill its line tall and its
+    // touch target reaches down rather than up; and why reset hides only for a pointer's focus,
+    // and fades after its check. The reading went 154,185, dev's own, to 156,128, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The grid polish fixes moved it before that, from 153,000 to 156,000: the notes on why
+    // grid resets the two properties a time folded with its countdown reads, rather than the
+    // declarations that read them, and what the clamp did to that row before; why a grid
+    // title keeps the dashboard's side through :dir() when match-parent would say the same
+    // in one line; and why a focused block cut off at the visible hours stops its bar at the
+    // ring rather than drawing the ring on a pseudo-element. The reading went 151,046, dev's
+    // own once the legend and refresh button had landed, to 153,436, taken with stripComments
+    // after the last comment in the change was written.
+    //
+    // The calendar legend and the refresh button moved it before that, from 149,000 to 153,000:
+    // the notes on why the legend's lane clips rather than scrolls and pads itself for a focus
+    // ring, why the header beside a title becomes a grid rather than a wrapping row while the lane
+    // is drawn, why a chip is tinted from its calendar's accent and turns the toolbar's gray when
+    // hidden, why the menu floats on the top layer and sets its own font, why its backdrop stays
+    // clear and its surface is the theme's rather than the card's, why a long name is cut short,
+    // why the folded button carries a dot while a calendar is hidden, why the refresh icon turns
+    // in place of the corner spinner, and why the ripple stays still over the lane in a rule of
+    // its own. The reading went 147,219 to 150,527, taken with stripComments after the last
+    // comment in the change was written.
+    //
+    // The today tile's new shape and the card's hover color moved the ceiling before that, from
+    // 145,000 to 149,000: the notes on why the tile's corners are written in em rather than
+    // percent, why its figures are proportional and the last pixel was left unmeasured, why
+    // centering its one line trimmed to the cap height centers the digits and why that makes the
+    // tile a block, why the column headers leave the tile out of their flex rule and drop its
+    // margins for a middle ground between the tile and the other days' numbers, why an untinted
+    // event washes in the card's hover color at twice the ripple's strength while a tinted one
+    // keeps its text color, why the toolbar lays that color over its gray rather than in place of
+    // it, and why the card's ripple stays still over the bar. The reading went 143,588 to 147,219,
+    // taken with stripComments after the last comment in the change was written.
+    //
+    // The date navigation moved the ceiling before that, from 141,500 to 145,000: the notes on why the
+    // band takes a row of its own and wraps its trailing group by the card's width rather than
+    // by the dates, why its 8px start is padding and not a margin, and why column and grid drop
+    // it, why the range button is only as wide as its dates while an invisible copy of its
+    // widest label keeps the room beside it, why the caret follows the label, why the arrows
+    // mirror under :dir(rtl), why the date input is laid over the range yet never pressed, why
+    // a page that is loading dims only after a delay, and why the card limits ha-card's
+    // transition so a view switch does not slide. The reading went 140,596 to 143,588, taken
+    // with stripComments after the last comment in the change was written.
+    //
+    // Centering an event's text on its accent bar moved the ceiling before that, from 140,000 to
+    // 141,500: the note on why the box was centered and the ink was not, why part of the
+    // title's top padding moves to a spacer sized in the title's own font, what remainder
+    // unequal title and row sizes keep, and why grid view is left out. The reading went
+    // 139,133 to 140,596, taken with stripComments after the last comment was written and
+    // confirmed from an esbuild bundle of the same source.
+    //
+    // Two review fixes moved the ceiling before that, from 139,000 to 140,000: the note on the
+    // zero-width space after a text label, which reads as an empty rule unless it says what
+    // removing the whitespace before a title had cost, and the cut rule's note on runs of a
+    // script written without spaces, which the cut now hides like words, and on when the
+    // clamp may end a line that ends in text. The reading went 138,129 to 139,133, taken
+    // with stripComments after the last comment was written and confirmed from an esbuild
+    // bundle of the same source.
+    //
+    // Grid title fitting moved the ceiling before that, from 136,000 to 139,000: the notes on why a grid
+    // block has no hanging indent and why one rule clears it for every label shape; why a
+    // labeled title's first word is narrowed to what its labels leave, and why that width is
+    // measured rather than written in CSS; why a title stopped at its last whole line ends on
+    // a word that draws its own ellipsis, because a line clamp asked to end on word boxes hides
+    // the last one or clips its ellipsis in half, in Chromium and WebKit alike; and why the
+    // clamp kept for text also drops an unlabeled title's bottom padding, through which the
+    // next line showed. The reading went 135,312 to 138,129, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
+    //
+    // The accent bar moved the ceiling before that, from 126,700 to 136,000: the notes on why the bar
+    // is an element of its own rather than a border, when a day's bars join into one line and
+    // when each event has its own, why a joined bar reaches 1px into the next event, how the
+    // insets switch on the tint and keep a bar end clear of a rounded corner only where the
+    // block has one, why it is painted as a border (forced colors and print keep it) and takes
+    // no z-index and no pointer, why a column event's focus ring moved to a pseudo-element,
+    // where grid text starts and why three rules share that one expression, and why a raised
+    // block's outline now closes on all four sides. The same change also explains why a
+    // running event's time run sits on the baseline, why the first row under a title has no
+    // margin of its own and how grid's hidden progress row hands that on, why a grid title's
+    // words align middle beside a label, and what the progress row's rung was measured
+    // against. The reading went 126,022 on dev to 135,312, taken with stripComments after the
+    // last comment in the change was written, and confirmed by a second reading from an
+    // esbuild bundle of the same source.
+    //
+    // The event gap moved the ceiling before that, from 124,700 to 126,700: the notes on why a tinted
+    // block is a rounded rectangle whose stripe follows the curve (a joined day, a gapped event
+    // and a grid block alike) while an untinted stripe stays straight, why the position classes
+    // keep meaning the event's place in its day, why list view's gap is a row that must never
+    // zero its font size, and why column view's is a gap rather than a margin. The reading went
+    // 123,954 to 126,022, taken with stripComments after the last comment in the change was
+    // written.
+    //
+    // The view switcher moved the ceiling before that, from 122,700 to 124,000 and then to 124,700: the
+    // notes on why every toolbar control shares one neutral look mixed into transparent rather
+    // than a named gray, why the toolbar's custom properties live on the toolbar and not the
+    // card, why the raised segment needs light-dark() behind @supports in a dark color scheme,
+    // why the slim toolbar row keeps 12px under it, and how the corner loading spinner is placed
+    // midway between the card's corner and the toolbar's last control. The reading went 121,650
+    // to 123,954, taken with stripComments after the last comment in the change was written.
+    //
+    // The today tile and the now indicator moved the ceiling before that, from 116,600: the notes on why
+    // the tile takes layout space rather than being painted behind the digits, how its shape was
+    // scored against an iOS icon mask, why it is a wash in the all-day pill's recipe rather than
+    // a fill, why the "now" green is mixed toward the text color instead of drawn raw, how the
+    // label's separator was measured ink to ink so the space either side of it is equal, and
+    // why a running row's run is kept out of the time clamp. The reading went 115,832 on dev to
+    // 121,650, taken with stripComments after the last comment was written.
+    //
+    // Muting the card's ripple over an event moved the ceiling before that, from 115,800: the note on
+    // why the ripple is muted rather than kept from seeing the press -- the recognizer needs
+    // the same press to reach ha-card -- and why keyboard focus mutes it too. The reading went
+    // 114,822 to 115,624, taken with stripComments after the last comment in the change was
+    // written.
+    //
+    // The list view's event button moved the ceiling before that, from 114,600: the note on why the
+    // button's two pseudo-elements span the whole cell rather than the button's own box -- a
+    // short event in a cell the date column stretched would otherwise answer to a tap, a
+    // hover and a focus ring in its middle only -- and why the hit area sits under the text
+    // and the ring above it. The reading went 113,594 to 114,822, taken with stripComments
+    // after the last comment in the change was written.
+    //
+    // The header toolbar moved the ceiling before that, from 112,600: the notes on why the header
+    // becomes a row only while it holds a control -- a float placed after the title would
+    // drop below any title long enough to wrap -- why the toolbar is one line of the title
+    // tall and in em, so its button centers on the title's first line at any title size, and
+    // why nothing in it carries an inline-end margin, which is what keeps its edge on the
+    // content's in all three views. It also retired the add-event placements' note. The
+    // reading went 112,232 to 113,578, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // Grid titles wrapping only at spaces moved the ceiling before that, from 110,200: the notes on
+    // why each word is an inline-block with its own clip -- break-word broke "Sprint" inside
+    // itself in a 30px lane -- why it aligns to the top rather than the baseline, and why the
+    // compact single line puts the words back inline. The reading went 109,813 to 111,599,
+    // taken with stripComments after the last comment in the change was written.
+    //
+    // The now line moving beneath the blocks moved the ceiling before that, from 109,200: the notes
+    // on why the line carries no z-index at all -- a line over a block at text height read as
+    // a strikethrough -- how document order alone then puts it under the blocks and above the
+    // tint and hour rules, and why the dot became an element of its own to stay on top. The
+    // reading went 108,902 to 109,813, taken with stripComments after the last comment in
+    // the change was written.
+    //
+    // The back-to-back seam moved the ceiling before that, from 108,200: the notes on why a block's
+    // clearance above and below follows the ruling rather than applying everywhere -- an
+    // allowance for a rule that is not drawn stood a block a pixel off its own time and put
+    // three pixels between events with none between them -- and why on a rule two touching
+    // blocks meet it so that it is the seam. The reading went 107,311 to 108,325, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The grid time row's rung moved it before that, from 106,500: the notes on why the
+    // reveal no longer asks a height of its own beyond the title's -- the 40px it used to ask
+    // was a CSS-only margin that hid a time row which fit -- why measuring is safe there,
+    // and why the title clamp it used to share stays at 40px rather than following it down.
+    // The reading went 105,662 to 107,311, taken with stripComments after the last comment
+    // in the change was written.
+    //
+    // The stacked block's rebuilt backdrop moved it before that, from 102,700: the notes
+    // on why a stacked block draws a backdrop of the card, the weekend tint and the hour
+    // rules rather than going translucent, why that backdrop is a sibling placed in container
+    // units against a wrapper rather than a layer of the block, why its copies are masked by
+    // the card color's own alpha, and why its outline leaves the leading edge to the accent
+    // bar. The reading went 101,822 to 105,662, taken with stripComments after the last
+    // comment in the change was written.
+    //
+    // The +N strip and the stacked-block outline moved the ceiling last, from 101,700: the
+    // notes on why the strip lets a count spill past its dashes rather than clip it, why a
+    // stacked block shows anything beneath it only on a translucent card, and why it carries
+    // a hairline in its own accent as an inset shadow rather than a border. The reading went
+    // 100,855 to 101,350 with the strip and to 101,822 with the outline, each taken with
+    // stripComments after the last comment in its change was written.
+    //
+    // The cascaded overlap layout moved it before that, from 100,000: the notes on why a
+    // stacked block's fill is opaque and outline-free, why a covered block's text region
+    // reaches the stylesheet as two unitless ratios rather than as sizes, and why the two
+    // formulas differ between the normal and compact states. All three are conversions the
+    // declarations perform without saying what they convert. The reading went 99,138 to
+    // 100,855, both taken with stripComments after the last comment in the change was
+    // written; 99,138 is also why the 99,191 below is not the figure this change started
+    // from, which had drifted without a ceiling move to record it.
+    //
+    // The nested font sizes moved the ceiling before that, from 98,200: the notes on why the title,
+    // the countdown, the grid block and the banner no longer declare a font size their
+    // ancestor already sets, and why the weather text's size is scoped to the summary row.
+    // The reading went 97,381 to 99,191, taken with stripComments after the last comment in
+    // the change was written, and the ceiling keeps the slack it had.
+    //
+    // The font sizes moved it before that, from 95,800: the notes on why the label glyphs,
+    // their hanging indent, the week pill, the date's line heights and the own-row progress
+    // bar now size in em or 1 instead of multiplying a font-size option, and why the week row
+    // has no height. The reading went 95,001 to 97,381, taken with stripComments after the
+    // last comment in the change was written, and the ceiling keeps the slack it had.
+    //
+    // The wrapped rung's follow-up and the end time's baseline reset moved the ceiling before
+    // that, from 90,600; see the comment above this test for what their notes buy that the
+    // declarations cannot say. The reading went 90,087 to 95,001, and the ceiling keeps roughly
+    // the slack the band had before rather than being opened wide enough to stop meaning
+    // anything.
+    //
+    // 🚨 95,001 is the third reading this one commit produced, and the first two were wrong
+    // in the two different ways the header warns about. 93,656 was taken while the same
+    // commit was still adding comment and was ~1,300 low by the time it was written down.
+    // 94,263 was taken with a hand-written /\*[\s\S]*?\*\// instead of stripComments and was
+    // ~740 low, because the plugin strips more than that regex expresses -- a second
+    // derivation that shared no parser with the first and disagreed with it, which is the
+    // only reason the error surfaced at all. Take the reading from stripComments, and take
+    // it after the last comment in the change is written.
+    //
+    // The fit ladder's wrapped rung moved the ceiling before that, from 89,500. The reading
+    // went 88,813 to 90,087.
+    //
+    // The grid time row's fit ladder moved the ceiling before that, from 86,000. The
+    // reading went 85,463 to 88,813.
+    //
+    // The grid time row's width rung moved the ceiling before that, from 83,000. The
+    // reading went 82,476 to 85,463.
+    //
+    // The scrolling label reset moved the ceiling before that, from 82,000.
+    //
+    // The clipped-edge continuation marks moved the ceiling before that, from 79,000, and the note
+    // they bought is a table of painted pixel rows. Where a dashed mark lands relative to the
+    // rule beside it cannot be read off `top: 0` — the mark is a border-block-start on a
+    // zero-height box, so the same value paints the block's first row at one edge and its
+    // last row at the other, and whether the result reads as one line or as two depends on
+    // the rule being translucent enough to composite. Both facts came off a deployed build
+    // at one device pixel per CSS pixel; neither is visible from the three declarations.
+    //
+    // The v5.2 grid refinements moved the ceiling before that, from 70,000. Five of them, and four
+    // carry a note that costs more than the declaration it sits on: why `grid-column: 1 / -1`
+    // is only half of "full width" and what the negative margins have to cancel; why a rule
+    // exactly filling its gutter is the intended state rather than a near miss; why the
+    // heavier band rule is twice the base and not three times it; and why a block's vertical
+    // clearance is skipped at a clipped end. Every one of those was measured in a browser and
+    // is invisible from the CSS — a later reader looking only at the declarations would undo
+    // the first as redundant and the fourth as an inconsistency.
+    //
+    // The v5 grid rule work moved it here, from 76,000, and the ceiling is again buying
+    // explanations that no declaration can carry. Three of them: that an hour rule paints
+    // DOWNWARD from its boundary, which is why a block's clearance above it has to cover
+    // the rule's own width and the one below it must not; that a repeating gradient tiles
+    // in BOTH directions from its first stop, so the mask on `.grid-rules` is not the
+    // offset it looks like it could have been; and that translucent ink composites rather
+    // than merging, which is why two coincident gradients are one pattern at nearly twice
+    // the ink and why the rule colors travel as custom properties rather than as inline
+    // `background-color` values happy-dom silently drops. Each was found by reading painted
+    // pixels off a deployed build, and each reads as redundant from the CSS alone.
+    //
+    // The grid progress rung moved it before that, from 60,000. Its note records a
+    // measured height and, more usefully, that these rungs query the CONTENT box while the
+    // block's padding sits outside it — a distinction that cost two browser probes to find
+    // and that the declaration itself cannot show, since `48px` looks like it should match
+    // a 48px block and does not.
+    //
+    // Before that the v5 grid view moved it from 55,000. Its stylesheet is a time axis built
+    // from two repeating gradients, percentage geometry and a body height that is a custom
+    // property rather than content -- none of which a reader can infer from the
+    // declarations, and all of which someone will otherwise "simplify" back. Same trade as
+    // every jump below it.
+    //
     // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
-    // are historical readings and stay as written. Both jumps were paid
+    // are historical readings and stay as written. Every jump was paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
     // point the wrong way needs a long explanation or the next person repeats the
     // investigation. That is the trade this plugin exists to make — none of it reaches a

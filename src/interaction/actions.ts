@@ -2,7 +2,7 @@
  * Action handling for Calendar Card Pro.
  *
  * Standard actions are delegated to Home Assistant via `hass-action`; only
- * card-specific actions are handled locally.
+ * card-specific actions (`expand`, `refresh`) are handled locally.
  */
 
 import * as Types from '../config/types';
@@ -26,25 +26,63 @@ function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): strin
 }
 
 /**
- * Handle an action by delegating to HA's native action handler.
+ * Hand an action to Home Assistant, which runs it as it runs one of its own cards' actions.
+ *
+ * @param node - Element to dispatch from; must be inside Home Assistant's DOM
+ * @param config - What Home Assistant reads: the actions by kind (`tap_action` and so on)
+ *   and the `entity` they apply to
+ * @param action - Which of those actions to run
+ */
+export function fireHassAction(
+  node: HTMLElement,
+  config: Record<string, unknown>,
+  action: 'tap' | 'hold',
+): void {
+  const event = new Event('hass-action', {
+    bubbles: true,
+    composed: true,
+  });
+  (event as unknown as Record<string, unknown>).detail = { config, action };
+  node.dispatchEvent(event);
+}
+
+/** How the card runs the actions only it knows; each is optional. */
+export interface CardActionCallbacks {
+  /** `expand`: toggle compact and expanded. */
+  expand?: () => void;
+  /** `refresh`: load the events again now. */
+  refresh?: () => void;
+}
+
+/**
+ * Handle an action: the card's own (`expand`, `refresh`) here, every other one by delegating
+ * to HA's native action handler.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
  * @param action - Action type: "tap" or "hold"
- * @param expandCallback - Optional callback for the card-specific expand action
+ * @param callbacks - How the card runs its own actions
  */
 export function handleAction(
   node: HTMLElement,
   config: Types.Config,
   action: 'tap' | 'hold',
-  expandCallback?: () => void,
+  callbacks: CardActionCallbacks = {},
 ): void {
   const actionConfig = action === 'hold' ? config.hold_action : config.tap_action;
-  if (!actionConfig) return;
+  // Defaults and the documented disable form are both `{ action: 'none' }`. Without this
+  // guard every default-config tap still dispatched `hass-action` to Home Assistant.
+  if (!actionConfig || actionConfig.action === 'none') return;
 
   if (actionConfig.action === 'expand') {
-    if (expandCallback) expandCallback();
+    callbacks.expand?.();
     Logger.debug('Executed expand action');
+    return;
+  }
+
+  if (actionConfig.action === 'refresh') {
+    callbacks.refresh?.();
+    Logger.debug('Executed refresh action');
     return;
   }
 
@@ -55,15 +93,6 @@ export function handleAction(
     hold_action: config.hold_action,
   };
 
-  const event = new Event('hass-action', {
-    bubbles: true,
-    composed: true,
-  });
-  (event as unknown as Record<string, unknown>).detail = {
-    config: hassActionConfig,
-    action,
-  };
-
-  node.dispatchEvent(event);
+  fireHassAction(node, hassActionConfig, action);
   Logger.debug(`Delegated ${action} action (${actionConfig.action}) to HA native handler`);
 }

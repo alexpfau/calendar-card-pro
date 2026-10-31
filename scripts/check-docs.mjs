@@ -8,6 +8,8 @@
  * Run with `node scripts/check-docs.mjs`; add `--strict` to make warnings fatal.
  */
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,7 +94,17 @@ function readDefaults() {
   }
 
   const out = new Map();
-  for (const line of block[1].split('\n')) {
+  // Prettier moves a value too long for the key's line onto the next one, leaving the key
+  // on its own line with nothing after the colon. Join those back first, or the value is
+  // never read and its documented default goes unchecked with only a warning to show for it.
+  const lines = block[1].split('\n').reduce((joined, line) => {
+    const prev = joined[joined.length - 1];
+    if (prev !== undefined && /^ {2}[a-z0-9_]+:\s*$/.test(prev))
+      joined[joined.length - 1] = `${prev} ${line.trim()}`;
+    else joined.push(line);
+    return joined;
+  }, []);
+  for (const line of lines) {
     // Exactly two spaces of indent keeps this to top-level keys.
     const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*(\/\/\s*(.*))?$/);
     if (!m) continue;
@@ -105,7 +117,7 @@ function readDefaults() {
 /**
  * Field names of the user-facing config interfaces.
  *
- * Only these five are user-facing. types.ts also describes Home Assistant payloads and
+ * Only these six are user-facing. types.ts also describes Home Assistant payloads and
  * internal render state, which are not configuration and must not be required to appear
  * in the docs.
  */
@@ -114,6 +126,7 @@ const USER_FACING_INTERFACES = [
   'EntityConfig',
   'WeatherPositionConfig',
   'WeatherConfig',
+  'ToolbarConfig',
   'ActionConfig',
 ];
 
@@ -177,6 +190,12 @@ function buildConstantResolver() {
 const COVERAGE_EXCLUDES = ['development/', 'architecture.md', 'RELEASE_NOTES.md'];
 
 /**
+ * The prose files at the repository root, which `listDocs` cannot reach because it walks
+ * `docs/` only. Check 12 reads these as well; see its docblock for why.
+ */
+const ROOT_PROSE = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md'].map((name) => join(ROOT, name));
+
+/**
  * RELEASE_NOTES.md is exempt from the example convention as well, for the opposite
  * reason: it is a record of what shipped. Editing a two-year-old release note to satisfy
  * a convention introduced later would falsify it.
@@ -220,6 +239,9 @@ const isStructural = (raw) => raw.startsWith('[') || raw.startsWith('{');
  * touching an entry.
  */
 const VERIFIED_RUNTIME_FALLBACKS = new Map([
+  // Editor metadata has no runtime fallback. Absence means the configuration predates
+  // the marker and stays on the legacy path until the editor adopts it.
+  ['config_version', '-'],
   // utils/events.ts — absent or unparseable resolves to today ("Falling back to today").
   ['start_date', 'Today'],
   // config/config.ts `toValidNumber(…, 1)` — the 1 is a floor, not a default. Absent
@@ -366,7 +388,7 @@ function isDocumented(field, text, fencedContent) {
 }
 
 /**
- * This is the safety net for restructuring. The docs are being reorganised in phases,
+ * This is the safety net for restructuring. The docs are being reorganized in phases,
  * and the one unacceptable outcome is losing content while moving it. An option may
  * live on whichever page suits it — the reference table, a feature page, or both — but
  * it must be findable on at least one of them.
@@ -490,10 +512,27 @@ function checkCopyableExamples(docs) {
     const rel = relative(ROOT, file);
     if (EXAMPLE_EXCLUDES.some((ex) => relative(DOCS_DIR, file) === ex)) continue;
     const text = readFileSync(file, 'utf8');
-    const blocks = text.match(/^```ya?ml\n[\s\S]*?^```/gm) || [];
-    blocks.forEach((block, i) => {
+    const blocks = [...text.matchAll(/^```ya?ml\n[\s\S]*?^```/gm)];
+    blocks.forEach((match, i) => {
+      const block = match[0];
       if (!/^\s*type:\s*custom:calendar-card-pro\s*$/m.test(block)) return;
       complete++;
+      const firstLine = text.slice(0, match.index).split('\n').length;
+      const topLevel = new Map();
+      block.split('\n').forEach((line, blockLine) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (!key) return;
+        const lineNumber = firstLine + blockLine;
+        const previous = topLevel.get(key[1]);
+        if (previous !== undefined) {
+          error(
+            `${rel}:${lineNumber}: yaml block #${i + 1} repeats top-level key ` +
+              `\`${key[1]}\`; first declared at ${rel}:${previous}`,
+          );
+        } else {
+          topLevel.set(key[1], lineNumber);
+        }
+      });
       const decl = block.match(/^([ \t]*)entities:[ \t]*(.*)$/m);
       if (!decl) {
         error(
@@ -532,6 +571,39 @@ function checkCopyableExamples(docs) {
     );
   }
   return complete;
+}
+
+/**
+ * Reconciles the editor-maintained configuration format with the reference.
+ *
+ * @returns The documented format version
+ */
+function checkConfigVersion() {
+  const source = readFileSync(CONFIG_TS, 'utf8');
+  const declared = source.match(/export const CURRENT_CONFIG_VERSION\s*=\s*(\d+);/);
+  if (!declared) {
+    console.error(
+      `\n✗ FATAL: could not locate CURRENT_CONFIG_VERSION in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const reference = readFileSync(REFERENCE_DOC, 'utf8');
+  const documented = reference.match(/Current editor format:\s*`(\d+)`/);
+  if (!documented) {
+    error(
+      'docs/reference/configuration.md does not state the current editor format for `config_version`.',
+    );
+    return Number(declared[1]);
+  }
+
+  if (documented[1] !== declared[1]) {
+    error(
+      `docs/reference/configuration.md says config format ${documented[1]}, but ` +
+        `CURRENT_CONFIG_VERSION is ${declared[1]}.`,
+    );
+  }
+  return Number(documented[1]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1083,7 +1155,23 @@ function checkPageIntros(docs) {
 // Checks 12-15 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
-/** Check 12: US spelling around US-spelled config options. */
+/**
+ * Check 12: US spelling around US-spelled config options.
+ *
+ * The corpus is `docs/` **plus the three prose files at the repository root**, which sat
+ * outside every style check until they were added here. `AGENTS.md` had accumulated 19
+ * lines of British spelling and `README.md` one, none of it visible to a gate, while
+ * `AGENTS.md` itself told contributors to use US spelling — the file stating the rule was
+ * the file breaking it. The root three are the only `.md` outside `docs/` that a human
+ * reads as prose; everything else at that level is a config or a template.
+ *
+ * The word list is the one that has actually appeared here, not a general British
+ * lexicon. Adding a term is cheap and adding a wrong one is not: each entry is matched
+ * case-insensitively as a substring, so a term that is also a legitimate identifier,
+ * CSS keyword or API value would fail the gate on correct text. `cancelled` is the live
+ * example of that hazard — it is the RFC 5545 `STATUS` value, so it is safe here only
+ * because this card never reads that property. Check before extending.
+ */
 const BRITISH = [
   ['colour', 'color'],
   ['customis', 'customiz'],
@@ -1095,6 +1183,13 @@ const BRITISH = [
   ['analyse', 'analyze'],
   ['cancelled', 'canceled'],
   ['travelling', 'traveling'],
+  ['artefact', 'artifact'],
+  ['normalis', 'normaliz'],
+  ['generalis', 'generaliz'],
+  ['defence', 'defense'],
+  ['catalogue', 'catalog'],
+  ['licence', 'license'],
+  ['modelling', 'modeling'],
 ];
 
 function checkSpelling(docs) {
@@ -1350,6 +1445,74 @@ function checkColumnDefaults(columnDefaults, columnRows) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 31 — the toolbar's rows match DEFAULT_CONFIG.toolbar, in both directions
+// ---------------------------------------------------------------------------
+
+/**
+ * Check 1 reads `DEFAULT_CONFIG` at two-space indent, so it sees the `toolbar` row and
+ * never the controls inside the block. Each control is a `toolbar → key` row in the
+ * reference, and this reconciles those rows against the block's own defaults.
+ *
+ * Both directions are errors, not one: the block is where every toolbar control the card
+ * will ever have is switched on, so a control added to it without a row is a control
+ * shipped undocumented, and a row without a default is a control that no longer exists.
+ */
+function readToolbarDefaults() {
+  const src = readFileSync(CONFIG_TS, 'utf8');
+  const block = src.match(
+    /DEFAULT_CONFIG[^=]*=\s*\{[\s\S]*?\n {2}toolbar:\s*\{([\s\S]*?)\n {2}\},/,
+  );
+  if (!block) {
+    console.error(
+      `\n✗ FATAL: could not locate DEFAULT_CONFIG.toolbar in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const out = new Map();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {4}([a-z0-9_]+):\s*(.+?),?\s*$/);
+    if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
+  }
+  assertFound(out, 'DEFAULT_CONFIG.toolbar keys', CONFIG_TS);
+  return out;
+}
+
+function readToolbarRows() {
+  const doc = readFileSync(REFERENCE_DOC, 'utf8');
+  const out = new Map();
+  for (const line of doc.split('\n')) {
+    const m = line.match(/^\|\s*`toolbar\s*→\s*([a-z0-9_]+)`\s*\|([^|]*)\|([^|]*)\|/);
+    if (m) out.set(m[1], { type: m[2].trim(), def: m[3].trim() });
+  }
+  assertFound(out, 'toolbar option rows', REFERENCE_DOC);
+  return out;
+}
+
+function checkToolbarDefaults(toolbarDefaults, toolbarRows) {
+  for (const [key, raw] of toolbarDefaults) {
+    if (!toolbarRows.has(key)) {
+      error(
+        `toolbar → ${key}: in DEFAULT_CONFIG.toolbar but has no row in docs/reference/configuration.md`,
+      );
+      continue;
+    }
+    const { def } = toolbarRows.get(key);
+    if (normalise(def) !== normalise(raw)) {
+      error(`toolbar → ${key}: docs say ${def} but DEFAULT_CONFIG.toolbar has \`${raw}\``);
+    }
+  }
+
+  for (const key of toolbarRows.keys()) {
+    if (!toolbarDefaults.has(key)) {
+      error(
+        `toolbar → ${key}: documented in the reference but not in DEFAULT_CONFIG.toolbar — stale row`,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Check 19 — the weather scope table lists exactly the options each scope has
 // ---------------------------------------------------------------------------
 
@@ -1554,7 +1717,9 @@ const LANGUAGE_COUNT_SITES = [
   ['README.md', /\[Available in (\d+) languages\]/g, 'card'],
   ['README.md', /The card speaks \[(\d+) languages\]/g, 'card'],
   ['README.md', /and the visual editor (\d+)\b/g, 'editor'],
+  ['README.md', /with the visual editor in (\d+)\b/g, 'editor'],
   ['docs/index.md', /\[Available in (\d+) languages\]/g, 'card'],
+  ['docs/index.md', /with the visual editor in (\d+)\b/g, 'editor'],
   ['docs/architecture.md', /\((\d+) supported languages\)/g, 'card'],
   ['docs/features/editor.md', /available in \*\*(\d+) languages\*\*/g, 'editor'],
   ['docs/features/editor.md', /the calendar itself in \*\*(\d+)\*\*/g, 'card'],
@@ -1645,13 +1810,18 @@ function report(counts) {
       `${counts.gates} CI gates checked, ` +
       `${counts.enums} enumerated options checked, ` +
       `${counts.sentinels} sentinel rows checked, ` +
+      `${counts.gridDefaults} grid divergent defaults reconciled, ` +
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
+      `${counts.listFences} YAML examples checked for list-only keys, ` +
+      `${counts.inertOptions} view-inert options reconciled, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
+      `${counts.thirdParty} files checked for third-party cards, ` +
+      `config format v${counts.configVersion} documented, ` +
       `release surfaces checked against v${counts.version}.\n`,
   );
 
@@ -1685,13 +1855,11 @@ function report(counts) {
 /**
  * Shared options with column-view default overrides must say so in the reference table.
  */
-function readColumnDefaultOverrides() {
+function readDefaultOverrides(table) {
   const src = readFileSync(VIEW_TS, 'utf8');
-  const block = src.match(/COLUMN_DEFAULT_OVERRIDES[^=]*=\s*\{([\s\S]*?)\n\}/);
+  const block = src.match(new RegExp(`${table}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`));
   if (!block) {
-    console.error(
-      `\n✗ FATAL: could not locate COLUMN_DEFAULT_OVERRIDES in ${relative(ROOT, VIEW_TS)}.\n`,
-    );
+    console.error(`\n✗ FATAL: could not locate ${table} in ${relative(ROOT, VIEW_TS)}.\n`);
     process.exit(2);
   }
 
@@ -1700,8 +1868,13 @@ function readColumnDefaultOverrides() {
     const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*$/);
     if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
   }
-  assertFound(out, 'COLUMN_DEFAULT_OVERRIDES keys', VIEW_TS);
+  assertFound(out, `${table} keys`, VIEW_TS);
   return out;
+}
+
+/** The column table, named so the call sites read as two instances of one check. */
+function readColumnDefaultOverrides() {
+  return readDefaultOverrides('COLUMN_DEFAULT_OVERRIDES');
 }
 
 function checkColumnDefaultOverrides(overrides) {
@@ -1728,6 +1901,103 @@ function checkColumnDefaultOverrides(overrides) {
       );
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Check 17b — the grid divergent-default table says what the code actually does
+// ---------------------------------------------------------------------------
+
+/**
+ * `TIME_GRID_DEFAULT_OVERRIDES` and the table on `docs/features/grid-view.md` list the
+ * same options, and the prose count above it agrees with both.
+ *
+ * 🚨 This gate was **documented before it existed**. `tests/view-config.test.ts` said the
+ * count was reconciled here, and a grep for `TIME_GRID`, `grid-view` or `divergent` in
+ * this file returned zero — against four hits for `COLUMN_DEFAULT_OVERRIDES` and two for
+ * `column-view`, so the search was working and the check was simply absent. The thirteen
+ * entries agreed with the docs by luck. That is worse than no gate: a comment saying the
+ * reconciliation exists is exactly what stops the next person adding it.
+ *
+ * Reconciled on the KEY SET rather than on the values, and the asymmetry with the column
+ * check beside it is deliberate. Column view's reference rows quote their divergent value
+ * verbatim; grid's table renders some of them for a reader instead — `day_separator_color`
+ * reads "Half-strength `var(--divider-color)`" where the code holds a `color-mix()`. A
+ * value comparison would therefore have to be loosened to the point of proving nothing,
+ * while the key set is exact and catches the failure that actually happens: a row arriving
+ * or leaving on one side only.
+ *
+ * @param {Map<string, string>} overrides parsed from `view.ts`
+ * @returns {number} rows reconciled
+ */
+function checkGridDefaultOverrides(overrides) {
+  const file = join(DOCS_DIR, 'features', 'grid-view.md');
+  const text = readFileSync(file, 'utf8');
+  // Matched on the heading TEXT, not on its emoji: h2 emoji are a docs-style convention
+  // that may be restyled, and a gate that stops finding its own section over one would be
+  // reporting a missing table rather than a changed heading.
+  const section = text.split(/^##\s+\S*\s*Options That Start From a Different Default\s*$/m)[1];
+
+  if (section === undefined) {
+    error(
+      'docs/features/grid-view.md: no "Options That Start From a Different Default" section, ' +
+        'so the grid divergent defaults are documented nowhere a reader can find them',
+    );
+    return 0;
+  }
+
+  const table = section.split(/\n## /)[0];
+  const documented = new Set();
+  for (const line of table.split('\n')) {
+    const m = line.match(/^\|\s*`([a-z0-9_]+)`\s*\|/);
+    if (m) documented.add(m[1]);
+  }
+
+  // A denominator beside the verdict: an empty table would otherwise report as two clean
+  // set differences.
+  if (documented.size === 0) {
+    error('docs/features/grid-view.md: the divergent-default table has no option rows');
+    return 0;
+  }
+
+  for (const key of overrides.keys()) {
+    if (!documented.has(key)) {
+      error(
+        `${key}: in TIME_GRID_DEFAULT_OVERRIDES but has no row in the grid-view table, so ` +
+          'grid silently resolves an option the page does not say it changes',
+      );
+    }
+  }
+  for (const key of documented) {
+    if (!overrides.has(key)) {
+      error(
+        `${key}: has a row in the grid-view divergent-default table but is not in ` +
+          'TIME_GRID_DEFAULT_OVERRIDES, so the page describes a default the card does not use',
+      );
+    }
+  }
+
+  const word = NUMBER_WORDS[overrides.size];
+  const claim = table.match(
+    new RegExp(`\\b(${NUMBER_WORDS.join('|')})\\s+shared options do not inherit`, 'i'),
+  );
+  if (!claim) {
+    error(
+      'docs/features/grid-view.md: the divergent-default section no longer opens with a ' +
+        'spelled-out count of the options, which is the sentence this gate reconciles',
+    );
+  } else if (word === undefined) {
+    error(
+      `TIME_GRID_DEFAULT_OVERRIDES has ${overrides.size} entries, past the end of ` +
+        'NUMBER_WORDS — append the missing words rather than dropping the prose count',
+    );
+  } else if (claim[1].toLowerCase() !== word.toLowerCase()) {
+    error(
+      `docs/features/grid-view.md: says "${claim[0]}", but TIME_GRID_DEFAULT_OVERRIDES has ` +
+        `${overrides.size}. Write "${word} shared options do not inherit".`,
+    );
+  }
+
+  return documented.size;
 }
 
 // ---------------------------------------------------------------------------
@@ -1993,6 +2263,21 @@ const SENTINEL_OPTIONS = [
     file: 'src/utils/entity-icons.ts',
     constant: 'ENTITY_ICON_SENTINEL',
   },
+  {
+    // The five governed by `accent`. Listed field by field rather than derived from
+    // ACCENT_TEXT_OPTIONS, because this file parses source text and cannot import: the
+    // pairing of option to property is reconciled in `tests/accent-event-text.test.ts`,
+    // and what is reconciled here is that every one of them tells the reader the word.
+    fields: [
+      'event_color',
+      'time_color',
+      'location_color',
+      'description_color',
+      'progress_bar_color',
+    ],
+    file: 'src/utils/entity-colors.ts',
+    constant: 'ACCENT_TEXT_SENTINEL',
+  },
 ];
 
 /**
@@ -2119,10 +2404,10 @@ const RUNTIME_ENUMS = [
     option: 'allday_badge_color',
     file: 'src/utils/helpers.ts',
     constant: 'ALLDAY_BADGE_COLOR_SOURCES',
-    // Two keywords, and the value set is otherwise OPEN -- any CSS colour is legal -- so the
+    // Two keywords, and the value set is otherwise OPEN -- any CSS color is legal -- so the
     // table check here reconciles only the two that are closed. That is the honest scope: a
     // page listing `accent` and `text` must list both, and no page can be asked to tabulate
-    // every colour.
+    // every color.
     noun: 'color sources',
     // Falls back to the accent, which is what the badge was drawn in before this key existed.
     fallback: 'accent',
@@ -2300,7 +2585,31 @@ function checkRuntimeEnumUsages(enums, docs) {
 // Check 22 — the migration table lists exactly the options the card still reports
 // ---------------------------------------------------------------------------
 
-const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+// Indexed by the count they spell, so entries may only ever be appended — a word
+// inserted anywhere but the end silently renumbers every check that reads this.
+const NUMBER_WORDS = [
+  'Zero',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+  'Twenty',
+];
 
 /**
  * The removed-key maps in config.ts, keyed by the option a user may still have.
@@ -2740,6 +3049,219 @@ function checkReadmeFragmentLinks() {
 }
 
 // ---------------------------------------------------------------------------
+// Check 30 — no example writes a list-only option at the top level
+// ---------------------------------------------------------------------------
+
+/**
+ * `VIEW_SCOPE` as written: each scoped option and the views it affects.
+ *
+ * Shared by Check 30 and Check 32, so both read the table through one parser and a
+ * change to its shape fails them together instead of leaving one silently empty.
+ *
+ * @returns Map from config key to the set of views it affects
+ */
+function readViewScope() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const block = src.match(/VIEW_SCOPE[^=]*=\s*\{([\s\S]*?)\n\};/);
+  if (!block) {
+    console.error(`\n✗ FATAL: could not locate VIEW_SCOPE in ${relative(ROOT, VIEW_TS)}.\n`);
+    process.exit(2);
+  }
+  const body = block[1].replace(/\/\/.*$/gm, '');
+  const entry = /^ {2}([a-z0-9_]+):\s*new Set<[^>]*>\(\s*\[([^\]]*)\]\s*\)/gm;
+  const scope = new Map();
+  for (const m of body.matchAll(entry)) {
+    scope.set(m[1], new Set(m[2].replace(/['\s]/g, '').split(',').filter(Boolean)));
+  }
+  // Everything in the table has to parse. Reading only what matches would let a scoped
+  // option written in another shape (a quoted key, a spread, a computed name) drop out of
+  // both checks with nothing failing, so once the entries are removed, only separators may
+  // be left.
+  const unread = body.replace(entry, '').replace(/[\s,]/g, '');
+  if (unread !== '') {
+    console.error(
+      `\n✗ FATAL: VIEW_SCOPE in ${relative(ROOT, VIEW_TS)} holds something this script ` +
+        `cannot read, starting "${unread.slice(0, 40)}". Write each entry as ` +
+        '`key: new Set<…>([…])`, or teach readViewScope the new shape.\n',
+    );
+    process.exit(2);
+  }
+  assertFound(scope, 'VIEW_SCOPE entries', VIEW_TS);
+  return scope;
+}
+
+/**
+ * The five keys `VIEW_SCOPE` scopes to list alone, read from the source rather than
+ * listed here. A hand-written copy would silently stop covering the next one somebody
+ * scopes to list, which is the failure this project has already had in several tables.
+ *
+ * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
+ * @returns The list-only config keys
+ */
+function readListOnlyKeys(viewScope) {
+  const keys = new Set();
+  for (const [key, views] of viewScope) {
+    if (views.size === 1 && views.has('list')) keys.add(key);
+  }
+  assertFound(keys, 'list-only VIEW_SCOPE keys', VIEW_TS);
+  return keys;
+}
+
+/**
+ * Since v5 these belong inside `list:`. Writing one at the top level still *works* —
+ * that compatibility is permanent, because a YAML-mode user never opens the editor that
+ * would move it — but an example teaching the old arrangement teaches a reader to write
+ * a config the editor will silently rewrite under them.
+ *
+ * `RELEASE_NOTES.md` is exempt for the reason `AGENTS.md` gives: it records what was
+ * announced at the time and is not rewritten. `whats-new.md` is exempt on the same
+ * grounds.
+ *
+ * The check reads column 0 only, so a per-calendar `compact_events_to_show` under
+ * `entities:` is untouched — that one is an entity option and has no `list:` home.
+ *
+ * @param {string[]} docs - Every published page
+ * @param {Set<string>} listOnly - Keys from `readListOnlyKeys`
+ * @returns The number of fences inspected, so a short corpus is visible in the report
+ */
+function checkListBlockExamples(docs, listOnly) {
+  const exempt = ['RELEASE_NOTES.md', 'guide/whats-new.md'];
+  let fences = 0;
+  for (const file of [...docs, ...ROOT_PROSE]) {
+    if (isExcluded(file, exempt)) continue;
+    const rel = relative(ROOT, file);
+    const text = readFileSync(file, 'utf8');
+    // The language group is deliberately not optional: an optional one skips a `json`
+    // opener and then runs the lazy body on to the wrong closing delimiter.
+    const re = /```([a-z]*)\n([\s\S]*?)```/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m[1] !== 'yaml' && m[1] !== 'yml') continue;
+      fences++;
+      const line0 = text.slice(0, m.index).split('\n').length;
+      m[2].split('\n').forEach((line, i) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (key && listOnly.has(key[1])) {
+          error(
+            `${rel}:${line0 + 1 + i}: \`${key[1]}\` is list-only and sits at the top level — ` +
+              'move it inside a `list:` block',
+          );
+        }
+      });
+    }
+  }
+  return fences;
+}
+
+// ---------------------------------------------------------------------------
+// Check 32 — the "no effect" lists name exactly what VIEW_SCOPE withholds
+// ---------------------------------------------------------------------------
+
+/**
+ * Where each view's inert options are listed and explained. The reference list is
+ * reconciled in both directions; the feature-page section must at least name each one,
+ * since it also names the options to use instead.
+ */
+const NO_EFFECT_SURFACES = [
+  {
+    view: 'column',
+    list: '### Options With No Effect in Column View',
+    page: join(DOCS_DIR, 'features/column-view.md'),
+    section: '## 💤 Options That Do Nothing in Column View',
+  },
+  {
+    view: 'grid',
+    list: '### Options With No Effect in Grid View',
+    page: join(DOCS_DIR, 'features/grid-view.md'),
+    section: '## 🚫 Options That Do Nothing in Grid View',
+  },
+];
+
+/**
+ * The text under a heading, up to the next heading of the same or a higher level.
+ *
+ * @param {string} text - Page source
+ * @param {string} heading - The heading line, exactly as written
+ * @param {string} rel - Page path, for the error message
+ * @returns The section body, or `null` after reporting a missing heading
+ */
+function sectionBody(text, heading, rel) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) {
+    error(`${rel}: heading "${heading}" not found — Check 32 reads the inert options under it`);
+    return null;
+  }
+  const level = heading.match(/^#+/)[0].length;
+  const end = lines.findIndex(
+    (line, i) => i > start && /^#+\s/.test(line) && line.match(/^#+/)[0].length <= level,
+  );
+  return lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+}
+
+/**
+ * Both "no effect" lists went stale without a gate noticing: six all-day and spacing
+ * options were scoped away from grid in `VIEW_SCOPE`, and `event_gap` arrived scoped to
+ * list and column, and neither reached the grid list. The editor withholds exactly what
+ * `VIEW_SCOPE` says, so a list that disagrees with it disagrees with the editor too.
+ *
+ * The reference list is the first paragraph under its heading and is compared as a set,
+ * both ways: an option `VIEW_SCOPE` keeps out of the view must be listed, and a listed
+ * option must be one it keeps out. A parenthesized note after a name, such as
+ * "(card-wide and per-entity)", is ignored.
+ *
+ * @param {Map<string, Set<string>>} viewScope - From `readViewScope`
+ * @returns The number of inert options reconciled across both views
+ */
+function checkNoEffectLists(viewScope) {
+  const reference = readFileSync(REFERENCE_DOC, 'utf8');
+  const refRel = relative(ROOT, REFERENCE_DOC);
+  let reconciled = 0;
+
+  for (const { view, list, page, section } of NO_EFFECT_SURFACES) {
+    const inert = new Set([...viewScope].filter(([, views]) => !views.has(view)).map(([k]) => k));
+    assertFound(inert, `options VIEW_SCOPE keeps out of ${view} view`, VIEW_TS);
+    reconciled += inert.size;
+
+    const body = sectionBody(reference, list, refRel);
+    if (body !== null) {
+      const paragraph = body.trim().split(/\n\s*\n/)[0];
+      const listed = new Set([...paragraph.matchAll(/`([a-z0-9_]+)`/g)].map((m) => m[1]));
+      for (const key of inert) {
+        if (!listed.has(key)) {
+          error(
+            `${refRel}: "${list.replace(/^#+\s*/, '')}" omits \`${key}\`, which VIEW_SCOPE ` +
+              `keeps out of ${view} view`,
+          );
+        }
+      }
+      for (const key of listed) {
+        if (!inert.has(key)) {
+          error(
+            `${refRel}: "${list.replace(/^#+\s*/, '')}" lists \`${key}\`, but VIEW_SCOPE ` +
+              `says it affects ${view} view`,
+          );
+        }
+      }
+    }
+
+    const pageRel = relative(ROOT, page);
+    const explained = sectionBody(readFileSync(page, 'utf8'), section, pageRel);
+    if (explained !== null) {
+      for (const key of inert) {
+        if (!new RegExp('`' + escapeForRegExp(key) + '`').test(explained)) {
+          error(
+            `${pageRel}: "${section.replace(/^#+\s*\S+\s*/, '')}" never names \`${key}\`, ` +
+              `which VIEW_SCOPE keeps out of ${view} view`,
+          );
+        }
+      }
+    }
+  }
+  return reconciled;
+}
+
+// ---------------------------------------------------------------------------
 // Check 29 — absolute links into the docs site resolve to a real page and heading
 // ---------------------------------------------------------------------------
 
@@ -2830,7 +3352,468 @@ function checkAbsoluteSiteLinks(docs) {
   return checked;
 }
 
+// ---------------------------------------------------------------------------
+// Check 33 — no third-party card is named, linked or compared against
+// ---------------------------------------------------------------------------
+//
+// The rule is the maintainer's: the repository does not cite, compare against or link to
+// another Home Assistant card, anywhere — docs, comments, tests, fixtures, scripts or
+// AGENTS.md. A design is explained on its own terms. The one exception is the design credit
+// (`CARD_NAME_ALLOWED`). Home Assistant's own cards, panels and frontend components are not
+// third-party and stay out of scope, and so do themes and plugins that are not cards.
+//
+// Unlike most checks here, this one reads every file git knows about, because a mention in
+// a test comment ships in every clone just as one in the docs does.
+
+/**
+ * The shortest and longest card name the digest lists can hold, in words.
+ *
+ * Every run of adjacent words within these bounds is hashed, so a name outside them would
+ * never be looked up, and `--digest` refuses one rather than print an entry that can never
+ * match. A single word cannot be listed at all: alone it has no slug or prose form to tell a
+ * name from an ordinary word.
+ */
+const CARD_NAME_MIN_WORDS = 2;
+const CARD_NAME_MAX_WORDS = 3;
+
+/**
+ * Third-party cards the repository must not name, as digests rather than names.
+ *
+ * A list of the names in plain text would itself be the kind of mention this check
+ * forbids, so each entry is the first 16 hex digits of the SHA-256 of the name's key:
+ * lowercase, words joined by single hyphens (`cardNameKey`). A name matches in the two
+ * forms a name takes. As a slug, its words are joined by a hyphen or an underscore, in any
+ * case. In prose, its words are separated by whitespace and capitalized, though a closing
+ * `card` may stay lowercase; prose may wrap onto the next line, inside a comment too
+ * (`maskCommentMarkers`), but not across a blank line. A trailing `cards` also matches its
+ * singular. Anything else is description rather than a name and never matches: a phrase
+ * with a lowercase word in it, or a YAML `auto` that ends one line beside the key that
+ * starts the next.
+ *
+ * Print the entry for a new name with `node scripts/check-docs.mjs --digest "<name>"`,
+ * which keys it with the same function the scan uses. A name whose prose form is ordinary
+ * English, or the name of one of Home Assistant's own cards, belongs in `CARD_SLUG_DIGESTS`
+ * instead. Three cases are deliberately not caught: a one-word name, a name run together
+ * into one word, and one longer than `CARD_NAME_MAX_WORDS`.
+ */
+const CARD_NAME_DIGESTS = new Set([
+  '6abe00db58e4d5de',
+  '07aa26ae60dc35d0',
+  'bae56b6a312d5b40',
+  '4ed1b9270b346def',
+  'b665d68fd621a969',
+  '7fc530a88f7a62e6',
+  '42a47feb2f6a6b74',
+  'bce01c35ba404ceb',
+  '973e334c73ef2c3c',
+  '7ec747f4cebae9d7',
+  '98fe11c359860718',
+  '4ecd7b1ec833cb00',
+  'd48f973d104a82a0',
+  '8512af6015802752',
+  '3725a1d1c7616a53',
+  'd79a156956ddc23a',
+  '877ed1f6d2738d3f',
+  '7783a5bd24e18499',
+]);
+
+/**
+ * Third-party cards matched only as a slug.
+ *
+ * Same digests as `CARD_NAME_DIGESTS`, for names whose prose form means something else
+ * here. One is, word for word, the name of a card Home Assistant ships, which the
+ * documentation may name freely; the others are an ordinary verb and noun.
+ */
+const CARD_SLUG_DIGESTS = new Set(['04302151e66830a3', 'bf1aae7c257257e0', '412e72f0531e4632']);
+
+/**
+ * The only lines where a listed card may still be named, and how many times on each.
+ *
+ * The design credit names the card the original calendar design was built with. That is
+ * attribution, not comparison, and it stays. A mention is exempt only on the credit's own
+ * line, recognized by the digest of that line's key (`cardNameKey`), and each credit is
+ * pinned to its count in both directions. A mention anywhere else in the same file fails as
+ * it would in any other file, so a forbidden mention cannot stand in for a credited one; a
+ * credit that is edited fails too, and the error prints the digest to pin if the edit was
+ * meant.
+ */
+const CARD_NAME_ALLOWED = new Map([
+  [
+    '04302151e66830a3',
+    new Map([
+      ['NOTICE', { line: '2eada0ce45244055', count: 1 }],
+      ['README.md', { line: '5528a475d2b88c3f', count: 2 }],
+      ['docs/index.md', { line: '5528a475d2b88c3f', count: 2 }],
+      ['src/calendar-card-pro.ts', { line: 'b8d2056eaa9e2ff1', count: 1 }],
+    ]),
+  ],
+]);
+
+/**
+ * Wordings that measure this card against other cards without naming one.
+ *
+ * Written with `\s+` between their words so that they do not match their own source, and
+ * ended so that card-mod is not read as a card. A second Calendar Card Pro on the same page
+ * is the usual meaning of "another card" in this repository, which is why that phrase is
+ * not here.
+ */
+const CARD_COMPARISON_PATTERNS = [
+  /\b(?:comparable|competing|competitor(?:['’]?s)?|rival|popular)\s+(?:(?:ha|home\s+assistant|hacs|lovelace|dashboard|custom|calendar)\s+)?cards?(?![\w-])/gi,
+  /\bother\s+(?:hacs|multi-file|custom|community|lovelace)\s+cards(?![\w-])/gi,
+];
+
+/**
+ * A `custom:` type whose last word is `card`, which is how a card's type usually ends.
+ * This card's own types do not, and neither do the row, badge and feature types of plugins
+ * that are not cards. card-mod's wrapper does, and is exempt because card-mod is a styling
+ * plugin.
+ */
+const FOREIGN_CARD_TYPE = /\bcustom:(?!mod-card(?![\w-]))(?:[a-z0-9]+[-_])*cards?(?![\w-])/gi;
+
+/** A GitHub link, web or SSH, captured as owner and repository. */
+const GITHUB_REPO_LINK =
+  /\b(?:github\.com[/:]|raw\.githubusercontent\.com\/)([\w.-]+)\/([\w.-]+)/gi;
+
+/** A repository name whose last word is `card`. */
+const CARD_REPO_NAME = /(?:^|[-_.])cards?$/i;
+
+/**
+ * Whitespace between two words of a name in prose: at most one line break. Any other
+ * whitespace counts, a no-break space included.
+ */
+const PROSE_GAP = /^[^\S\r\n]*(?:\r?\n[^\S\r\n]*)?$/;
+
+/** The single character between two words of a slug. */
+const SLUG_GAP = /^[-_]$/;
+
+/**
+ * The prefix of Home Assistant's own Lovelace elements. Its frontend names a card's
+ * elements by putting it before the card's slug, sometimes with more words between, and its
+ * cards share words with listed names, so a slug anywhere inside one of these elements is
+ * never third-party.
+ */
+const HA_ELEMENT_PREFIX = 'hui';
+
+/**
+ * The key a card name is hashed under: lowercase, its words joined by single hyphens.
+ *
+ * @param text - A card name in any spelling
+ * @returns Its key
+ */
+function cardNameKey(text) {
+  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).join('-');
+}
+
+const cardNameDigests = new Map();
+
+/**
+ * The digest a key is listed under, memoized because the same phrases recur across the
+ * whole tree.
+ *
+ * @param key - A key from `cardNameKey`
+ * @returns The first 16 hex digits of its SHA-256
+ */
+function cardNameDigest(key) {
+  let digest = cardNameDigests.get(key);
+  if (digest === undefined) {
+    digest = createHash('sha256').update(key).digest('hex').slice(0, 16);
+    cardNameDigests.set(key, digest);
+  }
+  return digest;
+}
+
+/**
+ * Blanks the comment marker that opens a line — `//`, `*`, `#` or `>` — so prose wrapped
+ * inside a comment or a quote reads as one run of words. Each marker becomes as many
+ * spaces, so every index and line number still points into the original text.
+ *
+ * @param text - A file's contents
+ * @returns The same text with line-leading markers blanked
+ */
+function maskCommentMarkers(text) {
+  return text.replace(
+    /^([ \t]*)(\/\/+|\*+|#+|>+)(?=[ \t]|$)/gm,
+    (_, lead, marker) => lead + ' '.repeat(marker.length),
+  );
+}
+
+/**
+ * Every place a text names a listed card.
+ *
+ * @param text - A file's contents
+ * @param named - Digests matched as a slug or as a name in prose
+ * @param slugOnly - Digests matched only as a slug of their own
+ * @returns One entry per mention, with its index, the key it matched and that key's digest
+ */
+function findCardNames(text, named, slugOnly) {
+  const scan = maskCommentMarkers(text);
+  const words = [];
+  const starts = [];
+  for (const word of scan.matchAll(/[A-Za-z0-9]+/g)) {
+    words.push(word[0]);
+    starts.push(word.index);
+  }
+  // The text between each word and the next.
+  const gaps = words.map((word, i) => scan.slice(starts[i] + word.length, starts[i + 1]));
+
+  const capitalized = (word) => !/^[a-z]/.test(word);
+  // Where the run of slug-joined words each word belongs to begins.
+  const runStart = [];
+  for (let i = 0; i < words.length; i++) {
+    runStart[i] = i > 0 && SLUG_GAP.test(gaps[i - 1]) ? runStart[i - 1] : i;
+  }
+
+  const found = [];
+  for (let i = 0; i < words.length; i++) {
+    const haElement = runStart[i] < i && words[runStart[i]].toLowerCase() === HA_ELEMENT_PREFIX;
+    let key = words[i].toLowerCase();
+    let slug = true;
+    // Whether every gap so far is prose whitespace and every word before the last one is
+    // capitalized; the last one may also be a lowercase `card`.
+    let proseSoFar = true;
+    for (let n = 1; ; n++) {
+      const last = words[i + n - 1];
+      const prose = proseSoFar && (capitalized(last) || /^cards?$/.test(last));
+      const candidates =
+        n < CARD_NAME_MIN_WORDS ? [] : key.endsWith('-cards') ? [key, key.slice(0, -1)] : [key];
+      for (const candidate of candidates) {
+        const digest = cardNameDigest(candidate);
+        const asName = named.has(digest) && (slug || prose);
+        const asSlug = slug && slugOnly.has(digest);
+        if ((asName || asSlug) && !(slug && haElement)) {
+          found.push({ index: starts[i], key: candidate, digest });
+        }
+      }
+      if (n === CARD_NAME_MAX_WORDS || i + n >= words.length) break;
+      slug &&= SLUG_GAP.test(gaps[i + n - 1]);
+      proseSoFar &&= PROSE_GAP.test(gaps[i + n - 1]) && capitalized(last);
+      if (!slug && !proseSoFar) break;
+      key += `-${words[i + n].toLowerCase()}`;
+    }
+  }
+  return found;
+}
+
+/**
+ * Every wording in a text that measures this card against other cards.
+ *
+ * @param text - A file's contents
+ * @returns The matches, read through `maskCommentMarkers`
+ */
+function findCardComparisons(text) {
+  const scan = maskCommentMarkers(text);
+  return CARD_COMPARISON_PATTERNS.flatMap((pattern) => [...scan.matchAll(pattern)]);
+}
+
+/**
+ * Proves each matcher finds what it exists to find and passes what it must, using a
+ * made-up name, before the real scan is trusted to report a clean tree.
+ *
+ * The credit pin only exercises one path, a slug on its own line; a broken prose path
+ * would otherwise pass every run in silence.
+ */
+function selfTestCardMatchers() {
+  const probe = new Set([cardNameDigest('zz-probe-card')]);
+  const none = new Set();
+  const cases = [
+    ['a slug', 'see zz-probe-card', probe, none, 1],
+    ['a mixed-case plural slug', 'ZZ_Probe-Cards', probe, none, 1],
+    ['a name in prose', 'the Zz Probe Card', probe, none, 1],
+    ['a name in prose with a lowercase card', 'the Zz Probe card', probe, none, 1],
+    ['a name wrapped in a comment', ' * the Zz Probe\n * Card', probe, none, 1],
+    ['a name across a blank line', '## Zz Probe\n\nCard', probe, none, 0],
+    ['a phrase with a lowercase word', 'Zz probe card', probe, none, 0],
+    ['lowercase prose', 'a zz probe card', probe, none, 0],
+    ['a slug-only name as a slug', 'Zz Probe Card or zz-probe-card', none, probe, 1],
+    ['a slug-only name in a longer slug', 'lovelace-zz-probe-card', none, probe, 1],
+    ["a slug in a Home Assistant element's name", 'hui-zz-probe-card-editor', probe, probe, 0],
+    ["a slug deeper in a Home Assistant element's name", 'hui-xx-zz-probe-card', none, probe, 0],
+  ];
+  for (const [label, sample, named, slugOnly, expected] of cases) {
+    const found = findCardNames(sample, named, slugOnly).length;
+    if (found !== expected) {
+      console.error(`Check 33 self-test: ${label} matched ${found} time(s), not ${expected}.`);
+      process.exit(2);
+    }
+  }
+  if (findCardComparisons('// unlike other custom\n// cards').length !== 1) {
+    console.error('Check 33 self-test: a wrapped comparison inside a comment was missed.');
+    process.exit(2);
+  }
+  if (!CARD_REPO_NAME.test('zz-probe-card') || CARD_REPO_NAME.test('scorecard')) {
+    console.error('Check 33 self-test: a repository name ending in card was misread.');
+    process.exit(2);
+  }
+}
+
+/**
+ * Every file in the repository, tracked or new and not ignored, and which of them to read.
+ *
+ * Listed through git rather than by walking the tree, so build output, `node_modules` and
+ * local tooling that `.gitignore` excludes are never read. A file in a merge conflict is
+ * listed once per stage, hence the set. Every path is checked, since a file can be named
+ * after a card; the contents are read for text files only. `package-lock.json` is generated
+ * by npm and holds nothing a person wrote, and binaries are recognized by a NUL byte.
+ *
+ * @returns Every path, and the text files among them, relative to the root
+ */
+function repositoryFiles() {
+  let listing;
+  try {
+    listing = execFileSync(
+      'git',
+      ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+  } catch (cause) {
+    console.error(`Check 33 needs git to list the repository's files: ${cause.message}`);
+    process.exit(2);
+  }
+
+  const paths = [...new Set(listing.split('\0'))].filter(
+    (path) => path && existsSync(join(ROOT, path)) && statSync(join(ROOT, path)).isFile(),
+  );
+  const texts = paths
+    .filter((path) => path !== 'package-lock.json')
+    .filter((path) => !readFileSync(join(ROOT, path)).subarray(0, 8000).includes(0));
+  return { paths, texts };
+}
+
+/**
+ * Flags any mention of a third-party card: by name, by `custom:` type, by a link to its
+ * repository, or by a wording that compares this card against others.
+ *
+ * @returns How many files were read
+ */
+function checkThirdPartyCards() {
+  selfTestCardMatchers();
+
+  const { paths, texts } = repositoryFiles();
+  // A git listing that came back short would make every rule below pass vacuously.
+  if (texts.length < 100) {
+    console.error(`Check 33 found only ${texts.length} text files. The git listing is stale.`);
+    process.exit(2);
+  }
+
+  const lineAt = (text, index) => text.slice(0, index).split('\n').length;
+  const named = (text) => findCardNames(text, CARD_NAME_DIGESTS, CARD_SLUG_DIGESTS);
+  const allowedSeen = new Map();
+  const creditStrays = new Map();
+
+  for (const path of paths) {
+    for (const { key } of named(path)) {
+      error(`${path} is named after a third-party card ("${key}"). Rename it.`);
+    }
+  }
+
+  for (const path of texts) {
+    const text = readFileSync(join(ROOT, path), 'utf8');
+    const lines = text.split('\n');
+
+    for (const { index, key, digest } of named(text)) {
+      const line = lineAt(text, index);
+      const credit = CARD_NAME_ALLOWED.get(digest)?.get(path);
+      if (credit) {
+        const lineDigest = cardNameDigest(cardNameKey(lines[line - 1]));
+        if (lineDigest === credit.line) {
+          const site = `${digest} ${path}`;
+          allowedSeen.set(site, [...(allowedSeen.get(site) ?? []), line]);
+          continue;
+        }
+        const site = `${digest} ${path}`;
+        creditStrays.set(site, [...(creditStrays.get(site) ?? []), { line, lineDigest }]);
+      }
+      error(
+        `${path}:${line} names a third-party card ("${key}"). The repository does not ` +
+          `name, link or compare against other cards; explain the design on its own terms.`,
+      );
+    }
+
+    for (const match of text.matchAll(FOREIGN_CARD_TYPE)) {
+      error(
+        `${path}:${lineAt(text, match.index)} uses the card type \`${match[0]}\`. Only this ` +
+          `card's own type may appear.`,
+      );
+    }
+
+    for (const match of text.matchAll(GITHUB_REPO_LINK)) {
+      // A sentence can end right after the link, and a clone URL carries `.git`.
+      const name = match[2].replace(/\.+$/, '').replace(/\.git$/i, '');
+      if (!CARD_REPO_NAME.test(name)) continue;
+      error(
+        `${path}:${lineAt(text, match.index)} links to the card repository ` +
+          `${match[1]}/${name}. The repository does not link to other cards.`,
+      );
+    }
+
+    for (const match of findCardComparisons(text)) {
+      error(
+        `${path}:${lineAt(text, match.index)} compares against other cards ` +
+          `("${match[0].replace(/\s+/g, ' ')}"). Explain the design on its own terms.`,
+      );
+    }
+  }
+
+  for (const [digest, sites] of CARD_NAME_ALLOWED) {
+    for (const [path, { count }] of sites) {
+      const onCredit = allowedSeen.get(`${digest} ${path}`) ?? [];
+      const seen = onCredit.length;
+      if (seen === count) continue;
+      const strays = creditStrays.get(`${digest} ${path}`) ?? [];
+      const offLines = [...new Map(strays.map((s) => [s.line, s.lineDigest]))];
+      let advice;
+      if (seen > count) {
+        advice =
+          `They are on lines ${onCredit.join(', ')}, each reading as the credit. The extra ` +
+          'mentions have to go; raise the count only if the credit itself now names the card ' +
+          'more often.';
+      } else if (offLines.length) {
+        advice =
+          `Mentions off the pinned line: ` +
+          offLines.map(([line, lineDigest]) => `line ${line} (digest '${lineDigest}')`).join(', ') +
+          `. Every one of them fails on its own. If one of those lines is the credit, edited ` +
+          `on purpose, pin that line's digest in CARD_NAME_ALLOWED; never pin any other.`;
+      } else {
+        advice = 'Restore the credit, or update CARD_NAME_ALLOWED if it was removed on purpose.';
+      }
+      error(
+        `${path}: the design credit should name its card ${count} time(s) on its own ` +
+          `line, found ${seen}. ${advice}`,
+      );
+    }
+  }
+
+  return texts.length;
+}
+
+/**
+ * `--digest "<name>"`: print the digest entry for a card name, for either digest set.
+ *
+ * @param name - The name, in any spelling
+ * @returns Process exit code
+ */
+function printCardNameDigest(name) {
+  const key = cardNameKey(name ?? '');
+  const words = key ? key.split('-').length : 0;
+  if (words < CARD_NAME_MIN_WORDS || words > CARD_NAME_MAX_WORDS) {
+    console.error(
+      `Pass a name of ${CARD_NAME_MIN_WORDS} to ${CARD_NAME_MAX_WORDS} words. A longer one ` +
+        `needs CARD_NAME_MAX_WORDS raised first, or the scan never looks it up.`,
+    );
+    return 2;
+  }
+  console.log(`'${cardNameDigest(key)}',`);
+  return 0;
+}
+
 function main() {
+  const digestFlag = process.argv.indexOf('--digest');
+  if (digestFlag !== -1) process.exit(printCardNameDigest(process.argv[digestFlag + 1]));
+
   const defaults = readDefaults();
   const rows = readReferenceRows();
   const fields = readConfigFields();
@@ -2840,11 +3823,16 @@ function main() {
   checkDefaults(defaults, rows, buildConstantResolver());
   checkColumnDefaults(readColumnDefaults(), readColumnRows());
   checkColumnDefaultOverrides(readColumnDefaultOverrides());
+  const gridDefaults = checkGridDefaultOverrides(
+    readDefaultOverrides('TIME_GRID_DEFAULT_OVERRIDES'),
+  );
   checkWeatherScopes(readWeatherScopeDefaults(), readWeatherScopeRows(), fields);
+  checkToolbarDefaults(readToolbarDefaults(), readToolbarRows());
   checkCoverage(fields, docs);
   checkFences(docs);
   checkSilentMarkdown(docs);
   const complete = checkCopyableExamples(docs);
+  const configVersion = checkConfigVersion();
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
   const links = checkInternalLinks(docs);
@@ -2854,7 +3842,7 @@ function main() {
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
   checkPageIntros(docs);
-  checkSpelling(docs);
+  checkSpelling([...docs, ...ROOT_PROSE]);
   checkOptionTables(docs);
   checkOptionNoun(docs);
   checkCrossLinks(docs);
@@ -2871,8 +3859,12 @@ function main() {
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
+  const viewScope = readViewScope();
+  const listFences = checkListBlockExamples(docs, readListOnlyKeys(viewScope));
+  const inertOptions = checkNoEffectLists(viewScope);
   const citations = checkCitations();
   const languages = checkLanguageCounts();
+  const thirdParty = checkThirdPartyCards();
 
   process.exit(
     report({
@@ -2887,13 +3879,18 @@ function main() {
       gates,
       enums,
       sentinels,
+      gridDefaults,
       runtimeEnums,
       removed,
       reachable,
       themed,
       citations,
+      listFences,
+      inertOptions,
       languages,
       readmeAnchors,
+      thirdParty,
+      configVersion,
       version,
     }),
   );

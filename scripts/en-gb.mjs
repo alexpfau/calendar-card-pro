@@ -80,7 +80,7 @@ export const SUBSTITUTIONS = [
   ['maneuver', 'manoeuvre'],
 ];
 
-/** Applies the replacement with the source's capitalisation, so Title Case survives. */
+/** Applies the replacement with the source's capitalization, so Title Case survives. */
 const matchCase = (source, replacement) =>
   source[0] === source[0].toUpperCase()
     ? replacement[0].toUpperCase() + replacement.slice(1)
