@@ -6,11 +6,11 @@ title: Release Notes
 
 ![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)
 
-🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
-
 **This one changes what Calendar Card Pro is.** 🎉 v5 brings grid view to your calendar and makes the card something you can act on, and with that it answers more than twenty feature requests, some of them open since March 2025. A lot of work went into it, and I wanted it to be truly polished on release day rather than soon after. Thank you to everyone who asked, waited, tested and contributed along the way.
 
 Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The card is also no longer only something to look at: add an event, tap one to read, change or delete it in Home Assistant's own dialogs, and page through the dates or switch between list, columns and grid from a toolbar on the card. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
+
+🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 A few defaults change whichever layout you use, so they come first. 👇
 
