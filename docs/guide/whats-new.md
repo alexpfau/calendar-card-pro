@@ -8,7 +8,7 @@ public release in January 2025 to today.
 
 ## Latest Release: v5.0
 
-🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+🎬 Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 - 🗓️ **Grid View**: Set [`view: grid`](/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. An event that starts inside a longer one is drawn on top of it, the way your calendar app draws a day, and when more events start together than will fit side by side the rest collapse into a counted `+N` block. All-day events span their included dates in a band above the axis, while timed multi-day events stay on the hour grid
 - 🕒 **A Line Across Today**: [`show_now_line`](/features/grid-view) marks the current time on today's column only, and only while it falls inside the hours you draw, running over the event under way and under its text

@@ -16,6 +16,10 @@ The same wall, switched to Columns on the toolbar. Each day is a column of tinte
 
 And the same card on a phone, switched to List, and in a dashboard section, where Grid shows three days and the calendar chips fold into the filter button.
 
+::: tip Watch It on Video
+Smart-Live's video review of v5, in German, shows grid view on a family calendar: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+:::
+
 ## 📋 Copy the Card
 
 Replace the `calendar.*` ids with your own calendars, each `person.*` label with someone from **Settings → People**, and `weather.home` with your weather entity:

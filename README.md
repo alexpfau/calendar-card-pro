@@ -6,6 +6,14 @@
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_landing.png" alt="Calendar Card Pro for Home Assistant: a family's week in grid view, under a toolbar with a layout switcher and a chip for each calendar" width="100%">
 
+## 🎬 Video Review
+
+[![Watch the v5 video review on YouTube](https://img.shields.io/badge/Watch_the_v5_Video_Review-Smart--Live%2C_in_German-c4302b?style=for-the-badge&logo=youtube&logoColor=white&labelColor=282828)](https://youtu.be/ptXdis8WHXo)
+
+Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+
+<p>&nbsp;</p>
+
 ## ☕ Support This Project
 
 If you find **Calendar Card Pro** useful, consider supporting its development:
@@ -151,7 +159,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 ### Latest Release: v5.0
 
-🎬 Smart-Live made a video about v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
+🎬 Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
 - 🗓️ **Grid View**: Set [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs. An event that starts inside a longer one is drawn on top of it, the way your calendar app draws a day, all-day events span their dates in a band above the axis, and a line marks the current time on today's column
 - 🧰 **A Toolbar on the Card**: [`toolbar: { show: true }`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar) adds the card's own controls to its header: page through the dates, switch between List, Columns and Grid, show or hide each calendar, and refresh, each device remembering its own choices. `reset: true` adds a button that puts a shared wall tablet back the way it is set up
