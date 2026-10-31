@@ -28,6 +28,7 @@ import deEditor from './de.json';
 import enGBEditor from './en-GB.json';
 import etEditor from './et.json';
 import itEditor from './it.json';
+import koEditor from './ko.json';
 import ltEditor from './lt.json';
 import lvEditor from './lv.json';
 import nbEditor from './nb.json';
@@ -48,6 +49,7 @@ export const EDITOR_LANGUAGE_STRINGS: Readonly<Record<string, Readonly<Record<st
   'en-gb': enGBEditor,
   et: etEditor,
   it: itEditor,
+  ko: koEditor,
   lt: ltEditor,
   lv: lvEditor,
   nb: nbEditor,

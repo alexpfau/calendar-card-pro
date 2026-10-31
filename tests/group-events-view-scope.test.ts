@@ -11,7 +11,7 @@ import * as EventUtils from '../src/utils/events';
  * Roughly a dozen override-capable options are read inside the function and its
  * helpers. Before this, some went through a resolver and the rest read the
  * config directly, so a caller that passed a raw config got a mix: a few
- * options honoured the `column:` block and the others quietly ignored it. Every
+ * options honored the `column:` block and the others quietly ignored it. Every
  * production call site did pass the resolved config, so nothing was visibly
  * broken — but that is a property of the callers, not of the function, and it
  * is the same shape as the multi-day splitting defect that *was* reachable.
@@ -48,7 +48,7 @@ describe('groupEventsByDay resolves the column block itself', () => {
     vi.setSystemTime(FROZEN_NOW);
   });
 
-  it('honours a column empty_day_text override on a raw config', () => {
+  it('honors a column empty_day_text override on a raw config', () => {
     const config = buildConfig({
       view: 'column',
       days_to_show: 2,
@@ -66,7 +66,7 @@ describe('groupEventsByDay resolves the column block itself', () => {
     expect(summaries([], config, 'list')).toContain('TOP');
   });
 
-  it('honours a column show_past_events override on a raw config', () => {
+  it('honors a column show_past_events override on a raw config', () => {
     const config = buildConfig({
       view: 'column',
       days_to_show: 2,

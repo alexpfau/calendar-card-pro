@@ -4,8 +4,8 @@
  * ## Why this file exists
  *
  * Both views paint two things directly onto the event element's `style` attribute
- * rather than through a CSS custom property: the per-calendar accent border and the
- * event background colour that `event_background_opacity` turns on. The two bindings
+ * rather than through a stylesheet rule: the per-calendar accent bar color and the
+ * event background color that `event_background_opacity` turns on. The two bindings
  * are written out character-for-character identically in `render.ts` (list) and
  * `column.ts` (column).
  *
@@ -61,29 +61,32 @@ describe('column view inline style bindings', () => {
     vi.useRealTimers();
   });
 
-  describe('the per-calendar accent border', () => {
-    it('paints the configured accent colour onto the column event', () => {
-      expect(eventStyle('column', { accent_color: '#ff0000' })).toContain('solid #ff0000');
+  describe('the per-calendar accent bar color', () => {
+    const BAR = '--calendar-card-event-accent-bar-color: #ff0000';
+
+    it('paints the configured accent color onto the column event', () => {
+      expect(eventStyle('column', { accent_color: '#ff0000' })).toContain(BAR);
     });
 
-    it('paints the same accent colour onto the list event', () => {
+    it('paints the same accent color onto the list event', () => {
       // Control: already covered by the list DOM snapshot, so a failure here means the
       // assertion shape is wrong rather than the column view being broken.
-      expect(eventStyle('list', { accent_color: '#ff0000' })).toContain('solid #ff0000');
+      expect(eventStyle('list', { accent_color: '#ff0000' })).toContain(BAR);
     });
   });
 
-  describe('the event background colour', () => {
+  describe('the event background color', () => {
+    // The default accent is the theme's primary color, a `var()` the card cannot resolve to
+    // channels, so the tint is a color-mix of it rather than an rgba() of a hex value.
+    const THEMED_TINT =
+      'background-color: color-mix(in srgb, var(--primary-color, #03a9f4) 50%, transparent)';
+
     it('draws a background on the column event once an opacity is configured', () => {
-      expect(eventStyle('column', { event_background_opacity: 50 })).toContain(
-        'background-color: #03a9f4',
-      );
+      expect(eventStyle('column', { event_background_opacity: 50 })).toContain(THEMED_TINT);
     });
 
     it('draws the same background on the list event', () => {
-      expect(eventStyle('list', { event_background_opacity: 50 })).toContain(
-        'background-color: #03a9f4',
-      );
+      expect(eventStyle('list', { event_background_opacity: 50 })).toContain(THEMED_TINT);
     });
 
     it('leaves the column background empty at the default opacity', () => {

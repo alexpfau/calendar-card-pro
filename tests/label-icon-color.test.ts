@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { renderLabel } from '../src/rendering/leaves';
 
 /**
- * Whether the per-entity `label_icon_color` option actually colours anything.
+ * Whether the per-entity `label_icon_color` option actually colors anything.
  *
  * The option is normalized in `config.ts`, offered in the visual editor and covered by
  * three test files -- but every one of them stops at the config object. Nothing asserted
- * that the colour reaches the DOM, so deleting the label's entire style attribute left the
+ * that the color reaches the DOM, so deleting the label's entire style attribute left the
  * whole suite green while making the option inert.
  *
  * The scoping is asserted alongside the effect, because it is a real documented rule rather
@@ -48,7 +48,7 @@ describe('label icon color', () => {
 
   it('leaves an icon label unstyled when no color is configured', () => {
     // Paired absence: proves the assertion above is reading the configured value
-    // rather than a colour the icon would have carried regardless.
+    // rather than a color the icon would have carried regardless.
     const node = renderLabelNode('mdi:home');
 
     expect(node.tagName.toLowerCase()).toBe('ha-icon');

@@ -19,15 +19,16 @@ additional_card_spacing: '10px'
 
 The card offers two distinct height control mechanisms:
 
-- **Fixed Height (`height`)**: Creates a card with exactly the specified height regardless of content amount. This is ideal when you need a card that perfectly fits a specific dashboard layout.
+- **Fixed Height (`height`)**: Creates a calendar content area with exactly the specified height regardless of content amount. The full card also includes its header and card padding, so use the dashboard's layout controls when its outer height must fit a specific space.
 
-- **Maximum Height (`max_height`)**: Allows the card to grow naturally up to the specified limit. This provides flexibility while still ensuring the card doesn't become too large.
+- **Maximum Height (`max_height`)**: Allows the calendar content area to grow naturally up to the specified limit. This provides flexibility while still ensuring its event content does not become too large.
 
-Both options provide:
+In list and column views, both options scroll when content exceeds the available space.
+In grid view a fixed `height` compresses the time axis instead — see
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
 
-- Automatic scrolling when content exceeds the available space
-- Modern, clean scrollbars that only appear during hover/scrolling
-- Consistent behavior across desktop and mobile browsers
+Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
+same on desktop and mobile.
 
 ### Height in Column View
 
@@ -46,15 +47,45 @@ column:
 
 What scrolls is the **whole card**, not an individual day. The columns sit inside one
 scrolling area, so the day headers move together with their events and nothing scrolls out
-of alignment with its neighbors. The grid is exactly as tall as its tallest day, which
-means a quiet day leaves empty space beneath its last event rather than stretching to
-match — the events stay anchored under their header.
+of alignment with its neighbors. The column layout is exactly as tall as its tallest day,
+which means a quiet day leaves empty space beneath its last event rather than stretching
+to match — the events stay anchored under their header.
 
 ::: tip Sizing From The Dashboard Instead
 Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
 too, and they scroll it the same way. Use them when a row height is precise enough;
 reach for `max_height` when you want an exact pixel value, or a different limit per view.
 :::
+
+### Height in Grid View
+
+A fixed `height` here compresses the time axis rather than scrolling. Hours, events, and
+the now line are all positioned as a share of the band, so they squeeze into whatever
+room the calendar content area has left after the day headers and the all-day band.
+`hour_height` stops applying. The header and card padding sit outside that area, so use
+the dashboard's layout controls when the outer card needs a particular size.
+
+The time body retains at least half the configured content height, and a tall all-day band
+scrolls in whatever the day headers leave above it. That remainder shrinks as the card
+does: around `180px` the band is down to a row or two, and below about twice the header
+height it is a sliver — its events are still scrollable rather than dropped, but only a
+scroll gesture or the keyboard will reach them, and the time axis starts to be clipped by
+the bottom of the card.
+
+`max_height` still caps and scrolls, the same as in the other views.
+
+Both options may be overridden inside a `time_grid:` block. A height tuned for a list of
+events is the wrong size for a compressed axis, for the same reason a list height is
+usually wrong for columns.
+
+```yaml
+view: grid
+height: 400px # List and column view
+time_grid:
+  height: 600px # Grid view only
+```
+
+**→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
 
 ## 🎨 Visual Styling & Colors
 
@@ -69,10 +100,19 @@ background_color: 'var(--ha-card-background)'
 
 # Event appearance
 event_background_opacity: 15 # 0-100 scale for background color intensity
-vertical_line_width: '3px' # Width of the colored event indicator line
+vertical_line_width: '3px' # Width of the accent bar beside each event
 ```
 
-The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0, the default in list and column view, events have no background color; grid view [starts at 20](/features/grid-view#options-that-start-from-a-different-default). Higher values create more intense backgrounds. With a background, each day's events form one block with rounded corners, and every event has its own accent bar inside it, 4px in from the edge, its rounded ends kept clear of the block's corners. Without one, the bar is the day's edge: the bars of touching events join into one line, changing color where one calendar's event meets another's, and only the day's top and bottom ends are rounded. To give each event a bar of its own without a background, set [`event_gap`](#gaps-between-events); even `1px` does it.
+
+`vertical_line_width` sets how wide the bar is, and `0px` hides it. It takes a CSS length, and `thin`, `medium` and `thick`, which mean `1px`, `3px` and `5px`, and `none`, which hides it like `0px`; anything else falls back to `2px`. The bar's ends are rounded at any width and in every view, and grid view draws it 3px inside each block.
+
+`title_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do. A value that is not one is ignored,
+and the title keeps Home Assistant's card header size.
+
+The header can also hold a [toolbar](#header-toolbar) with arrows to page through the dates,
+a view switcher and an add-event button.
 
 When styling your calendar, you can use:
 
@@ -80,11 +120,349 @@ When styling your calendar, you can use:
 - Home Assistant theme variables (`var(--primary-color)`)
 - Named colors (`red`, `blue`)
 
+`accent_color` follows your theme's primary color by default, `var(--primary-color, #03a9f4)`,
+so a calendar you have not colored takes a custom theme's accent. Set it card-wide, or for one
+calendar in its `entities` entry, to choose a color yourself.
+
+::: warning Changed In v5
+Before v5, `accent_color` and `today_indicator_color` were a fixed `#03a9f4`, and the
+week-number pill and week separator a fixed `#03a9f450`. To keep the old blue, add
+`accent_color: '#03a9f4'` to your card or to a calendar's entry, `today_indicator_color: '#03a9f4'`,
+and `'#03a9f450'` for `week_number_background_color` and `week_separator_color`.
+:::
+
 `accent_color` accepts one more value: `home-assistant`, which follows the color Home
 Assistant holds for each calendar instead of a color you pick here. Named colors such as
 `red` are unaffected and still mean the CSS color.
 
 **→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — how to set it, and what happens for calendars that have no color.
+
+## 🧰 Header Toolbar
+
+The card can carry a toolbar of its own controls in its header: a
+[filter for the card's calendars](#showing-hiding-calendars), a button for adding events, a view
+switcher between the List, Columns and Grid layouts, a button that
+[resets the card](#resetting-the-card) to how it is set up, arrows to
+[page through the dates](#paging-through-dates), and a button that
+[loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
+control in it except reset:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+```
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub_screens.png" alt="One card with its toolbar at two widths: a phone in List with pictograms for the layouts and a Reset button, and a dashboard section in Grid with the calendars folded into the filter button"><br>
+
+The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. On the phone the switcher shows pictograms, and Reset appears once the layout has been switched; in the section the calendar chips fold into the filter button. On the wall, with room for them, they are chips.
+
+With the toolbar on, the header is two rows above the events. The top row holds the actions:
+the calendar filter and the add button at its start, the view switcher in its middle, and
+refresh at its end, after reset when that is on. The row under it names the month
+the days on screen start in, with smaller arrows at its end, level with the month's letters, and
+the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
+`title_color` style it rather than the title. Its month's name is bold and the year beside it
+regular, in whichever order the card's language writes them. A card without a title has no label
+over the month. The top row is left out while it holds no control, and a toolbar with every control
+turned off draws nothing at all. With the toolbar off, the header is exactly what it always was.
+
+Each control is a neutral gray pill, so the toolbar never competes with the events for
+attention. Color shows only on the control in use: the card's accent, as on the card's own
+hover, while the pointer is over it or it is pressed, and the theme's primary color as a ring
+around the one a keyboard has focused. The top row's controls are 36px tall and the month's row's
+24px, in proportion to the month beside them, and every one answers a press 44px tall, the size
+touch guidelines ask for. The month answers across its words and its arrow, and a little below
+them, but hardly above, so a press on the title over it still reaches the card.
+
+Each control is either an icon or words, never both. The top row's commands, the calendar
+filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip.
+The view switcher names its layouts in words, List, Columns and Grid, wherever the card is wide
+enough for them beside the commands, and shows a pictogram for each where it is not, with the
+name as its tooltip. In English the words fit from a 248px card with the switcher alone, plus 36px
+for each command and 8px between two; a language with longer words keeps the pictograms until
+they fit. The month and the calendar chips are always words, and the arrows and the home button
+are always icons.
+
+Each control can be turned on or off inside the block. `show: false` hides the whole toolbar and
+keeps those choices for when it is turned back on:
+
+```yaml
+toolbar:
+  show: true
+  reset: false
+```
+
+### Paging Through Dates
+
+The date navigation puts arrows back and forward at the end of the month's row, on either side of a button
+home. It is on whenever the toolbar is:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.ben
+days_to_show: 7
+start_date: start_of_week
+toolbar:
+  show: true
+```
+
+The arrows move by as many days as the card shows, a week here. Columns and Grid draw fewer
+days on a narrow card, and the arrows then move by the days drawn, so no day is ever skipped.
+A layout with its own `days_to_show` pages by its own count.
+The button between them returns to the days the card opens with, the window its
+[`start_date`](/features/start-date-offset) sets. It is a house, named "Today" in its
+tooltip, or, when that window does not include today (`start_date: today+7`, a fixed date), by
+the day it starts on. A house rather than the word "Today", because home is not always today.
+A press that brings the card back fills the house in green for a moment, as reset and refresh
+show a check, so it is clear the press worked.
+
+The month names the page by its first day, as a desktop calendar's week view does: the week of
+November 30 to December 6 reads "November 2026". The exact dates on screen are its tooltip, and
+what a screen reader announces after each press. The month opens the browser's own date picker,
+and pressing it again closes it. Picking a day shows the page that holds it, lined up with the
+card's own pages, so a week card still starts its week on the usual day. The picker is the
+browser's, so it speaks the browser's language rather than the card's.
+
+The arrows keep to the end of the row in every layout, so a press on next lands on the same spot
+page after page, however long each month's name is. Where the month in full does not fit beside
+them, every month takes the language's short form ("Nov 2026"), and on a card narrower still the
+month is cut short. Which form is
+drawn follows the card's width and language, never the month on screen, so paging never changes
+it. `navigation: false` takes the arrows away and leaves the month as plain text.
+
+A few things work differently away from the days the card opens with:
+
+- **Events that have ended are shown,** dimmed as usual, even with `show_past_events: false`.
+  Looking back at last week is the point of paging there.
+- **`hide_when_empty` does not hide the card,** so a card paged to an empty week keeps its
+  arrows. It hides the card on its own days, as it always has.
+- **The add button suggests the first day on screen,** unless the page includes today.
+
+Where you are is never saved. A reload, a change to the card's configuration, a dashboard
+entering edit mode and the [reset button](#resetting-the-card) all bring the card back to its own days, and a page stays on its dates at
+midnight while those move on. Switching layouts keeps the page's first day, shows the new
+layout's own number of days from it, and loads nothing. Each page's
+events are fetched the first time it is shown and kept in memory while the dashboard is open,
+the 16 most recent pages, never in the browser's storage. Paging back over a recent page is
+instant and leaves nothing behind; an older one is fetched again.
+
+::: tip Nothing Pages While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the date navigation is drawn but
+does nothing, and the card shows the days it opens with.
+:::
+
+### Switching Between Layouts
+
+The view switcher changes the layout on the dashboard without editing the card. The
+configured `view` stays the layout the card opens with, and each device remembers its own
+switch in the browser, so a wall tablet can show Grid while a phone keeps List. The choice is
+never written to the configuration, and editing the card resets every device to its `view`;
+the [reset button](#resetting-the-card) does the same for one device.
+The choice belongs to the configuration it was made for, though, so a card changed back to
+exactly what it was finds it again.
+
+That means the whole configuration, including the layout keys a dashboard stores with the
+card, so resizing the card in a sections dashboard also starts it at `view` again. Two cards
+with identical configurations share one choice. A browser keeps at most 50 choices and drops
+the oldest first, and a browser that refuses storage keeps the choice only while the page
+stays open.
+
+Every layout starts on the same date, and the card does not reload its events to switch.
+`start_date` is shared by all three. `days_to_show` is too, unless a layout sets its own in
+its block — say 14 days in List and 7 in Grid. The card then loads the longest of them once
+and each layout draws the first of those days; see
+[Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+List draws every one of its days; Columns and Grid draw as many as
+fit the card's width, as close to today as the range allows, or from the first day of a page
+the date navigation has moved to. Options set for one layout in its own `list:`,
+`column:` or `time_grid:` block come with it.
+
+Columns and Grid need room. A layout that cannot fit at the card's current width — Columns
+on a phone, by default — is dimmed in the switcher, and returns when the card is wide enough
+again, for example when a tablet is turned. If the layout a device remembers no longer fits,
+the card shows List and the switcher marks it; once there is room again the remembered
+layout comes back. When only one layout fits, there is no switcher at all. See
+[Column View](/features/column-view) and [Grid View](/features/grid-view) for how much room
+each needs.
+
+The card's height follows its layout, so other cards on the dashboard may move when it
+switches.
+
+::: tip Nothing Switches While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the card shows its configured
+`view` and a press on the switcher does nothing. To try another layout there, change
+**Card Displays** in the editor.
+:::
+
+### Refreshing the Events
+
+The refresh button loads the events again now, rather than at the next `refresh_interval`. It
+is on whenever the toolbar is, and `refresh: false` takes it away:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  refresh: false
+```
+
+It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".
+It asks Home Assistant for every calendar on the card, even when the events the card holds are
+recent, which is how to pick up a change made somewhere else without reloading the dashboard.
+While the card loads, for whatever reason, the button's icon turns, and the small spinner the
+card otherwise shows in its corner is left out, since it would sit right beside it. A load the
+card starts by itself, such as a week it has not shown yet, turns the icon only once it has
+lasted a moment, so one that is over at once does not flicker it. After a press
+it turns for at least one full turn, however quickly the events arrive, so a fast network still
+shows that something happened. Then, for a moment, the button turns green and shows a check, or
+red with an alert where a calendar could not be loaded, and the card names that calendar at its
+foot as it always does. A press does nothing until the button is itself again, nor while the card
+is loading by itself.
+
+The same refresh is available as a [tap or hold action](/features/actions#refreshing-from-a-tap-or-hold),
+for a card that should not carry a button.
+
+### Showing & Hiding Calendars
+
+The calendar filter hides or shows each calendar's events on this device. It is on whenever the
+toolbar is, as a button at the start of the top row that opens a menu with a checkbox for each
+calendar on the card, tinted in that calendar's color and named as Home Assistant names it. A
+calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
+first entry.
+
+`legend: chips` shows the calendars as chips instead, one for each, in the row with the month,
+centered under the view switcher:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - entity: calendar.anna
+    accent_color: '#e53935'
+  - entity: calendar.ben
+    accent_color: '#1e88e5'
+  - calendar.family
+toolbar:
+  show: true
+  legend: chips
+```
+
+The chips are the key to the colors on the events below, and each is also a switch: a press hides
+that calendar's events and turns its chip gray, and another press shows them again. A long name
+is cut short with an ellipsis, and shows in full as the chip's tooltip. The chips sit in the middle
+of the card while there is room for that, and move toward the arrows where there is not, as the
+view switcher above them does. The month keeps the room of its longest name while they show, so
+paging never moves them.
+
+The chips show only where all of them fit between the month and the arrows. Where they do not, the
+card draws exactly what `legend: menu` draws, the filter button back at the start of the top row,
+never some of the chips. They come back once the card is wide enough for them again, as when a
+tablet is turned.
+
+The menu closes on a press outside it, Escape, a scroll or a change in the card's width. The
+button carries a dot while any calendar is hidden, so a card filtered behind a closed menu still
+says so. `legend: false` takes the filter away.
+
+Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
+and named if they fail to load, so a press redraws at once and costs no request. Everything that
+counts events counts only those of the calendars shown:
+
+- **Duplicates.** With `filter_duplicates`, an event two calendars share is drawn from the first
+  calendar shown, so hiding the one that drew it hands it to the next instead of removing it.
+- **Compact limits.** `compact_events_to_show` and `compact_days_to_show` are filled from the
+  calendars shown, so hiding one lets more of the others in.
+- **`hide_when_empty`** acts only while every calendar is shown. A card emptied by the filter
+  stays, with its filter, so the calendars can be brought back.
+
+Each device remembers which calendars it hides, the way the
+[view switcher](#switching-between-layouts) remembers its layout: in the browser, for this
+configuration of the card. A change to the card's configuration shows every calendar again on
+every device, and a configuration changed back to exactly what it was finds its hidden calendars
+again; opening the editor and closing it without a change forgets nothing. The
+[reset button](#resetting-the-card) shows them all again on one device. Two cards with the
+same configuration share their hidden calendars, and a press on either changes both at once.
+Paging and switching layouts keep them.
+
+::: tip Nothing Hides While You Edit
+In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
+chips and the filter button do nothing.
+:::
+
+### Resetting the Card
+
+The reset button undoes, in one press, every choice made on this device. It is for a card
+several people share, such as a wall tablet, where a week someone paged to or a calendar someone
+hid would otherwise stay for whoever walks up next. It is off unless you turn it on:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  reset: true
+```
+
+On a card only you use, leave it off: a layout you pick on the view switcher is your preference
+for that device, and the button would otherwise keep offering to undo it.
+
+One press brings back all of these at once:
+
+- **The days the card opens with,** from any page the arrows or the date picker reached, as the
+  home button does.
+- **The configured `view`,** from a layout the [view switcher](#switching-between-layouts)
+  picked. Where the card is too narrow for it, List stands in for it, as it always does.
+- **Every calendar,** from any the [calendar filter](#showing-hiding-calendars) hid.
+- **A compact card collapsed,** after a tap or hold with the
+  [`expand` action](/features/actions#expandable-calendar-card) opened it.
+
+The button sits at the end of the top row, before refresh when that is on. It
+shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
+how it is set up, the button is hidden, and it appears the moment something is changed, so a
+glance at the card says whether someone left it on a choice of their own. It keeps its place while
+hidden, so nothing in the toolbar moves when it appears. A press shows a check for a second, as
+refresh does after a reload, then the button fades away. Where it is the only control in the top
+row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card with
+something it could undo: the date navigation, the view switcher, the calendar filter, or an
+`expand` action.
+
+What the device remembered, its layout and its hidden calendars, is forgotten on that device
+only. Another card with the same configuration shows every calendar again at once, as it does
+after a press on the filter; its layout stays until that card is reset, reloaded or edited.
+Nothing is loaded again for the layout or the calendars, and the card's own days are drawn from
+what it already holds unless they are due for a refresh anyway.
+
+The card never goes back by itself. A layout and hidden calendars stay until someone presses
+the button or the card is edited, and a page until then or a reload.
+
+::: warning Its Name Needs Home Assistant 2026.2
+The button takes its name from Home Assistant, which has had a word for "Reset" since 2026.2.
+On an older version it is the same icon without a tooltip, and screen readers hear it in
+English. Nothing else in the toolbar changes.
+:::
+
+::: tip Nothing Resets While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the button is hidden and does
+nothing, like every other control in the toolbar there. What each device remembers is kept for
+when editing ends.
+:::
+
+The add button is described under [Add Event Button](/features/actions#add-event-button).
+The toolbar's options are listed under [Header](/reference/configuration#header) in the
+configuration reference.
 
 ## 📏 Spacing & Alignment
 
@@ -93,10 +471,12 @@ Fine-tune the spacing and alignment of your calendar elements:
 ```yaml
 # Spacing between elements
 day_spacing: '8px' # Space between different calendar days
+event_gap: '6px' # Space between the events of one day
 event_spacing: '6px' # Internal padding within each event
 
-# Date column alignment
-date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+list:
+  # Date column alignment
+  date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 # Event icon alignment
 event_icon_vertical_alignment: 'middle' # Options: 'top', 'middle', 'bottom'
@@ -109,6 +489,30 @@ The `date_vertical_alignment` option controls how dates align with their events,
 ::: warning Changed In v4
 This option defaulted to `middle` before v4. Rows wrap often enough — a long address, a description, or a time row carrying a [countdown](/features/column-view#progress-bar-countdown) in a narrow column — that centering left the icon level with neither line of text. Add `event_icon_vertical_alignment: 'middle'` to your card to keep the old behavior.
 :::
+
+### Gaps Between Events
+
+A day's events normally touch, so they read as one block beside their date. `event_gap` holds each event apart from the next instead, which helps most when several events in a row share a calendar color and their accent bars run together into one line:
+
+```yaml
+event_gap: 6px
+event_background_opacity: 15
+```
+
+Each event then becomes a block of its own, with an accent bar of its own. With [`event_background_opacity`](#visual-styling-colors) above 0 every event rounds all four of its corners, where the joined block rounds only the top of its first event and the bottom of its last, and its bar keeps clear of all four. That is how grid view draws an event, so a card shows a separate event the same way in every view. Without a background the bars that joined into one line now break between the events, each stopping just short of its event's top and bottom.
+
+`event_gap: 1px` is the smallest way to have that: the events stand 1px apart, which you will hardly see without a background, and each has its own bar. It is a real gap all the same, so each event also becomes a tap and hover target of its own, with nothing to tap in between. The gap falls only between two events, never above the first or below the last, so the space between days is still `day_spacing` alone and every separator stays where it was.
+
+`event_gap` takes any CSS length, such as `6px`, `0.5em` or a `calc()`. The default, `0px`, keeps the joined block, and a negative length counts as `0px`. It applies in list and column view, and each of the two can set its own inside `list:` or `column:`. Grid view places every event by its time and ignores it:
+
+```yaml
+column:
+  event_gap: 4px # Gaps in column view only; list view keeps the joined block
+```
+
+`event_gap` is the space between events. The space above and below the text inside each event is `event_spacing`. In the editor, **Event Gap** sits in the **Layout** panel between **Day Spacing** and **Event Spacing**, in every workspace except Grid.
+
+In list view, a gap also changes how the days read. Once the events stand apart, the space between two of them is close to the `day_spacing` between two days, and the days run together. A one-pixel day rule, `day_separator_width: 1px` inside `list:`, keeps them apart; the [Family Agenda](/guide/one-calendar-many-purposes#one-voice-for-the-whole-card) story shows the two together.
 
 ## 📅 Week Numbers & Visual Separators
 
@@ -123,7 +527,7 @@ first_day_of_week: 'monday' # 'monday', 'sunday', or 'system'
 # Week number styling
 week_number_font_size: '12px'
 week_number_color: 'var(--primary-text-color)'
-week_number_background_color: '#03a9f450'
+week_number_background_color: '#e67c7350'
 
 # Separator configuration
 day_separator_width: '1px' # Line between days
@@ -134,7 +538,16 @@ month_separator_width: '3px' # Line between months
 month_separator_color: '#03a9f4'
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers.png" alt="Week Numbers" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_4_week_numbers_v5.png" alt="Week Numbers" width="600"><br>
+
+`week_number_font_size` takes any CSS font size, as the
+[date column's font sizes](#date-column-customization) do, and the pill is sized from it: 2.5
+times as wide and 1.5 times as tall as its font size. A value that is not a font size falls
+back to `12px`.
+
+Left unset, the pill and the week separator are both your theme's primary color at 31%
+opacity, so they follow a custom theme the way [`accent_color`](#visual-styling-colors)
+does.
 
 This feature creates a sophisticated visual hierarchy with:
 
@@ -248,28 +661,54 @@ weekend_month_color: '#e67c73' # Weekend month names
 
 # Special styling for today (inherits from base/weekend when not specified)
 today_weekday_color: '#03a9f4' # Today's weekday name
-today_day_color: '#03a9f4' # Today's day number
+today_day_color: '#03a9f4' # Today's day number (on the date tile, the tile's shade when unset)
 today_month_color: '#03a9f4' # Today's month name
 ```
 
 The date column appears on the left side of each day's events and helps users quickly identify when events occur. By default, all dates use the base styling, but you can apply special styling to:
 
-- **Weekend days** (Saturday and Sunday) using the `weekend_*` options
+- **Weekend days** using the `weekend_*` options — which days those are follows the [country set in Home Assistant](/features/core-settings#showing-a-calendar-on-weekdays-only), or its language when no country is set
 - **Today's date** using the `today_*` options
 
-When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling. The one exception is today's day number on the default [date tile](#the-date-tile): it takes a deeper shade of the tile's color rather than `day_color`, unless you set `today_day_color` or, on a weekend, `weekend_day_color`.
+
+`weekday_font_size`, `day_font_size` and `month_font_size` take any CSS font size: a length
+such as `26px` or `2em`, a percentage such as `180%`, a keyword such as `x-large`, `larger` or
+`inherit`, or an expression such as `calc()` that works out to one. A space before the unit is
+closed up, so `26 px` reads as `26px`, and a negative size, a misspelled unit or a word that is
+not a font size falls back to the option's default. The date column is 1.75 times as wide as
+the day number, whichever form you use. A keyword such as `x-large` depends on the browser's
+default text size, so for those the card assumes the usual 16px, and the column can come out a
+few pixels wider than the number needs. A `var()` is passed on as written, since the card
+cannot see what it refers to: the date column follows it when the property it names holds a
+length, but not a percentage or a keyword.
 
 ## 🌟 Today Indicator
 
-Calendar Card Pro provides a sophisticated way to highlight the current day with a customizable indicator:
+Calendar Card Pro marks today out of the box: today's day number sits on a soft tile tinted
+with your theme's primary color, in list, column and grid view. You can restyle it, swap it
+for a dot, an icon, an emoji or an image, or turn it off:
 
 ::: tip Visual Editor
-Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+Find it under **Day Header → Today Indicator**, where **Style** offers **None**,
+**Date Tile**, **Dot**, **Pulsing Dot**, **Glowing Dot**, **An Icon** and
+**An Emoji or Image**. The date tile takes only an **Indicator Color**; the other styles add
+an **Indicator Size**, and in the List workspace an **Indicator Position**.
+:::
+
+::: warning Changed In v5
+Before v5 a card showed no indicator unless one was configured, and choosing **None** in the
+editor stored nothing. v5 defaults to `tile`, so such a card now shows the tile. Add
+`today_indicator: false` to your card to keep the old behavior. While the tile is on, column
+and grid view give every day's number the tile's height, so their day headers are taller
+than they were in v4.
 :::
 
 ```yaml
-# Enable and choose indicator type
-today_indicator: true # Enable basic dot indicator (default)
+# Choose the indicator type
+today_indicator: tile # A soft tinted tile behind today's day number (default)
+today_indicator: false # No indicator
+today_indicator: true # Basic dot
 today_indicator: pulse # Animated pulsing dot
 today_indicator: glow # Glowing dot
 today_indicator: mdi:star # Any Material Design icon
@@ -279,21 +718,24 @@ today_indicator: /local/custom-indicator.png # Image path
 today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
-today_indicator_position: '15% 50%' # Centered left in the date column (default)
-today_indicator_position: '15% 15%' # Top left
-today_indicator_position: '85% 15%' # Top right
+list:
+  today_indicator_position: '15% 50%' # Centered left in the date column (default)
+  today_indicator_position: '15% 15%' # Top left
+  today_indicator_position: '85% 15%' # Top right
 
 # Restyle the indicator
-today_indicator_color: '#03a9f4' # Color — applies to the dot and to MDI icons (default)
-today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
+today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons (default: your theme's primary color)
+today_indicator_size: 6px # Size of icons, emojis and images; the tile ignores it (default)
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="Today Indicator" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="A three-day list card with today's date on a tinted tile, a progress bar on the event under way and countdowns on the events still to come" width="600"><br>
 
-The indicator is precisely positioned and always properly centered on the coordinates specified, making it ideal for creating visual emphasis on today's date.
+Above is the default tile, tinted with `today_indicator_color`. Every other style is drawn over the date column instead, and only those take a size and, in list view, a position.
 
 Available indicator types:
 
+- `tile`: A softly tinted tile behind today's day number (the default)
+- `false`: No indicator
 - `true` or `dot`: Simple dot indicator
 - `pulse`: Animated pulsing dot
 - `glow`: Glowing dot with subtle light effect
@@ -302,7 +744,35 @@ Available indicator types:
 - Image path: Any image URL or local path
 - Any other text: Drawn as the characters themselves — a week number, a quarter, a sprint name
 
-Anything the card does not recognize as one of the first four is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+Anything the card does not recognize as one of the first six is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+
+### The Date Tile
+
+The tile is a rounded rectangle a little wider than it is tall, with the continuous corners of
+an iOS app icon, and replaces nothing: the weekday and month stay where they are, and the tile
+sits behind the day number itself. It sizes itself from `day_font_size`, so
+`today_indicator_size` and `today_indicator_position` do not apply to it. The digits are
+drawn as proportional figures, so a 1 no longer sits in a slot as wide as a 0, which halves
+how far a 21 or a 31 leans left. Where the browser supports CSS `text-box`, the digits are
+also centered on their own height rather than on the font's line.
+
+The tile is a light wash of `today_indicator_color`, which follows your theme's primary color
+unless you set one, over the card's background, with the day number in a deeper shade of the
+same color. It is the recipe the tinted all-day pills use, and it adapts to light and dark
+themes on its own. A color you set therefore tints the tile rather than filling it. The digits
+take their shade from the tile, unless you name a color for them with `today_day_color` or, on
+a weekend, `weekend_day_color`.
+
+In column and grid view every day's number keeps the tile's height, so the dates stay on one
+line across the columns and each column's first event starts at the same height.
+
+```yaml
+today_indicator: tile
+today_indicator_color: '#e67c73' # Tint the tile with a fixed color instead of the theme's
+today_day_color: '#8c1d18' # Choose the digits' color yourself
+```
+
+### Placing an Indicator
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
@@ -310,6 +780,6 @@ The `today_indicator_position` option accepts CSS-like position values in the fo
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.
 :::
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
+`today_indicator_size` scales every indicator type except the tile — it sets the icon size, the font size for emoji and text, and the image width. It takes a CSS length such as `6px`, `0.5em` or `1rem`, or an expression such as `calc()` that works out to one, and tolerates a space before the unit, so `6 px` reads as `6px`. A percentage, a negative size, a keyword such as `large` or a misspelled unit falls back to `6px`, because each would otherwise let the indicator balloon across today's date. For a size that follows the text around it, use `em`: `1.5em` rather than `150%`. A `var()` is passed on as written, since the card cannot see what it refers to. `today_indicator_color` tints the tile and colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
 
-The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).
+The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

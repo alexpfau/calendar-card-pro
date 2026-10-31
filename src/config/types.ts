@@ -12,6 +12,7 @@ import type { LabelType } from '../utils/helpers';
 /** Main configuration interface for the card. */
 export interface Config {
   // Core settings
+  config_version?: number;
   entities: Array<string | EntityConfig>;
   view: EffectiveView;
   start_date?: string;
@@ -20,6 +21,7 @@ export interface Config {
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
   show_empty_days: boolean;
+  show_empty_today: boolean;
   hide_when_empty: boolean;
   empty_day_text?: string;
   filter_duplicates: boolean;
@@ -51,6 +53,7 @@ export interface Config {
   accent_color: string;
   vertical_line_width: string;
   day_spacing: string;
+  event_gap: string;
   event_spacing: string;
   additional_card_spacing: string;
   max_height: string;
@@ -94,10 +97,13 @@ export interface Config {
 
   // Event column
   event_background_opacity: number;
+  past_event_opacity: number;
   show_past_events: boolean;
   show_countdown: boolean;
   show_countdown_allday: boolean;
   show_progress_bar: boolean;
+  show_now_indicator: boolean;
+  now_color: string;
   progress_bar_color: string;
   progress_bar_height: string;
   progress_bar_width?: string;
@@ -128,6 +134,7 @@ export interface Config {
   show_description: boolean;
   show_description_allday: boolean;
   title_max_lines: number;
+  scroll_long_titles: boolean;
   description_max_lines: number;
   description_font_size: string;
   description_color: string;
@@ -139,17 +146,48 @@ export interface Config {
   // Actions
   tap_action: ActionConfig;
   hold_action: ActionConfig;
+  /**
+   * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
+   * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
+   * event to `tap_action`. A hold on an event runs `hold_action` either way.
+   */
+  event_tap_action: ActionConfig;
+  /**
+   * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
+   * support updates never gets Edit, whatever this says.
+   */
+  allow_event_edit: boolean;
+  /** Whether the event-detail dialog may offer Delete. Narrows only, like `allow_event_edit`. */
+  allow_event_delete: boolean;
+
+  // Header toolbar
+  toolbar?: ToolbarConfig;
 
   // Cache and refresh settings
   refresh_interval: number;
   refresh_on_navigate: boolean;
 
+  // List view
+  list?: ListOverrides;
+
   // Column view
   column?: ColumnOverrides;
+
+  // Grid view
+  time_grid?: TimeGridOverrides;
 }
 
-/** Views the card can render. Width fallback belongs to `column`, not a third mode. */
-export type EffectiveView = 'list' | 'column';
+/** Views the card can render. */
+export type EffectiveView = 'list' | 'column' | 'grid';
+
+/** How finely the grid rules its time axis. */
+export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
+
+/** How often the grid labels its time axis, in minutes. */
+export type TimeGridAxisLabelMinutes = 30 | 60 | 120 | 180;
+
+/** How the grid draws events that overlap in time. */
+export type TimeGridOverlapLayout = 'cascade' | 'columns';
 
 /**
  * Which class of event a calendar contributes.
@@ -173,8 +211,10 @@ export type EventType = 'all' | 'timed' | 'all_day';
  * three-week holiday already in progress shows on the window's first day whatever weekday
  * that is, so reading the start date would answer about a day the card is not drawing.
  *
- * Weekend means Saturday and Sunday — {@link isWeekendDate} in `utils/format.ts` is the
- * single definition, shared with the weekend day-header colors so the two cannot disagree.
+ * Which days are the weekend follows the country set in Home Assistant, or its language
+ * when no country is set. {@link isWeekendDate} in `utils/format.ts` is the single
+ * definition, shared with the weekend day-header colors and grid's weekend shading so
+ * they cannot disagree.
  *
  * 🚨 There is deliberately no `all` member, unlike `EventType`. This option is
  * per-calendar only, so it has no card-level value to override and an explicit `all` would
@@ -223,14 +263,33 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
  * Per-view configuration overrides applied when the card renders in column view.
  *
  * Overrides are presence-based. Fetch-time options are excluded because switching views
- * must not trigger Home Assistant API requests.
+ * must not trigger Home Assistant API requests. `days_to_show` is the one key that decides
+ * what is loaded and may still differ: the card loads the longest count among the views it
+ * can show (`loadedDaysToShow`), so each view draws a prefix of one shared load.
  *
  * @see resolveViewOption in `src/config/view.ts`
  */
-export interface ColumnOverrides {
+/**
+ * Options any multi-day view may override for itself.
+ *
+ * These are the content and appearance keys whose right value depends on how much room
+ * a day gets, not on which axis the days run along — so a column and a grid column want
+ * the same freedom to differ from the list. Every key here has a top-level counterpart
+ * and is read with `resolveViewOption`.
+ *
+ * Shared rather than duplicated per view: a second copy is a second thing to forget,
+ * and the failure is silent — an override the editor offers, validates and stores, and
+ * that the renderer then replaces with the top-level default.
+ */
+export interface SharedViewOverrides {
+  // How many days the view draws. Loaded once, as the longest of the views the card can show.
+  days_to_show?: number;
+
   // Day grouping and empty days
   show_empty_days?: boolean;
+  show_empty_today?: boolean;
   empty_day_text?: string;
+  empty_day_color?: string;
   split_multiday_events?: boolean;
 
   // Render-side filters; they do not refetch on width transitions.
@@ -241,6 +300,7 @@ export interface ColumnOverrides {
   // Layout and spacing
   vertical_line_width?: string;
   event_spacing?: string;
+  event_gap?: string;
   day_spacing?: string;
   additional_card_spacing?: string;
   height?: string;
@@ -259,10 +319,15 @@ export interface ColumnOverrides {
 
   // Event column
   event_background_opacity?: number;
+  past_event_opacity?: number;
+  event_color?: string;
   event_font_size?: string;
   show_countdown?: boolean;
   show_countdown_allday?: boolean;
   show_progress_bar?: boolean;
+  show_now_indicator?: boolean;
+  now_color?: string;
+  progress_bar_color?: string;
   progress_bar_height?: string;
   progress_bar_width?: string;
   event_icon_vertical_alignment?: string;
@@ -274,19 +339,23 @@ export interface ColumnOverrides {
   allday_badge_color?: string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
+  time_color?: string;
   time_font_size?: string;
   time_icon_size?: string;
   time_max_lines?: number;
   show_location?: boolean;
   show_location_allday?: boolean;
   remove_location_country?: boolean | string;
+  location_color?: string;
   location_font_size?: string;
   location_icon_size?: string;
   location_max_lines?: number;
   show_description?: boolean;
   show_description_allday?: boolean;
   title_max_lines?: number;
+  scroll_long_titles?: boolean;
   description_max_lines?: number;
+  description_color?: string;
   description_font_size?: string;
   description_icon_size?: string;
   show_week_numbers?: null | 'iso' | 'simple';
@@ -302,7 +371,31 @@ export interface ColumnOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+}
 
+/**
+ * The `list:` block — every shared override, plus list's own presentation keys.
+ *
+ * List has no key of its own without a top-level counterpart, so unlike the other two
+ * views it declares no view-only members: everything here is an override of a card-level
+ * key. The five below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * override them and why they never entered the shared set.
+ */
+export interface ListOverrides extends SharedViewOverrides {
+  // Compact mode. Nothing outside list view reads these.
+  compact_days_to_show?: number;
+  compact_events_to_show?: number;
+  compact_events_complete_days?: boolean;
+
+  // List-row layout.
+  date_vertical_alignment?: string;
+  today_indicator_position?: string;
+}
+
+/**
+ * The `column:` block — every shared override, plus column's own layout keys.
+ */
+export interface ColumnOverrides extends SharedViewOverrides {
   // Column-only layout. These have no top-level counterpart and are read with
   // `resolveColumnOption`, not `resolveViewOption`.
   day_header_gap?: string;
@@ -322,6 +415,170 @@ export interface ColumnOverrides {
 
   /** What the card does once even `min_days_to_show` columns will not fit. */
   min_days_fallback?: ColumnMinDaysFallback;
+}
+
+/**
+ * The `time_grid:` block — every shared override, plus the time axis's own keys.
+ *
+ * The grid-only keys below describe the *axis*: which slice of the day it draws, how
+ * finely it is ruled, and how tall an hour is. They have no top-level counterpart and
+ * are read with `resolveTimeGridOption`, not `resolveViewOption`.
+ */
+export interface TimeGridOverrides extends SharedViewOverrides {
+  // Shared day-header layout. These have no top-level counterpart and are read with
+  // `resolveTimeGridOption`, not `resolveViewOption`.
+  //
+  // 🚨 `day_header_separator_*` draws a different thing here than it does in column view,
+  // and its grid default differs to match. In column it is a per-day rule inside each
+  // day's own header. In grid it is the ONE unbroken rule between the date row and the
+  // all-day band, spanning the day tracks — the boundary the grid's frame already drew,
+  // so this is the option that draws it rather than a second rule beside it.
+  day_header_gap?: string;
+  day_header_separator_width?: string;
+  day_header_separator_color?: string;
+
+  /**
+   * Minimum width of one day column before the grid sheds a day.
+   *
+   * Grid columns carry timed blocks against a shared axis rather than a full text list, so
+   * their default can be narrower than column view's.
+   */
+  min_day_width?: number;
+
+  /**
+   * Fewest day columns the grid may reduce to when the width will not carry
+   * `days_to_show` of them.
+   *
+   * Defaults to one rather than `days_to_show`: a one-column grid is a useful day view
+   * with a now line, not a failed column layout.
+   */
+  min_days_to_show?: number;
+
+  /** What the grid does once even `min_days_to_show` columns will not fit. */
+  min_days_fallback?: ColumnMinDaysFallback;
+
+  /**
+   * First and last moment the axis draws, as `HH:mm`. `end_time` also accepts `24:00`.
+   *
+   * Strings rather than integer hours because minute precision costs nothing here and a
+   * band starting at `06:30` is a real thing to want. A bad value resets **both**, so a
+   * half-honored band cannot masquerade as one the user asked for.
+   */
+  start_time?: string;
+
+  /** @see start_time */
+  end_time?: string;
+
+  /** Spacing of the axis rules. Density only — it does not change the scale. */
+  slot_minutes?: TimeGridSlotMinutes;
+
+  /**
+   * Spacing of the axis labels, in minutes. Independent of `slot_minutes`.
+   *
+   * Labels are phased from midnight rather than from the band's start, so the set is the
+   * one a clock would name — `8, 10, 12` at two-hourly, whatever hour the band opens on.
+   * Anchoring on the band instead would relabel today's cards: a band opening at `06:30`
+   * would read `6:30, 7:30, 8:30` at the shipped hourly cadence, and every label would
+   * name a position the ruling does not draw, because both rule gradients tile from
+   * midnight too.
+   *
+   * Below the hour every label carries minutes, so a half-hourly axis reads
+   * `12:00, 12:30, 13:00` rather than mixing bare hours with half hours. That widens the
+   * `max-content` gutter, which is expected.
+   */
+  axis_label_minutes?: TimeGridAxisLabelMinutes;
+
+  /**
+   * Background tint for a weekend day column, as a CSS color.
+   *
+   * Grid-only, and deliberately not a shared option with a per-view default. Every grid
+   * column stands the full height of the band and the axis, so the tint is one clean
+   * stripe down the week; a column-view column is only as tall as that day's events, so
+   * the same tint ends at a different height on every day and reads as a rendering fault
+   * rather than as shading. An option that is inert in two of three views is the shape
+   * `view.ts` warns about — accepted, validated, stored, and then ignored — so this lives
+   * in the block that owns it, where writing it at the top level earns a warning naming
+   * where it belongs.
+   *
+   * Which days count as the weekend comes from the country set in Home Assistant, or its
+   * language when no country is set; see {@link FormatUtils.isWeekendDate}.
+   */
+  weekend_background_color?: string;
+
+  /**
+   * Height of one hour of the axis, as a CSS length.
+   *
+   * Sets the grid's *intrinsic* height only. Under a fixed `height` the card's own
+   * height wins and the axis compresses to fit, which costs no arithmetic because every
+   * event is positioned as a percentage of the band rather than in pixels.
+   */
+  hour_height?: string;
+
+  /** Draw a line across today's column at the current time, in `now_color`. */
+  show_now_line?: boolean;
+
+  /**
+   * Most events drawn side by side before the rest collapse into one "+N" block.
+   *
+   * A cap rather than unbounded lanes, because a busy morning otherwise renders as a row
+   * of unreadable slivers. Nothing is ever hidden silently: at a cap of 1 the overflow
+   * block still says how many events it stands for.
+   */
+  max_simultaneous_events?: number;
+
+  /**
+   * How events that overlap in time are drawn.
+   *
+   * `cascade` draws a later event over a longer one it starts well inside, indented so
+   * the longer one's edge stays visible — the way macOS and Google Calendar draw a day —
+   * and splits the width only between events that start close together. `columns` always
+   * splits the width, so every overlap reads as parallel lanes, the way Outlook draws it.
+   */
+  overlap_layout?: TimeGridOverlapLayout;
+
+  /** Rows the band may grow to before the remaining banners are dropped. */
+  allday_band_max_rows?: number;
+
+  /**
+   * The horizontal rules across the time body, as a CSS length and a CSS color.
+   *
+   * Grid-only, and deliberately not `day_separator_*`. Those have meant one thing since
+   * the card shipped — the rule *between two days* — and the grid drove three visually
+   * distinct rules from them, which made the three impossible to configure apart and
+   * silently redefined a long-standing option for one view.
+   *
+   * Named for the hour rather than for the slot because the labeled rules are the hours,
+   * and because it reads beside `hour_height`: one says how tall an hour is, the other how
+   * its boundary is drawn. A finer `slot_minutes` subdivides the same ruling and its rules
+   * are painted in this same ink, one step lighter where they are not also an hour.
+   */
+  hour_line_width?: string;
+
+  /** @see hour_line_width */
+  hour_line_color?: string;
+
+  /**
+   * The heavier rule under the all-day band, as a CSS length and a CSS color.
+   *
+   * Its own option rather than a multiple of anything else. It used to be
+   * `scaleLength(day_separator_width, 2)`, which held the macOS Calendar proportion at any
+   * width — but only while one option drove every rule in the grid. Once the families are
+   * separable, a derivation across two of them is a coupling the user cannot see: widening
+   * the vertical day rules would silently thicken a horizontal one they never touched.
+   *
+   * `allday_band_` rather than `band_`, following `allday_band_max_rows`, which already
+   * names this band in the config.
+   */
+  allday_band_line_width?: string;
+
+  /** @see allday_band_line_width */
+  allday_band_line_color?: string;
+
+  /** Width of the hour-label gutter, as a CSS length. */
+  axis_width?: string;
+
+  /** Label the axis with its hours. */
+  show_axis_labels?: boolean;
 }
 
 /** Calendar entity configuration. */
@@ -454,6 +711,48 @@ export interface WeatherPositionConfig {
   color?: string;
 }
 
+/**
+ * How the toolbar offers the calendar filter: a button opening a menu, or one chip per
+ * calendar beside the month that falls back to the button where the chips do not all fit.
+ */
+export type ToolbarLegendMode = 'menu' | 'chips';
+
+/**
+ * The header toolbar, as written in the configuration: one switch for the bar, and one per
+ * control in it.
+ *
+ * Every member is optional because a block is written partly — `toolbar: { show: true }` is
+ * the whole of the common case — and `Partial<Config>` does not reach inside a nested block.
+ * Read it through `resolveToolbar` in `config/config.ts`, which answers every member.
+ */
+export interface ToolbarConfig {
+  /** Whether the toolbar is drawn at all. Off keeps the controls chosen below. */
+  show?: boolean;
+  /**
+   * Previous, home and next at the end of the month heading's row; the month then opens a
+   * date picker. Off leaves the month as plain text.
+   */
+  navigation?: boolean;
+  /** The add-event button, at the start of the action row, after the filter. */
+  add_event?: boolean;
+  /** The List / Columns / Grid switcher, in the middle of the action row. */
+  view_switcher?: boolean;
+  /**
+   * A button that brings the card back to its configuration on this device: the days it opens
+   * with, `view`, every calendar shown and a compact card collapsed. At the end of the action
+   * row; hidden while there is nothing to undo, keeping its room.
+   */
+  reset?: boolean;
+  /** A button that loads the events again now, last in the action row, after reset. */
+  refresh?: boolean;
+  /**
+   * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
+   * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
+   * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
+   */
+  legend?: false | ToolbarLegendMode;
+}
+
 /** Weather configuration. */
 export interface WeatherConfig {
   entity?: string;
@@ -474,6 +773,15 @@ export interface WeatherForecast {
   wind_bearing?: number;
   humidity?: number;
   uv_index?: number;
+  /**
+   * Whether the forecast period falls in daylight where the forecast is, as the integration
+   * reports it.
+   *
+   * Home Assistant types this `bool | None` and requires it only on twice-daily forecasts;
+   * some integrations set it on hourly ones too. The card reads it on hourly entries only,
+   * to choose between the day and night icon — see `isNightForecast` in `utils/weather.ts`.
+   */
+  is_daytime?: boolean | null;
 }
 
 /** Processed weather data for use in templates. */
@@ -504,8 +812,24 @@ export interface CalendarEventData {
   summary?: string;
   location?: string;
   description?: string;
+  /** Identity Home Assistant needs to edit or delete the event; absent for many feeds. */
+  uid?: string | null;
+  recurrence_id?: string | null;
+  rrule?: string | null;
+  /** `confirmed` or `tentative` where the calendar says; Home Assistant's dialog marks the latter. */
+  status?: string | null;
   _entityId?: string;
   _entityLabel?: string;
+  /**
+   * The event as Home Assistant returned it, stamped before any repair, splitting or text
+   * replacement and carried through to the rendered row.
+   *
+   * The event-detail dialog is built from this rather than from the row, because the row's
+   * title, location and description are display text: replaced, age-counted or blanked.
+   * Handing those to Home Assistant's dialog would show them as the event's real fields,
+   * and its Edit form would write them back into the calendar.
+   */
+  _source?: SourceEvent;
   _isEmptyDay?: boolean;
   /** Empty-day placeholder uses custom text; suppresses the checkmark prefix only. */
   _isCustomEmptyText?: boolean;
@@ -516,6 +840,28 @@ export interface CalendarEventData {
    * The date-window filter uses this to exclude segments beyond the window's end.
    */
   _isMultiDaySegment?: boolean;
+  /** Original start of a split List/Column occurrence, preserving its anniversary year. */
+  _sourceStart?: CalendarEventData['start'];
+  /**
+   * Original end of a split List/Column occurrence, the partner of `_sourceStart`.
+   *
+   * A day of a timed event split across several measures its progress bar over the whole
+   * event, so each segment has to know where the event ends as well as where it began.
+   */
+  _sourceEnd?: CalendarEventData['end'];
+  /**
+   * Set on grid-owned timed segments that keep the original event's start time.
+   *
+   * Grid view splits timed multi-day events into per-day timed blocks instead of using the
+   * list splitter. The block geometry already communicates each day's end, so the renderer
+   * needs only this provenance to decide whether a segment may show its start time.
+   */
+  _gridSegmentStartsEvent?: boolean;
+  /**
+   * Original interval shared by one event's daily Grid occurrences.
+   * Keeps banner identity, true endpoints, expiry, and anniversary year across filtering.
+   */
+  _gridSource?: Pick<CalendarEventData, 'start' | 'end'>;
   /**
    * Set on every segment produced by splitting a **timed** multi-day event, recording the
    * class of the event the segment came from rather than the shape the segment now has.
@@ -534,7 +880,7 @@ export interface CalendarEventData {
    * carrying it, but only the middle ones can ever be read: the first and last keep their
    * `dateTime`, so the expiry branch's `isAllDayEvent` test excludes them before this is
    * consulted. Removing it from those two therefore breaks no test — it records provenance
-   * there, not behaviour, and the alternative is a flag that lies about half its subjects.
+   * there, not behavior, and the alternative is a flag that lies about half its subjects.
    *
    * Carried into the display copies alongside `_isMultiDaySegment` for symmetry, though
    * only the expiry filter reads it today — that filter runs before the copies are built.
@@ -560,6 +906,18 @@ export interface CalendarEventData {
 }
 
 /**
+ * The untouched fields of a fetched event that Home Assistant's event dialogs read.
+ *
+ * `end` is optional here although it is required on a row: an event Home Assistant
+ * returned without one keeps it absent, so nothing downstream can mistake the instant
+ * `keepWellFormedEvents` repairs it into for an end the calendar stores.
+ */
+export type SourceEvent = Pick<
+  CalendarEventData,
+  'start' | 'summary' | 'location' | 'description' | 'uid' | 'recurrence_id' | 'rrule' | 'status'
+> & { readonly end?: CalendarEventData['end'] };
+
+/**
  * One calendar that contributed a copy of a merged duplicate.
  *
  * Carries the block rather than only the id because the two answer different questions.
@@ -581,6 +939,8 @@ export interface ResolvedLabel {
   value: string;
   iconColor?: string;
   type?: LabelType;
+  /** Text alternative when the label draws as a picture; see `resolveLabelAlt`. */
+  alt?: string;
 }
 
 /**
@@ -593,6 +953,29 @@ export interface EventFetchResult {
   events: CalendarEventData[];
   /** Entity IDs whose calendar could not be retrieved during this fetch. */
   failedEntities: string[];
+  /** When this payload was retrieved from Home Assistant, in epoch milliseconds. */
+  fetchedAt: number;
+  /**
+   * When the longest-unrefreshed calendar among `events` last loaded successfully. Equal to
+   * `fetchedAt` unless the events include a failing calendar's kept ones.
+   */
+  loadedAt: number;
+  /**
+   * When the card should next ask Home Assistant for this payload, in epoch
+   * milliseconds: one refresh interval after `fetchedAt`, or the retry deadline while a
+   * calendar is failing.
+   */
+  nextAttemptAt: number;
+}
+
+/**
+ * Cached events processed for the current config, plus what the cache knows about them.
+ */
+export interface EventSnapshot extends EventFetchResult {
+  /** Whether the payload is worth a network attempt now. */
+  due: boolean;
+  /** Whether a request for this exact query and window is already in flight. */
+  inFlight: boolean;
 }
 
 /** Grouped events by day. */
@@ -606,11 +989,30 @@ export interface EventsByDay {
   monthNumber?: number;
 }
 
-/** Cache entry structure. */
+/**
+ * Cache entry structure.
+ *
+ * Everything the card needs to decide when to ask Home Assistant again lives here rather
+ * than on the card, so every card sharing the key, and the same card after a view switch,
+ * reads one answer.
+ */
 export interface CacheEntry {
+  /** Raw events as the API returned them, plus kept events of failed calendars. */
   events: CalendarEventData[];
+  /** When this entry was written. */
   timestamp: number;
+  /** Entry-specific lifetime, used for a successful but empty result. */
   ttlMs?: number;
+  /** Bounds of the window the events were fetched for, as ISO strings. */
+  window?: { start: string; end: string };
+  /** Last successful fetch per calendar. */
+  lastSuccess?: Record<string, number>;
+  /** Calendars that failed on the attempt that wrote this entry. */
+  failedEntities?: string[];
+  /** Consecutive attempts for this key that had at least one failure. */
+  failureCount?: number;
+  /** Earliest time a failing entry is worth another network attempt. */
+  retryAt?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -643,6 +1045,19 @@ export interface Hass {
     /** Home Assistant's first-weekday profile setting: a weekday name, or 'language'. */
     first_weekday?: string;
   };
+  /**
+   * Home Assistant's core configuration. Only the field the card reads is declared.
+   *
+   * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
+   * may omit it, and the card then reads the weekend from the language instead.
+   */
+  config?: {
+    /**
+     * The home's country as an ISO 3166-1 alpha-2 code, or `null` when none is set. It
+     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}.
+     */
+    country?: string | null;
+  };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
     subscribeMessage: <T = WeatherForecastMessage>(
@@ -663,6 +1078,16 @@ export interface Hass {
    * current one. Optional because older or non-standard `hass` objects may omit it.
    */
   formatEntityState?: (stateObj: HassEntity, state?: string) => string;
+  /**
+   * Home Assistant's own string table.
+   *
+   * The editor reads it rather than writing one: `hui-action-editor` labels every entry
+   * in an action dropdown with `localize('…action-editor.actions.' + action)`, so this is
+   * the only seam through which a card-specific action can be given a translated name.
+   * Optional because a non-standard `hass` may omit it, and the wrapper degrades to
+   * Home Assistant's own raw-key fallback when it does.
+   */
+  localize?: (key: string, ...args: ReadonlyArray<unknown>) => string;
 }
 
 /** Weather forecast message structure received from Home Assistant. */
@@ -767,7 +1192,7 @@ export interface HassEntity {
  * selects an entity.
  *
  * The first entry of a suggestion list is the canonical recipe and carries no
- * `label`; any further entry is a labelled variant naming only what differs.
+ * `label`; any further entry is a labeled variant naming only what differs.
  */
 export interface EntitySuggestion {
   label?: string;
@@ -800,6 +1225,8 @@ export interface Translations {
   loading: string;
   noEvents: string;
   error: string;
+  /** Label before the names of calendars that could not be loaded. */
+  loadFailed: string;
   allDay: string;
   multiDay: string;
   at: string;
@@ -808,4 +1235,8 @@ export interface Translations {
   fullDaysOfWeek: string[];
   endsToday: string;
   endsTomorrow: string;
+  /** The header toolbar's view switcher, one name per view. */
+  viewList: string;
+  viewColumns: string;
+  viewGrid: string;
 }

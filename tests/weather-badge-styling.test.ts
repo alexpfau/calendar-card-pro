@@ -1,7 +1,7 @@
 /**
  * The event weather badge must be styled in BOTH views.
  *
- * This exists because it was not, and nothing noticed. The badge's size and colour moved
+ * This exists because it was not, and nothing noticed. The badge's size and color moved
  * from inline styles on the renderer to CSS custom properties, but the only rules reading
  * those properties were scoped `.time-location .event-weather …` — and only column view
  * puts the badge inside `.time-location`. List view puts it in `summary-row`, so
@@ -54,8 +54,8 @@ function listReachable(declaration: string): Array<[string, string]> {
  * The distinction is load-bearing and was found by breaking this test rather than by
  * writing it: re-scoping the text rules to `.time-location` — i.e. reproducing the
  * original defect exactly — failed only one assertion, because the sibling
- * `.event-weather ha-icon` rule also carries a colour and kept satisfying a plain
- * `.event-weather` search. The icon being coloured is no comfort to a user reading grey
+ * `.event-weather ha-icon` rule also carries a color and kept satisfying a plain
+ * `.event-weather` search. The icon being colored is no comfort to a user reading gray
  * text at the wrong size, so the assertions that matter must name the text.
  */
 function listReachableText(declaration: string): Array<[string, string]> {
@@ -91,7 +91,7 @@ describe('event weather badge styling', () => {
       expect(found.length).toBeGreaterThan(0);
     });
 
-    it('supplies a text colour that does not require .time-location', () => {
+    it('supplies a text color that does not require .time-location', () => {
       const found = listReachableText('--calendar-card-weather-event-color');
       expect(found.length).toBeGreaterThan(0);
     });
@@ -118,9 +118,9 @@ describe('event weather badge styling', () => {
       expect(wrapperRules('font-weight')).toEqual([]);
     });
 
-    it('falls back to the secondary text colour, as v3 shipped', () => {
+    it('falls back to the secondary text color, as v3 shipped', () => {
       // This previously pinned --primary-text-color, on the reasoning that the badge
-      // sits next to the primary-coloured event title. That reasoning was sound in
+      // sits next to the primary-colored event title. That reasoning was sound in
       // isolation and wrong against the baseline: v3 rendered this badge with
       // `eventConfig.color || 'var(--secondary-text-color)'` (v3.6.0 leaves.ts:324), and
       // weather.event.color has no default, so every card using weather.position: event
@@ -129,7 +129,7 @@ describe('event weather badge styling', () => {
       expect(found.some(([, body]) => body.includes('var(--secondary-text-color)'))).toBe(true);
     });
 
-    it('does not emit the colour property unconditionally from the host', () => {
+    it('does not emit the color property unconditionally from the host', () => {
       // The other half of the defect. Baking a default into the host property makes the
       // per-placement `var()` fallbacks unreachable, so both views get whichever default
       // was baked in — which is how the column's answer became the only answer.
@@ -140,7 +140,7 @@ describe('event weather badge styling', () => {
       expect(styles['--calendar-card-weather-event-color']).toBeUndefined();
     });
 
-    it('emits the colour property when the user actually sets one', () => {
+    it('emits the color property when the user actually sets one', () => {
       // The control for the assertion above: absent-by-default is only correct if a
       // configured value still arrives.
       const styles = generateCustomPropertiesObject({
@@ -163,7 +163,7 @@ describe('event weather badge styling', () => {
       expect(scoped.length).toBeGreaterThan(0);
     });
 
-    it('falls back to the secondary text colour', () => {
+    it('falls back to the secondary text color', () => {
       const scoped = rules().filter(
         ([sel, body]) =>
           sel.includes('.time-location') &&
@@ -175,7 +175,7 @@ describe('event weather badge styling', () => {
     });
   });
 
-  describe('the list fallback colour matches what v3 shipped', () => {
+  describe('the list fallback color matches what v3 shipped', () => {
     /**
      * v3.5.0 and v3.6.0 rendered the event badge with two DIFFERENT fallbacks, chosen
      * by position: `dateConfig.color || 'var(--primary-text-color)'` for the day header
@@ -184,7 +184,7 @@ describe('event weather badge styling', () => {
      *
      * When the inline styles moved into the stylesheet, the list placement was given
      * `--primary-text-color` on the reasoning that the badge sits beside the primary
-     * event title. That reversed shipped behaviour for every card using
+     * event title. That reversed shipped behavior for every card using
      * `weather.position: event` without an explicit `weather.event.color` -- which is
      * every such card, because the key has no default -- and it also made the list
      * disagree with this card's own column view, which kept secondary.
@@ -192,7 +192,7 @@ describe('event weather badge styling', () => {
      * Asserted as an equality between the two placements rather than as a literal, so
      * a future change to one has to be a deliberate change to both.
      */
-    it('uses the secondary text colour, as v3 did', () => {
+    it('uses the secondary text color, as v3 did', () => {
       const listColour = listReachableText('--calendar-card-weather-event-color');
 
       expect(listColour.length).toBeGreaterThan(0);
@@ -228,7 +228,7 @@ describe('event weather badge styling', () => {
   });
 
   describe('the discriminator that identified the defect', () => {
-    it('icon size was always reachable from both views, unlike size and colour', () => {
+    it('icon size was always reachable from both views, unlike size and color', () => {
       // This is what proved the bug was specific rather than "weather is broken":
       // `weather.event.icon_size` kept working in list view throughout, because its rule
       // was never scoped. Same probe, opposite answer. If this ever starts failing, the

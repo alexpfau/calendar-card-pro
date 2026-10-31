@@ -8,6 +8,8 @@ title: "{{ now().strftime('%-d %B %Y') }}" # 14 March 2025
 
 No separate option enables this. Any title containing `{{` or `{%` is rendered as a template; everything else is used exactly as written.
 
+With the [header toolbar](/features/layout-appearance#header-toolbar) shown, the title is the small label over the month, and a template works there the same way.
+
 ## 🧩 What You Can Do With It
 
 - **Show the current date or time**
@@ -33,11 +35,13 @@ No separate option enables this. Any title containing `{{` or `{%` is rendered a
     {% endif %}
   ```
 
-- **Count today's events from a calendar entity**
+- **Show the next event's title**
 
   ```yaml
   title: '{{ state_attr("calendar.family", "message") or "Nothing scheduled" }}'
   ```
+
+  A calendar entity's `message` attribute is the title of the event under way, or of the next one if none is.
 
 ::: tip Test Your Template First
 Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.

@@ -92,7 +92,7 @@ describe('per-calendar allowlist and blocklist', () => {
     // whichever way it broke: the unfiltered calendar pins what "everything" looks like,
     // and the other two must each differ from it in one direction only.
     //
-    // Both patterns are lowercase against capitalised titles. Users type these by hand,
+    // Both patterns are lowercase against capitalized titles. Users type these by hand,
     // against titles they do not control, and a case-sensitive blocklist is the costly
     // half — it silently leaks the events someone deliberately excluded while looking
     // like the pattern simply was not applied.

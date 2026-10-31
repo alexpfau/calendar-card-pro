@@ -25,7 +25,7 @@ import { TRANSLATIONS } from '../src/translations/localize';
 describe('editor strings resolve in the requested language', () => {
   it('returns German for a key German translates', () => {
     // The regression, stated as the thing a user would have seen. `days_to_show` is
-    // labelled in every panel configuration, so this is not an obscure corner.
+    // labeled in every panel configuration, so this is not an obscure corner.
     //
     // The expected value changed in Stage 1 from `Anzahl Tage anzeigen`, which parses as
     // the imperative *display the number of days* rather than as a name for a count the
@@ -69,7 +69,7 @@ describe('editor strings resolve in the requested language', () => {
 
   it('falls back to English per key, not per language', () => {
     // The maintainer's ruling: show the language, and fall back to English only for the
-    // strings it is missing — the two behaviours have to hold at the same time or the
+    // strings it is missing — the two behaviors have to hold at the same time or the
     // fallback is per language.
     //
     // **The witness is en-GB, and it has to be a file that is partial by design.** This
@@ -83,6 +83,42 @@ describe('editor strings resolve in the requested language', () => {
     expect(enGbEditor).not.toHaveProperty('column.min_day_width');
     expect(lookup('en-GB', 'column.min_day_width')).toBe(EDITOR_STRINGS['column.min_day_width']);
     expect(lookup('en-GB', 'title_color')).toBe('Title Colour');
+  });
+
+  it('states the two shared-layout helpers without naming one layout', () => {
+    // Both helpers described column view alone until grid view arrived. Grid shares the
+    // same width fallback and the same list-only compact limits, so naming just the one
+    // layout told a Time Grid user the note was about somebody else's card.
+    //
+    // Pinned as English wording rather than as an absence in the other nine files. The
+    // nine stale translations were deleted so each key falls back to this text, but a
+    // translator is free to translate the replacement — asserting no language may ever
+    // carry these keys, or that German must resolve to English, would fail a correct
+    // translation. That is the gate lying rather than the translation being wrong. The
+    // per-key fallback those deletions rely on is already pinned above.
+    expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
+    expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
+    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).toContain('side-by-side layouts');
+    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).not.toContain('column view');
+  });
+
+  it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
+    // `height` applies to `.content-container`; the header and card padding sit outside it.
+    // Grid compresses that content area's axis while the other views scroll it.
+    expect(EDITOR_STRINGS['card_height.helper']).toContain('grid view compresses the time axis');
+    expect(EDITOR_STRINGS['card_height.helper']).toContain('calendar content area');
+    expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
+      'scrolling if the events do not fit',
+    );
+    // There were three sites; there are two. `time_grid.axis.helper` was the Time Axis
+    // collapsible's description, and the collapsible is gone — the axis is top-level
+    // captioned runs now, and a `constant` heading has no helper to hang prose on. The
+    // story is not weakened by that: it was told on a disclosure a user had to open,
+    // and it is still told on both fields they actually manipulate.
+    expect(EDITOR_STRINGS['time_grid.axis.helper']).toBeUndefined();
+    expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
+      "calendar content area's natural height",
+    );
   });
 
   it('falls back to English for a language with no file at all', () => {
@@ -106,7 +142,7 @@ describe('editor strings resolve in the requested language', () => {
     // nothing else. The hand-written file it replaced dropped Title Case on 17 of its 18
     // real entries — `Event Color` was overridden as `Event colour` — so switching an
     // editor to British English silently re-cased seventeen labels. Asserted here as well
-    // as in check-i18n.mjs because this is the behaviour a user sees.
+    // as in check-i18n.mjs because this is the behavior a user sees.
     for (const key of ['entity.color', 'title_color', 'weekday_color'] as const) {
       const british = lookup('en-GB', key);
       expect(british).toContain('Colour');
@@ -121,7 +157,7 @@ describe('editor strings resolve in the requested language', () => {
     // recorded, whose note said the witness "is now en-GB". That was true of a different
     // test; this one still pointed at a Stage 1 target.
     //
-    // en-GB cannot complete: it is derived from strings.ts by substituting Color→Colour,
+    // en-GB cannot complete: it is derived from strings.ts by substituting Color→Color,
     // so a label containing "Color" is always overridden and a helper that does not
     // contain it never is. That makes this exact label/helper pair a structural property
     // of the generator rather than a fact about how far some session got.
@@ -142,11 +178,14 @@ describe('editor strings resolve in the requested language', () => {
     expect(computeHelper('en', 'column', compactGroup)).toBe(
       `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
     );
+    expect(computeHelper('en', 'grid', compactGroup)).toBe(
+      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
+    );
     expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');
   });
 
   it('returns undefined for a key nothing defines', () => {
-    // `computeLabel` humanises on undefined, so this is what keeps a missing string a
+    // `computeLabel` humanizes on undefined, so this is what keeps a missing string a
     // cosmetic shortfall rather than a rendered `undefined`.
     expect(lookup('de', 'no_such_key_anywhere')).toBeUndefined();
   });
@@ -154,7 +193,7 @@ describe('editor strings resolve in the requested language', () => {
 
 describe('the mined translations carry meaning, not just key names', () => {
   it('does not inherit the old namespace’s meaning for a renamed key', () => {
-    // `entity` is the clearest false friend between the two namespaces: it labelled the
+    // `entity` is the clearest false friend between the two namespaces: it labeled the
     // calendar entity picker in the editor that was replaced, and labels the *weather*
     // entity here. Mining by key name would have written "Entität"; mining by English
     // text wrote the right one. This is the assertion that would fail if anyone

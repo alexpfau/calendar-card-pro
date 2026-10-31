@@ -108,7 +108,7 @@ function dateKeyOf(timestamp: number): string {
  * Group a fixture and return what survived, keyed by day.
  *
  * **Real events only.** A card the filter has emptied falls through to the empty-day
- * padding and renders a *No upcoming events* placeholder on every day of the window, so a
+ * padding and renders a *No events* placeholder on every day of the window, so a
  * helper that read summaries indiscriminately would report nine events where the answer is
  * none — and the two cases asserting that a calendar is filtered away entirely would both
  * fail against correct behavior. Placeholders are reached through {@link placeholderDays}
@@ -117,12 +117,14 @@ function dateKeyOf(timestamp: number): string {
  * @param events Events to group
  * @param entity The calendar's own settings
  * @param overrides Card configuration beyond the defaults
+ * @param hass Home Assistant's country and language, which decide which days are the weekend
  * @returns Each rendered day's date key mapped to the real summaries on it
  */
 function render(
   events: Types.CalendarEventData[],
   entity: Partial<Types.EntityConfig>,
   overrides: Partial<Types.Config> = {},
+  hass?: Pick<Types.Hass, 'config' | 'locale'> | null,
 ): Record<string, string[]> {
   const config = buildConfig({
     entities: [{ entity: 'calendar.holidays', ...entity }],
@@ -130,7 +132,7 @@ function render(
     ...overrides,
   } as Partial<Types.Config>);
 
-  const days = groupEventsByDay(stamped(events, entity), config, true, 'en');
+  const days = groupEventsByDay(stamped(events, entity), config, true, 'en', 'list', hass);
 
   const result: Record<string, string[]> = {};
   for (const day of days) {
@@ -380,7 +382,7 @@ describe('days_of_week: what happens to the day that is left empty', () => {
     );
 
     expect(Object.keys(placeholders)).toContain(DATES.saturday);
-    expect(placeholders[DATES.saturday]).toBe('No upcoming events');
+    expect(placeholders[DATES.saturday]).toBe('No events');
   });
 
   /**
@@ -446,5 +448,75 @@ describe('days_of_week: a value the union does not name', () => {
       'Saturday',
       'Monday',
     ]);
+  });
+});
+
+/**
+ * Which days the filter calls the weekend.
+ *
+ * The option's two values name a partition of the week, and where the cut falls is not a
+ * constant: CLDR puts it after Thursday in the Friday–Saturday regions and before Sunday
+ * alone in India. Until v5 the card cut it after Friday for everybody, so an Israeli
+ * household asking for weekends got the two days it works, and asking for weekdays got
+ * the two it rests.
+ *
+ * The card reads the country set in Home Assistant for this, and Home Assistant's language
+ * only when no country is set — never its own `language` option, which picks a translation
+ * and doubles as a fallback for the Home Assistant languages the card cannot translate, so
+ * it says nothing about where the user lives. A language stands for one country only, so
+ * the country wins wherever the two disagree, and the cases below take both directions of
+ * that: an Israeli home running Home Assistant in English, whose language alone would say
+ * Saturday and Sunday, and a Moroccan one running it in Arabic, whose language alone would
+ * say Friday and Saturday.
+ */
+describe('days_of_week: where the weekend falls', () => {
+  const week = [
+    timed('Thursday', DATES.thursday),
+    timed('Friday', DATES.friday),
+    timed('Saturday', DATES.saturday),
+    timed('Sunday', DATES.sunday),
+  ];
+
+  /** A home's Home Assistant settings: always a language, and a country when one is set. */
+  function home(language: string, country?: string | null): Pick<Types.Hass, 'config' | 'locale'> {
+    return country === undefined
+      ? { locale: { language } }
+      : { locale: { language }, config: { country } };
+  }
+
+  it.each([
+    { name: 'no hass, as before it arrives', hass: undefined, kept: ['Saturday', 'Sunday'] },
+    { name: 'de', hass: home('de'), kept: ['Saturday', 'Sunday'] },
+    { name: 'he (Friday and Saturday)', hass: home('he'), kept: ['Friday', 'Saturday'] },
+    { name: 'fa (Friday alone)', hass: home('fa'), kept: ['Friday'] },
+    { name: 'hi (Sunday alone)', hass: home('hi'), kept: ['Sunday'] },
+    { name: 'Israel, in English', hass: home('en', 'IL'), kept: ['Friday', 'Saturday'] },
+    { name: 'Morocco, in Arabic', hass: home('ar', 'MA'), kept: ['Saturday', 'Sunday'] },
+    {
+      name: 'Afghanistan (Thursday and Friday)',
+      hass: home('fa', 'AF'),
+      kept: ['Thursday', 'Friday'],
+    },
+    { name: 'he with the country unset', hass: home('he', null), kept: ['Friday', 'Saturday'] },
+  ])('keeps $kept for weekends under $name', ({ hass, kept }) => {
+    expect(summaries(render(week, { days_of_week: 'weekends' }, {}, hass))).toEqual(kept);
+  });
+
+  it.each([
+    {
+      name: 'no hass',
+      hass: undefined,
+      kept: ['Thursday', 'Friday'],
+    },
+    { name: 'he', hass: home('he'), kept: ['Thursday', 'Sunday'] },
+    { name: 'hi', hass: home('hi'), kept: ['Thursday', 'Friday', 'Saturday'] },
+    { name: 'Israel, in English', hass: home('en', 'IL'), kept: ['Thursday', 'Sunday'] },
+    { name: 'Morocco, in Arabic', hass: home('ar', 'MA'), kept: ['Thursday', 'Friday'] },
+    { name: 'Afghanistan', hass: home('fa', 'AF'), kept: ['Saturday', 'Sunday'] },
+  ])('keeps $kept for weekdays under $name', ({ hass, kept }) => {
+    // The complement of the rows above on the same four-day fixture. Both halves are
+    // asserted because a filter that answered the same set for either value would satisfy
+    // one of them and is the failure this option cannot afford.
+    expect(summaries(render(week, { days_of_week: 'weekdays' }, {}, hass))).toEqual(kept);
   });
 });

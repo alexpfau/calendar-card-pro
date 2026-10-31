@@ -5,9 +5,13 @@
   "allDay": "celý deň",
   "multiDay": "do",
   "at": "v",
+  "viewList": "Zoznam",
+  "viewColumns": "Stĺpce",
+  "viewGrid": "Časová mriežka",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zajtra",
   "noEvents": "Žiadne udalosti",
   "loading": "Načítavam udalosti z kalendára...",
-  "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná"
+  "error": "Chyba: Entita kalendára nebola nájdená alebo je nesprávne nakonfigurovaná",
+  "loadFailed": "Nepodarilo sa načítať:"
 }

@@ -5,9 +5,13 @@
   "allDay": "hele dagen",
   "multiDay": "indtil",
   "at": "kl.",
+  "viewList": "Liste",
+  "viewColumns": "Kolonner",
+  "viewGrid": "Gitter",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
-  "noEvents": "Ingen kommende begivenheder",
+  "noEvents": "Ingen begivenheder",
   "loading": "Indlæser kalenderbegivenheder...",
-  "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt"
+  "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt",
+  "loadFailed": "Kunne ikke indlæses:"
 }

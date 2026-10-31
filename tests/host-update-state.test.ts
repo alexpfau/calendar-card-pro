@@ -14,7 +14,7 @@
  *   card that configured only `compact_days_to_show`, or configured its limit
  *   per-calendar rather than card-wide;
  * - dropping the fetch-error render branch shows an ordinary empty calendar instead of
- *   the error state when every calendar failed.
+ *   the notice naming the calendars when every calendar failed.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -206,7 +206,7 @@ describe('host error rendering', () => {
     document.body.innerHTML = '';
   });
 
-  it('renders the error state rather than an empty calendar when every calendar failed', async () => {
+  it('names the failed calendar rather than drawing an empty calendar when every calendar failed', async () => {
     fetchEventData.mockResolvedValue({ events: [], failedEntities: ['calendar.personal'] });
     const card = await mount();
 
@@ -214,8 +214,13 @@ describe('host error rendering', () => {
     await settle();
     await card.updateComplete;
 
-    const text = card.shadowRoot?.textContent ?? '';
-    expect(text).toContain('Error');
+    const notice = card.shadowRoot?.querySelector('.fetch-error');
+    expect(notice?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      "Couldn't load: calendar.personal",
+    );
+    // The notice replaces the generic configuration error, which would misdescribe a
+    // calendar that exists but did not answer.
+    expect(card.shadowRoot?.textContent ?? '').not.toContain('Error:');
     expect(card.shadowRoot?.querySelector('.day-table')).toBeNull();
   });
 
@@ -228,6 +233,42 @@ describe('host error rendering', () => {
     await settle();
     await card.updateComplete;
 
-    expect(card.shadowRoot?.textContent ?? '').not.toContain('Error');
+    expect(card.shadowRoot?.querySelector('.fetch-error')).toBeNull();
+  });
+
+  // Grid defaults `show_empty_days` on, so a failed calendar that reached the render
+  // dispatch would draw a full, ordinary-looking time axis rather than nothing at all —
+  // the same silent failure as the list view's empty day table, and harder to notice.
+  // `cramp` is what keeps a zero-width happy-dom card in grid instead of falling back.
+  const gridConfig = {
+    view: 'grid',
+    days_to_show: 7,
+    time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
+  };
+
+  it('names the failed calendar rather than drawing an empty time axis when every calendar failed', async () => {
+    fetchEventData.mockResolvedValue({ events: [], failedEntities: ['calendar.personal'] });
+    const card = await mount(gridConfig);
+
+    await card.updateEvents();
+    await settle();
+    await card.updateComplete;
+
+    expect(card.shadowRoot?.querySelector('.fetch-error')?.textContent).toContain(
+      'calendar.personal',
+    );
+    expect(card.shadowRoot?.querySelector('.grid-container')).toBeNull();
+  });
+
+  it('renders an empty time axis rather than the error state when nothing failed', async () => {
+    // The grid discriminator: this branch must produce the axis the one above must not.
+    const card = await mount(gridConfig);
+
+    await card.updateEvents();
+    await settle();
+    await card.updateComplete;
+
+    expect(card.shadowRoot?.querySelector('.fetch-error')).toBeNull();
+    expect(card.shadowRoot?.querySelector('.grid-container')).not.toBeNull();
   });
 });

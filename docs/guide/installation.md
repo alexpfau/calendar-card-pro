@@ -1,20 +1,19 @@
 # Installation
 
-Calendar Card Pro installs like any other custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
+Calendar Card Pro installs the standard way for a custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
 
 ## 📦 HACS Installation (Recommended)
 
-The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**.
+The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**. It is listed in the HACS default repositories, so there is no custom repository to add.
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexpfau&repository=calendar-card-pro&category=plugin)
 
 ### Steps
 
 1. Ensure **[HACS](https://hacs.xyz/docs/setup/download)** is installed in Home Assistant.
-2. Go to **HACS → Frontend → Custom Repositories**.
-3. Add this repository: `https://github.com/alexpfau/calendar-card-pro` as type `Dashboard`
-4. Install **Calendar Card Pro** from HACS.
-5. **Clear your browser cache** and reload Home Assistant.
+2. Open **HACS** and search for **Calendar Card Pro**, or use the button above.
+3. Open it and select **Download**.
+4. **Reload** Home Assistant in your browser, and clear the browser cache if an older version still shows.
 
 ## 📂 Manual Installation
 
@@ -24,8 +23,8 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 ### Steps
 
 1. **Download** both files from the latest release:  
-   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest) and
-   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest)
+   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/calendar-card-pro.js) and
+   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest/download/editor.js)
 
 2. **Put both files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
@@ -40,7 +39,7 @@ url: /local/calendar-card-pro/calendar-card-pro.js
 type: module
 ```
 
-5. **Clear cache & refresh** your browser to apply changes.
+5. **Refresh** your browser. After a later update, clear its cache as well, or the old version can stay loaded.
 
 ::: warning Both Files, In Their Own Folder
 The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
@@ -59,8 +58,10 @@ question. HACS does all of this for you, which is why it is the recommended rout
 
 ::: tip Optional: Compress The Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
-compress on the fly. Neither install route ships one, so the card transfers at its full
-206 KB and the editor at 384 KB — once per version, then the browser caches both.
+compress on the fly. HACS writes one beside every file it installs, so a HACS install already
+transfers compressed. A manual install has none: with the production bundles,
+the card transfers at its full 397 KB and the editor at 577 KB — once per version, then the
+browser caches both.
 
 If you want the smaller transfer, create the companions yourself and keep them beside the
 originals:
@@ -69,8 +70,10 @@ originals:
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 62 KB and the editor to 103 KB, give or take a few hundred bytes
-depending on which `gzip` build you have. Delete the `.gz` files whenever you
+That brings the card to 111 KB and the editor to 167 KB at gzip level 9, the level HACS uses
+as well. Every size here is a production build in whole kilobytes of 1,000 bytes, rounded
+down; the compressed ones were measured with Node 24.21.0's zlib at level 9, and the exact
+sizes depend on the `gzip` build. Delete the `.gz` files whenever you
 update, or regenerate them — Home Assistant will serve a stale `.gz` in preference to a
 newer `.js`.
 :::

@@ -26,9 +26,13 @@
   "allDay": "kogu päev",
   "multiDay": "kuni",
   "at": "kell",
+  "viewList": "Loetelu",
+  "viewColumns": "Veerud",
+  "viewGrid": "Ajaraster",
   "endsToday": "lõpeb täna",
   "endsTomorrow": "lõpeb homme",
-  "noEvents": "Tulevasi sündmusi pole",
+  "noEvents": "Sündmusi pole",
   "loading": "Kalendrisündmuste laadimine...",
-  "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud"
+  "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud",
+  "loadFailed": "Laadimine ebaõnnestus:"
 }

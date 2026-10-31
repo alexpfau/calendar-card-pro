@@ -14,8 +14,11 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import * as Config from '../src/config/config';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
+import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { walkSchema } from '../src/rendering/editor/panels';
 
 customElements.define('editor-form-wiring-probe', CalendarCardProEditor);
 
@@ -30,7 +33,7 @@ async function mount(config: Record<string, unknown>): Promise<EditorHost> {
   const element = document.createElement('editor-form-wiring-probe') as EditorHost;
   element.hass = { states: {}, locale: { language: 'en' } };
   document.body.appendChild(element);
-  element.setConfig(config);
+  element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
   await element.updateComplete;
   return element;
 }
@@ -39,7 +42,11 @@ async function mount(config: Record<string, unknown>): Promise<EditorHost> {
 function reported(element: EditorHost): Array<Record<string, unknown>> {
   const seen: Array<Record<string, unknown>> = [];
   element.addEventListener('config-changed', (event) => {
-    seen.push((event as CustomEvent).detail.config as Record<string, unknown>);
+    const config = {
+      ...((event as CustomEvent).detail.config as Record<string, unknown>),
+    };
+    delete config.config_version;
+    seen.push(config);
   });
   return seen;
 }
@@ -61,8 +68,8 @@ function formData(form: Element): Record<string, unknown> {
 
 /** The field names in an `ha-form`'s schema. */
 function schemaNames(form: Element): string[] {
-  const schema = (form as unknown as { schema?: Array<{ name?: string }> }).schema ?? [];
-  return schema.map((node) => node?.name ?? '');
+  const schema = (form as unknown as { schema?: HaFormSchema[] }).schema ?? [];
+  return [...walkSchema(schema)].map(({ node }) => node.name);
 }
 
 /** The panel form that owns a given option. */
@@ -149,6 +156,53 @@ describe('editor filter bar', () => {
 });
 
 describe('editor panel option forms', () => {
+  const workspaces = ['shared', 'list', 'column', 'grid'] as const;
+
+  it.each(
+    workspaces.flatMap((from) =>
+      workspaces.filter((to) => to !== from).map((to) => ({ from, to })),
+    ),
+  )('keeps a delayed $from form event in $from after selecting $to', async ({ from, to }) => {
+    const config = {
+      entities: ['calendar.anna'],
+      view: 'grid',
+      event_font_size: '17px',
+      list: { event_font_size: '19px' },
+      column: { event_font_size: '21px' },
+      time_grid: { event_font_size: '23px' },
+    };
+    const element = await mount(config);
+    const seen = reported(element);
+    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: from });
+    await element.updateComplete;
+    const origin = panelOwning(element, 'event_font_size');
+    const pending = { ...formData(origin), event_font_size: '31px' };
+
+    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: to });
+    await element.updateComplete;
+    expect(seen).toHaveLength(0);
+
+    change(origin, pending);
+    await element.updateComplete;
+
+    const block = from === 'grid' ? 'time_grid' : from;
+    const expected =
+      from === 'shared'
+        ? { ...config, event_font_size: '31px' }
+        : { ...config, [block]: { event_font_size: '31px' } };
+    expect(seen).toEqual([expected]);
+    expect(panelOwning(element, 'event_font_size')).not.toBe(origin);
+  });
+
+  it('keeps the same panel form across ordinary edits within one workspace', async () => {
+    const element = await mount({ entities: ['calendar.anna'], view: 'grid' });
+    const form = panelOwning(element, 'event_font_size');
+    change(form, { ...formData(form), event_font_size: '18px' });
+    await element.updateComplete;
+
+    expect(panelOwning(element, 'event_font_size')).toBe(form);
+  });
+
   it('reports the changed option and preserves the configured calendars', async () => {
     const element = await mount({
       entities: [{ entity: 'calendar.a', label: 'A' }, 'calendar.b'],
@@ -159,8 +213,10 @@ describe('editor panel option forms', () => {
     change(form, { ...formData(form), days_to_show: 7 });
     await element.updateComplete;
 
+    // A list card opens in the List workspace, so the count lands in `list:` since v5.
     expect(seen).toHaveLength(1);
-    expect(seen[0].days_to_show).toBe(7);
+    expect(seen[0].list).toMatchObject({ days_to_show: 7 });
+    expect(seen[0].days_to_show).toBeUndefined();
     expect(seen[0].entities).toEqual([{ entity: 'calendar.a', label: 'A' }, 'calendar.b']);
   });
 
@@ -168,17 +224,20 @@ describe('editor panel option forms', () => {
     const element = await mount({ entities: ['calendar.a'] });
     const seen = reported(element);
 
-    const days = panelOwning(element, 'days_to_show');
-    change(days, { ...formData(days), days_to_show: 7 });
+    const week = panelOwning(element, 'first_day_of_week');
+    change(week, { ...formData(week), first_day_of_week: 'sunday' });
     await element.updateComplete;
 
     const lines = panelOwning(element, 'title_max_lines');
     change(lines, { ...formData(lines), title_max_lines: 3 });
     await element.updateComplete;
 
+    // Located by name rather than by position: `first_day_of_week` is fetch-time and stays
+    // at the top level, `title_max_lines` is a list override and lands in `list:` in v5. The
+    // subject is that both survive one report, not where either sits.
     expect(seen).toHaveLength(2);
-    expect(seen[1].days_to_show).toBe(7);
-    expect(seen[1].title_max_lines).toBe(3);
+    expect(seen[1].first_day_of_week).toBe('sunday');
+    expect(seen[1].list).toHaveProperty('title_max_lines', 3);
   });
 
   it('keeps the panel event inside the editor', async () => {
@@ -205,7 +264,8 @@ describe('editor panel option forms', () => {
 
     const last = seen[seen.length - 1];
     expect(last).toBeDefined();
-    expect(last.days_to_show).toBe(7);
+    // Two destinations from one form: the count into `list:`, the week start at root.
+    expect(last.list).toMatchObject({ days_to_show: 7 });
     expect(last.first_day_of_week).toBe('monday');
   });
 
@@ -262,45 +322,38 @@ describe('editor per-calendar forms', () => {
   });
 });
 
-describe('editor exception forms', () => {
-  it('renders an override form for the field the picker selects', async () => {
+describe('direct view forms and resets', () => {
+  it('offers the view value without a picker or a duplicate form', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const overrides = Array.from(element.shadowRoot!.querySelectorAll('ha-form.exception-form'));
-    expect(overrides).toHaveLength(1);
-    expect(schemaNames(overrides[0])).toContain('day_spacing');
+    expect(element.shadowRoot!.querySelector('.exception-picker')).toBeNull();
+    expect(schemaNames(panelOwning(element, 'day_spacing'))).toContain('day_spacing');
   });
 
-  it('removes the override form when the picker deselects the field', async () => {
-    const element = await mount({ entities: ['calendar.a'], view: 'column' });
-
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
+  it('resets an override without removing the input', async () => {
+    const element = await mount({
+      entities: ['calendar.a'],
+      view: 'column',
+      column: { day_spacing: '20px' },
+    });
+    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-reset-keys="day_spacing"]',
+    );
+    expect(reset).not.toBeNull();
+    reset!.click();
     await element.updateComplete;
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(1);
-
-    change(element.shadowRoot!.querySelector('ha-form.exception-picker')!, { exceptions: [] });
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
+    expect(formData(panelOwning(element, 'day_spacing')).day_spacing).toBe('10px');
+    expect(element.shadowRoot!.querySelector('[data-reset-keys="day_spacing"]')).toBeNull();
   });
 
   it('writes an override value into the view block', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     const seen = reported(element);
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const override = element.shadowRoot!.querySelector('ha-form.exception-form')!;
+    const override = panelOwning(element, 'day_spacing');
     const data = formData(override);
-    const key = Object.keys(data)[0];
+    const key = 'day_spacing';
     change(override, { ...data, [key]: '20px' });
     await element.updateComplete;
 
@@ -309,18 +362,14 @@ describe('editor exception forms', () => {
     expect(last.column).toEqual({ [key]: '20px' });
   });
 
-  it('keeps the exception events inside the editor', async () => {
+  it('keeps routed view events inside the editor', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const override = element.shadowRoot!.querySelector('ha-form.exception-form')!;
+    const override = panelOwning(element, 'day_spacing');
     const data = formData(override);
-    change(override, { ...data, [Object.keys(data)[0]]: '20px' });
+    change(override, { ...data, day_spacing: '20px' });
     await element.updateComplete;
 
     expect(escaped).toBe(0);

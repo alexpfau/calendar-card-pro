@@ -97,6 +97,9 @@ For those interested in contributing code, I maintain detailed **[architecture d
 
 - **Bulgarian** (`bg`)
 - **Catalan** (`ca`)
+- **Chinese (Simplified)** (`zh-cn`)
+- **Chinese (Traditional)** (`zh-tw`)
+- **Croatian** (`hr`)
 - **Czech** (`cs`)
 - **Danish** (`da`)
 - **Dutch** (`nl`)
@@ -108,10 +111,10 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **German** (`de`)
 - **Greek** (`el`)
 - **Hebrew** (`he`)
-- **Croatian** (`hr`)
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Korean** (`ko`)
 - **Latvian** (`lv`)
 - **Lithuanian** (`lt`)
 - **Norwegian Bokmål** (`nb`)
@@ -128,8 +131,6 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Turkish** (`tr`)
 - **Ukrainian** (`uk`)
 - **Vietnamese** (`vi`)
-- **Chinese (Simplified)** (`zh-cn`)
-- **Chinese (Traditional)** (`zh-tw`)
 
 To add a new language:
 
@@ -159,15 +160,15 @@ To add a new language:
 2. Copy the structure from `en.json` and translate all values (not keys)
 3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`
 4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
-5. Add a `- **German** (de)` entry to the list above
+5. Add a ``- **German** (`de`)`` entry to the list above
 
 ### Translating the Editor
 
 The visual editor's strings are optional and live separately, in
-`src/rendering/editor/translations/[lang-code].json`. The editor is available in 11 of the
-35 languages: English, which lives in code, and the ten with a file here — nine translated
-in full, plus British English, which carries only the strings where it differs from US
-English. The other 24 render the editor in English, which is fully supported.
+`src/rendering/editor/translations/[lang-code].json`. The editor is available in 12 of the
+36 languages: English, which lives in code, and the eleven with a file here — nine translated
+in full, Korean in part, plus British English, which carries only the strings where it
+differs from US English. The other 24 render the editor in English, which is fully supported.
 
 They are kept apart because they are the larger half of the translations by some margin,
 and the editor is loaded only when someone opens it — so a dashboard never downloads them
@@ -183,7 +184,7 @@ leave out simply renders in English rather than looking broken. Register a new f
 `import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
 lowercase key as the language itself.
 
-## 🏆 Acknowledgements
+## 🏆 Acknowledgments
 
 - **Original design inspiration** from [Calendar Add-on & Calendar Designs](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) by **[@kdw2060](https://github.com/kdw2060)**.
 - **Interaction patterns** inspired by Home Assistant’s [Tile Card](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts), which is licensed under the [Apache License 2.0](https://github.com/home-assistant/frontend/blob/dev/LICENSE.md).

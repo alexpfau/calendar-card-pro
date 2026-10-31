@@ -5,9 +5,13 @@
   "allDay": "all day",
   "multiDay": "until",
   "at": "at",
+  "viewList": "List",
+  "viewColumns": "Columns",
+  "viewGrid": "Grid",
   "endsToday": "ends today",
   "endsTomorrow": "ends tomorrow",
-  "noEvents": "No upcoming events",
+  "noEvents": "No events",
   "loading": "Loading calendar events...",
-  "error": "Error: Calendar entity not found or improperly configured"
+  "error": "Error: Calendar entity not found or improperly configured",
+  "loadFailed": "Couldn't load:"
 }

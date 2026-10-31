@@ -21,7 +21,7 @@ import * as Helpers from '../src/utils/helpers';
  *
  * The indent itself is pure CSS and therefore invisible to this suite -- see the
  * note in `max-lines.test.ts` about the stylesheet being ungated. What *is*
- * checkable, and what actually decides the behaviour, is which class comes out.
+ * checkable, and what actually decides the behavior, is which class comes out.
  *
  * The predicate spells the pictographic surrogate ranges out longhand rather than
  * using `\p{Extended_Pictographic}`. That is a legacy shape, not a constraint:

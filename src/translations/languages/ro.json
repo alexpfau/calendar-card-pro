@@ -5,9 +5,13 @@
   "allDay": "toată ziua",
   "multiDay": "până la",
   "at": "la",
+  "viewList": "Listă",
+  "viewColumns": "Coloane",
+  "viewGrid": "Grilă",
   "endsToday": "se încheie astăzi",
   "endsTomorrow": "se încheie mâine",
-  "noEvents": "Nu sunt evenimente viitoare",
+  "noEvents": "Nu sunt evenimente",
   "loading": "Încărcare evenimente de calendar...",
-  "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect"
+  "error": "Eroare: Entitatea de calendar nu a fost găsită sau este configurată incorect",
+  "loadFailed": "Nu s-a putut încărca:"
 }

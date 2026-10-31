@@ -5,9 +5,13 @@
   "allDay": "tutto il giorno",
   "multiDay": "fino a",
   "at": "alle",
+  "viewList": "Lista",
+  "viewColumns": "Colonne",
+  "viewGrid": "Griglia oraria",
   "endsToday": "termina oggi",
   "endsTomorrow": "termina domani",
-  "noEvents": "Nessun evento in arrivo",
+  "noEvents": "Nessun evento",
   "loading": "Caricamento eventi del calendario...",
-  "error": "Errore: entità calendario non trovata o configurata in modo errato"
+  "error": "Errore: entità calendario non trovata o configurata in modo errato",
+  "loadFailed": "Impossibile caricare:"
 }

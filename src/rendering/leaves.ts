@@ -6,12 +6,15 @@
  */
 
 import { TemplateResult, html, nothing } from 'lit';
+import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
+import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import { splitTitleWords } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
 //-----------------------------------------------------------------------------
@@ -102,6 +105,111 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
 //-----------------------------------------------------------------------------
 
 /**
+ * Render the shared column-style day header.
+ *
+ * The class names are the shared day-header classes now, even though they still say
+ * `column`. They predate grid view, and renaming them would be a separate mechanical
+ * change that should not be bundled with a behavior fix.
+ *
+ * @param date Date to display
+ * @param config Card configuration
+ * @param language Language code for translations
+ * @param isToday Whether the date is today
+ * @param weatherContent Already-rendered weather badge, or `nothing`
+ * @param separator Optional rule under the header
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
+ * @param id The header's id, given only while the day's events are tap targets; see
+ *   `dayLabelId` in `activation.ts`
+ * @returns Rendered shared day header
+ */
+export function renderSharedDayHeader(
+  date: Date,
+  config: Types.Config,
+  language: string,
+  isToday: boolean,
+  weatherContent: TemplateResult | typeof nothing = nothing,
+  separator?: { width: string; color: string } | null,
+  hass?: Types.Hass | null,
+  id?: string,
+): TemplateResult {
+  const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
+  const hasInlineIndicator = todayIndicator !== nothing;
+  const headerSeparator = separator
+    ? html`<div
+        class="column-header-separator"
+        style=${styleMap({
+          borderTopWidth: separator.width,
+          borderTopColor: separator.color,
+          borderTopStyle: 'solid',
+        })}
+      ></div>`
+    : nothing;
+
+  return html`
+    <div class="column-day-header" id=${id ?? nothing}>
+      <div
+        class=${classMap({
+          'column-date-content': true,
+          'with-today-indicator': hasInlineIndicator,
+          'with-today-tile': isTileIndicator(config),
+        })}
+      >
+        ${todayIndicator}
+        ${renderDateContent(date, config, language, isToday, weatherContent, hass)}
+      </div>
+    </div>
+    ${headerSeparator}
+  `;
+}
+
+/**
+ * Render one day's week-number cell.
+ *
+ * The class name is shared with column view for the same reason as the day-header
+ * classes in {@link renderSharedDayHeader}: it was named before grid view reused it.
+ *
+ * @param weekNumber Week number for this day, or null when unavailable
+ * @param visible Whether this column is the one that shows the number
+ * @param gridColumn One-based CSS grid column line for the cell
+ * @returns Rendered week-number cell
+ */
+export function renderDayWeekNumber(
+  weekNumber: number | null | undefined,
+  visible: boolean,
+  gridColumn: number,
+): TemplateResult {
+  return html`
+    <div
+      class="column-week-number"
+      style=${styleMap({
+        gridColumn: String(gridColumn),
+        gridRow: '1',
+        ...(visible ? {} : { visibility: 'hidden' }),
+      })}
+    >
+      <div class="week-number">${weekNumber ?? ''}</div>
+    </div>
+  `;
+}
+
+/**
+ * Whether today's indicator is the tile drawn behind the day number itself.
+ *
+ * The tile is the one style that is not an element of its own: it restyles the day number,
+ * so `renderDateContent` draws it and {@link renderTodayIndicator} draws nothing.
+ *
+ * @param config Card configuration, already resolved for the view
+ * @returns `true` when the configured indicator is `tile`
+ */
+export function isTileIndicator(config: Types.Config): boolean {
+  return (
+    Boolean(config.today_indicator) &&
+    Helpers.getTodayIndicatorType(config.today_indicator) === 'tile'
+  );
+}
+
+/**
  * Render the contents of a date block: weekday, day number, optional month, and the already-rendered weather badge.
  *
  * @param date Date to display
@@ -109,6 +217,8 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param language Language code for translations
  * @param isToday Whether the date is today
  * @param weatherContent Already-rendered weather badge, or `nothing`
+ * @param hass Home Assistant instance, whose country decides which days are the weekend,
+ *   or its language when no country is set
  * @returns Rendered date block contents
  */
 export function renderDateContent(
@@ -117,8 +227,9 @@ export function renderDateContent(
   language: string,
   isToday: boolean,
   weatherContent: TemplateResult | typeof nothing = nothing,
+  hass?: Types.Hass | null,
 ): TemplateResult {
-  const isWeekendDay = FormatUtils.isWeekendDate(date);
+  const isWeekendDay = FormatUtils.isWeekendDate(date, hass);
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;
@@ -130,9 +241,15 @@ export function renderDateContent(
     monthColor = config.weekend_month_color || monthColor;
   }
 
+  const todayTile = isToday && isTileIndicator(config);
+
   if (isToday) {
     weekdayColor = config.today_weekday_color || weekdayColor;
-    dayColor = config.today_day_color || dayColor;
+    // On the tile the digits take a deeper shade of the tile's own color (see
+    // `.day.today-tile` in the stylesheet), unless the user named a color for them: today's,
+    // or on a weekend the weekend one, which today's falls back to everywhere else too.
+    const namedDayColor = config.today_day_color || (isWeekendDay && config.weekend_day_color);
+    dayColor = namedDayColor || (todayTile ? 'var(--calendar-card-today-indicator-ink)' : dayColor);
     monthColor = config.today_month_color || monthColor;
   }
 
@@ -157,7 +274,7 @@ export function renderDateContent(
       ${weekday}
     </div>
     <div
-      class="day"
+      class=${todayTile ? 'day today-tile' : 'day'}
       style=${styleMap({
         'font-size': config.day_font_size,
         color: dayColor,
@@ -221,12 +338,14 @@ function isGlyphLabel(label: string): boolean {
  * @param label - Label content from entity configuration
  * @param labelIconColor - Optional color for icon labels
  * @param labelType - Shape the entity configuration names, if it names one
+ * @param alt - Text alternative for a picture label; `''` marks it as decorative
  * @returns TemplateResult for the appropriate label type
  */
 export function renderLabel(
   label: string | undefined,
   labelIconColor?: string,
   labelType?: Helpers.LabelType,
+  alt = '',
 ): TemplateResult | typeof nothing {
   if (!label) return nothing;
 
@@ -240,7 +359,7 @@ export function renderLabel(
   }
 
   if (type === 'image') {
-    return html`<img src="${label}" class="label-image" />`;
+    return html`<img src="${label}" class="label-image" alt=${alt} />`;
   }
 
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
@@ -256,38 +375,81 @@ function renderEventTitle(
   weatherForecasts?: Types.WeatherForecasts,
   titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
   mergedLabels?: Types.ResolvedLabel[],
+  titleWords = false,
+  entityLabelAlt = '',
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
+  // The title is the one governed field the card colors inline rather than through its
+  // custom property, so the sentinel has to be resolved here as well. Resolving it to
+  // `undefined` drops the attribute, which hands the question back to `.event-title`'s own
+  // `var(--calendar-card-color-event)` — and that is the property the event element has
+  // just set to this calendar's accent. Emitting the literal string would work only by
+  // accident, through the browser discarding an invalid declaration.
+  const configuredTitleColor = event._matchedConfig?.color || config.event_color;
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
-    : event._matchedConfig?.color || config.event_color;
+    : EntityColors.isAccentTextSentinel(configuredTitleColor)
+      ? undefined
+      : configuredTitleColor;
 
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
 
-  const titleText = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+  const scrollTitles = config.scroll_long_titles;
+  // No whitespace inside the word spans, and the spaces between them stay text: joined, the
+  // pieces are the title exactly, so its text content does not change.
+  //
+  // 🚨 The one inline wrapper is what keeps those spaces on screen. `.event-title` is a
+  // `-webkit-box`, and with no line clamp in force Chrome lays that out as the legacy
+  // flexbox, which drops whitespace between its children: words sitting directly inside it
+  // rendered as "Homeoffice" on every unlabeled title. Inside one inline child they are
+  // ordinary inline content again. A labeled title hid this, because the label makes the
+  // title itself inline.
+  //
+  // The words take the title's own direction from `.event-title`, below. Inline-blocks
+  // are ordered by the direction of the line around them, so on a right-to-left dashboard
+  // an English title read "landlord with Call" until something said which way its words
+  // run.
+  //
+  // A run in a script written without spaces gets an inline element of its own. It breaks
+  // between characters exactly as bare text does, and the element is what lets the title
+  // cut hide it: a cut on the word before such a run has to take the run out too, or the
+  // run's text keeps the line going after the ellipsis. See cutGridTitleLines.
+  const titleText =
+    titleWords && !scrollTitles
+      ? html`<span class="title-words"
+          >${splitTitleWords(titleString ?? '').map((segment) =>
+            segment.kind === 'word'
+              ? html`<span class="title-word">${segment.text}</span>`
+              : segment.kind === 'text'
+                ? html`<span class="title-run">${segment.text}</span>`
+                : segment.text,
+          )}</span
+        >`
+      : titleString;
 
   // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is
   // what makes the `neutral` treatment mean the right thing here.
   //
   // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
   // what it is nested in -- and its wash is currentColor at 14% alpha, so the ground follows
-  // the ink. In the time row it inherits the time colour, which is the whole point of that
+  // the ink. In the time row it inherits the time color, which is the whole point of that
   // treatment: the row's own ink in a capsule of itself. Put the pill where `.event-title`'s
-  // inline `color` is in scope and it inherits the TITLE colour -- `event_color`, or this
+  // inline `color` is in scope and it inherits the TITLE color -- `event_color`, or this
   // calendar's own `color` override -- so the treatment keeps its meaning at both positions
   // without either needing a rule of its own.
   //
-  // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
+  // Nesting is also the only arrangement that works at all. `.event-title` carries its color
   // as an inline style, and an inline style beats any class selector -- so putting the pill
-  // classes ON that element would let the inline colour override `--badge-ink` and every
-  // treatment but the text source would silently render in the title colour.
+  // classes ON that element would let the inline color override `--badge-ink` and every
+  // treatment but the text source would silently render in the title color.
   //
-  // 🚨 The text source publishes the title's colour as `--badge-source` rather than letting
+  // 🚨 The text source publishes the title's color as `--badge-source` rather than letting
   // the stylesheet read `currentColor`, and that is not redundant with inheriting it. The
   // pill's own `color` is what the treatments SET, so a `currentColor` inside any other
-  // property reads the colour the treatment just wrote instead of the one the row had.
+  // property reads the color the treatment just wrote instead of the one the row had.
   // Three treatments get away with it because they set `color` to the inherited value
   // anyway; `filled` deliberately does not, and its ground would come out as its own ink.
   // A token settled before the treatment runs has no such ordering.
@@ -315,21 +477,80 @@ function renderEventTitle(
   // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
   // merge whose winner carries none renders as it always has.
   const labels = mergedLabels
-    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type))
+    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type, entry.alt))
     : entityLabel
-      ? renderLabel(entityLabel, labelIconColor, labelType)
+      ? renderLabel(entityLabel, labelIconColor, labelType, entityLabelAlt)
       : nothing;
+  // Asked of what renders rather than of the configuration: a label whose type resolves to
+  // `none` draws nothing, and its title takes the unlabeled markup below.
+  const hasLabel = Array.isArray(labels)
+    ? labels.some((label) => label !== nothing)
+    : labels !== nothing;
 
+  // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
+  // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —
+  // you cannot scroll one line horizontally and wrap it to N lines at once — so scrolling
+  // wins: the extra classes here switch `.event-title` from the wrapping/-webkit-box clamp
+  // (see the note on --calendar-card-title-display in styles.ts) to a single-line clip, and
+  // whatever `title_max_lines` is set to is ignored for that event. When the option is off,
+  // both branches below are byte-identical to the historical markup so no snapshot moves.
+  //
+  // The text is wrapped in `.event-title-scroll` only in the scroll branch: `.event-title`
+  // is the fixed-width clip viewport and the inner span is the full-width element the
+  // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow.
+  const titleInner = scrollTitles
+    ? html`<span class="event-title-scroll">${titleContent}</span>`
+    : titleContent;
+
+  const titleClass = `event-title ${isEmptyDay ? 'empty-day-title' : ''}${
+    scrollTitles ? ' title-scrollable' : ''
+  }`;
+  const titleStyle = entityColor === undefined ? nothing : `color: ${entityColor}`;
+
+  // 🚨 On `.event-title`, not on `.title-words` inside it, and never on both. A grid title
+  // cut to one line ends where its *block* ends, so a title running against the dashboard
+  // (Hebrew on an English one, English on a Hebrew one) lost its beginning: Chromium showed
+  // "… הצוות", the end of the title, and WebKit, measuring the first letter at zero width,
+  // blanked it. Giving the block the title's direction moves the cut to the title's own
+  // end. It has to move rather than be copied, because `dir="auto"` skips any descendant
+  // carrying a `dir` of its own: with both set the outer element finds no letters, resolves
+  // to left-to-right, and blanks Hebrew on a Hebrew dashboard instead. Alignment stays on
+  // the dashboard's side; see the matching rule in styles.ts.
+  const titleDir = titleWords && !scrollTitles ? 'auto' : nothing;
+
+  // 🚨 No whitespace between the last label and the title, and none inside the title before
+  // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
+  // collapses them into one visible word space after the label: about 3px on top of the
+  // label's own 4px margin, so the title sat 7px from a picture or icon while the time sat
+  // 4px from its clock. The list and column hanging indent budgets the label plus exactly
+  // that 4px, so the same space also left every wrapped line 3px short of the first glyph.
+  //
+  // An unlabeled title keeps the historical shape, byte for byte. Nothing sits before it,
+  // so its leading space starts a line and collapses to nothing, and the list and column
+  // DOM snapshots pin the whitespace inside the title as text.
+  //
+  // The directive guards that second branch. Without it Prettier folds the template onto
+  // one line, turning its whitespace into single spaces that the snapshots then disagree
+  // with; delete it, run npm run format and then npm test to see it.
+  // prettier-ignore
+  const title = hasLabel
+    ? html`${labels}<span class=${titleClass} style=${titleStyle} dir=${titleDir}>${titleInner}</span>`
+    : html`<span
+          class=${titleClass}
+          style=${titleStyle}
+          dir=${titleDir}
+        >
+          ${titleInner}
+        </span>`;
+
+  // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
+  // snapshots record the whitespace that separates the summary from its title. The same
+  // experiment as above shows it.
+  // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary">
-        ${labels}
-        <span
-          class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
-          style="color: ${entityColor}"
-        >
-          ${titleContent}
-        </span>
+      <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
+        ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
     </div>
@@ -363,47 +584,9 @@ export function renderEventWeather(
   placement: 'title' | 'row' = 'title',
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const showEventWeather = hasEventWeather(config);
-
-  if (!showEventWeather || !weatherForecasts?.hourly) {
-    return html``;
-  }
-
-  if (event.end?.dateTime) {
-    const now = new Date();
-    const eventEndTime = new Date(event.end.dateTime);
-
-    if (eventEndTime < now) {
-      return html``;
-    }
-  }
-
-  const eventConfig = config.weather?.event || {};
-
-  const forecast = Weather.findForecastForEvent(
-    event,
-    weatherForecasts.hourly,
-    weatherForecasts.daily,
-    eventConfig.daily_forecast_fallback !== false,
-  );
-
-  if (!forecast) {
-    return html``;
-  }
-
-  const showConditions = eventConfig.show_conditions !== false;
-  const showTemp = eventConfig.show_temp !== false;
-  const showUvIndex =
-    eventConfig.show_uv_index === true &&
-    forecast.uv_index !== undefined &&
-    forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
-
-  const ownRow = placement === 'row';
-  const showIcon = ownRow || showConditions;
-  const conditionText =
-    ownRow && showConditions
-      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition, config.language)
-      : undefined;
+  const content = eventWeatherContent(event, config, weatherForecasts, placement, hass);
+  if (!content) return html``;
+  const { forecast, showIcon, showTemp, showUvIndex, conditionText } = content;
 
   // prettier-ignore
   return html`
@@ -425,11 +608,71 @@ export function renderEventWeather(
   `;
 }
 
+/** Resolve shared weather content for the badge and Grid's unclipped accessible event name. */
+export function eventWeatherContent(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  weatherForecasts?: Types.WeatherForecasts,
+  placement: 'title' | 'row' = 'title',
+  hass?: Types.Hass | null,
+) {
+  const showEventWeather = hasEventWeather(config);
+
+  if (!showEventWeather || !weatherForecasts?.hourly) {
+    return null;
+  }
+
+  if (event.end?.dateTime) {
+    const now = new Date();
+    const eventEndTime = new Date(event.end.dateTime);
+
+    if (eventEndTime < now) {
+      return null;
+    }
+  }
+
+  const eventConfig = config.weather?.event || {};
+
+  const forecast = Weather.findForecastForEvent(
+    event,
+    weatherForecasts.hourly,
+    weatherForecasts.daily,
+    eventConfig.daily_forecast_fallback !== false,
+  );
+
+  if (!forecast) {
+    return null;
+  }
+
+  const showConditions = eventConfig.show_conditions !== false;
+  const showTemp = eventConfig.show_temp !== false;
+  const showUvIndex =
+    eventConfig.show_uv_index === true &&
+    forecast.uv_index !== undefined &&
+    forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
+
+  const ownRow = placement === 'row';
+  const showIcon = ownRow || showConditions;
+  const conditionText =
+    ownRow && showConditions
+      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition, config.language)
+      : undefined;
+
+  return { forecast, showIcon, showTemp, showUvIndex, conditionText };
+}
+
 /**
  * Locals that `renderEventContent` needs but must not recompute.
  */
 export interface EventContentParts {
   eventTime: string;
+
+  /**
+   * The droppable trailing end time of `eventTime`, straight from
+   * `FormatUtils.EventTimeParts.end` — see there for which shapes have one and why.
+   * Rendered as its own element only where a view asks for it via `splitTimeEnd`.
+   */
+  eventTimeEnd?: string;
 
   /**
    * The all-day label to draw as its own badge, present only when `allday_badge` names a
@@ -439,13 +682,15 @@ export interface EventContentParts {
    * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
    * gets that right — Greek must lose its tonos in capitals.
    *
-   * Carries its own `accent` because this calendar's color reaches the row as an inline
-   * border value, which no descendant can read. The badge republishes it as a custom
-   * property on itself and the stylesheet derives every colour from it, so the derivation
-   * stays themeable and no event that has no badge pays for the property.
+   * Carries its own `accent` because the badge's accent is not always the calendar's: a
+   * custom `allday_badge_color` stands in for it. The row does hand the calendar's color down,
+   * as `--calendar-card-event-accent-bar-color` for its accent bar, but that would be the
+   * wrong color then. The badge republishes its own as a custom property on itself and the
+   * stylesheet derives every color from it, so the derivation stays themeable and no event
+   * that has no badge pays for the property.
    *
-   * `inheritsText` is `allday_badge_color: text` — the one source whose colour this side of
-   * the render cannot name, because it differs per position. A custom colour needs no flag:
+   * `inheritsText` is `allday_badge_color: text` — the one source whose color this side of
+   * the render cannot name, because it differs per position. A custom color needs no flag:
    * it arrives as `accent` and is indistinguishable from one by the time it gets here.
    */
   allDayBadge?: {
@@ -464,8 +709,8 @@ export interface EventContentParts {
    * the time-row badge there is no text to hand it and no language to declare — the title is
    * the user's own words and is never uppercased.
    *
-   * Carries its own `accent` for the same reason the time badge does: this calendar's colour
-   * reaches the row as an inline border value, which no descendant can read.
+   * Carries its own `accent` for the same reason the time badge does: a custom
+   * `allday_badge_color` stands in for the calendar's color, which the row hands its bar.
    */
   titlePill?: {
     accent: string;
@@ -498,6 +743,12 @@ export interface EventContentParts {
   entityLabel: string | undefined;
 
   /**
+   * Text alternative for `entityLabel` when it draws as a picture: the person's name for a
+   * `person.…` label, `''` for any other picture. See `resolveLabelAlt`.
+   */
+  entityLabelAlt?: string;
+
+  /**
    * One label per calendar that contributed a copy of a merged duplicate, present only on
    * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
    *
@@ -506,7 +757,7 @@ export interface EventContentParts {
    * false: routing every single-label row through a one-element list was measured to leave
    * the whole unit suite green, snapshots included. What `undefined` buys is behavioral.
    * It is how a row says "no merge to draw", which sends it down the branch below and
-   * leaves a merge involving an unlabelled winner rendering exactly as it does today,
+   * leaves a merge involving an unlabeled winner rendering exactly as it does today,
    * rather than promoting the label of a calendar that lost.
    */
   mergedLabels?: Types.ResolvedLabel[];
@@ -516,6 +767,14 @@ export interface EventContentParts {
   countdownStr: string | null;
 
   progressPercentage: number | null;
+
+  /**
+   * The localized "Now" drawn before the time of an event that is under way, or `null`.
+   *
+   * Set by `buildEventPresentation` from `show_now_indicator`; grid clears it in
+   * `gridTimedEventContentParts`, because its now line already says the same thing.
+   */
+  nowLabel?: string | null;
 }
 
 /**
@@ -542,6 +801,25 @@ export interface EventContentOptions {
    * Home Assistant instance, used only to localize the condition text the own-row weather placement can carry. Absent for the title placement, which has no words.
    */
   hass?: Types.Hass | null;
+  /**
+   * Whether the droppable end time is drawn as its own element rather than as part of one
+   * text node. Grid only, and not a styling preference: the grid measures this row and
+   * degrades it, and CSS cannot hide half of a text node.
+   *
+   * The two views that leave it off get byte-identical markup to before, which is the
+   * point — a list row has no bottom edge standing in for the end time, so there the end
+   * is not droppable and the element would be dead weight.
+   */
+  splitTimeEnd?: boolean;
+  /**
+   * Draw each word of the title as its own element, so the title wraps only at spaces and a
+   * word too wide for the block is cut with an ellipsis instead of broken. Grid sets this for
+   * its timed blocks, which can be narrower than one word; list and column rows are never
+   * that narrow, so their markup stays a single text node. Ignored while
+   * `scroll_long_titles` is on, because a scrolling title is one line that moves rather
+   * than wraps. See `splitTitleWords`.
+   */
+  titleWords?: boolean;
 }
 
 /**
@@ -565,9 +843,12 @@ export function renderEventContent(
     progressPlacement = 'inline',
     countdownPlacement = 'trailing',
     hass,
+    splitTimeEnd = false,
+    titleWords = false,
   } = options;
   const {
     eventTime,
+    eventTimeEnd,
     allDayBadge,
     titlePill,
     eventLocation,
@@ -577,7 +858,9 @@ export function renderEventContent(
     countdownStr,
     progressPercentage,
     entityLabel,
+    entityLabelAlt,
     mergedLabels,
+    nowLabel,
   } = parts;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
@@ -605,7 +888,33 @@ export function renderEventContent(
 
   // A single-day all-day event has nothing left to say once the badge has the label, so
   // there is no empty span to lay out beside it.
-  const timeValue = eventTime ? html`<span>${eventTime}</span>` : nothing;
+  //
+  // `endsWith` here is a guard rather than a parse. `eventTimeEnd` was built as a suffix by
+  // the same formatter that built the string, so there is no separator to find and no
+  // locale assumption; the only thing that can come between them is `joinEventTimeParts`
+  // capitalizing index 0, which a droppable end never reaches because a start time is
+  // always in front of it. Should the two ever disagree the row falls back to one text
+  // node, which is what every view drew before the split existed.
+  const splitEnd =
+    splitTimeEnd && eventTimeEnd && eventTime.endsWith(eventTimeEnd) && eventTime !== eventTimeEnd
+      ? eventTimeEnd
+      : null;
+
+  // No whitespace inside the split: a text node between the two spans would put a second
+  // space in the middle of "10:00 - 12:00".
+  //
+  // The directive is documentation here rather than a guard, and that was measured rather
+  // than assumed: deleting it, running `npm run format` and running the suite leaves every
+  // test green. Prettier does reformat this line, but it breaks INSIDE the tag -- `<span\n
+  // >` -- so no text node appears and the DOM is identical. What it buys is that the source
+  // reads as the single line the browser sees, instead of the `>`-on-its-own-line form that
+  // is exactly what the two lines above are warning about.
+  // prettier-ignore
+  const timeValue = eventTime
+    ? splitEnd
+      ? html`<span>${eventTime.slice(0, -splitEnd.length)}<span class="time-end">${splitEnd}</span></span>`
+      : html`<span>${eventTime}</span>`
+    : nothing;
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
   // it would match the `time_max_lines` clamp selector and be truncated like body text.
@@ -616,8 +925,8 @@ export function renderEventContent(
   // rendering. The real double gap was two margins — the badge's own and the countdown's
   // lead-in — and the stylesheet drops the second when it follows a badge. Written tightly
   // anyway so the markup does not quietly depend on the container staying a flex row.
-  // `--calendar-card-color-time` is the property `.time` sets its own colour from, so naming
-  // it here hands the pill exactly the colour it is sitting in -- the shipped grey, or the
+  // `--calendar-card-color-time` is the property `.time` sets its own color from, so naming
+  // it here hands the pill exactly the color it is sitting in -- the shipped gray, or the
   // user's `time_color`. See the note at the title pill for why this is published as a token
   // rather than read as `currentColor`: a treatment that sets `color` would otherwise be
   // read back by its own ground.
@@ -637,21 +946,31 @@ export function renderEventContent(
     ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
     : timeValue;
 
+  // A running event's row keeps its clock where every row has it, filled rather than outlined,
+  // and reads "Now · 22:30 - 23:59" after it as one run of inline text, so it wraps as a
+  // sentence on a narrow card instead of squeezing the time beside a label that holds its
+  // width. Composed into the time's own binding, so a row that is not under way renders
+  // exactly the markup it always did. No whitespace inside: the spacing is the stylesheet's.
+  // prettier-ignore
+  const timeContent = nowLabel
+    ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
+    : timeText;
+
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
   // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
   // extraction seams" in tests/list-dom.test.ts).
   // prettier-ignore
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels, titleWords, entityLabelAlt)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime
           ? html`
               <div class="time">
                 <div class="time-actual">
-                  <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  ${allDayBadgeEl}${timeText}
+                  <ha-icon icon=${nowLabel ? 'mdi:clock' : 'mdi:clock-outline'}></ha-icon>
+                  ${allDayBadgeEl}${timeContent}
                 </div>
                 ${trailingCountdown
                   ? html`<div class="time-countdown">${trailingCountdown}</div>`
@@ -708,6 +1027,20 @@ export function renderEventContent(
   `;
 }
 
+/**
+ * The accent bar beside an event, in every view that draws one.
+ *
+ * An element of its own rather than a border on the event, because a border can neither have
+ * rounded ends nor sit inside the event's tinted box. It carries no color: the event element
+ * writes `--calendar-card-event-accent-bar-color`, and the stylesheet places and paints the
+ * bar (see `.event-accent-bar`). Grid all-day banners and the `+N` block draw none.
+ *
+ * @returns The bar
+ */
+export function renderAccentBar(): TemplateResult {
+  return html`<span class="event-accent-bar"></span>`;
+}
+
 //-----------------------------------------------------------------------------
 // TODAY-INDICATOR LEAVES
 //-----------------------------------------------------------------------------
@@ -761,7 +1094,8 @@ export function renderTodayIndicator(
   const indicatorValue = config.today_indicator;
   const indicatorType = Helpers.getTodayIndicatorType(indicatorValue);
 
-  if (indicatorType === 'none') {
+  // The tile is drawn on the day number itself, by `renderDateContent`.
+  if (indicatorType === 'none' || indicatorType === 'tile') {
     return nothing;
   }
 

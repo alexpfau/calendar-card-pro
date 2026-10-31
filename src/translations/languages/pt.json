@@ -13,9 +13,13 @@
   "allDay": "o dia todo",
   "multiDay": "até",
   "at": "às",
+  "viewList": "Lista",
+  "viewColumns": "Colunas",
+  "viewGrid": "Grade",
   "endsToday": "termina hoje",
   "endsTomorrow": "termina amanhã",
-  "noEvents": "Nenhum evento próximo",
+  "noEvents": "Nenhum evento",
   "loading": "Carregando eventos do calendário...",
-  "error": "Erro: A entidade do calendário não foi encontrada ou está configurada incorretamente"
+  "error": "Erro: A entidade do calendário não foi encontrada ou está configurada incorretamente",
+  "loadFailed": "Não foi possível carregar:"
 }

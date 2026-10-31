@@ -13,9 +13,13 @@
   "allDay": "cały dzień",
   "multiDay": "do",
   "at": "o",
+  "viewList": "Lista",
+  "viewColumns": "Kolumny",
+  "viewGrid": "Siatka czasu",
   "endsToday": "kończy się dziś",
   "endsTomorrow": "kończy się jutro",
-  "noEvents": "Brak nadchodzących wydarzeń",
+  "noEvents": "Brak wydarzeń",
   "loading": "Ładowanie wydarzeń z kalendarza...",
-  "error": "Błąd: encja kalendarza nie została znaleziona lub jest niepoprawnie skonfigurowana"
+  "error": "Błąd: encja kalendarza nie została znaleziona lub jest niepoprawnie skonfigurowana",
+  "loadFailed": "Nie udało się wczytać:"
 }

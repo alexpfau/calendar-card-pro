@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CURRENT_CONFIG_VERSION,
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
+  configVersionState,
   findDeprecatedKeys,
   hasConfigChanged,
   mergeConfig,
@@ -59,6 +61,24 @@ describe('toValidNumber', () => {
     expect(toValidNumber(-1, 0)).toBeUndefined();
     expect(toValidNumber('-3', 0)).toBeUndefined();
   });
+});
+
+describe('configVersionState', () => {
+  it.each([
+    [{}, { kind: 'legacy' }],
+    [{ config_version: 4 }, { kind: 'legacy', version: 4 }],
+    [{ config_version: CURRENT_CONFIG_VERSION }, { kind: 'current', version: 5 }],
+    [{ config_version: 6 }, { kind: 'future', version: 6 }],
+  ])('classifies %j', (config, expected) => {
+    expect(configVersionState(config)).toEqual(expected);
+  });
+
+  it.each(['5', 5.5, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects the authored marker %s without coercion',
+    (value) => {
+      expect(configVersionState({ config_version: value })).toEqual({ kind: 'invalid', value });
+    },
+  );
 });
 
 describe('normalizeNumericOptions', () => {
@@ -180,7 +200,7 @@ describe('normalizeEntities', () => {
     expect(result[2].compact_events_to_show).toBe(0);
   });
 
-  it('normalizes empty colour strings to undefined so defaults apply', () => {
+  it('normalizes empty color strings to undefined so defaults apply', () => {
     const result = normalizeEntities([
       { entity: 'calendar.a', color: '', accent_color: '', label_icon_color: '' },
     ]);
@@ -237,6 +257,7 @@ describe('hasConfigChanged', () => {
   // round-trip and a loading state to re-fetch a byte-identical payload.
   it.each([
     ['show_past_events', { show_past_events: true }],
+    ['time_grid.show_past_events', { time_grid: { show_past_events: true } }],
     ['filter_duplicates', { filter_duplicates: true }],
   ])('does not request a refetch for the render-only option %s', (_label, patch) => {
     expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(false);
@@ -249,7 +270,7 @@ describe('hasConfigChanged', () => {
   });
 
   it('ignores styling-only entity changes, which need a re-render but not a refetch', () => {
-    // This is the point of the function: colour edits must not trigger an API call.
+    // This is the point of the function: color edits must not trigger an API call.
     const previous = { ...base, entities: ['calendar.a'] } as Types.Config;
     const current = {
       ...base,
@@ -323,7 +344,7 @@ describe('findDeprecatedKeys', () => {
  * `setConfig` used to build the effective config with `{ ...DEFAULT_CONFIG, ...config }`, so
  * a `weather:` block naming only `entity:` arrived with `position`, `date` and `event` all
  * `undefined` — even though each is published with a default. That produced two defects in
- * v4 review and both were fixed at the symptom: `resolveWeatherPosition` centralised a
+ * v4 review and both were fixed at the symptom: `resolveWeatherPosition` centralized a
  * `position` default the subscribe and render halves were resolving differently, and
  * `isCustomized` had to treat an absent value as not-customized so the editor's Customized
  * Only filter stopped flagging keys the user never wrote.

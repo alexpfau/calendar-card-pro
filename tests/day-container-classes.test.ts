@@ -1,14 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { render as litRender } from 'lit';
+import { html, render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
+import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as Paging from '../src/utils/paging';
 
 /**
  * The day container's state classes are public API.
@@ -70,6 +73,16 @@ const WEEKEND_SPAN: Types.CalendarEventData[] = [
 
 /** `days_to_show` must reach Monday the 22nd, six days past the frozen Wednesday. */
 const SPAN_CONFIG = { days_to_show: 10 };
+
+/**
+ * A month of 2026's heading in English, as the card hands it to the toolbar.
+ *
+ * @param month - Zero-based month
+ * @param form - The month in full or short
+ * @returns The heading, in runs
+ */
+const monthHeading = (month: number, form: Paging.MonthForm = 'long'): Paging.MonthHeadingText =>
+  Paging.monthHeadingParts(new Date(2026, month, 1), 'en', form);
 
 /**
  * Column view ships `show_empty_days: true` (`COLUMN_DEFAULT_OVERRIDES` in `view.ts`)
@@ -226,78 +239,353 @@ describe('theming.md card-mod selectors', () => {
   });
 
   /**
-   * Rendered by the card shell rather than by either day renderer, so they cannot appear
-   * in the union below. Listed explicitly instead of loosening the check, so a future
-   * rename of one still has to be made deliberately here.
+   * Grid's edge cases, which no ordinary fixture reaches: two events starting together, so
+   * a grid limited to one lane per start draws the `+N` block; an event drawn over a longer
+   * one; events running past the visible hours; and banners running past the visible days.
    */
-  const CARD_CHROME = new Set([
-    'header-container',
-    'card-header',
-    'calendar-card-pro',
-    'column-view',
-  ]);
+  const GRID_EDGES: Types.CalendarEventData[] = [
+    {
+      start: { dateTime: '2026-06-18T13:00:00.000Z' },
+      end: { dateTime: '2026-06-18T14:00:00.000Z' },
+      summary: 'Lane one',
+      _entityId: 'calendar.personal',
+    },
+    {
+      start: { dateTime: '2026-06-18T13:00:00.000Z' },
+      end: { dateTime: '2026-06-18T14:00:00.000Z' },
+      summary: 'Lane two',
+      _entityId: 'calendar.personal',
+    },
+    // Drawn over the longer event below it, so it is raised.
+    {
+      start: { dateTime: '2026-06-19T13:00:00.000Z' },
+      end: { dateTime: '2026-06-19T17:00:00.000Z' },
+      summary: 'Long workshop',
+      _entityId: 'calendar.personal',
+    },
+    {
+      start: { dateTime: '2026-06-19T14:00:00.000Z' },
+      end: { dateTime: '2026-06-19T15:00:00.000Z' },
+      summary: 'Call inside it',
+      _entityId: 'calendar.personal',
+    },
+    // Past the visible hours at either end, so clipped at the top and at the bottom.
+    {
+      start: { dateTime: '2026-06-20T05:00:00.000Z' },
+      end: { dateTime: '2026-06-20T08:00:00.000Z' },
+      summary: 'Early flight',
+      _entityId: 'calendar.personal',
+    },
+    {
+      start: { dateTime: '2026-06-20T21:00:00.000Z' },
+      end: { dateTime: '2026-06-20T23:30:00.000Z' },
+      summary: 'Late show',
+      _entityId: 'calendar.personal',
+    },
+    // All-day events running past the first and the last visible day.
+    {
+      start: { date: '2026-06-15' },
+      end: { date: '2026-06-18' },
+      summary: 'Trip already under way',
+      _entityId: 'calendar.personal',
+    },
+    {
+      start: { date: '2026-06-25' },
+      end: { date: '2026-06-30' },
+      summary: 'Trip still to come',
+      _entityId: 'calendar.personal',
+    },
+  ];
 
-  function documentedClasses(): string[] {
-    // `process.cwd()` matches `editor-schema.test.ts`; vitest runs from the repo root.
-    const markdown = readFileSync(join(process.cwd(), 'docs/features/theming.md'), 'utf8');
+  const noop = (): void => {};
+  const HANDLERS = {
+    keyDown: noop,
+    keyUp: noop,
+    click: noop,
+    pointerDown: noop,
+    pointerMove: noop,
+    pointerUp: noop,
+    pointerCancel: noop,
+    pointerLeave: noop,
+    lostPointerCapture: noop,
+  };
+
+  /**
+   * Every class `theming.md` names, from four places.
+   *
+   * - Code blocks, anywhere a dot follows a boundary. The leading boundary matters: without
+   *   it `calendar.family` in an `entities:` list reads as a class named `family`.
+   * - Selector lines in code blocks, every class in them, so the `selected` in
+   *   `.view-switcher-segment.selected {` is checked as well as the segment.
+   * - Dotted spans in prose. The `.event-time` mistake this test caught was written in a
+   *   prose sentence, not in a recipe, and a version that scanned only code blocks passed
+   *   straight over it. An undotted `` `weekend_day_color` `` is an option name, not a class.
+   * - The first column of a table headed `Class`, dotted or not, since `today` and
+   *   `weekend` are listed there bare.
+   *
+   * @param markdown - Page source
+   * @returns The class names, sorted
+   */
+  function extractDocumentedClasses(markdown: string): string[] {
     const found = new Set<string>();
     const collect = (text: string): void => {
-      // The leading boundary matters: without it `calendar.family` in an `entities:`
-      // list reads as a class named `family`.
       for (const match of text.matchAll(/(?:^|[\s,{}()>+~])\.([a-z][a-z0-9-]*)/gm)) {
         found.add(match[1]);
       }
     };
+    const collectCompound = (selector: string): void => {
+      for (const match of selector.matchAll(/\.([a-z][a-z0-9-]*)/g)) found.add(match[1]);
+    };
     for (const block of markdown.matchAll(/```(?:yaml|css)\n([\s\S]*?)```/g)) {
       collect(block[1]);
+      for (const line of block[1].split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.endsWith('{') || trimmed.endsWith(',')) collectCompound(trimmed.split('{')[0]);
+      }
     }
-    // Prose is checked too, and not as an afterthought: the `.event-time` mistake this
-    // test caught was written in a prose sentence, not in a recipe. A version of this
-    // check that scanned only code blocks passed straight over it. Dotted spans only —
-    // an undotted `` `weekend_day_color` `` is an option name, not a class.
     for (const span of markdown.matchAll(/`(\.[A-Za-z0-9_.-]+)`/g)) {
       collect(` ${span[1].replace(/\./g, ' .')}`);
+    }
+    let inClassTable = false;
+    for (const line of markdown.split('\n')) {
+      if (!line.startsWith('|')) {
+        inClassTable = false;
+        continue;
+      }
+      const first = line.split('|')[1].trim();
+      if (first === 'Class') {
+        inClassTable = true;
+        continue;
+      }
+      if (!inClassTable || /^-+$/.test(first)) continue;
+      for (const token of first.matchAll(/`\.?([a-z][a-z0-9-]*)`/g)) found.add(token[1]);
     }
     return [...found].sort();
   }
 
+  function documentedClasses(): string[] {
+    // `process.cwd()` matches `editor-schema.test.ts`; vitest runs from the repo root.
+    return extractDocumentedClasses(
+      readFileSync(join(process.cwd(), 'docs/features/theming.md'), 'utf8'),
+    );
+  }
+
   function renderedClasses(): Set<string> {
     const union = new Set<string>();
+    const collect = (container: ParentNode): void => {
+      container
+        .querySelectorAll('*')
+        .forEach((element) => element.classList.forEach((name) => union.add(name)));
+    };
     // Optional branches are turned on deliberately: a class only reachable behind an
     // off-by-default option is absent from a default render, and would be reported as a
-    // documentation error rather than as the missing coverage it is.
+    // documentation error rather than as the missing coverage it is. Events are rendered
+    // tappable for the same reason, since the event-tap hooks exist only then.
     const base = {
       days_to_show: 10,
       show_past_events: true,
       show_location: true,
       show_time: true,
     };
-    for (const view of ['list', 'column'] as const) {
-      // Both event sets: EVENTS covers location, past events and all-day rendering;
-      // WEEKEND_SPAN is the only one that reaches a Saturday.
-      for (const events of [EVENTS, WEEKEND_SPAN]) {
-        const config = buildConfig(view === 'column' ? { ...base, view: 'column' } : base);
+    for (const view of ['list', 'column', 'grid'] as const) {
+      // EVENTS covers location, past events, all-day rendering and, at the frozen 10:00, a
+      // running event and grid's now line; WEEKEND_SPAN is the only set that reaches a
+      // Saturday; GRID_EDGES holds grid's edge cases. Each set is drawn once more with an
+      // `event_gap`, whose classes exist only while a gap is set.
+      for (const [events, gap] of [EVENTS, WEEKEND_SPAN, GRID_EDGES].flatMap(
+        (set) =>
+          [
+            [set, '0px'],
+            [set, '6px'],
+          ] as const,
+      )) {
+        const config = buildConfig(
+          view === 'list'
+            ? { ...base, event_gap: gap }
+            : { ...base, event_gap: gap, view, time_grid: { max_simultaneous_events: 1 } },
+        );
         const days = EventUtils.groupEventsByDay(events, config, false, 'en', view);
         const container = document.createElement('div');
         litRender(
           view === 'list'
-            ? Render.renderGroupedEvents(days, config, 'en', undefined, null)
-            : Column.renderColumnGroupedEvents(days, config, 'en', undefined, null),
+            ? Render.renderGroupedEvents(days, config, 'en', undefined, null, true)
+            : view === 'column'
+              ? Column.renderColumnGroupedEvents(days, config, 'en', undefined, null, true)
+              : Grid.renderGridGroupedEvents(
+                  days,
+                  ViewConfig.resolveEffectiveConfig(config, 'grid'),
+                  'en',
+                  undefined,
+                  null,
+                  FROZEN_NOW,
+                  undefined,
+                  undefined,
+                  true,
+                ),
           container,
         );
-        container
-          .querySelectorAll('*')
-          .forEach((element) => element.classList.forEach((name) => union.add(name)));
+        collect(container);
       }
     }
+    // The card around the days: its header with a toolbar holding both controls, and the
+    // notice naming a calendar that failed to load. Rendered once per view, because the
+    // root carries the view's class.
+    // With a title and room for labels in each view, untitled and icon-only once, and once
+    // with the date navigation, so every row and month class of the toolbar is drawn: the
+    // month as plain text without the navigation and as the picker's button with it, in its
+    // short form on the icon-only card. The legend is chips with a hidden calendar's wherever
+    // there is room for labels, and folded into its button and menu on the icon-only card;
+    // refresh shows each way a refresh someone asked for can end on two of the others.
+    for (const [view, title, labeled, paging, refreshPhase] of [
+      ['list', 'Family', true, false, 'idle'],
+      ['column', 'Family', true, false, 'done'],
+      ['grid', 'Family', true, false, 'failed'],
+      ['list', undefined, false, false, 'idle'],
+      ['list', 'Family', true, true, 'turning'],
+    ] as const) {
+      const container = document.createElement('div');
+      litRender(
+        Render.renderMainCardStructure(
+          {},
+          title,
+          html`<div></div>`,
+          HANDLERS,
+          false,
+          false,
+          view,
+          false,
+          false,
+          Render.renderFetchErrorNotice(['Ben'], 'en'),
+          {
+            labeled,
+            heading: {
+              text: monthHeading(5, labeled ? 'long' : 'short'),
+              reserve: [0, 8].map((month) => monthHeading(month, labeled ? 'long' : 'short')),
+              full: [0, 8].map((month) => monthHeading(month)),
+              short: !labeled,
+              range: 'Jun 17 – 23',
+            },
+            viewSwitcher: {
+              views: [
+                { view: 'list', label: 'List', available: true },
+                { view: 'column', label: 'Columns', available: false },
+                { view: 'grid', label: 'Grid', available: true },
+              ],
+              selected: view,
+              onSelect: noop,
+            },
+            // Lit beside labels, showing its check after a press on the grid card, and hidden on
+            // the icon-only card, so all three of its states are drawn.
+            reset: {
+              label: 'Reset',
+              active: labeled && view !== 'grid',
+              confirmation: view === 'grid' ? 'showing' : undefined,
+              onActivate: noop,
+            },
+            refresh: {
+              label: 'Refresh',
+              phase: refreshPhase,
+              // The turning case is a load the card started itself.
+              unasked: refreshPhase === 'turning',
+              onActivate: noop,
+            },
+            addEvent: { label: 'Add event', onActivate: noop },
+            legend: {
+              calendars: [
+                { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
+                { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
+              ],
+              name: 'My calendars',
+              folded: !labeled,
+              inert: false,
+              onToggle: noop,
+            },
+            navigation: paging
+              ? {
+                  homeName: 'Today',
+                  previousName: 'Previous',
+                  nextName: 'Next',
+                  inert: false,
+                  pickerValue: '2026-06-17',
+                  homeConfirming: true,
+                  onPrevious: noop,
+                  onHome: noop,
+                  onNext: noop,
+                  onPick: noop,
+                }
+              : undefined,
+          },
+          true,
+        ),
+        container,
+      );
+      collect(container);
+    }
+    // A shared screen turning a page: reset alone in its row, so `.alone`, and the days
+    // dimmed while the next page's events load, so `.page-pending`.
+    const turning = document.createElement('div');
+    litRender(
+      Render.renderMainCardStructure(
+        {},
+        'Family',
+        html`<div></div>`,
+        HANDLERS,
+        false,
+        false,
+        'list',
+        false,
+        false,
+        Render.renderFetchErrorNotice(['Ben'], 'en'),
+        {
+          labeled: true,
+          heading: {
+            text: monthHeading(5),
+            reserve: [0, 8].map((month) => monthHeading(month)),
+            full: [0, 8].map((month) => monthHeading(month)),
+            short: false,
+            range: 'Jun 17 – 23',
+          },
+          reset: { label: 'Reset', active: true, onActivate: noop },
+        },
+        true,
+        true,
+      ),
+      turning,
+    );
+    collect(turning);
     return union;
   }
 
+  it('reads compound selectors and class tables, not only leading dots', () => {
+    const sample = [
+      '```yaml',
+      'entities:',
+      '  - calendar.family',
+      'card_mod:',
+      '  style: |',
+      '    ha-card .view-switcher-segment.never-rendered {',
+      '      color: red;',
+      '    }',
+      '```',
+      '',
+      '| Class          | Applied when |',
+      '| -------------- | ------------ |',
+      '| `bare-class`   | always       |',
+      '',
+      '| Option          | Default |',
+      '| --------------- | ------- |',
+      '| `not-a-class`   | -       |',
+    ].join('\n');
+    expect(extractDocumentedClasses(sample)).toEqual([
+      'bare-class',
+      'never-rendered',
+      'view-switcher-segment',
+    ]);
+  });
+
   it('names only classes the card actually renders', () => {
     const rendered = renderedClasses();
-    const unknown = documentedClasses().filter(
-      (name) => !rendered.has(name) && !CARD_CHROME.has(name),
-    );
+    const unknown = documentedClasses().filter((name) => !rendered.has(name));
     expect(unknown).toEqual([]);
   });
 

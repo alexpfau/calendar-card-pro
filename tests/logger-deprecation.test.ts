@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * user wrote by hand and the card is discarding — advice they never see is no advice.
  *
  * `Logger.deprecation` is therefore deliberately ungated. This pins that, because the
- * obvious "tidy-up" is to route it through `simpleLog` like its neighbours, which
+ * obvious "tidy-up" is to route it through `simpleLog` like its neighbors, which
  * would silently restore the bug in production while every dev build still looked
  * correct. The level is mocked at module load since `currentLogLevel` is captured
  * once, at import time, and has no setter.

@@ -17,7 +17,7 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  * Every value below is distinct, so the assertions fail not only when a mapping is dropped
  * but also when two are crossed. That is the failure this file is really aimed at: a
  * property that carries *a* value looks correct in a browser until someone notices their
- * location colour is following their time colour.
+ * location color is following their time color.
  */
 type Pair = readonly [option: string, property: string, value: string];
 
@@ -41,9 +41,11 @@ const PASS_THROUGH: readonly Pair[] = [
   ['vertical_line_width', '--calendar-card-line-width-vertical', '108px'],
   ['day_spacing', '--calendar-card-day-spacing', '109px'],
   ['event_spacing', '--calendar-card-event-spacing', '110px'],
+  ['event_gap', '--calendar-card-event-gap', '119px'],
   ['additional_card_spacing', '--calendar-card-spacing-additional', '111px'],
   ['progress_bar_color', '--calendar-card-progress-bar-color', 'rgb(10, 0, 0)'],
   ['progress_bar_height', '--calendar-card-progress-bar-height', '112px'],
+  ['now_color', '--calendar-card-now-color', 'rgb(20, 0, 0)'],
   ['today_indicator_color', '--calendar-card-today-indicator-color', 'rgb(11, 0, 0)'],
   ['today_indicator_size', '--calendar-card-today-indicator-size', '113px'],
   ['week_number_font_size', '--calendar-card-week-number-font-size', '114px'],
@@ -100,12 +102,63 @@ describe('custom property mapping', () => {
     ).toBe('calc(1.75 * (calc(1em + 2px)))');
   });
 
+  it('passes the event gap through in the unit it was written in', () => {
+    // Every length default is written in px, so a px-only assertion agrees with a mapping
+    // that discards the unit. The gap is read in em against the card's font, and a calc()
+    // has to reach the stylesheet as written for the browser to resolve.
+    expect(propsFor({ event_gap: '0.5em' })['--calendar-card-event-gap']).toBe('0.5em');
+    expect(propsFor({ event_gap: 'calc(0.25rem + 2px)' })['--calendar-card-event-gap']).toBe(
+      'calc(0.25rem + 2px)',
+    );
+  });
+
+  it.each([undefined, '0px', '0', '-0px', '-4px'])(
+    'writes no event gap at all for %s, so a card without one keeps its inline style',
+    (gap) => {
+      // The property lands in ha-card's style attribute. A `0px` written there on every
+      // card changes the markup of every card that never set the option.
+      const props = propsFor(gap === undefined ? {} : { event_gap: gap });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-gap');
+    },
+  );
+
+  it('rounds the accent bar side of an event, and insets the bar, only while events are tinted', () => {
+    // Untinted, the bar sits flush on the event's start edge, so that side stays square and
+    // the bar takes its untinted insets, all from the stylesheet's fallbacks. Both properties
+    // are left unwritten rather than written as 0, so an untinted card keeps its inline style.
+    for (const opacity of [undefined, 0]) {
+      const props = propsFor(opacity === undefined ? {} : { event_background_opacity: opacity });
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-side-radius');
+      expect(Object.keys(props)).not.toContain('--calendar-card-event-accent-bar-inset');
+    }
+    for (const opacity of [1, 20, 100]) {
+      const props = propsFor({ event_background_opacity: opacity });
+      expect(props['--calendar-card-event-accent-side-radius']).toBe(
+        'var(--calendar-card-event-border-radius)',
+      );
+      expect(props['--calendar-card-event-accent-bar-inset']).toBe('4px');
+    }
+  });
+
   it('dims the default empty day color and passes a configured one through', () => {
     const fallback = propsFor({ empty_day_color: Config.DEFAULT_CONFIG.empty_day_color });
     const custom = propsFor({ empty_day_color: 'rgb(14, 0, 0)' });
 
     expect(fallback['--calendar-card-empty-day-color']).toContain('color-mix');
     expect(custom['--calendar-card-empty-day-color']).toBe('rgb(14, 0, 0)');
+  });
+
+  it.each([
+    [undefined, '0.6'],
+    [60, '0.6'],
+    [100, '1'],
+    [0, '0'],
+    [1, '0.01'],
+    [12.5, '0.125'],
+  ])('maps past content percentage %s to one inherited alpha', (value, alpha) => {
+    expect(propsFor({ past_event_opacity: value })['--calendar-card-past-event-opacity']).toBe(
+      alpha,
+    );
   });
 
   it('covers every property the stylesheet reads', () => {
@@ -116,11 +169,15 @@ describe('custom property mapping', () => {
       ...PASS_THROUGH.map(([, property]) => property),
       '--calendar-card-date-column-width',
       '--calendar-card-empty-day-color',
+      '--calendar-card-past-event-opacity',
     ]);
     const known = new Set<string>([
       // Asserted in their own dedicated files, listed here so this check stays exhaustive.
       '--calendar-card-description-max-lines',
       '--calendar-card-title-max-lines',
+      '--calendar-card-grid-title-lines-compact',
+      '--calendar-card-grid-title-lines-medium',
+      '--calendar-card-grid-title-lines-expanded',
       '--calendar-card-time-max-lines',
       '--calendar-card-location-max-lines',
       '--calendar-card-title-display',
@@ -148,7 +205,7 @@ describe('custom property mapping', () => {
  * never asserted.
  *
  * v4 turned these into a real override surface: the badges used to carry their size and
- * colour as inline `style` attributes that no theme could reach, and `theming.md` now
+ * color as inline `style` attributes that no theme could reach, and `theming.md` now
  * publishes all six properties with defaults.
  *
  * 🚨 The pairs below do **not** pin the `|| '14px'` fallbacks in `styles.ts`, and an
@@ -211,7 +268,7 @@ describe('weather custom properties', () => {
   );
 
   it('keeps the two placements independent', () => {
-    // The badges sit beside different text colours and keep separate fallbacks; setting
+    // The badges sit beside different text colors and keep separate fallbacks; setting
     // one must not move the other. A single shared read would pass both tables above.
     const props = propsFor({
       weather: { entity: 'weather.home', date: { icon_size: '41px' } },
@@ -219,5 +276,20 @@ describe('weather custom properties', () => {
 
     expect(props['--calendar-card-weather-date-icon-size']).toBe('41px');
     expect(props['--calendar-card-weather-event-icon-size']).toBe('14px');
+  });
+
+  it('keeps clamped event conditions in inline flow', () => {
+    // The stylesheet still supplies the clamp declarations. This custom property chooses
+    // whether the condition becomes a block or stays in the surrounding text run.
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 0 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('inline');
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 2 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('-webkit-inline-box');
   });
 });

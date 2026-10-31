@@ -53,7 +53,7 @@ describe('getRequiredForecastTypes', () => {
     expect(forecastsFor('date')).toEqual(['daily']);
   });
 
-  it('defaults to "date" behaviour when position is omitted', () => {
+  it('defaults to "date" behavior when position is omitted', () => {
     expect(forecastsFor(undefined)).toEqual(['daily']);
   });
 
@@ -101,7 +101,7 @@ describe('getRequiredForecastTypes', () => {
   });
 
   it('treats an unknown position as a rendering one rather than silently dropping it', () => {
-    // Defensive: an unrecognised value must not resolve to "no forecast", which would
+    // Defensive: an unrecognized value must not resolve to "no forecast", which would
     // hide a future typo behind an empty weather column instead of surfacing it.
     expect(forecastsFor('bogus')).toEqual(['daily', 'hourly']);
   });

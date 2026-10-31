@@ -1,7 +1,7 @@
 /**
- * Colour conversion and icon detection in `src/utils/helpers.ts`.
+ * Color conversion and icon detection in `src/utils/helpers.ts`.
  *
- * `convertToRGBA` turns a configured accent colour plus `event_background_opacity`
+ * `convertToRGBA` turns a configured accent color plus `event_background_opacity`
  * into the event background. A mutation sweep found two of its branches free to
  * break with the whole suite green:
  *
@@ -10,15 +10,15 @@
  *    variable this card defines nowhere and no theme knows about, so the literal
  *    fallback always won — and that fallback is the default `accent_color`, which is
  *    why a themed card looked correct until someone compared it against the theme it
- *    was supposed to follow. Themed colours are the common case, since every HA theme
- *    variable arrives as `var(...)`. The assertions below pin the configured colour
+ *    was supposed to follow. Themed colors are the common case, since every HA theme
+ *    variable arrives as `var(...)`. The assertions below pin the configured color
  *    reaching the output, which the old form could not do at all.
  *
- * 2. The two `rgb()` / `rgba()` branches convert a resolved literal colour. Neither
+ * 2. The two `rgb()` / `rgba()` branches convert a resolved literal color. Neither
  *    is reachable under happy-dom, which returns `getComputedStyle(el).color`
  *    verbatim (`#ff0000`) rather than resolving it to `rgb(255, 0, 0)` as a browser
  *    does. Stubbing the resolved value is what makes the production path testable
- *    at all; without the stub the function returns the colour unchanged and the
+ *    at all; without the stub the function returns the color unchanged and the
  *    opacity is silently dropped.
  *
  * `isIconValue` decides whether a `today_indicator` string is an icon. Its
@@ -36,7 +36,7 @@ import * as Helpers from '../src/utils/helpers';
 
 /**
  * Pin the value `getComputedStyle().color` resolves to, the way a browser would.
- * happy-dom echoes the authored string instead, so both literal-colour branches
+ * happy-dom echoes the authored string instead, so both literal-color branches
  * of `computeRGBA` are unreachable without this.
  */
 function stubResolvedColor(resolved: string): void {
@@ -50,8 +50,8 @@ afterEach(() => {
 });
 
 describe('convertToRGBA turns a configured opacity into a CSS alpha', () => {
-  it('carries a themed var() colour through to the output', () => {
-    // The colour itself has to appear. The previous form discarded it entirely and
+  it('carries a themed var() color through to the output', () => {
+    // The color itself has to appear. The previous form discarded it entirely and
     // emitted a fixed fallback, so an assertion that only checked the alpha passed while
     // every themed card rendered the shipped blue.
     expect(Helpers.convertToRGBA('var(--primary-color)', 30)).toBe(
@@ -76,12 +76,12 @@ describe('convertToRGBA turns a configured opacity into a CSS alpha', () => {
     );
   });
 
-  it('applies the alpha to a literal colour the browser resolves to rgb()', () => {
+  it('applies the alpha to a literal color the browser resolves to rgb()', () => {
     stubResolvedColor('rgb(255, 0, 0)');
     expect(Helpers.convertToRGBA('#ff0000', 30)).toBe('rgba(255, 0, 0, 0.3)');
   });
 
-  it('replaces the alpha of a literal colour that already resolves to rgba()', () => {
+  it('replaces the alpha of a literal color that already resolves to rgba()', () => {
     stubResolvedColor('rgba(18, 52, 86, 0.5)');
     expect(Helpers.convertToRGBA('#123456', 40)).toBe('rgba(18, 52, 86, 0.4)');
   });
@@ -95,10 +95,10 @@ describe('convertToRGBA turns a configured opacity into a CSS alpha', () => {
     expect(Helpers.convertToRGBA('transparent', 30)).toBe('transparent');
   });
 
-  it('returns an unresolvable colour unchanged instead of emitting a broken alpha', () => {
+  it('returns an unresolvable color unchanged instead of emitting a broken alpha', () => {
     // Pins the outcome, not a particular line: the early `!computedColor` return and
-    // the function's tail both yield the colour unchanged, so this cannot distinguish
-    // them. The guarded behaviour is that no malformed `rgba(, , , 0.3)` escapes.
+    // the function's tail both yield the color unchanged, so this cannot distinguish
+    // them. The guarded behavior is that no malformed `rgba(, , , 0.3)` escapes.
     stubResolvedColor('');
     expect(Helpers.convertToRGBA('notacolor', 30)).toBe('notacolor');
   });
@@ -126,12 +126,12 @@ describe('isIconValue separates an icon name from a URL', () => {
  * The end-to-end half of the same defect.
  *
  * `convertToRGBA` is only reached from `getEntityAccentColorWithOpacity`, behind two
- * opt-ins — a `var()` accent colour and a non-zero `event_background_opacity`, which
+ * opt-ins — a `var()` accent color and a non-zero `event_background_opacity`, which
  * defaults to `0` on a path that returns before the conversion happens. So the unit
  * assertions above can all pass while nothing a user sees ever changes. This renders the
  * card and reads the background off the event, which is the only claim that matters.
  */
-describe('a themed accent colour reaches the rendered event background', () => {
+describe('a themed accent color reaches the rendered event background', () => {
   const EVENT = [
     {
       start: { dateTime: '2026-06-18T09:00:00.000Z' },
@@ -168,8 +168,8 @@ describe('a themed accent colour reaches the rendered event background', () => {
 
     expect(styles.length).toBeGreaterThan(0);
     expect(styles.join(' ')).toContain('color-mix(in srgb, var(--primary-color) 30%, transparent)');
-    // The colour the old fallback always resolved to. Its absence is the regression guard:
-    // every themed card used to render this instead of the theme's own colour.
+    // The color the old fallback always resolved to. Its absence is the regression guard:
+    // every themed card used to render this instead of the theme's own color.
     expect(styles.join(' ')).not.toContain('3, 169, 244');
   });
 

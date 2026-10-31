@@ -110,7 +110,7 @@ describe('fetchEventData caching', () => {
     expect(first.events[0]._entityLabel).toBe('Old label');
 
     // `label` is not part of the cache key, so this is a cache hit by design.
-    // The user has edited their config; the card must honour the new value.
+    // The user has edited their config; the card must honor the new value.
     const after = buildConfig({
       entities: [{ entity: 'calendar.personal', label: 'New label' }],
     });
@@ -139,7 +139,7 @@ describe('fetchEventData caching', () => {
     ).toBe(false);
   });
 
-  it('honours a per-entity split_multiday_events override on a cache hit', async () => {
+  it('honors a per-entity split_multiday_events override on a cache hit', async () => {
     const multiDay: Types.CalendarEventData = {
       start: { date: '2026-06-17' },
       end: { date: '2026-06-20' },

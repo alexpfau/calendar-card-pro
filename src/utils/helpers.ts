@@ -13,6 +13,23 @@ import * as PersonPictures from './person-pictures';
 // COLOR UTILITIES
 //-----------------------------------------------------------------------------
 
+/**
+ * Serialize CSS custom properties into an inline `style` fragment.
+ *
+ * For the two event elements whose `style` is a template string rather than a `styleMap`.
+ * Emits nothing at all for an empty record, so appending it to an existing attribute
+ * leaves that attribute byte-identical — which is what keeps the list view's DOM snapshot
+ * from moving for every card that does not use the feature.
+ *
+ * @param properties - Property names mapped to values
+ * @returns A `name:value;` fragment, or an empty string
+ */
+export function styleDeclarations(properties: Readonly<Record<string, string>>): string {
+  return Object.entries(properties)
+    .map(([name, value]) => `${name}:${value};`)
+    .join('');
+}
+
 /** Resolved RGBA cache keyed by `${color}|${opacity}`; avoids repeated computed-style lookups. */
 const rgbaCache = new Map<string, string>();
 
@@ -101,7 +118,7 @@ export function isIconValue(value: string): boolean {
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config
- * @returns Type of indicator ('dot', 'pulse', 'glow', 'mdi', 'image', 'emoji', 'none')
+ * @returns Type of indicator ('tile', 'dot', 'pulse', 'glow', 'mdi', 'image', 'emoji', 'none')
  */
 export function getTodayIndicatorType(value: string | boolean): string {
   if (value === undefined || value === false) {
@@ -118,7 +135,7 @@ export function getTodayIndicatorType(value: string | boolean): string {
     // (`BUILT_IN_INDICATORS`), so it reached the right answer only because *every*
     // unrecognized string did. The moment the fallthrough below became text rather than a
     // dot, that accident would have drawn the word "dot" on the card.
-    if (value === 'dot' || value === 'pulse' || value === 'glow') {
+    if (value === 'dot' || value === 'pulse' || value === 'glow' || value === 'tile') {
       return value;
     }
 

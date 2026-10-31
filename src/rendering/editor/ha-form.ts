@@ -7,7 +7,7 @@
  * Options offered by a `select` selector.
  */
 export interface SelectOption {
-  value: string;
+  value: string | number;
   label: string;
   description?: string;
   image?: string | { src: string; src_dark?: string };
@@ -39,7 +39,17 @@ export type Selector =
         sort?: boolean;
       } | null;
     }
-  | { ui_action: Record<string, never> | null }
+  | {
+      ui_action: {
+        /**
+         * The exact list the dropdown offers, replacing Home Assistant's defaults rather
+         * than extending them. Omit it to take HA's own list, which knows nothing about
+         * this card's actions.
+         */
+        actions?: ReadonlyArray<string>;
+        default_action?: string;
+      } | null;
+    }
   | { icon: Record<string, never> | null }
   | {
       entity: {
@@ -52,6 +62,19 @@ interface BaseSchema {
   name: string;
   required?: boolean;
   disabled?: boolean;
+  /**
+   * String key this node resolves its label and helper from, overriding the one derived
+   * from its position.
+   *
+   * Home Assistant extends the label path for `ha-form-expandable` and for nothing else,
+   * so a field nested for *storage* by a named `grid` is labeled as though it were at
+   * the top level. That is usually right — a `grid` is layout. It is wrong when the same
+   * field name means different things in different blocks, which is exactly the case the
+   * day-header rule presents: `column:` and `time_grid:` both hold a `day_header_gap`,
+   * and the rule inside it is described differently in each. Naming the key here keeps
+   * both descriptions without putting a collapsible around the fields to earn the prefix.
+   */
+  titleKey?: string;
 }
 
 /**
@@ -77,11 +100,9 @@ export interface GridSchema {
   flatten?: boolean;
 }
 
-interface ExpandableSchema {
+interface ExpandableSchema extends BaseSchema {
   type: 'expandable';
-  name: string;
   title?: string;
-  titleKey?: string;
   icon?: string;
   iconPath?: string;
   expanded?: boolean;
