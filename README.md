@@ -56,10 +56,10 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 ### ✨ Features
 
 - 🗓️ **List, Columns & Grid** – Stack the days as an agenda, lay them [side by side](https://calendar-card-pro.alexpfau.com/features/column-view), or draw them [hour by hour](https://calendar-card-pro.alexpfau.com/features/grid-view), each event sized by how long it runs.
-- 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar), each device remembering its own choices.
+- 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar), each device remembering its layout and which calendars it shows.
 - ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card through [Home Assistant's own dialogs](https://calendar-card-pro.alexpfau.com/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Give each calendar its own color, label or [a person's photo](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture) and its own filters; an event on several calendars [can be merged into one](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events).
-- ⚙️ **Visual Editor** – Every option in the UI, with a [search box](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only) that finds any setting by name or YAML key. No YAML required.
+- ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only) that finds any setting by name or YAML key.
 - 🌦️ **Weather** – [Forecasts](https://calendar-card-pro.alexpfau.com/features/weather) in the date column or beside each event.
 - 🎨 **Fits Your Theme** – Follows your Home Assistant theme and its primary color, with [custom properties](https://calendar-card-pro.alexpfau.com/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
@@ -67,7 +67,7 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 
 ### 🔗 Requirements
 
-**Calendar Card Pro** needs at least one **calendar entity** in Home Assistant, from any integration that creates `calendar.*` entities, such as Local Calendar, Google Calendar or CalDAV. Adding, editing and deleting events from the card works wherever that integration supports it.
+**Calendar Card Pro** needs at least one **calendar entity** in Home Assistant, from any integration that creates `calendar.*` entities, such as Local Calendar, Google Calendar or CalDAV. Whether you can add, edit and delete events from the card depends on the calendar's integration and on the event itself; [Editing & Deleting Events](https://calendar-card-pro.alexpfau.com/features/actions#editing-deleting-events) has the details.
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 

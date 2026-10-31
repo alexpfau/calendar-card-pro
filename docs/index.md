@@ -23,18 +23,27 @@ hero:
       link: https://github.com/alexpfau/calendar-card-pro
 
 features:
-  - icon: 🎨
-    title: Sleek & Minimalist
-    details: Clean, modern layout that fits naturally into any Home Assistant dashboard.
+  - icon: 🗓️
+    title: List, Columns & Grid
+    details: An agenda, the days side by side, or hour by hour with each event sized by how long it runs.
+  - icon: 🧰
+    title: A Toolbar on the Card
+    details: Page through the dates, switch layouts and show or hide calendars, right on the dashboard.
+  - icon: ✏️
+    title: Add & Edit Events
+    details: Open, add, edit and delete events through Home Assistant's own dialogs, as far as each calendar allows.
   - icon: ✅
     title: Multi-Calendar Support
     details: Display any number of calendars, each with its own styling and filters.
   - icon: ⚙️
     title: Visual Editor
-    details: Configure every option from the UI — no YAML required.
+    details: Set the card up in the UI, with a search box that finds any setting.
   - icon: 🌦️
     title: Weather Integration
     details: Show forecasts alongside your events, in the date column or next to each event.
+  - icon: 🎨
+    title: Sleek & Minimalist
+    details: Clean, modern layout that fits naturally into any Home Assistant dashboard.
   - icon: ⚡
     title: Optimized Performance
     details: Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
@@ -54,10 +63,10 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 ## ✨ Features
 
 - 🗓️ **List, Columns & Grid** – Stack the days as an agenda, lay them [side by side](/features/column-view), or draw them [hour by hour](/features/grid-view), each event sized by how long it runs.
-- 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](/features/layout-appearance#header-toolbar), each device remembering its own choices.
+- 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](/features/layout-appearance#header-toolbar), each device remembering its layout and which calendars it shows.
 - ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card through [Home Assistant's own dialogs](/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Give each calendar its own color, label or [a person's photo](/features/core-settings#showing-a-persons-picture) and its own filters; an event on several calendars [can be merged into one](/features/core-settings#labeling-coloring-shared-events).
-- ⚙️ **Visual Editor** – Every option in the UI, with a [search box](/features/editor#search-customized-only) that finds any setting by name or YAML key. No YAML required.
+- ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](/features/editor#search-customized-only) that finds any setting by name or YAML key.
 - 🌦️ **Weather** – [Forecasts](/features/weather) in the date column or beside each event.
 - 🎨 **Fits Your Theme** – Follows your Home Assistant theme and its primary color, with [custom properties](/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
@@ -65,4 +74,4 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 
 ## 🔗 Requirements
 
-**Calendar Card Pro** needs at least one **calendar entity** in Home Assistant, from any integration that creates `calendar.*` entities, such as Local Calendar, Google Calendar or CalDAV. Adding, editing and deleting events from the card works wherever that integration supports it.
+**Calendar Card Pro** needs at least one **calendar entity** in Home Assistant, from any integration that creates `calendar.*` entities, such as Local Calendar, Google Calendar or CalDAV. Whether you can add, edit and delete events from the card depends on the calendar's integration and on the event itself; [Editing & Deleting Events](/features/actions#editing-deleting-events) has the details.
