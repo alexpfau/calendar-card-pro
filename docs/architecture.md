@@ -395,7 +395,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   nothing in a store it shares with Home Assistant. An entry fetched before a calendar write is
   dropped on read, by the write generation that already lives on `globalThis`. Home stays on
   disk, and a card that heard of a write while away fetches home on the way back
-  (`_homeStale`).
+  (`_homeStale`). The write also marks home's stored entry due (see _After a Write_), so a
+  reload before the way back fetches it too, even with `refresh_on_navigate` off.
 - **Nothing remembers a page.** A reload, any change to the configuration and the start of
   editing all bring the card home, where `hide_when_empty` alone acts: a card that hid itself
   on an empty page would take the way back with it.
@@ -1103,6 +1104,13 @@ request already in flight rather than stopping at the cache.
    - The generation lives on `globalThis` under a registered symbol rather than in the
      module, because a development build and a release on one dashboard hear each other's
      announcements but each has its own copy of `events.ts`
+   - Before any refresh starts, `expireStoredCalendars` marks every stored window in
+     `localStorage` holding a calendar the change may have touched as due (`expired` on the
+     entry), and every request for one still in flight, which then stores its answer that
+     way. No card refreshes a window it is not drawing, so home while the card is paged away,
+     or the window of a card on another view, would otherwise look fresh until
+     `refresh_interval` passed, which `refresh_on_navigate: false` trusts. An expired entry is
+     still drawn first, like any stored entry
    - The callback returns nothing. Home Assistant awaits it before closing the dialog and
      re-enables Save meanwhile, so returning the refetch would invite a duplicate event
    - `updateEvents('network')` is not used: it joins a matching request already under way,

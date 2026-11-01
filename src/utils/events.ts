@@ -137,6 +137,15 @@ interface InFlightRequest {
   promise: Promise<Types.CacheEntry>;
   /** The write generation when the request started: it carries every write up to that one. */
   writeGeneration: number;
+  /** Where its answer is stored. */
+  store: CacheStore;
+  /** The calendars it asks for. */
+  calendars: ReadonlyArray<string>;
+  /**
+   * Set by a write that may have touched one of its calendars after it started, so its answer
+   * is stored already due; see `expireStoredCalendars`.
+   */
+  expired: boolean;
 }
 
 /**
@@ -411,19 +420,19 @@ function startRawFetch(
   const seq = ++requestSeq;
   latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
 
-  const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
-  inFlight.promise = fetchRawEvents(
-    hass,
-    config,
-    request,
-    seq,
-    failureCountHint,
-    inFlight.writeGeneration,
-  ).finally(() => {
-    if (inFlightRawFetches.get(request.signature) === inFlight) {
-      inFlightRawFetches.delete(request.signature);
-    }
-  });
+  const inFlight = {
+    writeGeneration: currentWriteGeneration(),
+    store: request.store,
+    calendars: uniqueEntityIds(config.entities) as ReadonlyArray<string>,
+    expired: false,
+  } as InFlightRequest;
+  inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
+    () => {
+      if (inFlightRawFetches.get(request.signature) === inFlight) {
+        inFlightRawFetches.delete(request.signature);
+      }
+    },
+  );
   inFlightRawFetches.set(request.signature, inFlight);
 
   return inFlight;
@@ -448,7 +457,8 @@ function startRawFetch(
  * @param seq This request's sequence number
  * @param failureCountHint Consecutive failures the caller has seen for this query, used only
  *   when no cache entry records them
- * @param writeGeneration The write generation the request started at
+ * @param inFlight The registered request: the write generation it started at, and whether a
+ *   write since has expired its answer
  * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
@@ -457,7 +467,7 @@ async function fetchRawEvents(
   request: ResolvedRequest,
   seq: number,
   failureCountHint: number,
-  writeGeneration: number,
+  inFlight: InFlightRequest,
 ): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
   const entities = config.entities.map((e) =>
@@ -526,8 +536,13 @@ async function fetchRawEvents(
     );
   }
 
+  // Started before a write that may have touched one of its calendars, so it may carry the
+  // answer from before it, and nothing else may refresh this window: see
+  // `expireStoredCalendars`.
+  if (inFlight.expired) entry.expired = true;
+
   if (latestRequestSeq.get(`${request.store}|${request.cacheKey}`) === seq) {
-    writeStoredEntry(request.store, request.cacheKey, entry, writeGeneration);
+    writeStoredEntry(request.store, request.cacheKey, entry, inFlight.writeGeneration);
   } else {
     Logger.info('A newer request for the same calendars has started; not caching this response');
   }
@@ -618,6 +633,8 @@ function isEntryDue(
   ) {
     return true;
   }
+
+  if (entry.expired) return true;
 
   if (entry.failedEntities?.length) {
     return now >= nextAttemptAt(entry, config);
@@ -2818,6 +2835,80 @@ function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
     Logger.error('Failed to cache calendar events:', e);
     return false;
   }
+}
+
+/**
+ * Mark every stored window holding a calendar a write may have touched as due, so the next
+ * card to draw one fetches it again.
+ *
+ * Every card on the page refreshes the window it draws after a write, but nothing refreshes a
+ * window stored for anything else: home, while the writing card is paged away, or the window
+ * of a card on another view or dashboard. Under `refresh_on_navigate: false` a card trusts a
+ * fresh entry, so it drew the events from before the write until `refresh_interval` passed.
+ * An expired entry is still drawn first, as any stored entry is, while the fetch runs.
+ *
+ * A request for such a window that is still in flight is marked too: it started before the
+ * write, may carry the answer from before it, and would otherwise store that answer as fresh.
+ * Requests started afterwards, the refreshes for this write among them, are not.
+ *
+ * Paged windows need nothing here, because the page store drops every entry older than a
+ * write. Only this version's entries are read, since no other version reads them.
+ *
+ * @param concerns - Whether the write may have touched any of these calendars
+ */
+export function expireStoredCalendars(
+  concerns: (calendarIds: ReadonlyArray<string>) => boolean,
+): void {
+  for (const request of inFlightRawFetches.values()) {
+    if (request.store === 'persistent' && concerns(request.calendars)) request.expired = true;
+  }
+
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (
+        key?.startsWith(Constants.CACHE.EVENT_CACHE_KEY_PREFIX) &&
+        key.endsWith(Constants.VERSION.CURRENT)
+      ) {
+        keys.push(key);
+      }
+    }
+  } catch (error) {
+    Logger.warn('Could not list cached events:', error);
+    return;
+  }
+
+  for (const key of keys) {
+    const entry = readCacheEntry(key);
+    if (!entry || entry.expired || !concerns(entryCalendars(entry))) continue;
+    try {
+      localStorage.setItem(key, JSON.stringify({ ...entry, expired: true }));
+    } catch (error) {
+      // An entry that cannot be marked must not stay trusted.
+      Logger.warn('Could not expire cached events, removing them:', error);
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    }
+  }
+}
+
+/**
+ * The calendars a stored window was fetched for: every one that answered, failed or has
+ * events in it. A request records each calendar it asked for in one of the first two.
+ *
+ * @param entry - Cache entry
+ * @returns Calendar entity ids
+ */
+function entryCalendars(entry: Types.CacheEntry): string[] {
+  return [
+    ...new Set([
+      ...Object.keys(entry.lastSuccess ?? {}),
+      ...(entry.failedEntities ?? []),
+      ...entry.events.flatMap((event) => (event._entityId ? [event._entityId] : [])),
+    ]),
+  ];
 }
 
 /**

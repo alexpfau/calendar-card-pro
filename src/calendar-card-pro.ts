@@ -550,10 +550,16 @@ class CalendarCardPro extends LitElement {
    * nothing, deliberately: Home Assistant awaits this callback before it closes the dialog;
    * see `DialogUpdated`.
    *
+   * Before any of them starts, every stored window holding a calendar the change may have
+   * touched is marked due, because no card on the page refreshes a window it is not drawing:
+   * home while this card is paged away, or a card on another view (`expireStoredCalendars`).
+   *
    * @param changed - The calendars the change may have touched
    */
   private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
     this._markHomeStaleIfAway();
+    const hass = this.safeHass;
+    EventUtils.expireStoredCalendars((ids) => CalendarChanges.touchesCalendars(changed, ids, hass));
     const writeGeneration = EventUtils.advanceWriteGeneration();
     void this.refreshEvents(writeGeneration);
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
