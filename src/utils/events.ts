@@ -2649,19 +2649,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
  *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
  * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
  *   required by week-relative expressions such as `start_of_week`
+ * @param now - The moment a relative start date is resolved against
  * @returns Object containing start and end dates for the calendar window
  */
 export function getTimeWindow(
   daysToShow: number,
   startDate: string | undefined,
   firstDayOfWeek: number,
+  now: Date = new Date(),
 ): { start: Date; end: Date } {
   let start: Date;
 
-  const today = (): Date => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  };
+  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
 
@@ -2669,7 +2668,7 @@ export function getTimeWindow(
     try {
       const trimmed = rawStartDate.trim();
 
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, new Date());
+      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
 
       if (parsed.kind === 'ok') {
         start = parsed.date;
@@ -2731,6 +2730,27 @@ export function getTimeWindow(
   end.setDate(start.getDate() + days);
 
   return { start, end };
+}
+
+/**
+ * Whether a start date resolves against today, so the window it opens moves as days pass: no
+ * start date, any relative expression, or a value so malformed that it falls back to today.
+ *
+ * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
+ * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
+ * exactly that week and a fixed date does not move at all. The first weekday decides where a
+ * week-relative date lands, never whether it moves, so any value answers here.
+ *
+ * @param startDate - The configured `start_date`
+ * @returns True when the resolved first day depends on the current date
+ */
+export function startDateFollowsToday(startDate: string | undefined): boolean {
+  const now = new Date();
+  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
+  return (
+    getTimeWindow(1, startDate, 1, now).start.getTime() !==
+    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
+  );
 }
 
 //-----------------------------------------------------------------------------

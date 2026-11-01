@@ -943,14 +943,15 @@ class CalendarCardPro extends LitElement {
   private _nowLineRepainting = false;
 
   /**
-   * One-shot timer for the next local midnight, held while the card sheds day columns.
+   * One-shot timer for the next local midnight, held while something on the card moves then
+   * and nothing else notices; see `_wantsMidnightTimer`.
    *
-   * Which columns survive depends on what today is (`visibleDayWindowStart`), so the window has
-   * to move at midnight. Grid with a now line already refetches then; column view and a grid
-   * without the line had nothing that re-renders at midnight. It re-renders and asks for a
-   * cache load, which fetches only if a relative start date moved the requested window.
+   * It re-renders and asks for a cache load, which fetches only if the requested window moved.
    */
   private _midnightTimerId: number | null = null;
+
+  /** Whether the configured start date follows today, for the start date it was worked out for. */
+  private _followsTodayCache: { startDate: string | undefined; follows: boolean } | null = null;
 
   /**
    * One-shot timer for the next moment a timed event starts or ends, held in list and column
@@ -1627,20 +1628,52 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Holds a timer for the next local midnight exactly while the card is shedding day columns.
+   * Whether the window the card opens with moves as days pass: no start date, or a relative
+   * one. Memoized per start date, because resolving one logs and this is read after every
+   * update.
+   */
+  private get _windowFollowsToday(): boolean {
+    const startDate = this.config.start_date;
+    if (this._followsTodayCache === null || this._followsTodayCache.startDate !== startDate) {
+      this._followsTodayCache = {
+        startDate,
+        follows: EventUtils.startDateFollowsToday(startDate),
+      };
+    }
+    return this._followsTodayCache.follows;
+  }
+
+  /**
+   * Whether the card needs to hear about midnight from a timer of its own. Each reason is a
+   * render that would otherwise draw a new day from the old day's events, until the next
+   * refresh or an unrelated update:
+   *
+   * - A grid or column card shedding day columns keeps today among the ones it draws
+   *   (`visibleDayWindowStart`), so its slice moves at midnight even on fixed dates.
+   * - A window that follows today moves at midnight, and draws its new last day empty until
+   *   new events arrive. A grid with its now line is left out: the line's own tick refetches
+   *   on the new day, and a second load would fetch twice.
+   *
+   * A card on fixed dates drawing all of them has nothing that moves at midnight.
+   */
+  private get _wantsMidnightTimer(): boolean {
+    const shedding =
+      (this.effectiveView === 'grid' || this.effectiveView === 'column') &&
+      this._shownColumnCount > 0 &&
+      this._shownColumnCount < this.effectiveConfig.days_to_show;
+
+    return shedding || (!this._wantsNowLine && this._windowFollowsToday);
+  }
+
+  /**
+   * Holds a timer for the next local midnight exactly while `_wantsMidnightTimer` asks for one.
    *
    * Reconciled from `updated()`, like the now-line timer, because the column count and the
    * view both change after connection. The timer re-renders once and this re-arms it for the
    * following midnight, so a card left open for a week moves its window every night.
    */
   private _syncMidnightTimer(): void {
-    const shedding =
-      this.isConnected &&
-      (this.effectiveView === 'grid' || this.effectiveView === 'column') &&
-      this._shownColumnCount > 0 &&
-      this._shownColumnCount < this.effectiveConfig.days_to_show;
-
-    if (!shedding) {
+    if (!this.isConnected || !this._wantsMidnightTimer) {
       this._stopMidnightTimer();
       return;
     }
@@ -1656,9 +1689,9 @@ class CalendarCardPro extends LitElement {
     this._midnightTimerId = window.setTimeout(() => {
       this._midnightTimerId = null;
       this.requestUpdate();
-      // A relative start_date can move the whole window at midnight — start_of_week by a
-      // week — and drawing the new window from the old window's events shows false empty
-      // days. A cache load fetches exactly when the window it asks for has changed.
+      // A window that follows today moves at midnight — start_of_week only once a week — and
+      // drawing the new window from the old window's events shows false empty days. A cache
+      // load fetches exactly when the window it asks for has changed.
       void this.updateEvents('cache');
     }, nextMidnight.getTime() - now.getTime());
   }

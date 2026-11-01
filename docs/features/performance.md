@@ -28,6 +28,9 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   away, on that card and on every other Calendar Card Pro card on the page that shows the
   changed calendar. A new event could have gone to any calendar that accepts new events, so
   after one every card showing such a calendar refreshes.
+- **Just after midnight.** A card whose dates move with today, with no `start_date` or a
+  [relative one](/features/start-date-offset), loads the new day's events just after midnight
+  rather than at its next refresh.
 - **Pages kept in memory only.** Dates the
   [date navigation](/features/layout-appearance#paging-through-dates) pages to are loaded the
   first time they are shown and kept in memory, shared by the cards on the page, for the 16

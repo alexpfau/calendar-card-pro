@@ -1024,10 +1024,13 @@ graph TD
    - While grid view draws its now line, a timer repaints it once a minute
      (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
      including a rollover that passed while the timer was stopped
-   - While column or grid view draws fewer day columns than its own `days_to_show`, a timer
-     fires just after local midnight (`_syncMidnightTimer`). It re-renders, so the visible window
+   - A timer fires just after local midnight (`_syncMidnightTimer`) while column or grid view
+     draws fewer day columns than its own `days_to_show`, and while the window follows today:
+     no `start_date`, or a relative one (`startDateFollowsToday`), in any view but a grid
+     drawing its now line, whose own tick refetches then. It re-renders, so the visible window
      moves to the new today, and runs a `cache` load, which fetches only if the window it
-     asks for moved, as a relative `start_date` can at midnight, or the cache is due
+     asks for moved or the cache is due. Without it a list card drew the new last day empty
+     until its next refresh
    - List, column, and grid without its now line repaint at the next start or end of a
      timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
      then past on time. That timer only repaints; it never fetches
