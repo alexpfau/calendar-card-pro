@@ -395,7 +395,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   nothing in a store it shares with Home Assistant. An entry fetched before a calendar write is
   dropped on read, by the write generation that already lives on `globalThis`. Home stays on
   disk, and a card that heard of a write while away fetches home on the way back
-  (`_homeStale`).
+  (`_homeStale`). The write also marks home's stored entry due (see _After a Write_), so a
+  reload before the way back fetches it too, even with `refresh_on_navigate` off.
 - **Nothing remembers a page.** A reload, any change to the configuration and the start of
   editing all bring the card home, where `hide_when_empty` alone acts: a card that hid itself
   on an empty page would take the way back with it.
@@ -995,6 +996,8 @@ graph TD
      events up to 24 hours old are on the first frame
    - The API is asked when nothing is cached, the cache is due, or `refresh_on_navigate`
      asks for a background refetch; every calendar is requested in parallel
+   - The window asked for is half-open, from local midnight on the first day to local
+     midnight after the last (`getTimeWindow`), the same bound the processing keeps
    - Requests for the same query and window share one round-trip
 2. **Data Processing**:
    - Raw calendar events are filtered for relevant dates
@@ -1022,10 +1025,13 @@ graph TD
    - While grid view draws its now line, a timer repaints it once a minute
      (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
      including a rollover that passed while the timer was stopped
-   - While column or grid view draws fewer day columns than its own `days_to_show`, a timer
-     fires just after local midnight (`_syncMidnightTimer`). It re-renders, so the visible window
+   - A timer fires just after local midnight (`_syncMidnightTimer`) while column or grid view
+     draws fewer day columns than its own `days_to_show`, and while the window follows today:
+     no `start_date`, or a relative one (`startDateFollowsToday`), in any view but a grid
+     drawing its now line, whose own tick refetches then. It re-renders, so the visible window
      moves to the new today, and runs a `cache` load, which fetches only if the window it
-     asks for moved, as a relative `start_date` can at midnight, or the cache is due
+     asks for moved or the cache is due. Without it a list card drew the new last day empty
+     until its next refresh
    - List, column, and grid without its now line repaint at the next start or end of a
      timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
      then past on time. That timer only repaints; it never fetches
@@ -1098,6 +1104,16 @@ request already in flight rather than stopping at the cache.
    - The generation lives on `globalThis` under a registered symbol rather than in the
      module, because a development build and a release on one dashboard hear each other's
      announcements but each has its own copy of `events.ts`
+   - Before any refresh starts, `expireStoredCalendars` marks every stored window in
+     `localStorage` holding a calendar the change may have touched as due (`expired` on the
+     entry), and every request for one still in flight, which then stores its answer that
+     way and is never joined (`isJoinable`, which also refuses a paged request started before
+     the latest write). No card refreshes a window it is not drawing, so home while the card
+     is paged away, or the window of a card on another view, would otherwise look fresh until
+     `refresh_interval` passed, which `refresh_on_navigate: false` trusts. An expired entry is
+     still drawn first, like any stored entry. The requests and the page store are this
+     tab's and this copy's: another tab, or a development build beside a release, is reached
+     only through the entries in `localStorage`
    - The callback returns nothing. Home Assistant awaits it before closing the dialog and
      re-enables Save meanwhile, so returning the refetch would invite a duplicate event
    - `updateEvents('network')` is not used: it joins a matching request already under way,

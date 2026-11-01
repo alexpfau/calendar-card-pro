@@ -137,6 +137,15 @@ interface InFlightRequest {
   promise: Promise<Types.CacheEntry>;
   /** The write generation when the request started: it carries every write up to that one. */
   writeGeneration: number;
+  /** Where its answer is stored. */
+  store: CacheStore;
+  /** The calendars it asks for. */
+  calendars: ReadonlyArray<string>;
+  /**
+   * Set by a write that may have touched one of its calendars after it started, so its answer
+   * is stored already due; see `expireStoredCalendars`.
+   */
+  expired: boolean;
 }
 
 /**
@@ -326,11 +335,7 @@ export async function fetchEventData(
   }
 
   let rawFetch = inFlightRawFetches.get(request.signature);
-  if (rawFetch && load === 'reload') {
-    // Only a request started since the write carries it. With no write named, none does.
-    const sinceWrite = afterWrite !== undefined && rawFetch.writeGeneration >= afterWrite;
-    if (!sinceWrite) rawFetch = undefined;
-  }
+  if (rawFetch && !isJoinable(rawFetch, load, afterWrite)) rawFetch = undefined;
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
@@ -340,6 +345,29 @@ export async function fetchEventData(
   const entry = await rawFetch.promise;
 
   return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+}
+
+/**
+ * Whether a load may join a request already in flight rather than start its own.
+ *
+ * Never one a write may have overtaken, whatever the load: a persistent request a write
+ * expired (`expireStoredCalendars`), or a paged one started before the latest write, whose
+ * entry the page store would drop on read anyway. Joining either would hand the caller the
+ * answer from before the write, as fresh. A `reload` joins only a request started since the
+ * write it refreshes for, and none when it names no write.
+ *
+ * @param request - The request in flight
+ * @param load - The load asking
+ * @param afterWrite - For a `reload`, the generation of the write it refreshes for
+ * @returns True when the load may share the request
+ */
+function isJoinable(request: InFlightRequest, load: EventLoad, afterWrite?: number): boolean {
+  if (request.expired) return false;
+  if (request.store === 'page' && request.writeGeneration !== currentWriteGeneration()) {
+    return false;
+  }
+  if (load === 'reload') return afterWrite !== undefined && request.writeGeneration >= afterWrite;
+  return true;
 }
 
 /**
@@ -411,19 +439,19 @@ function startRawFetch(
   const seq = ++requestSeq;
   latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
 
-  const inFlight = { writeGeneration: currentWriteGeneration() } as InFlightRequest;
-  inFlight.promise = fetchRawEvents(
-    hass,
-    config,
-    request,
-    seq,
-    failureCountHint,
-    inFlight.writeGeneration,
-  ).finally(() => {
-    if (inFlightRawFetches.get(request.signature) === inFlight) {
-      inFlightRawFetches.delete(request.signature);
-    }
-  });
+  const inFlight = {
+    writeGeneration: currentWriteGeneration(),
+    store: request.store,
+    calendars: uniqueEntityIds(config.entities) as ReadonlyArray<string>,
+    expired: false,
+  } as InFlightRequest;
+  inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
+    () => {
+      if (inFlightRawFetches.get(request.signature) === inFlight) {
+        inFlightRawFetches.delete(request.signature);
+      }
+    },
+  );
   inFlightRawFetches.set(request.signature, inFlight);
 
   return inFlight;
@@ -448,7 +476,8 @@ function startRawFetch(
  * @param seq This request's sequence number
  * @param failureCountHint Consecutive failures the caller has seen for this query, used only
  *   when no cache entry records them
- * @param writeGeneration The write generation the request started at
+ * @param inFlight The registered request: the write generation it started at, and whether a
+ *   write since has expired its answer
  * @returns Promise resolving to the cache entry built from the response
  */
 async function fetchRawEvents(
@@ -457,7 +486,7 @@ async function fetchRawEvents(
   request: ResolvedRequest,
   seq: number,
   failureCountHint: number,
-  writeGeneration: number,
+  inFlight: InFlightRequest,
 ): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
   const entities = config.entities.map((e) =>
@@ -526,8 +555,13 @@ async function fetchRawEvents(
     );
   }
 
+  // Started before a write that may have touched one of its calendars, so it may carry the
+  // answer from before it, and nothing else may refresh this window: see
+  // `expireStoredCalendars`.
+  if (inFlight.expired) entry.expired = true;
+
   if (latestRequestSeq.get(`${request.store}|${request.cacheKey}`) === seq) {
-    writeStoredEntry(request.store, request.cacheKey, entry, writeGeneration);
+    writeStoredEntry(request.store, request.cacheKey, entry, inFlight.writeGeneration);
   } else {
     Logger.info('A newer request for the same calendars has started; not caching this response');
   }
@@ -618,6 +652,8 @@ function isEntryDue(
   ) {
     return true;
   }
+
+  if (entry.expired) return true;
 
   if (entry.failedEntities?.length) {
     return now >= nextAttemptAt(entry, config);
@@ -2639,24 +2675,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Calculate time window for event fetching
  *
+ * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
+ * to local midnight after the last, which Home Assistant's calendar API treats as an
+ * exclusive end. The end used to be the close of the day after the last one, so every card
+ * asked for one day more than it could draw.
+ *
  * @param daysToShow - Number of days to show in the calendar
  * @param startDate - Optional start date: a relative expression (`today+7`,
  *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
  * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
  *   required by week-relative expressions such as `start_of_week`
+ * @param now - The moment a relative start date is resolved against
  * @returns Object containing start and end dates for the calendar window
  */
 export function getTimeWindow(
   daysToShow: number,
   startDate: string | undefined,
   firstDayOfWeek: number,
+  now: Date = new Date(),
 ): { start: Date; end: Date } {
   let start: Date;
 
-  const today = (): Date => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  };
+  const today = (): Date => new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
 
@@ -2664,7 +2704,7 @@ export function getTimeWindow(
     try {
       const trimmed = rawStartDate.trim();
 
-      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, new Date());
+      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, now);
 
       if (parsed.kind === 'ok') {
         start = parsed.date;
@@ -2720,12 +2760,33 @@ export function getTimeWindow(
 
   start.setHours(0, 0, 0, 0);
 
+  // Built from local fields, so a window spanning a DST change still ends at midnight.
   const end = new Date(start);
   const days = parseInt(daysToShow.toString()) || 3;
   end.setDate(start.getDate() + days);
-  end.setHours(23, 59, 59, 999);
 
   return { start, end };
+}
+
+/**
+ * Whether a start date resolves against today, so the window it opens moves as days pass: no
+ * start date, any relative expression, or a value so malformed that it falls back to today.
+ *
+ * Measured rather than parsed, by resolving the date a week apart, so it can never disagree
+ * with `getTimeWindow` about which values are fixed dates. Every relative expression moves by
+ * exactly that week and a fixed date does not move at all. The first weekday decides where a
+ * week-relative date lands, never whether it moves, so any value answers here.
+ *
+ * @param startDate - The configured `start_date`
+ * @returns True when the resolved first day depends on the current date
+ */
+export function startDateFollowsToday(startDate: string | undefined): boolean {
+  const now = new Date();
+  const weekLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12);
+  return (
+    getTimeWindow(1, startDate, 1, now).start.getTime() !==
+    getTimeWindow(1, startDate, 1, weekLater).start.getTime()
+  );
 }
 
 //-----------------------------------------------------------------------------
@@ -2793,6 +2854,82 @@ function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
     Logger.error('Failed to cache calendar events:', e);
     return false;
   }
+}
+
+/**
+ * Mark every stored window holding a calendar a write may have touched as due, so the next
+ * card to draw one fetches it again.
+ *
+ * Every card on the page refreshes the window it draws after a write, but nothing refreshes a
+ * window stored for anything else: home, while the writing card is paged away, or the window
+ * of a card on another view or dashboard. Under `refresh_on_navigate: false` a card trusts a
+ * fresh entry, so it drew the events from before the write until `refresh_interval` passed.
+ * An expired entry is still drawn first, as any stored entry is, while the fetch runs.
+ *
+ * A request for such a window that is still in flight is marked too: it started before the
+ * write, may carry the answer from before it, and would otherwise store that answer as fresh,
+ * or hand it to a load that joined it (`isJoinable`). Requests started afterwards, the
+ * refreshes for this write among them, are not. Only this copy of the card's requests can be
+ * reached: another tab, or a development build beside a release, keeps its own.
+ *
+ * Paged windows need nothing here, because this tab's page store drops every entry older
+ * than a write. Only this version's entries are read, since no other version reads them.
+ *
+ * @param concerns - Whether the write may have touched any of these calendars
+ */
+export function expireStoredCalendars(
+  concerns: (calendarIds: ReadonlyArray<string>) => boolean,
+): void {
+  for (const request of inFlightRawFetches.values()) {
+    if (request.store === 'persistent' && concerns(request.calendars)) request.expired = true;
+  }
+
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (
+        key?.startsWith(Constants.CACHE.EVENT_CACHE_KEY_PREFIX) &&
+        key.endsWith(Constants.VERSION.CURRENT)
+      ) {
+        keys.push(key);
+      }
+    }
+  } catch (error) {
+    Logger.warn('Could not list cached events:', error);
+    return;
+  }
+
+  for (const key of keys) {
+    const entry = readCacheEntry(key);
+    if (!entry || entry.expired || !concerns(entryCalendars(entry))) continue;
+    try {
+      localStorage.setItem(key, JSON.stringify({ ...entry, expired: true }));
+    } catch (error) {
+      // An entry that cannot be marked must not stay trusted.
+      Logger.warn('Could not expire cached events, removing them:', error);
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    }
+  }
+}
+
+/**
+ * The calendars a stored window was fetched for: every one that answered, failed or has
+ * events in it. A request records each calendar it asked for in one of the first two.
+ *
+ * @param entry - Cache entry
+ * @returns Calendar entity ids
+ */
+function entryCalendars(entry: Types.CacheEntry): string[] {
+  return [
+    ...new Set([
+      ...Object.keys(entry.lastSuccess ?? {}),
+      ...(entry.failedEntities ?? []),
+      ...entry.events.flatMap((event) => (event._entityId ? [event._entityId] : [])),
+    ]),
+  ];
 }
 
 /**

@@ -88,6 +88,27 @@ describe('event window boundaries', () => {
     expect(result.events.map((event) => event.summary)).toEqual(['inside']);
   });
 
+  it('asks Home Assistant for exactly the days the card shows, ending on the same bound', async () => {
+    // The request and the filter above must agree on the upper bound. The request used to
+    // end at the close of the day *after* the last one, so a 7-day card fetched 8 days and
+    // dropped the eighth unseen, from its first release on.
+    const paths: string[] = [];
+    const hass = {
+      ...hassReturning([]),
+      callApi: (_method: string, path: string) => {
+        paths.push(path);
+        return Promise.resolve([]);
+      },
+    } as unknown as Types.Hass;
+
+    await EventUtils.fetchEventData(hass, buildConfig({ days_to_show: 7 }), 'request', 'network');
+
+    expect(paths).toHaveLength(1);
+    const query = new URLSearchParams(paths[0].split('?')[1]);
+    expect(query.get('start')).toBe(midnight(0).toISOString());
+    expect(query.get('end')).toBe(midnight(7).toISOString());
+  });
+
   it('excludes a multi-day segment that starts on the exclusive upper bound', () => {
     // `days_to_show` is a `.slice()` over days that *have* events, not a date range, so
     // a sparse card leaves room for out-of-window days to be drawn rather than trimmed.

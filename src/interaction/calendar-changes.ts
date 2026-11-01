@@ -91,8 +91,23 @@ export function concernsCalendars(
   shownIds: ReadonlyArray<string>,
   hass: Types.Hass | null | undefined,
 ): boolean {
-  const { changed } = detail;
+  return touchesCalendars(detail.changed, shownIds, hass);
+}
+
+/**
+ * Whether a saved change may have touched any of these calendars.
+ *
+ * @param changed - The calendars the change may have touched
+ * @param calendarIds - Entity ids of the calendars in question
+ * @param hass - Home Assistant instance, for the feature a change is announced by
+ * @returns True when any of them may have changed
+ */
+export function touchesCalendars(
+  changed: ChangedCalendars,
+  calendarIds: ReadonlyArray<string>,
+  hass: Types.Hass | null | undefined,
+): boolean {
   return 'ids' in changed
-    ? changed.ids.some((id) => shownIds.includes(id))
-    : shownIds.some((id) => calendarSupports(hass, id, changed.feature));
+    ? changed.ids.some((id) => calendarIds.includes(id))
+    : calendarIds.some((id) => calendarSupports(hass, id, changed.feature));
 }

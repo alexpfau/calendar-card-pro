@@ -27,7 +27,12 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   the card's [dialogs](/features/actions#home-assistants-own-dialogs) refetches straight
   away, on that card and on every other Calendar Card Pro card on the page that shows the
   changed calendar. A new event could have gone to any calendar that accepts new events, so
-  after one every card showing such a calendar refreshes.
+  after one every card showing such a calendar refreshes. A card that is not on the page, on
+  another view or dashboard, loads the changed calendar again the next time it appears, even
+  with `refresh_on_navigate` off, and so does the card itself after a reload.
+- **Just after midnight.** A card whose dates move with today, with no `start_date` or a
+  [relative one](/features/start-date-offset), loads the new day's events just after midnight
+  rather than at its next refresh.
 - **Pages kept in memory only.** Dates the
   [date navigation](/features/layout-appearance#paging-through-dates) pages to are loaded the
   first time they are shown and kept in memory, shared by the cards on the page, for the 16

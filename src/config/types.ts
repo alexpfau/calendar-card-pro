@@ -1013,6 +1013,11 @@ export interface CacheEntry {
   failureCount?: number;
   /** Earliest time a failing entry is worth another network attempt. */
   retryAt?: number;
+  /**
+   * Set when a calendar write may have changed one of its calendars after it was fetched: it
+   * is still drawn, and refetched by the next load that would otherwise trust it.
+   */
+  expired?: boolean;
 }
 
 // -----------------------------------------------------------------------------
