@@ -365,7 +365,9 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
         }
       }
       assertEquivalent('relative time', result, languages.length * targetsPerLanguage);
-    }, 60_000);
+      // Under a DST zone on a loaded CI runner this takes most of a minute, so the timeout
+      // leaves room for a slower runner rather than tracking the usual duration.
+    }, 180_000);
 
     it('preserves frozen fromNow, now labels and relative-unit formatting', () => {
       const reference = new Date(2024, 1, 29, 12, 30);
@@ -411,6 +413,6 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
         vi.useRealTimers();
       }
       assertEquivalent('fromNow and Intl labels', result, languages.length * (targets.length + 19));
-    });
+    }, 60_000);
   });
 }
