@@ -8,14 +8,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import resolve from '@rollup/plugin-node-resolve';
 import { transformSync } from 'esbuild';
-import {
-  type Plugin,
-  type RollupCache,
-  type RollupWatcher,
-  type RollupWatcherEvent,
-  rollup,
-  watch,
-} from 'rollup';
+import { type Plugin, type RollupCache, type RollupWatcherEvent, rollup, watch } from 'rollup';
 import esbuild from 'rollup-plugin-esbuild';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -553,57 +546,146 @@ describe('real Rollup builds and cache invalidation', () => {
     );
   });
 
+  // Rollup hands each watch file to chokidar and emits BUNDLE_END in the same turn, and
+  // chokidar awaits a stat before it watches the file. A write chained off BUNDLE_END
+  // without yielding to the event loop therefore lands before the watch exists and is never
+  // reported; CI's Linux runner lost it every time. FSEvents happens to report such a
+  // write, which is why macOS passed; fsevents is off here, and the poll macOS falls back
+  // to misses an early write as CI does. Each change is written once the watcher has been
+  // quiet for a while and repeated until onInvalidate reports it, in case the watch is
+  // still not ready. Every build must list English among its watch files and among its
+  // JSON's transform dependencies, which holds whatever the timing; the quiet wait only
+  // makes it unlikely that a late report of one change triggers the build that checks the
+  // next. Both changes share one watcher, so the second shows the watch survives a rebuild.
   it('watches English as a dependency of JSON-only entry points and rebuilds unchanged languages', async () => {
     const { root, first } = setup();
+    const stringsPath = writeFixture(root, 'z:"Z",a:"A"');
     const transformed: string[] = [];
+    let invalidated: string[] = [];
+    let rewrite: NodeJS.Timeout | undefined;
+    let activity = () => {};
     const watcher = watch({
       input: first,
       plugins: buildPlugins(root, transformed),
       output: { file: join(root, 'bundle.js'), format: 'es' },
-      watch: { skipWrite: true },
+      watch: {
+        skipWrite: true,
+        chokidar: { useFsEvents: false },
+        onInvalidate(id) {
+          invalidated.push(id);
+          clearInterval(rewrite);
+          activity();
+        },
+      },
     });
-    function nextBuild(watcher: RollupWatcher) {
-      return new Promise<string>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          watcher.off('event', listener);
-          reject(new Error('English dependency did not trigger a watch rebuild'));
-        }, 10000);
-        const listener = async (event: RollupWatcherEvent) => {
-          if (event.code !== 'ERROR' && event.code !== 'BUNDLE_END') return;
+    interface Build {
+      code: string;
+      transformed: string[];
+      watchFiles: string[];
+      dependencies: string[] | undefined;
+    }
+    const decoderKeys = (code: string) => /const keys=(\[[^\]]*\])/.exec(code)?.[1];
+    const expectWatched = (build: Build) => {
+      expect(build.watchFiles).toContain(stringsPath);
+      expect(build.dependencies).toContain(stringsPath);
+    };
+    // Resolves with the last build once 300 ms pass with no build and no reported change:
+    // three of the 100 ms polls macOS uses here, time for a queued rerun to start and, in
+    // practice, for a late report of a repeat to arrive.
+    const nextBuild = (write?: () => void) =>
+      new Promise<Build>((resolve, reject) => {
+        invalidated = [];
+        let built: Build | undefined;
+        let quiet: NodeJS.Timeout | undefined;
+        activity = () => clearTimeout(quiet);
+        const settle = () => {
+          clearInterval(rewrite);
           clearTimeout(timer);
+          clearTimeout(quiet);
+          activity = () => {};
           watcher.off('event', listener);
-          if (event.code === 'ERROR') reject(event.error);
-          else {
+        };
+        const fail = (error: unknown) => {
+          settle();
+          reject(error);
+        };
+        const timer = setTimeout(
+          () => fail(new Error('English dependency did not trigger a watch rebuild')),
+          10000,
+        );
+        const listener = async (event: RollupWatcherEvent) => {
+          if (event.code === 'ERROR') return fail(event.error);
+          if (event.code === 'BUNDLE_START') {
+            clearTimeout(quiet);
+            transformed.length = 0;
+          } else if (event.code === 'BUNDLE_END') {
+            let failure: unknown;
             try {
               const { output } = await event.result.generate({ format: 'es' });
-              resolve(output[0].code);
+              built = {
+                code: output[0].code,
+                transformed: [...transformed],
+                watchFiles: [...event.result.watchFiles],
+                dependencies: event.result.cache?.modules.find((module) => module.id === first)
+                  ?.transformDependencies,
+              };
             } catch (error) {
-              reject(error);
-            } finally {
-              await event.result.close();
+              failure = error;
             }
+            try {
+              await event.result.close();
+            } catch (error) {
+              failure ??= error;
+            }
+            if (failure) fail(failure);
+          } else if (event.code === 'END' && built) {
+            const result = built;
+            clearTimeout(quiet);
+            quiet = setTimeout(() => {
+              settle();
+              resolve(result);
+            }, 300);
           }
         };
         watcher.on('event', listener);
+        if (!write) return;
+        const attempt = () => {
+          try {
+            write();
+          } catch (error) {
+            fail(error);
+          }
+        };
+        attempt();
+        rewrite = setInterval(attempt, 100);
       });
-    }
     try {
-      expect(evaluate(await nextBuild(watcher)).default).toEqual({ z: '' });
-      transformed.length = 0;
-      const rebuilt = nextBuild(watcher);
-      writeFixture(root, 'a:"A",middle:"Added",z:"Z"');
-      expect(evaluate(await rebuilt).default).toEqual({ z: '' });
-      expect(transformed).toContain(first);
-      expect(transformed.some((id) => id.includes('compact-editor-strings:decoder'))).toBe(true);
-      transformed.length = 0;
-      const removed = nextBuild(watcher);
-      writeFixture(root, 'a:"A",z:"Z"');
-      expect(evaluate(await removed).default).toEqual({ z: '' });
-      expect(transformed).toContain(first);
+      const initial = await nextBuild();
+      expectWatched(initial);
+      expect(decoderKeys(initial.code)).toBe('["a","z"]');
+      expect(evaluate(initial.code).default).toEqual({ z: '' });
+      for (const [body, keys] of [
+        ['a:"A",middle:"Added",z:"Z"', '["a","middle","z"]'],
+        ['middle:"Added",z:"Z"', '["middle","z"]'],
+      ]) {
+        const rebuilt = await nextBuild(() => writeFixture(root, body));
+        expectWatched(rebuilt);
+        expect(invalidated.length).toBeGreaterThan(0);
+        expect(new Set(invalidated)).toEqual(new Set([stringsPath]));
+        expect(decoderKeys(rebuilt.code)).toBe(keys);
+        expect(evaluate(rebuilt.code).default).toEqual({ z: '' });
+        expect(rebuilt.transformed).toContain(first);
+        expect(
+          rebuilt.transformed.some((id) => id.includes('compact-editor-strings:decoder')),
+        ).toBe(true);
+      }
     } finally {
+      clearInterval(rewrite);
       await watcher.close();
     }
-  }, 20000);
+    // Longer than the three 10 s phase deadlines, so a stalled phase fails inside the test
+    // and its finally still closes the watcher.
+  }, 40000);
 
   it('keeps the JSON exclusion narrow and never wraps another plugin by generated-code sniffing', () => {
     expect(EDITOR_TRANSLATION_GLOB).toBe('**/src/rendering/editor/translations/*.json');

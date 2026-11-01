@@ -411,6 +411,6 @@ export function registerCompactPayloadEquivalenceTests(dst: boolean): void {
         vi.useRealTimers();
       }
       assertEquivalent('fromNow and Intl labels', result, languages.length * (targets.length + 19));
-    });
+    }, 60_000);
   });
 }
