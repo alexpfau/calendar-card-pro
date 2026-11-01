@@ -6,6 +6,11 @@ import esbuild from 'rollup-plugin-esbuild';
 import json from '@rollup/plugin-json';
 import { readdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import {
+  compactDayjsLocales,
+  compactEditorStrings,
+  EDITOR_TRANSLATION_GLOB,
+} from './scripts/compact-payloads.mjs';
 
 // Use the existing NODE_ENV variable for both purposes
 const isProd = process.env.NODE_ENV === 'prod';
@@ -154,10 +159,12 @@ export function stripComments(css) {
  * and handing one instance to two configs in the same process is a documented way to get
  * results that depend on which build ran first.
  *
+ * @param options - Disable compaction only for the emitted equivalence test's control
  * @returns The plugins, in order
  */
-function plugins() {
+export function createBuildPlugins({ compactPayloads = true } = {}) {
   return [
+    ...(compactPayloads ? [compactDayjsLocales(), compactEditorStrings()] : []),
     stripCssComments,
     replace({
       preventAssignment: true,
@@ -178,7 +185,7 @@ function plugins() {
       // `scripts/check-bundle.mjs` asserts the emitted card names the right one.
       './editor-dev.js': `./${editorFile}`,
     }),
-    json(),
+    json({ exclude: compactPayloads ? EDITOR_TRANSLATION_GLOB : undefined }),
     esbuild({
       tsconfig: 'tsconfig.json',
       // es2021 because the bundle already requires it: this plugin transforms our own
@@ -312,11 +319,11 @@ export default [
   {
     input: 'src/calendar-card-pro.ts',
     output: output(cardFile),
-    plugins: [cleanDist, ...plugins()],
+    plugins: [cleanDist, ...createBuildPlugins()],
   },
   {
     input: 'src/rendering/editor/index.ts',
     output: output(editorFile),
-    plugins: plugins(),
+    plugins: createBuildPlugins(),
   },
 ];

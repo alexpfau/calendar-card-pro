@@ -477,7 +477,7 @@ them survives contact with the suite.
 
 ### `scripts/`
 
-Ten files, and only three are reachable through `package.json`, so the rest are easy to
+Eleven files, and only three are reachable through `package.json`, so the rest are easy to
 mistake for leftovers. They are not. What each one is:
 
 | Script                      | Kind           | How it runs                          |
@@ -485,6 +485,7 @@ mistake for leftovers. They are not. What each one is:
 | `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
 | `check-docs.mjs`            | gate           | `npm run check:docs`                 |
 | `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `compact-payloads.mjs`      | build library  | imported by `rollup.config.mjs`      |
 | `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
 | `generate-en-gb.mjs`        | generator      | by hand — see below                  |
 | `editor-glossary.mjs`       | data           | imported by the i18n gate            |
@@ -492,6 +493,14 @@ mistake for leftovers. They are not. What each one is:
 | `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
 | `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
 | `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+
+`compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
+and packs the editor's English and translated string maps behind one shared key vector.
+Both are build-only representations; keep the authoring files and the i18n gate's independent
+loader unchanged. New Day.js APIs require revisiting the subset, not bypassing its source
+guard. The emitted equivalence tests run through the real Rollup plugin chain under UTC and
+the DST projects. Incremental builds must regenerate every language vector when English keys
+change. See _Compact Payloads, Readable Sources_ in `docs/architecture.md`.
 
 **`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
 is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes

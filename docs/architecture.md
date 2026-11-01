@@ -179,6 +179,31 @@ from the card, and the query string HACS appends to the card's own URL would mak
 browser treat that as a second copy of the card. `npm run check:bundle` asserts the
 result after every build.
 
+### Compact Payloads, Readable Sources
+
+`scripts/compact-payloads.mjs` compacts data before JSON and TypeScript compilation in both
+build variants. It does not change the authored translations, template whitespace, browser
+requirements, or the two-file layout.
+
+Day.js locale objects retain their names and complete relative-time definitions, including
+grammar functions and the helpers those functions reference. The English locale stays
+intact. The card uses Day.js for relative time only; a build-time source guard rejects other
+Day.js APIs or plugins rather than letting a new formatter silently read discarded month,
+weekday, or meridiem data. Expanding that API surface requires revisiting the subset.
+
+The editor stores its sorted English string keys once, with one aligned value array per
+language, including English. A small shared decoder restores ordinary string maps.
+Missing translations occupy `null` slots and are omitted from the restored map; empty
+strings stay empty. Partial translations, the generated British English delta, and the
+existing per-key and per-view fallback order therefore use the same lookup code as before.
+
+The transforms reject duplicate or unknown string keys, non-string values, unsupported
+source shapes, and unsafe locale initializers. English-key changes invalidate the decoder
+and every translation vector during incremental builds. Tests compare unoptimized and
+compacted emitted modules across languages, lookup paths, relative-time thresholds,
+calendar-month intervals, and the suite's UTC and DST timezones; source-only translation
+checks remain independent of compaction.
+
 ## 🧰 Header Toolbar
 
 The card's own controls live in a header of one or two rows above the events. The first row,
