@@ -1107,10 +1107,13 @@ request already in flight rather than stopping at the cache.
    - Before any refresh starts, `expireStoredCalendars` marks every stored window in
      `localStorage` holding a calendar the change may have touched as due (`expired` on the
      entry), and every request for one still in flight, which then stores its answer that
-     way. No card refreshes a window it is not drawing, so home while the card is paged away,
-     or the window of a card on another view, would otherwise look fresh until
+     way and is never joined (`isJoinable`, which also refuses a paged request started before
+     the latest write). No card refreshes a window it is not drawing, so home while the card
+     is paged away, or the window of a card on another view, would otherwise look fresh until
      `refresh_interval` passed, which `refresh_on_navigate: false` trusts. An expired entry is
-     still drawn first, like any stored entry
+     still drawn first, like any stored entry. The requests and the page store are this
+     tab's and this copy's: another tab, or a development build beside a release, is reached
+     only through the entries in `localStorage`
    - The callback returns nothing. Home Assistant awaits it before closing the dialog and
      re-enables Save meanwhile, so returning the refetch would invite a duplicate event
    - `updateEvents('network')` is not used: it joins a matching request already under way,

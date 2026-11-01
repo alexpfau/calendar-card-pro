@@ -339,6 +339,54 @@ describe('a request that started before the write and lands after it', () => {
     expect(EventUtils.readEventSnapshot(hass(callApi), config, 'after-write')?.due).toBe(false);
   });
 
+  /** A Home Assistant that holds every answer until the test gives it, in order. */
+  function holding() {
+    const answers: Array<(events: unknown) => void> = [];
+    const callApi = vi.fn(() => new Promise((resolve) => answers.push(resolve)));
+    return { callApi, answers };
+  }
+
+  it('is never joined: a load after the write asks Home Assistant again', async () => {
+    const { callApi, answers } = holding();
+    const before = EventUtils.fetchEventData(hass(callApi), config, 'joined', 'network');
+
+    EventUtils.expireStoredCalendars(anna);
+    const after = EventUtils.fetchEventData(hass(callApi), config, 'joined', 'network');
+    expect(callApi).toHaveBeenCalledTimes(2);
+
+    answers[0]([DENTIST]);
+    answers[1]([DENTIST, LUNCH]);
+    expect((await after).events.map((e) => e.summary).sort()).toEqual(['Dentist', 'Lunch']);
+    await before;
+    expect(EventUtils.readEventSnapshot(hass(callApi), config, 'joined')?.due).toBe(false);
+  });
+
+  it('control: with no write in between, a second load joins the first', async () => {
+    const { callApi, answers } = holding();
+    const first = EventUtils.fetchEventData(hass(callApi), config, 'shared', 'network');
+    const second = EventUtils.fetchEventData(hass(callApi), config, 'shared', 'network');
+    expect(callApi).toHaveBeenCalledTimes(1);
+
+    answers[0]([DENTIST]);
+    await Promise.all([first, second]);
+  });
+
+  it('is not joined for a paged window either, once any write has been made', async () => {
+    const { callApi, answers } = holding();
+    const load = () =>
+      EventUtils.fetchEventData(hass(callApi), config, 'paged', 'network', 0, undefined, 'page');
+    const before = load();
+
+    EventUtils.advanceWriteGeneration();
+    const after = load();
+    expect(callApi).toHaveBeenCalledTimes(2);
+
+    answers[0]([DENTIST]);
+    answers[1]([DENTIST, LUNCH]);
+    expect((await after).events.map((e) => e.summary).sort()).toEqual(['Dentist', 'Lunch']);
+    await before;
+  });
+
   it('control: a request for calendars the write did not touch is stored fresh', async () => {
     let answer: (events: unknown) => void = () => {};
     const callApi = vi.fn(() => new Promise((resolve) => (answer = resolve)));

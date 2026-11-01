@@ -335,11 +335,7 @@ export async function fetchEventData(
   }
 
   let rawFetch = inFlightRawFetches.get(request.signature);
-  if (rawFetch && load === 'reload') {
-    // Only a request started since the write carries it. With no write named, none does.
-    const sinceWrite = afterWrite !== undefined && rawFetch.writeGeneration >= afterWrite;
-    if (!sinceWrite) rawFetch = undefined;
-  }
+  if (rawFetch && !isJoinable(rawFetch, load, afterWrite)) rawFetch = undefined;
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
@@ -349,6 +345,29 @@ export async function fetchEventData(
   const entry = await rawFetch.promise;
 
   return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+}
+
+/**
+ * Whether a load may join a request already in flight rather than start its own.
+ *
+ * Never one a write may have overtaken, whatever the load: a persistent request a write
+ * expired (`expireStoredCalendars`), or a paged one started before the latest write, whose
+ * entry the page store would drop on read anyway. Joining either would hand the caller the
+ * answer from before the write, as fresh. A `reload` joins only a request started since the
+ * write it refreshes for, and none when it names no write.
+ *
+ * @param request - The request in flight
+ * @param load - The load asking
+ * @param afterWrite - For a `reload`, the generation of the write it refreshes for
+ * @returns True when the load may share the request
+ */
+function isJoinable(request: InFlightRequest, load: EventLoad, afterWrite?: number): boolean {
+  if (request.expired) return false;
+  if (request.store === 'page' && request.writeGeneration !== currentWriteGeneration()) {
+    return false;
+  }
+  if (load === 'reload') return afterWrite !== undefined && request.writeGeneration >= afterWrite;
+  return true;
 }
 
 /**
@@ -2848,11 +2867,13 @@ function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
  * An expired entry is still drawn first, as any stored entry is, while the fetch runs.
  *
  * A request for such a window that is still in flight is marked too: it started before the
- * write, may carry the answer from before it, and would otherwise store that answer as fresh.
- * Requests started afterwards, the refreshes for this write among them, are not.
+ * write, may carry the answer from before it, and would otherwise store that answer as fresh,
+ * or hand it to a load that joined it (`isJoinable`). Requests started afterwards, the
+ * refreshes for this write among them, are not. Only this copy of the card's requests can be
+ * reached: another tab, or a development build beside a release, keeps its own.
  *
- * Paged windows need nothing here, because the page store drops every entry older than a
- * write. Only this version's entries are read, since no other version reads them.
+ * Paged windows need nothing here, because this tab's page store drops every entry older
+ * than a write. Only this version's entries are read, since no other version reads them.
  *
  * @param concerns - Whether the write may have touched any of these calendars
  */
