@@ -2639,6 +2639,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Calculate time window for event fetching
  *
+ * Half-open, like the window `processRawEvents` keeps: from local midnight on the first day
+ * to local midnight after the last, which Home Assistant's calendar API treats as an
+ * exclusive end. The end used to be the close of the day after the last one, so every card
+ * asked for one day more than it could draw.
+ *
  * @param daysToShow - Number of days to show in the calendar
  * @param startDate - Optional start date: a relative expression (`today+7`,
  *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
@@ -2720,10 +2725,10 @@ export function getTimeWindow(
 
   start.setHours(0, 0, 0, 0);
 
+  // Built from local fields, so a window spanning a DST change still ends at midnight.
   const end = new Date(start);
   const days = parseInt(daysToShow.toString()) || 3;
   end.setDate(start.getDate() + days);
-  end.setHours(23, 59, 59, 999);
 
   return { start, end };
 }

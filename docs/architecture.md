@@ -995,6 +995,8 @@ graph TD
      events up to 24 hours old are on the first frame
    - The API is asked when nothing is cached, the cache is due, or `refresh_on_navigate`
      asks for a background refetch; every calendar is requested in parallel
+   - The window asked for is half-open, from local midnight on the first day to local
+     midnight after the last (`getTimeWindow`), the same bound the processing keeps
    - Requests for the same query and window share one round-trip
 2. **Data Processing**:
    - Raw calendar events are filtered for relevant dates

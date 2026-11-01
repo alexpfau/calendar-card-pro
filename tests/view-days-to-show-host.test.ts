@@ -111,11 +111,15 @@ function answerFromFixture(only?: ReadonlySet<string>): void {
   });
 }
 
-/** Every window the card has asked Home Assistant for, as first and last local day. */
+/**
+ * Every window the card has asked Home Assistant for, as first and last local day. The end
+ * it sends is exclusive, so the last day is the one before it.
+ */
 function fetchedWindows(): Array<[string, string]> {
   return callApi.mock.calls.map((call) => {
     const query = new URLSearchParams(String(call[1]).split('?')[1]);
-    return [query.get('start')!.slice(0, 10), query.get('end')!.slice(0, 10)];
+    const lastDay = new Date(Date.parse(query.get('end')!) - 1);
+    return [query.get('start')!.slice(0, 10), lastDay.toISOString().slice(0, 10)];
   });
 }
 
@@ -222,8 +226,8 @@ describe('days_to_show per view', () => {
     const card = await mount();
     await measure(card, 1400);
 
-    // Fourteen days from Monday the 15th; the window's end runs to the close of its last day.
-    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-29']]);
+    // Fourteen days from Monday the 15th, and not one more.
+    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-28']]);
     expect(card.effectiveView).toBe('list');
     expect(drawnDays(card)).toBe(14);
     expect(range(card)).toBe(`Jun 15${TO}28`);
@@ -247,7 +251,7 @@ describe('days_to_show per view', () => {
     const card = await mount({ time_grid: { days_to_show: 21, show_past_events: true } });
     await measure(card, 2400);
 
-    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-07-06']]);
+    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-07-05']]);
     expect(drawnDays(card)).toBe(14);
 
     await pick(card, 'grid');
@@ -264,7 +268,7 @@ describe('days_to_show per view', () => {
     await next(card);
     expect(range(card)).toBe(`Jun 22${TO}28`);
     // The page is loaded as long as the longest view, from its own first day.
-    expect(fetchedWindows()[1]).toEqual(['2026-06-22', '2026-07-06']);
+    expect(fetchedWindows()[1]).toEqual(['2026-06-22', '2026-07-05']);
     const fetches = callApi.mock.calls.length;
 
     await pick(card, 'list');
@@ -284,7 +288,7 @@ describe('days_to_show per view', () => {
       toolbar: { show: true, navigation: false, view_switcher: false, add_event: false },
     });
 
-    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-29']]);
+    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-28']]);
   });
 
   it('draws list’s own count when a narrow column card falls back to the list', async () => {
@@ -301,7 +305,7 @@ describe('days_to_show per view', () => {
     expect(drawnDays(card)).toBe(14);
     expect(range(card)).toBe(`Jun 15${TO}28`);
     // The fallback was loaded for from the start, because it can be drawn.
-    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-29']]);
+    expect(fetchedWindows()).toEqual([['2026-06-15', '2026-06-28']]);
   });
 
   it('holds no midnight timer for a grid drawing every one of its own days', async () => {
@@ -411,14 +415,14 @@ describe('a per-view count fetches only when it moves the load', () => {
     const card = await mount();
     expect(reconfigure(card, { days_to_show: 21 })).toEqual(['network']);
     await settle(card);
-    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-06']);
+    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-05']);
   });
 
   it('fetches when a view grows past the others', async () => {
     const card = await mount();
     expect(reconfigure(card, { column: { days_to_show: 21 } })).toEqual(['network']);
     await settle(card);
-    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-06']);
+    expect(lastFetchedWindow()).toEqual(['2026-06-15', '2026-07-05']);
   });
 
   it('fetches when turning the switcher off drops the longest view from reach', async () => {
