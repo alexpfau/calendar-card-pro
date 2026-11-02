@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "Emoji või pilt",
   "today_indicator_icon": "Indikaatori ikoon",
   "today_indicator_custom": "Emoji või pildi rada",
-  "today_indicator_custom.helper": "Emoji, pildi rada või URL või mistahes tekst. Sõnad vajavad suuremat indikaatori suurust kui sama suurelt mõjuv emoji.",
+  "today_indicator_custom.helper": "Emoji, pildi rada või URL või mistahes tekst, välja arvatud sõnad tile, dot, pulse ja glow, mis on suur- ja väiketähtedest sõltumata sisseehitatud stiilid. Sõnad vajavad suuremat indikaatori suurust kui sama suurelt mõjuv emoji.",
   "today_indicator_color": "Indikaatori värv",
   "today_indicator_size": "Indikaatori suurus",
   "today_indicator_position": "Indikaatori asend",

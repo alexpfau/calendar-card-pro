@@ -10,8 +10,8 @@
  *
  * Everything here is a real mount, with Home Assistant answering for the window it is asked
  * about, so a card that drew the right days from the wrong request would fail too. The paths
- * that already handled midnight are pinned beside the fix: a grid with its now line loads from
- * the line's own tick, and must not now fetch twice; a card on fixed dates must not start
+ * that already handled midnight are pinned beside the fix: a grid with its now line also loads
+ * from the line's own tick, and must not now fetch twice; a card on fixed dates must not start
  * fetching at midnight. Column and grid cards that shed day columns are pinned in
  * `column-count-render.test.ts`, and their request counts below.
  */
@@ -244,9 +244,9 @@ describe('the paths that already handled midnight', () => {
     expect(drawn(card)).toEqual(['Swim', 'Dentist']);
   });
 
-  it('leaves a grid with its now line to the line, so midnight costs one request', async () => {
+  it('holds a midnight timer for a grid with its now line too, and midnight costs one request', async () => {
     const card = await mount({ view: 'grid', time_grid: { show_past_events: true } });
-    expect(card._midnightTimerId).toBeNull();
+    expect(card._midnightTimerId).not.toBeNull();
 
     await passTime(card, 15 * 60_000);
 
@@ -267,10 +267,10 @@ describe('the paths that already handled midnight', () => {
 });
 
 /**
- * A grid with its now line hears about midnight twice where it sheds day columns: from the
- * midnight timer, which moves the columns it keeps at once, and from the line's own tick, up to a
- * minute either side of it. Both load through the cache, so whichever comes second finds the new
- * window already stored, or its request under way, and asks for nothing.
+ * A grid with its now line hears about midnight twice where its window moves then, because it
+ * sheds day columns or follows today: from the midnight timer, which moves the window at once,
+ * and from the line's own tick, up to a minute either side of it. Both load through the cache,
+ * and record the day they loaded for, so whichever comes second asks for nothing.
  */
 describe('a grid with its now line, at midnight', () => {
   /**
@@ -331,15 +331,48 @@ describe('a grid with its now line, at midnight', () => {
     },
   );
 
+  it.each(
+    (['after', 'before'] as const).flatMap((order) =>
+      STORED_CASES.map((stored) => [order, stored] as const),
+    ),
+  )(
+    'moves to the new day at midnight when its window follows today, asking once, its line ticking %s the midnight timer, storing %s',
+    async (order, stored) => {
+      // It draws every one of its days, so only the window following today moves it. Without a
+      // timer of its own it kept the old day until the line's tick, here half a minute later.
+      STORED[stored].arrange();
+      // Both of its days, where the shedding card above keeps one.
+      const expected = stored === 'no events' ? [] : ['Dentist', 'Piano'];
+      const offset = order === 'after' ? 30_000 : 500;
+      const card = await mountAt(offset, {});
+      expect(card._midnightTimerId).not.toBeNull();
+      expect(callApi).toHaveBeenCalledTimes(1);
+
+      // Two seconds past midnight, with no update from Home Assistant to repaint the card.
+      await vi.advanceTimersByTimeAsync(10 * 60_000 - offset + 2_000);
+      await settle(card);
+
+      expect(drawn(card)).toEqual(expected);
+      expect(callApi).toHaveBeenCalledTimes(2);
+      const query = new URLSearchParams(String(callApi.mock.calls[1][1]).split('?')[1]);
+      expect(query.get('start')).toBe('2026-06-18T00:00:00.000Z');
+
+      await passTime(card, 15 * 60_000);
+
+      expect(callApi).toHaveBeenCalledTimes(2);
+      expect(drawn(card)).toEqual(expected);
+    },
+  );
+
   it('shares the one request with a list card on the same calendars', async () => {
-    // Both cards keep their events under one key. The list card's midnight timer fetches the
-    // new window; the line's tick, half a minute later, finds it stored. Two cards share it
-    // only through the cache, so a window with no events, or a browser storing nothing, would
-    // cost the grid a request of its own here.
+    // Both cards keep their events under one key, and both midnight timers fire a second past
+    // midnight. The list card's, armed first, fetches the new window; the grid's finds that
+    // request under way or its answer stored, and its line's tick, half a minute later, finds
+    // the day already loaded.
     const list = await mountAt(30_000, { view: 'list' });
     const grid = await mount({ view: 'grid', time_grid: { show_past_events: true } });
     expect(callApi).toHaveBeenCalledTimes(1);
-    expect(grid._midnightTimerId).toBeNull();
+    expect(grid._midnightTimerId).not.toBeNull();
 
     await passTime(list, 15 * 60_000);
     grid.hass = hass();

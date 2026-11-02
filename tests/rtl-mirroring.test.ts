@@ -116,8 +116,6 @@ describe('right-to-left mirroring', () => {
       'ha-card:dir(rtl) { padding: calc(var(--calendar-card-spacing-additional) + 16px) 8px calc(var(--calendar-card-spacing-additional) + 16px) 16px }',
       // The fallback for a browser without float: inline-start, which follows it.
       '.card-header { float: left }',
-      // The filter menu's rows: outside the list layout, and not mirrored.
-      '.legend-menu-row { padding: 4px 12px 4px 10px }',
       // The list's today-indicator box is as wide as its cell, so either side is the same box.
       '.today-indicator-container:not(.inline) { left: 0 }',
       // One line that cannot wrap, sized to its own text, so its alignment moves nothing.
@@ -198,15 +196,31 @@ describe('right-to-left mirroring', () => {
   });
 
   it('keeps the pulse a scale about the center, so a pulsing indicator mirrors too', () => {
-    // The pulse's keyframes replace the inline transform, centering included, in either
-    // direction alike, so its box sits at its inline start and mirrors. A translation in them,
-    // or an origin off center, would move it by the same physical amount both ways.
-    const frames = CSS.match(/@keyframes pulse-animation\s*\{([\s\S]*?\})\s*\}/);
-    expect(frames).not.toBeNull();
-    const transforms = [...(frames?.[1] ?? '').matchAll(/transform:\s*([^;]+);/g)].map((m) =>
-      m[1].trim(),
-    );
-    expect(transforms).toEqual(['scale(0.95)', 'scale(1.1)', 'scale(0.95)']);
+    // Keyframes that set a transform replace the inline one while they run. Column view's pulse
+    // has none to replace, and runs a plain scale. The list's pulse runs keyframes that repeat
+    // the inline centering, the shift variable included, before the scale, so it scales about
+    // the point the dot is centered on and turns around with it in right-to-left. A physical
+    // translation in them, or an origin off center, would move it by the same amount both ways.
+    const transforms = (name: string) => {
+      const frames = CSS.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?\\})\\s*\\}`));
+      expect(frames, name).not.toBeNull();
+      return [...(frames?.[1] ?? '').matchAll(/transform:\s*([^;]+);/g)].map((m) =>
+        m[1].replace(/\s+/g, ' ').trim(),
+      );
+    };
+    expect(transforms('pulse-animation')).toEqual(['scale(0.95)', 'scale(1.1)', 'scale(0.95)']);
+    const centering = 'translate(var(--calendar-card-today-indicator-shift, -50%), -50%)';
+    expect(transforms('pulse-animation-placed')).toEqual([
+      `${centering} scale(0.95)`,
+      `${centering} scale(1.1)`,
+      `${centering} scale(0.95)`,
+    ]);
+    expect(
+      declared(
+        '.today-indicator-container:not(.inline) ha-icon.today-indicator.pulse',
+        'animation-name',
+      ),
+    ).toBe('pulse-animation-placed');
     expect(CSS).not.toMatch(/transform-origin/);
   });
 
@@ -226,6 +240,31 @@ describe('right-to-left mirroring', () => {
     );
     expect(declared('.loading-indicator', 'right')).toBe('');
     expect(declared('.loading-indicator', 'left')).toBe('');
+  });
+
+  it('pads the filter menu rows by inline side, so a right-to-left menu mirrors them', () => {
+    expect(declared('.legend-menu-row', 'padding-block')).toBe('4px');
+    expect(declared('.legend-menu-row', 'padding-inline')).toBe('10px 12px');
+    expect(declared('.legend-menu-row', 'padding')).toBe('');
+  });
+
+  it('isolates the folded countdown and its separator, in either direction', () => {
+    // The countdown that follows the time text in column and grid view. Isolated, a countdown
+    // running against the card cannot carry its start margin to its far end, and the
+    // separator's zero-width space cannot carry its end margin off with the countdown. Both
+    // halves are needed: the separator alone left an English countdown in a right-to-left card
+    // touching its dot, and in Firefox drew the dot over its first letter. Both directions,
+    // because a Hebrew countdown on a left-to-right card lost its gap too.
+    const countdown = '.time .time-actual .time-text > .time-countdown';
+    expect(declared(countdown, 'unicode-bidi')).toBe('isolate');
+    expect(declared(`${countdown}::before`, 'unicode-bidi')).toBe('isolate');
+    const scoped = RULES.filter(
+      (rule) =>
+        rule.selector.includes('.time-countdown') &&
+        /:dir\(/.test(rule.selector) &&
+        declarations(rule.body).some(([prop]) => prop === 'unicode-bidi'),
+    );
+    expect(scoped).toEqual([]);
   });
 
   it("isolates the own-row weather line's separators in right-to-left only", () => {

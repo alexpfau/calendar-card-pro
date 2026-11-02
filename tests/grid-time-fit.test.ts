@@ -324,6 +324,177 @@ describe('grid time row fit', () => {
         GridTimeFit.gridTimeFit({ available: 400, full: 0, icon: 0, end: 0, wrapped: 0 }),
       ).toEqual(hidden);
     });
+
+    /**
+     * A countdown folded into the time: "9:00 - 13:00 · in 4 days". Its words flow after the
+     * time and break where the line runs out, as the weather row's chips do, so they cost the
+     * time row nothing below the first rung. Its separator is glued to the time before it and
+     * stays in every width: `DOT` is the separator with its margin, `WORDS` the words.
+     *
+     * Measured with the words in, the 102px block this was reported on wrapped a range that
+     * fitted it, "9:00 AM / - 1:00 PM / · in 4 days", the dot leading a third line.
+     */
+    describe('with a countdown folded into the time', () => {
+      const DOT = 11.34;
+      const WORDS = 52.02;
+      const COUNTDOWN = { full: FULL + DOT + WORDS, icon: ICON, end: END, words: WORDS };
+
+      it('keeps the range on one line where only the countdown words would not fit', () => {
+        expect(
+          GridTimeFit.gridTimeFit({
+            ...COUNTDOWN,
+            available: START + END + DOT,
+            wrapped: WRAPPED + DOT,
+          }),
+        ).toEqual({ time: true, icon: false, end: true, wrap: false });
+      });
+
+      it('draws the clock wherever it fits beside the time, the words flowing after it', () => {
+        // The clock needs room beside the range and its separator, not beside the words,
+        // which take the next line. Measured with the words in, rows with room for the clock
+        // dropped it.
+        const bare = START + END + DOT;
+        for (const available of [bare + ICON, FULL + DOT + WORDS]) {
+          expect(
+            GridTimeFit.gridTimeFit({ ...COUNTDOWN, available, wrapped: WRAPPED + DOT }),
+            String(available),
+          ).toEqual({ time: true, icon: true, end: true, wrap: false });
+        }
+        expect(
+          GridTimeFit.gridTimeFit({
+            ...COUNTDOWN,
+            available: bare + ICON - 0.1,
+            wrapped: WRAPPED + DOT,
+          }),
+        ).toEqual({ time: true, icon: false, end: true, wrap: false });
+      });
+
+      it('gives up the clock once as the lane narrows, and never draws it again', () => {
+        let drawn = false;
+        let seen = false;
+        for (let available = FULL + DOT + WORDS + 10; available > 0; available -= 0.25) {
+          const { icon } = GridTimeFit.gridTimeFit({
+            ...COUNTDOWN,
+            available,
+            wrapped: WRAPPED + DOT,
+          });
+          if (seen) expect(icon, String(available)).toBe(false);
+          if (icon) drawn = true;
+          else seen = true;
+        }
+        expect([drawn, seen]).toEqual([true, true]);
+      });
+
+      it('wraps only where the start time and its separator fit too', () => {
+        // A wrap the block cannot afford falls back to the start time alone, which then
+        // carries the separator. Here that is wider than either wrapped line.
+        const start = START + DOT;
+        const wrapped = start - 4;
+        expect(GridTimeFit.gridTimeFit({ ...COUNTDOWN, available: wrapped + 1, wrapped })).toEqual({
+          time: false,
+          icon: false,
+          end: false,
+          wrap: false,
+        });
+        expect(GridTimeFit.gridTimeFit({ ...COUNTDOWN, available: start, wrapped })).toEqual({
+          time: true,
+          icon: false,
+          end: true,
+          wrap: true,
+        });
+      });
+
+      it('takes the words off the full row only, never more than it measured', () => {
+        expect(GridTimeFit.withoutCountdownWords(160, 52)).toBe(108);
+        expect(GridTimeFit.withoutCountdownWords(80, 52, 45)).toBe(45);
+        expect(GridTimeFit.withoutCountdownWords(110, 52, 45)).toBe(58);
+      });
+    });
+
+    /**
+     * What a block that cannot afford a spent line falls back to: rung 4, wherever that saves
+     * the line. Reported on a one-hour block whose "6:30 PM · in 2 days" became "6:30 PM -
+     * 7:30 PM ·" with its words on a second line the block had no room for, so the height pass
+     * withdrew the whole row.
+     */
+    describe('the fallback for a block that cannot afford the line', () => {
+      const DOT = 11.34;
+      const WORDS = 52.02;
+      const COUNTDOWN = { full: FULL + DOT + WORDS, icon: ICON, end: END, words: WORDS };
+      const START_ONLY = { time: true, icon: false, end: false, wrap: false };
+      const fallback = (costs: Parameters<typeof GridTimeFit.gridTimeFit>[0]) =>
+        GridTimeFit.gridTimeFallback(costs, GridTimeFit.gridTimeFit(costs));
+
+      it('is the start time keeping its words, where they share its line', () => {
+        const costs = { ...COUNTDOWN, available: START + DOT + WORDS, wrapped: WRAPPED + DOT };
+        expect(GridTimeFit.gridTimeFit(costs)).toEqual({
+          time: true,
+          icon: false,
+          end: true,
+          wrap: false,
+        });
+        expect(fallback(costs)).toEqual(START_ONLY);
+      });
+
+      it('is absent where the start time would need the same second line for its words', () => {
+        // Rung 4 would be no shorter, so dropping the end time would buy nothing: the height
+        // pass weighs the row against the others as it does any time row.
+        const costs = { ...COUNTDOWN, available: START + END + DOT + 4, wrapped: WRAPPED + DOT };
+        expect(GridTimeFit.gridTimeFit(costs).end).toBe(true);
+        expect(fallback(costs)).toBeNull();
+      });
+
+      it('withdraws a wrap onto the start time, which the wrap was granted only beside', () => {
+        const wrapped = START + DOT - 4;
+        expect(fallback({ ...COUNTDOWN, available: START + DOT, wrapped })).toEqual(START_ONLY);
+      });
+
+      it('withdraws a wrap without a countdown onto the start time alone, as rung 4 draws it', () => {
+        expect(
+          fallback({ available: WRAPPED, full: FULL, icon: ICON, end: END, wrapped: WRAPPED }),
+        ).toEqual(START_ONLY);
+      });
+
+      it('gives up the clock before the words line, where the range keeps its words', () => {
+        // The clock pushed the words down; without it they share the range's line.
+        const costs = {
+          ...COUNTDOWN,
+          available: START + END + DOT + WORDS,
+          wrapped: WRAPPED + DOT,
+        };
+        expect(GridTimeFit.gridTimeFit(costs).icon).toBe(true);
+        expect(fallback(costs)).toEqual({ time: true, icon: false, end: true, wrap: false });
+      });
+
+      it('gives up the clock where only the clock would cost the words a line', () => {
+        // Words too long for any one-line rung: the clock narrows the column they wrap in,
+        // so dropping it is the one thing that can still save a line.
+        const long = { full: FULL + DOT + 80, icon: ICON, end: END, words: 80 };
+        const costs = { ...long, available: ICON + START + END + DOT + 2, wrapped: WRAPPED + DOT };
+        expect(GridTimeFit.gridTimeFit(costs).icon).toBe(true);
+        expect(fallback(costs)).toEqual({ time: true, icon: false, end: true, wrap: false });
+      });
+
+      it('is absent wherever no narrower rung would save a line', () => {
+        const kept = [
+          { ...COUNTDOWN, available: FULL + DOT + WORDS, wrapped: WRAPPED + DOT },
+          { ...COUNTDOWN, available: START + END + DOT + 4, wrapped: WRAPPED + DOT },
+          { ...COUNTDOWN, available: START + DOT + 1, wrapped: WRAPPED + DOT },
+          {
+            full: ICON + START + DOT + WORDS,
+            icon: ICON,
+            end: 0,
+            words: WORDS,
+            available: ICON + START + DOT + WORDS,
+            wrapped: 0,
+          },
+          { ...COUNTDOWN, available: 10, wrapped: WRAPPED + DOT },
+          { available: FULL, full: FULL, icon: ICON, end: END, wrapped: WRAPPED },
+          { available: START, full: FULL, icon: ICON, end: END, wrapped: WRAPPED },
+        ];
+        for (const costs of kept) expect(fallback(costs), JSON.stringify(costs)).toBeNull();
+      });
+    });
   });
 
   describe('the markup it acts on', () => {
@@ -584,6 +755,54 @@ describe('grid time row fit', () => {
       expect(painted).toContain('grid-time-wrap');
       expect([...measured].sort()).toEqual([...painted].sort());
       expect(settled).toEqual([]);
+    });
+
+    /**
+     * The words come off what the ladder reads, the separator does not. happy-dom lays nothing
+     * out, so ranges are stubbed to measure their own text at 6px a character, and the row at
+     * a fixed width: what is real is which text each range covers.
+     */
+    it('leaves a folded countdown words out of the widths it reads', () => {
+      const el = document.createElement('div');
+      el.className = 'grid-event';
+      el.innerHTML = `
+        <div class="grid-event-disclosure">
+          <div class="time"><div class="time-actual">
+            <span class="time-text"><span>9:00<span class="time-end"> - 13:00</span></span><span class="time-countdown">in 4 days</span></span>
+          </div></div>
+        </div>`;
+      const time = el.querySelector<HTMLElement>('.time')!;
+      Object.defineProperty(time, 'clientWidth', { get: () => 100 });
+      const ROW = 160;
+      time.getBoundingClientRect = () => ({ left: 0, right: ROW, width: ROW }) as DOMRect;
+      const end = el.querySelector<HTMLElement>('.time-end')!;
+      end.getBoundingClientRect = () => ({ width: 48 }) as DOMRect;
+      const rangeRect = vi
+        .spyOn(Range.prototype, 'getBoundingClientRect')
+        .mockImplementation(function (this: Range) {
+          const width = this.toString().length * 6;
+          return { left: 0, right: width, width } as DOMRect;
+        });
+
+      const target = GridTimeFit.gridTimeTarget(el)!;
+      expect(target.countdown?.textContent).toBe('in 4 days');
+      const costs = GridTimeFit.measureGridTimeCosts(target, 100);
+      expect(costs.full).toBe(ROW);
+      expect(costs.words).toBe('in 4 days'.length * 6);
+      // The wrapped row is the wider of "9:00" and the second line less the words.
+      expect(GridTimeFit.measureGridTimeWrapped(target)).toBe(ROW - 'in 4 days'.length * 6);
+      rangeRect.mockRestore();
+    });
+
+    it('reads no countdown where none is folded into the time', () => {
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div class="grid-event-disclosure">
+          <div class="time"><div class="time-actual"><span>9:00</span></div>
+          <div class="time-countdown">in 4 days</div></div>
+        </div>`;
+
+      expect(GridTimeFit.gridTimeTarget(el)?.countdown).toBeNull();
     });
 
     it('ignores a block with no time row rather than throwing', () => {

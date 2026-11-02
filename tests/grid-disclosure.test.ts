@@ -1208,6 +1208,167 @@ describe('grid disclosure wrapped time rung', () => {
 });
 
 /**
+ * A folded countdown's words take a line of their own on the same terms as the wrap: where
+ * the block can pay for it. Reported on a one-hour block: its "6:30 PM · in 2 days" became
+ * "6:30 PM - 7:30 PM ·" with the words on a second line the block had no room for, and the
+ * height pass then withdrew the whole time row.
+ */
+describe('grid disclosure countdown flow', () => {
+  const ICON = 18;
+  const START = 29.86;
+  const END = 39.12;
+  const DOT = 11.34;
+  const WORDS = 52.02;
+  const FULL = ICON + START + END + DOT + WORDS;
+  const LINE = 14.4;
+  const TITLE = 20;
+
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * One block with a countdown folded into its time row, layout stubbed.
+   *
+   * The time row's height follows the classes the pass sets: one line for its time, one more
+   * for the wrap, and one more again where the words do not fit after the time's last line.
+   *
+   * @param lane Content-box width of the time row
+   * @param clientHeight Height the disclosed content has
+   * @returns The card, its nodes, and the pass under test
+   */
+  function block(lane: number, clientHeight: number) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time"><span class="time-actual"><ha-icon></ha-icon><span class="time-text"><span>18:30<span class="time-end"> - 19:30</span></span><span class="time-countdown">in 2 days</span></span></span></div>
+            <div class="location"><span>Office</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const disclosure = root.querySelector<HTMLElement>('.grid-event-disclosure')!;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const time = root.querySelector<HTMLElement>('.time')!;
+    const location = root.querySelector<HTMLElement>('.location')!;
+    const has = (name: string) => disclosure.classList.contains(name);
+
+    const rect = (width: number) => ({ left: 0, right: width, width, height: 0 }) as DOMRect;
+    // Sized to its content, the row is one line: wrapped, it is the wider of its two lines.
+    time.getBoundingClientRect = () =>
+      rect(has('grid-time-wrap') ? Math.max(START, END + DOT + WORDS) : FULL);
+    root.querySelector<HTMLElement>('ha-icon')!.getBoundingClientRect = () => rect(ICON);
+    root.querySelector<HTMLElement>('.time-end')!.getBoundingClientRect = () => rect(END);
+    vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function (this: Range) {
+      return rect(this.toString().trim() === 'in 2 days' ? WORDS : START);
+    });
+    Object.defineProperty(time, 'clientWidth', { value: lane });
+
+    const drawn = (row: HTMLElement) =>
+      !row.classList.contains('grid-event-detail-clipped') &&
+      (row !== time || has('grid-time-fits'));
+    const timeLines = () => {
+      if (!drawn(time)) return 0;
+      const wrap = has('grid-time-wrap');
+      const last = wrap
+        ? END + DOT + WORDS
+        : (has('grid-time-no-end') ? START : START + END) +
+          DOT +
+          WORDS +
+          (has('grid-time-no-icon') ? 0 : ICON);
+      return (wrap ? 2 : 1) + (last > lane ? 1 : 0);
+    };
+    for (const row of [time, location]) {
+      row.getClientRects = () =>
+        drawn(row)
+          ? ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList)
+          : ({ length: 0 } as DOMRectList);
+    }
+    Object.defineProperties(content, {
+      clientHeight: { value: clientHeight },
+      scrollHeight: {
+        get: () => TITLE + timeLines() * LINE + (drawn(location) ? LINE : 0),
+      },
+    });
+
+    return { card, disclosure, content, time, location };
+  }
+
+  const rungOf = (disclosure: HTMLElement) =>
+    ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end', 'grid-time-wrap'].filter((name) =>
+      disclosure.classList.contains(name),
+    );
+  /** Wide enough for the start time with its words, or the range alone; not the range with them. */
+  const FLOWING = START + DOT + WORDS + 4;
+  /** Wide enough for the start time and its separator, not for the words after them. */
+  const START_ONLY = START + DOT + 4;
+
+  it('lets the words take a line of their own where the block has one to spare', () => {
+    const { card, disclosure, content, location } = block(FLOWING, TITLE + 3 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon']);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('gives the line back, keeping the start time with its words on one line', () => {
+    const { card, disclosure, content, time, location } = block(FLOWING, TITLE + 2 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end']);
+    expect(time.classList.contains('grid-event-detail-clipped'), 'the time row').toBe(false);
+    expect(location.classList.contains('grid-event-detail-clipped'), 'the location').toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it.each([
+    ['the range keeps its words without it', START + END + DOT + WORDS + 4, true],
+    ['the start time keeps its words', ICON + START + END + DOT + 2, false],
+  ])(
+    'draws the clock beside a range whose words flow, and gives it up first where %s',
+    (_, lane, rangeFits) => {
+      const tall = block(lane, TITLE + 3 * LINE);
+      tall.card._applyGridDisclosureSafety();
+      expect(rungOf(tall.disclosure)).toEqual(['grid-time-fits']);
+      expect(tall.location.classList.contains('grid-event-detail-clipped')).toBe(false);
+
+      const short = block(lane, TITLE + 2 * LINE);
+      short.card._applyGridDisclosureSafety();
+      expect(rungOf(short.disclosure)).toEqual(
+        rangeFits
+          ? ['grid-time-fits', 'grid-time-no-icon']
+          : ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end'],
+      );
+      expect(short.location.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(gridContentOverflows(short.content)).toBe(false);
+    },
+  );
+
+  it.each([
+    ['the start time alone', START_ONLY],
+    ['a wrap', Math.max(START, END + DOT) + 1],
+  ])('falls back from %s to the start time, then weighs it as any time row', (_, lane) => {
+    // Where the start time's own words need a second line, rung 4 is the shortest time row
+    // there is, and the loop keeps a time row ahead of the location, as it always has.
+    const { card, disclosure, content, time, location } = block(lane, TITLE + 2 * LINE);
+
+    card._applyGridDisclosureSafety();
+
+    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end']);
+    expect(time.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(true);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+});
+
+/**
  * Half of the layout fact the wrapped rung's height negotiation is built on.
  *
  * The demotion pass runs before the detail-row withdrawal loop, and the title-fit pass runs

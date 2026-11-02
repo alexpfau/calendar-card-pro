@@ -1796,12 +1796,12 @@ class CalendarCardPro extends LitElement {
    * - A grid or column card shedding day columns keeps today among the ones it draws
    *   (`visibleDayWindowStart`), so its slice moves at midnight even on fixed dates.
    * - A window that follows today moves at midnight, and draws its new last day empty until
-   *   new events arrive. A grid with its now line is left out: the line's own tick loads the
-   *   new day within a minute of midnight.
+   *   new events arrive.
    *
    * A card on fixed dates drawing all of them has nothing that moves at midnight. A grid with its
-   * now line that sheds columns hears about midnight from both the timer and the line's tick, and
-   * only the first of them loads (`_claimRollover`).
+   * now line hears about midnight from the line's tick as well, up to a minute later, so without
+   * the timer its window would wait for the tick. Of the timer and the tick only the first to see
+   * the new day loads (`_claimRollover`).
    */
   private get _wantsMidnightTimer(): boolean {
     const shedding =
@@ -1809,7 +1809,7 @@ class CalendarCardPro extends LitElement {
       this._shownColumnCount > 0 &&
       this._shownColumnCount < this.effectiveConfig.days_to_show;
 
-    return shedding || (!this._wantsNowLine && this._windowFollowsToday);
+    return shedding || this._windowFollowsToday;
   }
 
   /**
@@ -1949,9 +1949,10 @@ class CalendarCardPro extends LitElement {
    * The rollover check is why this is not simply `requestUpdate()`. At midnight every
    * day header is wrong, "today" has moved to a different column and the events on
    * screen are a day out of date — a repaint would move the line to the top of a column
-   * that is no longer today. Loading again is the only thing that fixes that. A shedding grid's
-   * own midnight timer may have loaded the new day already, and recorded it, so the line sees no
-   * rollover then (`_claimRollover`). The load goes through the cache, as the timer's does, so it
+   * that is no longer today. Loading again is the only thing that fixes that. A grid whose window
+   * moves at midnight, by shedding columns or by following today, has a midnight timer of its own,
+   * which may have loaded the new day already and recorded it, so the line sees no rollover then
+   * (`_claimRollover`). The load goes through the cache, as the timer's does, so it
    * fetches only where nothing fresh is stored for the new window: another card on the same
    * calendars may have fetched it a moment before.
    */
@@ -2176,7 +2177,7 @@ class CalendarCardPro extends LitElement {
         return [{ block, content, detailRows, withdrawn: [] as HTMLElement[] }];
       });
 
-      const wrappedTimes = this._applyGridTimeFit(pending);
+      const spending = this._applyGridTimeFit(pending);
 
       // The title settles before anything measures the block's overflow: its first word moves
       // up beside the labels, then it stops at the last whole line the block shows. After the
@@ -2188,20 +2189,23 @@ class CalendarCardPro extends LitElement {
       GridTitleFit.leadGridTitles(titles);
       GridTitleFit.cutGridTitleLines(titles);
 
-      // A wrap is decided on width but paid for in height, so settle that here, before
-      // anything else competes for the same pixels. Withdrawing it lands on exactly the
-      // class set the rung below produces, which is what makes the loop underneath see an
-      // identical state whether or not any row was ever offered a wrap - so no location,
-      // weather, description or progress row can be withdrawn *because* a time row
-      // wrapped. That is the opportunistic constraint, held by construction rather than by
-      // ordering care.
-      const unaffordable = transactions.filter(
-        (transaction) =>
-          wrappedTimes.has(transaction.block) && gridContentOverflows(transaction.content),
-      );
-      for (const transaction of unaffordable) {
-        const target = wrappedTimes.get(transaction.block);
-        if (target) GridTimeFit.demoteGridTimeWrap(target);
+      // A wrap, or a countdown's words flowing onto a line of their own, is decided on width
+      // but paid for in height, so settle that here, before anything else competes for the
+      // same pixels. Withdrawing it lands on exactly the class set its fallback rung produces,
+      // which is what makes the loop underneath see an identical state whether or not any row
+      // was ever offered the extra line - so no location, weather, description or progress
+      // row can be withdrawn *because* a time row wrapped, or because its countdown took a line
+      // a narrower rung would have saved. Where no rung keeps a countdown's words on the
+      // time's line, there is nothing to fall back on, and the row keeps a time row's priority
+      // with its words below it: in such a narrow lane it can cost a description lines, where
+      // v5.0.0 drew no time at all. That is the opportunistic constraint, held by construction
+      // rather than by ordering care, and its one exception.
+      const unaffordable = transactions.flatMap((transaction) => {
+        const spent = spending.get(transaction.block);
+        return spent && gridContentOverflows(transaction.content) ? [spent] : [];
+      });
+      for (const { target, fallback } of unaffordable) {
+        GridTimeFit.demoteGridTimeFit(target, fallback);
       }
 
       // Keep the existing priority/rollback transaction, but batch each row's reads and
@@ -2291,18 +2295,26 @@ class CalendarCardPro extends LitElement {
    * the second write, which is why there are three and not two.
    *
    * @param blocks - The timed grid blocks being fitted
+   * @returns Each block whose decision spends a line a narrower rung would save, with that
+   *   fallback, for the height pass to withdraw where the block cannot pay
    */
   private _applyGridTimeFit(
     blocks: ReadonlyArray<HTMLElement>,
-  ): ReadonlyMap<HTMLElement, GridTimeFit.GridTimeTarget> {
+  ): ReadonlyMap<
+    HTMLElement,
+    { target: GridTimeFit.GridTimeTarget; fallback: GridTimeFit.GridTimeFit }
+  > {
     const pairs = blocks
       .map((block) => ({ block, target: GridTimeFit.gridTimeTarget(block) }))
       .filter(
         (pair): pair is { block: HTMLElement; target: GridTimeFit.GridTimeTarget } =>
           pair.target !== null,
       );
-    const wrapped = new Map<HTMLElement, GridTimeFit.GridTimeTarget>();
-    if (pairs.length === 0) return wrapped;
+    const spending = new Map<
+      HTMLElement,
+      { target: GridTimeFit.GridTimeTarget; fallback: GridTimeFit.GridTimeFit }
+    >();
+    if (pairs.length === 0) return spending;
 
     const targets = pairs.map(({ target }) => target);
 
@@ -2320,15 +2332,15 @@ class CalendarCardPro extends LitElement {
     const wrapWidths = targets.map(GridTimeFit.measureGridTimeWrapped);
     targets.forEach(GridTimeFit.settleGridTimeWrapMeasurement);
 
-    const fits = base.map((costs, index) =>
-      GridTimeFit.gridTimeFit({ ...costs, wrapped: wrapWidths[index] }),
-    );
+    const costs = base.map((measured, index) => ({ ...measured, wrapped: wrapWidths[index] }));
+    const fits = costs.map(GridTimeFit.gridTimeFit);
     pairs.forEach(({ block, target }, index) => {
       GridTimeFit.applyGridTimeFit(target, fits[index]);
-      if (fits[index].wrap) wrapped.set(block, target);
+      const fallback = GridTimeFit.gridTimeFallback(costs[index], fits[index]);
+      if (fallback) spending.set(block, { target, fallback });
     });
 
-    return wrapped;
+    return spending;
   }
 
   /**

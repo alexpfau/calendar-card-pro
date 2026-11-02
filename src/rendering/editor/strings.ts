@@ -620,7 +620,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_indicator_icon: 'Icon',
   today_indicator_custom: 'Emoji Or Image Path',
   'today_indicator_custom.helper':
-    'An emoji, an image path or URL, or any text. Words need a larger Indicator Size than the size an emoji reads at.',
+    'An emoji, an image path or URL, or any text but the words tile, dot, pulse and glow, ' +
+    'which are built-in styles in any casing. Words need a larger Indicator Size than the size ' +
+    'an emoji reads at.',
   today_indicator_color: 'Indicator Color',
   today_indicator_size: 'Indicator Size',
   today_indicator_position: 'Indicator Position',

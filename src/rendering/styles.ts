@@ -832,8 +832,10 @@ export const cardStyles = css`
 
   /* Under a see-through card background, paintSelectedView in rendering/toolbar.ts hands the
      background color an opaque one in its own custom property, beneath any image the selected
-     color draws; everywhere else the property is unset and the color is the selected color
-     again, so nothing changes. */
+     color draws. Where the selected color is no background color, an image or a shorthand such
+     as #1c1c1c no-repeat, it hands back the color the background drew, which the fallback below
+     could not take from such a value. Everywhere else the property is unset and the color is the
+     selected color again, so nothing changes. */
   .view-switcher-segment.selected {
     background: var(--calendar-card-toolbar-selected);
     background-color: var(
@@ -845,9 +847,12 @@ export const cardStyles = css`
   }
 
   /* The selected segment's colors and the theme's page color, as paintSelectedView in
-     rendering/toolbar.ts reads them. Never shown. */
+     rendering/toolbar.ts reads them. Never shown. The value the selected color is written in is
+     kept beside it in --calendar-card-surface-value, so the reader can tell a background
+     shorthand, which the segment's background color cannot fall back to, from a color. */
   .view-switcher-probe {
     display: none;
+    --calendar-card-surface-value: var(--calendar-card-toolbar-selected);
     background: var(--calendar-card-toolbar-selected);
   }
 
@@ -1127,9 +1132,11 @@ export const cardStyles = css`
   }
 
   /* The menu's own background and the theme's page color, as paintMenu in rendering/legend.ts
-     reads them. Never shown. */
+     reads them. Never shown. The value is kept beside the background in
+     --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
   .legend-menu-surface {
     display: none;
+    --calendar-card-surface-value: var(--ha-card-background, var(--card-background-color, #fff));
     background: var(--ha-card-background, var(--card-background-color, #fff));
   }
 
@@ -1144,13 +1151,16 @@ export const cardStyles = css`
     gap: 4px;
   }
 
+  /* Padded by inline side, so a right-to-left menu mirrors its rows: the check sits as far
+     from the right edge there as from the left one in left-to-right. */
   .legend-menu-row {
     display: flex;
     align-items: center;
     gap: 10px;
     box-sizing: border-box;
     min-height: 40px;
-    padding: 4px 12px 4px 10px;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
     border-radius: 10px;
     background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
     font-weight: var(--ha-font-weight-medium, 500);
@@ -1583,8 +1593,9 @@ export const cardStyles = css`
      left-to-right, so a right-to-left card pushes it the other way. A custom property rather
      than a transform of its own, because the transform is the element's inline style, and a
      rule here could only beat it with !important, which would also beat the pulse animation
-     and stop it. Where an animation does replace the transform, both directions lose the
-     translation alike, and the indicator still mirrors. ha-icon's 4px inline-end gap needs no
+     and stop it. The pulse's own keyframes replace the transform while they run, so the list's
+     pulse runs keyframes that repeat this translation before their scale (below). ha-icon's
+     4px inline-end gap needs no
      reset here: placed from its inline start, the indicator has that margin on its far side in
      either direction, where it moves nothing. Placed by a left offset, it was the left margin
      in right-to-left and moved the indicator 4px. */
@@ -1608,6 +1619,19 @@ export const cardStyles = css`
     animation: pulse-animation 2s infinite ease-in-out;
   }
 
+  /* The list's pulse is placed by its inline style, whose transform centers it on the
+     position (parseIndicatorPosition in leaves.ts), and keyframes that set a transform replace
+     that one while they run. With only a scale in them, the pulse sat half its size down and
+     toward the inline end of where the dot and the glow sit, in either direction, since it was
+     first drawn. These repeat the centering before the scale, reading the same custom property,
+     so the pulse scales about the point the other indicators are centered on and still mirrors
+     in right-to-left. The translation comes first: after the scale, the scale would apply to it
+     too, and the pulse would drift by a twentieth of its size as it breathes. Column view's
+     pulse flows in its header with no transform to keep, and runs the plain keyframes. */
+  .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+    animation-name: pulse-animation-placed;
+  }
+
   ha-icon.today-indicator.glow {
     filter: drop-shadow(
       0 0 calc(var(--calendar-card-today-indicator-size) * 0.5)
@@ -1626,6 +1650,21 @@ export const cardStyles = css`
     }
     100% {
       transform: scale(0.95);
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes pulse-animation-placed {
+    0% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
       opacity: 0.7;
     }
   }
@@ -2350,10 +2389,13 @@ export const cardStyles = css`
      ":Work" and "1 Team" as "Team 1", and a Hebrew "Anna:" would carry its colon on the wrong
      side in a left-to-right one. A label whose text runs with the card is laid out exactly as
      it was without isolation, which was measured byte for byte on left-to-right cards in all
-     three engines. Grid view isolates its labels in both directions (below), which keeps it
-     isolate in left-to-right; in right-to-left this wins there too. */
-  .calendar-label,
-  .grid-event-disclosure .calendar-label:dir(rtl) {
+     three engines. Grid view's text labels take it too. They were isolated there in both
+     directions, so in a left-to-right grid a Hebrew label ending in a colon drew the colon at
+     the word's start, and Firefox split such a label in two boxes, which grid's title fit
+     cannot lead a title with. A Latin label in a left-to-right grid is laid out exactly as it
+     was, measured byte for byte in all three engines. Grid's icon and picture labels keep
+     their isolation (below). */
+  .calendar-label {
     unicode-bidi: plaintext;
   }
 
@@ -2549,7 +2591,23 @@ export const cardStyles = css`
 
   /* The countdown itself is never the clamp target; time_max_lines limits the
    * time text only. Reset the trailing-placement margins and clamp-related
-   * properties so this inline phrase can wrap normally. */
+   * properties so this inline phrase can wrap normally.
+   *
+   * Isolated, with its separator below, so the dot keeps its 4px either side
+   * whatever direction the countdown and the time run in. Left in the line, a
+   * countdown running against the card joined the time's run: in a right-to-left
+   * card an English countdown after an English 12-hour time carried its start
+   * margin to its far end, and Firefox let it ride an empty box into the time
+   * text. The separator's zero-width space took the direction of the countdown
+   * after it and split the dot from its end margin, as it did for the weather
+   * separators, which a Hebrew countdown on a left-to-right card hit too in
+   * Chromium and WebKit. Isolating the separator alone was not enough, and in
+   * Firefox drew the dot over the countdown's first letter. Isolated, a
+   * countdown that runs with the card is laid out exactly as it was, measured
+   * byte for byte in all three engines; in a right-to-left card an English
+   * countdown now follows its time at the line's end rather than sitting inside
+   * it. Isolation adds no break opportunity, so the word joiner still keeps the
+   * dot off the start of a line. */
   .time .time-actual .time-text > .time-countdown {
     display: inline;
     -webkit-line-clamp: none;
@@ -2557,16 +2615,19 @@ export const cardStyles = css`
     margin-inline-start: 4px;
     margin-inline-end: 0;
     white-space: normal;
+    unicode-bidi: isolate;
   }
 
   /* Text-placement countdown separator. The generated middot avoids adding
    * punctuation to translated strings. WORD JOINER keeps the dot attached to
    * the preceding time text for CJK as well as Latin text, and ZERO WIDTH
    * SPACE gives the line a safe break after the dot. The trailing placement
-   * keeps a plain middot because its separator starts a separate flex item. */
+   * keeps a plain middot because its separator starts a separate flex item.
+   * Isolated, with the countdown above. */
   .time .time-actual .time-text > .time-countdown::before {
     content: '\\2060·\\200B';
     margin-inline-end: 4px;
+    unicode-bidi: isolate;
   }
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
@@ -4580,6 +4641,27 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
   }
 
+  /* The 2px an unlabeled title keeps under its text, for a labeled one. Grid's summary has no
+     padding of its own, so the space under a title is the title's 2px of bottom padding, which
+     an unlabeled title keeps because it is its own clamping box. A labeled title is inline in
+     the summary, where bottom padding takes no room, so its text sat a fraction of a pixel above
+     the row below it, and an emoji in it touched a progress bar there. Not for a cut title:
+     the cut drops the padding, through which the next line showed (the cut rule above). Nor in
+     the short-block fallback, whose one-line summary has no padding at all (the compact rules
+     below): there the 2px counted against the few pixels the title is fitted into, and a
+     labeled 15-minute block was left blank. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):not([data-grid-title-lines]):has(
+      > .event-title:not(:only-child)
+    ) {
+    padding-bottom: 2px;
+  }
+
   .grid-event-disclosure
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
     > .event-title {
@@ -4602,7 +4684,6 @@ export const cardStyles = css`
     text-align: right;
   }
 
-  .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
     unicode-bidi: isolate;
@@ -5007,6 +5088,35 @@ export const cardStyles = css`
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* The wrapped rung of a time with a countdown folded into it. The countdown follows the end
+     time and breaks wherever the line runs out, as the weather row's chips do, so the end time
+     has to stay inline for it to follow: as a block, it ended its line, and the countdown
+     started a third one with its dot. A line break before the end time puts it on its own line
+     instead, and the space it leads with falls away at the start of that line, as the block's
+     did. The fit ladder measured this shape, with the separator kept on the end time's line and
+     the countdown's words left to flow (grid-time-fit.ts), so the end time and the separator
+     after it fit their line. A row without a countdown keeps the block above. */
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end {
+    display: inline;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end::before {
+    content: '\\A';
+    white-space: pre;
+  }
+
+  /* The countdown's words flow in whatever room the time leaves them, as the weather chips do,
+     and like them they break inside a word only when one cannot fit a line on its own (the fit
+     ladder used to hide such a row rather than let a word run past the lane), and are never
+     hyphenated. The card hyphenates its text, and WebKit split "tomorrow" across the end of the
+     time's line rather than move it whole to the next. */
+  .grid-event-disclosure .time .time-actual .time-text > .time-countdown {
+    overflow-wrap: break-word;
+    hyphens: manual;
   }
 
   /* The progress bar earns its own rung. It is the one row here whose value is highest

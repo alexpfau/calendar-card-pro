@@ -567,7 +567,9 @@ const SURFACE_PROBES = html`<span class="view-switcher-probe" aria-hidden="true"
  * it and read as part of the track rather than above it. Where it is see-through, its color is
  * laid over the theme's page color as the calendar filter's menu is (`surfaceColor` in
  * `surface.ts`); where it is opaque, nothing is written, so an opaque theme's switcher is exactly
- * what it was.
+ * what it was. The one exception is a selected color that is no background color, such as a
+ * card-mod rule's `#1c1c1c no-repeat`: the stylesheet's background color cannot fall back to that,
+ * so the color it draws is handed back, and the segment stays opaque.
  *
  * The color is read off the stand-ins and handed back as a custom property for the segment's
  * background color, rather than written over the segment's background. A gradient the segment

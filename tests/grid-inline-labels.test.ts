@@ -146,8 +146,10 @@ describe('timed Grid labels share the title line', () => {
   });
 
   it('uses the same four-pixel label gap in either text direction', () => {
+    // Icons and pictures are isolated here; text labels take every view's plaintext
+    // (inline-glyph-gaps.test.ts).
     const body = declarations(
-      '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
+      '.grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
     );
     expect(body).toMatch(/unicode-bidi:\s*isolate;/);
     // The gap is the one every view's labels carry, at the inline end, so grid declares none of
@@ -181,6 +183,31 @@ describe('timed Grid labels share the title line', () => {
         false,
       );
     }
+  });
+
+  it('keeps under a labeled title the 2px an unlabeled one has, but not under a cut one', () => {
+    // Grid's summary has no padding, so the space under a title is the title's own 2px of
+    // bottom padding. A labeled title is inline in the clamped summary, where that padding takes
+    // no room, so its text sat a fraction of a pixel above the row below, and an emoji in it
+    // touched a progress bar. The summary carries the 2px for it. A cut title drops the
+    // padding, labeled or not, so the next line cannot show through it.
+    // Nor in the short-block fallback, whose one-line summary has no padding: there the 2px
+    // counted against the few pixels its title is fitted into, and a labeled 15-minute block
+    // went blank.
+    const rule = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(
+      ([, selectors]) =>
+        selectors.includes('.grid-event-disclosure .summary') &&
+        selectors.includes(':not([data-grid-title-lines])'),
+    );
+    expect(rule, 'the labeled title padding rule').toBeDefined();
+    const selector = rule![1].replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').trim();
+    expect(selector).toBe(
+      ".grid-event:not([data-grid-title-fit='measuring'], [data-grid-title-fit='compact'], [data-grid-title-fit='blank']) .grid-event-disclosure .summary:not(.summary-scroll):not([data-grid-title-lines]):has(> .event-title:not(:only-child))",
+    );
+    const padding = /padding-bottom:\s*([^;]+);/.exec(rule![2])?.[1];
+    expect(padding).toBe('2px');
+    expect(padding).toBe(/padding-bottom:\s*([^;]+);/.exec(declarations('.event-title'))?.[1]);
+    expect(declarations('.grid-event-disclosure .summary')).toMatch(/padding-block:\s*0;/);
   });
 
   it('leaves scrolling titles in their separate flex-row mode', () => {

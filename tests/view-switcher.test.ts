@@ -220,6 +220,7 @@ beforeEach(() => {
 afterEach(() => {
   document.body.innerHTML = '';
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   globalThis.ResizeObserver = originalResizeObserver;
   vi.useRealTimers();
   localStorage.clear();
@@ -1069,6 +1070,8 @@ describe("the selected segment's surface", () => {
     ink: string;
     page: string;
     image?: string;
+    /** The selected color as written, where it is no plain color; the surface otherwise. */
+    value?: string;
   }
 
   /**
@@ -1086,10 +1089,13 @@ describe("the selected segment's surface", () => {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
       if (element.matches('.view-switcher-segment.selected > .view-switcher-probe')) {
+        const value = colors.value ?? colors.image ?? colors.surface;
         return {
           ...style,
           backgroundColor: colors.surface,
           backgroundImage: colors.image ?? 'none',
+          getPropertyValue: (name: string) =>
+            name === '--calendar-card-surface-value' ? value : style.getPropertyValue(name),
         } as CSSStyleDeclaration;
       }
       if (!element.matches('.view-switcher-segment.selected')) return style;
@@ -1129,6 +1135,26 @@ describe("the selected segment's surface", () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
       context as unknown as RenderingContext,
     );
+  }
+
+  /**
+   * `CSS.supports` for a background color, as a browser answers it: one color, a function such as
+   * `rgb()`, `light-dark()` or `color-mix()` included, and not an image or a shorthand. happy-dom
+   * answers true for any value at all, and hands out a new `CSS` on every read, so the global is
+   * replaced rather than spied on.
+   */
+  function stubBackgroundColors(): void {
+    vi.stubGlobal('CSS', {
+      supports: (property: string, value?: string) => {
+        if (property !== 'background-color' || value === undefined) return true;
+        let outer = value.trim();
+        for (let previous = ''; previous !== outer;) {
+          previous = outer;
+          outer = outer.replace(/\([^()]*\)/g, '');
+        }
+        return outer !== '' && !/\s/.test(outer) && !/gradient$|^url$|^image/.test(outer);
+      },
+    });
   }
 
   /** A property of the selected segment as the stylesheet declares it, whitespace collapsed. */
@@ -1183,6 +1209,7 @@ describe("the selected segment's surface", () => {
 
   it("leaves an opaque theme's switcher exactly as the stylesheet paints it", async () => {
     stubCanvas();
+    stubBackgroundColors();
     themeTheSegment(OPAQUE);
     const card = await mount();
     await measure(card, WIDE);
@@ -1192,6 +1219,46 @@ describe("the selected segment's surface", () => {
       ['column', ''],
       ['grid', ''],
     ]);
+  });
+
+  it.each([
+    ['a shorthand without an image', '#1c1c1c no-repeat'],
+    ['a shorthand naming its box', '#1c1c1c padding-box'],
+    ['a shorthand in another color syntax', 'rgb(28 28 28) no-repeat scroll'],
+  ])(
+    'hands the color back where the selected color is %s, which the background color cannot take',
+    async (_name, value) => {
+      // A card-mod rule writing --calendar-card-toolbar-selected that way: the shorthand paints
+      // the segment, but the stylesheet's background color falls back to the same value, which
+      // is no background color, so with nothing handed back the segment went transparent and
+      // the track showed through it.
+      stubCanvas();
+      stubBackgroundColors();
+      themeTheSegment({ ...OPAQUE, surface: 'rgb(28, 28, 28)', value });
+      const card = await mount();
+      await measure(card, WIDE);
+
+      expect(inlineColors(card)).toEqual([
+        ['list', 'rgb(28, 28, 28)'],
+        ['column', ''],
+        ['grid', ''],
+      ]);
+    },
+  );
+
+  it('writes nothing for a selected color written as a color function', async () => {
+    // The default selected color is light-dark() over the card background, and a theme may mix
+    // its own with color-mix(): both are background colors, so nothing is handed back for them.
+    stubCanvas();
+    stubBackgroundColors();
+    themeTheSegment({
+      ...OPAQUE,
+      value: 'light-dark(rgb(255, 255, 255), color-mix(in srgb, rgb(225, 225, 225) 22%, #1c1c1c))',
+    });
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(surfaceOf(card, 'list')).toBe('');
   });
 
   it('moves the paint with the selection', async () => {

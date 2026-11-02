@@ -279,8 +279,24 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(171_000);
-    // Right-to-left mirroring moved the ceiling last, from 165,000 to 171,000: the notes on why
+    expect(saved).toBeLessThan(178_000);
+    // A grid countdown that flows like the weather chips moved the ceiling last, from 175,000 to
+    // 178,000: the notes on why a folded countdown's end time stays inline behind a line break
+    // on the wrapped rung, why its words may break but are never hyphenated, and why a labeled
+    // grid title carries the 2px an unlabeled one has, except where its title is cut or fitted
+    // into a short block. The reading went 173,354, the ceiling's last, to 175,351, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The second right-to-left batch moved the ceiling before that, from 171,000 to 175,000: the notes
+    // on why the folded countdown and its separator are isolated in both directions, and which of
+    // the three ways the dot lost its gap each half answers; why grid's text labels now take
+    // plaintext where its icons keep isolate; why the filter menu's rows are padded by inline
+    // side; why the shared surface reader asks whether a value is a background color at all; and
+    // why the list's pulse runs keyframes of its own that repeat its centering before their
+    // scale. The reading went 170,220, its base's own, to 173,354, taken with stripComments after
+    // the last comment in the change was written.
+    //
+    // Right-to-left mirroring moved the ceiling before that, from 165,000 to 171,000: the notes on why
     // the week row, the separators, the date column and the title hold their sides by inline
     // direction, why the card's own padding turns around as one shorthand, why the list's today
     // indicator turns its centering around in right-to-left through a custom property rather

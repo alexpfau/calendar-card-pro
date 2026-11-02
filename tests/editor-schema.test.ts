@@ -69,6 +69,7 @@ import {
   languageMode,
   startDateMode,
 } from '../src/rendering/editor/synthetic';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 import {
   applyFormChange,
   changedKeys,
@@ -3161,6 +3162,58 @@ describe('editor: fields that must survive being typed into', () => {
         fieldNames(() => buildDayHeaderSchema({ view: 'list', config, language: 'en' })),
         partial,
       ).toContain('today_indicator_custom');
+    }
+  });
+
+  /**
+   * The four words the helper says are no text. Each names a built-in style in any casing
+   * (`getTodayIndicatorType`), so typed here it is held, never stored as text and never moving
+   * the style under the cursor. The helper said "or any text" until it was found untrue; the
+   * pin is on what the field does and on the helper naming every word it refuses, every
+   * language keeping the words as they are written in a config.
+   */
+  it('holds the built-in style words in any casing, as the helper says', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+    const keywords = ['tile', 'dot', 'pulse', 'glow'];
+
+    const mixed = (keyword: string) =>
+      [...keyword].map((letter, i) => (i % 2 ? letter : letter.toUpperCase())).join('');
+    for (const word of keywords.flatMap((keyword) => [
+      keyword,
+      keyword.toUpperCase(),
+      mixed(keyword),
+    ])) {
+      const { config, pending } = type(start, 'today_indicator_custom', [word]);
+
+      expect(config.today_indicator, word).toBe('⭐');
+      expect(pending.today_indicator_custom, word).toBe(word);
+    }
+
+    // Every language that translated the helper when it was rewritten, named, so one losing it
+    // fails here rather than quietly falling back to English. en-GB has no override for it.
+    // Read from the languages the editor registers, not from the folder: a stray copy beside
+    // the files, such as a sync conflict's "de 2.json", is no language the editor can show.
+    const translated = Object.fromEntries(
+      Object.entries(EDITOR_LANGUAGE_STRINGS)
+        .map(([language, strings]) => [language, strings['today_indicator_custom.helper']])
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    );
+    expect(Object.keys(translated).sort()).toEqual([
+      'de',
+      'et',
+      'it',
+      'ko',
+      'lt',
+      'lv',
+      'nb',
+      'pl',
+      'sk',
+      'sv',
+    ]);
+    const helpers = [EDITOR_STRINGS['today_indicator_custom.helper'], ...Object.values(translated)];
+    for (const helper of helpers) {
+      for (const keyword of keywords)
+        expect(helper, helper).toMatch(new RegExp(`\\b${keyword}\\b`));
     }
   });
 

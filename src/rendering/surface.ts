@@ -35,6 +35,13 @@ const COLOR_TOKEN =
 const UNREADABLE_IMAGE =
   /\b(?:url|image|image-set|cross-fade|element|paint|color-mix)\(|\bcurrentcolor\b/i;
 
+/**
+ * The custom property each surface's own stand-in carries its value in, exactly as the stylesheet
+ * gives it to the stand-in's background, so the value can be asked whether it is a background
+ * color at all.
+ */
+const SURFACE_VALUE = '--calendar-card-surface-value';
+
 //-----------------------------------------------------------------------------
 // SURFACE
 //-----------------------------------------------------------------------------
@@ -156,14 +163,33 @@ export function opaqueSurfaceColor(doc: Document, colors: SurfaceColors): string
 }
 
 /**
+ * Whether a value the stylesheet paints a background with is no background color: an image, or a
+ * shorthand such as `#1c1c1c no-repeat`. Such a value paints as a background and is invalid as a
+ * background color, so a background color falling back to it is transparent. A browser without
+ * `CSS.supports` is taken to have none, and an empty value to be unknown.
+ *
+ * @param value - The value as the browser computes it
+ * @returns True where it cannot be a background color
+ */
+function isNoBackgroundColor(value: string): boolean {
+  const written = value.trim();
+  return (
+    written !== '' &&
+    typeof CSS !== 'undefined' &&
+    typeof CSS.supports === 'function' &&
+    !CSS.supports('background-color', written)
+  );
+}
+
+/**
  * The background color to hand a surface, or undefined to leave it the stylesheet's.
  *
  * Both surfaces are painted the same way. The stylesheet gives the surface's background color a
  * custom property, falling back to the color it would have had, and this is what goes in it:
  * the opaque color where the surface would be see-through ({@link opaqueSurfaceColor}), and
- * nothing where it is opaque and draws no image. The surface's own background is never written,
- * so a card-mod rule that sets it wins as it would against the stylesheet, a see-through one
- * included, and a transition on it cannot be read halfway.
+ * nothing where its value is an opaque background color. The surface's own background is never
+ * written, so a card-mod rule that sets it wins as it would against the stylesheet, a see-through
+ * one included, and a transition on it cannot be read halfway.
  *
  * The colors are read off two hidden stand-ins drawn inside the surface, which the stylesheet
  * gives the surface's own background and the theme's page color, so each is read as the browser
@@ -171,9 +197,13 @@ export function opaqueSurfaceColor(doc: Document, colors: SurfaceColors): string
  * rather than added for the read: the card's mutation observers take an element added or removed
  * anywhere in the card for a change of the grid's structure, and refit every block for it.
  *
- * Where the surface does draw an image, its color is handed back unchanged when opaque: the
- * stylesheet's fallback takes the background color from the same value a second time, and a
- * value that also draws an image is no background color, so the color it carried would be lost.
+ * Where the surface's value is no background color, its color is handed back unchanged when
+ * opaque: the stylesheet's fallback takes the background color from the same value a second
+ * time, so a value that also draws an image, or that a theme or a card-mod rule writes as a
+ * background shorthand, `#1c1c1c no-repeat` say, would leave the surface transparent. The value
+ * is read off the own stand-in (`--calendar-card-surface-value`). Nothing is written for a value
+ * that is a background color, so an opaque theme's surface stays exactly as the stylesheet
+ * paints it, and a rule changing the value under the pointer still reaches it.
  *
  * @param own - The stand-in in the surface's own background
  * @param page - The stand-in in the theme's page color
@@ -190,7 +220,11 @@ export function surfaceColor(own: Element, page: Element, ink: Element): string 
     ink: getComputedStyle(ink).color,
     page: () => getComputedStyle(page).backgroundColor,
   });
-  return opaque ?? (image && image !== 'none' ? background : undefined);
+  if (opaque !== undefined) return opaque;
+  const drawsImage = image !== '' && image !== 'none';
+  return drawsImage || isNoBackgroundColor(style.getPropertyValue(SURFACE_VALUE))
+    ? background
+    : undefined;
 }
 
 /**

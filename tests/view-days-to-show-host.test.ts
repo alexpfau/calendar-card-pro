@@ -310,8 +310,10 @@ describe('days_to_show per view', () => {
 
   it('holds no midnight timer for a grid drawing every one of its own days', async () => {
     // Seven columns fit at this width. Measured against the card-wide fourteen, the grid
-    // would read as shedding and arm a timer for a window that never moves.
-    const card = await mount({ view: 'grid' });
+    // would read as shedding and arm a timer for a window that never moves. The same Monday on
+    // fixed dates, because a week that follows today moves at midnight and holds a timer for
+    // that alone.
+    const card = await mount({ view: 'grid', start_date: '2026-06-15' });
     await measure(card, 1400);
 
     expect(card._columnCount).toBe(7);
