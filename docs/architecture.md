@@ -630,9 +630,10 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **actions.ts**:
   - Runs `tap_action` and `hold_action`, for the card
-  - Does nothing for a missing action or `none`, handles the card's own `expand`, and
-    forwards everything else to Home Assistant as a `hass-action` event naming the card's
-    first calendar as the entity
+  - Does nothing for a missing action or `none`, handles the card's own `expand`, `refresh`
+    and `add-event` through callbacks the card hands it per press, and forwards everything
+    else to Home Assistant as a `hass-action` event naming the card's first calendar as the
+    entity
   - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
     event's details itself. It reads any other value as `none`, so it forwards nothing
     for an event
@@ -661,6 +662,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     unsaved changes refuse. The card never pushes history itself
   - Reads the calendar feature bits from `supported_features`: 1 create, 2 delete,
     4 update
+  - Shows the press's busy cue while a dialog that is not yet defined loads, once the load has
+    run past `TIMING.BUSY_CUE_DELAY`, and hides it before the dialog opens, before a fallback,
+    or when a newer press replaces the request. A dialog already defined shows nothing
 
 - **event-details.ts**:
   - Builds the detail dialog's entry from the event's `_source`, never from the rendered
@@ -674,8 +678,11 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     no button, and the first is preselected
   - Takes the button's label from `hass.localize`, and never draws an English word in its
     place
-  - Picks the dialog's `selectedDate`: now when today is in the card's window, otherwise
-    the window's first day
+  - Picks the dialog's `selectedDate`: for the add button and presses with no day under them,
+    now when today is in the card's window, otherwise the window's first day; for a day, the
+    hour it is now on that day, or in a grid's time area the hour pressed (`newEventDateOn`)
+  - Preselects the first writable calendar the legend shows, or the first writable one when it
+    hides them all (`preselectedCalendarId`)
 
 - **calendar-changes.ts**:
   - Announces a saved change on `window`. An edit or a delete names the event's calendar. A
@@ -691,6 +698,8 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **feedback.ts**:
   - Creates the hold indicator at the pointer, and fades it out and removes it
+  - Creates the busy cue, the same circle pulsing where a press was while its dialog loads
+    (still under `prefers-reduced-motion`), on `document.body` like the indicator
   - Draws no ripple: that is an `<ha-ripple>` which `renderMainCardStructure` in
     `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`
 
@@ -1102,31 +1111,43 @@ request already in flight rather than stopping at the cache.
 ### Gesture Model
 
 One recognizer on `ha-card` decides every press, so a tap, a hold and a swipe can never both
-happen, and the actions still to come already have a place: tapping an empty day or time slot
-to add an event there, and an event's own hold action. Neither exists yet. The rules below are
-written so that both slot in without moving the others.
+happen. Three targets answer a press, each with a tap and a hold of its own where one is
+configured, and the rules below decide which one does.
 
 **Targets.** A press lands on a target, innermost first:
 
-| Target                                               | Tap                          | Hold                                 |
-| ---------------------------------------------------- | ---------------------------- | ------------------------------------ |
-| An event                                             | `event_tap_action`           | an event's own hold action (to come) |
-| An empty slot: a day's empty space, a grid time slot | add an event there (to come) | none of its own                      |
-| The card: everything else on it, the title included  | `tap_action`                 | `hold_action`                        |
+| Target                                               | Tap                | Hold                |
+| ---------------------------------------------------- | ------------------ | ------------------- |
+| An event                                             | `event_tap_action` | `event_hold_action` |
+| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | none of its own     |
+| The card: everything else on it, the title included  | `tap_action`       | `hold_action`       |
 
 The toolbar's controls and the filter menu are none of these: they keep their presses
 (`stopCardGesture`). Targets are read at pointer-down, from its composed path and, for a time
 slot, its coordinates, because the pointer capture taken there retargets everything after.
+Every view marks its days for this through a property no markup shows (`DaySlot` in
+`rendering/activation.ts`): a day's own element names its day, a grid's time area its hours,
+and every event and `+N` block says it covers the day beneath it. Space that is no day's element,
+under a short column-view column or in a grid's all-day band, takes the day whose column holds
+the pointer, read from the columns' drawn rects, so right to left needs nothing of its own
+(`findDayHit`). A time slot is the hour under the pointer, rounded down, which is as fine as
+Home Assistant's create dialog goes.
 
 **Precedence.** A tap or a hold runs the innermost target's action for it, else the next
 target out's. An event covers its slot: a press on an event falls through to the card, never to
-the slot beneath it. So a hold on an event runs the card's `hold_action` until an event has a
-hold of its own.
+the slot beneath it. So a hold on an event runs the card's `hold_action` unless
+`event_hold_action` gives it one of its own, and a tap on an event with only a hold runs the
+card's `tap_action`. Which target runs is one question and where the press landed another: the
+card's own `add-event` action, in `tap_action` or `hold_action`, starts the new event on the day
+under the press, events walked past (`_addContextAt`), so a hold on an event adds on its day.
 
 **Arming.** A press with the primary button or the primary contact arms only when it could end
 in something: a tap or a hold that resolves to an action, or a touch or pen press on a card that
 swipes (`_swipeAvailable`), away from the screen's edges. Any other press is left wholly to the
-browser. One gesture runs at a time; a second contact is ignored.
+browser. One gesture runs at a time; a second contact is ignored. Adding an event resolves to an
+action only where the card can add one: a calendar that accepts new events, and not while the
+card is edited (`_canAddEvents`). Anywhere else `add-event` is no action at all, with no tab
+stop, ripple or hold indicator promising one.
 
 **Ending.** Every armed press ends in exactly one of four ways, decided at pointer-up
 (`_handlePointerUp`):
@@ -1141,35 +1162,46 @@ browser. One gesture runs at a time; a second contact is ignored.
 4. **Canceled.** The browser took the gesture for a scroll or a pinch (`pointercancel`), or the
    capture was lost: nothing.
 
-Enter and Space are the focused card's or event's tap. No key holds yet, so a hold of an
-event's own needs a key path of its own. While the card is being edited, nothing that writes to
-a calendar runs, and neither does a swipe.
+Enter and Space activate the focused card, event or day. There is no key hold: an event with a
+hold and no tap of its own is still a button, and the keys run its hold. While a tap on a day
+adds, each day's date (list) or header (column, grid) is a button for the keyboard and
+assistive technology, named by Home Assistant's own "Add event" and described by the date. The
+day's id moves onto the date inside it then, so the day's events stay described by the date and
+not by the button's name. While the card is being edited, nothing that writes to a calendar
+runs, and neither does a swipe.
 
 **Who owns movement.** Vertical pans are always the browser's. Sideways pans are the card's
 while it swipes, which its `touch-action: pan-y pinch-zoom` on the body and the title declares,
 and the browser's on a crammed grid, which scrolls sideways. Mouse drags are nobody's: a mouse
 never swipes, which leaves a drag free for later on a desktop.
 
-**What the actions to come take on.** A slot tap beats the card's `tap_action` on empty areas,
-so it has to be opted into. It resolves and snaps its slot at pointer-down, and needs a key path,
-since slots are not focusable. On a card with any hold action, a swipe has to start moving
-before the hold threshold, as it does today. An event's own hold needs the hold timer and its
-indicator to arm on events that have one. The derived-click guard covers whatever element the
-gesture began on.
+**What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on
+empty areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the
+press lasts, through an attribute and two custom properties on the day's element
+(`data-add-pressed`), since most of a day's empty space is no element of its own and an element
+added for the wash would set off the grid's structure observers. On a card with any hold action,
+a swipe has to start moving before the hold threshold. The hold timer and its indicator arm for
+an event's own hold as for the card's. The derived-click guard covers the event or day button
+the gesture began on.
 
 ### Interaction Flow
 
 1. **User Input**: one gesture recognizer on `ha-card` decides every press, on the card or
    on an event, by the rules of the _Gesture Model_ above:
-   - Pointer-down reads the tappable event, if any, from its `composedPath()`. The card
-     captures the pointer there, which retargets every later event of the gesture, the
-     derived `click` included, to `ha-card`, so this is the one moment the event is known
-   - The recognizer arms when the card has an action of its own or the press landed on an
-     event, so turning event taps on changes nothing about a press anywhere else. It also
-     arms for a touch or pen press on a card that swipes (`_swipeAvailable`: the date
-     navigation on, not being edited, not a crammed grid), away from the screen's edges
-   - Pointer-up: a hold runs `hold_action` wherever it landed, events included; a tap that
-     began on an event opens its details; any other tap runs `tap_action`; a moved pointer
+   - Pointer-down reads the event with an action of its own, if any, from its
+     `composedPath()`, and otherwise, while a tap on a day adds, the day and in a grid the
+     hour (`_dayHitAt`). The card captures the pointer there, which retargets every later
+     event of the gesture, the derived `click` included, to `ha-card`, so this is the one
+     moment either is known
+   - The recognizer arms when the card has an action of its own, or the press landed on an
+     event or a day that has one, so turning any of them on changes nothing about a press
+     anywhere else. It also arms for a touch or pen press on a card that swipes
+     (`_swipeAvailable`: the date navigation on, not being edited, not a crammed grid), away
+     from the screen's edges
+   - Pointer-up: a hold runs the event's `event_hold_action` where it has one, else
+     `hold_action` wherever it landed; a tap that began on an event with a tap of its own
+     opens its details; one that began on a day adds an event there; any other tap runs
+     `tap_action`; a moved pointer
      runs nothing, unless it could swipe and went `UI.SWIPE_MIN_DISTANCE` sideways, mostly
      sideways: that pages through `_stepPage`, the arrows' own path, mirrored reading right to
      left. A card that swipes declares `touch-action: pan-y pinch-zoom` on its body, everything
@@ -1200,11 +1232,13 @@ gesture began on.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
-     action or `none`, handles the card's own `expand`, and forwards everything else to Home
-     Assistant through `fireHassAction`, so
+     action or `none`, handles the card's own `expand`, `refresh` and `add-event`, and forwards
+     everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
-   - An event tap never reaches `actions.ts`: `_runEventTapAction` in `calendar-card-pro.ts`
-     opens the event's details through `openEventDetailDialog` in `ha-calendar-dialogs.ts`
+   - An event's own tap or hold never reaches `actions.ts`: `_runEventTapAction` in
+     `calendar-card-pro.ts` opens the event's details through `openEventDetailDialog` in
+     `ha-calendar-dialogs.ts`. Nor does a tap on a day: `_addEventAt` opens the new-event
+     dialog through `openCreateEventDialog`, as the add button and `add-event` do
 3. **After a Write**:
    - A dialog's `updated` callback advances the page's write generation once
      (`advanceWriteGeneration` in `events.ts`), calls `refreshEvents()` with it, and

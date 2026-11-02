@@ -362,20 +362,22 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option               | Type    | Default | Description                                                                                                                                                                 |
-| -------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand` and `refresh` are the card's                                                                   |
-| `hold_action`        | object  | `none`  | Action when holding the card, an event included                                                                                                                             |
-| `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action` |
-| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it. Only read with `event_tap_action: details`        |
-| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it. Only read with `event_tap_action: details`      |
+| Option               | Type    | Default | Description                                                                                                                                                                                                                                     |
+| -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand`, `refresh` and `add-event` are the card's                                                                                                                          |
+| `hold_action`        | object  | `none`  | Action when holding the card, an event included unless it has an `event_hold_action` of its own                                                                                                                                                 |
+| `day_tap_action`     | object  | `none`  | What tapping a day where it shows no event does. `add-event` opens Home Assistant's new-event dialog on that day, or in grid view at the hour tapped, in place of `tap_action`; `none`, and any other action, leaves such a tap to `tap_action` |
+| `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action`                                                                     |
+| `event_hold_action`  | object  | `none`  | What holding an event does. `details` opens Home Assistant's event dialog, in place of `hold_action`; `none`, and any other action, leaves a hold on an event to `hold_action`                                                                  |
+| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                                |
+| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                              |
 
 ### Action Parameters
 
-`tap_action`, `hold_action` and `event_tap_action` take an object whose `action` key
-selects the behavior. For `tap_action` and `hold_action`, every action but the card's own
-`expand` and `refresh` is run by Home Assistant, so the remaining keys are Home Assistant's and
-depend on which action you chose:
+`tap_action`, `hold_action`, `day_tap_action`, `event_tap_action` and `event_hold_action`
+take an object whose `action` key selects the behavior. For `tap_action` and `hold_action`,
+every action but the card's own `expand`, `refresh` and `add-event` is run by Home Assistant,
+so the remaining keys are Home Assistant's and depend on which action you chose:
 
 `action` · `entity` · `navigation_path` · `navigation_replace` · `url_path` · `perform_action` · `data` · `target` · `confirmation`
 
@@ -383,11 +385,13 @@ The older `service` and `service_data` still work in place of `perform_action` a
 `open_tab` is accepted for older configurations and does nothing: Home Assistant decides where a
 `url` action opens its link.
 
-The card's own `expand` and `refresh` take no further keys. `event_tap_action` takes `action` alone:
-`details`, or `none`, its default.
+The card's own `expand`, `refresh` and `add-event` take no further keys. `day_tap_action` takes
+`action` alone: `add-event`, or `none`, its default. So do `event_tap_action` and
+`event_hold_action`: `details`, or `none`, their default.
 
 **→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
-**→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap on an event opens, and where on the card it counts.
+**→ [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)** — where a tap on a day counts, and the day, hour and calendar the new event starts with.
+**→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap or a hold on an event opens, and where on the card it counts.
 **→ [Editing & Deleting Events](/features/actions#editing-deleting-events)** — which calendars allow Edit and Delete, and when the card leaves them out.
 
 ## ⚡ Cache & Refresh
