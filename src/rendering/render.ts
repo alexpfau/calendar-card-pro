@@ -483,6 +483,8 @@ function renderDateColumn(
  * @param prevDay - Previous day data for determining separators
  * @param boundaryInfo - Information about week and month boundaries
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw the day's add button, or undefined while a tap on a day adds
+ *   nothing
  * @returns TemplateResult for the day
  */
 export function renderDay(
@@ -494,6 +496,7 @@ export function renderDay(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
@@ -511,7 +514,7 @@ export function renderDay(
     isWeekBoundary &&
     (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
 
-  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+  const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
   const eventGap = ViewConfig.hasEventGap(config);
 
   const daySeparatorWidth = config.day_separator_width;
@@ -544,6 +547,7 @@ export function renderDay(
         weekend: isWeekendDay,
         'with-event-gap': eventGap,
       })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
     >
       ${repeat(
         day.events,
@@ -560,6 +564,7 @@ export function renderDay(
             hass,
             eventsTappable,
             dayLabelId,
+            dayAdd,
           );
 
           return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
@@ -590,6 +595,8 @@ function renderEventGapRow(): TemplateResult {
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  *
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw each day's add button, or undefined while a tap on a day adds
+ *   nothing
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -598,6 +605,7 @@ export function renderGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -655,6 +663,7 @@ export function renderGroupedEvents(
           weatherForecasts,
           hass,
           eventsTappable,
+          dayAdd,
         )}
       `;
     })}
@@ -693,6 +702,41 @@ function renderEventButton(
 }
 
 /**
+ * A list day's date, inside the button that adds an event on the day while a tap on a day
+ * does.
+ *
+ * Not the cell, for the reason `renderEventButton` gives. The button is named by Home
+ * Assistant's own "Add event" and described by the date, which carries the day's id while the
+ * button is drawn: an id on the cell would describe each of the day's events by the button's
+ * name instead of by its date. Drawn only while day taps are on, which leaves the default
+ * markup exactly as it was.
+ *
+ * @param content - The day's rendered date
+ * @param timestamp - The day's local midnight
+ * @param dayAdd - How to draw the button, or undefined for none
+ * @param dayLabelId - The id the date carries
+ * @returns The date, wrapped in the button while there is one
+ */
+function renderDayAddButton(
+  content: TemplateResult,
+  timestamp: number,
+  dayAdd: Activation.DayAddButtons | undefined,
+  dayLabelId: string | undefined,
+): TemplateResult {
+  if (!dayAdd) return content;
+  return html`<div
+    class="day-add-button"
+    role="button"
+    tabindex="0"
+    aria-label=${dayAdd.label}
+    aria-describedby=${dayLabelId ?? nothing}
+    .calendarCardDayAdd=${timestamp}
+  >
+    <div class="day-add-date" id=${dayLabelId ?? nothing}>${content}</div>
+  </div>`;
+}
+
+/**
  * Render a single event
  *
  * @param event - Event data to render
@@ -701,8 +745,9 @@ function renderEventButton(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param eventsTappable - Whether the event is a tap target of its own
- * @param dayLabelId - The id the day's date cell carries while events are tap targets, by
- *   which each event names its day
+ * @param dayLabelId - The id the day's date carries while events are tap targets or the day
+ *   is a button, by which each event and the button name the day
+ * @param dayAdd - How to draw the day's add button, or undefined for none
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -716,6 +761,7 @@ function renderEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -751,15 +797,21 @@ function renderEvent(
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
               rowspan="${rowSpan}"
               style="position: relative;"
-              id=${dayLabelId ?? nothing}
+              id=${dayAdd ? nothing : (dayLabelId ?? nothing)}
             >
-              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
+              ${renderDayAddButton(
+                renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass),
+                day.timestamp,
+                dayAdd,
+                dayLabelId,
+              )}
               ${Leaves.renderTodayIndicator(config, isToday)}
             </td>
           `
         : ''}
       <td
         class=${classMap(eventClasses)}
+        .calendarCardDaySlot=${event._isEmptyDay ? undefined : Activation.COVERED}
         style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
           presentation.accentTextProperties,
         )}"

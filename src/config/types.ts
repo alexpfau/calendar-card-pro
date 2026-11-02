@@ -144,14 +144,29 @@ export interface Config {
   weather?: WeatherConfig;
 
   // Actions
+  /** What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`, `add-event`. */
   tap_action: ActionConfig;
+  /** What a hold on the card does, with the same actions as `tap_action`. */
   hold_action: ActionConfig;
+  /**
+   * What a tap on a day does where it shows no event. `add-event` opens Home Assistant's
+   * new-event dialog on that day, or in a grid's time area at the hour tapped, instead of the
+   * card's `tap_action`; any other action is read as `none`, which leaves such a tap to
+   * `tap_action`.
+   */
+  day_tap_action: ActionConfig;
   /**
    * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
    * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
-   * event to `tap_action`. A hold on an event runs `hold_action` either way.
+   * event to `tap_action`.
    */
   event_tap_action: ActionConfig;
+  /**
+   * What a hold on an event does. `details` opens Home Assistant's event dialog, instead of
+   * the card's `hold_action`; any other action is read as `none`, which leaves a hold on an
+   * event to `hold_action`.
+   */
+  event_hold_action: ActionConfig;
   /**
    * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
    * support updates never gets Edit, whatever this says.

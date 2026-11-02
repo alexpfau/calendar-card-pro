@@ -54,6 +54,13 @@ export const LOGGING = {
 // UI BEHAVIOR & INTERACTIONS
 //-----------------------------------------------------------------------------
 
+/**
+ * The card action that opens Home Assistant's new-event dialog: a value of `tap_action`,
+ * `hold_action` and `day_tap_action`. Here rather than beside the action handler, which tests
+ * replace wholesale.
+ */
+export const ADD_EVENT_ACTION = 'add-event';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 
@@ -77,6 +84,16 @@ export const TIMING = {
 
   /** How long a page a swipe asked for takes to slide in once it is drawn. */
   SWIPE_ARRIVAL: 220,
+
+  /**
+   * How long one of Home Assistant's dialogs may take to load before the press that asked for
+   * it shows that it is loading. Below it a dialog that opens promptly shows nothing in
+   * between; the first load builds Home Assistant's calendar code and takes far longer.
+   */
+  BUSY_CUE_DELAY: 200,
+
+  /** One beat of the busy cue's pulse, out and back. */
+  BUSY_CUE_PULSE: 1200,
 
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
 

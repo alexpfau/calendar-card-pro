@@ -164,23 +164,27 @@ describe("handleAction keeps the card's own actions to itself", () => {
     document.body.innerHTML = '';
   });
 
-  it.each(['expand', 'refresh'] as const)(
+  /** Each of the card's own actions, by the callback that runs it. */
+  const OWN = { expand: 'expand', refresh: 'refresh', 'add-event': 'addEvent' } as const;
+
+  it.each(Object.keys(OWN) as Array<keyof typeof OWN>)(
     'runs the %s callback, and only it, and dispatches nothing',
     (action) => {
-      // `expand` and `refresh` are the card's own actions and have no Home Assistant
-      // equivalent, so delegating either would reach a handler that does not know the name.
-      const callbacks = { expand: vi.fn(), refresh: vi.fn() };
+      // The card's own actions have no Home Assistant equivalent, so delegating one would
+      // reach a handler that does not know the name.
+      const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn() };
       const { node, events } = listeningNode();
 
       handleAction(node, config({ hold_action: { action } }), 'hold', callbacks);
 
-      expect(callbacks[action]).toHaveBeenCalledTimes(1);
-      expect(callbacks[action === 'expand' ? 'refresh' : 'expand']).not.toHaveBeenCalled();
+      for (const [name, callback] of Object.entries(callbacks)) {
+        expect(callback).toHaveBeenCalledTimes(name === OWN[action] ? 1 : 0);
+      }
       expect(events).toHaveLength(0);
     },
   );
 
-  it.each(['expand', 'refresh'] as const)(
+  it.each(['expand', 'refresh', 'add-event'] as const)(
     'does not delegate %s when no callback was supplied',
     (action) => {
       const { node, events } = listeningNode();
@@ -194,13 +198,14 @@ describe("handleAction keeps the card's own actions to itself", () => {
   it('does not run a callback for any other action', () => {
     // The control for the pair above: the callbacks are passed on every real call site in
     // `calendar-card-pro.ts`, so it has to be the action that selects one, not its presence.
-    const callbacks = { expand: vi.fn(), refresh: vi.fn() };
+    const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn() };
     const { node, events } = listeningNode();
 
     handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', callbacks);
 
     expect(callbacks.expand).not.toHaveBeenCalled();
     expect(callbacks.refresh).not.toHaveBeenCalled();
+    expect(callbacks.addEvent).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });
 });

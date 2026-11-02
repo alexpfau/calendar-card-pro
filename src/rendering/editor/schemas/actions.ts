@@ -19,9 +19,10 @@ export const ACTIONS_ICON = mdiGestureTapButton;
  * schema-driven, but the v4 rebuild swapped a hand-written dropdown for HA's `ui_action`
  * selector and stopped offering it. The runtime kept working throughout, so this only
  * ever failed the people configuring the card through the UI. `refresh` loads the events
- * again now, as the toolbar's refresh button does.
+ * again now, as the toolbar's refresh button does. `add-event` opens Home Assistant's
+ * new-event dialog on the day the press landed on.
  */
-export const CARD_ACTIONS = ['expand', 'refresh'] as const;
+export const CARD_ACTIONS = ['expand', 'refresh', 'add-event'] as const;
 
 /**
  * Home Assistant's own action list, mirrored because there is no way to append to it.
@@ -56,6 +57,16 @@ export const ACTION_OPTIONS: ReadonlyArray<string> = [...CARD_ACTIONS, ...HA_ACT
  */
 export const EVENT_TAP_CHOICES = ['none', 'details'] as const;
 
+/** What the event hold dropdown offers, the default first, for the reason the tap one does. */
+export const EVENT_HOLD_CHOICES = ['none', 'details'] as const;
+
+/**
+ * What the day tap dropdown offers, the default first. A plain dropdown for the reason the
+ * event tap one is: a tap on a day does one thing of its own. Nothing stores nothing; see
+ * `day_tap_action_mode` in `SYNTHETIC_FIELDS`.
+ */
+export const DAY_TAP_CHOICES = ['none', 'add-event'] as const;
+
 /**
  * String key naming one card-specific action in the editor's own table.
  *
@@ -73,31 +84,32 @@ export function cardActionLabelKey(action: string): string {
 /**
  * Builds the Actions & Refresh panel schema.
  *
- * The card's two gestures lead, as they always have, and the event's own tap follows the
- * hold rather than the tap it is named after: the hold still runs on an event, so all
- * three describe what a finger on the card does, and the event tap is the one that only
- * fires over part of it.
+ * Coarse to fine, by what a press lands on: the card's two gestures lead, as they always
+ * have, then the day's tap, then the event's tap and hold. Each narrower target takes its
+ * press from the card's action only where it has one of its own, so read top to bottom the
+ * panel says what a press does on the whole card, then where it does something else.
  *
- * No sub-headings, although "card taps" against "event taps" is the obvious split. The
- * hold belongs to both, so a heading over either half would misfile it — and a heading
+ * No sub-headings, although "card", "day" and "event" are the obvious split. A heading
  * over the actions forces one over the refresh pair too, where `Refresh` above `Refresh
  * Interval` and `Refresh On Navigation` is a stutter. The panel title already names both
- * halves, and the event tap's own label already sets it apart from the card's two.
+ * halves, and the day's and event's own labels already set them apart from the card's two.
  *
  * @param language - Effective language code
- * @param opensDetails - Whether a tap on an event opens Home Assistant's event dialog,
- *   which is what the two `allow_event_*` switches depend on
+ * @param opensDetails - Whether a tap or a hold on an event opens Home Assistant's event
+ *   dialog, which is what the two `allow_event_*` switches depend on
  * @returns The panel's schema
  */
 const actionsSchema = Helpers.memoizeLast(
   (language: string, opensDetails: boolean): HaFormSchema[] => [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
+    select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
     select(language, 'event_tap_action_mode', EVENT_TAP_CHOICES),
+    select(language, 'event_hold_action_mode', EVENT_HOLD_CHOICES),
     // Dependent on purpose: they narrow what the event dialog offers, and without details
-    // there is no dialog, so always-visible switches would be inert. Directly under the
-    // dropdown that reveals them, which is a single field rather than a row, so nothing can
-    // come between the two on a narrow viewport.
+    // there is no dialog, so always-visible switches would be inert. Directly under the two
+    // dropdowns that reveal them, each a single field rather than a row, so nothing can come
+    // between them on a narrow viewport.
     ...(opensDetails ? [bool('allow_event_edit'), bool('allow_event_delete')] : []),
     number('refresh_interval', 1, undefined, 'min'),
     bool('refresh_on_navigate'),
@@ -111,5 +123,9 @@ const actionsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  return actionsSchema(ctx.language, Synthetic.eventTapActionMode(ctx.config) === 'details');
+  return actionsSchema(
+    ctx.language,
+    Synthetic.eventTapActionMode(ctx.config) === 'details' ||
+      Synthetic.eventHoldActionMode(ctx.config) === 'details',
+  );
 }

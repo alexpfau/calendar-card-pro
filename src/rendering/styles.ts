@@ -3639,6 +3639,65 @@ export const cardStyles = css`
     outline-offset: -2px;
   }
 
+  /* ===== DAYS THAT ADD AN EVENT =====
+   * With day_tap_action set to add-event, a tap on a day where it shows no event opens Home
+   * Assistant's new-event dialog there, and each day's date (list) or header (column, grid) is
+   * a button that does the same from the keyboard. The washes match an untinted event's: the
+   * card's own hover color at 8% under a real pointer, its pressed color at 16% while pressed.
+   *
+   * The pressed wash is set by the recognizer rather than by :active, because most of a day's
+   * empty space is no element of its own: the space under a short column, a grid's all-day
+   * band and its time area. It marks the day's element with data-add-pressed for as long as the
+   * press lasts, and the rules below wash the day's date or header, or in a grid's time area
+   * the hour pressed, from the two custom properties it sets beside the attribute. Attributes
+   * inside the card are invisible to the grid's structure observers, which an element added for
+   * the wash would not be. The hour's wash is the body's ::before, which paints before the day's
+   * plane and so under its events. */
+  .date-column:has(> .day-add-button),
+  .day-add-button {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .date-column:has(> .day-add-button):hover,
+    .column-day-header.day-add-button:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .day-table[data-add-pressed] td.date-column,
+  .day-column[data-add-pressed] > .column-day-header,
+  .grid-day-header[data-add-pressed] > .column-day-header {
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  .grid-day-body[data-add-pressed]::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: var(--calendar-card-add-hour-top, 0);
+    height: var(--calendar-card-add-hour-height, 0);
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    pointer-events: none;
+  }
+
+  .day-add-button:focus {
+    outline: none;
+  }
+
+  .day-add-button:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* A press on a day is the day's, as one on an event is the event's: the card's ripple is
+     muted while one is down, and while a day's button is under the pointer or focused. */
+  ha-card:has([data-add-pressed], .day-add-button:hover, .day-add-button:focus-visible)
+    > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
   /* ===== CORNER LOADING INDICATOR ===== */
 
   /* Midway between the card's rounded corner and the header toolbar's last control, which

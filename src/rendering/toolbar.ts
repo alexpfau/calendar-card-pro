@@ -41,6 +41,7 @@ import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend'
 import { setSurfaceColor, surfaceColor } from './surface';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
+import { UNLOCALIZED_ADD_EVENT_NAME } from '../interaction/add-event';
 import type { MonthHeadingText } from '../utils/paging';
 
 //-----------------------------------------------------------------------------
@@ -51,7 +52,8 @@ import type { MonthHeadingText } from '../utils/paging';
 export interface AddEventButton {
   /** Home Assistant's own words for the button, or undefined when it offers none. */
   label: string | undefined;
-  onActivate: () => void;
+  /** Runs on a press, handed the button so a cue can show where it was pressed. */
+  onActivate: (button: HTMLElement) => void;
 }
 
 /**
@@ -193,14 +195,9 @@ export interface HeaderToolbar {
 //-----------------------------------------------------------------------------
 
 /**
- * The add button's accessible name when Home Assistant has no string for it.
- *
- * Only ever an `aria-label`: an English word drawn on a card set to another language would
- * be worse than an icon.
+ * The arrows' accessible names when Home Assistant has none, under the rule the add button's
+ * follows (`UNLOCALIZED_ADD_EVENT_NAME`).
  */
-const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
-
-/** The arrows' accessible names when Home Assistant has none, under the same rule. */
 const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
 const UNLOCALIZED_NEXT_NAME = 'Next';
 
@@ -342,7 +339,7 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
 function renderAddEventButton(button: AddEventButton): TemplateResult {
   const onClick = (ev: Event) => {
     ev.stopPropagation();
-    button.onActivate();
+    button.onActivate(ev.currentTarget as HTMLElement);
   };
 
   return html`<button

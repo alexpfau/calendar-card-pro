@@ -198,6 +198,30 @@ export function eventTapActionMode(config: Readonly<Types.Config>): 'none' | 'de
 }
 
 /**
+ * Derives what a hold on an event does, as the editor's two-choice dropdown shows it, read as
+ * `eventTapActionMode` reads the tap.
+ *
+ * @param config - Current configuration
+ * @returns Which of the two choices applies
+ */
+export function eventHoldActionMode(config: Readonly<Types.Config>): 'none' | 'details' {
+  const eventHoldAction: Types.ActionConfig | null | undefined = config.event_hold_action;
+  return eventHoldAction?.action === 'details' ? 'details' : 'none';
+}
+
+/**
+ * Derives what a tap on a day does, as the editor's two-choice dropdown shows it. `add-event`
+ * is the one value the card acts on, and every other reads as `none`, as for events.
+ *
+ * @param config - Current configuration
+ * @returns Which of the two choices applies
+ */
+export function dayTapActionMode(config: Readonly<Types.Config>): 'none' | 'add-event' {
+  const dayTapAction: Types.ActionConfig | null | undefined = config.day_tap_action;
+  return dayTapAction?.action === 'add-event' ? 'add-event' : 'none';
+}
+
+/**
  * Reads the entity id out of an entry that may be a bare string or a config object.
  *
  * @param entry - One member of the `entities` array
@@ -594,6 +618,26 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       value === 'details'
         ? { changes: { event_tap_action: { action: 'details' } } }
         : { changes: { event_tap_action: undefined } },
+  },
+
+  /** The event hold dropdown, written as the event tap one is. */
+  event_hold_action_mode: {
+    configKeys: ['event_hold_action'],
+    derive: (config) => eventHoldActionMode(config),
+    apply: (value) =>
+      value === 'details'
+        ? { changes: { event_hold_action: { action: 'details' } } }
+        : { changes: { event_hold_action: undefined } },
+  },
+
+  /** The day tap dropdown, written as the event tap one is. */
+  day_tap_action_mode: {
+    configKeys: ['day_tap_action'],
+    derive: (config) => dayTapActionMode(config),
+    apply: (value) =>
+      value === 'add-event'
+        ? { changes: { day_tap_action: { action: 'add-event' } } }
+        : { changes: { day_tap_action: undefined } },
   },
 
   calendars: {

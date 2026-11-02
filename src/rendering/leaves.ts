@@ -119,8 +119,11 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param separator Optional rule under the header
  * @param hass Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
- * @param id The header's id, given only while the day's events are tap targets; see
- *   `dayLabelId` in `activation.ts`
+ * @param id The day's id, given only while the day's events are tap targets or the header is
+ *   the day's add button; see `dayLabelId` in `activation.ts`
+ * @param dayAdd The header as the day's add button: its name and its day. While it is one,
+ *   the id moves from the header to the date inside it, which describes the button and the
+ *   day's events alike; on the header it would describe both by the button's name.
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -132,6 +135,7 @@ export function renderSharedDayHeader(
   separator?: { width: string; color: string } | null,
   hass?: Types.Hass | null,
   id?: string,
+  dayAdd?: { label: string; timestamp: number },
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -147,13 +151,22 @@ export function renderSharedDayHeader(
     : nothing;
 
   return html`
-    <div class="column-day-header" id=${id ?? nothing}>
+    <div
+      class=${dayAdd ? 'column-day-header day-add-button' : 'column-day-header'}
+      id=${dayAdd ? nothing : (id ?? nothing)}
+      role=${dayAdd ? 'button' : nothing}
+      tabindex=${dayAdd ? '0' : nothing}
+      aria-label=${dayAdd ? dayAdd.label : nothing}
+      aria-describedby=${dayAdd && id ? id : nothing}
+      .calendarCardDayAdd=${dayAdd?.timestamp}
+    >
       <div
         class=${classMap({
           'column-date-content': true,
           'with-today-indicator': hasInlineIndicator,
           'with-today-tile': isTileIndicator(config),
         })}
+        id=${dayAdd && id ? id : nothing}
       >
         ${todayIndicator}
         ${renderDateContent(date, config, language, isToday, weatherContent, hass)}
