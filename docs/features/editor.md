@@ -130,6 +130,13 @@ Either choice preserves the layout currently on screen at the moment you choose 
 Grid card, the choice decides what List — including a responsive List fallback — uses
 later; the current Grid appearance is unchanged.
 
+Either choice also keeps every option your YAML spells out, including one set to its
+default, such as `show_month: true`. The choice moves only the values it asks about, and
+adds `config_version`. Every later save works the same way: the editor removes a line you
+wrote only when you change that option, so a card that spells out a default keeps it even
+if a later release changes the default. Setting an option back to its default in the editor
+still removes the line, and [deprecated options](#deprecated-options) are still removed.
+
 The editor asks only when at least one authored value is genuinely ambiguous. The five
 options that only List can read move automatically, because they have no possible shared
 meaning. A List or Grid card with no ambiguous values opens normally and adopts the v5
@@ -362,8 +369,10 @@ layout would use without them. They do not remove the input or clear other layou
 Where one mode control governs several options, its reset clears those options together.
 
 List keeps every valid explicit value in `list:`, even one equal to the shared value;
-use Reset to return to inheritance. Column and most Grid values equal to what the view
-inherits are omitted from their saved blocks. Options with a
+use Reset to return to inheritance. Column and most Grid values that you edit to equal
+what the view inherits are omitted from their saved blocks. A value your YAML already holds
+stays, even when it equals what the view would inherit or default to; the view shows it as
+set for that layout and offers its Reset. Options with a
 [different grid default](/features/grid-view#options-that-start-from-a-different-default)
 stay explicit when edited back to that default; use Reset to remove the explicit value.
 

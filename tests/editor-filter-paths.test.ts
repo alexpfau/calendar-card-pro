@@ -18,9 +18,9 @@ import { stripColumnDefaults } from '../src/rendering/editor/value';
  * path, but those two paths are not the same path. A `scope()` group extends the
  * configuration path without extending the label path, so its fields must stay findable by
  * their real configuration key without their translation keys moving. A partially written
- * nested block, meanwhile, leaves its remaining keys absent rather than defaulted, and a
- * column value that the render path coerces must not read as customized once it coerces to
- * the default.
+ * nested block, meanwhile, leaves its remaining keys absent rather than defaulted. A column
+ * value the block already holds counts as the layout's own however it is written, while one an
+ * edit writes is stored only when it does not coerce to the default.
  */
 
 function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): FilterCtx {
@@ -142,27 +142,20 @@ describe('customized-only ignores keys a partial block never wrote', () => {
   });
 });
 
-describe('customized-only compares column values the way the render path resolves them', () => {
+describe('customized-only and the write path read column values the way the card does', () => {
   const columnConfig = (min_day_width: unknown) =>
     buildConfig({
       view: 'column',
       column: { min_day_width } as unknown as Types.ColumnOverrides,
     });
 
-  it('does not flag a string that coerces to the default', () => {
-    const config = columnConfig('140');
+  // A save keeps a line the block holds, so it is the layout's own value in every spelling.
+  it.each(['140', 140])('flags the default the block holds, written as %j', (written) => {
+    const config = columnConfig(written);
 
     expect(
       isCustomized(nodeNamed('layout', 'min_day_width', config), ['column'], ctxFor(config)),
-    ).toBe(false);
-  });
-
-  it('does not flag the default written as a number', () => {
-    const config = columnConfig(140);
-
-    expect(
-      isCustomized(nodeNamed('layout', 'min_day_width', config), ['column'], ctxFor(config)),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('still flags a genuinely different value', () => {

@@ -69,8 +69,8 @@ export function destination(
     : undefined;
 }
 
-const storedConfig = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
-  Value.toStoredConfig(config),
+const storedBlocks = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
+  Value.storedViewBlocks(config),
 );
 
 /**
@@ -95,7 +95,7 @@ export function valueSource(
   if (!block || name === 'view' || name === WORKSPACE_FIELD) return undefined;
   const keys = Synthetic.configKeysForField(name);
   if (!keys.some((key) => destination(key, workspace) === block.blockKey)) return 'card';
-  const stored = storedConfig(config)[block.blockKey];
+  const stored = storedBlocks(config)[block.blockKey];
   if (
     Helpers.isConfigBlock(stored) &&
     keys.some((key) => Object.prototype.hasOwnProperty.call(stored, key))

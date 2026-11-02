@@ -412,6 +412,7 @@ describe('workspace state survives echoes and pending edits', () => {
     expect(seen).toEqual([
       {
         entities: [{ entity: 'calendar.anna' }],
+        view: 'list',
         time_grid: { event_font_size: '24px' },
       },
     ]);
@@ -455,7 +456,9 @@ describe('the shared workspace', () => {
     });
     await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
 
-    expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], event_font_size: '24px' }]);
+    expect(seen).toEqual([
+      { entities: [{ entity: 'calendar.anna' }], view: 'list', event_font_size: '24px' },
+    ]);
   });
 
   it('writes the same edit into the list block from the List workspace', async () => {
@@ -465,7 +468,7 @@ describe('the shared workspace', () => {
     await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
 
     expect(seen).toEqual([
-      { entities: [{ entity: 'calendar.anna' }], list: { event_font_size: '24px' } },
+      { entities: [{ entity: 'calendar.anna' }], view: 'list', list: { event_font_size: '24px' } },
     ]);
   });
 });

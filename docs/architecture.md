@@ -158,7 +158,12 @@ Authorship is captured from raw input before defaults are merged. Migration uses
 values, including `false`, zero, and default-equal values; local editor state is updated
 before forms reopen or Home Assistant echoes the save. Serialization retains explicit
 divergent shared roots so reopening does not lose a choice that a later Grid transition
-must preserve. Implicit defaults remain absent. A transition to Grid may copy those roots
+must preserve. Implicit defaults remain absent. A value the YAML already holds is kept,
+even at its default, unless the write changed it: `toStoredConfig` takes the stored YAML
+as its authored baseline, which moves with every write, so an option edited back to its
+default is still minimized. The editor's per-view labels, Reset controls and Customized
+Only read the view blocks through the same rule (`storedViewBlocks`), so a kept line is
+never labeled as inherited. A transition to Grid may copy those roots
 into `time_grid:`; that editor reconciliation does not run when loading YAML.
 
 See [Per-View Options](/features/core-settings#per-view-options) and the
