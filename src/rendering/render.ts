@@ -93,6 +93,8 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
  * @param contentPending Whether the days drawn are about to be replaced by another page's
  * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
  * refresh button does
+ * @param swipePaging Whether a swipe across the days pages the card, which hands the browser
+ * only vertical panning on its body (`swipe-paging`)
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -120,6 +122,7 @@ export function renderMainCardStructure(
   hostsControls: boolean = false,
   contentPending: boolean = false,
   refreshPhase: Toolbar.RefreshPhase = 'idle',
+  swipePaging: boolean = false,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
@@ -149,11 +152,13 @@ export function renderMainCardStructure(
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
-  // separator out of the class attribute.
+  // separator out of the class attribute. `swipe-paging` only while a swipe pages the card,
+  // so a card that does not swipe keeps the browser's touch behavior untouched.
   const cardClasses = [
     'calendar-card-pro',
     ViewConfig.viewCssClass(effectiveView),
     isPointerInteractive ? 'card-interactive' : '',
+    swipePaging ? 'swipe-paging' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');

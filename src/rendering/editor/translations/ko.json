@@ -204,7 +204,7 @@
   "background_color": "배경 색상",
   "toolbar.show": "도구 모음 표시",
   "toolbar.navigation": "날짜 탐색",
-  "toolbar.navigation.helper": "날짜를 넘기는 화살표, 카드가 처음 여는 날짜로 돌아가는 버튼, 월을 탭하면 열리는 날짜 선택기입니다.",
+  "toolbar.navigation.helper": "날짜를 넘기는 화살표, 카드가 처음 여는 날짜로 돌아가는 버튼, 월을 탭하면 열리는 날짜 선택기입니다. 터치스크린에서는 날짜를 밀어서 넘길 수도 있습니다.",
   "toolbar.view_switcher": "레이아웃 전환기",
   "toolbar.view_switcher.helper": "대시보드에서 목록, 열, 그리드 간에 전환합니다. 각 기기는 선택을 기억합니다.",
   "toolbar.reset": "초기화 버튼",

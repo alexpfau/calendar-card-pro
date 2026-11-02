@@ -2244,7 +2244,8 @@ export interface ColumnFit {
 
 // Closed-form inverse of `computeColumnThresholdPxFor`; the epsilon protects exact
 // boundaries from floating-point underflow. Removing it is invisible through
-// `resolveColumnFit`, the only caller: an underflowed count stops matching
+// `fittedColumns`, the only caller, behind both `resolveColumnFit` and `columnFitCrams`: an
+// underflowed count stops matching
 // `previousColumns`, so the hysteresis re-fit recomputes from a shifted width and
 // lands back on the same number — measured at 0 divergent over 481,915 widths derived
 // from exact column boundaries, against a control mutating this same expression that
@@ -2313,19 +2314,7 @@ export function resolveColumnFit(
   }
 
   const floor = Math.min(resolveMinDaysToShow(config, requestedView), days);
-  const previousColumns = previous && previous.view === requestedView ? previous.columns : 0;
-  const halfBand = columnHysteresisHalfBandPx(config, requestedView);
-  const raw = fitColumns(config, measuredWidthPx, requestedView);
-
-  // A `null` previous layout uses the enter threshold; otherwise a card could qualify
-  // for a column it has never been wide enough for.
-  let fitted = raw;
-
-  if (raw > previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx - halfBand, requestedView);
-  } else if (raw < previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx + halfBand, requestedView);
-  }
+  const fitted = fittedColumns(requestedView, config, measuredWidthPx, previous);
 
   if (fitted >= floor) {
     return { view: requestedView, columns: Math.min(fitted, days) };
@@ -2334,6 +2323,60 @@ export function resolveColumnFit(
   return resolveMinDaysFallback(config, requestedView) === 'cramp'
     ? { view: requestedView, columns: floor }
     : { view: 'list', columns: 0 };
+}
+
+/**
+ * The columns a measured width carries at `min_day_width`, with the hysteresis band held
+ * against the layout on screen: growing costs half a band, shrinking is granted half a band.
+ *
+ * @param view - The day-column view being fitted
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, measured
+ * @param previous - Layout currently rendered, `null` if none is confirmed
+ * @returns How many columns fit, before the floor and `days_to_show` are applied
+ */
+function fittedColumns(
+  view: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number,
+  previous: ColumnFit | null,
+): number {
+  const previousColumns = previous && previous.view === view ? previous.columns : 0;
+  const halfBand = columnHysteresisHalfBandPx(config, view);
+  const raw = fitColumns(config, measuredWidthPx, view);
+
+  // A `null` previous layout uses the enter threshold; otherwise a card could qualify
+  // for a column it has never been wide enough for.
+  if (raw > previousColumns) return fitColumns(config, measuredWidthPx - halfBand, view);
+  if (raw < previousColumns) return fitColumns(config, measuredWidthPx + halfBand, view);
+  return raw;
+}
+
+/**
+ * Whether a day-column view on screen is crammed: holding its `min_days_to_show` floor with
+ * columns narrower than `min_day_width`, which only `min_days_fallback: cramp` does. Asked
+ * with the layout on screen as `resolveColumnFit`'s previous layout, so it answers for the
+ * layout drawn, inside the same hysteresis band. A grid crammed this far scrolls sideways
+ * once its days reach their floor.
+ *
+ * @param view - The day-column view on screen
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, `null` before the first measurement
+ * @param current - Layout currently rendered
+ * @returns Whether the view is crammed
+ */
+export function columnFitCrams(
+  view: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number | null,
+  current: ColumnFit,
+): boolean {
+  if (!VIEWS_WITH_WIDTH_FALLBACK.has(view) || current.view !== view) return false;
+  if (measuredWidthPx === null || measuredWidthPx <= 0) return false;
+  if (resolveMinDaysFallback(config, view) !== 'cramp') return false;
+
+  const floor = Math.min(resolveMinDaysToShow(config, view), configuredDays(config, view));
+  return fittedColumns(view, config, measuredWidthPx, current) < floor;
 }
 
 /**

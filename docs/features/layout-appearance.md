@@ -237,6 +237,19 @@ month is cut short. Which form is
 drawn follows the card's width and language, never the month on screen, so paging never changes
 it. `navigation: false` takes the arrows away and leaves the month as plain text.
 
+On a touch screen a swipe across the days pages too, exactly as the arrows do: a finger moving
+left shows the next days, one moving right the previous ones, and reading right to left the two
+turn around, as the arrows do. While the finger moves sideways the days follow it a little, and
+the new page slides in from that side once it is drawn. With reduced motion turned on in the
+device's settings nothing moves, and the page simply changes. A tap on an event still opens it,
+a swipe that starts on one never does, and scrolling up and down works as it always has. A mouse
+keeps to the arrows. Swiping comes with the arrows, so `navigation: false` turns it off too. Two
+places are left alone: a swipe starting at the very edge of the screen, where the browser and the
+Home Assistant app have swipes of their own, and a grid that
+[`min_days_fallback: cramp`](/features/grid-view#fitting-narrow-cards) has crammed, holding its
+days narrower than `min_day_width`: those scroll sideways under the finger, and page with the
+arrows only.
+
 A few things work differently away from the days the card opens with:
 
 - **Events that have ended are shown,** dimmed as usual, even with `show_past_events: false`.

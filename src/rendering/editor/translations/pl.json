@@ -308,7 +308,7 @@
   "background_color": "Kolor tła",
   "toolbar.show": "Pokaż pasek narzędzi",
   "toolbar.navigation": "Nawigacja po datach",
-  "toolbar.navigation.helper": "Strzałki do przewijania dni, przycisk powrotu do dni, od których karta startuje, oraz wybór daty po dotknięciu miesiąca.",
+  "toolbar.navigation.helper": "Strzałki do przewijania dni, przycisk powrotu do dni, od których karta startuje, oraz wybór daty po dotknięciu miesiąca. Na ekranie dotykowym dni można przewijać także przesunięciem palca.",
   "toolbar.view_switcher": "Przełącznik układu",
   "toolbar.view_switcher.helper": "Przełącza układ na dashboardzie: Lista, Kolumny lub Siatka czasu. Każde urządzenie zapamiętuje swój wybór.",
   "toolbar.reset": "Przycisk „Reset”",

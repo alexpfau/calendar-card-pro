@@ -308,7 +308,7 @@
   "background_color": "Fona krāsa",
   "toolbar.show": "Rādīt rīkjoslu",
   "toolbar.navigation": "Datumu navigācija",
-  "toolbar.navigation.helper": "Bultiņas dienu pāršķiršanai, poga atpakaļ uz dienām, ar kurām karte atveras, un datuma atlasītājs, ko atver pieskāriens mēnesim.",
+  "toolbar.navigation.helper": "Bultiņas dienu pāršķiršanai, poga atpakaļ uz dienām, ar kurām karte atveras, un datuma atlasītājs, ko atver pieskāriens mēnesim. Skārienekrānā dienas var pāršķirt arī, pārvelkot ar pirkstu.",
   "toolbar.view_switcher": "Izkārtojuma pārslēdzējs",
   "toolbar.view_switcher.helper": "Informācijas panelī pārslēdz izkārtojumu: Saraksts, Kolonnas vai Laika režģis. Katra ierīce atceras savu izvēli.",
   "toolbar.reset": "Poga „Atiestatīt“",

@@ -685,6 +685,8 @@ next:
 - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`.
   At extreme widths, each day retains a `2rem` floor and the grid scrolls horizontally
   rather than collapsing days to zero width. The axis and day gaps keep their configured sizes.
+  A crammed grid keeps that sideways scroll on a touch screen, so a swipe across it scrolls
+  rather than [paging](/features/layout-appearance#paging-through-dates); the arrows still page.
 
 When the grid sheds columns, the days that stay always include today. They start at today
 and run forward, reaching back to earlier days only when the range ends before the columns

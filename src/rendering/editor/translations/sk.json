@@ -308,7 +308,7 @@
   "background_color": "Farba pozadia",
   "toolbar.show": "Zobraziť panel nástrojov",
   "toolbar.navigation": "Navigácia podľa dátumu",
-  "toolbar.navigation.helper": "Šípky na listovanie dňami, tlačidlo späť na dni, s ktorými sa karta otvára, a výber dátumu po klepnutí na mesiac.",
+  "toolbar.navigation.helper": "Šípky na listovanie dňami, tlačidlo späť na dni, s ktorými sa karta otvára, a výber dátumu po klepnutí na mesiac. Na dotykovej obrazovke môžete dňami listovať aj potiahnutím prsta.",
   "toolbar.view_switcher": "Prepínač rozloženia",
   "toolbar.view_switcher.helper": "Prepína rozloženie na dashboarde: Zoznam, Stĺpce alebo Časová mriežka. Každé zariadenie si pamätá svoju voľbu.",
   "toolbar.reset": "Tlačidlo „Reset“",

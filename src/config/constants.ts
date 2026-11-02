@@ -72,6 +72,12 @@ export const TIMING = {
 
   HOLD_INDICATOR_FADEOUT: 300,
 
+  /** How long the days take to spring back once a swipe's finger lifts or is canceled. */
+  SWIPE_SPRING_BACK: 180,
+
+  /** How long a page a swipe asked for takes to slide in once it is drawn. */
+  SWIPE_ARRIVAL: 220,
+
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
 
   /**
@@ -153,6 +159,36 @@ export const UI = {
    * Pointer travel that still counts as a tap rather than a scroll or drag.
    */
   POINTER_MOVE_TOLERANCE: 8,
+
+  /**
+   * Horizontal travel, in CSS pixels, from which a touch or pen gesture that lifts pages the
+   * card. Far past the tap tolerance above and the 16dp Android gives a pager before it
+   * starts to drag, so only a deliberate swipe pages.
+   */
+  SWIPE_MIN_DISTANCE: 48,
+
+  /**
+   * How many times its vertical travel a swipe's horizontal travel must be to page, about 34°
+   * either side of horizontal: tighter than the 45° split a browser decides scrolling by, and
+   * loose enough for the arc a thumb draws.
+   */
+  SWIPE_MIN_SLOPE_RATIO: 1.5,
+
+  /**
+   * Distance from the viewport's left and right edges, in CSS pixels, inside which a press
+   * starts no swipe. Those edges belong to the host: the back and forward swipes of Safari and
+   * of Android, and the edge gestures the Home Assistant app for iOS adds.
+   */
+  SWIPE_EDGE_GUARD: 20,
+
+  /**
+   * Furthest the days follow a swipe's finger, in CSS pixels. They follow with resistance,
+   * a hint at the page to come rather than a drag of the page itself.
+   */
+  SWIPE_NUDGE_MAX: 40,
+
+  /** How far, in CSS pixels, a page a swipe asked for slides in from. */
+  SWIPE_ARRIVAL_OFFSET: 32,
 
   /**
    * Card width, in CSS pixels, from which the view switcher names its views in words rather than

@@ -308,7 +308,7 @@
   "background_color": "Hintergrundfarbe",
   "toolbar.show": "Symbolleiste anzeigen",
   "toolbar.navigation": "Datumsnavigation",
-  "toolbar.navigation.helper": "Pfeile zum Blättern durch die Tage, ein Knopf zurück zu den Tagen, mit denen die Karte startet, und eine Datumsauswahl am Monat.",
+  "toolbar.navigation.helper": "Pfeile zum Blättern durch die Tage, ein Knopf zurück zu den Tagen, mit denen die Karte startet, und eine Datumsauswahl am Monat. Auf einem Touchscreen blättert auch ein Wischen über die Tage.",
   "toolbar.view_switcher": "Layout-Umschalter",
   "toolbar.view_switcher.helper": "Wechselt auf dem Dashboard zwischen Liste, Spalten und Zeitraster. Jedes Gerät merkt sich seine Wahl.",
   "toolbar.reset": "Knopf „Zurücksetzen“",

@@ -541,7 +541,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
     'Arrows to page through the days, a button back to the days the card opens with, and a ' +
-    'date picker on the month.',
+    'date picker on the month. On a touch screen, a swipe across the days pages too.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper':
     'Switch between List, Columns and Grid on the dashboard. Each device remembers its choice.',
