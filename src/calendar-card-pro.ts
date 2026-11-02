@@ -2177,7 +2177,7 @@ class CalendarCardPro extends LitElement {
         return [{ block, content, detailRows, withdrawn: [] as HTMLElement[] }];
       });
 
-      const wrappedTimes = this._applyGridTimeFit(pending);
+      const spending = this._applyGridTimeFit(pending);
 
       // The title settles before anything measures the block's overflow: its first word moves
       // up beside the labels, then it stops at the last whole line the block shows. After the
@@ -2189,20 +2189,23 @@ class CalendarCardPro extends LitElement {
       GridTitleFit.leadGridTitles(titles);
       GridTitleFit.cutGridTitleLines(titles);
 
-      // A wrap is decided on width but paid for in height, so settle that here, before
-      // anything else competes for the same pixels. Withdrawing it lands on exactly the
-      // class set the rung below produces, which is what makes the loop underneath see an
-      // identical state whether or not any row was ever offered a wrap - so no location,
-      // weather, description or progress row can be withdrawn *because* a time row
-      // wrapped. That is the opportunistic constraint, held by construction rather than by
-      // ordering care.
-      const unaffordable = transactions.filter(
-        (transaction) =>
-          wrappedTimes.has(transaction.block) && gridContentOverflows(transaction.content),
-      );
-      for (const transaction of unaffordable) {
-        const target = wrappedTimes.get(transaction.block);
-        if (target) GridTimeFit.demoteGridTimeWrap(target);
+      // A wrap, or a countdown's words flowing onto a line of their own, is decided on width
+      // but paid for in height, so settle that here, before anything else competes for the
+      // same pixels. Withdrawing it lands on exactly the class set its fallback rung produces,
+      // which is what makes the loop underneath see an identical state whether or not any row
+      // was ever offered the extra line - so no location, weather, description or progress
+      // row can be withdrawn *because* a time row wrapped, or because its countdown took a line
+      // a narrower rung would have saved. Where no rung keeps a countdown's words on the
+      // time's line, there is nothing to fall back on, and the row keeps a time row's priority
+      // with its words below it: in such a narrow lane it can cost a description lines, where
+      // v5.0.0 drew no time at all. That is the opportunistic constraint, held by construction
+      // rather than by ordering care, and its one exception.
+      const unaffordable = transactions.flatMap((transaction) => {
+        const spent = spending.get(transaction.block);
+        return spent && gridContentOverflows(transaction.content) ? [spent] : [];
+      });
+      for (const { target, fallback } of unaffordable) {
+        GridTimeFit.demoteGridTimeFit(target, fallback);
       }
 
       // Keep the existing priority/rollback transaction, but batch each row's reads and
@@ -2292,18 +2295,26 @@ class CalendarCardPro extends LitElement {
    * the second write, which is why there are three and not two.
    *
    * @param blocks - The timed grid blocks being fitted
+   * @returns Each block whose decision spends a line a narrower rung would save, with that
+   *   fallback, for the height pass to withdraw where the block cannot pay
    */
   private _applyGridTimeFit(
     blocks: ReadonlyArray<HTMLElement>,
-  ): ReadonlyMap<HTMLElement, GridTimeFit.GridTimeTarget> {
+  ): ReadonlyMap<
+    HTMLElement,
+    { target: GridTimeFit.GridTimeTarget; fallback: GridTimeFit.GridTimeFit }
+  > {
     const pairs = blocks
       .map((block) => ({ block, target: GridTimeFit.gridTimeTarget(block) }))
       .filter(
         (pair): pair is { block: HTMLElement; target: GridTimeFit.GridTimeTarget } =>
           pair.target !== null,
       );
-    const wrapped = new Map<HTMLElement, GridTimeFit.GridTimeTarget>();
-    if (pairs.length === 0) return wrapped;
+    const spending = new Map<
+      HTMLElement,
+      { target: GridTimeFit.GridTimeTarget; fallback: GridTimeFit.GridTimeFit }
+    >();
+    if (pairs.length === 0) return spending;
 
     const targets = pairs.map(({ target }) => target);
 
@@ -2321,15 +2332,15 @@ class CalendarCardPro extends LitElement {
     const wrapWidths = targets.map(GridTimeFit.measureGridTimeWrapped);
     targets.forEach(GridTimeFit.settleGridTimeWrapMeasurement);
 
-    const fits = base.map((costs, index) =>
-      GridTimeFit.gridTimeFit({ ...costs, wrapped: wrapWidths[index] }),
-    );
+    const costs = base.map((measured, index) => ({ ...measured, wrapped: wrapWidths[index] }));
+    const fits = costs.map(GridTimeFit.gridTimeFit);
     pairs.forEach(({ block, target }, index) => {
       GridTimeFit.applyGridTimeFit(target, fits[index]);
-      if (fits[index].wrap) wrapped.set(block, target);
+      const fallback = GridTimeFit.gridTimeFallback(costs[index], fits[index]);
+      if (fallback) spending.set(block, { target, fallback });
     });
 
-    return wrapped;
+    return spending;
   }
 
   /**

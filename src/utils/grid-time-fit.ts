@@ -44,10 +44,11 @@
  * rather than by what it measures is what keeps the icon monotonic, and yields an invariant
  * stronger than monotonicity:
  *
- *   The icon is drawn if and only if the lane is at least `full` wide.
+ *   The icon is drawn if and only if the lane is at least `full - words` wide.
  *
- * That is a function of lane width alone. It does not consult the block's height, so it
- * cannot flip-flop along either axis.
+ * That is a function of lane width alone (`words` is a folded countdown's, below). It does
+ * not consult the block's height, so it cannot flip-flop along either axis; the height pass
+ * can only take the icon away, never bring it back.
  *
  * The wrapped rung costs a line of height, which is a budget the *vertical* pass owns, not
  * this one. So this module stays pure, total and width-only: it grants the wrap whenever
@@ -64,6 +65,22 @@
  * `max(a, b - s) <= a + b - s < a + b`. So no ladder inversion is possible, whatever the
  * locale or the type scale does to the strings. Checked against the corpus anyway: zero
  * violations across 55 rows, in both 24-hour and 12-hour clock modes.
+ *
+ * A countdown folded into the time ("9:00 - 13:00 · in 4 days") is not part of the reading
+ * the ladder protects. Its words flow after the time and break wherever the line runs out, as
+ * the weather row's chips do, so every rung leaves them out; only its separator stays in,
+ * because the separator is glued to the time before it and must fit on the time's last line.
+ * The clock needs room beside the time, not beside the words, so it is drawn wherever the
+ * time and separator fit with it. Measured with the words in, a range that fitted its lane
+ * was wrapped for a countdown that could never have shared its line anyway, the countdown
+ * then started a third line with its dot, and the clock was dropped from rows with room for
+ * it.
+ *
+ * Words that flow onto a line of their own spend height, exactly as the wrap does, so they
+ * are granted on the same terms: optimistically, and revoked where the block cannot pay, onto
+ * the widest rung that keeps them on the time's line (`gridTimeFallback`). A one-hour block
+ * with room for one time line keeps "6:30 PM · in 2 days" rather than losing the whole row to
+ * "6:30 PM - 7:30 PM ·" and a second line it cannot show.
  */
 
 /** Sub-pixel rounding tolerance, matching the title fitter's. No design slack beyond it. */
@@ -83,9 +100,15 @@ export interface GridTimeCosts {
    * Width the row needs with the end time on a second line, or 0 where none is drawn.
    *
    * Measured rather than derived. It is `max(start, end - the separator's leading space)`,
-   * and that space is a font metric no arithmetic here should be guessing at.
+   * and that space is a font metric no arithmetic here should be guessing at. A folded
+   * countdown's words are not in it.
    */
   wrapped: number;
+  /**
+   * Width a folded countdown's words take out of `full`, 0 where none is folded in. The words
+   * flow after the time, so no rung has to fit them on its line.
+   */
+  words?: number;
 }
 
 /** Which pieces of a time row survive at the widest rung that fits. */
@@ -101,6 +124,8 @@ export interface GridTimeFit {
 }
 
 const HIDDEN: GridTimeFit = { time: false, icon: false, end: false, wrap: false };
+/** Rung 4, the start time alone, where a decision the block cannot afford falls back to. */
+const START_ONLY: GridTimeFit = { time: true, icon: false, end: false, wrap: false };
 
 /** The nodes one block's time row is measured and degraded through. */
 export interface GridTimeTarget {
@@ -112,6 +137,8 @@ export interface GridTimeTarget {
   icon: HTMLElement | null;
   /** The end time and its separator, absent unless this shape has a droppable one. */
   end: HTMLElement | null;
+  /** A countdown folded into the time text, whose words are left out of the widths. */
+  countdown: HTMLElement | null;
 }
 
 /** Every class this module owns, so a reset need not enumerate them at each call site. */
@@ -138,7 +165,62 @@ export function gridTimeTarget(block: HTMLElement): GridTimeTarget | null {
     time,
     icon: time.querySelector<HTMLElement>('.time-actual > ha-icon'),
     end: time.querySelector<HTMLElement>('.time-end'),
+    countdown: time.querySelector<HTMLElement>('.time-text > .time-countdown'),
   };
+}
+
+/**
+ * The width of a folded countdown's words, without the separator drawn before them.
+ *
+ * Read off the text through a range, which covers the element's text and not its generated
+ * separator. Valid only while the row is sized to its content, where the countdown is one
+ * unbroken line.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ * @returns The words' width, 0 where no countdown is folded in
+ */
+function countdownWordsWidth(target: GridTimeTarget): number {
+  if (!target.countdown) return 0;
+  const range = target.countdown.ownerDocument.createRange();
+  range.selectNodeContents(target.countdown);
+  return range.getBoundingClientRect().width;
+}
+
+/**
+ * How far the start time's line reaches from the row's inline start, for the wrapped shape.
+ *
+ * Where a countdown is folded in, the wrapped row's width is the wider of its two lines, the
+ * second carrying the countdown's words, so taking those words off the width answers for the
+ * second line only. The first line is read here so the larger of the two can be kept.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ * @returns The first line's reach, 0 where there is no start text to read
+ */
+function startLineReach(target: GridTimeTarget): number {
+  const start = target.end?.parentElement;
+  if (!start || !target.end) return 0;
+  const range = start.ownerDocument.createRange();
+  range.setStartBefore(start.firstChild ?? target.end);
+  range.setEndBefore(target.end);
+  const text = range.getBoundingClientRect();
+  if (text.width <= 0) return 0;
+  const row = target.time.getBoundingClientRect();
+  const rtl =
+    target.time.ownerDocument.defaultView?.getComputedStyle(target.time).direction === 'rtl';
+  return rtl ? row.right - text.left : text.right - row.left;
+}
+
+/**
+ * What a row needs once a folded countdown's words are left to flow after it: the width it
+ * measured less the words, and never less than its first line.
+ *
+ * @param width The row's width, as measured with the words in
+ * @param words The words' width, from `countdownWordsWidth`
+ * @param firstLine The first line's reach, for a row on two lines
+ * @returns The width the ladder tests
+ */
+export function withoutCountdownWords(width: number, words: number, firstLine = 0): number {
+  return Math.max(firstLine, width - words);
 }
 
 /**
@@ -202,6 +284,7 @@ export function measureGridTimeCosts(
     icon: target.icon ? outerInlineWidth(target.icon) : 0,
     end: target.end ? outerInlineWidth(target.end) : 0,
     wrapped,
+    words: countdownWordsWidth(target),
   };
 }
 
@@ -232,10 +315,11 @@ export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
  * Read what the row needs with its end time on a second line and no icon beside it.
  *
  * Valid only between `openGridTimeWrapMeasurement` and `settleGridTimeWrapMeasurement`.
- * The row is sized to `max-content`, and the wrapped shape makes the end time a block box,
- * so the row's max-content width is the wider of the two lines -- which is precisely the
+ * The row is sized to `max-content`, and the wrapped shape puts the end time on a line of its
+ * own, so the row's max-content width is the wider of the two lines -- which is precisely the
  * quantity the rung tests against. Confirmed against the browser's own line boxes on 55
- * live rows, in both clock modes.
+ * live rows, in both clock modes. A folded countdown continues the second line, so its words
+ * come off that line's width (`withoutCountdownWords`).
  *
  * Zero where the row has no end time to move, so the rung collapses into the one above it.
  *
@@ -244,7 +328,9 @@ export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
  */
 export function measureGridTimeWrapped(target: GridTimeTarget): number {
   if (!target.end) return 0;
-  return target.time.getBoundingClientRect().width;
+  const width = target.time.getBoundingClientRect().width;
+  const words = countdownWordsWidth(target);
+  return words > 0 ? withoutCountdownWords(width, words, startLineReach(target)) : width;
 }
 
 /**
@@ -301,15 +387,19 @@ function outerInlineWidth(element: HTMLElement): number {
  * @returns The pieces to draw
  */
 export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
-  const { available, full, icon, end, wrapped } = costs;
+  const { available, full, icon, end, wrapped, words = 0 } = costs;
 
-  if (![available, full, icon, end, wrapped].every(Number.isFinite)) return HIDDEN;
+  if (![available, full, icon, end, wrapped, words].every(Number.isFinite)) return HIDDEN;
   if (available <= 0 || full <= 0) return HIDDEN;
 
   const budget = available + PRECISION;
+  // The range and the separator after it, without the clock or a folded countdown's words,
+  // which flow onto the lines after it. The clock needs room beside the range only, so it is
+  // drawn wherever the row without those words fits.
+  const bare = full - words - icon;
 
-  if (full <= budget) return { time: true, icon: true, end: true, wrap: false };
-  if (full - icon <= budget) return { time: true, icon: false, end: true, wrap: false };
+  if (bare + icon <= budget) return { time: true, icon: true, end: true, wrap: false };
+  if (bare <= budget) return { time: true, icon: false, end: true, wrap: false };
   // A wrapped rung with nothing to wrap is the rung below it wearing a class, so an
   // unmeasured or absent end time falls straight through rather than granting a wrap that
   // would spend a line of height and draw nothing with it. Note which of the two guards is
@@ -319,27 +409,61 @@ export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
   // contract of a total, exported function instead. A mutation sweep reads it as dead code
   // unless it is handed a wrapped width narrower than the start time the row contains;
   // `grid-time-fit.test.ts` carries exactly that fixture, and says why.
-  if (end > 0 && wrapped > 0 && wrapped <= budget) {
+  // A wrap the block cannot afford is withdrawn onto the start-only rung below, so the wrap is
+  // granted only where that rung fits too. Without a countdown it always does, since the start
+  // time is one of the two lines `wrapped` measures; with one, the start time carries the
+  // countdown's separator, which may make it the wider.
+  const start = bare - end;
+  if (end > 0 && wrapped > 0 && Math.max(wrapped, start) <= budget) {
     return { time: true, icon: false, end: true, wrap: true };
   }
-  if (full - icon - end <= budget) return { time: true, icon: false, end: false, wrap: false };
+  if (start <= budget) return START_ONLY;
 
   return HIDDEN;
 }
 
 /**
- * Withdraw a granted wrap, leaving the row exactly where rung 4 would have left it.
+ * The decision to fall back on where a block cannot afford the line `fit` spends.
  *
- * The wrap is decided on width, but it is paid for in height -- a budget this module cannot
- * see. So the caller grants it optimistically and calls this where the block cannot afford
- * the line, before anything else competes for that height. The resulting class set is
- * byte-identical to the one rung 4 produces, which is what makes a withdrawn wrap
- * indistinguishable from a wrap that was never offered, and therefore what keeps the
- * feature from costing any other row its place.
+ * Two decisions are made on width and paid for in height, a budget this module cannot see:
+ * the wrap, and a folded countdown's words flowing onto a line of their own after the time.
+ * The caller grants both optimistically and, where the block's content then overflows,
+ * applies this instead. A wrap falls back to rung 4, the start time alone, which always
+ * saves its line. Flowing words fall back to the widest rung that keeps them on the time's
+ * line -- the range without the clock, or the start time alone. Where neither does, a clock
+ * still goes, because it narrows the column the words wrap in and so can cost a line of its
+ * own; otherwise no rung is shorter, and the height pass weighs the row against the others,
+ * as it does any time row.
+ *
+ * @param costs The measurements `fit` was decided from
+ * @param fit The decision `gridTimeFit` made from them
+ * @returns The decision that saves the line, or `null` where none would
+ */
+export function gridTimeFallback(costs: GridTimeCosts, fit: GridTimeFit): GridTimeFit | null {
+  if (fit.wrap) return START_ONLY;
+  if (!fit.time) return null;
+  const oneLine = gridTimeFit({ ...costs, wrapped: 0, words: 0 });
+  const same =
+    oneLine.time === fit.time &&
+    oneLine.icon === fit.icon &&
+    oneLine.end === fit.end &&
+    oneLine.wrap === fit.wrap;
+  if (same) return null;
+  if (oneLine.time) return oneLine;
+  return fit.icon ? { time: true, icon: false, end: true, wrap: false } : null;
+}
+
+/**
+ * Withdraw a decision the block cannot afford, leaving the row where its fallback would have.
+ *
+ * Called before anything else competes for the height. The resulting class set is exactly
+ * the one `applyGridTimeFit` gives the fallback on its own, which is what makes a withdrawn
+ * wrap or flow indistinguishable from one that was never offered.
  *
  * @param target Nodes from `gridTimeTarget`
+ * @param fallback Decision from `gridTimeFallback`
  */
-export function demoteGridTimeWrap(target: GridTimeTarget): void {
-  target.disclosure.classList.remove('grid-time-wrap');
-  target.disclosure.classList.add('grid-time-no-end');
+export function demoteGridTimeFit(target: GridTimeTarget, fallback: GridTimeFit): void {
+  target.disclosure.classList.remove(...FIT_CLASSES);
+  applyGridTimeFit(target, fallback);
 }

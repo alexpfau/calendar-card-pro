@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(175_000);
-    // The second right-to-left batch moved the ceiling last, from 171,000 to 175,000: the notes
+    expect(saved).toBeLessThan(178_000);
+    // A grid countdown that flows like the weather chips moved the ceiling last, from 175,000 to
+    // 178,000: the notes on why a folded countdown's end time stays inline behind a line break
+    // on the wrapped rung, why its words may break but are never hyphenated, and why a labeled
+    // grid title carries the 2px an unlabeled one has, except where its title is cut or fitted
+    // into a short block. The reading went 173,354, the ceiling's last, to 175,351, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The second right-to-left batch moved the ceiling before that, from 171,000 to 175,000: the notes
     // on why the folded countdown and its separator are isolated in both directions, and which of
     // the three ways the dot lost its gap each half answers; why grid's text labels now take
     // plaintext where its icons keep isolate; why the filter menu's rows are padded by inline

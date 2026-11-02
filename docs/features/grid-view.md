@@ -559,7 +559,12 @@ on one line and moves instead.
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words
 can wrap beneath the temperature instead of competing with the title. The progress bar gets
-its own row under the title, while countdowns trail the time text.
+its own row under the title, while countdowns trail the time text. A countdown wraps as the
+weather row does: the time keeps its line whenever it fits, the dot stays at the end of that
+line, and the countdown's words continue on the next, where the block has room for it. The
+clock icon needs room beside the time only, so it stays wherever it fits there. Where the
+block has no room for the extra line, the clock gives way first and then the end time, so the
+countdown can follow the time on its line.
 
 Calendar labels sit inline before the timed event's title, with the same small gap as in
 List and Column. Text, emoji, icon, image, and merged-calendar labels share that first

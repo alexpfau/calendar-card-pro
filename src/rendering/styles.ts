@@ -5090,6 +5090,35 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* The wrapped rung of a time with a countdown folded into it. The countdown follows the end
+     time and breaks wherever the line runs out, as the weather row's chips do, so the end time
+     has to stay inline for it to follow: as a block, it ended its line, and the countdown
+     started a third one with its dot. A line break before the end time puts it on its own line
+     instead, and the space it leads with falls away at the start of that line, as the block's
+     did. The fit ladder measured this shape, with the separator kept on the end time's line and
+     the countdown's words left to flow (grid-time-fit.ts), so the end time and the separator
+     after it fit their line. A row without a countdown keeps the block above. */
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end {
+    display: inline;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end::before {
+    content: '\\A';
+    white-space: pre;
+  }
+
+  /* The countdown's words flow in whatever room the time leaves them, as the weather chips do,
+     and like them they break inside a word only when one cannot fit a line on its own (the fit
+     ladder used to hide such a row rather than let a word run past the lane), and are never
+     hyphenated. The card hyphenates its text, and WebKit split "tomorrow" across the end of the
+     time's line rather than move it whole to the next. */
+  .grid-event-disclosure .time .time-actual .time-text > .time-countdown {
+    overflow-wrap: break-word;
+    hyphens: manual;
+  }
+
   /* The progress bar earns its own rung. It is the one row here whose value is highest
      exactly while an event is short — a meeting happening right now — so pairing it with
      location and description at 72px would withhold it from the blocks most likely to want

@@ -1212,6 +1212,26 @@ describe('card stylesheet', () => {
       expect(declared(selector, 'overflow')).toBe('visible');
     });
 
+    it('lets a folded countdown follow the end time in grid when the range wraps', () => {
+      // The wrapped rung puts the end time on a line of its own. As a block it ended its line
+      // too, and the countdown started a third one with its dot; with a folded countdown it
+      // stays inline behind a line break, so the countdown continues after it. A row without
+      // a countdown keeps the block, which carries its own ellipsis.
+      const plain = '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end';
+      const folded =
+        '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end';
+      expect(declared(plain, 'display')).toBe('block');
+      expect(declared(folded, 'display')).toBe('inline');
+      expect(declared(`${folded}::before`, 'content')).toBe("'\\A'");
+      expect(declared(`${folded}::before`, 'white-space')).toBe('pre');
+
+      // Its words wrap as the weather chips do: inside a word only when one cannot fit a
+      // line, and never hyphenated, though the card hyphenates its text.
+      const words = '.grid-event-disclosure .time .time-actual .time-text > .time-countdown';
+      expect(declared(words, 'overflow-wrap')).toBe('break-word');
+      expect(declared(words, 'hyphens')).toBe('manual');
+    });
+
     it('spaces the folded separator evenly on both sides', () => {
       // The wrapper's leading margin against the pseudo-element's trailing one. In the
       // trailing placement `.time`'s column-gap supplied the leading half; inline siblings
@@ -2379,6 +2399,18 @@ describe('card stylesheet', () => {
           rung: 'wrap',
           target: '.time .time-actual .time-end',
           body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
+        },
+        // With a countdown folded into the time, the end time stays inline behind a line
+        // break, so the countdown can follow it on its line.
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-text .time-end',
+          body: 'display: inline; overflow: visible; text-overflow: clip;',
+        },
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-text .time-end::before',
+          body: "content: '\\A'; white-space: pre;",
         },
       ]);
 
