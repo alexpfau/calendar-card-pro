@@ -720,9 +720,9 @@ today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
 list:
-  today_indicator_position: '15% 50%' # Centered left in the date column (default)
-  today_indicator_position: '15% 15%' # Top left
-  today_indicator_position: '85% 15%' # Top right
+  today_indicator_position: '15% 50%' # Centered at the date column's start (default)
+  today_indicator_position: '15% 15%' # Top, at the start
+  today_indicator_position: '85% 15%' # Top, at the far side
 
 # Restyle the indicator
 today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons (default: your theme's primary color)
@@ -778,6 +778,8 @@ today_day_color: '#8c1d18' # Choose the digits' color yourself
 ### Placing an Indicator
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+
+The first value follows the reading direction, as the rest of the list does. It is measured from the left on a left-to-right dashboard, and from the right on a right-to-left one such as Hebrew or Arabic, where the dates sit on the right. So `15% 50%` puts the indicator beside the date's outer edge either way, and one configuration serves both.
 
 ::: tip Column View Places It For You
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.

@@ -1048,19 +1048,24 @@ export function renderAccentBar(): TemplateResult {
 /**
  * Parse position from CSS-like syntax (e.g., "10% 50%") and convert to absolute positioning styles with centering transform
  *
+ * The first value is measured from the inline start, so the indicator mirrors in a
+ * right-to-left card, and the translation that centers it on that point reads its horizontal
+ * half from `--calendar-card-today-indicator-shift`, which the stylesheet turns around there.
+ * Unset, as in every left-to-right card, it is the -50% this always was.
+ *
  * @param position Position in CSS-like syntax ("x y" format)
  * @returns Style object with positioning properties
  */
 function parseIndicatorPosition(position: string): Record<string, string> {
   const positionStyles: Record<string, string> = {
     position: 'absolute',
-    transform: 'translate(-50%, -50%)',
+    transform: 'translate(var(--calendar-card-today-indicator-shift, -50%), -50%)',
   };
 
   const parts = position.trim().split(/\s+/);
 
   if (parts.length >= 1) {
-    positionStyles.left = parts[0];
+    positionStyles['inset-inline-start'] = parts[0];
   }
 
   if (parts.length >= 2) {

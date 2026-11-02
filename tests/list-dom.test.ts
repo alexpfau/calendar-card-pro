@@ -390,7 +390,8 @@ describe('list view DOM', () => {
     );
 
     expect(out).toContain('today-indicator-container');
-    expect(out).toContain('left:85%');
+    // From the inline start, so a right-to-left card mirrors it (rtl-mirroring.test.ts).
+    expect(out).toContain('inset-inline-start:85%');
     expect(out).toContain('top:15%');
     expect(out).toMatchSnapshot();
   });
@@ -613,7 +614,7 @@ describe('list view DOM', () => {
     const indicator = requireElement(container, '.today-indicator');
     const style = indicator.getAttribute('style')?.replace(/\s/g, '') ?? '';
 
-    expect(style).toContain('left:85%');
+    expect(style).toContain('inset-inline-start:85%');
     expect(style).toContain('top:50%');
   });
 

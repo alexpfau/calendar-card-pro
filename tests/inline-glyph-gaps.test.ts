@@ -68,17 +68,10 @@ describe('inline glyph gaps in either text direction', () => {
         .map(([prop, value]) => `${rule.selector} { ${prop}: ${value} }`),
     );
 
+    // The list view's week row, separators and date column held physical insets here until
+    // they too were written by inline side, so a right-to-left list mirrors; their values are
+    // pinned in rtl-mirroring.test.ts.
     expect(physical).toEqual([
-      // The list view's week row, separators and date column. Their sides do not mirror in a
-      // right-to-left card either, but they place whole columns rather than a glyph beside its
-      // text, and are outside what this file pins.
-      '.week-row-table { padding-left: 8px }',
-      '.week-number-cell { padding-right: 12px }',
-      '.separator { margin-left: 8px }',
-      '.week-separator { margin-left: 8px }',
-      '.month-separator { margin-left: 8px }',
-      '.date-column { padding-left: 8px }',
-      '.date-column { padding-right: 12px }',
       // The UV index right after a temperature, inline, in a run of digits and Latin letters:
       // see the file's comment. Each rule cancels its inline-start margin before this.
       '.column-date-content .weather .weather-temp-high + .weather-uv-index { margin-left: 2px }',
@@ -119,9 +112,9 @@ describe('inline glyph gaps in either text direction', () => {
   });
 
   it("leaves the list view's placed today indicator where its position puts it", () => {
-    // today_indicator_position places it with a left and a top. ha-icon's inline-end gap would
-    // be a left margin in right-to-left, and move it 4px; in left-to-right a right margin moves
-    // nothing, so zero changes nothing there.
+    // today_indicator_position places it with an inline start and a top. ha-icon's inline-end
+    // gap would be a left margin in right-to-left, and move it 4px; in left-to-right a right
+    // margin moves nothing, so zero changes nothing there.
     expect(
       declared(
         '.today-indicator-container:not(.inline) > ha-icon.today-indicator',

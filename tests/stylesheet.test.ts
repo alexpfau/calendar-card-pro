@@ -742,14 +742,15 @@ describe('card stylesheet', () => {
     it('cannot reach the list view badge', () => {
       // The scoping is the whole safety argument for a change made in CSS: a bare
       // `.event-weather span + span::before` would separate the title-row badge too,
-      // which is a layout the maintainer has frozen.
+      // which is a layout the maintainer has frozen. The second rule only isolates the
+      // separators in right-to-left (rtl-mirroring.test.ts), under the same scope.
       const separators = RULES.filter((rule) =>
         rule.selectors.some((s) => s.includes('span + span::before')),
       );
 
-      expect(separators).toHaveLength(1);
-      expect(separators[0].selectors).toEqual([
-        '.time-location .event-weather .event-weather-text > span + span::before',
+      expect(separators.map((rule) => rule.selectors)).toEqual([
+        ['.time-location .event-weather .event-weather-text > span + span::before'],
+        ['.time-location .event-weather:dir(rtl) .event-weather-text > span + span::before'],
       ]);
     });
 

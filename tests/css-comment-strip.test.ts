@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(165_000);
-    // Glyph gaps written by inline side moved the ceiling last, from 162,000 to 165,000: the
+    expect(saved).toBeLessThan(171_000);
+    // Right-to-left mirroring moved the ceiling last, from 165,000 to 171,000: the notes on why
+    // the card's own padding, the week row, the separators, the date column and the title hold
+    // their sides by inline direction, why the list's today indicator turns its centering
+    // around in right-to-left through a custom property rather than a rule of its own, why the
+    // progress fill rounds its inline start, which corner the loading ring takes, and why the
+    // own-row weather separators are isolated in right-to-left. The reading went 164,726, its
+    // base's own, to 168,010, taken with stripComments after the last comment in the change was
+    // written.
+    //
+    // Glyph gaps written by inline side moved the ceiling before that, from 162,000 to 165,000: the
     // notes on why an icon's, a label's and the weather badge's gaps sit at their inline end,
     // why the UV index keeps a left margin only right after a temperature, in a run of digits
     // and Latin letters, why the list view's placed today indicator drops the icon gap, why a

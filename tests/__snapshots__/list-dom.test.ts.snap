@@ -14,7 +14,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
             Jun
           </div>
 <div class="today-indicator-container">
-<ha-icon icon="mdi:star" class="today-indicator mdi" style="position:absolute;transform:translate(-50%, -50%);left:85%;top:15%;">
+<ha-icon icon="mdi:star" class="today-indicator mdi" style="position:absolute;transform:translate(var(--calendar-card-today-indicator-shift, -50%), -50%);inset-inline-start:85%;top:15%;">
 </ha-icon>
 </div>
 </td>
@@ -1615,7 +1615,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
             Jun
           </div>
 <div class="today-indicator-container">
-<ha-icon icon="mdi:circle" class="today-indicator dot" style="position:absolute;transform:translate(-50%, -50%);left:15%;top:50%;">
+<ha-icon icon="mdi:circle" class="today-indicator dot" style="position:absolute;transform:translate(var(--calendar-card-today-indicator-shift, -50%), -50%);inset-inline-start:15%;top:50%;">
 </ha-icon>
 </div>
 </td>
