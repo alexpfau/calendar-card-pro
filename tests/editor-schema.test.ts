@@ -3175,26 +3175,44 @@ describe('editor: fields that must survive being typed into', () => {
     const start = buildConfig({ today_indicator: '⭐' });
     const keywords = ['tile', 'dot', 'pulse', 'glow'];
 
-    for (const word of keywords.flatMap((keyword) => [keyword, keyword.toUpperCase()])) {
+    const mixed = (keyword: string) =>
+      [...keyword].map((letter, i) => (i % 2 ? letter : letter.toUpperCase())).join('');
+    for (const word of keywords.flatMap((keyword) => [
+      keyword,
+      keyword.toUpperCase(),
+      mixed(keyword),
+    ])) {
       const { config, pending } = type(start, 'today_indicator_custom', [word]);
 
       expect(config.today_indicator, word).toBe('⭐');
       expect(pending.today_indicator_custom, word).toBe(word);
     }
 
+    // Every language that translated the helper when it was rewritten, named, so one losing it
+    // fails here rather than quietly falling back to English. en-GB has no override for it.
     const dir = join(process.cwd(), 'src/rendering/editor/translations');
-    const helpers = [
-      EDITOR_STRINGS['today_indicator_custom.helper'],
-      ...readdirSync(dir)
+    const translated = Object.fromEntries(
+      readdirSync(dir)
         .filter((file) => file.endsWith('.json'))
-        .map(
-          (file) =>
-            JSON.parse(readFileSync(join(dir, file), 'utf-8'))['today_indicator_custom.helper'] as
-              string | undefined,
-        )
-        .filter((helper): helper is string => helper !== undefined),
-    ];
-    expect(helpers.length).toBeGreaterThan(1);
+        .map((file) => [
+          file.replace(/\.json$/, ''),
+          JSON.parse(readFileSync(join(dir, file), 'utf-8'))['today_indicator_custom.helper'],
+        ])
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    );
+    expect(Object.keys(translated).sort()).toEqual([
+      'de',
+      'et',
+      'it',
+      'ko',
+      'lt',
+      'lv',
+      'nb',
+      'pl',
+      'sk',
+      'sv',
+    ]);
+    const helpers = [EDITOR_STRINGS['today_indicator_custom.helper'], ...Object.values(translated)];
     for (const helper of helpers) {
       for (const keyword of keywords)
         expect(helper, helper).toMatch(new RegExp(`\\b${keyword}\\b`));
