@@ -308,7 +308,7 @@
   "background_color": "Bakgrunnsfarge",
   "toolbar.show": "Vis verktøylinje",
   "toolbar.navigation": "Datonavigasjon",
-  "toolbar.navigation.helper": "Piler for å bla gjennom dagene, en knapp tilbake til dagene kortet åpner med, og en datovelger på måneden.",
+  "toolbar.navigation.helper": "Piler for å bla gjennom dagene, en knapp tilbake til dagene kortet åpner med, og en datovelger på måneden. På en berøringsskjerm kan du også bla ved å sveipe over dagene.",
   "toolbar.view_switcher": "Layoutvelger",
   "toolbar.view_switcher.helper": "Bytter mellom Liste, Kolonner og Tidsrutenett på dashbordet. Hver enhet husker sitt valg.",
   "toolbar.reset": "Knapp «Tilbakestill»",

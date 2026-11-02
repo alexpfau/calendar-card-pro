@@ -72,7 +72,7 @@ export const TIMING = {
 
   HOLD_INDICATOR_FADEOUT: 300,
 
-  /** How long the days take to spring back once a swipe's finger lifts or is cancelled. */
+  /** How long the days take to spring back once a swipe's finger lifts or is canceled. */
   SWIPE_SPRING_BACK: 180,
 
   /** How long a page a swipe asked for takes to slide in once it is drawn. */

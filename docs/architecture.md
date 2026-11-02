@@ -557,8 +557,8 @@ The main entry point serves as the orchestrator for the entire card:
 - **Lifecycle Management**: Handles component connection, disconnection, and updates
 - **Property Definition**: Defines reactive properties via LitElement's `@property` decorator
 - **State Management**: Manages loading state, expanded state, and events data
-- **Event Handling**: Runs the one gesture recognizer for card taps, event taps, holds and
-  keys (see _Interaction Flow_)
+- **Event Handling**: Runs the one gesture recognizer for card taps, event taps, holds,
+  swipes and keys (see _Interaction Flow_)
 - **Write Coordination**: Opens Home Assistant's calendar dialogs, refetches after a save,
   and listens for other cards' change announcements
 - **Configuration Processing**: Handles config updates from Home Assistant
@@ -1100,10 +1100,22 @@ request already in flight rather than stopping at the cache.
      captures the pointer there, which retargets every later event of the gesture, the
      derived `click` included, to `ha-card`, so this is the one moment the event is known
    - The recognizer arms when the card has an action of its own or the press landed on an
-     event, so turning event taps on changes nothing about a press anywhere else
+     event, so turning event taps on changes nothing about a press anywhere else. It also
+     arms for a touch or pen press on a card that swipes (`_swipeAvailable`: the date
+     navigation on, not being edited, not a crammed grid), away from the screen's edges
    - Pointer-up: a hold runs `hold_action` wherever it landed, events included; a tap that
      began on an event opens its details; any other tap runs `tap_action`; a moved pointer
-     runs nothing
+     runs nothing, unless it could swipe and went `UI.SWIPE_MIN_DISTANCE` sideways, mostly
+     sideways: that pages through `_stepPage`, the arrows' own path, mirrored reading right to
+     left. A card that swipes declares `touch-action: pan-y pinch-zoom` on itself and on its
+     body and everything in it, since a scroll container hands its own axis back over a
+     restriction it only inherits, so the browser leaves sideways movement to the card and
+     sends `pointercancel` for a vertical scroll or a pinch as before
+   - While a swipe moves sideways the content container follows the finger with resistance,
+     written straight onto its style and sprung back when the gesture ends; the page the swipe
+     asked for slides in once it is drawn (`_syncSwipeArrival`). Both run through the Web
+     Animations API, so no element or attribute changes and the grid's structure observers
+     see nothing, and neither runs under `prefers-reduced-motion`
    - A `click` naming an event is assistive technology activating it, and opens its
      details, unless it is the click a browser derives from the gesture that just ended.
      That click names no event when the capture retargeted it, or the event

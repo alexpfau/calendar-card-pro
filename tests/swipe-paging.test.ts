@@ -66,6 +66,7 @@ interface CardUnderTest extends HTMLElement {
   hass?: unknown;
   preview: boolean;
   editMode: boolean;
+  requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -334,7 +335,7 @@ describe('a swipe across the days', () => {
   it('pages nothing once the browser takes the gesture for a scroll or a pinch', async () => {
     const card = await mount();
     swipe(content(card), ...LEFT, { lift: 'pointercancel' });
-    // A pointer-up the browser may still deliver for the cancelled pointer finds no gesture.
+    // A pointer-up the browser may still deliver for the canceled pointer finds no gesture.
     pointer(content(card), 'pointerup', 480, 310);
     await settle(card);
     expect(range(card)).toBe(HOME);

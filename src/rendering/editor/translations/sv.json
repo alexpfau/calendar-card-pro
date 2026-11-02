@@ -308,7 +308,7 @@
   "background_color": "Bakgrundsfärg",
   "toolbar.show": "Visa verktygsfält",
   "toolbar.navigation": "Datumnavigering",
-  "toolbar.navigation.helper": "Pilar för att bläddra genom dagarna, en knapp tillbaka till dagarna kortet öppnas med och en datumväljare på månaden.",
+  "toolbar.navigation.helper": "Pilar för att bläddra genom dagarna, en knapp tillbaka till dagarna kortet öppnas med och en datumväljare på månaden. På en pekskärm kan du också bläddra genom att svepa över dagarna.",
   "toolbar.view_switcher": "Layoutväljare",
   "toolbar.view_switcher.helper": "Växlar mellan Lista, Kolumner och Tidsrutnät på instrumentpanelen. Varje enhet minns sitt val.",
   "toolbar.reset": "Knapp ”Återställ”",

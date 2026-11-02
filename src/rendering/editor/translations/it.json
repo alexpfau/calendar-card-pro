@@ -308,7 +308,7 @@
   "background_color": "Colore sfondo",
   "toolbar.show": "Mostra barra strumenti",
   "toolbar.navigation": "Navigazione per date",
-  "toolbar.navigation.helper": "Frecce per scorrere i giorni, un pulsante per tornare ai giorni con cui la scheda si apre e un selettore di data sul mese.",
+  "toolbar.navigation.helper": "Frecce per scorrere i giorni, un pulsante per tornare ai giorni con cui la scheda si apre e un selettore di data sul mese. Su uno schermo touch si sfoglia anche scorrendo il dito sui giorni.",
   "toolbar.view_switcher": "Selettore di layout",
   "toolbar.view_switcher.helper": "Passa da Lista a Colonne a Griglia oraria direttamente nella dashboard. Ogni dispositivo ricorda la propria scelta.",
   "toolbar.reset": "Pulsante Ripristina",

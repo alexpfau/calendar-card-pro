@@ -308,7 +308,7 @@
   "background_color": "Taustavärv",
   "toolbar.show": "Näita tööriistariba",
   "toolbar.navigation": "Kuupäevade navigeerimine",
-  "toolbar.navigation.helper": "Nooled päevade sirvimiseks, nupp tagasi päevadele, millega kaart avaneb, ja kuu puudutamisel avanev kuupäevavalija.",
+  "toolbar.navigation.helper": "Nooled päevade sirvimiseks, nupp tagasi päevadele, millega kaart avaneb, ja kuu puudutamisel avanev kuupäevavalija. Puuteekraanil saab päevi sirvida ka pühkides.",
   "toolbar.view_switcher": "Paigutuse vahetaja",
   "toolbar.view_switcher.helper": "Vahetab armatuurlaual paigutust: Loetelu, Veerud või Ajaraster. Iga seade jätab oma valiku meelde.",
   "toolbar.reset": "Nupp „Lähtesta“",

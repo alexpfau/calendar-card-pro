@@ -308,7 +308,7 @@
   "background_color": "Fono spalva",
   "toolbar.show": "Rodyti įrankių juostą",
   "toolbar.navigation": "Naršymas pagal datas",
-  "toolbar.navigation.helper": "Rodyklės dienoms slinkti, mygtukas atgal į dienas, kuriomis kortelė atidaroma, ir datos parinkiklis, atsiveriantis palietus mėnesį.",
+  "toolbar.navigation.helper": "Rodyklės dienoms slinkti, mygtukas atgal į dienas, kuriomis kortelė atidaroma, ir datos parinkiklis, atsiveriantis palietus mėnesį. Jutikliniame ekrane dienas galima slinkti ir perbraukus pirštu.",
   "toolbar.view_switcher": "Išdėstymo perjungiklis",
   "toolbar.view_switcher.helper": "Skydelyje perjungia išdėstymą: Sąrašas, Stulpeliai arba Laiko tinklelis. Kiekvienas įrenginys prisimena savo pasirinkimą.",
   "toolbar.reset": "Mygtukas „Atstatyti“",
