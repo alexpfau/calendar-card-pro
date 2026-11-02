@@ -1151,13 +1151,16 @@ export const cardStyles = css`
     gap: 4px;
   }
 
+  /* Padded by inline side, so a right-to-left menu mirrors its rows: the check sits as far
+     from the right edge there as from the left one in left-to-right. */
   .legend-menu-row {
     display: flex;
     align-items: center;
     gap: 10px;
     box-sizing: border-box;
     min-height: 40px;
-    padding: 4px 12px 4px 10px;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
     border-radius: 10px;
     background: color-mix(in srgb, var(--calendar-card-legend-color) 24%, transparent);
     font-weight: var(--ha-font-weight-medium, 500);
@@ -2357,10 +2360,13 @@ export const cardStyles = css`
      ":Work" and "1 Team" as "Team 1", and a Hebrew "Anna:" would carry its colon on the wrong
      side in a left-to-right one. A label whose text runs with the card is laid out exactly as
      it was without isolation, which was measured byte for byte on left-to-right cards in all
-     three engines. Grid view isolates its labels in both directions (below), which keeps it
-     isolate in left-to-right; in right-to-left this wins there too. */
-  .calendar-label,
-  .grid-event-disclosure .calendar-label:dir(rtl) {
+     three engines. Grid view's text labels take it too. They were isolated there in both
+     directions, so in a left-to-right grid a Hebrew label ending in a colon drew the colon at
+     the word's start, and Firefox split such a label in two boxes, which grid's title fit
+     cannot lead a title with. A Latin label in a left-to-right grid is laid out exactly as it
+     was, measured byte for byte in all three engines. Grid's icon and picture labels keep
+     their isolation (below). */
+  .calendar-label {
     unicode-bidi: plaintext;
   }
 
@@ -2556,7 +2562,23 @@ export const cardStyles = css`
 
   /* The countdown itself is never the clamp target; time_max_lines limits the
    * time text only. Reset the trailing-placement margins and clamp-related
-   * properties so this inline phrase can wrap normally. */
+   * properties so this inline phrase can wrap normally.
+   *
+   * Isolated, with its separator below, so the dot keeps its 4px either side
+   * whatever direction the countdown and the time run in. Left in the line, a
+   * countdown running against the card joined the time's run: in a right-to-left
+   * card an English countdown after an English 12-hour time carried its start
+   * margin to its far end, and Firefox let it ride an empty box into the time
+   * text. The separator's zero-width space took the direction of the countdown
+   * after it and split the dot from its end margin, as it did for the weather
+   * separators, which a Hebrew countdown on a left-to-right card hit too in
+   * Chromium and WebKit. Isolating the separator alone was not enough, and in
+   * Firefox drew the dot over the countdown's first letter. Isolated, a
+   * countdown that runs with the card is laid out exactly as it was, measured
+   * byte for byte in all three engines; in a right-to-left card an English
+   * countdown now follows its time at the line's end rather than sitting inside
+   * it. Isolation adds no break opportunity, so the word joiner still keeps the
+   * dot off the start of a line. */
   .time .time-actual .time-text > .time-countdown {
     display: inline;
     -webkit-line-clamp: none;
@@ -2564,16 +2586,19 @@ export const cardStyles = css`
     margin-inline-start: 4px;
     margin-inline-end: 0;
     white-space: normal;
+    unicode-bidi: isolate;
   }
 
   /* Text-placement countdown separator. The generated middot avoids adding
    * punctuation to translated strings. WORD JOINER keeps the dot attached to
    * the preceding time text for CJK as well as Latin text, and ZERO WIDTH
    * SPACE gives the line a safe break after the dot. The trailing placement
-   * keeps a plain middot because its separator starts a separate flex item. */
+   * keeps a plain middot because its separator starts a separate flex item.
+   * Isolated, with the countdown above. */
   .time .time-actual .time-text > .time-countdown::before {
     content: '\\2060·\\200B';
     margin-inline-end: 4px;
+    unicode-bidi: isolate;
   }
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
@@ -4609,7 +4634,6 @@ export const cardStyles = css`
     text-align: right;
   }
 
-  .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
     unicode-bidi: isolate;

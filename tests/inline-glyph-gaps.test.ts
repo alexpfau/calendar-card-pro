@@ -127,18 +127,25 @@ describe('inline glyph gaps in either text direction', () => {
     expect(margins).toEqual([]);
   });
 
-  it('isolates a text label in its own direction, in either text direction', () => {
+  it('isolates a text label in its own direction, in either text direction, in every view', () => {
     // So an English label before an English title leads it in right-to-left, and a Hebrew
     // label before a Hebrew title in left-to-right, with its gap toward it, rather than joining
     // it in one run that the line draws label last. plaintext, not isolate, so "Work:" keeps
-    // its colon after the word: isolate would lay the label out in the card's direction.
-    const labels = '.calendar-label, .grid-event-disclosure .calendar-label:dir(rtl)';
-    expect(declared(labels, 'unicode-bidi')).toBe('plaintext');
-    // Grid view isolates its labels itself, and in left-to-right that still wins: a stronger
-    // selector than the bare class. In right-to-left the :dir(rtl) entry above outweighs it.
+    // its colon after the word: isolate would lay the label out in the card's direction, and
+    // in a left-to-right grid drew a Hebrew label's colon at the word's start.
+    expect(declared('.calendar-label', 'unicode-bidi')).toBe('plaintext');
+    // Nothing outweighs it for a text label, grid view included. Grid isolates only its icon
+    // and picture labels, which hold no text to order.
+    const textLabelOverrides = RULES.filter(
+      (rule) =>
+        rule.selector.includes('.calendar-label') &&
+        rule.selector !== '.calendar-label' &&
+        declarations(rule.body).some(([prop]) => prop === 'unicode-bidi'),
+    ).map((rule) => rule.selector);
+    expect(textLabelOverrides).toEqual([]);
     expect(
       declared(
-        '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
+        '.grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
         'unicode-bidi',
       ),
     ).toBe('isolate');

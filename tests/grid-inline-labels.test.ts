@@ -146,8 +146,10 @@ describe('timed Grid labels share the title line', () => {
   });
 
   it('uses the same four-pixel label gap in either text direction', () => {
+    // Icons and pictures are isolated here; text labels take every view's plaintext
+    // (inline-glyph-gaps.test.ts).
     const body = declarations(
-      '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
+      '.grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
     );
     expect(body).toMatch(/unicode-bidi:\s*isolate;/);
     // The gap is the one every view's labels carry, at the inline end, so grid declares none of
