@@ -487,7 +487,13 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   alone for the same reason. The view switcher's selected segment is raised out of its track in
   the card's own background, and gets the same color the same way after every update
   (`paintSelectedView` in `rendering/toolbar.ts`), in `--calendar-card-toolbar-selected-surface`,
-  read off its own two stand-ins inside the selected segment. The segments are reused across
+  read off its own two stand-ins inside the selected segment. Under an opaque theme it is handed
+  nothing, so a card-mod rule changing its color under the pointer still reaches it, except where
+  its value is no background color, an image or a shorthand such as `#1c1c1c no-repeat`: the
+  shared reader (`surfaceColor` in `rendering/surface.ts`) asks `CSS.supports` about the value as
+  written, which each stand-in keeps beside its background in `--calendar-card-surface-value`,
+  and hands the color back, since the stylesheet's background color cannot fall back to such a
+  value. The segments are reused across
   renders, so the one the selection leaves loses the property.
   Focus follows how the menu was opened. From the keyboard, the first calendar takes it, as the
   dialog chooses. Opened by a press, the menu itself takes it, which draws no ring: WebKit counts

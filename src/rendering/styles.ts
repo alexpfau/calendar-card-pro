@@ -832,8 +832,10 @@ export const cardStyles = css`
 
   /* Under a see-through card background, paintSelectedView in rendering/toolbar.ts hands the
      background color an opaque one in its own custom property, beneath any image the selected
-     color draws; everywhere else the property is unset and the color is the selected color
-     again, so nothing changes. */
+     color draws. Where the selected color is no background color, an image or a shorthand such
+     as #1c1c1c no-repeat, it hands back the color the background drew, which the fallback below
+     could not take from such a value. Everywhere else the property is unset and the color is the
+     selected color again, so nothing changes. */
   .view-switcher-segment.selected {
     background: var(--calendar-card-toolbar-selected);
     background-color: var(
@@ -845,9 +847,12 @@ export const cardStyles = css`
   }
 
   /* The selected segment's colors and the theme's page color, as paintSelectedView in
-     rendering/toolbar.ts reads them. Never shown. */
+     rendering/toolbar.ts reads them. Never shown. The value the selected color is written in is
+     kept beside it in --calendar-card-surface-value, so the reader can tell a background
+     shorthand, which the segment's background color cannot fall back to, from a color. */
   .view-switcher-probe {
     display: none;
+    --calendar-card-surface-value: var(--calendar-card-toolbar-selected);
     background: var(--calendar-card-toolbar-selected);
   }
 
@@ -1127,9 +1132,11 @@ export const cardStyles = css`
   }
 
   /* The menu's own background and the theme's page color, as paintMenu in rendering/legend.ts
-     reads them. Never shown. */
+     reads them. Never shown. The value is kept beside the background in
+     --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
   .legend-menu-surface {
     display: none;
+    --calendar-card-surface-value: var(--ha-card-background, var(--card-background-color, #fff));
     background: var(--ha-card-background, var(--card-background-color, #fff));
   }
 

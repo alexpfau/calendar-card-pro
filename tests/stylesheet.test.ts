@@ -2939,9 +2939,26 @@ describe('the legend and refresh', () => {
     expect(declared('.legend-menu-surface', 'background')).toBe(
       declared('.legend-menu', 'background'),
     );
+    // The same value again, where `surfaceColor` in `surface.ts` reads it as written, to tell a
+    // background shorthand from a color.
+    expect(declared('.legend-menu-surface', '--calendar-card-surface-value')).toBe(
+      declared('.legend-menu', 'background'),
+    );
     expect(declared('.legend-menu-page', 'display')).toBe('none');
     expect(declared('.legend-menu-page', 'background-color')).toBe(
       'var(--primary-background-color)',
+    );
+  });
+
+  it("keeps the selected view's stand-in value beside its background, as the menu's does", () => {
+    // `surfaceColor` in `surface.ts` reads the value as written off the stand-in, to tell a
+    // background shorthand, which the segment's background color cannot fall back to, from a
+    // color. It has to be the value the stand-in paints, or the two answers disagree.
+    expect(declared('.view-switcher-probe', '--calendar-card-surface-value')).toBe(
+      declared('.view-switcher-probe', 'background'),
+    );
+    expect(declared('.view-switcher-probe', 'background')).toBe(
+      'var(--calendar-card-toolbar-selected)',
     );
   });
 

@@ -1492,6 +1492,8 @@ describe("the menu the legend's button opens", () => {
     ink: string;
     page: string;
     image?: string;
+    /** The card background as written, where it is no plain color; the surface otherwise. */
+    value?: string;
   }
 
   /**
@@ -1511,10 +1513,13 @@ describe("the menu the legend's button opens", () => {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
       if (element.parentNode === dialog(card) && element.matches('.legend-menu-surface')) {
+        const value = colors.value ?? colors.image ?? colors.surface;
         return {
           ...style,
           backgroundColor: colors.surface,
           backgroundImage: colors.image ?? 'none',
+          getPropertyValue: (name: string) =>
+            name === '--calendar-card-surface-value' ? value : style.getPropertyValue(name),
         } as CSSStyleDeclaration;
       }
       if (element !== dialog(card)) return style;
