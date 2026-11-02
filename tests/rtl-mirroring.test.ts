@@ -196,15 +196,31 @@ describe('right-to-left mirroring', () => {
   });
 
   it('keeps the pulse a scale about the center, so a pulsing indicator mirrors too', () => {
-    // The pulse's keyframes replace the inline transform, centering included, in either
-    // direction alike, so its box sits at its inline start and mirrors. A translation in them,
-    // or an origin off center, would move it by the same physical amount both ways.
-    const frames = CSS.match(/@keyframes pulse-animation\s*\{([\s\S]*?\})\s*\}/);
-    expect(frames).not.toBeNull();
-    const transforms = [...(frames?.[1] ?? '').matchAll(/transform:\s*([^;]+);/g)].map((m) =>
-      m[1].trim(),
-    );
-    expect(transforms).toEqual(['scale(0.95)', 'scale(1.1)', 'scale(0.95)']);
+    // Keyframes that set a transform replace the inline one while they run. Column view's pulse
+    // has none to replace, and runs a plain scale. The list's pulse runs keyframes that repeat
+    // the inline centering, the shift variable included, before the scale, so it scales about
+    // the point the dot is centered on and turns around with it in right-to-left. A physical
+    // translation in them, or an origin off center, would move it by the same amount both ways.
+    const transforms = (name: string) => {
+      const frames = CSS.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?\\})\\s*\\}`));
+      expect(frames, name).not.toBeNull();
+      return [...(frames?.[1] ?? '').matchAll(/transform:\s*([^;]+);/g)].map((m) =>
+        m[1].replace(/\s+/g, ' ').trim(),
+      );
+    };
+    expect(transforms('pulse-animation')).toEqual(['scale(0.95)', 'scale(1.1)', 'scale(0.95)']);
+    const centering = 'translate(var(--calendar-card-today-indicator-shift, -50%), -50%)';
+    expect(transforms('pulse-animation-placed')).toEqual([
+      `${centering} scale(0.95)`,
+      `${centering} scale(1.1)`,
+      `${centering} scale(0.95)`,
+    ]);
+    expect(
+      declared(
+        '.today-indicator-container:not(.inline) ha-icon.today-indicator.pulse',
+        'animation-name',
+      ),
+    ).toBe('pulse-animation-placed');
     expect(CSS).not.toMatch(/transform-origin/);
   });
 

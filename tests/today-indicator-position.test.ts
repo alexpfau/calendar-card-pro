@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { renderTodayIndicator } from '../src/rendering/leaves';
+import { cardStyles } from '../src/rendering/styles';
 
 /**
  * Where the today indicator is actually drawn, for each of the three things it can be.
@@ -25,6 +26,9 @@ import { renderTodayIndicator } from '../src/rendering/leaves';
  * asymmetry has to be changed on purpose rather than by accident.
  */
 const POSITION = '20% 80%';
+
+/** A string as a pattern that matches it literally. */
+const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function renderIndicator(
   value: string,
@@ -79,6 +83,27 @@ describe('today indicator position', () => {
         'transform:translate(var(--calendar-card-today-indicator-shift, -50%), -50%)',
       );
     });
+  });
+
+  it("centers the list's pulse with the same translation while its keyframes run", () => {
+    // Keyframes that set a transform replace the inline one while they run, so the pulse's carry
+    // the inline centering again before their scale (rtl-mirroring.test.ts). Two copies of one
+    // translation: changed in one place only, the pulse would sit off where the dot is centered,
+    // as it did for every release before v5.1.
+    const { className, style } = renderIndicator('pulse', 'absolute');
+    expect(className).toBe('today-indicator pulse');
+    const inline = /(?:^|;)transform:([^;]+)/.exec(style)?.[1].trim();
+    expect(inline).toMatch(/^translate\(/);
+
+    const frames = /@keyframes pulse-animation-placed\s*\{([\s\S]*?\})\s*\}/.exec(
+      cardStyles.cssText,
+    )?.[1];
+    const transforms = [...(frames ?? '').matchAll(/transform:\s*([^;]+);/g)].map((match) =>
+      match[1].replace(/\s+/g, ' ').trim(),
+    );
+    expect(transforms).toHaveLength(3);
+    for (const transform of transforms)
+      expect(transform).toMatch(new RegExp(`^${escape(inline!)} scale\\(`));
   });
 
   describe('column view lets the indicator flow instead', () => {

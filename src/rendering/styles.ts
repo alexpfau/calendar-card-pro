@@ -1593,8 +1593,9 @@ export const cardStyles = css`
      left-to-right, so a right-to-left card pushes it the other way. A custom property rather
      than a transform of its own, because the transform is the element's inline style, and a
      rule here could only beat it with !important, which would also beat the pulse animation
-     and stop it. Where an animation does replace the transform, both directions lose the
-     translation alike, and the indicator still mirrors. ha-icon's 4px inline-end gap needs no
+     and stop it. The pulse's own keyframes replace the transform while they run, so the list's
+     pulse runs keyframes that repeat this translation before their scale (below). ha-icon's
+     4px inline-end gap needs no
      reset here: placed from its inline start, the indicator has that margin on its far side in
      either direction, where it moves nothing. Placed by a left offset, it was the left margin
      in right-to-left and moved the indicator 4px. */
@@ -1618,6 +1619,19 @@ export const cardStyles = css`
     animation: pulse-animation 2s infinite ease-in-out;
   }
 
+  /* The list's pulse is placed by its inline style, whose transform centers it on the
+     position (parseIndicatorPosition in leaves.ts), and keyframes that set a transform replace
+     that one while they run. With only a scale in them, the pulse sat half its size down and
+     toward the inline end of where the dot and the glow sit, in either direction, since it was
+     first drawn. These repeat the centering before the scale, reading the same custom property,
+     so the pulse scales about the point the other indicators are centered on and still mirrors
+     in right-to-left. The translation comes first: after the scale, the scale would apply to it
+     too, and the pulse would drift by a twentieth of its size as it breathes. Column view's
+     pulse flows in its header with no transform to keep, and runs the plain keyframes. */
+  .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+    animation-name: pulse-animation-placed;
+  }
+
   ha-icon.today-indicator.glow {
     filter: drop-shadow(
       0 0 calc(var(--calendar-card-today-indicator-size) * 0.5)
@@ -1636,6 +1650,21 @@ export const cardStyles = css`
     }
     100% {
       transform: scale(0.95);
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes pulse-animation-placed {
+    0% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--calendar-card-today-indicator-shift, -50%), -50%) scale(0.95);
       opacity: 0.7;
     }
   }
