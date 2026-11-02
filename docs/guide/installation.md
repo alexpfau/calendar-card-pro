@@ -60,7 +60,7 @@ question. HACS does all of this for you, which is why it is the recommended rout
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
 compress on the fly. HACS writes one beside every file it installs, so a HACS install already
 transfers compressed. A manual install has none: with the production bundles,
-the card transfers at its full 375 KB and the editor at 439 KB — once per version, then the
+the card transfers at its full 376 KB and the editor at 440 KB — once per version, then the
 browser caches both.
 
 If you want the smaller transfer, create the companions yourself and keep them beside the
