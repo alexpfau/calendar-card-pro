@@ -1229,6 +1229,11 @@ the gesture began on.
      that event, and a gesture that ran nothing off the events arms nothing
    - On a focused event, Enter acts on keydown and Space on keyup, without repeats; the
      card's own Enter and Space handling is unchanged
+   - A press by pointer that runs something leaves no focus in the card
+     (`_releasePressFocus`), the add button included. Home Assistant gives focus back, by
+     script, to whatever held it when its dialog opened, and a browser rings that focus, so the
+     event or day pressed stayed ringed after its dialog closed. The keyboard and assistive
+     technology keep their focus, and have it back with its ring
    - Events stop no pointer event, so a hold, and Home Assistant's edit-mode drag, work on
      them as on the rest of the card
    - While Home Assistant draws the card for editing (`preview` in the card editor,

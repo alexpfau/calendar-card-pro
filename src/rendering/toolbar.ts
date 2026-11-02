@@ -52,8 +52,11 @@ import type { MonthHeadingText } from '../utils/paging';
 export interface AddEventButton {
   /** Home Assistant's own words for the button, or undefined when it offers none. */
   label: string | undefined;
-  /** Runs on a press, handed the button so a cue can show where it was pressed. */
-  onActivate: (button: HTMLElement) => void;
+  /**
+   * Runs on activation, handed the button, so a cue can show where it was pressed, and the kind
+   * of pointer that pressed it (`mouse`, `touch`, `pen`), or undefined for a key.
+   */
+  onActivate: (button: HTMLElement, pressed: string | undefined) => void;
 }
 
 /**
@@ -337,9 +340,11 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
  * @returns The button
  */
 function renderAddEventButton(button: AddEventButton): TemplateResult {
-  const onClick = (ev: Event) => {
+  const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
-    button.onActivate(ev.currentTarget as HTMLElement);
+    // A click a key made on a button has no detail; a pointer's counts its clicks.
+    const pointerType = (ev as Partial<PointerEvent>).pointerType || 'mouse';
+    button.onActivate(ev.currentTarget as HTMLElement, ev.detail > 0 ? pointerType : undefined);
   };
 
   return html`<button

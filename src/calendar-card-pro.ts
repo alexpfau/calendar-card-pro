@@ -3719,20 +3719,25 @@ class CalendarCardPro extends LitElement {
     let ranOffEvents = false;
     if (this._holdTriggered) {
       if (tapTarget && this._eventHoldOpensDetails) {
+        this._releasePressFocus();
         this._runEventTapAction(tapTarget.target, origin);
       } else if (this._hasHoldAction) {
         Logger.debug('Executing hold action');
+        this._releasePressFocus();
         Actions.handleAction(this, this.config, 'hold', actions);
       }
     } else if (!this._pointerMoved) {
       if (tapTarget && this._eventTapOpensDetails) {
+        this._releasePressFocus();
         this._runEventTapAction(tapTarget.target, origin);
       } else if (dayHit && this._dayTapsActive) {
         Logger.debug('Executing day tap action');
+        this._releasePressFocus();
         this._addEventAt(dayHit, origin);
         ranOffEvents = true;
       } else if (this._hasTapAction) {
         Logger.debug('Executing tap action');
+        this._releasePressFocus();
         Actions.handleAction(this, this.config, 'tap', actions);
         ranOffEvents = true;
       }
@@ -3754,6 +3759,22 @@ class CalendarCardPro extends LitElement {
         : { element: owedBy, deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW };
 
     this._endGesture();
+  }
+
+  /**
+   * Leaves no focus in the card after a press by pointer that runs something.
+   *
+   * A mouse press focuses the button it lands on, an event or a day, or the card itself. Home
+   * Assistant gives focus back to whatever held it when one of its dialogs opened, by script,
+   * once the dialog closes, and a browser shows a ring for a script's focus that follows the
+   * dialog's own keyboard-like focus, so the event or day pressed stayed ringed after its dialog
+   * closed, as though it had been reached from the keyboard. Released before the action runs,
+   * since Home Assistant notes the focus as it opens the dialog. The keyboard and assistive
+   * technology keep their focus, and with it the ring that shows them where they are.
+   */
+  private _releasePressFocus(): void {
+    const focused = this.shadowRoot?.activeElement;
+    if (focused instanceof HTMLElement) focused.blur();
   }
 
   /**
@@ -5011,7 +5032,13 @@ class CalendarCardPro extends LitElement {
 
     return {
       label: AddEvent.addEventLabel(this.safeHass),
-      onActivate: (button) => this._addEventAt(undefined, originOf(button)),
+      onActivate: (button, pressed) => {
+        // A press leaves no focus behind for Home Assistant to ring when the dialog closes;
+        // see `_releasePressFocus`. A key keeps it.
+        if (pressed) this._releasePressFocus();
+        const at = originOf(button);
+        this._addEventAt(undefined, at && pressed ? { ...at, pointerType: pressed } : at);
+      },
     };
   }
 

@@ -518,6 +518,72 @@ describe('day_tap_action: add-event', () => {
   });
 });
 
+describe('focus after a press', () => {
+  // Home Assistant gives focus back to whatever held it when its dialog opened, by script, and
+  // a browser rings such a focus; a press by pointer must leave none behind. The keyboard keeps it.
+  const focused = (card: Card) => root(card).activeElement;
+
+  it.each([
+    ['a day', ADD, (card: Card) => dayButtons(card)[1]],
+    [
+      'an event',
+      { event_tap_action: { action: 'details' } },
+      (card: Card) =>
+        all(card, '[role="button"]').find((el) => el.textContent?.includes('Dentist'))!,
+    ],
+  ] as const)(
+    'leaves no focus in the card after a pointer opens %s',
+    async (_name, config, target) => {
+      const { card, dialogs } = await mount(config);
+
+      const button = target(card);
+      button.focus(); // what a mouse press does to a focusable element
+      expect(focused(card)).toBe(button);
+      tap(button);
+      await settle();
+
+      expect(dialogs).toHaveLength(1);
+      expect(focused(card)).toBeNull();
+    },
+  );
+
+  it('keeps the focus of a key that opens it', async () => {
+    const { card, dialogs } = await mount(ADD);
+
+    const button = dayButtons(card)[1];
+    button.focus();
+    key(button, 'keydown', 'Enter');
+    await settle();
+
+    expect(dialogs).toHaveLength(1);
+    expect(focused(card)).toBe(button);
+  });
+
+  it.each([
+    [1, null],
+    [0, 'kept'],
+  ] as const)('the add button: a click with detail %i leaves focus %s', async (detail, kept) => {
+    const { card, dialogs } = await mount({
+      toolbar: {
+        show: true,
+        navigation: false,
+        view_switcher: false,
+        reset: false,
+        refresh: false,
+        legend: false,
+      },
+    });
+
+    const button = root(card).querySelector<HTMLElement>('.add-event-button')!;
+    button.focus();
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail }));
+    await settle();
+
+    expect(dialogs).toHaveLength(1);
+    expect(focused(card)).toBe(kept ? button : null);
+  });
+});
+
 describe('the calendar a new event starts in', () => {
   const LEGEND = {
     toolbar: {
