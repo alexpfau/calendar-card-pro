@@ -566,13 +566,6 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Refetch when another card announces a change that may have touched a calendar this card
-   * shows: one it names, or after a new event, any this card shows that accepts new events.
-   *
-   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
-   * announced write's generation, as the announcer did, so they can share its request.
-   */
-  /**
    * Takes up the calendars another card hid with its legend, when that card has this card's
    * configuration and so shares its remembered choice. Without it the two would disagree on
    * screen, and the next press on either would write its own stale set over the other's.
@@ -643,6 +636,13 @@ class CalendarCardPro extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Refetch when another card announces a change that may have touched a calendar this card
+   * shows: one it names, or after a new event, any this card shows that accepts new events.
+   *
+   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
+   * announced write's generation, as the announcer did, so they can share its request.
+   */
   private readonly _handleCalendarsChanged = (ev: Event): void => {
     const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
     if (!detail || detail.source === this) return;
