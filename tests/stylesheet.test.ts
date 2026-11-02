@@ -3311,6 +3311,30 @@ describe('the toolbar layout', () => {
   });
 });
 
+describe('the pulse today indicator', () => {
+  it('holds the pulse still under reduced motion, in the list and everywhere else', () => {
+    const placed = '.today-indicator-container:not(.inline) ha-icon.today-indicator.pulse';
+    const plain = 'ha-icon.today-indicator.pulse';
+    const reduced = atRuleBlock('@media (prefers-reduced-motion: reduce)')
+      .split('}')
+      .map((part) => part.split('{'))
+      .filter((pair) => pair.length === 2)
+      .map(([selectors, body]) => ({
+        selectors: selectors.split(',').map((s) => s.replace(/\s+/g, ' ').trim()),
+        body: flat(body),
+      }));
+    for (const selector of [plain, placed]) {
+      expect(
+        reduced.filter((rule) => rule.selectors.includes(selector)).map((rule) => rule.body),
+        selector,
+      ).toEqual(['animation: none;']);
+    }
+    // Outside the query it still pulses, and the list still runs its placed keyframes.
+    expect(declared(plain, 'animation')).toBe('pulse-animation 2s infinite ease-in-out');
+    expect(declared(placed, 'animation-name')).toBe('pulse-animation-placed');
+  });
+});
+
 describe('the today tile', () => {
   const em = (value: string) => {
     const match = /^(\d*\.?\d+)em$/.exec(value);

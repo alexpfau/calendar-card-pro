@@ -1638,6 +1638,16 @@ export const cardStyles = css`
     animation-name: pulse-animation-placed;
   }
 
+  /* Under reduced motion the pulse holds still, at full size and opacity, where the dot sits.
+     The list's placed selector is named again so its animation-name cannot outrank the reset
+     and run a zero-length animation, which still fires its events. */
+  @media (prefers-reduced-motion: reduce) {
+    ha-icon.today-indicator.pulse,
+    .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+      animation: none;
+    }
+  }
+
   ha-icon.today-indicator.glow {
     filter: drop-shadow(
       0 0 calc(var(--calendar-card-today-indicator-size) * 0.5)
