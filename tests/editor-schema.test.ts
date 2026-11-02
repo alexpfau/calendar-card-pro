@@ -69,6 +69,7 @@ import {
   languageMode,
   startDateMode,
 } from '../src/rendering/editor/synthetic';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 import {
   applyFormChange,
   changedKeys,
@@ -3190,14 +3191,11 @@ describe('editor: fields that must survive being typed into', () => {
 
     // Every language that translated the helper when it was rewritten, named, so one losing it
     // fails here rather than quietly falling back to English. en-GB has no override for it.
-    const dir = join(process.cwd(), 'src/rendering/editor/translations');
+    // Read from the languages the editor registers, not from the folder: a stray copy beside
+    // the files, such as a sync conflict's "de 2.json", is no language the editor can show.
     const translated = Object.fromEntries(
-      readdirSync(dir)
-        .filter((file) => file.endsWith('.json'))
-        .map((file) => [
-          file.replace(/\.json$/, ''),
-          JSON.parse(readFileSync(join(dir, file), 'utf-8'))['today_indicator_custom.helper'],
-        ])
+      Object.entries(EDITOR_LANGUAGE_STRINGS)
+        .map(([language, strings]) => [language, strings['today_indicator_custom.helper']])
         .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
     );
     expect(Object.keys(translated).sort()).toEqual([
