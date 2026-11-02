@@ -1057,8 +1057,10 @@ export const cardStyles = css`
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintOpaqueSurface in rendering/surface.ts paints the menu over the theme's page
-     color instead. Where it is opaque, this rule is all there is. */
+     it is, paintMenu in rendering/legend.ts hands the background color an opaque one, that
+     background laid over the theme's page color, in its own custom property, beneath any image
+     the card background draws. Everywhere else it hands the card background's own color back, so
+     nothing changes; the fallback here is only what a closed menu holds before its first paint. */
   .legend-menu {
     position: fixed;
     inset: auto;
@@ -1071,6 +1073,10 @@ export const cardStyles = css`
     border: none;
     border-radius: var(--ha-card-border-radius, 12px);
     background: var(--ha-card-background, var(--card-background-color, #fff));
+    background-color: var(
+      --calendar-card-legend-menu-surface,
+      var(--ha-card-background, var(--card-background-color, #fff))
+    );
     color: var(--primary-text-color);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24);
     font-family: inherit;
@@ -1085,8 +1091,13 @@ export const cardStyles = css`
     background: transparent;
   }
 
-  /* The theme's page color, as paintOpaqueSurface in rendering/surface.ts reads it to paint the
-     menu over. Never shown. */
+  /* The menu's own background and the theme's page color, as paintMenu in rendering/legend.ts
+     reads them. Never shown. */
+  .legend-menu-surface {
+    display: none;
+    background: var(--ha-card-background, var(--card-background-color, #fff));
+  }
+
   .legend-menu-page {
     display: none;
     background-color: var(--primary-background-color);

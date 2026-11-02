@@ -135,8 +135,15 @@ export function getTodayIndicatorType(value: string | boolean): string {
     // (`BUILT_IN_INDICATORS`), so it reached the right answer only because *every*
     // unrecognized string did. The moment the fallthrough below became text rather than a
     // dot, that accident would have drawn the word "dot" on the card.
-    if (value === 'dot' || value === 'pulse' || value === 'glow' || value === 'tile') {
-      return value;
+    //
+    // The keywords match in any casing, so `Tile` and `GLOW` are the tile and the glow, and
+    // the type returned is always the lowercase keyword, which names the indicator's class.
+    // Folding case was chosen over matching exactly as written, and it costs something the
+    // closed keyword options do not pay: this option is open, so the four words, in any
+    // casing, can no longer be drawn as text. Every other word still is.
+    const keyword = value.toLowerCase();
+    if (keyword === 'dot' || keyword === 'pulse' || keyword === 'glow' || keyword === 'tile') {
+      return keyword;
     }
 
     // Nothing to draw. `renderTodayIndicator` short-circuits on a falsy value before it ever

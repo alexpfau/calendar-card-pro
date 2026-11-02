@@ -469,27 +469,35 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   start on the button's by the card's direction, since the button leads the action row, inside
   the viewport, below or above by room. It floats over the events, so it has to be opaque, and
   a theme made for a wallpaper makes the card background it is painted in see-through. So each
-  time it is placed, `paintOpaqueSurface` (`rendering/surface.ts`) reads that background off the
-  open menu and, only where it is see-through, paints the menu inline in that background laid
-  over the theme's page color, and that over black or white by the text color (`opaqueSurface`,
-  pure). The page color is read off a hidden stand-in drawn inside the menu, not off a probe
+  time it is placed, `paintMenu` reads that background and, only where it is see-through, hands
+  the stylesheet that background laid over the theme's page color, and that over black or white
+  by the text color (`opaqueSurface`, pure), in a custom property,
+  `--calendar-card-legend-menu-surface`, that only the menu's background color takes. Both
+  colors are read off hidden stand-ins drawn inside the menu (`surfaceColor` in
+  `rendering/surface.ts`), not off the menu, whose color the property changes, nor off a probe
   added for the read: the card's mutation observers take any element added or removed in the
   card for a change of the grid's structure, and refit every block, and the menu is painted
-  again after every update while it is open. An opaque theme's menu is left exactly as the
-  stylesheet paints it, which is what keeps the default theme pixel-identical: a second
-  background layer under an opaque one would not. Measured, it changes the rendered pixels by up
-  to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
+  again after every update while it is open. The menu's own background is never written, so a
+  card-mod rule on it wins as it would against the stylesheet, a see-through one included, and a
+  transition on it cannot be read halfway. An opaque theme's menu is handed its own color back,
+  not nothing, since a theme may write its card background as a shorthand that is no background
+  color, so it renders exactly as the stylesheet paints it, which is what keeps the default theme
+  pixel-identical: a second background layer under an opaque one would not. Measured, it changes
+  the rendered pixels by up to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
   alone for the same reason. The view switcher's selected segment is raised out of its track in
-  the card's own background, and gets the same color after every update (`paintSelectedView` in
-  `rendering/toolbar.ts`), with three differences. Its own colors are read off a stand-in too,
-  drawn beside the page color's inside the selected segment, rather than off the segment. The
-  color is handed back in a custom property, `--calendar-card-toolbar-selected-surface`, that
-  only the segment's background color takes, so an image the selected color draws stays on top
-  and the segment's own background is never rewritten: a card-mod rule on it, a hover state
-  included, wins as it would against the stylesheet. And the segments are reused across renders,
-  so the one the selection leaves loses the property.
-  Focus is the browser's to return: closing a modal puts it back on the button, without
-  scrolling, however the menu closed.
+  the card's own background, and gets the same color the same way after every update
+  (`paintSelectedView` in `rendering/toolbar.ts`), in `--calendar-card-toolbar-selected-surface`,
+  read off its own two stand-ins inside the selected segment. The segments are reused across
+  renders, so the one the selection leaves loses the property.
+  Focus follows how the menu was opened. From the keyboard, the first calendar takes it, as the
+  dialog chooses. Opened by a press, the menu itself takes it, which draws no ring: WebKit counts
+  the dialog's own choice of first control as keyboard focus, and rang the first calendar after a
+  click. Tab then reaches the first calendar. Closing a modal returns focus to where it was before
+  it opened, without scrolling, and after a close someone asked for the card focuses the button
+  as well, which covers a browser that does not. The one exception is a menu a press opened and a
+  press closed: WebKit carries the menu's own focus over to the button as the keyboard's and
+  would ring it, so there focus is left to the browser, which in WebKit, where a press does not
+  focus a button, returns it to where it was. Escape still focuses the button.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
   `_requestRefresh`, which does nothing while a load is under way or before the first has
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be

@@ -1348,6 +1348,81 @@ describe("the menu the legend's button opens", () => {
     expect(button(card).getAttribute('aria-expanded')).toBe('false');
   });
 
+  /** Open the menu with a click a pointer made, which counts one press. */
+  async function press(card: CardUnderTest): Promise<void> {
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 1, bubbles: true, composed: true }),
+    );
+    await settle(card);
+  }
+
+  it('takes focus itself when a press opens it, so no calendar is focused by a press', async () => {
+    // WebKit counts the dialog's own choice of its first calendar as keyboard focus, and rang
+    // that calendar after a click. The menu draws no ring of its own, and Tab reaches the first
+    // calendar from it.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    await press(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(root(card).activeElement).toBe(dialog(card));
+    expect(dialog(card).getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('leaves focus where the dialog puts it when a key opens it', async () => {
+    // Enter and Space click a button with no presses counted, and the first calendar is where a
+    // keyboard wants to be.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 0, bubbles: true, composed: true }),
+    );
+    await settle(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('leaves focus to the browser after a press opened it and a press outside closed it', async () => {
+    // The menu held focus, which WebKit carries over to the button as the keyboard's when a
+    // script focuses it, so the button was rung after nothing but presses.
+    const card = await mountMenu();
+    await press(card);
+    const focus = vi.spyOn(button(card), 'focus');
+    vi.spyOn(dialog(card), 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 100,
+      right: 300,
+      bottom: 300,
+      width: 200,
+      height: 200,
+    } as DOMRect);
+
+    dialog(card).dispatchEvent(new MouseEvent('click', { clientX: 500, clientY: 150 }));
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(button(card).getAttribute('aria-expanded')).toBe('false');
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('still hands focus back to its button on Escape after a press opened it', async () => {
+    const card = await mountMenu();
+    await press(card);
+    expect(root(card).activeElement).toBe(dialog(card));
+
+    dialog(card).dispatchEvent(new Event('cancel'));
+    dialog(card).close();
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(root(card).activeElement).toBe(button(card));
+  });
+
   it('closes on a scroll of the page, and not on one inside it', async () => {
     const card = await mountMenu();
     await open(card);
@@ -1420,28 +1495,36 @@ describe("the menu the legend's button opens", () => {
   }
 
   /**
-   * Compute the menu's colors from a theme, as a browser would: the dialog's background and
-   * text, and the page color on the hidden stand-in drawn inside it. happy-dom resolves no theme
-   * variables, so those are stubbed; everything else computes as it does. The page color is
-   * given to any span directly in the menu, so the probe the menu once added for each read gets
-   * it too, and the tests that count added elements fail on the count rather than on the paint
-   * when it comes back.
+   * Compute the menu's colors from a theme, as a browser would: the card background and the page
+   * color on the two hidden stand-ins drawn inside the menu, and the menu's text. happy-dom
+   * resolves no theme variables, so those are stubbed; everything else computes as it does, the
+   * dialog's own background included, which is not the theme's here, so a painter reading the
+   * menu's own background rather than its stand-in's reads nothing. The stand-ins are told by
+   * their class, so a probe added for each read gets the color too, and the tests that count
+   * added elements fail on the count rather than on the paint when one comes back.
    */
   function themeTheMenu(card: CardUnderTest, colors: MenuColors): void {
     const realStyle = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const style = realStyle(element, pseudo);
-      if (element.parentNode === dialog(card) && element.localName === 'span') {
+      if (element.parentNode === dialog(card) && element.matches('.legend-menu-page')) {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
+      if (element.parentNode === dialog(card) && element.matches('.legend-menu-surface')) {
+        return {
+          ...style,
+          backgroundColor: colors.surface,
+          backgroundImage: colors.image ?? 'none',
+        } as CSSStyleDeclaration;
+      }
       if (element !== dialog(card)) return style;
-      return {
-        ...style,
-        backgroundColor: colors.surface,
-        backgroundImage: colors.image ?? 'none',
-        color: colors.ink,
-      } as CSSStyleDeclaration;
+      return { ...style, color: colors.ink } as CSSStyleDeclaration;
     });
+  }
+
+  /** The opaque color handed to the stylesheet for the menu's background color, or ''. */
+  function surfaceOf(card: CardUnderTest): string {
+    return dialog(card).style.getPropertyValue('--calendar-card-legend-menu-surface');
   }
 
   /**
@@ -1502,22 +1585,27 @@ describe("the menu the legend's button opens", () => {
 
     await open(card);
 
-    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
   });
 
   it("leaves an opaque theme's menu exactly as the stylesheet paints it", async () => {
+    // Its own color goes back unchanged, rather than nothing: the stylesheet's fallback is the
+    // theme's card background, which a theme may write as a shorthand, `#1c1c1c no-repeat` say,
+    // and a shorthand is no background color, so the fallback would leave the menu transparent.
     const card = await mountMenu();
     stubCanvas();
     themeTheMenu(card, OPAQUE);
 
     await open(card);
 
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
   });
 
   it('leaves a card background that is an opaque gradient as it is', async () => {
     // The computed background color under a gradient is transparent whether the gradient is
-    // or not, so it is the stops that say this one covers the menu.
+    // or not, so it is the stops that say this one covers the menu. Nothing is laid under it:
+    // its own color goes back unchanged, transparent, because the stylesheet's fallback cannot
+    // take a background color out of a value that also draws an image (`surfaceColor`).
     const card = await mountMenu();
     stubCanvas();
     themeTheMenu(card, {
@@ -1528,7 +1616,39 @@ describe("the menu the legend's button opens", () => {
 
     await open(card);
 
+    expect(surfaceOf(card)).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  it('hands back the color of an opaque card background that also draws an image', async () => {
+    // A background value with an image and a color is no background color, so without this the
+    // fallback would drop the color and leave only the image.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, {
+      ...OPAQUE,
+      image: 'url("https://example.com/card.png")',
+    });
+
+    await open(card);
+
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
+  });
+
+  it("never writes over the menu's own background", async () => {
+    // The color goes to the stylesheet in a custom property. Written over the background, it
+    // beat a card-mod rule coloring the menu, and taking it off to read the stylesheet's color
+    // again caught a card-mod transition halfway.
+    const card = await mountMenu();
+    stubCanvas();
+    themeTheMenu(card, SEE_THROUGH);
+    await open(card);
+    card.hass = hass();
+    await settle(card);
+
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
+    expect(dialog(card).style.background).toBe('');
     expect(dialog(card).style.backgroundColor).toBe('');
+    expect(dialog(card).style.backgroundImage).toBe('');
   });
 
   it('lays the page color under a card background that is a see-through gradient', async () => {
@@ -1543,7 +1663,7 @@ describe("the menu the legend's button opens", () => {
     await open(card);
 
     // The gradient stays, painted over the page color.
-    expect(dialog(card).style.backgroundColor).toBe('rgb(17, 17, 17)');
+    expect(surfaceOf(card)).toBe('rgb(17, 17, 17)');
   });
 
   it('follows a theme changed while it is open, at the next update', async () => {
@@ -1552,22 +1672,22 @@ describe("the menu the legend's button opens", () => {
     const colors = { ...SEE_THROUGH };
     themeTheMenu(card, colors);
     await open(card);
-    expect(dialog(card).style.backgroundColor).toBe('rgb(30, 30, 32)');
+    expect(surfaceOf(card)).toBe('rgb(30, 30, 32)');
 
     Object.assign(colors, OPAQUE);
     card.hass = hass();
     await settle(card);
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
 
     Object.assign(colors, { surface: 'rgba(128, 128, 128, 0.3)', page: 'rgb(84, 80, 76)' });
     card.hass = hass();
     await settle(card);
-    expect(dialog(card).style.backgroundColor).toBe('rgb(97, 94, 92)');
+    expect(surfaceOf(card)).toBe('rgb(97, 94, 92)');
   });
 
   it.each([
     ['a see-through', SEE_THROUGH, 'rgb(30, 30, 32)'],
-    ['an opaque', OPAQUE, ''],
+    ['an opaque', OPAQUE, 'rgb(28, 28, 28)'],
   ] as const)(
     'adds and removes no element while it paints, under %s theme',
     async (_theme, colors, painted) => {
@@ -1578,7 +1698,7 @@ describe("the menu the legend's button opens", () => {
       stubCanvas();
       themeTheMenu(card, colors);
       await open(card);
-      expect(dialog(card).style.backgroundColor).toBe(painted);
+      expect(surfaceOf(card)).toBe(painted);
 
       const records: MutationRecord[] = [];
       const observer = new MutationObserver((batch) => records.push(...batch));
@@ -1595,7 +1715,7 @@ describe("the menu the legend's button opens", () => {
       );
       expect(elements).toEqual([]);
       expect(dialog(card).open).toBe(true);
-      expect(dialog(card).style.backgroundColor).toBe(painted);
+      expect(surfaceOf(card)).toBe(painted);
     },
   );
 
@@ -1634,6 +1754,7 @@ describe("the menu the legend's button opens", () => {
   );
 
   it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    // Its own color, see-through, goes back unchanged: nothing is laid under it.
     const card = await mountMenu();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     themeTheMenu(card, SEE_THROUGH);
@@ -1641,6 +1762,6 @@ describe("the menu the legend's button opens", () => {
     await open(card);
 
     expect(dialog(card).open).toBe(true);
-    expect(dialog(card).style.backgroundColor).toBe('');
+    expect(surfaceOf(card)).toBe('rgba(10, 10, 10, 0.4)');
   });
 });

@@ -5,9 +5,9 @@
  * wallpaper, and often a blur, behind its cards. Two of the card's surfaces are painted in a card
  * background and are meant to cover what is under them: the calendar filter's menu, which floats
  * over the events, and the view switcher's selected segment, which is raised out of its track.
- * Where either comes out see-through, it is painted inline here in an opaque color. Where it is
- * opaque already, nothing is written at all, so an opaque theme renders exactly as the
- * stylesheet paints it.
+ * Where either comes out see-through, it is handed an opaque color here, in a custom property
+ * its stylesheet paints the background color in. Where it is opaque already, it keeps the color
+ * the stylesheet gives it, so an opaque theme renders exactly as the stylesheet paints it.
  */
 
 //-----------------------------------------------------------------------------
@@ -156,28 +156,58 @@ export function opaqueSurfaceColor(doc: Document, colors: SurfaceColors): string
 }
 
 /**
- * Gives a surface an opaque color where its theme's is see-through, and takes it away again
- * where the theme's is opaque. The calendar filter's menu is painted this way.
+ * The background color to hand a surface, or undefined to leave it the stylesheet's.
  *
- * The color is read from the surface itself, so a theme changed since it was last painted, and a
- * card-mod rule on it, are both what is read. A card-mod rule marked `!important` still wins
- * over the color set here, so a surface someone made see-through on purpose stays so.
+ * Both surfaces are painted the same way. The stylesheet gives the surface's background color a
+ * custom property, falling back to the color it would have had, and this is what goes in it:
+ * the opaque color where the surface would be see-through ({@link opaqueSurfaceColor}), and
+ * nothing where it is opaque and draws no image. The surface's own background is never written,
+ * so a card-mod rule that sets it wins as it would against the stylesheet, a see-through one
+ * included, and a transition on it cannot be read halfway.
  *
- * The page color is read off a hidden stand-in the surface draws inside itself, with the
- * stylesheet giving it the theme's page color, rather than off the custom property, whose own
- * value is only its text. Nothing is added to the page for the read.
+ * The colors are read off two hidden stand-ins drawn inside the surface, which the stylesheet
+ * gives the surface's own background and the theme's page color, so each is read as the browser
+ * resolves it, a theme changed since the last read included. They are drawn with the surface
+ * rather than added for the read: the card's mutation observers take an element added or removed
+ * anywhere in the card for a change of the grid's structure, and refit every block for it.
  *
- * @param surface - The element whose background is the surface
- * @param page - The stand-in, or null where there is none, which reads as no page color
+ * Where the surface does draw an image, its color is handed back unchanged when opaque: the
+ * stylesheet's fallback takes the background color from the same value a second time, and a
+ * value that also draws an image is no background color, so the color it carried would be lost.
+ *
+ * @param own - The stand-in in the surface's own background
+ * @param page - The stand-in in the theme's page color
+ * @param ink - The surface, whose text color is read
+ * @returns The color, or undefined
  */
-export function paintOpaqueSurface(surface: HTMLElement, page: Element | null): void {
-  surface.style.removeProperty('background-color');
-  const style = getComputedStyle(surface);
-  const opaque = opaqueSurfaceColor(surface.ownerDocument, {
-    background: style.backgroundColor,
-    image: style.backgroundImage,
-    ink: style.color,
-    page: () => (page ? getComputedStyle(page).backgroundColor : ''),
+export function surfaceColor(own: Element, page: Element, ink: Element): string | undefined {
+  const style = getComputedStyle(own);
+  const background = style.backgroundColor;
+  const image = style.backgroundImage;
+  const opaque = opaqueSurfaceColor(own.ownerDocument, {
+    background,
+    image,
+    ink: getComputedStyle(ink).color,
+    page: () => getComputedStyle(page).backgroundColor,
   });
-  if (opaque) surface.style.backgroundColor = opaque;
+  return opaque ?? (image && image !== 'none' ? background : undefined);
+}
+
+/**
+ * Hands a surface its color in a custom property, or takes the property away for none. Nothing
+ * is written when the value is the one it already holds.
+ *
+ * @param surface - The element painted
+ * @param property - The custom property its stylesheet reads
+ * @param color - The color, from {@link surfaceColor}
+ */
+export function setSurfaceColor(
+  surface: HTMLElement,
+  property: string,
+  color: string | undefined,
+): void {
+  if (color === undefined) surface.style.removeProperty(property);
+  else if (surface.style.getPropertyValue(property) !== color) {
+    surface.style.setProperty(property, color);
+  }
 }

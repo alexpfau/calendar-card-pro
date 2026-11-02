@@ -14,14 +14,14 @@
  * page inert while it is open, so every way it can end, a press outside, Escape, a scroll, a
  * resize, the card hiding or folding open again, closes it through one path. Floating over the
  * events, it has to be opaque even where a theme's card background is not, so its surface is
- * painted when it opens (`paintOpaqueSurface` in `rendering/surface.ts`).
+ * painted when it opens and after every update while it is open (`paintMenu`).
  */
 
 import { mdiCalendarFilter } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { paintOpaqueSurface } from './surface';
+import { setSurfaceColor, surfaceColor } from './surface';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -109,6 +109,12 @@ export const LEGEND_CHANGED_EVENT = 'calendar-card-pro-legend-changed';
 const MENU_VIEWPORT_INSET = 8;
 const MENU_GAP = 4;
 
+/**
+ * The custom property the menu's opaque color is handed to the stylesheet in, which paints the
+ * menu's background color in it, under any image the theme's card background draws.
+ */
+const MENU_SURFACE = '--calendar-card-legend-menu-surface';
+
 //-----------------------------------------------------------------------------
 // PLACEMENT
 //-----------------------------------------------------------------------------
@@ -157,6 +163,8 @@ export function placeMenu(
 interface OpenMenu {
   /** The button that opened it, which it is placed beside. */
   opener: HTMLElement;
+  /** Whether a press opened it, which leaves focus on the menu itself. */
+  pressed: boolean;
   /** Why it is closing, once something asked it to. */
   reason: CloseReason | undefined;
   /** Removes every listener the open menu holds. */
@@ -196,17 +204,29 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 }
 
 /**
- * Paints an open menu opaque where its theme's card background is see-through
- * (`paintOpaqueSurface`), with the theme's page color read off the hidden stand-in drawn inside
- * it. The stand-in is drawn with the menu rather than added for the read: the card's mutation
- * observers take an element added or removed anywhere in the card for a change of the grid's
- * structure, and refit every block for it, and this runs after every update while the menu is
- * open.
+ * Paints an open menu opaque where its theme's card background is see-through, by handing the
+ * stylesheet an opaque color for the menu's background color in a custom property
+ * (`surfaceColor` in `surface.ts`). The menu's own background is never written, so a card-mod
+ * rule that sets it wins as it would against the stylesheet, a see-through one included, and a
+ * transition on it cannot be read halfway. Its colors are read off the two hidden stand-ins
+ * drawn inside it, which this runs after every update while the menu is open.
+ *
+ * Where nothing has to be laid under it, the menu is handed its own color back, read off the
+ * stand-in, rather than nothing. The stylesheet's fallback is the theme's card background, which
+ * a theme may write as a background shorthand, `#1c1c1c no-repeat` say, and a shorthand is no
+ * background color: the fallback would leave the menu transparent.
  *
  * @param dialog - The open menu
  */
 function paintMenu(dialog: HTMLDialogElement): void {
-  paintOpaqueSurface(dialog, dialog.querySelector(':scope > .legend-menu-page'));
+  const own = dialog.querySelector(':scope > .legend-menu-surface');
+  const page = dialog.querySelector(':scope > .legend-menu-page');
+  const color = own && page ? surfaceColor(own, page, dialog) : undefined;
+  setSurfaceColor(
+    dialog,
+    MENU_SURFACE,
+    own && page ? (color ?? getComputedStyle(own).backgroundColor) : undefined,
+  );
 }
 
 /**
@@ -238,6 +258,12 @@ function closeMenu(dialog: HTMLDialogElement, reason: CloseReason): void {
  * a scroll, a resize or the button going away, nothing is asked of focus beyond what the
  * browser does.
  *
+ * A menu a press opened and a press closed is the exception, and is left to the browser too. It
+ * held focus itself, and in WebKit that focus counts as the keyboard's, which carries over to
+ * whatever a script focuses next, so focusing the button would ring it after nothing but
+ * presses. There, where a press does not focus a button, focus goes back to where it was before
+ * the menu opened. Escape still focuses the button.
+ *
  * @param dialog - The menu that closed
  */
 function finishClose(dialog: HTMLDialogElement): void {
@@ -249,17 +275,24 @@ function finishClose(dialog: HTMLDialogElement): void {
 
   // Escape is the dialog's own cancel and close, so it arrives with no reason recorded.
   const reason = open.reason ?? 'escape';
-  const deliberate = reason === 'escape' || reason === 'backdrop' || reason === 'button';
+  const deliberate =
+    reason === 'escape' || (!open.pressed && (reason === 'backdrop' || reason === 'button'));
   if (deliberate && open.opener.isConnected) open.opener.focus({ preventScroll: true });
 }
 
 /**
  * Opens a menu beside its button. Nothing happens for one already open or not on the page.
  *
+ * The dialog gives focus to its first calendar, which is where a keyboard wants it. A press
+ * moves it on to the menu itself, which draws no ring, before anything is painted: WebKit counts
+ * the dialog's own choice as keyboard focus, and rang the first calendar after a press. Tab then
+ * reaches the first calendar.
+ *
  * @param dialog - The menu
  * @param opener - The button that opens it
+ * @param pressed - Whether a press opened it, rather than a key
  */
-function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
+function openMenu(dialog: HTMLDialogElement, opener: HTMLElement, pressed: boolean): void {
   if (dialog.open || openMenus.has(dialog) || !dialog.isConnected) return;
 
   try {
@@ -271,6 +304,7 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
   // it, in the middle of the viewport, nor see-through for a frame.
   positionMenu(dialog, opener);
   paintMenu(dialog);
+  if (pressed) dialog.focus({ preventScroll: true });
   opener.setAttribute('aria-expanded', 'true');
 
   const view = dialog.ownerDocument.defaultView ?? window;
@@ -287,6 +321,7 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 
   openMenus.set(dialog, {
     opener,
+    pressed,
     reason: undefined,
     stop: () => {
       view.removeEventListener('scroll', onScroll, { capture: true });
@@ -425,7 +460,8 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
 
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.legend-menu') ?? null;
-  const onClick = (ev: Event) => {
+  // A click from Enter or Space counts no presses; one from a mouse, a finger or a pen does.
+  const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
     const button = ev.currentTarget as HTMLElement;
     const dialog = dialogOf(button);
@@ -435,7 +471,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
       return;
     }
     if (legend.inert) return;
-    openMenu(dialog, button);
+    openMenu(dialog, button, ev.detail > 0);
   };
   // A press on the backdrop arrives at the dialog itself, outside its box. A press on the
   // dialog's own padding arrives there too, inside it, and is ignored.
@@ -468,6 +504,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
     </button>
     <dialog
       class="legend-menu"
+      tabindex="-1"
       aria-label=${name}
       @pointerdown=${stopCardGesture}
       @click=${onDialogClick}
@@ -497,6 +534,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
             </label>`,
         )}
       </div>
+      <span class="legend-menu-surface" aria-hidden="true"></span>
       <span class="legend-menu-page" aria-hidden="true"></span>
     </dialog>`;
 }
