@@ -1589,13 +1589,16 @@ describe("the menu the legend's button opens", () => {
   });
 
   it("leaves an opaque theme's menu exactly as the stylesheet paints it", async () => {
+    // Its own color goes back unchanged, rather than nothing: the stylesheet's fallback is the
+    // theme's card background, which a theme may write as a shorthand, `#1c1c1c no-repeat` say,
+    // and a shorthand is no background color, so the fallback would leave the menu transparent.
     const card = await mountMenu();
     stubCanvas();
     themeTheMenu(card, OPAQUE);
 
     await open(card);
 
-    expect(surfaceOf(card)).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
   });
 
   it('leaves a card background that is an opaque gradient as it is', async () => {
@@ -1674,7 +1677,7 @@ describe("the menu the legend's button opens", () => {
     Object.assign(colors, OPAQUE);
     card.hass = hass();
     await settle(card);
-    expect(surfaceOf(card)).toBe('');
+    expect(surfaceOf(card)).toBe('rgb(28, 28, 28)');
 
     Object.assign(colors, { surface: 'rgba(128, 128, 128, 0.3)', page: 'rgb(84, 80, 76)' });
     card.hass = hass();
@@ -1684,7 +1687,7 @@ describe("the menu the legend's button opens", () => {
 
   it.each([
     ['a see-through', SEE_THROUGH, 'rgb(30, 30, 32)'],
-    ['an opaque', OPAQUE, ''],
+    ['an opaque', OPAQUE, 'rgb(28, 28, 28)'],
   ] as const)(
     'adds and removes no element while it paints, under %s theme',
     async (_theme, colors, painted) => {
@@ -1751,6 +1754,7 @@ describe("the menu the legend's button opens", () => {
   );
 
   it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    // Its own color, see-through, goes back unchanged: nothing is laid under it.
     const card = await mountMenu();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     themeTheMenu(card, SEE_THROUGH);
@@ -1758,6 +1762,6 @@ describe("the menu the legend's button opens", () => {
     await open(card);
 
     expect(dialog(card).open).toBe(true);
-    expect(surfaceOf(card)).toBe('');
+    expect(surfaceOf(card)).toBe('rgba(10, 10, 10, 0.4)');
   });
 });

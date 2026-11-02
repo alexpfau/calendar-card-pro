@@ -206,18 +206,27 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 /**
  * Paints an open menu opaque where its theme's card background is see-through, by handing the
  * stylesheet an opaque color for the menu's background color in a custom property
- * (`surfaceColor` in `surface.ts`), and takes the property away where the background is opaque.
- * The menu's own background is never written, so a card-mod rule that sets it wins as it would
- * against the stylesheet, a see-through one included, and a transition on it cannot be read
- * halfway. Its colors are read off the two hidden stand-ins drawn inside it, which this runs
- * after every update while the menu is open.
+ * (`surfaceColor` in `surface.ts`). The menu's own background is never written, so a card-mod
+ * rule that sets it wins as it would against the stylesheet, a see-through one included, and a
+ * transition on it cannot be read halfway. Its colors are read off the two hidden stand-ins
+ * drawn inside it, which this runs after every update while the menu is open.
+ *
+ * Where nothing has to be laid under it, the menu is handed its own color back, read off the
+ * stand-in, rather than nothing. The stylesheet's fallback is the theme's card background, which
+ * a theme may write as a background shorthand, `#1c1c1c no-repeat` say, and a shorthand is no
+ * background color: the fallback would leave the menu transparent.
  *
  * @param dialog - The open menu
  */
 function paintMenu(dialog: HTMLDialogElement): void {
   const own = dialog.querySelector(':scope > .legend-menu-surface');
   const page = dialog.querySelector(':scope > .legend-menu-page');
-  setSurfaceColor(dialog, MENU_SURFACE, own && page ? surfaceColor(own, page, dialog) : undefined);
+  const color = own && page ? surfaceColor(own, page, dialog) : undefined;
+  setSurfaceColor(
+    dialog,
+    MENU_SURFACE,
+    own && page ? (color ?? getComputedStyle(own).backgroundColor) : undefined,
+  );
 }
 
 /**

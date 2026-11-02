@@ -479,10 +479,11 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   card for a change of the grid's structure, and refit every block, and the menu is painted
   again after every update while it is open. The menu's own background is never written, so a
   card-mod rule on it wins as it would against the stylesheet, a see-through one included, and a
-  transition on it cannot be read halfway. An opaque theme's menu is left exactly as the
-  stylesheet paints it, which is what keeps the default theme pixel-identical: a second
-  background layer under an opaque one would not. Measured, it changes the rendered pixels by up
-  to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
+  transition on it cannot be read halfway. An opaque theme's menu is handed its own color back,
+  not nothing, since a theme may write its card background as a shorthand that is no background
+  color, so it renders exactly as the stylesheet paints it, which is what keeps the default theme
+  pixel-identical: a second background layer under an opaque one would not. Measured, it changes
+  the rendered pixels by up to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
   alone for the same reason. The view switcher's selected segment is raised out of its track in
   the card's own background, and gets the same color the same way after every update
   (`paintSelectedView` in `rendering/toolbar.ts`), in `--calendar-card-toolbar-selected-surface`,

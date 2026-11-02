@@ -1059,8 +1059,8 @@ export const cardStyles = css`
      events, and a theme made for a wallpaper makes its card background see-through, so where
      it is, paintMenu in rendering/legend.ts hands the background color an opaque one, that
      background laid over the theme's page color, in its own custom property, beneath any image
-     the card background draws. Everywhere else the property is unset and the color is the card
-     background again, so nothing changes. */
+     the card background draws. Everywhere else it hands the card background's own color back, so
+     nothing changes; the fallback here is only what a closed menu holds before its first paint. */
   .legend-menu {
     position: fixed;
     inset: auto;
