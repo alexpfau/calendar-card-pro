@@ -4520,7 +4520,8 @@ class CalendarCardPro extends LitElement {
       const eventsMatchCurrentQuery = this._eventsInstanceId === instanceId;
       const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
       // The cache normally carries a failing calendar's last events forward itself. This
-      // covers the case where it cannot — storage unavailable — within the same bound.
+      // covers the case where it cannot, with nothing stored or held in memory
+      // (`heldEntries` in events.ts), within the same bound.
       const keepPreviousEvents =
         failedEntities.length > 0 &&
         result.events.length === 0 &&
