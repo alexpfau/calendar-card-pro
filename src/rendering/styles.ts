@@ -2311,16 +2311,23 @@ export const cardStyles = css`
     margin-inline-end: 4px;
   }
 
-  /* A label leads its title in a right-to-left card whatever script either is written in.
-     Without isolation, an English label before an English title joins it in one
-     left-to-right run, which a right-to-left line draws with the label after the title, and
-     the label's gap, at its inline end, then faced away from it. Isolated, the label is one
-     unit at the start of the line, where icons, pictures and emoji already sit. plaintext
-     rather than isolate, so the label's own text takes the direction of its first letter:
-     isolated in a right-to-left base, "Work:" drew as ":Work" and "1 Team" as "Team 1". Grid
-     view isolates its labels in both directions (below); in right-to-left this wins there too.
-     Left-to-right is left as it was. */
-  .calendar-label:dir(rtl),
+  /* A label leads its title whatever script either is written in, in either direction.
+     Without isolation, a label and a title written against the card's direction join in one
+     run, which the line draws the other way round: in a right-to-left card an English label
+     before an English title came after it, and in a left-to-right card a Hebrew label before a
+     Hebrew title did, the label's gap, at its inline end, then facing away from it. The
+     zero-width space after the label (below) lost the gap on its own whenever the title ran
+     the other way, an English label before a Hebrew title included: the space took the
+     title's direction and carried the margin to the title's far end. Isolated, the label is
+     one unit at the start of the line, where icons, pictures and emoji already sit, with its
+     space and its gap inside it. plaintext rather than isolate, so the label's own text takes
+     the direction of its first letter: isolated in a right-to-left base, "Work:" drew as
+     ":Work" and "1 Team" as "Team 1", and a Hebrew "Anna:" would carry its colon on the wrong
+     side in a left-to-right one. A label whose text runs with the card is laid out exactly as
+     it was without isolation, which was measured byte for byte on left-to-right cards in all
+     three engines. Grid view isolates its labels in both directions (below), which keeps it
+     isolate in left-to-right; in right-to-left this wins there too. */
+  .calendar-label,
   .grid-event-disclosure .calendar-label:dir(rtl) {
     unicode-bidi: plaintext;
   }

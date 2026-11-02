@@ -123,14 +123,20 @@ describe('inline glyph gaps in either text direction', () => {
     ).toBe('0');
   });
 
-  it('isolates a text label in right-to-left only, in its own direction', () => {
-    // So an English label before an English title leads it, with its gap toward it, rather
-    // than joining it in one left-to-right run that a right-to-left line draws label last.
-    // plaintext, not isolate, so "Work:" keeps its colon after the word: isolate would lay the
-    // label out in the card's right-to-left direction. Grid view's own isolate is outweighed.
-    const rtlLabels = '.calendar-label:dir(rtl), .grid-event-disclosure .calendar-label:dir(rtl)';
-    expect(declared(rtlLabels, 'unicode-bidi')).toBe('plaintext');
-    // Left-to-right is left as it was.
-    expect(declared('.calendar-label', 'unicode-bidi')).toBe('');
+  it('isolates a text label in its own direction, in either text direction', () => {
+    // So an English label before an English title leads it in right-to-left, and a Hebrew
+    // label before a Hebrew title in left-to-right, with its gap toward it, rather than joining
+    // it in one run that the line draws label last. plaintext, not isolate, so "Work:" keeps
+    // its colon after the word: isolate would lay the label out in the card's direction.
+    const labels = '.calendar-label, .grid-event-disclosure .calendar-label:dir(rtl)';
+    expect(declared(labels, 'unicode-bidi')).toBe('plaintext');
+    // Grid view isolates its labels itself, and in left-to-right that still wins: a stronger
+    // selector than the bare class. In right-to-left the :dir(rtl) entry above outweighs it.
+    expect(
+      declared(
+        '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
+        'unicode-bidi',
+      ),
+    ).toBe('isolate');
   });
 });
