@@ -251,7 +251,7 @@
   "today_indicator_style.option.custom.label": "이모지 또는 이미지",
   "today_indicator_icon": "아이콘",
   "today_indicator_custom": "이모지 또는 이미지 경로",
-  "today_indicator_custom.helper": "이모지, 이미지 경로 또는 URL, 또는 임의의 텍스트입니다. 텍스트를 사용할 경우 일반 이모지보다 큰 표시기 크기가 필요합니다.",
+  "today_indicator_custom.helper": "이모지, 이미지 경로 또는 URL, 또는 임의의 텍스트입니다. 단, tile, dot, pulse, glow는 대소문자와 관계없이 기본 제공 스타일이므로 텍스트로 쓸 수 없습니다. 텍스트를 사용할 경우 일반 이모지보다 큰 표시기 크기가 필요합니다.",
   "today_indicator_color": "표시기 색상",
   "today_indicator_size": "표시기 크기",
   "today_indicator_position": "표시기 위치",

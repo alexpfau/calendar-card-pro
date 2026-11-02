@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "Emocijzīme vai attēls",
   "today_indicator_icon": "Indikatora ikona",
   "today_indicator_custom": "Emocijzīmes vai attēla ceļš",
-  "today_indicator_custom.helper": "Emocijzīme, attēla ceļš vai URL, vai jebkāds teksts. Vārdiem vajag lielāku indikatora izmēru nekā tāda paša vizuālā izmēra emocijzīmei.",
+  "today_indicator_custom.helper": "Emocijzīme, attēla ceļš vai URL, vai jebkāds teksts, izņemot vārdus tile, dot, pulse un glow, kas jebkādā burtu reģistrā ir iebūvēti stili. Vārdiem vajag lielāku indikatora izmēru nekā tāda paša vizuālā izmēra emocijzīmei.",
   "today_indicator_color": "Indikatora krāsa",
   "today_indicator_size": "Indikatora izmērs",
   "today_indicator_position": "Indikatora pozīcija",

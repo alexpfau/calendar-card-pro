@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "En emoji eller et bilde",
   "today_indicator_icon": "Ikon",
   "today_indicator_custom": "Emoji eller bildesti",
-  "today_indicator_custom.helper": "En emoji, en bildesti eller URL, eller valgfri tekst. Ord trenger en større markørstørrelse enn størrelsen en emoji oppleves med.",
+  "today_indicator_custom.helper": "En emoji, en bildesti eller URL, eller valgfri tekst unntatt ordene tile, dot, pulse og glow, som er innebygde stiler uansett store eller små bokstaver. Ord trenger en større markørstørrelse enn størrelsen en emoji oppleves med.",
   "today_indicator_color": "Markørfarge",
   "today_indicator_size": "Markørstørrelse",
   "today_indicator_position": "Markørposisjon",

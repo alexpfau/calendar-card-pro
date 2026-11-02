@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "Jaustukas arba paveikslėlis",
   "today_indicator_icon": "Indikatoriaus piktograma",
   "today_indicator_custom": "Jaustuko arba paveikslėlio kelias",
-  "today_indicator_custom.helper": "Jaustukas, paveikslėlio kelias ar URL arba bet koks tekstas. Žodžiams reikia didesnio indikatoriaus dydžio nei taip pat vizualiai atrodančiam jaustukui.",
+  "today_indicator_custom.helper": "Jaustukas, paveikslėlio kelias ar URL arba bet koks tekstas, išskyrus žodžius tile, dot, pulse ir glow, kurie, nesvarbu, didžiosiomis ar mažosiomis raidėmis, yra įtaisytieji stiliai. Žodžiams reikia didesnio indikatoriaus dydžio nei taip pat vizualiai atrodančiam jaustukui.",
   "today_indicator_color": "Indikatoriaus spalva",
   "today_indicator_size": "Indikatoriaus dydis",
   "today_indicator_position": "Indikatoriaus padėtis",

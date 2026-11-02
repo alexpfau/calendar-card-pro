@@ -3165,6 +3165,43 @@ describe('editor: fields that must survive being typed into', () => {
   });
 
   /**
+   * The four words the helper says are no text. Each names a built-in style in any casing
+   * (`getTodayIndicatorType`), so typed here it is held, never stored as text and never moving
+   * the style under the cursor. The helper said "or any text" until it was found untrue; the
+   * pin is on what the field does and on the helper naming every word it refuses, every
+   * language keeping the words as they are written in a config.
+   */
+  it('holds the built-in style words in any casing, as the helper says', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+    const keywords = ['tile', 'dot', 'pulse', 'glow'];
+
+    for (const word of keywords.flatMap((keyword) => [keyword, keyword.toUpperCase()])) {
+      const { config, pending } = type(start, 'today_indicator_custom', [word]);
+
+      expect(config.today_indicator, word).toBe('⭐');
+      expect(pending.today_indicator_custom, word).toBe(word);
+    }
+
+    const dir = join(process.cwd(), 'src/rendering/editor/translations');
+    const helpers = [
+      EDITOR_STRINGS['today_indicator_custom.helper'],
+      ...readdirSync(dir)
+        .filter((file) => file.endsWith('.json'))
+        .map(
+          (file) =>
+            JSON.parse(readFileSync(join(dir, file), 'utf-8'))['today_indicator_custom.helper'] as
+              string | undefined,
+        )
+        .filter((helper): helper is string => helper !== undefined),
+    ];
+    expect(helpers.length).toBeGreaterThan(1);
+    for (const helper of helpers) {
+      for (const keyword of keywords)
+        expect(helper, helper).toMatch(new RegExp(`\\b${keyword}\\b`));
+    }
+  });
+
+  /**
    * The same field accepts two kinds of value, and only the image half was covered above.
    * An emoji is complete the moment it is typed, so it commits on the first keystroke
    * rather than being held pending — the opposite of the image path, and the reason both

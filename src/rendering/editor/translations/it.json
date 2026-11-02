@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "Un'emoji o un'immagine",
   "today_indicator_icon": "Icona",
   "today_indicator_custom": "Emoji o percorso immagine",
-  "today_indicator_custom.helper": "Un'emoji, un percorso immagine o URL, oppure qualsiasi testo. Le parole richiedono una dimensione indicatore maggiore di quella adatta a un'emoji.",
+  "today_indicator_custom.helper": "Un'emoji, un percorso immagine o URL, oppure qualsiasi testo tranne le parole tile, dot, pulse e glow, che con qualsiasi combinazione di maiuscole e minuscole sono stili predefiniti. Le parole richiedono una dimensione indicatore maggiore di quella adatta a un'emoji.",
   "today_indicator_color": "Colore indicatore",
   "today_indicator_size": "Dimensione indicatore",
   "today_indicator_position": "Posizione indicatore",

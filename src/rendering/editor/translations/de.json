@@ -358,7 +358,7 @@
   "today_indicator_style.option.custom.label": "Ein Emoji oder Bild",
   "today_indicator_icon": "Symbol",
   "today_indicator_custom": "Emoji oder Bildpfad",
-  "today_indicator_custom.helper": "Ein Emoji, ein Bildpfad oder eine URL, oder beliebiger Text. Wörter brauchen eine größere Markierungsgröße als ein gleich groß wirkendes Emoji.",
+  "today_indicator_custom.helper": "Ein Emoji, ein Bildpfad oder eine URL, oder beliebiger Text außer den Wörtern tile, dot, pulse und glow, die in beliebiger Groß- und Kleinschreibung eingebaute Stile sind. Wörter brauchen eine größere Markierungsgröße als ein gleich groß wirkendes Emoji.",
   "today_indicator_color": "Markierungsfarbe",
   "today_indicator_size": "Markierungsgröße",
   "today_indicator_position": "Markierungsposition",
