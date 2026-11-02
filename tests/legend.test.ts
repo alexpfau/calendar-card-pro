@@ -194,6 +194,25 @@ function configFor(overrides: Partial<Types.Config> = {}): Types.Config {
  * Let the load, and the renders after it, finish. Several rounds, because a load commits on
  * one turn and the card renders the commit on the next.
  */
+/**
+ * A whole press by a mouse, down and up, as the card's gesture reads it: a tap runs the card's
+ * `tap_action` only at pointer-up, so a press that stops short of it proves nothing.
+ */
+function tapWithPointer(target: EventTarget): void {
+  for (const type of ['pointerdown', 'pointerup']) {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      button: { value: 0 },
+      isPrimary: { value: true },
+      pointerType: { value: 'mouse' },
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    target.dispatchEvent(event);
+  }
+}
+
 async function settle(card: CardUnderTest): Promise<void> {
   for (let round = 0; round < 4; round += 1) {
     await new Promise((resolve) => setImmediate(resolve));
@@ -588,13 +607,17 @@ describe('the calendar legend', () => {
     const fired: Event[] = [];
     card.addEventListener('hass-action', (ev) => fired.push(ev));
 
-    chip(card, BEN).dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    tapWithPointer(chip(card, BEN));
     chip(card, BEN).click();
+    tapWithPointer(root(card).querySelector('.toolbar-legend')!);
     root(card)
       .querySelector('.toolbar-legend')!
       .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-
     expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
   });
 
   it('stops the card presenting itself as a button, and keeps its tab stop', async () => {
@@ -1337,6 +1360,20 @@ describe("the menu the legend's button opens", () => {
     await settle(card);
     expect(dialog(card).open).toBe(false);
     expect(root(card).activeElement).toBe(button(card));
+  });
+
+  it('keeps a press on its button, or inside it, from becoming a press on the card', async () => {
+    const card = await mountMenu({ tap_action: { action: 'more-info' } });
+    const fired: Event[] = [];
+    card.addEventListener('hass-action', (ev) => fired.push(ev));
+
+    tapWithPointer(button(card));
+    tapWithPointer(dialog(card));
+    expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
   });
 
   it('closes on a second press of its button', async () => {

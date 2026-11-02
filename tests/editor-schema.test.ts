@@ -802,6 +802,8 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
+      'day_tap_action_mode',
+      'event_hold_action_mode',
       'event_tap_action_mode',
       'height_mode',
       'language_mode',
@@ -1889,7 +1891,9 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
       max_height: 'height_mode',
+      day_tap_action: 'day_tap_action_mode',
       event_tap_action: 'event_tap_action_mode',
+      event_hold_action: 'event_hold_action_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2832,21 +2836,40 @@ describe('editor: the Actions & Refresh panel', () => {
    * them, and the refresh pair closes the panel. No headings: a split between card and
    * event taps would misfile the hold, which runs on events too.
    */
-  it('orders the three gestures, then refresh, with no dialog switches by default', () => {
+  it('orders the gestures card, day, event, then refresh, with no dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
       'tap_action',
       'hold_action',
+      'day_tap_action_mode',
       'event_tap_action_mode',
+      'event_hold_action_mode',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
   });
 
-  it('offers the two dialog switches under the event tap action once it opens details', () => {
+  it('offers the two dialog switches under the event actions once the tap opens details', () => {
     expect(namesIn(withEventTap('details'))).toEqual([
       'tap_action',
       'hold_action',
+      'day_tap_action_mode',
       'event_tap_action_mode',
+      'event_hold_action_mode',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers the two dialog switches once the event hold opens details', () => {
+    const config = buildConfig({ event_hold_action: { action: 'details' } });
+    expect(namesIn(config)).toEqual([
+      'tap_action',
+      'hold_action',
+      'day_tap_action_mode',
+      'event_tap_action_mode',
+      'event_hold_action_mode',
       'allow_event_edit',
       'allow_event_delete',
       'refresh_interval',
@@ -5089,6 +5112,8 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
+      'day_tap_action_mode',
+      'event_hold_action_mode',
       'event_tap_action_mode',
       'height_mode',
       'language_mode',

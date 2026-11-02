@@ -304,19 +304,19 @@ export const cardStyles = css`
     cursor: pointer;
   }
 
-  /* A card a swipe pages hands the browser only vertical panning where a swipe can start: its
-     body and the title, the one part of the header that is the card's own. So a sideways
-     finger there reaches the card rather than starting a scroll the browser would claim with a
-     pointercancel. Declared on the body and everything in it, because a scroll container hands
+  /* A card a swipe pages hands the browser only vertical panning where a swipe can start, which
+     is anywhere on it but a toolbar control: the body, the title, and the toolbar's rows around
+     their controls. So a sideways finger there reaches the card rather than starting a scroll the
+     browser would claim with a pointercancel. Declared on the card, which the header and its
+     controls take, and again on the body and everything in it, because a scroll container hands
      its own axis back over a restriction it inherits; declared on each, the restrictions
-     intersect. Not on the card itself: the toolbar keeps its presses from the card, and a
-     restriction on an ancestor is one no descendant can lift, so the toolbar would only lose
-     sideways movement for nothing. Pinch zoom stays, double-tap zoom goes. The first
-     declaration is the fallback for a browser that does not know pinch-zoom, which drops the
-     second whole. A crammed grid, whose days scroll sideways, never gets the class. */
+     intersect. The controls lose only a sideways pan nothing in the toolbar has. Pinch zoom
+     stays, double-tap zoom goes. The first declaration is the fallback for a browser that does
+     not know pinch-zoom, which drops the second whole. A crammed grid, whose days scroll
+     sideways, never gets the class. */
+  ha-card.swipe-paging,
   ha-card.swipe-paging .content-container,
-  ha-card.swipe-paging .content-container *,
-  ha-card.swipe-paging .card-header {
+  ha-card.swipe-paging .content-container * {
     touch-action: pan-y;
     touch-action: pan-y pinch-zoom;
   }
@@ -1229,15 +1229,21 @@ export const cardStyles = css`
     background: var(--calendar-card-toolbar-fill-pressed);
   }
 
-  /* The toolbar answers the pointer for itself, as an event does, so the card's ripple stays
-     still while the pointer is anywhere on either row. The ripple's hover follows the pointer
-     anywhere inside ha-card, and the rows are no part of the card to tap: they keep every press
-     and click from the card, near misses on a track's rim or between controls included, and
-     the chips and the month with them. Left to it, the card washed blue behind a control
-     washing blue. The title above the month is still the card's, and still ripples. A press
-     needs no rule here, because the ripple never sees one. Where :has is not supported the
-     rule is dropped and both hover at once. */
-  ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple {
+  /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
+     stays still while the pointer is on one: a button, the month's date picker, the switcher's
+     track, the arrows, the chips or the filter's menu. Each keeps its presses from the card,
+     near misses on a track's rim or between two arrows or chips included (stopCardGesture), and
+     left to it the card washed blue behind a control washing blue. The rest of both rows is the
+     card's, the title and the space between the controls included, and ripples as the card
+     does: when the rows kept that space too, the card's hover flickered on and off in stripes
+     as the pointer crossed them. A press needs no rule here, because the ripple never sees one
+     on a control. Where :has is not supported the rule is dropped and both hover at once. */
+  ha-card:has(.toolbar-button:hover) > ha-ripple,
+  ha-card:has(.toolbar-month-button:hover) > ha-ripple,
+  ha-card:has(.view-switcher:hover) > ha-ripple,
+  ha-card:has(.date-navigation:hover) > ha-ripple,
+  ha-card:has(.toolbar-legend:hover) > ha-ripple,
+  ha-card:has(.legend-menu:hover) > ha-ripple {
     --ha-ripple-hover-opacity: 0;
   }
 
@@ -3637,6 +3643,65 @@ export const cardStyles = css`
   .event-button:focus-visible::after {
     outline: 2px solid var(--calendar-card-line-color-vertical);
     outline-offset: -2px;
+  }
+
+  /* ===== DAYS THAT ADD AN EVENT =====
+   * With day_tap_action set to add-event, a tap on a day where it shows no event opens Home
+   * Assistant's new-event dialog there, and each day's date (list) or header (column, grid) is
+   * a button that does the same from the keyboard. The washes match an untinted event's: the
+   * card's own hover color at 8% under a real pointer, its pressed color at 16% while pressed.
+   *
+   * The pressed wash is set by the recognizer rather than by :active, because most of a day's
+   * empty space is no element of its own: the space under a short column, a grid's all-day
+   * band and its time area. It marks the day's element with data-add-pressed for as long as the
+   * press lasts, and the rules below wash the day's date or header, or in a grid's time area
+   * the hour pressed, from the two custom properties it sets beside the attribute. Attributes
+   * inside the card are invisible to the grid's structure observers, which an element added for
+   * the wash would not be. The hour's wash is the body's ::before, which paints before the day's
+   * plane and so under its events. */
+  .date-column:has(> .day-add-button),
+  .day-add-button {
+    cursor: pointer;
+  }
+
+  @media (hover: hover) {
+    .date-column:has(> .day-add-button):hover,
+    .column-day-header.day-add-button:hover {
+      background-color: color-mix(in srgb, var(--ha-ripple-hover-color) 8%, transparent);
+    }
+  }
+
+  .day-table[data-add-pressed] td.date-column,
+  .day-column[data-add-pressed] > .column-day-header,
+  .grid-day-header[data-add-pressed] > .column-day-header {
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+  }
+
+  .grid-day-body[data-add-pressed]::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: var(--calendar-card-add-hour-top, 0);
+    height: var(--calendar-card-add-hour-height, 0);
+    background-color: color-mix(in srgb, var(--ha-ripple-pressed-color) 16%, transparent);
+    pointer-events: none;
+  }
+
+  .day-add-button:focus {
+    outline: none;
+  }
+
+  .day-add-button:focus-visible {
+    outline: 2px solid var(--calendar-card-line-color-vertical);
+    outline-offset: -2px;
+  }
+
+  /* A press on a day is the day's, as one on an event is the event's: the card's ripple is
+     muted while one is down, and while a day's button is under the pointer or focused. */
+  ha-card:has([data-add-pressed], .day-add-button:hover, .day-add-button:focus-visible)
+    > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
   }
 
   /* ===== CORNER LOADING INDICATOR ===== */

@@ -1,5 +1,6 @@
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as Constants from '../src/config/constants';
 import {
   type CreateDialogParams,
   type DetailDialogParams,
@@ -7,6 +8,7 @@ import {
   EVENT_DETAIL_DIALOG_TAG,
   EVENT_EDITOR_DIALOG_TAG,
   LOAD_TIMEOUT_MS,
+  abandonRequest,
   ensureDialogLoaded,
   openCreateEventDialog,
   openEventDetailDialog,
@@ -519,5 +521,202 @@ describe('loading both dialogs', () => {
     });
     expect(ha.dialogImports[EVENT_EDITOR_DIALOG_TAG]).toHaveBeenCalledOnce();
     expect(ha.dialogImports[EVENT_DETAIL_DIALOG_TAG]).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * The cue a press shows while its dialog loads. It must stay away from a dialog that opens at
+ * once, so a quick open shows nothing in between, and it must be gone before the dialog
+ * shows, whichever way the request ends: opened, fallen back, or replaced by a newer press.
+ */
+describe('the busy cue', () => {
+  /** A cue that records each show and hide, in order. */
+  function recordingCue(name = 'cue') {
+    const calls: string[] = [];
+    return {
+      calls,
+      cue: { show: () => calls.push(`${name}:show`), hide: () => calls.push(`${name}:hide`) },
+    };
+  }
+
+  it.each(OPENERS)('shows nothing for $tag once it is defined', async ({ tag }) => {
+    registry.define(tag, Element);
+    const { node } = host();
+    const { calls, cue } = recordingCue();
+
+    const request =
+      tag === EVENT_EDITOR_DIALOG_TAG
+        ? openCreateEventDialog(node, createParams(), { cue })
+        : openEventDetailDialog(node, detailParams(), { cue });
+    await request;
+
+    expect(calls).toEqual([]);
+  });
+
+  it.each(OPENERS)(
+    'shows only past the delay for $tag, and hides before it opens',
+    async ({ tag }) => {
+      vi.useFakeTimers();
+      let release!: () => void;
+      fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+      const { node, dispatched } = host();
+      const { calls, cue } = recordingCue();
+      const open = (): Promise<void> =>
+        tag === EVENT_EDITOR_DIALOG_TAG
+          ? openCreateEventDialog(node, createParams(), { cue })
+          : openEventDetailDialog(node, detailParams(), { cue });
+
+      const request = open();
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY - 1);
+      expect(calls).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(calls).toEqual(['cue:show']);
+
+      // Hidden by the time the dialog is asked for, not after.
+      node.addEventListener('show-dialog', () => calls.push('dialog'));
+      release();
+      await request;
+      expect(calls).toEqual(['cue:show', 'cue:hide', 'dialog']);
+      expect(dispatched.map(({ type }) => type)).toEqual(['show-dialog']);
+    },
+  );
+
+  it('never shows for a load that ends before the delay', async () => {
+    vi.useFakeTimers();
+    fakeHomeAssistant();
+    const { node } = host();
+    const { calls, cue } = recordingCue();
+
+    await openCreateEventDialog(node, createParams(), { cue });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY * 2);
+
+    expect(calls).toEqual([]);
+  });
+
+  it('hides the cue of a request a newer press replaces, and shows only the newest', async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const { node } = host();
+    const first = recordingCue('first');
+    const second = recordingCue('second');
+
+    const older = openCreateEventDialog(node, createParams(), { cue: first.cue });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    const newer = openEventDetailDialog(node, detailParams(), { cue: second.cue });
+    expect(first.calls).toEqual(['first:show', 'first:hide']);
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    expect(second.calls).toEqual(['second:show']);
+
+    release();
+    await Promise.all([older, newer]);
+    expect(first.calls).toEqual(['first:show', 'first:hide']);
+    expect(second.calls).toEqual(['second:show', 'second:hide']);
+  });
+
+  it('hides the cue before falling back', async () => {
+    vi.useFakeTimers();
+    const { node, dispatched } = host();
+    const { calls, cue } = recordingCue();
+    // No card helpers at all: the load fails at once, before the delay.
+    const request = openCreateEventDialog(node, createParams(), { cue });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY * 2);
+    await request;
+
+    expect(calls).toEqual([]);
+    expectFallback(EVENT_EDITOR_DIALOG_TAG, dispatched);
+  });
+
+  it('hides a cue that showed before the load failed', async () => {
+    vi.useFakeTimers();
+    let fail!: () => void;
+    (window as HelperWindow).loadCardHelpers = () =>
+      new Promise((_, reject) => (fail = () => reject(new Error('gone'))));
+    const { node, dispatched } = host();
+    const { calls, cue } = recordingCue();
+
+    const request = openCreateEventDialog(node, createParams(), { cue });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    expect(calls).toEqual(['cue:show']);
+    fail();
+    await request;
+
+    expect(calls).toEqual(['cue:show', 'cue:hide']);
+    expectFallback(EVENT_EDITOR_DIALOG_TAG, dispatched);
+  });
+});
+
+describe('a request the card no longer wants', () => {
+  it.each(OPENERS)('opens nothing and falls back to nothing for $tag', async ({ tag }) => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const { node, dispatched } = host();
+    let wanted = true;
+    const shown: string[] = [];
+    const options = {
+      cue: { show: () => shown.push('show'), hide: () => shown.push('hide') },
+      stillWanted: () => wanted,
+    };
+
+    const request =
+      tag === EVENT_EDITOR_DIALOG_TAG
+        ? openCreateEventDialog(node, createParams(), options)
+        : openEventDetailDialog(node, detailParams(), options);
+    // Removed or being edited before the cue's delay ran out: no cue either.
+    wanted = false;
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    release();
+    await request;
+
+    expect(shown).toEqual([]);
+    expect(dispatched).toEqual([]);
+  });
+
+  it('opens nothing after a failed load either, rather than falling back', async () => {
+    vi.useFakeTimers();
+    const { node, dispatched } = host();
+
+    await openCreateEventDialog(node, createParams(), { stillWanted: () => false });
+
+    expect(dispatched).toEqual([]);
+  });
+});
+
+describe('abandoning a request', () => {
+  it('ends a showing cue at once, and the request opens nothing even if wanted again', async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const { node, dispatched } = host();
+    const calls: string[] = [];
+    const cue = { show: () => calls.push('show'), hide: () => calls.push('hide') };
+
+    const request = openCreateEventDialog(node, createParams(), { cue, stillWanted: () => true });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    expect(calls).toEqual(['show']);
+
+    abandonRequest(node);
+    expect(calls).toEqual(['show', 'hide']);
+    release();
+    await request;
+
+    expect(calls).toEqual(['show', 'hide']);
+    expect(dispatched).toEqual([]);
+  });
+
+  it("leaves another element's request alone", async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const asker = host();
+    const other = host();
+
+    const request = openCreateEventDialog(asker.node, createParams());
+    abandonRequest(other.node);
+    release();
+    await request;
+
+    expect(asker.dispatched.map(({ type }) => type)).toEqual(['show-dialog']);
   });
 });

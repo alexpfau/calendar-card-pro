@@ -10,6 +10,7 @@
 
 import { fireHassAction } from './actions';
 import type { DetailEntry } from './event-details';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
@@ -74,6 +75,29 @@ export interface DetailDialogParams {
   canEdit: boolean;
   canDelete: boolean;
   updated: DialogUpdated;
+}
+
+/**
+ * How a press shows that its dialog is still loading: shown once a load has run past
+ * `TIMING.BUSY_CUE_DELAY`, hidden again when the dialog opens, the card falls back, or a newer
+ * press replaces this one.
+ */
+export interface BusyCue {
+  show(): void;
+  hide(): void;
+}
+
+/** What a press adds to its request, beyond what the dialog is opened with. */
+export interface OpenOptions {
+  /** How the press shows that the dialog is loading, if it does. */
+  cue?: BusyCue;
+  /**
+   * Whether the card that asked still wants the dialog, read when the cue would show and again
+   * once the dialog has loaded. A card removed from the page, or being edited by then, opens
+   * nothing, falls back to nothing, and shows no cue: the first load can take seconds, and
+   * nothing that writes may open while a card is edited.
+   */
+  stillWanted?: () => boolean;
 }
 
 interface ShowDialogDetail {
@@ -168,6 +192,45 @@ interface OpenRequest {
   node: HTMLElement;
   params: CreateDialogParams | DetailDialogParams;
   fallback(): void;
+  cue?: BusyCue;
+  stillWanted?: () => boolean;
+  /** The timer that shows the cue, while it has not fired. */
+  cueTimer?: number;
+  /** Whether the cue is showing. */
+  cueShown?: boolean;
+}
+
+/**
+ * Start a request's cue once its dialog has taken longer than a moment to load. A dialog
+ * anything in the session has opened is defined, so its load ends in the same task and
+ * `endCue` clears the timer long before it could fire: such a press shows nothing.
+ *
+ * @param request - The request
+ */
+function armCue(request: OpenRequest): void {
+  if (!request.cue) return;
+  request.cueTimer = window.setTimeout(() => {
+    request.cueTimer = undefined;
+    if (waiting !== request || request.stillWanted?.() === false) return;
+    request.cueShown = true;
+    request.cue?.show();
+  }, Constants.TIMING.BUSY_CUE_DELAY);
+}
+
+/**
+ * End a request's cue, whether it is showing or still to come.
+ *
+ * @param request - The request
+ */
+function endCue(request: OpenRequest): void {
+  if (request.cueTimer !== undefined) {
+    window.clearTimeout(request.cueTimer);
+    request.cueTimer = undefined;
+  }
+  if (request.cueShown) {
+    request.cueShown = false;
+    request.cue?.hide();
+  }
 }
 
 /**
@@ -297,18 +360,38 @@ export function ensureDialogLoaded(tag: DialogTag, calendarId: string): Promise<
 //-----------------------------------------------------------------------------
 
 /**
+ * Drop the request an element is waiting on, if it is the one waiting: its cue ends at once,
+ * and it opens nothing once its dialog loads, nor falls back.
+ *
+ * For a card removed from the page or starting to be edited while its press waits on the first
+ * load, which can take seconds. `stillWanted` would refuse the dialog once it loaded, but a cue
+ * already showing would pulse on until then, and a card put back in the meantime would be
+ * asked again and answer yes. Dropping the request settles it for good.
+ *
+ * @param node - The element that asked: the card
+ */
+export function abandonRequest(node: HTMLElement): void {
+  if (!waiting || waiting.node !== node) return;
+  endCue(waiting);
+  waiting = undefined;
+}
+
+/**
  * Open a dialog once it is defined, or run the fallback when it cannot be loaded.
  *
  * Presses made while a dialog is still loading do not each open one once it arrives: the
  * newest request, for either dialog, replaces any older one still waiting, so only one
- * dialog opens, the newest, with the newest parameters.
+ * dialog opens, the newest, with the newest parameters. Only the newest shows its cue, too.
  *
  * @param tag - Dialog to open
- * @param request - Where to dispatch, what to pass, and what to do on failure
+ * @param request - Where to dispatch, what to pass, what to do on failure, and how to show
+ *   that the dialog is loading
  * @returns Resolves once the request has opened the dialog, fallen back, or been replaced
  */
 async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
+  if (waiting && waiting !== request) endCue(waiting);
   waiting = request;
+  armCue(request);
 
   let failure: unknown;
   let failed = false;
@@ -319,8 +402,14 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
     failure = error;
   }
 
+  endCue(request);
   if (waiting !== request) return;
   waiting = undefined;
+
+  if (request.stillWanted?.() === false) {
+    Logger.debug(`Not opening ${tag}: the card that asked no longer wants it`);
+    return;
+  }
 
   if (failed) {
     Logger.warn(`Could not load ${tag}, falling back`, failure);
@@ -380,16 +469,19 @@ function showMoreInfo(node: HTMLElement, entityId: string): void {
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
+ * @param options - The press's cue, and whether the card still wants the dialog
  * @returns Resolves once the request has been dealt with
  */
 export function openCreateEventDialog(
   node: HTMLElement,
   params: CreateDialogParams,
+  options: OpenOptions = {},
 ): Promise<void> {
   return openDialog(EVENT_EDITOR_DIALOG_TAG, {
     node,
     params,
     fallback: () => navigateToCalendarPanel(node),
+    ...options,
   });
 }
 
@@ -401,15 +493,18 @@ export function openCreateEventDialog(
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
+ * @param options - The press's cue, and whether the card still wants the dialog
  * @returns Resolves once the request has been dealt with
  */
 export function openEventDetailDialog(
   node: HTMLElement,
   params: DetailDialogParams,
+  options: OpenOptions = {},
 ): Promise<void> {
   return openDialog(EVENT_DETAIL_DIALOG_TAG, {
     node,
     params,
     fallback: () => showMoreInfo(node, params.calendarId),
+    ...options,
   });
 }

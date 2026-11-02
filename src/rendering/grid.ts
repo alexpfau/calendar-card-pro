@@ -847,6 +847,7 @@ function renderTimedEvent(
           ...horizontal.style,
           '--calendar-card-grid-raised-top': `${placement.topPct}cqh`,
         })}
+        .calendarCardDaySlot=${Activation.COVERED}
       >
         <div class="grid-event-backdrop-ground">
           <div class="grid-event-backdrop-rules"></div>
@@ -885,6 +886,7 @@ function renderTimedEvent(
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       ${Leaves.renderAccentBar()}
       <div
@@ -1005,6 +1007,7 @@ function renderOverflow(
         ...verticalGeometry(placement, edges),
         ...horizontal.style,
       })}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       <div class="grid-event-overflow-label">${label}</div>
     </div>
@@ -1072,6 +1075,7 @@ function renderBanner(
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
+      .calendarCardDaySlot=${Activation.COVERED}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>
     </div>
@@ -1259,6 +1263,7 @@ export function renderGridGroupedEvents(
   cascadeThresholdMin: number = CascadeThreshold.CASCADE_THRESHOLD_FLOOR_MIN,
   overflowStripPct = Infinity,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1283,9 +1288,10 @@ export function renderGridGroupedEvents(
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const boundaries = computeDayBoundaries(gridDays);
-  // Each day's header names the day for its tappable events; ids only while there are any.
+  // Each day's header names the day for its tappable events and its add button; ids only
+  // while there are any.
   const dayLabelIds = gridDays.map((day) =>
-    eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined,
+    eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined,
   );
 
   const banners = layoutBanners(gridDays, maxRows);
@@ -1443,7 +1449,16 @@ export function renderGridGroupedEvents(
       ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
-        renderDayHeader(day, config, language, index, weatherForecasts, hass, dayLabelIds[index]),
+        renderDayHeader(
+          day,
+          config,
+          language,
+          index,
+          weatherForecasts,
+          hass,
+          dayLabelIds[index],
+          dayAdd,
+        ),
       )}
       ${
         bandRows > 0
@@ -1463,6 +1478,7 @@ export function renderGridGroupedEvents(
                   gridTemplateColumns: 'subgrid',
                   gridTemplateRows: `repeat(${bandRows}, auto)`,
                 })}
+                .calendarCardDaySlot=${Activation.COLUMNS_AMONG_SIBLINGS}
               >
                 ${banners.map((banner) =>
                   renderBanner(
@@ -1556,7 +1572,9 @@ function renderWeekNumbers(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
- * @param dayLabelId - The header's id, given only while the day's events are tap targets
+ * @param dayLabelId - The day's id, given only while the day's events are tap targets or the
+ *   header is the day's add button
+ * @param dayAdd - How to draw the header as the day's add button, or undefined for none
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -1567,6 +1585,7 @@ function renderDayHeader(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   dayLabelId?: string,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
@@ -1582,6 +1601,7 @@ function renderDayHeader(
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
     >
       ${Leaves.renderSharedDayHeader(
         dayDate,
@@ -1592,6 +1612,7 @@ function renderDayHeader(
         null,
         hass,
         dayLabelId,
+        dayAdd && { label: dayAdd.label, timestamp: day.timestamp },
       )}
     </div>
   `;
@@ -1728,6 +1749,7 @@ function renderDayBody(
         weekend: FormatUtils.isWeekendDate(dayDate, hass),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
+      .calendarCardDaySlot=${Activation.timeSlot(day.timestamp, band.startMin, band.endMin)}
     >
       ${
         nowPct === null

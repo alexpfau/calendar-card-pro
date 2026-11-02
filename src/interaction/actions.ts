@@ -2,9 +2,10 @@
  * Action handling for Calendar Card Pro.
  *
  * Standard actions are delegated to Home Assistant via `hass-action`; only
- * card-specific actions (`expand`, `refresh`) are handled locally.
+ * card-specific actions (`expand`, `refresh`, `add-event`) are handled locally.
  */
 
+import { ADD_EVENT_ACTION } from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
@@ -52,11 +53,13 @@ export interface CardActionCallbacks {
   expand?: () => void;
   /** `refresh`: load the events again now. */
   refresh?: () => void;
+  /** `add-event`: open Home Assistant's new-event dialog, where the press landed. */
+  addEvent?: () => void;
 }
 
 /**
- * Handle an action: the card's own (`expand`, `refresh`) here, every other one by delegating
- * to HA's native action handler.
+ * Handle an action: the card's own (`expand`, `refresh`, `add-event`) here, every other one by
+ * delegating to HA's native action handler.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
@@ -83,6 +86,12 @@ export function handleAction(
   if (actionConfig.action === 'refresh') {
     callbacks.refresh?.();
     Logger.debug('Executed refresh action');
+    return;
+  }
+
+  if (actionConfig.action === ADD_EVENT_ACTION) {
+    callbacks.addEvent?.();
+    Logger.debug('Executed add-event action');
     return;
   }
 

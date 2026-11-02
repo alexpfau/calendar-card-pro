@@ -67,3 +67,81 @@ export function removeHoldIndicator(indicator: HTMLElement): void {
     }
   }, Constants.TIMING.HOLD_INDICATOR_FADEOUT);
 }
+
+/**
+ * A point the busy cue is centered on, in viewport coordinates, and how the press was made:
+ * a touch draws it at a fingertip's size, anything else at a pointer's.
+ */
+export interface BusyCueOrigin {
+  readonly x: number;
+  readonly y: number;
+  readonly pointerType?: string;
+}
+
+/**
+ * Show that a press is waiting for one of Home Assistant's dialogs to load: the hold
+ * indicator's circle at the press, pulsing softly until the dialog opens.
+ *
+ * Fixed and on `document.body` like the hold indicator, so nothing is added to the card's
+ * own DOM. It pulses through the Web Animations API, and stays still under
+ * `prefers-reduced-motion`.
+ *
+ * @param origin - Where the press was, and with what
+ * @param config - Card configuration, for its accent color
+ * @returns The cue, for `removeBusyCue`
+ */
+export function createBusyCue(origin: BusyCueOrigin, config: Types.Config): HTMLElement {
+  const cue = document.createElement('div');
+  const size =
+    origin.pointerType === 'touch'
+      ? Constants.UI.HOLD_INDICATOR.TOUCH_SIZE
+      : Constants.UI.HOLD_INDICATOR.POINTER_SIZE;
+
+  cue.className = 'calendar-card-pro-busy-cue';
+  cue.setAttribute('aria-hidden', 'true');
+  cue.style.position = 'fixed';
+  cue.style.pointerEvents = 'none';
+  cue.style.zIndex = '9999';
+  cue.style.borderRadius = '50%';
+  cue.style.backgroundColor = config.accent_color;
+  cue.style.opacity = `${Constants.UI.HOLD_INDICATOR_OPACITY}`;
+  cue.style.transform = 'translate(-50%, -50%) scale(1)';
+  cue.style.left = origin.x + 'px';
+  cue.style.top = origin.y + 'px';
+  cue.style.width = `${size}px`;
+  cue.style.height = `${size}px`;
+
+  document.body.appendChild(cue);
+
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+  if (!still && typeof cue.animate === 'function') {
+    const opacity = Constants.UI.HOLD_INDICATOR_OPACITY;
+    const pulse = cue.animate(
+      [
+        { transform: 'translate(-50%, -50%) scale(0.7)', opacity: opacity * 0.6 },
+        { transform: 'translate(-50%, -50%) scale(1)', opacity },
+        { transform: 'translate(-50%, -50%) scale(0.7)', opacity: opacity * 0.6 },
+      ],
+      {
+        duration: Constants.TIMING.BUSY_CUE_PULSE,
+        iterations: Infinity,
+        easing: 'ease-in-out',
+      },
+    );
+    // Removing the cue cancels its pulse, which rejects `finished`.
+    pulse.finished?.catch(() => undefined);
+  }
+
+  Logger.debug('Created busy cue');
+  return cue;
+}
+
+/**
+ * Fade a busy cue out and remove it.
+ *
+ * @param cue - The cue `createBusyCue` returned
+ */
+export function removeBusyCue(cue: HTMLElement): void {
+  for (const animation of cue.getAnimations?.() ?? []) animation.cancel();
+  removeHoldIndicator(cue);
+}

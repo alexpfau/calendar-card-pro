@@ -51,6 +51,7 @@ customElements.define('editor-card-actions-probe', CalendarCardProEditor);
 const EXPECTED_ACTIONS = [
   'expand',
   'refresh',
+  'add-event',
   'more-info',
   'toggle',
   'navigate',
@@ -85,13 +86,14 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('names expand and refresh as card actions rather than Home Assistant ones', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh']);
+  it('names expand, refresh and add-event as card actions rather than Home Assistant ones', () => {
+    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh', 'add-event']);
   });
 
   it('puts the card actions ahead of Home Assistant’s, so they are not buried', () => {
     expect(ACTION_OPTIONS.indexOf('expand')).toBe(0);
     expect(ACTION_OPTIONS.indexOf('refresh')).toBe(1);
+    expect(ACTION_OPTIONS.indexOf('add-event')).toBe(2);
   });
 
   it('gives both dropdowns the same list, through a ui_action selector', () => {

@@ -41,6 +41,7 @@ import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend'
 import { setSurfaceColor, surfaceColor } from './surface';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
+import { UNLOCALIZED_ADD_EVENT_NAME } from '../interaction/add-event';
 import type { MonthHeadingText } from '../utils/paging';
 
 //-----------------------------------------------------------------------------
@@ -51,7 +52,11 @@ import type { MonthHeadingText } from '../utils/paging';
 export interface AddEventButton {
   /** Home Assistant's own words for the button, or undefined when it offers none. */
   label: string | undefined;
-  onActivate: () => void;
+  /**
+   * Runs on activation, handed the button, so a cue can show where it was pressed, and the kind
+   * of pointer that pressed it (`mouse`, `touch`, `pen`), or undefined for a key.
+   */
+  onActivate: (button: HTMLElement, pressed: string | undefined) => void;
 }
 
 /**
@@ -193,14 +198,9 @@ export interface HeaderToolbar {
 //-----------------------------------------------------------------------------
 
 /**
- * The add button's accessible name when Home Assistant has no string for it.
- *
- * Only ever an `aria-label`: an English word drawn on a card set to another language would
- * be worse than an icon.
+ * The arrows' accessible names when Home Assistant has none, under the rule the add button's
+ * follows (`UNLOCALIZED_ADD_EVENT_NAME`).
  */
-const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
-
-/** The arrows' accessible names when Home Assistant has none, under the same rule. */
 const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
 const UNLOCALIZED_NEXT_NAME = 'Next';
 
@@ -224,10 +224,16 @@ export const VIEW_LABEL_KEYS = {
 /**
  * Keep a press on a toolbar control from also becoming a press on the card.
  *
+ * Only the controls keep their presses: each button, and the two groups drawn as one, the view
+ * switcher's track and the date arrows, whose gaps are a near miss rather than room. The rows
+ * around them are the card's, as the space around an event is, so a press there runs the card's
+ * tap and hold and can swipe, and the ripple answers it.
+ *
  * `pointerdown` is what arms the card's tap and hold gesture, and the card captures the
  * pointer there, so stopping it is what keeps the card's `tap_action` and `hold_action`
  * out of a press on the control. `click` is stopped so nothing above the card mistakes
- * the press for a tap on the card. `keydown` is deliberately left alone: the card already
+ * the press for a tap on the card, the one the month's hidden date input is sent where a browser
+ * cannot show its picker included. `keydown` is deliberately left alone: the card already
  * ignores keys aimed at anything but itself, and stopping every key would hide them from
  * Home Assistant's own keyboard shortcuts.
  *
@@ -340,9 +346,11 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
  * @returns The button
  */
 function renderAddEventButton(button: AddEventButton): TemplateResult {
-  const onClick = (ev: Event) => {
+  const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
-    button.onActivate();
+    // A click a key made on a button has no detail; a pointer's counts its clicks.
+    const pointerType = (ev as Partial<PointerEvent>).pointerType || 'mouse';
+    button.onActivate(ev.currentTarget as HTMLElement, ev.detail > 0 ? pointerType : undefined);
   };
 
   return html`<button
@@ -504,7 +512,13 @@ function renderViewPictogram(view: Types.EffectiveView): TemplateResult {
  * @returns The switcher
  */
 function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateResult {
-  return html`<div class="view-switcher" role="group">
+  // The gray track around the segments is the switcher's too, so a near miss on it does nothing.
+  return html`<div
+    class="view-switcher"
+    role="group"
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
+  >
     ${switcher.views.map((option) => {
       const pressed = option.view === switcher.selected;
       const className = [
@@ -642,7 +656,15 @@ function renderDateNavigation(nav: DateNavigation): TemplateResult {
       </svg>
     </button>`;
 
-  return html`<div class="date-navigation" role="group" aria-labelledby="toolbar-range-text">
+  // The arrows stand 4px apart, one group, so a press between two of them is a near miss and
+  // does nothing.
+  return html`<div
+    class="date-navigation"
+    role="group"
+    aria-labelledby="toolbar-range-text"
+    @pointerdown=${stopCardGesture}
+    @click=${stopCardGesture}
+  >
     ${segment(nav.previousName, UNLOCALIZED_PREVIOUS_NAME, mdiChevronLeft, nav.onPrevious, true)}
     ${
       nav.homeConfirming
@@ -794,6 +816,7 @@ function renderMonth(heading: MonthHeading, nav: DateNavigation | undefined): Te
         aria-hidden="true"
         aria-labelledby="toolbar-range-text"
         .value=${nav.pickerValue}
+        @click=${stopCardGesture}
         @change=${onChange}
       />
     </span>
@@ -846,9 +869,8 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
  * in the middle of the card while there is room for that. Both groups space their icons alike,
  * so the end reads as the start does.
  *
- * The press guard sits on the row's own box as well as on each control, because the
- * switcher's gray track and the gaps between controls are part of the row but no button: a
- * near miss there must do nothing, not run the card's tap or hold action.
+ * The row itself is the card's: a press between its controls runs the card's tap and hold, as
+ * one beside an event does. Only the controls keep theirs (`stopCardGesture`).
  *
  * @param toolbar - The controls the card wants
  * @param labeled - Whether the view switcher names its views in words
@@ -862,11 +884,7 @@ function renderActionRow(
   const legend = foldedLegend(toolbar);
   const resetAlone = !legend && !toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.refresh;
 
-  return html`<div
-    class="card-toolbar toolbar-actions"
-    @pointerdown=${stopCardGesture}
-    @click=${stopCardGesture}
-  >
+  return html`<div class="card-toolbar toolbar-actions">
     <div class="toolbar-start">
       ${legend ? renderLegendButton(legend) : nothing}
       ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent) : nothing}
@@ -877,18 +895,6 @@ function renderActionRow(
       ${toolbar.refresh ? renderRefreshButton(toolbar.refresh) : nothing}
     </div>
   </div>`;
-}
-
-/**
- * Keep a press inside the heading row from becoming a press on the card, unless it is on the
- * title, which is the card's own and runs the card's tap and hold actions as it always has.
- *
- * @param ev - The event to keep inside the row
- */
-function stopHeadingGesture(ev: Event): void {
-  const target = ev.target as Element | null;
-  if (target?.closest?.('.card-header')) return;
-  ev.stopPropagation();
 }
 
 /**
@@ -905,8 +911,9 @@ function stopHeadingGesture(ev: Event): void {
  * beside them equally.
  *
  * The row is no group of its own, since it holds the card's heading; the arrows' group is,
- * named by the dates on screen. It keeps every press from the card, as the action row does,
- * except a press on the title (`stopHeadingGesture`).
+ * named by the dates on screen. The row is the card's, as the action row is: the title, the
+ * month's words where they are no button, and the space between them run the card's tap and
+ * hold. Only its controls keep their presses: the month's date picker, the chips and the arrows.
  *
  * @param toolbar - The controls the card wants
  * @param title - The header's title block: the `h1`, or the empty placeholder without a title
@@ -924,11 +931,7 @@ function renderHeadingRow(toolbar: HeaderToolbar, title: TemplateResult): Templa
     .filter((cls) => cls !== '')
     .join(' ');
 
-  return html`<div
-    class=${className}
-    @pointerdown=${stopHeadingGesture}
-    @click=${stopHeadingGesture}
-  >
+  return html`<div class=${className}>
     <div class="toolbar-identity">
       ${title}${heading ? renderMonth(heading, toolbar.navigation) : nothing}
     </div>

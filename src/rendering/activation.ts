@@ -9,6 +9,10 @@
  * card or a hold. An event therefore stops nothing. It only carries what it is, under a
  * property the recognizer looks for, plus the role and tab stop that make it a button and
  * the reference to its day's header that describes it.
+ *
+ * Days are marked the same way, for adding an event where a press lands (`DaySlot`): each
+ * view's day element says which day it is, a grid body which hours it spans, and every
+ * event that it covers the day beneath it.
  */
 
 import * as Types from '../config/types';
@@ -111,4 +115,289 @@ export function findEventTap(
     if (target) return { element: node, target };
   }
   return undefined;
+}
+
+//-----------------------------------------------------------------------------
+// DAYS
+//-----------------------------------------------------------------------------
+
+/**
+ * What a press on one rendered element stands for, when a press there may add an event.
+ *
+ * - `day`: the element is one day's own, and its empty parts add on that day: a list day, a
+ *   column-view day column, a grid day header.
+ * - `time`: a grid day's time area, which adds at the hour under the pointer.
+ * - `columns`: space that belongs to no day element, under a short column-view column or in
+ *   a grid's all-day band, whose day is the one whose column the pointer is in. `among`
+ *   names where those columns are: the element's children, or its siblings.
+ * - `covered`: an event, or a grid `+N` block standing for several. It covers the day
+ *   beneath it, so a press on it never adds there.
+ *
+ * Set through a Lit property binding like the tap target, so it leaves no trace in the markup.
+ */
+export type DaySlot =
+  | { readonly kind: 'day'; readonly timestamp: number }
+  | {
+      readonly kind: 'time';
+      readonly timestamp: number;
+      /** First minute of the day the area shows, from midnight. */
+      readonly startMin: number;
+      /** Minute the area ends at, from midnight, exclusive. */
+      readonly endMin: number;
+    }
+  | { readonly kind: 'columns'; readonly among: 'children' | 'siblings' }
+  | { readonly kind: 'covered' };
+
+/** A rendered element that may carry a day slot. */
+export interface DaySlotElement extends Element {
+  calendarCardDaySlot?: DaySlot;
+}
+
+/** The slot every event and `+N` block carries. */
+export const COVERED: DaySlot = Object.freeze({ kind: 'covered' });
+
+/** The slot of a column-view grid, whose day columns are its children. */
+export const COLUMNS_AMONG_CHILDREN: DaySlot = Object.freeze({
+  kind: 'columns',
+  among: 'children',
+});
+
+/** The slot of a grid's all-day band, whose day headers and bodies are its siblings. */
+export const COLUMNS_AMONG_SIBLINGS: DaySlot = Object.freeze({
+  kind: 'columns',
+  among: 'siblings',
+});
+
+/**
+ * One day's own slot.
+ *
+ * @param timestamp - The day's local midnight, as grouping stamps it
+ * @returns The slot
+ */
+export function daySlot(timestamp: number): DaySlot {
+  return { kind: 'day', timestamp };
+}
+
+/**
+ * The slot of one day's time area in a grid.
+ *
+ * @param timestamp - The day's local midnight
+ * @param startMin - First minute the area shows, from midnight
+ * @param endMin - Minute it ends at, exclusive
+ * @returns The slot
+ */
+export function timeSlot(timestamp: number, startMin: number, endMin: number): DaySlot {
+  return { kind: 'time', timestamp, startMin, endMin };
+}
+
+/**
+ * The slot a node carries, if any.
+ *
+ * @param node - Any event target
+ * @returns Its slot, or undefined
+ */
+export function daySlotOn(node: EventTarget | null | undefined): DaySlot | undefined {
+  return (node as DaySlotElement | null | undefined)?.calendarCardDaySlot;
+}
+
+/** Where a press landed, for adding an event there. */
+export interface DayHit {
+  /**
+   * The day's element: a list day, a column-view day column, a grid header or time area.
+   * What the recognizer marks while the press is down, so the day it would add on is washed.
+   */
+  readonly element: Element;
+  /** The day's local midnight. */
+  readonly timestamp: number;
+  /** The hour under the pointer, for a press in a grid's time area; otherwise undefined. */
+  readonly hour?: number;
+  /** The minutes the time area spans, for a press in one. */
+  readonly band?: { readonly startMin: number; readonly endMin: number };
+}
+
+/** A pointer position in viewport coordinates, as a pointer event carries it. */
+export interface ViewportPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The hour a point in a grid's time area falls in.
+ *
+ * The area's scale is linear in wall-clock minutes from `startMin` to `endMin`, as the
+ * blocks in it are placed (`computeEventPlacement` in `utils/grid.ts`). A point on the
+ * area's lower edge belongs to its last hour, so an area ending at `24:00` never answers 24.
+ *
+ * @param rect - The area's client rect
+ * @param y - The pointer's viewport y
+ * @param startMin - First minute the area shows
+ * @param endMin - Minute it ends at, exclusive
+ * @returns The hour, 0 to 23
+ */
+export function hourAt(
+  rect: { top: number; height: number },
+  y: number,
+  startMin: number,
+  endMin: number,
+): number {
+  const span = endMin - startMin;
+  if (!(rect.height > 0) || !(span > 0))
+    return Math.min(23, Math.max(0, Math.floor(startMin / 60)));
+
+  const share = Math.min(1, Math.max(0, (y - rect.top) / rect.height));
+  const minute = Math.min(endMin - 1, startMin + share * span);
+  return Math.min(23, Math.max(0, Math.floor(minute / 60)));
+}
+
+/**
+ * The day whose column holds a point, among a container's day elements.
+ *
+ * For space that belongs to no day element. Every view lays its days out as columns, so the
+ * day is the one whose element spans the point across, read from the drawn rects rather
+ * than from the order of the days, which right to left runs the other way. A day header is
+ * preferred over a time area in the same column: a press in a grid's all-day band is on the
+ * day, at no hour. Column view also asks the point to be level with or below the column's
+ * top, so the row of week numbers above the columns stays the card's.
+ *
+ * @param candidates - Elements that may carry a day slot
+ * @param point - The press
+ * @param belowTop - Whether the point must not lie above the column
+ * @returns The day's element and slot, or undefined in a gutter or outside every column
+ */
+function dayInColumnAt(
+  candidates: Iterable<Element>,
+  point: ViewportPoint,
+  belowTop: boolean,
+): { element: Element; timestamp: number } | undefined {
+  let found: { element: Element; timestamp: number } | undefined;
+  for (const element of candidates) {
+    const slot = daySlotOn(element);
+    if (!slot || (slot.kind !== 'day' && slot.kind !== 'time')) continue;
+
+    const rect = element.getBoundingClientRect();
+    if (point.x < rect.left || point.x >= rect.right) continue;
+    if (belowTop && point.y < rect.top) continue;
+
+    if (slot.kind === 'day') return { element, timestamp: slot.timestamp };
+    found ??= { element, timestamp: slot.timestamp };
+  }
+  return found;
+}
+
+/**
+ * The day an input event landed on, and in a grid's time area the hour, read from the
+ * pointer-down's composed path and position.
+ *
+ * Innermost first, so an event, which covers its day, is met before the day around it, and
+ * ends the walk with nothing: a press on an event never adds there. A tappable event ends it
+ * the same way, carrying the tap marker even where no slot was drawn. With `throughEvents`
+ * events are walked past instead, which is how the card's own `add-event` action reads which
+ * day a hold on an event was on. Stops at `boundary`, like `findEventTap`.
+ *
+ * @param path - The input event's composed path, innermost first
+ * @param boundary - Where the walk ends, exclusive
+ * @param point - The pointer's viewport position
+ * @param throughEvents - Whether events are walked past rather than ending the walk
+ * @returns Where the press landed, or undefined off the days
+ */
+export function findDayHit(
+  path: ReadonlyArray<EventTarget>,
+  boundary: EventTarget | null,
+  point: ViewportPoint,
+  throughEvents = false,
+): DayHit | undefined {
+  for (const node of path) {
+    if (node === boundary) return undefined;
+    const slot = daySlotOn(node);
+    if (!throughEvents && (slot?.kind === 'covered' || tapTargetOn(node))) return undefined;
+    if (!slot || slot.kind === 'covered') continue;
+
+    const element = node as Element;
+    if (slot.kind === 'day') return { element, timestamp: slot.timestamp };
+
+    if (slot.kind === 'time') {
+      const rect = element.getBoundingClientRect();
+      return {
+        element,
+        timestamp: slot.timestamp,
+        hour: hourAt(rect, point.y, slot.startMin, slot.endMin),
+        band: { startMin: slot.startMin, endMin: slot.endMin },
+      };
+    }
+
+    const container = slot.among === 'children' ? element : element.parentElement;
+    if (!container) return undefined;
+    return dayInColumnAt(container.children, point, slot.among === 'children');
+  }
+  return undefined;
+}
+
+/**
+ * Where an hour sits in a grid's time area, as percentages of its height, for the wash a
+ * press there shows. Clipped to the area, so a band starting at 07:30 washes the half hour
+ * of 07:00 it shows.
+ *
+ * @param hour - The hour, 0 to 23
+ * @param band - The minutes the area spans
+ * @returns Top and height, in percent
+ */
+export function hourBandPct(
+  hour: number,
+  band: { readonly startMin: number; readonly endMin: number },
+): { topPct: number; heightPct: number } {
+  const span = band.endMin - band.startMin;
+  if (!(span > 0)) return { topPct: 0, heightPct: 0 };
+
+  const from = Math.max(band.startMin, hour * 60);
+  const until = Math.min(band.endMin, hour * 60 + 60);
+  return {
+    topPct: ((from - band.startMin) / span) * 100,
+    heightPct: (Math.max(0, until - from) / span) * 100,
+  };
+}
+
+/**
+ * A day's add button: the element a keyboard and assistive technology reach a day by, while a
+ * tap on a day adds an event there. The property names its day.
+ */
+export interface DayAddButtonElement extends Element {
+  calendarCardDayAdd?: number;
+}
+
+/**
+ * The day a node adds on, if it is a day's add button itself.
+ *
+ * @param node - Any event target
+ * @returns The day's local midnight, or undefined
+ */
+export function dayAddOn(node: EventTarget | null | undefined): number | undefined {
+  return (node as DayAddButtonElement | null | undefined)?.calendarCardDayAdd;
+}
+
+/**
+ * The day's add button an input event started on: the element, and its day.
+ *
+ * @param path - The input event's composed path, innermost first
+ * @param boundary - Where the walk ends, exclusive
+ * @returns The button and its day, or undefined
+ */
+export function findDayAdd(
+  path: ReadonlyArray<EventTarget>,
+  boundary: EventTarget | null,
+): { element: EventTarget; timestamp: number } | undefined {
+  for (const node of path) {
+    if (node === boundary) return undefined;
+    const timestamp = dayAddOn(node);
+    if (timestamp !== undefined) return { element: node, timestamp };
+  }
+  return undefined;
+}
+
+/**
+ * What a render needs to draw each day as a button that adds an event on it, or undefined
+ * while a tap on a day adds nothing.
+ */
+export interface DayAddButtons {
+  /** The buttons' accessible name: Home Assistant's own "Add event", or English. */
+  readonly label: string;
 }
