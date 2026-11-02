@@ -23,13 +23,15 @@ const KEYWORDS = TODAY_INDICATOR_STYLES.filter(
   (style) => Helpers.getTodayIndicatorType(style) === style,
 );
 
-/** Every other casing of a keyword: capitalized, upper case, and one with a later capital. */
+/** Every other casing of a keyword: each of its letters upper or lower case, all but lowercase. */
 function otherCasings(keyword: string): string[] {
-  return [
-    keyword[0].toUpperCase() + keyword.slice(1),
-    keyword.toUpperCase(),
-    keyword.slice(0, -1) + keyword.slice(-1).toUpperCase(),
-  ];
+  const casings: string[] = [];
+  for (let mask = 1; mask < 2 ** keyword.length; mask += 1) {
+    casings.push(
+      [...keyword].map((letter, i) => (mask & (1 << i) ? letter.toUpperCase() : letter)).join(''),
+    );
+  }
+  return casings;
 }
 
 const CASES = KEYWORDS.flatMap((keyword) =>
@@ -53,21 +55,15 @@ describe('today_indicator keywords match in any casing', () => {
     expect(KEYWORDS).toEqual(['tile', 'dot', 'pulse', 'glow']);
   });
 
-  it('has four cases per keyword besides lowercase, so a short list cannot pass', () => {
-    expect(CASES.map(([, value]) => value)).toEqual([
-      'Tile',
-      'TILE',
-      'tilE',
-      'Dot',
-      'DOT',
-      'doT',
-      'Pulse',
-      'PULSE',
-      'pulsE',
-      'Glow',
-      'GLOW',
-      'gloW',
-    ]);
+  it('tries every other casing of every keyword, so a matcher for a few cannot pass', () => {
+    const counts = Object.fromEntries(
+      KEYWORDS.map((keyword) => [keyword, CASES.filter(([of]) => of === keyword).length]),
+    );
+    expect(counts).toEqual({ tile: 15, dot: 7, pulse: 31, glow: 15 });
+    expect(new Set(CASES.map(([, value]) => value)).size).toBe(CASES.length);
+    expect(CASES.map(([, value]) => value)).toEqual(
+      expect.arrayContaining(['Tile', 'TILE', 'tIle', 'dOt', 'DOT', 'puLse', 'PULSE', 'gLOw']),
+    );
   });
 
   it.each(CASES)('reads %s written as %s as that keyword, in lowercase', (keyword, value) => {
