@@ -667,7 +667,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     or when a newer press replaces the request. A dialog already defined shows nothing
   - Asks the card whether it still wants the dialog (`stillWanted`) before the cue shows and
     again once the dialog has loaded. A card removed from the page, or being edited by then,
-    opens nothing and falls back to nothing: the first load can take seconds
+    opens nothing and falls back to nothing: the first load can take seconds. The card also
+    drops its waiting request when it is removed or editing begins (`abandonRequest`), which
+    ends a cue already showing at once and cannot be undone by putting the card back
 
 - **event-details.ts**:
   - Builds the detail dialog's entry from the event's `_source`, never from the rendered

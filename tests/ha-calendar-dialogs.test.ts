@@ -8,6 +8,7 @@ import {
   EVENT_DETAIL_DIALOG_TAG,
   EVENT_EDITOR_DIALOG_TAG,
   LOAD_TIMEOUT_MS,
+  abandonRequest,
   ensureDialogLoaded,
   openCreateEventDialog,
   openEventDetailDialog,
@@ -679,5 +680,43 @@ describe('a request the card no longer wants', () => {
     await openCreateEventDialog(node, createParams(), { stillWanted: () => false });
 
     expect(dispatched).toEqual([]);
+  });
+});
+
+describe('abandoning a request', () => {
+  it('ends a showing cue at once, and the request opens nothing even if wanted again', async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const { node, dispatched } = host();
+    const calls: string[] = [];
+    const cue = { show: () => calls.push('show'), hide: () => calls.push('hide') };
+
+    const request = openCreateEventDialog(node, createParams(), { cue, stillWanted: () => true });
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    expect(calls).toEqual(['show']);
+
+    abandonRequest(node);
+    expect(calls).toEqual(['show', 'hide']);
+    release();
+    await request;
+
+    expect(calls).toEqual(['show', 'hide']);
+    expect(dispatched).toEqual([]);
+  });
+
+  it("leaves another element's request alone", async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const asker = host();
+    const other = host();
+
+    const request = openCreateEventDialog(asker.node, createParams());
+    abandonRequest(other.node);
+    release();
+    await request;
+
+    expect(asker.dispatched.map(({ type }) => type)).toEqual(['show-dialog']);
   });
 });

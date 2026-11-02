@@ -1696,6 +1696,8 @@ class CalendarCardPro extends LitElement {
     }
 
     this._endGesture();
+    // A press still waiting on a dialog's first load opens nothing now, and its cue ends.
+    Dialogs.abandonRequest(this);
     this._derivedClick = null;
     this._spaceArmedOn = null;
     this._swipeArrival = null;
@@ -2773,6 +2775,12 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // Nothing that writes may open while the card is edited, a press still waiting on a
+    // dialog's first load included.
+    if ((changedProps.has('editMode') || changedProps.has('preview')) && this._isBeingEdited) {
+      Dialogs.abandonRequest(this);
+    }
+
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
     if (

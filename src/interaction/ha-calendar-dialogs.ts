@@ -360,6 +360,23 @@ export function ensureDialogLoaded(tag: DialogTag, calendarId: string): Promise<
 //-----------------------------------------------------------------------------
 
 /**
+ * Drop the request an element is waiting on, if it is the one waiting: its cue ends at once,
+ * and it opens nothing once its dialog loads, nor falls back.
+ *
+ * For a card removed from the page or starting to be edited while its press waits on the first
+ * load, which can take seconds. `stillWanted` would refuse the dialog once it loaded, but a cue
+ * already showing would pulse on until then, and a card put back in the meantime would be
+ * asked again and answer yes. Dropping the request settles it for good.
+ *
+ * @param node - The element that asked: the card
+ */
+export function abandonRequest(node: HTMLElement): void {
+  if (!waiting || waiting.node !== node) return;
+  endCue(waiting);
+  waiting = undefined;
+}
+
+/**
  * Open a dialog once it is defined, or run the fallback when it cannot be loaded.
  *
  * Presses made while a dialog is still loading do not each open one once it arrives: the
