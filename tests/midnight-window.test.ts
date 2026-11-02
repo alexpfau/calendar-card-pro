@@ -60,15 +60,33 @@ const EVENTS = [
   timed('Bakery', '2026-06-20'),
 ];
 
+/** A test sets this to answer with nothing for every window starting at it or later. */
+let emptyFrom = Infinity;
+
 /** Answers for the window asked about, as Home Assistant does: what overlaps it. */
 const callApi = vi.fn(async (_method: string, path: string) => {
   const query = new URLSearchParams(path.split('?')[1]);
   const from = Date.parse(query.get('start')!);
   const to = Date.parse(query.get('end')!);
+  if (from >= emptyFrom) return [];
   return EVENTS.filter(
     (event) => Date.parse(event.start.dateTime!) < to && Date.parse(event.end.dateTime!) > from,
   ).map((event) => ({ ...event }));
 });
+
+/** A `localStorage` that holds nothing and refuses every write, as a full or blocked one does. */
+function refusingStorage(): Storage {
+  return {
+    getItem: () => null,
+    setItem: () => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    },
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  } as Storage;
+}
 
 function hass(): Record<string, unknown> {
   return {
@@ -123,6 +141,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   EventUtils.clearPageStore();
   callApi.mockClear();
+  emptyFrom = Infinity;
   document.body.innerHTML = '';
 });
 
@@ -271,13 +290,35 @@ describe('a grid with its now line, at midnight', () => {
     expect(card._midnightTimerId).not.toBeNull();
   }
 
-  it.each([
-    ['after', 30_000],
-    ['before', 500],
-  ] as const)(
-    'asks once while it sheds columns, its line ticking %s the midnight timer',
-    async (_order, offsetMs) => {
-      const card = await mountAt(offsetMs, {});
+  /**
+   * What is stored for the new window once it is fetched. The cache alone shares one request
+   * only in the first case: a window with no events is kept for 15 seconds, and a browser that
+   * refuses to store keeps nothing.
+   */
+  const STORED = {
+    'its events': { arrange: () => {}, drawn: ['Dentist'] },
+    'no events': {
+      arrange: () => {
+        emptyFrom = Date.parse('2026-06-18T00:00:00.000Z');
+      },
+      drawn: [],
+    },
+    'nothing, the browser refusing to store': {
+      arrange: () => vi.stubGlobal('localStorage', refusingStorage()),
+      drawn: ['Dentist'],
+    },
+  } as const;
+  const STORED_CASES = Object.keys(STORED) as Array<keyof typeof STORED>;
+
+  it.each(
+    (['after', 'before'] as const).flatMap((order) =>
+      STORED_CASES.map((stored) => [order, stored] as const),
+    ),
+  )(
+    'asks once while it sheds columns, its line ticking %s the midnight timer, storing %s',
+    async (order, stored) => {
+      STORED[stored].arrange();
+      const card = await mountAt(order === 'after' ? 30_000 : 500, {});
       await shed(card);
       expect(callApi).toHaveBeenCalledTimes(1);
 
@@ -286,13 +327,15 @@ describe('a grid with its now line, at midnight', () => {
       expect(callApi).toHaveBeenCalledTimes(2);
       const query = new URLSearchParams(String(callApi.mock.calls[1][1]).split('?')[1]);
       expect(query.get('start')).toBe('2026-06-18T00:00:00.000Z');
-      expect(drawn(card)).toEqual(['Dentist']);
+      expect(drawn(card)).toEqual(STORED[stored].drawn);
     },
   );
 
   it('shares the one request with a list card on the same calendars', async () => {
     // Both cards keep their events under one key. The list card's midnight timer fetches the
-    // new window; the line's tick, half a minute later, finds it stored.
+    // new window; the line's tick, half a minute later, finds it stored. Two cards share it
+    // only through the cache, so a window with no events, or a browser storing nothing, would
+    // cost the grid a request of its own here.
     const list = await mountAt(30_000, { view: 'list' });
     const grid = await mount({ view: 'grid', time_grid: { show_past_events: true } });
     expect(callApi).toHaveBeenCalledTimes(1);
@@ -307,30 +350,34 @@ describe('a grid with its now line, at midnight', () => {
     expect(drawn(grid)).toEqual(['Dentist', 'Piano']);
   });
 
-  it('asks nothing more when its tab comes back after the midnight timer fetched', async () => {
-    // The midnight timer runs in a hidden tab and the line's does not, so on the way back the
-    // line sees a day it has not loaded for, the new window already stored. The tab comes back
-    // three minutes past midnight, inside the five minutes after a load in which its return
-    // asks for nothing of its own, which would otherwise take the line's load's place.
-    const card = await mountAt(30_000, {});
-    await shed(card);
-    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
-    try {
-      document.dispatchEvent(new Event('visibilitychange'));
-      await vi.advanceTimersByTimeAsync(12.5 * 60_000);
-      await settle(card);
-      expect(callApi).toHaveBeenCalledTimes(2);
+  it.each(STORED_CASES)(
+    'asks nothing more when its tab comes back after the midnight timer fetched, storing %s',
+    async (stored) => {
+      // The midnight timer runs in a hidden tab and the line's does not, so on the way back the
+      // line sees a new day. The tab comes back three minutes past midnight, inside the five
+      // minutes after a load in which its return asks for nothing of its own, which would
+      // otherwise take the line's load's place.
+      STORED[stored].arrange();
+      const card = await mountAt(30_000, {});
+      await shed(card);
+      const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      try {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(12.5 * 60_000);
+        await settle(card);
+        expect(callApi).toHaveBeenCalledTimes(2);
 
-      visibility.mockReturnValue('visible');
-      document.dispatchEvent(new Event('visibilitychange'));
-      await settle(card);
+        visibility.mockReturnValue('visible');
+        document.dispatchEvent(new Event('visibilitychange'));
+        await settle(card);
 
-      expect(callApi).toHaveBeenCalledTimes(2);
-      expect(drawn(card)).toEqual(['Dentist']);
-    } finally {
-      visibility.mockRestore();
-    }
-  });
+        expect(callApi).toHaveBeenCalledTimes(2);
+        expect(drawn(card)).toEqual(STORED[stored].drawn);
+      } finally {
+        visibility.mockRestore();
+      }
+    },
+  );
 
   it('fetches nothing on fixed dates, as no card on fixed dates does', async () => {
     const card = await mountAt(30_000, { start_date: '2026-06-17' });
