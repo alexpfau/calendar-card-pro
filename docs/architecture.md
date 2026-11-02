@@ -1047,12 +1047,15 @@ graph TD
      if the cache is due
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
    - While grid view draws its now line, a timer repaints it once a minute
-     (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
-     including a rollover that passed while the timer was stopped
+     (`_syncNowLineTimer`, `_tickNowLine`) and runs a `cache` load when the local day rolls
+     over, including a rollover that passed while the timer was stopped. It fetches only if
+     the window moved and nothing stored the new one: a grid shedding day columns hears
+     about midnight from the timer below as well, and another card on the same calendars may
+     have fetched it a moment before
    - A timer fires just after local midnight (`_syncMidnightTimer`) while column or grid view
      draws fewer day columns than its own `days_to_show`, and while the window follows today:
      no `start_date`, or a relative one (`startDateFollowsToday`), in any view but a grid
-     drawing its now line, whose own tick refetches then. It re-renders, so the visible window
+     drawing its now line, whose own tick loads then. It re-renders, so the visible window
      moves to the new today, and runs a `cache` load, which fetches only if the window it
      asks for moved or the cache is due. Without it a list card drew the new last day empty
      until its next refresh
@@ -1069,14 +1072,14 @@ Every load above names one of the six modes `updateEvents` takes (`LoadMode`); i
 docblock holds the last two columns of this table. Every mode but `reload` joins a matching
 request already in flight rather than stopping at the cache.
 
-| Mode        | Used by                                                                                             | Draws the cache                | Asks Home Assistant when                                                                  |
-| ----------- | --------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `navigate`  | the card appearing, or configured before it first loaded                                            | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
-| `page`      | turning to another page with the date navigation, or back home (`_loadPage`)                        | anything up to 24 h old, first | nothing cached, or the cache due                                                          |
-| `cache`     | the refresh timer, a returning tab, the midnight timer                                              | only if not due                | nothing fresh is cached                                                                   |
-| `reprocess` | a per-calendar edit                                                                                 | anything up to 24 h old        | nothing is cached at all                                                                  |
-| `network`   | a later configuration change, the grid day rollover, going home after a calendar changed while away | no                             | always, joining a matching request under way                                              |
-| `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action                       | no                             | always, never joining a request from before the write                                     |
+| Mode        | Used by                                                                       | Draws the cache                | Asks Home Assistant when                                                                  |
+| ----------- | ----------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `navigate`  | the card appearing, or configured before it first loaded                      | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
+| `page`      | turning to another page with the date navigation, or back home (`_loadPage`)  | anything up to 24 h old, first | nothing cached, or the cache due                                                          |
+| `cache`     | the refresh timer, a returning tab, the midnight timer, the grid day rollover | only if not due                | nothing fresh is cached                                                                   |
+| `reprocess` | a per-calendar edit                                                           | anything up to 24 h old        | nothing is cached at all                                                                  |
+| `network`   | a later configuration change, going home after a calendar changed while away  | no                             | always, joining a matching request under way                                              |
+| `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action | no                             | always, never joining a request from before the write                                     |
 
 ### Interaction Flow
 
