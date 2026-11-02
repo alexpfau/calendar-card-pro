@@ -172,6 +172,34 @@ function changesGridStructure(record: MutationRecord): boolean {
   );
 }
 
+/** Whether the person asked for less motion, which turns a swipe's nudge and arrival off. */
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+}
+
+/**
+ * How far the days follow a swipe's finger: half its pace at first, easing toward
+ * `SWIPE_NUDGE_MAX` and never past it, so the hint stays a hint however far the finger goes.
+ *
+ * @param deltaX - Horizontal travel from pointer-down, positive to the right
+ * @returns The offset to draw the days at, in CSS pixels, with the finger's sign
+ */
+function resistedSwipeOffset(deltaX: number): number {
+  const max = Constants.UI.SWIPE_NUDGE_MAX;
+  return Math.sign(deltaX) * max * (1 - Math.exp(-Math.abs(deltaX) / (2 * max)));
+}
+
+/**
+ * Takes a swipe's offset off an element, and its `style` attribute with it when nothing else
+ * is left in it, so the card's markup reads as it did before the swipe.
+ *
+ * @param element - The content container the swipe moved
+ */
+function clearInlineTransform(element: HTMLElement): void {
+  element.style.removeProperty('transform');
+  if (!element.getAttribute('style')) element.removeAttribute('style');
+}
+
 /**
  * How far content may exceed its box before the grid calls it clipped.
  *
@@ -492,6 +520,24 @@ class CalendarCardPro extends LitElement {
    * gesture runs `event_tap_action` for it instead of the card's `tap_action`.
    */
   private _pointerTapTarget: Activation.EventTapHit | null = null;
+  /**
+   * Whether the active gesture may end as a swipe that pages: a touch or pen press, away from
+   * the screen's edges, on a card that swipes (`_swipeAvailable`). Decided at pointer-down.
+   */
+  private _pointerSwipeable = false;
+  /**
+   * The content container the active swipe nudges, while its days follow the finger, and the
+   * offset last written. Written straight onto that element's style, which no render binds.
+   */
+  private _swipeNudge: { element: HTMLElement; offset: number } | null = null;
+  /** The motion last started on the content container: a spring-back or an arrival. */
+  private _swipeMotion: Animation | null = null;
+  /**
+   * The page a swipe asked for, until it is drawn, and the side its days arrive from: `1` from
+   * the right, `-1` from the left. Physical rather than logical: the days arrive from where the
+   * finger came from, in either reading direction.
+   */
+  private _swipeArrival: { page: string | null; from: -1 | 1 } | null = null;
   /**
    * The `click` a browser owes the pointer gesture that just ended, and until when.
    *
@@ -1257,6 +1303,26 @@ class CalendarCardPro extends LitElement {
     return toolbar.show && toolbar.navigation;
   }
 
+  /**
+   * Whether a swipe across the days pages the card, as the date navigation's arrows do.
+   *
+   * It comes with the arrows, so a swipe always has a press beside it that does the same. Not
+   * while the card is being edited, where the arrows do nothing either, and not while it shows
+   * a crammed grid, whose days scroll sideways under the finger instead
+   * (`min_days_fallback: cramp`). Everywhere else the card keeps the browser's own touch
+   * behavior: a card that does not swipe changes nothing at all.
+   */
+  private get _swipeAvailable(): boolean {
+    return (
+      this._wantsNavigation &&
+      !this._isBeingEdited &&
+      !(
+        this.effectiveView === 'grid' &&
+        ViewConfig.resolveMinDaysFallback(this.effectiveConfig, 'grid') === 'cramp'
+      )
+    );
+  }
+
   /** Day columns this render draws while the layout drops some, `0` when it draws them all. */
   private get _shedColumns(): number {
     return this.effectiveView === 'list' ? 0 : this._shownColumnCount;
@@ -1525,6 +1591,9 @@ class CalendarCardPro extends LitElement {
     this._endGesture();
     this._derivedClick = null;
     this._spaceArmedOn = null;
+    this._swipeArrival = null;
+    this._swipeMotion?.cancel();
+    this._swipeMotion = null;
 
     this._stopNowLineTimer();
     this._stopMidnightTimer();
@@ -2597,6 +2666,7 @@ class CalendarCardPro extends LitElement {
     this._syncMidnightTimer();
     this._syncReplacedRefresh();
     this._syncNowBoundaryTimer();
+    this._syncSwipeArrival();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
     // draws re-measures neither, and neither does the now line's repaint. A resize reaches
     // the cascade through the width observer.
@@ -3278,15 +3348,17 @@ class CalendarCardPro extends LitElement {
    * This is also the one moment the tapped event is known. The capture below retargets
    * every later event of the gesture, the click included, to `ha-card`, so the event the
    * pointer landed on is read from this pointer-down's path and held until pointer-up. A
-   * card with no action of its own arms only for a pointer that landed on an event, so
-   * turning event taps on changes nothing about a press anywhere else.
+   * card with no action of its own arms only for a pointer that landed on an event, or for a
+   * touch or pen press that may become a swipe, so turning event taps on changes nothing
+   * about a press anywhere else.
    */
   private _handlePointerDown(ev: PointerEvent) {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
     const tapTarget = this._eventTapAt(ev);
-    if (!this._hasCardAction && !tapTarget) {
+    const swipeable = this._swipeStartsAt(ev);
+    if (!this._hasCardAction && !tapTarget && !swipeable) {
       return;
     }
     if (ev.isPrimary === false || this._activePointerId !== null) {
@@ -3298,6 +3370,7 @@ class CalendarCardPro extends LitElement {
     this._pointerMoved = false;
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
+    this._pointerSwipeable = swipeable;
     // A new gesture: whatever click the last one owed has had its chance.
     this._derivedClick = null;
     this._captureActivePointer(ev);
@@ -3343,34 +3416,36 @@ class CalendarCardPro extends LitElement {
    * hold: the indicator is the user's confirmation that the long-press landed,
    * and a few pixels of slip while lifting is normal on touch. Only motion
    * before that threshold turns the gesture into a drag.
+   *
+   * A gesture that may become a swipe keeps being followed past that point, and its days
+   * follow the finger (`_nudgeSwipe`).
    */
   private _handlePointerMove(ev: PointerEvent) {
-    if (
-      ev.pointerId !== this._activePointerId ||
-      this._pointerMoved ||
-      this._holdTriggered ||
-      !this._pointerStart
-    ) {
+    if (ev.pointerId !== this._activePointerId || this._holdTriggered || !this._pointerStart) {
       return;
     }
 
     const deltaX = ev.clientX - this._pointerStart.x;
     const deltaY = ev.clientY - this._pointerStart.y;
-    if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
-      return;
+    if (!this._pointerMoved) {
+      if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+        return;
+      }
+
+      this._pointerMoved = true;
+
+      if (this._holdTimer) {
+        clearTimeout(this._holdTimer);
+        this._holdTimer = null;
+      }
+
+      if (this._holdIndicator) {
+        Feedback.removeHoldIndicator(this._holdIndicator);
+        this._holdIndicator = null;
+      }
     }
 
-    this._pointerMoved = true;
-
-    if (this._holdTimer) {
-      clearTimeout(this._holdTimer);
-      this._holdTimer = null;
-    }
-
-    if (this._holdIndicator) {
-      Feedback.removeHoldIndicator(this._holdIndicator);
-      this._holdIndicator = null;
-    }
+    if (this._pointerSwipeable) this._nudgeSwipe(deltaX, deltaY);
   }
 
   /**
@@ -3382,6 +3457,10 @@ class CalendarCardPro extends LitElement {
    * fired `hold_action`/`tap_action` and cleared state while the primary
    * button was still down. Touch and pen primary contacts report `button === 0`;
    * unit stubs may omit the field entirely.
+   *
+   * A hold, an event's tap and the card's tap all need a pointer that stayed put. A gesture
+   * that moved, held nothing and could swipe ends as a swipe instead, which pages the card
+   * when it went far enough and mostly sideways (`_swipeEnded`).
    */
   private _handlePointerUp(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) return;
@@ -3414,6 +3493,9 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', this._cardActionCallbacks);
       ranCardTap = true;
+    } else if (this._pointerMoved && !this._holdTriggered && this._pointerSwipeable) {
+      const start = this._pointerStart;
+      if (start) this._swipeEnded(ev.clientX - start.x, ev.clientY - start.y);
     }
 
     // The click a browser derives from this gesture is not a second activation. Guarded for
@@ -3442,7 +3524,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Forget the active gesture: its hold timer, its pointer capture, its bookkeeping and its
-   * hold indicator.
+   * hold indicator, and spring back any days a swipe moved.
    *
    * Leaves `_derivedClick` alone, which outlives the gesture on purpose: pointer-up sets it
    * just before calling this, for the click that follows.
@@ -3459,6 +3541,8 @@ class CalendarCardPro extends LitElement {
     this._pointerMoved = false;
     this._holdTriggered = false;
     this._pointerTapTarget = null;
+    this._pointerSwipeable = false;
+    this._springBackSwipe();
 
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
@@ -3516,6 +3600,170 @@ class CalendarCardPro extends LitElement {
     }
 
     this._handlePointerCancel(ev);
+  }
+
+  /**
+   * Whether a press may end as a swipe that pages: a touch or a pen, on a card that swipes
+   * (`_swipeAvailable`), away from the screen's edges. A mouse never swipes: it has the
+   * arrows, and a drag with it selects text. The edges belong to the host's own swipes
+   * (`SWIPE_EDGE_GUARD`).
+   *
+   * @param ev - The pointer-down
+   * @returns Whether the gesture it starts may page
+   */
+  private _swipeStartsAt(ev: PointerEvent): boolean {
+    if (ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return false;
+    if (!this._swipeAvailable) return false;
+
+    const guard = Constants.UI.SWIPE_EDGE_GUARD;
+    const width = window.innerWidth;
+    return ev.clientX >= guard && (!(width > 0) || ev.clientX <= width - guard);
+  }
+
+  /**
+   * Which way a swipe pages once its finger lifts: far enough sideways
+   * (`SWIPE_MIN_DISTANCE`), and mostly sideways (`SWIPE_MIN_SLOPE_RATIO`).
+   *
+   * A finger moving left turns to the next page, as a page of a book turns, and right to the
+   * previous one. Reading right to left, the days run the other way and so does the swipe,
+   * as the arrows do: the direction is the card's own, the authority its `:dir(rtl)` rules
+   * follow too.
+   *
+   * @param deltaX - Horizontal travel from pointer-down to pointer-up, positive to the right
+   * @param deltaY - Vertical travel, positive downward
+   * @returns `1` forward, `-1` back, `0` for a gesture that does not page
+   */
+  private _swipeDirection(deltaX: number, deltaY: number): -1 | 0 | 1 {
+    const across = Math.abs(deltaX);
+    if (across < Constants.UI.SWIPE_MIN_DISTANCE) return 0;
+    if (across < Constants.UI.SWIPE_MIN_SLOPE_RATIO * Math.abs(deltaY)) return 0;
+
+    const card = this.renderRoot?.querySelector('ha-card');
+    const rightToLeft = card instanceof Element && getComputedStyle(card).direction === 'rtl';
+    return deltaX < 0 !== rightToLeft ? 1 : -1;
+  }
+
+  /**
+   * Ends a gesture that moved and could swipe: pages the card through the arrows' own path,
+   * when it went far enough and mostly sideways, and remembers the page asked for so its days
+   * slide in from the side the finger came from once they are drawn (`_syncSwipeArrival`).
+   *
+   * @param deltaX - Horizontal travel from pointer-down to pointer-up, positive to the right
+   * @param deltaY - Vertical travel, positive downward
+   */
+  private _swipeEnded(deltaX: number, deltaY: number): void {
+    const direction = this._swipeDirection(deltaX, deltaY);
+    if (direction === 0) return;
+
+    Logger.debug(`Swipe pages ${direction > 0 ? 'forward' : 'back'}`);
+    const before = this._pageRequested;
+    this._stepPage(direction);
+    if (this._pageRequested === before || prefersReducedMotion()) return;
+    this._swipeArrival = { page: this._pageRequested, from: deltaX < 0 ? 1 : -1 };
+  }
+
+  /**
+   * Lets the days follow a swipe's finger while it moves mostly sideways: with resistance and
+   * no further than `SWIPE_NUDGE_MAX`, a hint at the page to come rather than a drag of this
+   * one. Back where they belong once the finger turns mostly vertical, and never under
+   * `prefers-reduced-motion`.
+   *
+   * The offset is written straight onto the content container's style, which no render binds,
+   * and only while a swipe is under way: a transform left standing would make the container a
+   * containing block and a stacking context for everything drawn in it.
+   *
+   * @param deltaX - Horizontal travel from pointer-down, positive to the right
+   * @param deltaY - Vertical travel, positive downward
+   */
+  private _nudgeSwipe(deltaX: number, deltaY: number): void {
+    const sideways = Math.abs(deltaX) >= Constants.UI.SWIPE_MIN_SLOPE_RATIO * Math.abs(deltaY);
+    let nudge = this._swipeNudge;
+    if (!nudge) {
+      if (!sideways || prefersReducedMotion()) return;
+      const element = this.renderRoot.querySelector<HTMLElement>('.content-container');
+      if (!element) return;
+      this._swipeMotion?.cancel();
+      this._swipeMotion = null;
+      nudge = this._swipeNudge = { element, offset: 0 };
+    }
+
+    const offset = sideways ? resistedSwipeOffset(deltaX) : 0;
+    if (offset === nudge.offset) return;
+    nudge.offset = offset;
+    if (offset === 0) {
+      clearInlineTransform(nudge.element);
+    } else {
+      nudge.element.style.transform = `translateX(${offset.toFixed(1)}px)`;
+    }
+  }
+
+  /** Springs the days a swipe moved back to where they belong, as its gesture ends. */
+  private _springBackSwipe(): void {
+    const nudge = this._swipeNudge;
+    if (!nudge) return;
+    this._swipeNudge = null;
+    clearInlineTransform(nudge.element);
+    if (nudge.offset === 0) return;
+
+    this._startSwipeMotion(
+      nudge.element,
+      [{ transform: `translateX(${nudge.offset.toFixed(1)}px)` }, { transform: 'translateX(0)' }],
+      Constants.TIMING.SWIPE_SPRING_BACK,
+    );
+  }
+
+  /**
+   * Runs one piece of a swipe's motion on the content container, ending the one before it.
+   *
+   * Ending an animation rejects its `finished` promise, and nothing here waits on it, so the
+   * rejection is caught where the animation starts: otherwise a swipe that interrupts the last
+   * one's spring-back, or an arrival that follows it, reports an unhandled rejection.
+   *
+   * @param element - The content container
+   * @param keyframes - Where the motion starts and ends
+   * @param duration - How long it takes, in milliseconds
+   */
+  private _startSwipeMotion(element: HTMLElement, keyframes: Keyframe[], duration: number): void {
+    this._swipeMotion?.cancel();
+    this._swipeMotion = null;
+    if (typeof element.animate !== 'function') return;
+
+    const motion = element.animate(keyframes, { duration, easing: 'ease-out' });
+    motion.finished?.catch(() => undefined);
+    this._swipeMotion = motion;
+  }
+
+  /**
+   * Slides in the page a swipe asked for, from the side the finger came from, once its days
+   * are drawn: at once for a page already loaded, after its events arrive for one that is not.
+   * A page asked for any other way since, by the arrows, the picker, home or another swipe,
+   * takes the arrival with it.
+   *
+   * Through the Web Animations API, so nothing is added to the card's DOM or attributes: the
+   * observers that refit the grid when its structure changes see nothing.
+   */
+  private _syncSwipeArrival(): void {
+    const arrival = this._swipeArrival;
+    if (!arrival) return;
+    if (this._pageRequested !== arrival.page) {
+      this._swipeArrival = null;
+      return;
+    }
+    if (this._pageShown !== arrival.page || this.isInitialLoad) return;
+
+    this._swipeArrival = null;
+    const element = this.renderRoot.querySelector<HTMLElement>('.content-container');
+    if (!element) return;
+
+    const offset = arrival.from * Constants.UI.SWIPE_ARRIVAL_OFFSET;
+    this._startSwipeMotion(
+      element,
+      [
+        { transform: `translateX(${offset}px)`, opacity: 0 },
+        { transform: 'translateX(0)', opacity: 1 },
+      ],
+      Constants.TIMING.SWIPE_ARRIVAL,
+    );
   }
 
   /**
@@ -4226,6 +4474,7 @@ class CalendarCardPro extends LitElement {
       this._hostsControls(toolbar, drawsEventTarget),
       this._pageRequested !== this._pageShown && !this.isInitialLoad,
       this._refreshPhase,
+      this._swipeAvailable,
     );
   }
 

@@ -304,6 +304,20 @@ export const cardStyles = css`
     cursor: pointer;
   }
 
+  /* A card a swipe pages hands the browser only vertical panning on it, so a sideways finger
+     reaches the card rather than starting a scroll the browser would claim with a
+     pointercancel. Declared on the body and everything in it as well as on the card, because a
+     scroll container hands its own axis back over a restriction it inherits; declared on each,
+     the restrictions intersect. Pinch zoom stays, double-tap zoom goes. The first declaration
+     is the fallback for a browser that does not know pinch-zoom, which drops the second whole.
+     A crammed grid, whose days scroll sideways, never gets the class. */
+  ha-card.swipe-paging,
+  ha-card.swipe-paging .content-container,
+  ha-card.swipe-paging .content-container * {
+    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
+  }
+
   ha-card:focus {
     outline: none;
   }
