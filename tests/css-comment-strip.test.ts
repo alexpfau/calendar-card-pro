@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(162_000);
-    // The now line drawn again inside the block under way moved the ceiling last, from 159,000
+    expect(saved).toBeLessThan(165_000);
+    // Glyph gaps written by inline side moved the ceiling last, from 162,000 to 165,000: the
+    // notes on why an icon's, a label's and the weather badge's gaps sit at their inline end,
+    // why the UV index keeps a left margin only right after a temperature, in a run of digits
+    // and Latin letters, why the list view's placed today indicator drops the icon gap, why a
+    // text label is isolated in its own direction in a right-to-left card only, and how the
+    // selected view is handed an opaque color. The reading went 161,367, its base's own, to
+    // 164,373, taken with stripComments after the last comment in the change was written.
+    //
+    // The now line drawn again inside the block under way moved the ceiling before that, from 159,000
     // to 162,000: the notes on why the line beneath the blocks now only covers the gaps, why the
     // block under way repaints it as its own background -- over its fill and under everything
     // it draws -- and only that block, judged by its time and not by its floored box; why not

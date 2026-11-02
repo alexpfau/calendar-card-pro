@@ -1061,3 +1061,246 @@ describe('a switch is drawn at once', () => {
     expect(properties).toEqual(['background-color', 'border-color', 'box-shadow', 'color']);
   });
 });
+
+describe("the selected segment's surface", () => {
+  /** The colors a theme gives the selected segment, as the browser computes them on it. */
+  interface SegmentColors {
+    surface: string;
+    ink: string;
+    page: string;
+    image?: string;
+  }
+
+  /**
+   * Compute the selected segment's colors from a theme, as a browser would: the selected color
+   * and the page color on the two stand-ins drawn inside the selected segment, and the segment's
+   * text. happy-dom resolves no theme variables, so those are stubbed; every other element
+   * computes as it does. Read at the moment of the call, so a press that moves the selection
+   * moves the theme's colors with it.
+   */
+  function themeTheSegment(colors: SegmentColors): void {
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      if (element.matches('.view-switcher-segment.selected > .view-switcher-page')) {
+        return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
+      }
+      if (element.matches('.view-switcher-segment.selected > .view-switcher-probe')) {
+        return {
+          ...style,
+          backgroundColor: colors.surface,
+          backgroundImage: colors.image ?? 'none',
+        } as CSSStyleDeclaration;
+      }
+      if (!element.matches('.view-switcher-segment.selected')) return style;
+      return { ...style, color: colors.ink } as CSSStyleDeclaration;
+    });
+  }
+
+  /**
+   * A 2D canvas that reads back the one color painted on it, for the `#rrggbb`, `rgb()` and
+   * `rgba()` forms a browser serializes a computed color in. happy-dom has no canvas.
+   */
+  function stubCanvas(): void {
+    let fillStyle = '#000000';
+    let pixel = [0, 0, 0, 0];
+    const read = (value: string): number[] | undefined => {
+      const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
+      if (hex) return [...hex.slice(1).map((pair) => parseInt(pair, 16)), 255];
+      const fn = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/.exec(value);
+      if (!fn) return undefined;
+      return [Number(fn[1]), Number(fn[2]), Number(fn[3]), Math.round(Number(fn[4] ?? 1) * 255)];
+    };
+    const context = {
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(value: string) {
+        if (read(value)) fillStyle = value;
+      },
+      clearRect: () => {
+        pixel = [0, 0, 0, 0];
+      },
+      fillRect: () => {
+        pixel = read(fillStyle)!;
+      },
+      getImageData: () => ({ data: Uint8ClampedArray.from(pixel) }),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as RenderingContext,
+    );
+  }
+
+  /** A property of the selected segment as the stylesheet declares it, whitespace collapsed. */
+  function declaredSelected(property: string): string {
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const body = /\.view-switcher-segment\.selected\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const value = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+);`).exec(body)?.[1];
+    return value?.replace(/\s+/g, ' ').trim() ?? '';
+  }
+
+  /** A light glass theme: a gray card at 30% over a dark page, under white text. */
+  const SEE_THROUGH: SegmentColors = {
+    surface: 'rgba(128, 128, 128, 0.3)',
+    ink: 'rgb(255, 255, 255)',
+    page: 'rgb(84, 80, 76)',
+  };
+
+  /** Home Assistant's default light theme. */
+  const OPAQUE: SegmentColors = {
+    surface: 'rgb(255, 255, 255)',
+    ink: 'rgb(33, 33, 33)',
+    page: '#fafafa',
+  };
+
+  /** Each segment's view and the opaque color handed to the stylesheet for it, if any. */
+  function inlineColors(card: CardUnderTest) {
+    return segments(card).map((button) => [
+      button.dataset.view,
+      button.style.getPropertyValue('--calendar-card-toolbar-selected-surface'),
+    ]);
+  }
+
+  /** The opaque color handed to the stylesheet for one segment, or ''. */
+  function surfaceOf(card: CardUnderTest, view: Types.EffectiveView): string {
+    return segment(card, view).style.getPropertyValue('--calendar-card-toolbar-selected-surface');
+  }
+
+  it("paints the selected view opaque, over the page color, where the card's background is see-through", async () => {
+    // The segment is raised out of its track in the card's own background. Under such a theme
+    // the track and the wallpaper showed through it, so it read as part of the track.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(inlineColors(card)).toEqual([
+      ['list', 'rgb(97, 94, 92)'],
+      ['column', ''],
+      ['grid', ''],
+    ]);
+  });
+
+  it("leaves an opaque theme's switcher exactly as the stylesheet paints it", async () => {
+    stubCanvas();
+    themeTheSegment(OPAQUE);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(inlineColors(card)).toEqual([
+      ['list', ''],
+      ['column', ''],
+      ['grid', ''],
+    ]);
+  });
+
+  it('moves the paint with the selection', async () => {
+    // Lit reuses the buttons from one render to the next, so the one the selection left would
+    // otherwise keep its color beside the one it moved to.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    await press(card, 'grid');
+
+    expect(drawnView(card)).toBe('grid');
+    expect(inlineColors(card)).toEqual([
+      ['list', ''],
+      ['column', ''],
+      ['grid', 'rgb(97, 94, 92)'],
+    ]);
+  });
+
+  it('follows a theme changed since, at the next update', async () => {
+    stubCanvas();
+    const colors = { ...SEE_THROUGH };
+    themeTheSegment(colors);
+    const card = await mount();
+    await measure(card, WIDE);
+    expect(surfaceOf(card, 'list')).toBe('rgb(97, 94, 92)');
+
+    Object.assign(colors, OPAQUE);
+    card.hass = hass();
+    await card.updateComplete;
+    expect(surfaceOf(card, 'list')).toBe('');
+
+    Object.assign(colors, { surface: 'rgba(10, 10, 10, 0.4)', page: '#2c2c2e' });
+    card.hass = hass();
+    await card.updateComplete;
+    expect(surfaceOf(card, 'list')).toBe('rgb(30, 30, 32)');
+  });
+
+  it("never writes over the segment's own background", async () => {
+    // The color goes to the stylesheet in a custom property. Written over the background, it
+    // beat a card-mod rule coloring the segment under the pointer, and taking it off to read the
+    // stylesheet's color again caught a card-mod transition halfway and read it as opaque.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+    await press(card, 'grid');
+    card.hass = hass();
+    await card.updateComplete;
+
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+    expect(segments(card).map((button) => button.style.backgroundColor)).toEqual(['', '', '']);
+    expect(declaredSelected('background')).toBe('var(--calendar-card-toolbar-selected)');
+    expect(declaredSelected('background-color')).toBe(
+      'var( --calendar-card-toolbar-selected-surface, var(--calendar-card-toolbar-selected) )',
+    );
+  });
+
+  it('keeps a see-through gradient, over the opaque color', async () => {
+    // The color is handed to the background color only, so an image the selected color draws
+    // stays on top. A gradient's computed background color is transparent, so the page color
+    // alone goes under it.
+    stubCanvas();
+    themeTheSegment({
+      ...SEE_THROUGH,
+      surface: 'rgba(0, 0, 0, 0)',
+      image: 'linear-gradient(rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5))',
+    });
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(surfaceOf(card, 'list')).toBe('rgb(84, 80, 76)');
+  });
+
+  it('adds and removes no element while it paints', async () => {
+    // The card's mutation observers take an element added or removed anywhere in it for a change
+    // of the grid's structure, and refit every block. The stand-ins the colors are read off are
+    // drawn with the selected segment, so an update that changes nothing else changes no element.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount({ view: 'grid' });
+    await measure(card, WIDE);
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((batch) => records.push(...batch));
+    observer.observe(card.shadowRoot!, { childList: true, subtree: true });
+    card.hass = hass();
+    await card.updateComplete;
+    await Promise.resolve();
+    observer.disconnect();
+
+    const elements = records.flatMap((record) =>
+      [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].filter(
+        (node) => node instanceof Element,
+      ),
+    );
+    expect(elements).toEqual([]);
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+  });
+
+  it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(segment(card, 'list').classList.contains('selected')).toBe(true);
+    expect(surfaceOf(card, 'list')).toBe('');
+  });
+});

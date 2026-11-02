@@ -795,10 +795,30 @@ export const cardStyles = css`
     padding: 0;
   }
 
+  /* Under a see-through card background, paintSelectedView in rendering/toolbar.ts hands the
+     background color an opaque one in its own custom property, beneath any image the selected
+     color draws; everywhere else the property is unset and the color is the selected color
+     again, so nothing changes. */
   .view-switcher-segment.selected {
     background: var(--calendar-card-toolbar-selected);
+    background-color: var(
+      --calendar-card-toolbar-selected-surface,
+      var(--calendar-card-toolbar-selected)
+    );
     color: var(--primary-text-color);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+
+  /* The selected segment's colors and the theme's page color, as paintSelectedView in
+     rendering/toolbar.ts reads them. Never shown. */
+  .view-switcher-probe {
+    display: none;
+    background: var(--calendar-card-toolbar-selected);
+  }
+
+  .view-switcher-probe.view-switcher-page {
+    background: none;
+    background-color: var(--primary-background-color);
   }
 
   /* Too narrow to draw: still there, so the bar keeps its shape, but plainly not on offer. */
@@ -1037,8 +1057,8 @@ export const cardStyles = css`
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintMenuSurface in rendering/legend.ts paints the menu over the theme's page color
-     instead. Where it is opaque, this rule is all there is. */
+     it is, paintOpaqueSurface in rendering/surface.ts paints the menu over the theme's page
+     color instead. Where it is opaque, this rule is all there is. */
   .legend-menu {
     position: fixed;
     inset: auto;
@@ -1491,6 +1511,14 @@ export const cardStyles = css`
     --mdc-icon-size: var(--calendar-card-today-indicator-size);
   }
 
+  /* The list view's indicator is placed by today_indicator_position, a left and a top, so a
+     margin has nothing to hold apart and could only move it: ha-icon's inline-end gap is its
+     left margin in a right-to-left card. The column view's indicator keeps the gap, which
+     there is the room between it and the weekday. */
+  .today-indicator-container:not(.inline) > ha-icon.today-indicator {
+    margin-inline-end: 0;
+  }
+
   img.today-indicator.image {
     width: var(--calendar-card-today-indicator-size);
     height: auto;
@@ -1542,7 +1570,7 @@ export const cardStyles = css`
   }
 
   .weather ha-icon {
-    margin-right: 1px;
+    margin-inline-end: 1px;
   }
 
   .date-column .weather ha-icon,
@@ -1564,15 +1592,34 @@ export const cardStyles = css`
     opacity: 0.8;
   }
 
+  /* The UV index's gap faces what precedes it. Wherever the badge's parts are flex items, as in
+     the list's date badge, a right-to-left card mirrors them, and where the index is the first
+     text after the icon, the icon is at its start in either direction: in both, that is its
+     inline start. As a left margin the list's index ran into the temperature in right-to-left,
+     and one with no temperature before it kept only the icon's own gap. */
   .weather .weather-uv-index {
     line-height: 1;
     vertical-align: middle;
     font-weight: 500;
+    margin-inline-start: 2px;
+  }
+
+  /* Left, not inline-start, where the index follows the temperature inline: here in the day
+     header of column and grid view, and in the list's title-row badge below. The two are digits
+     and Latin letters, which a right-to-left line lays out left to right like any other such
+     run, so the temperature is on the index's left on either line, and so is the gap. */
+  .column-date-content .weather .weather-temp-high + .weather-uv-index {
+    margin-inline-start: 0;
     margin-left: 2px;
   }
 
   .event-weather .weather-uv-index {
     font-weight: 500;
+    margin-inline-start: 2px;
+  }
+
+  .summary-row .event-weather-text > span + .weather-uv-index {
+    margin-inline-start: 0;
     margin-left: 2px;
   }
 
@@ -2209,9 +2256,25 @@ export const cardStyles = css`
     animation-play-state: paused;
   }
 
+  /* Every label kind keeps its 4px gap to the title at its inline end, which the glyph labels'
+     hanging indent above counts on in either direction. */
   .calendar-label {
     display: inline;
-    margin-right: 4px;
+    margin-inline-end: 4px;
+  }
+
+  /* A label leads its title in a right-to-left card whatever script either is written in.
+     Without isolation, an English label before an English title joins it in one
+     left-to-right run, which a right-to-left line draws with the label after the title, and
+     the label's gap, at its inline end, then faced away from it. Isolated, the label is one
+     unit at the start of the line, where icons, pictures and emoji already sit. plaintext
+     rather than isolate, so the label's own text takes the direction of its first letter:
+     isolated in a right-to-left base, "Work:" drew as ":Work" and "1 Team" as "Team 1". Grid
+     view isolates its labels in both directions (below); in right-to-left this wins there too.
+     Left-to-right is left as it was. */
+  .calendar-label:dir(rtl),
+  .grid-event-disclosure .calendar-label:dir(rtl) {
+    unicode-bidi: plaintext;
   }
 
   /* A place to break after a text or emoji label. The title follows a label with nothing
@@ -2236,26 +2299,26 @@ export const cardStyles = css`
   .label-icon {
     --mdc-icon-size: 1em;
     vertical-align: middle;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .label-image {
     height: 1em;
     width: auto;
     vertical-align: middle;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .event-weather {
     display: flex;
     align-items: center;
     font-weight: 500;
-    margin-left: 8px;
-    margin-right: 12px;
+    margin-inline-start: 8px;
+    margin-inline-end: 12px;
   }
 
   .event-weather ha-icon {
-    margin-right: 2px;
+    margin-inline-end: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
@@ -3184,6 +3247,11 @@ export const cardStyles = css`
 
   /* ===== ICON STYLES ===== */
 
+  /* The 4px gap sits at the icon's inline end, between it and the text it leads: the right in
+     a left-to-right card, the left in a right-to-left one. As a right margin it was the
+     leading edge in right-to-left, so every clock, pin and info icon started 4px in from its
+     row and touched its text. The labels and the weather badge hold their gaps the same way;
+     the UV index after a temperature is the one exception, and says why. */
   ha-icon {
     display: inline-flex;
     flex-shrink: 0;
@@ -3192,7 +3260,7 @@ export const cardStyles = css`
     position: relative;
     vertical-align: top;
     top: 0;
-    margin-right: 4px;
+    margin-inline-end: 4px;
   }
 
   .time ha-icon {
@@ -4439,8 +4507,6 @@ export const cardStyles = css`
   .grid-event-disclosure .calendar-label,
   .grid-event-disclosure .label-icon,
   .grid-event-disclosure .label-image {
-    margin-right: 0;
-    margin-inline-end: 4px;
     unicode-bidi: isolate;
   }
 

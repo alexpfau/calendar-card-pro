@@ -2641,6 +2641,7 @@ class CalendarCardPro extends LitElement {
     this._syncLegendFit(false);
     Legend.markShortenedChips(this.renderRoot);
     Legend.repositionLegendMenus(this.renderRoot);
+    Toolbar.paintSelectedView(this.renderRoot);
   }
 
   //-----------------------------------------------------------------------------
@@ -4401,9 +4402,10 @@ class CalendarCardPro extends LitElement {
    * The date a new event starts on in Home Assistant's create dialog.
    *
    * Taken when the button is pressed rather than when it was drawn, so a card left open
-   * past midnight still offers the right day. Taken from the days on screen, home included,
+   * past midnight still offers the right day. Taken from the page on screen, home included,
    * so a view that draws fewer days, or a narrow card that sheds some, never suggests a day
-   * it is not showing.
+   * outside it. Within the page, rows are not consulted: a collapsed compact card, or an empty
+   * day the card leaves out, still suggests today, the day an event is most often added for.
    *
    * @returns The dialog's `selectedDate`
    */
