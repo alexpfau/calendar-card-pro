@@ -1422,13 +1422,16 @@ describe("the menu the legend's button opens", () => {
   /**
    * Compute the menu's colors from a theme, as a browser would: the dialog's background and
    * text, and the page color on the hidden stand-in drawn inside it. happy-dom resolves no theme
-   * variables, so those are stubbed; everything else computes as it does.
+   * variables, so those are stubbed; everything else computes as it does. The page color is
+   * given to any span directly in the menu, so the probe the menu once added for each read gets
+   * it too, and the tests that count added elements fail on the count rather than on the paint
+   * when it comes back.
    */
   function themeTheMenu(card: CardUnderTest, colors: MenuColors): void {
     const realStyle = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const style = realStyle(element, pseudo);
-      if (element.parentNode === dialog(card) && element.matches('.legend-menu-page')) {
+      if (element.parentNode === dialog(card) && element.localName === 'span') {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
       if (element !== dialog(card)) return style;
