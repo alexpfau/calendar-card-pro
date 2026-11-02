@@ -1056,20 +1056,21 @@ graph TD
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
    - While grid view draws its now line, a timer repaints it once a minute
      (`_syncNowLineTimer`, `_tickNowLine`) and runs a `cache` load when the local day rolls
-     over, including a rollover that passed while the timer was stopped. A grid shedding day
-     columns hears about midnight from the timer below as well; both record the day they
+     over, including a rollover that passed while the timer was stopped. A grid whose window
+     moves at midnight, by shedding day columns or by following today, hears about midnight
+     from the timer below as well; both record the day they
      loaded for (`_nowLineDayKey`, `_claimRollover`), so only the first loads. Through the
      cache, the load asks nothing of a window another card on the same calendars fetched a
      moment before, unless nothing fresh is stored: a window with no events is kept for 15
      seconds, and a browser may store nothing
    - A timer fires just after local midnight (`_syncMidnightTimer`) while column or grid view
      draws fewer day columns than its own `days_to_show`, and while the window follows today:
-     no `start_date`, or a relative one (`startDateFollowsToday`), in any view but a grid
-     drawing its now line, whose own tick loads then. It re-renders, so the visible window
-     moves to the new today, and runs a `cache` load, which fetches only if the window it
-     asks for moved or the cache is due; on a grid drawing its now line, only if the line has
-     not loaded the new day first. Without it a list card drew the new last day empty until
-     its next refresh
+     no `start_date`, or a relative one (`startDateFollowsToday`), in any view. It re-renders,
+     so the visible window moves to the new today, and runs a `cache` load, which fetches only
+     if the window it asks for moved or the cache is due; on a grid drawing its now line, only
+     if the line has not loaded the new day first. Without it a list card drew the new last day
+     empty until its next refresh, and a grid drawing its now line kept the old day until the
+     line's next tick, up to a minute later
    - List, column, and grid without its now line repaint at the next start or end of a
      timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
      then past on time. That timer only repaints; it never fetches

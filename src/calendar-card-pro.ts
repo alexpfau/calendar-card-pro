@@ -1796,12 +1796,12 @@ class CalendarCardPro extends LitElement {
    * - A grid or column card shedding day columns keeps today among the ones it draws
    *   (`visibleDayWindowStart`), so its slice moves at midnight even on fixed dates.
    * - A window that follows today moves at midnight, and draws its new last day empty until
-   *   new events arrive. A grid with its now line is left out: the line's own tick loads the
-   *   new day within a minute of midnight.
+   *   new events arrive.
    *
    * A card on fixed dates drawing all of them has nothing that moves at midnight. A grid with its
-   * now line that sheds columns hears about midnight from both the timer and the line's tick, and
-   * only the first of them loads (`_claimRollover`).
+   * now line hears about midnight from the line's tick as well, up to a minute later, so without
+   * the timer its window would wait for the tick. Of the timer and the tick only the first to see
+   * the new day loads (`_claimRollover`).
    */
   private get _wantsMidnightTimer(): boolean {
     const shedding =
@@ -1809,7 +1809,7 @@ class CalendarCardPro extends LitElement {
       this._shownColumnCount > 0 &&
       this._shownColumnCount < this.effectiveConfig.days_to_show;
 
-    return shedding || (!this._wantsNowLine && this._windowFollowsToday);
+    return shedding || this._windowFollowsToday;
   }
 
   /**
@@ -1949,9 +1949,10 @@ class CalendarCardPro extends LitElement {
    * The rollover check is why this is not simply `requestUpdate()`. At midnight every
    * day header is wrong, "today" has moved to a different column and the events on
    * screen are a day out of date — a repaint would move the line to the top of a column
-   * that is no longer today. Loading again is the only thing that fixes that. A shedding grid's
-   * own midnight timer may have loaded the new day already, and recorded it, so the line sees no
-   * rollover then (`_claimRollover`). The load goes through the cache, as the timer's does, so it
+   * that is no longer today. Loading again is the only thing that fixes that. A grid whose window
+   * moves at midnight, by shedding columns or by following today, has a midnight timer of its own,
+   * which may have loaded the new day already and recorded it, so the line sees no rollover then
+   * (`_claimRollover`). The load goes through the cache, as the timer's does, so it
    * fetches only where nothing fresh is stored for the new window: another card on the same
    * calendars may have fetched it a moment before.
    */
