@@ -118,7 +118,11 @@ export class CalendarCardProEditor extends LitElement {
       this._gridResetKeys.clear();
     }
 
-    this._lastDispatched = Value.toStoredConfig(this._config, this._authoredRootKeys);
+    this._lastDispatched = Value.toStoredConfig(
+      this._config,
+      this._authoredRootKeys,
+      this._rawConfig,
+    );
   }
 
   /**
@@ -153,7 +157,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _migrationResult(mode: Value.ListMigrationMode): Value.ListMigrationResult {
     return Value.migrateListConfig(
-      Value.toStoredConfig(this._config!, this._authoredRootKeys),
+      Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
       this._rawConfig,
       mode,
     );
@@ -333,7 +337,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Merged configuration after the edit
    */
   private _report(config: Types.Config): void {
-    const stored = Value.toStoredConfig(config, this._authoredRootKeys);
+    const stored = Value.toStoredConfig(config, this._authoredRootKeys, this._rawConfig);
 
     // A pruned override must stop owning its value locally too, before any HA echo.
     this._rawConfig = structuredClone(stored);
@@ -824,7 +828,7 @@ export class CalendarCardProEditor extends LitElement {
     if (view === undefined) return nothing;
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey === undefined) return nothing;
-    const stored = Value.toStoredConfig(this._config!)[blockKey];
+    const stored = Value.storedViewBlocks(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
     const seen = new Set<string>();
     const resets = [...Routing.workspaceFields(schema)].flatMap(({ node, path, labelPath }) => {

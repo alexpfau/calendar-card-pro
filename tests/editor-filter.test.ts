@@ -25,6 +25,7 @@ import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { CHASSIS_STRINGS, chassisSubforms } from '../src/rendering/editor/subforms';
+import { stripColumnDefaults } from '../src/rendering/editor/value';
 import { ENTITY_COLOR_SENTINEL } from '../src/utils/entity-colors';
 
 /**
@@ -267,49 +268,61 @@ describe('editor filter: what counts as customized', () => {
     expect(visibleFields(quotedSeven, { customizedOnly: true })).toContain('days_to_show');
   });
 
-  it('asks the write path about a value inside the column block', () => {
+  /**
+   * A view value is customized when the layout stores its own, and a line the block already
+   * holds is stored: a save keeps it even at the default, so it would stop following that
+   * default if it ever moved. An edit that writes the default fresh is still minimized away,
+   * which the write path decides, and the configuration then holds nothing to count.
+   */
+  it('counts a value the column block holds as its own, even at the default', () => {
     const config = columnConfig();
     const { node, path } = fieldOf(config, 'min_day_width');
 
     expect(path).toEqual(['column']);
 
+    const held = columnConfig({ column: { min_day_width: 140 } });
     const untouched = ctxFor(config, { customizedOnly: true });
-    const redundant = ctxFor(columnConfig({ column: { min_day_width: 140 } }), {
-      customizedOnly: true,
-    });
     const real = ctxFor(columnConfig({ column: { min_day_width: 200 } }), { customizedOnly: true });
 
     expect(isCustomized(node, path, untouched)).toBe(false);
-    // 140 is the column default, so writing it changes nothing and is not an override.
-    expect(isCustomized(node, path, redundant)).toBe(false);
+    expect(isCustomized(node, path, ctxFor(held, { customizedOnly: true }))).toBe(true);
     expect(isCustomized(node, path, real)).toBe(true);
+    // 140 is the column default, so an edit that writes it is not stored.
+    expect(stripColumnDefaults(held)).toBeUndefined();
   });
 
   /**
    * `min_days_to_show` defaults to `days_to_show` rather than to a constant, so the only
-   * honest test is whether removing the line changes what the card resolves. The write
-   * path already answers that, which is why this asks it rather than re-deriving it.
+   * honest test of an edit is whether removing the line changes what the card resolves. The
+   * write path answers that for a line written fresh; a line the block already holds is
+   * kept either way, so the filter counts it.
    */
   it('handles an override whose default is another option', () => {
     const config = columnConfig({ days_to_show: 5, column: { min_days_to_show: 5 } });
     const { node, path } = fieldOf(config, 'min_days_to_show');
 
-    expect(isCustomized(node, path, ctxFor(config, { customizedOnly: true }))).toBe(false);
+    expect(isCustomized(node, path, ctxFor(config, { customizedOnly: true }))).toBe(true);
+    expect(stripColumnDefaults(config)).toBeUndefined();
 
     const lowered = columnConfig({ days_to_show: 5, column: { min_days_to_show: 2 } });
     expect(isCustomized(node, path, ctxFor(lowered, { customizedOnly: true }))).toBe(true);
+    expect(stripColumnDefaults(lowered)).toEqual({ min_days_to_show: 2 });
   });
 
   /**
    * Column view starts `show_empty_days` from `true` whatever the top level says, so an
-   * override repeating it is doing nothing even though the two values differ.
+   * override repeating it is doing nothing even though the two values differ. An edit that
+   * writes it is therefore minimized away; a line the block already holds is kept, and
+   * counted, like any other value the layout stores.
    */
   it('compares an override against what it would inherit, not against the top level', () => {
     const config = columnConfig({ show_empty_days: false, column: { show_empty_days: true } });
     const inBlock = { name: 'show_empty_days', selector: { boolean: {} } } as HaFormSchema;
-    expect(isCustomized(inBlock, ['column'], ctxFor(config, { customizedOnly: true }))).toBe(false);
+    expect(stripColumnDefaults(config)).toBeUndefined();
+    expect(isCustomized(inBlock, ['column'], ctxFor(config, { customizedOnly: true }))).toBe(true);
 
     const differing = columnConfig({ show_empty_days: true, column: { show_empty_days: false } });
+    expect(stripColumnDefaults(differing)).toEqual({ show_empty_days: false });
     expect(isCustomized(inBlock, ['column'], ctxFor(differing, { customizedOnly: true }))).toBe(
       true,
     );

@@ -559,10 +559,10 @@ describe('the event tap dropdown in the editor', () => {
       const { reported, shown, change } = await mount({ view });
 
       await change('toolbar', { ...(shown('toolbar') as object), show: true });
-      // `view: list` is the default, so it is not written either.
+      // `view` stays as the YAML wrote it, even at its default `list`: the edit did not touch it.
       expect(last(reported)).toEqual({
         entities: ['calendar.anna'],
-        ...(view === 'list' ? {} : { view }),
+        view,
         toolbar: { show: true },
       });
     },

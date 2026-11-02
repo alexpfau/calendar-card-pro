@@ -584,11 +584,64 @@ class CalendarCardPro extends LitElement {
     if (!detail || detail.source === this || !this._wantsLegend) return;
     if (detail.fingerprint !== this._configFingerprint) return;
 
-    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
-    const hidden = detail.hidden.filter((id) => calendars.has(id));
-    this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
-    this.requestUpdate();
+    this._adoptHiddenCalendars(detail.hidden);
+    this._hiddenMatchesStorage = detail.stored;
   };
+
+  /**
+   * Takes up the calendars another tab hid or showed for this card's configuration, the way
+   * `_handleLegendChanged` does for a card on the same page. A tab that kept its own stale
+   * set would write it back on its next press, over a reset made in the other tab.
+   *
+   * Only this configuration's hidden set counts: a write that changed another card's choice,
+   * or only the switcher's view, leaves this card as it is (`hiddenCalendarsChange`).
+   *
+   * @param ev - The `storage` event, fired on `window` for another tab's write
+   */
+  private readonly _handleStorageChanged = (ev: Event): void => {
+    const change = ev as StorageEvent;
+    if (!this._wantsLegend || this._configFingerprint === null) return;
+    const storage = ViewChoice.deviceStorage();
+    if (storage === null || change.storageArea !== storage) return;
+
+    const hidden = ViewChoice.hiddenCalendarsChange(change, this._configFingerprint);
+    if (hidden === undefined) return;
+    this._adoptHiddenCalendars(hidden);
+    this._hiddenMatchesStorage = true;
+  };
+
+  /**
+   * Reads the hidden calendars again, for a card that may have missed another tab's write:
+   * one reattached, which listened for nothing while detached, and one whose tab comes back,
+   * which may have been held where no event reaches it. Never when the set lives in this page
+   * only, or when the storage cannot be read: neither says anything about this card.
+   */
+  private _resyncHiddenCalendars(): void {
+    if (!this._wantsLegend || this._configFingerprint === null || !this._hiddenMatchesStorage) {
+      return;
+    }
+    const stored = ViewChoice.readStoredHiddenCalendars(this._configFingerprint);
+    if (stored === undefined) return;
+
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const next = stored.filter((id) => calendars.has(id));
+    const current = this._hiddenCalendars;
+    if (next.length === current.size && next.every((id) => current.has(id))) return;
+    this._adoptHiddenCalendars(next);
+  }
+
+  /**
+   * Shows the calendars this card's configuration has hidden elsewhere: on another card on the
+   * page, or in another tab. Only calendars the card shows are kept.
+   *
+   * @param hidden - Entity ids of the calendars hidden now
+   */
+  private _adoptHiddenCalendars(hidden: ReadonlyArray<string>): void {
+    const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
+    const shown = hidden.filter((id) => calendars.has(id));
+    this._hiddenCalendars = shown.length > 0 ? new Set(shown) : NO_HIDDEN_CALENDARS;
+    this.requestUpdate();
+  }
 
   private readonly _handleCalendarsChanged = (ev: Event): void => {
     const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
@@ -749,6 +802,13 @@ class CalendarCardPro extends LitElement {
    * notices every change.
    */
   private _hiddenCalendars: ReadonlySet<string> = NO_HIDDEN_CALENDARS;
+
+  /**
+   * Whether `localStorage` holds `_hiddenCalendars` as this card last read or wrote it. False
+   * once a write was refused, when the set lives in this page only: catching up with the
+   * storage then would show calendars someone hid here (`_resyncHiddenCalendars`).
+   */
+  private _hiddenMatchesStorage = false;
 
   /**
    * Where a refresh someone asked for stands (`_requestRefresh`): `idle` when none is under
@@ -1405,6 +1465,8 @@ class CalendarCardPro extends LitElement {
 
     window.addEventListener(CalendarChanges.CALENDARS_CHANGED_EVENT, this._handleCalendarsChanged);
     window.addEventListener(Legend.LEGEND_CHANGED_EVENT, this._handleLegendChanged);
+    window.addEventListener('storage', this._handleStorageChanged);
+    this._resyncHiddenCalendars();
 
     this._syncEntityColors();
 
@@ -1475,6 +1537,7 @@ class CalendarCardPro extends LitElement {
       this._handleCalendarsChanged,
     );
     window.removeEventListener(Legend.LEGEND_CHANGED_EVENT, this._handleLegendChanged);
+    window.removeEventListener('storage', this._handleStorageChanged);
 
     EntityColors.releaseEntityColors(this._onEntityColorsChanged);
 
@@ -2921,6 +2984,8 @@ class CalendarCardPro extends LitElement {
         this.requestUpdate();
       }
 
+      this._resyncHiddenCalendars();
+
       const now = Date.now();
       if (now - this._lastUpdateTime > Constants.TIMING.VISIBILITY_REFRESH_THRESHOLD) {
         Logger.debug('Visibility changed to visible, updating events');
@@ -3671,10 +3736,12 @@ class CalendarCardPro extends LitElement {
       remembered !== undefined && remembered !== this.config.view ? remembered : null;
 
     const calendars = new Set(Legend.legendCalendarIds(this.config.entities));
-    const hidden = this._wantsLegend
-      ? ViewChoice.readHiddenCalendars(fingerprint).filter((id) => calendars.has(id))
-      : [];
+    const stored = this._wantsLegend
+      ? ViewChoice.readStoredHiddenCalendars(fingerprint)
+      : undefined;
+    const hidden = (stored ?? []).filter((id) => calendars.has(id));
     this._hiddenCalendars = hidden.length > 0 ? new Set(hidden) : NO_HIDDEN_CALENDARS;
+    this._hiddenMatchesStorage = stored !== undefined;
     this._legendFold = null;
     return true;
   }
@@ -4941,9 +5008,11 @@ class CalendarCardPro extends LitElement {
     }
     this._hiddenCalendars = next.size > 0 ? next : NO_HIDDEN_CALENDARS;
     if (this._configFingerprint !== null) {
-      ViewChoice.writeHiddenCalendars(this._configFingerprint, [...next]);
+      this._hiddenMatchesStorage = ViewChoice.writeHiddenCalendars(this._configFingerprint, [
+        ...next,
+      ]);
     }
-    this._announceHiddenCalendars([...next]);
+    this._announceHiddenCalendars([...next], this._hiddenMatchesStorage);
     Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
     this.requestUpdate();
   }
@@ -4953,12 +5022,14 @@ class CalendarCardPro extends LitElement {
    * the remembered set, and take this one up at once (`_handleLegendChanged`).
    *
    * @param hidden - Entity ids of the calendars hidden now
+   * @param stored - Whether `localStorage` took the change
    */
-  private _announceHiddenCalendars(hidden: string[]): void {
+  private _announceHiddenCalendars(hidden: string[], stored: boolean): void {
     if (this._configFingerprint === null) return;
     const change: Legend.LegendChange = {
       fingerprint: this._configFingerprint,
       hidden,
+      stored,
       source: this,
     };
     window.dispatchEvent(new CustomEvent(Legend.LEGEND_CHANGED_EVENT, { detail: change }));
@@ -5349,7 +5420,7 @@ class CalendarCardPro extends LitElement {
 
     Logger.debug('Resetting to the configuration');
     if (this._configFingerprint !== null) {
-      ViewChoice.forgetChoice(this._configFingerprint);
+      this._hiddenMatchesStorage = ViewChoice.forgetChoice(this._configFingerprint);
     }
 
     if (this._viewChoice !== null) {
@@ -5365,7 +5436,7 @@ class CalendarCardPro extends LitElement {
 
     if (this._hiddenCalendars.size > 0) {
       this._hiddenCalendars = NO_HIDDEN_CALENDARS;
-      this._announceHiddenCalendars([]);
+      this._announceHiddenCalendars([], this._hiddenMatchesStorage);
     }
 
     this.isExpanded = false;

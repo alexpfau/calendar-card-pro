@@ -1599,12 +1599,20 @@ Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. Th
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
 
-Three things are easy to get wrong:
+Four things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
   defaults into the user's YAML — the classic failure of an `ha-form` editor, and one that
   moving an existing editor onto `ha-form` tends to introduce rather than remove.
+- **Minimizing must not eat what the user wrote.** `toStoredConfig` drops a default-valued
+  line only when the write changed it; a line the YAML already holds stays, so a later
+  default change cannot move the card. That needs the stored YAML as its third argument
+  (`_rawConfig`), and every editor write passes it. A new write path that omits it
+  compiles, passes every type check, and silently drops `show_month: true` on the next
+  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. Anything
+  that labels or resets a view value reads `storedViewBlocks`, the same rule, so a kept
+  line is never shown as inherited.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and

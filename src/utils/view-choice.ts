@@ -9,6 +9,13 @@
  * what resets every device to the configured view, and to every calendar shown, after an edit.
  * The toolbar's reset forgets the choice on the one device where it is pressed.
  *
+ * Every tab of the browser shares the one entry, so the legend's half is kept in step across
+ * them: a tab hears another's write as a `storage` event ({@link hiddenCalendarsChange}) and
+ * reads the entry again when it comes back ({@link readStoredHiddenCalendars}). Without that, a
+ * stale tab writes its whole hidden set over a newer one, and brings back calendars a reset in
+ * another tab had shown. The switcher's half needs neither: a view is written as a patch of its
+ * own half, never as a copy of a set read earlier, so a stale tab cannot restore one.
+ *
  * Storage is optional everywhere here. A browser that refuses it — private mode, a full
  * quota, a policy — leaves the choice in memory for as long as the page lives, and nothing
  * else changes.
@@ -144,20 +151,34 @@ function hiddenIds(value: unknown): string[] | undefined {
 }
 
 /**
- * Every stored choice, with anything malformed dropped.
+ * The stored entry's text, or undefined when the storage cannot be read at all.
+ *
+ * @param storage - Where choices are kept
+ * @returns The text, null when there is no entry, undefined when reading fails
+ */
+function readText(storage: ChoiceStorage | null): string | null | undefined {
+  if (!storage) return undefined;
+
+  try {
+    return storage.getItem(VIEW_CHOICE_STORAGE_KEY);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Every choice in an entry's text, with anything malformed dropped.
  *
  * A choice keeps whichever of its halves is valid. One with neither is dropped.
  *
- * @param storage - Where choices are kept
- * @returns Valid choices by fingerprint; empty when there are none or storage fails
+ * @param text - The entry as stored, or null for none
+ * @returns Valid choices by fingerprint; empty when there are none
  */
-function readAll(storage: ChoiceStorage | null): Record<string, StoredChoice> {
-  if (!storage) return {};
+function parseAll(text: string | null | undefined): Record<string, StoredChoice> {
+  if (text === null || text === undefined) return {};
 
   let parsed: unknown;
   try {
-    const text = storage.getItem(VIEW_CHOICE_STORAGE_KEY);
-    if (text === null) return {};
     parsed = JSON.parse(text);
   } catch {
     return {};
@@ -183,13 +204,24 @@ function readAll(storage: ChoiceStorage | null): Record<string, StoredChoice> {
 }
 
 /**
+ * Every stored choice, with anything malformed dropped.
+ *
+ * @param storage - Where choices are kept
+ * @returns Valid choices by fingerprint; empty when there are none or storage fails
+ */
+function readAll(storage: ChoiceStorage | null): Record<string, StoredChoice> {
+  return parseAll(readText(storage));
+}
+
+/**
  * Writes the choices back, keeping only the newest {@link MAX_VIEW_CHOICES}.
  *
  * @param storage - Where choices are kept
  * @param choices - Every choice to keep
+ * @returns Whether the storage now holds them
  */
-function writeAll(storage: ChoiceStorage | null, choices: Record<string, StoredChoice>): void {
-  if (!storage) return;
+function writeAll(storage: ChoiceStorage | null, choices: Record<string, StoredChoice>): boolean {
+  if (!storage) return false;
 
   const kept = Object.entries(choices)
     .sort(([, a], [, b]) => b.at - a.at)
@@ -198,12 +230,14 @@ function writeAll(storage: ChoiceStorage | null, choices: Record<string, StoredC
   try {
     if (kept.length === 0) {
       storage.removeItem(VIEW_CHOICE_STORAGE_KEY);
-      return;
+      return true;
     }
     const payload: StoredChoices = { version: STORAGE_VERSION, choices: Object.fromEntries(kept) };
     storage.setItem(VIEW_CHOICE_STORAGE_KEY, JSON.stringify(payload));
+    return true;
   } catch {
     // A full or refused storage keeps the choice for this page only; see the module note.
+    return false;
   }
 }
 
@@ -215,13 +249,14 @@ function writeAll(storage: ChoiceStorage | null, choices: Record<string, StoredC
  * @param patch - The half to change; undefined clears it
  * @param storage - Where choices are kept
  * @param now - The time the change is made
+ * @returns Whether the storage now holds the change
  */
 function updateChoice(
   fingerprint: string,
   patch: Pick<StoredChoice, 'view'> | Pick<StoredChoice, 'hidden'>,
   storage: ChoiceStorage | null,
   now: number,
-): void {
+): boolean {
   const choices = readAll(storage);
   const previous = choices[fingerprint];
   const next: StoredChoice = { ...previous, ...patch, at: now };
@@ -229,13 +264,13 @@ function updateChoice(
   if (next.hidden === undefined || next.hidden.length === 0) delete next.hidden;
 
   if (next.view === undefined && next.hidden === undefined) {
-    if (!previous) return;
+    if (!previous) return storage !== null;
     delete choices[fingerprint];
   } else {
     choices[fingerprint] = next;
   }
 
-  writeAll(storage, choices);
+  return writeAll(storage, choices);
 }
 
 /**
@@ -285,6 +320,27 @@ export function readHiddenCalendars(
 }
 
 /**
+ * The calendars the legend hides for a configuration, as the storage holds them now, or
+ * undefined when it cannot be read.
+ *
+ * {@link readHiddenCalendars} answers an empty list for both, which is right for a card
+ * starting up and wrong for one catching up: there, an unreadable storage says nothing, and
+ * must not show every calendar again.
+ *
+ * @param fingerprint - From {@link configFingerprint}
+ * @param storage - Where choices are kept
+ * @returns Entity ids, an empty list when every calendar is shown, or undefined
+ */
+export function readStoredHiddenCalendars(
+  fingerprint: string,
+  storage: ChoiceStorage | null = deviceStorage(),
+): string[] | undefined {
+  const text = readText(storage);
+  if (text === undefined) return undefined;
+  return parseAll(text)[fingerprint]?.hidden ?? [];
+}
+
+/**
  * Remembers which calendars the legend hides for a configuration; an empty list forgets it.
  * The view chosen for it is kept either way.
  *
@@ -292,14 +348,15 @@ export function readHiddenCalendars(
  * @param hidden - Entity ids of the hidden calendars
  * @param storage - Where choices are kept
  * @param now - The time the choice is made
+ * @returns Whether the storage now holds them
  */
 export function writeHiddenCalendars(
   fingerprint: string,
   hidden: ReadonlyArray<string>,
   storage: ChoiceStorage | null = deviceStorage(),
   now: number = Date.now(),
-): void {
-  updateChoice(fingerprint, { hidden: hiddenIds(hidden) }, storage, now);
+): boolean {
+  return updateChoice(fingerprint, { hidden: hiddenIds(hidden) }, storage, now);
 }
 
 /**
@@ -308,13 +365,41 @@ export function writeHiddenCalendars(
  *
  * @param fingerprint - From {@link configFingerprint}
  * @param storage - Where choices are kept
+ * @returns Whether the storage now holds no choice for it
  */
 export function forgetChoice(
   fingerprint: string,
   storage: ChoiceStorage | null = deviceStorage(),
-): void {
+): boolean {
   const choices = readAll(storage);
-  if (!Object.prototype.hasOwnProperty.call(choices, fingerprint)) return;
+  if (!Object.prototype.hasOwnProperty.call(choices, fingerprint)) return storage !== null;
   delete choices[fingerprint];
-  writeAll(storage, choices);
+  return writeAll(storage, choices);
+}
+
+/** The parts of a `storage` event this module reads, so a test can hand it a plain object. */
+export type ChoiceStorageChange = Pick<StorageEvent, 'key' | 'oldValue' | 'newValue'>;
+
+/**
+ * The calendars now hidden for a configuration, when another tab's write changed them.
+ *
+ * Read from the event's own before and after, not from the storage, so a write that changed
+ * only another configuration's choice, or only this one's view, is no change here. A cleared
+ * storage (`key` null) carries neither, and leaves every calendar shown.
+ *
+ * @param change - A `storage` event from `window`
+ * @param fingerprint - From {@link configFingerprint}
+ * @returns The hidden entity ids now stored, or undefined when this choice's set is unchanged
+ */
+export function hiddenCalendarsChange(
+  change: ChoiceStorageChange,
+  fingerprint: string,
+): string[] | undefined {
+  if (change.key === null) return [];
+  if (change.key !== VIEW_CHOICE_STORAGE_KEY) return undefined;
+
+  const before = parseAll(change.oldValue)[fingerprint]?.hidden ?? [];
+  const after = parseAll(change.newValue)[fingerprint]?.hidden ?? [];
+  const same = before.length === after.length && before.every((id) => after.includes(id));
+  return same ? undefined : after;
 }

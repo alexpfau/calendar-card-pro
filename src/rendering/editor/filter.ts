@@ -9,7 +9,7 @@ import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './pa
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { configKeysForField, deriveSyntheticData, isSyntheticKey } from './synthetic';
-import { deepEqual, toStoredConfig } from './value';
+import { deepEqual, storedViewBlocks } from './value';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
@@ -279,7 +279,7 @@ const OVERRIDE_BLOCK_KEYS: ReadonlySet<string> = new Set(
   ),
 );
 
-const storedConfig = Helpers.memoizeLast((config: Types.Config) => toStoredConfig(config));
+const storedBlocks = Helpers.memoizeLast((config: Types.Config) => storedViewBlocks(config));
 
 /**
  * Whether a field is holding something other than what the card would do anyway.
@@ -304,7 +304,7 @@ export function isCustomized(
   }
 
   if (dataPath.length === 1 && OVERRIDE_BLOCK_KEYS.has(dataPath[0])) {
-    const block = storedConfig(raw)[dataPath[0]];
+    const block = storedBlocks(raw)[dataPath[0]];
 
     return typeof block === 'object' && block !== null
       ? (block as Record<string, unknown>)[name] !== undefined
