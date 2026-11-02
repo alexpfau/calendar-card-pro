@@ -237,8 +237,11 @@ describe('weather presentation', () => {
       const rules = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
       const separators = rules.match(/[^}]*span \+ span::before[^{]*\{/g) ?? [];
 
-      expect(separators).toHaveLength(1);
-      expect(separators[0]).toContain('.time-location .event-weather');
+      // Two: the separator itself and its right-to-left isolation (rtl-mirroring.test.ts).
+      expect(separators).toHaveLength(2);
+      for (const separator of separators) {
+        expect(separator).toContain('.time-location .event-weather');
+      }
     });
 
     it('renders the list badge exactly as it did before the row learned separators', () => {

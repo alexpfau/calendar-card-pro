@@ -68,17 +68,10 @@ describe('inline glyph gaps in either text direction', () => {
         .map(([prop, value]) => `${rule.selector} { ${prop}: ${value} }`),
     );
 
+    // The list view's week row, separators and date column held physical insets here until
+    // they too were written by inline side, so a right-to-left list mirrors; their values are
+    // pinned in rtl-mirroring.test.ts.
     expect(physical).toEqual([
-      // The list view's week row, separators and date column. Their sides do not mirror in a
-      // right-to-left card either, but they place whole columns rather than a glyph beside its
-      // text, and are outside what this file pins.
-      '.week-row-table { padding-left: 8px }',
-      '.week-number-cell { padding-right: 12px }',
-      '.separator { margin-left: 8px }',
-      '.week-separator { margin-left: 8px }',
-      '.month-separator { margin-left: 8px }',
-      '.date-column { padding-left: 8px }',
-      '.date-column { padding-right: 12px }',
       // The UV index right after a temperature, inline, in a run of digits and Latin letters:
       // see the file's comment. Each rule cancels its inline-start margin before this.
       '.column-date-content .weather .weather-temp-high + .weather-uv-index { margin-left: 2px }',
@@ -119,25 +112,35 @@ describe('inline glyph gaps in either text direction', () => {
   });
 
   it("leaves the list view's placed today indicator where its position puts it", () => {
-    // today_indicator_position places it with a left and a top. ha-icon's inline-end gap would
-    // be a left margin in right-to-left, and move it 4px; in left-to-right a right margin moves
-    // nothing, so zero changes nothing there.
-    expect(
-      declared(
-        '.today-indicator-container:not(.inline) > ha-icon.today-indicator',
-        'margin-inline-end',
-      ),
-    ).toBe('0');
+    // today_indicator_position places it from its inline start and a top
+    // (today-indicator-position.test.ts), so ha-icon's inline-end gap sits on the side no
+    // offset reads, in either direction, and moves nothing. Placed by a left offset it was the
+    // left margin in right-to-left and moved the indicator 4px, which a reset here canceled;
+    // with nothing left to cancel, no rule touches the indicator's margins.
+    expect(declared('ha-icon', 'margin-inline-end')).toBe('4px');
+    const margins = RULES.filter(
+      (rule) =>
+        /\.today-indicator(?![\w-])/.test(rule.selector) &&
+        !rule.selector.includes('.today-indicator-container.inline') &&
+        declarations(rule.body).some(([prop]) => prop.startsWith('margin')),
+    ).map((rule) => rule.selector);
+    expect(margins).toEqual([]);
   });
 
-  it('isolates a text label in right-to-left only, in its own direction', () => {
-    // So an English label before an English title leads it, with its gap toward it, rather
-    // than joining it in one left-to-right run that a right-to-left line draws label last.
-    // plaintext, not isolate, so "Work:" keeps its colon after the word: isolate would lay the
-    // label out in the card's right-to-left direction. Grid view's own isolate is outweighed.
-    const rtlLabels = '.calendar-label:dir(rtl), .grid-event-disclosure .calendar-label:dir(rtl)';
-    expect(declared(rtlLabels, 'unicode-bidi')).toBe('plaintext');
-    // Left-to-right is left as it was.
-    expect(declared('.calendar-label', 'unicode-bidi')).toBe('');
+  it('isolates a text label in its own direction, in either text direction', () => {
+    // So an English label before an English title leads it in right-to-left, and a Hebrew
+    // label before a Hebrew title in left-to-right, with its gap toward it, rather than joining
+    // it in one run that the line draws label last. plaintext, not isolate, so "Work:" keeps
+    // its colon after the word: isolate would lay the label out in the card's direction.
+    const labels = '.calendar-label, .grid-event-disclosure .calendar-label:dir(rtl)';
+    expect(declared(labels, 'unicode-bidi')).toBe('plaintext');
+    // Grid view isolates its labels itself, and in left-to-right that still wins: a stronger
+    // selector than the bare class. In right-to-left the :dir(rtl) entry above outweighs it.
+    expect(
+      declared(
+        '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
+        'unicode-bidi',
+      ),
+    ).toBe('isolate');
   });
 });

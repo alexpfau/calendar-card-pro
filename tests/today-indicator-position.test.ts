@@ -69,8 +69,15 @@ describe('today indicator position', () => {
       // some other type's markup that happens to be positioned correctly.
       expect(actualClass).toBe(className);
       expect(style).toContain('position:absolute');
-      expect(style).toContain('left:20%');
+      // From the inline start, so a right-to-left card mirrors it (rtl-mirroring.test.ts).
+      expect(style).toContain('inset-inline-start:20%');
+      expect(style).not.toMatch(/(^|;)\s*(left|right):/);
       expect(style).toContain('top:80%');
+      // Centered on that point; the stylesheet turns the horizontal half around in
+      // right-to-left, and unset it is the -50% a left-to-right card always had.
+      expect(style).toContain(
+        'transform:translate(var(--calendar-card-today-indicator-shift, -50%), -50%)',
+      );
     });
   });
 
