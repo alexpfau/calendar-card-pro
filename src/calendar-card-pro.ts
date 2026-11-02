@@ -1308,9 +1308,11 @@ class CalendarCardPro extends LitElement {
    *
    * It comes with the arrows, so a swipe always has a press beside it that does the same. Not
    * while the card is being edited, where the arrows do nothing either, and not while it shows
-   * a crammed grid, whose days scroll sideways under the finger instead
-   * (`min_days_fallback: cramp`). Everywhere else the card keeps the browser's own touch
-   * behavior: a card that does not swipe changes nothing at all.
+   * a crammed grid, whose days scroll sideways under the finger instead: one holding its
+   * `min_days_to_show` floor below `min_day_width` under `min_days_fallback: cramp`
+   * (`columnFitCrams`). A grid configured to cramp that has room for its days swipes. Everywhere
+   * else the card keeps the browser's own touch behavior: a card that does not swipe changes
+   * nothing at all.
    */
   private get _swipeAvailable(): boolean {
     return (
@@ -1318,7 +1320,10 @@ class CalendarCardPro extends LitElement {
       !this._isBeingEdited &&
       !(
         this.effectiveView === 'grid' &&
-        ViewConfig.resolveMinDaysFallback(this.effectiveConfig, 'grid') === 'cramp'
+        ViewConfig.columnFitCrams('grid', this.config, this._measuredWidthPx, {
+          view: this._effectiveView,
+          columns: this._columnCount,
+        })
       )
     );
   }
@@ -2606,16 +2611,22 @@ class CalendarCardPro extends LitElement {
             widthPx,
             { view: this._effectiveView, columns: this._columnCount },
           );
-    // Two things on screen depend on the width without being the dashboard's layout: which
-    // views the switcher offers, which can change while the layout does not, and the day
-    // columns the configured view is fitted to while it is being edited.
+    // Three things on screen depend on the width without being the dashboard's layout: which
+    // views the switcher offers, which can change while the layout does not, the day
+    // columns the configured view is fitted to while it is being edited, and whether a grid
+    // holding its days is crammed, which decides whether it swipes (`_swipeAvailable`).
     const offeredBefore = this._offeredViewsKey();
     const shownBefore = this._shownColumnCount;
+    const swipeBefore = this._swipeAvailable;
 
     this._measuredWidthPx = widthPx;
 
     if (next.view === this._effectiveView && next.columns === this._columnCount) {
-      if (this._offeredViewsKey() !== offeredBefore || this._shownColumnCount !== shownBefore) {
+      if (
+        this._offeredViewsKey() !== offeredBefore ||
+        this._shownColumnCount !== shownBefore ||
+        this._swipeAvailable !== swipeBefore
+      ) {
         this.requestUpdate();
       }
       return;

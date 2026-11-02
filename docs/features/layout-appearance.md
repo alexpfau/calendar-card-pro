@@ -245,9 +245,10 @@ device's settings nothing moves, and the page simply changes. A tap on an event 
 a swipe that starts on one never does, and scrolling up and down works as it always has. A mouse
 keeps to the arrows. Swiping comes with the arrows, so `navigation: false` turns it off too. Two
 places are left alone: a swipe starting at the very edge of the screen, where the browser and the
-Home Assistant app have swipes of their own, and a grid with
-[`min_days_fallback: cramp`](/features/grid-view#fitting-narrow-cards), whose days scroll sideways
-under the finger and page with the arrows only.
+Home Assistant app have swipes of their own, and a grid that
+[`min_days_fallback: cramp`](/features/grid-view#fitting-narrow-cards) has crammed, holding its
+days narrower than `min_day_width`: those scroll sideways under the finger, and page with the
+arrows only.
 
 A few things work differently away from the days the card opens with:
 

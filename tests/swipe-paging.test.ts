@@ -66,6 +66,7 @@ interface CardUnderTest extends HTMLElement {
   hass?: unknown;
   preview: boolean;
   editMode: boolean;
+  readonly effectiveView: Types.EffectiveView;
   requestUpdate(): void;
   readonly updateComplete: Promise<boolean>;
 }
@@ -76,6 +77,27 @@ interface GestureInternals {
   _pageShown: string | null;
   _runEventTapAction: (target: unknown) => void;
 }
+
+/** Records what the card asks of `ResizeObserver`, and hands back its callback. */
+class RecordingResizeObserver {
+  static instances: RecordingResizeObserver[] = [];
+
+  readonly observed: Element[] = [];
+
+  constructor(readonly callback: (entries: Array<{ contentRect: { width: number } }>) => void) {
+    RecordingResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element): void {
+    this.observed.push(target);
+  }
+
+  unobserve(): void {}
+
+  disconnect(): void {}
+}
+
+const originalResizeObserver = globalThis.ResizeObserver;
 
 /** One event a day at 09:00, named for its day, from May through July. */
 function eventsBetween(start: Date, end: Date): Types.CalendarEventData[] {
@@ -164,6 +186,17 @@ async function mount(
   return card;
 }
 
+/** Deliver a width the way the browser does, and let the settle delay run out. */
+async function measure(card: CardUnderTest, width: number): Promise<void> {
+  const observer = RecordingResizeObserver.instances.find(({ observed }) =>
+    observed.includes(card),
+  );
+  if (!observer) throw new Error('the card never asked to be observed');
+  observer.callback([{ contentRect: { width } }]);
+  vi.advanceTimersByTime(Constants.TIMING.WIDTH_SETTLE_DELAY);
+  await settle(card);
+}
+
 const root = (card: CardUnderTest): ShadowRoot => card.shadowRoot!;
 const haCard = (card: CardUnderTest): HTMLElement => root(card).querySelector('ha-card')!;
 const content = (card: CardUnderTest): HTMLElement =>
@@ -247,6 +280,8 @@ beforeEach(() => {
   EventUtils.clearPageStore();
   hassActions = [];
   document.addEventListener('hass-action', recordHassAction);
+  RecordingResizeObserver.instances = [];
+  globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
 });
 
 afterEach(async () => {
@@ -257,6 +292,7 @@ afterEach(async () => {
   document.body.innerHTML = '';
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  globalThis.ResizeObserver = originalResizeObserver;
   vi.useRealTimers();
   localStorage.clear();
 });
@@ -500,19 +536,43 @@ describe('where a swipe pages nothing at all', () => {
   });
 
   it('leaves a crammed grid its sideways scroll, and swipes a crammed column view', async () => {
-    const grid = await mount({ view: 'grid', time_grid: { min_days_fallback: 'cramp' } });
+    // Seven days that will not go below seven: at 300px every one is narrower than
+    // min_day_width, so cramp holds them all and the grid scrolls sideways.
+    const crammed = { min_days_fallback: 'cramp', min_days_to_show: 7 } as const;
+    const grid = await mount({ view: 'grid', time_grid: crammed });
+    await measure(grid, 300);
+    expect(grid.effectiveView).toBe('grid');
     expect(haCard(grid).classList.contains('swipe-paging')).toBe(false);
     expect(armsFor(grid)).toBe(false);
     swipe(content(grid), ...LEFT);
     await settle(grid);
     expect(range(grid)).toBe(HOME);
 
+    // Given room for its seven days the same grid is not crammed, and swipes.
+    await measure(grid, 1200);
+    expect(haCard(grid).classList.contains('swipe-paging')).toBe(true);
+    swipe(content(grid), ...LEFT);
+    await settle(grid);
+    expect(range(grid)).toBe(NEXT);
+
     document.body.innerHTML = '';
-    const column = await mount({ view: 'column', column: { min_days_fallback: 'cramp' } });
+    const column = await mount({ view: 'column', column: crammed });
+    await measure(column, 300);
+    expect(column.effectiveView).toBe('column');
     expect(haCard(column).classList.contains('swipe-paging')).toBe(true);
     swipe(content(column), ...LEFT);
     await settle(column);
     expect(range(column)).toBe(NEXT);
+  });
+
+  it('swipes a grid configured to cramp while it sheds days instead', async () => {
+    const card = await mount({ view: 'grid', time_grid: { min_days_fallback: 'cramp' } });
+    await measure(card, 300);
+    expect(card.effectiveView).toBe('grid');
+    expect(haCard(card).classList.contains('swipe-paging')).toBe(true);
+    swipe(content(card), ...LEFT);
+    await settle(card);
+    expect(range(card)).not.toBe(HOME);
   });
 
   it('swipes a grid that falls back to the list, and every view with the arrows', async () => {
