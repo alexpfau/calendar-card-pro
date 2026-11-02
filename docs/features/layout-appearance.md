@@ -747,7 +747,7 @@ Available indicator types:
 
 Anything the card does not recognize as one of the first six is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
 
-The keywords `tile`, `dot`, `pulse` and `glow` count only when written exactly so, in lowercase. Any other casing is text: `Tile`, `DOT` or `Glow` draws the word itself, which is how to put one of those words on the card.
+The keywords `tile`, `dot`, `pulse` and `glow` count in any casing: `Tile`, `DOT` and `Glow` are the tile, the dot and the glow. So those four words cannot be drawn as text, though a longer one holding them, such as `Tiles`, can.
 
 ### The Date Tile
 
