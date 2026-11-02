@@ -74,6 +74,8 @@ interface CardUnderTest extends HTMLElement {
 /** The card's private gesture state, read where the outcome leaves nothing on screen. */
 interface GestureInternals {
   _activePointerId: number | null;
+  _holdIndicator: HTMLElement | null;
+  _pageRequested: string | null;
   _pageShown: string | null;
   _runEventTapAction: (target: unknown) => void;
 }
@@ -377,6 +379,28 @@ describe('a swipe across the days', () => {
     expect(range(card)).toBe(HOME);
   });
 
+  it('pages nothing once the card has lost the pointer', async () => {
+    const card = await mount();
+    pointer(content(card), 'pointerdown', 600, 300);
+    pointer(content(card), 'pointermove', 540, 300);
+    pointer(haCard(card), 'lostpointercapture', 540, 300);
+    pointer(content(card), 'pointerup', 480, 300);
+    await settle(card);
+    expect(range(card)).toBe(HOME);
+    expect(content(card).hasAttribute('style')).toBe(false);
+  });
+
+  it('pages nothing when swiping was taken away while the finger was down', async () => {
+    const card = await mount();
+    pointer(content(card), 'pointerdown', 600, 300);
+    pointer(content(card), 'pointermove', 540, 300);
+    card.setConfig(buildConfig({ ...BASE, toolbar: { ...NAVIGATION_ONLY, navigation: false } }));
+    await settle(card);
+    pointer(content(card), 'pointerup', 480, 300);
+    await settle(card);
+    expect(internals(card)._pageRequested).toBeNull();
+  });
+
   it('follows one finger: a second contact neither starts nor steers a swipe', async () => {
     const card = await mount();
     const days = content(card);
@@ -475,6 +499,21 @@ describe('a swipe beside the taps and the hold', () => {
 
     expect(hassActions).toEqual(['hold']);
     expect(range(card)).toBe(HOME);
+  });
+
+  it('keeps a hold that fired: its indicator stays and the days stay still as the finger slips', async () => {
+    const card = await mount({ hold_action: { action: 'navigate', navigation_path: '/x' } });
+
+    pointer(content(card), 'pointerdown', 600, 300);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD);
+    expect(internals(card)._holdIndicator).not.toBeNull();
+    pointer(content(card), 'pointermove', 540, 300);
+    pointer(content(card), 'pointermove', 480, 300);
+    expect(internals(card)._holdIndicator).not.toBeNull();
+    expect(content(card).hasAttribute('style')).toBe(false);
+
+    pointer(content(card), 'pointerup', 480, 300);
+    expect(hassActions).toEqual(['hold']);
   });
 
   it('pages from a swipe that began on an event, and never opens it; a tap still does', async () => {
@@ -596,17 +635,19 @@ describe('where a swipe pages nothing at all', () => {
 describe('what a card that swipes declares to the browser', () => {
   const CSS = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
 
-  it('hands it vertical panning and pinch zoom on the card and its body, only with the class', () => {
+  it('hands it vertical panning and pinch zoom where a swipe starts, only with the class', () => {
     const rules = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, , body]) =>
       body.includes('touch-action'),
     );
     expect(rules).toHaveLength(1);
 
     const [, prelude, body] = rules[0];
+    // The body and the title, never the card itself: the toolbar keeps its presses from the
+    // card, and no descendant can lift a restriction an ancestor declares.
     expect(prelude.split(',').map((selector) => selector.replace(/\s+/g, ' ').trim())).toEqual([
-      'ha-card.swipe-paging',
       'ha-card.swipe-paging .content-container',
       'ha-card.swipe-paging .content-container *',
+      'ha-card.swipe-paging .card-header',
     ]);
     // The fallback first: a browser that does not know pinch-zoom drops the second whole.
     expect(
@@ -623,6 +664,7 @@ describe('the motion of a swipe', () => {
     element: Element;
     keyframes: Keyframe[];
     options: KeyframeAnimationOptions;
+    cancel: ReturnType<typeof vi.fn>;
   }
   let asked: Asked[] = [];
 
@@ -634,12 +676,14 @@ describe('the motion of a swipe', () => {
       keyframes: Keyframe[] | PropertyIndexedKeyframes | null,
       options?: number | KeyframeAnimationOptions,
     ) {
+      const cancel = vi.fn();
       asked.push({
         element: this,
         keyframes: keyframes as Keyframe[],
         options: options as KeyframeAnimationOptions,
+        cancel,
       });
-      return { cancel: vi.fn() } as unknown as Animation;
+      return { cancel } as unknown as Animation;
     });
   }
 
@@ -756,6 +800,68 @@ describe('the motion of a swipe', () => {
       transform: `translateX(-${Constants.UI.SWIPE_ARRIVAL_OFFSET}px)`,
       opacity: 0,
     });
+  });
+
+  it('turns a page already loaded at once: its arrival takes over from the spring-back', async () => {
+    const card = await mount();
+    swipe(content(card), ...LEFT);
+    await settle(card);
+    const before = asked.length;
+
+    // Home is loaded already, so it is drawn in the update straight after the finger lifts.
+    swipe(content(card), ...RIGHT);
+    await settle(card);
+    expect(range(card)).toBe(HOME);
+    const [springBack, arrival] = asked.slice(before);
+    expect(springBack.keyframes[1]).toEqual({ transform: 'translateX(0)' });
+    expect(arrival.keyframes[0]).toEqual({
+      transform: `translateX(-${Constants.UI.SWIPE_ARRIVAL_OFFSET}px)`,
+      opacity: 0,
+    });
+    expect(springBack.cancel).toHaveBeenCalled();
+    expect(arrival.cancel).not.toHaveBeenCalled();
+  });
+
+  it('slides nothing in once the card no longer swipes, home included', async () => {
+    const card = await mount();
+    swipe(content(card), ...LEFT);
+    await settle(card);
+    const before = asked.length;
+
+    // Home forgotten and held back, so the swipe home waits for it; meanwhile the date
+    // navigation goes, and home is asked for by nothing but the swipe.
+    localStorage.clear();
+    EventUtils.clearPageStore();
+    const release = holdAnswers();
+    swipe(content(card), ...RIGHT);
+    await settle(card);
+    expect(internals(card)._pageRequested).toBeNull();
+    card.setConfig(buildConfig({ ...BASE, toolbar: { ...NAVIGATION_ONLY, navigation: false } }));
+    await settle(card);
+    release();
+    await settle(card);
+    release();
+    await settle(card);
+
+    expect(internals(card)._pageShown).toBeNull();
+    // The swipe's spring-back, and no arrival.
+    expect(asked.slice(before).map((a) => a.keyframes[0])).toEqual([
+      { transform: expect.stringMatching(/^translateX\(\d/) },
+    ]);
+  });
+
+  it('slides nothing in when reduced motion is asked for before the page arrives', async () => {
+    const card = await mount();
+    const release = holdAnswers();
+    swipe(content(card), ...LEFT);
+    await settle(card);
+    expect(asked).toHaveLength(1);
+
+    reduceMotion(true);
+    release();
+    await settle(card);
+    expect(internals(card)._pageShown).not.toBeNull();
+    expect(asked).toHaveLength(1);
   });
 
   it('slides nothing in for a page the arrows turned to', async () => {

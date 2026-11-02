@@ -3369,6 +3369,8 @@ class CalendarCardPro extends LitElement {
     }
     const tapTarget = this._eventTapAt(ev);
     const swipeable = this._swipeStartsAt(ev);
+    // A press arms only when it could end in something: the card's own tap or hold, a tap on
+    // the event it landed on, or a swipe. Any other press is left wholly to the browser.
     if (!this._hasCardAction && !tapTarget && !swipeable) {
       return;
     }
@@ -3482,29 +3484,27 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    // A hold is the card's wherever it lands, an event included; only a tap is the event's.
+    // Every press ends in exactly one of three ways (the gesture model in docs/architecture.md).
+    // Held: the hold, which is the card's wherever it lands, an event included. Stayed: a tap,
+    // run by the innermost target that has one, the event's before the card's. Moved: never a
+    // tap or a hold on anything, and a swipe when it can be one. A hold cannot fire once the
+    // pointer has moved, and movement after it fired is ignored, so the three never overlap.
     const tapTarget = this._pointerTapTarget;
     let ranCardTap = false;
-    if (
-      !this._pointerMoved &&
-      this._holdTriggered &&
-      this.config.hold_action &&
-      this.config.hold_action.action !== 'none'
-    ) {
-      Logger.debug('Executing hold action');
-      Actions.handleAction(this, this.config, 'hold', this._cardActionCallbacks);
-    } else if (!this._pointerMoved && !this._holdTriggered && tapTarget) {
-      this._runEventTapAction(tapTarget.target);
-    } else if (
-      !this._pointerMoved &&
-      !this._holdTriggered &&
-      this.config.tap_action &&
-      this.config.tap_action.action !== 'none'
-    ) {
-      Logger.debug('Executing tap action');
-      Actions.handleAction(this, this.config, 'tap', this._cardActionCallbacks);
-      ranCardTap = true;
-    } else if (this._pointerMoved && !this._holdTriggered && this._pointerSwipeable) {
+    if (this._holdTriggered) {
+      if (this.config.hold_action && this.config.hold_action.action !== 'none') {
+        Logger.debug('Executing hold action');
+        Actions.handleAction(this, this.config, 'hold', this._cardActionCallbacks);
+      }
+    } else if (!this._pointerMoved) {
+      if (tapTarget) {
+        this._runEventTapAction(tapTarget.target);
+      } else if (this.config.tap_action && this.config.tap_action.action !== 'none') {
+        Logger.debug('Executing tap action');
+        Actions.handleAction(this, this.config, 'tap', this._cardActionCallbacks);
+        ranCardTap = true;
+      }
+    } else if (this._pointerSwipeable) {
       const start = this._pointerStart;
       if (start) this._swipeEnded(ev.clientX - start.x, ev.clientY - start.y);
     }
@@ -3664,7 +3664,9 @@ class CalendarCardPro extends LitElement {
    */
   private _swipeEnded(deltaX: number, deltaY: number): void {
     const direction = this._swipeDirection(deltaX, deltaY);
-    if (direction === 0) return;
+    // Asked again rather than trusted from pointer-down: the configuration or the layout may
+    // have taken swiping away while the finger was down.
+    if (direction === 0 || !this._swipeAvailable) return;
 
     Logger.debug(`Swipe pages ${direction > 0 ? 'forward' : 'back'}`);
     const before = this._pageRequested;
@@ -3725,6 +3727,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Runs one piece of a swipe's motion on the content container, ending the one before it.
+   * Nothing runs under `prefers-reduced-motion`, asked here rather than once per gesture, since
+   * an arrival can start well after the swipe that asked for it.
    *
    * Ending an animation rejects its `finished` promise, and nothing here waits on it, so the
    * rejection is caught where the animation starts: otherwise a swipe that interrupts the last
@@ -3737,7 +3741,7 @@ class CalendarCardPro extends LitElement {
   private _startSwipeMotion(element: HTMLElement, keyframes: Keyframe[], duration: number): void {
     this._swipeMotion?.cancel();
     this._swipeMotion = null;
-    if (typeof element.animate !== 'function') return;
+    if (typeof element.animate !== 'function' || prefersReducedMotion()) return;
 
     const motion = element.animate(keyframes, { duration, easing: 'ease-out' });
     motion.finished?.catch(() => undefined);
@@ -3748,7 +3752,12 @@ class CalendarCardPro extends LitElement {
    * Slides in the page a swipe asked for, from the side the finger came from, once its days
    * are drawn: at once for a page already loaded, after its events arrive for one that is not.
    * A page asked for any other way since, by the arrows, the picker, home or another swipe,
-   * takes the arrival with it.
+   * takes the arrival with it (`_requestPage`), and so does the card ceasing to swipe.
+   *
+   * A page already loaded is drawn in the update straight after the finger lifts, before the
+   * days have sprung back, and the arrival takes over from the spring-back. That is the turn of
+   * a page rather than a jump: the days that followed the finger are gone by then, and the new
+   * ones come in from the other side.
    *
    * Through the Web Animations API, so nothing is added to the card's DOM or attributes: the
    * observers that refit the grid when its structure changes see nothing.
@@ -3756,7 +3765,7 @@ class CalendarCardPro extends LitElement {
   private _syncSwipeArrival(): void {
     const arrival = this._swipeArrival;
     if (!arrival) return;
-    if (this._pageRequested !== arrival.page) {
+    if (!this._swipeAvailable) {
       this._swipeArrival = null;
       return;
     }
@@ -5027,6 +5036,9 @@ class CalendarCardPro extends LitElement {
    */
   private _requestPage(page: string | null): void {
     this._pageRequested = page;
+    // A page asked for any way at all ends the slide a swipe's page was waiting for. A swipe
+    // asks through here as well, and records its arrival only once this returns.
+    this._swipeArrival = null;
     this._failureCountHint = 0;
   }
 

@@ -1092,10 +1092,68 @@ request already in flight rather than stopping at the cache.
 | `network`   | a later configuration change, going home after a calendar changed while away  | no                             | always, joining a matching request under way                                              |
 | `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action | no                             | always, never joining a request from before the write                                     |
 
+### Gesture Model
+
+One recognizer on `ha-card` decides every press, so a tap, a hold and a swipe can never both
+happen, and the actions still to come already have a place: tapping an empty day or time slot
+to add an event there, and an event's own hold action. Neither exists yet. The rules below are
+written so that both slot in without moving the others.
+
+**Targets.** A press lands on a target, innermost first:
+
+| Target                                               | Tap                          | Hold                                 |
+| ---------------------------------------------------- | ---------------------------- | ------------------------------------ |
+| An event                                             | `event_tap_action`           | an event's own hold action (to come) |
+| An empty slot: a day's empty space, a grid time slot | add an event there (to come) | none of its own                      |
+| The card: everything else on it, the title included  | `tap_action`                 | `hold_action`                        |
+
+The toolbar's controls and the filter menu are none of these: they keep their presses
+(`stopCardGesture`). Targets are read at pointer-down, from its composed path and, for a time
+slot, its coordinates, because the pointer capture taken there retargets everything after.
+
+**Precedence.** A tap or a hold runs the innermost target's action for it, else the next
+target out's. An event covers its slot: a press on an event falls through to the card, never to
+the slot beneath it. So a hold on an event runs the card's `hold_action` until an event has a
+hold of its own.
+
+**Arming.** A press with the primary button or the primary contact arms only when it could end
+in something: a tap or a hold that resolves to an action, or a touch or pen press on a card that
+swipes (`_swipeAvailable`), away from the screen's edges. Any other press is left wholly to the
+browser. One gesture runs at a time; a second contact is ignored.
+
+**Ending.** Every armed press ends in exactly one of four ways, decided at pointer-up
+(`_handlePointerUp`):
+
+1. **Held.** The pointer stayed within `UI.POINTER_MOVE_TOLERANCE` for `TIMING.HOLD_THRESHOLD`,
+   and a hold resolves to an action; the timer runs only then. Movement after that belongs to
+   the hold: ignored today, and the place a hold-then-drag would go, such as dragging out a time
+   span. Never a swipe.
+2. **Stayed.** Within the tolerance and no hold: a tap, by precedence.
+3. **Moved.** Past the tolerance before any hold: never a tap or a hold on any target. A touch
+   or pen swipe pages; anything else does nothing.
+4. **Canceled.** The browser took the gesture for a scroll or a pinch (`pointercancel`), or the
+   capture was lost: nothing.
+
+Enter and Space are the focused card's or event's tap. No key holds yet, so a hold of an
+event's own needs a key path of its own. While the card is being edited, nothing that writes to
+a calendar runs, and neither does a swipe.
+
+**Who owns movement.** Vertical pans are always the browser's. Sideways pans are the card's
+while it swipes, which its `touch-action: pan-y pinch-zoom` on the body and the title declares,
+and the browser's on a crammed grid, which scrolls sideways. Mouse drags are nobody's: a mouse
+never swipes, which leaves a drag free for later on a desktop.
+
+**What the actions to come take on.** A slot tap beats the card's `tap_action` on empty areas,
+so it has to be opted into. It resolves and snaps its slot at pointer-down, and needs a key path,
+since slots are not focusable. On a card with any hold action, a swipe has to start moving
+before the hold threshold, as it does today. An event's own hold needs the hold timer and its
+indicator to arm on events that have one. The derived-click guard covers whatever element the
+gesture began on.
+
 ### Interaction Flow
 
 1. **User Input**: one gesture recognizer on `ha-card` decides every press, on the card or
-   on an event:
+   on an event, by the rules of the _Gesture Model_ above:
    - Pointer-down reads the tappable event, if any, from its `composedPath()`. The card
      captures the pointer there, which retargets every later event of the gesture, the
      derived `click` included, to `ha-card`, so this is the one moment the event is known
@@ -1107,10 +1165,11 @@ request already in flight rather than stopping at the cache.
      began on an event opens its details; any other tap runs `tap_action`; a moved pointer
      runs nothing, unless it could swipe and went `UI.SWIPE_MIN_DISTANCE` sideways, mostly
      sideways: that pages through `_stepPage`, the arrows' own path, mirrored reading right to
-     left. A card that swipes declares `touch-action: pan-y pinch-zoom` on itself and on its
-     body and everything in it, since a scroll container hands its own axis back over a
-     restriction it only inherits, so the browser leaves sideways movement to the card and
-     sends `pointercancel` for a vertical scroll or a pinch as before
+     left. A card that swipes declares `touch-action: pan-y pinch-zoom` on its body, everything
+     in it and its title, since a scroll container hands its own axis back over a restriction
+     it only inherits, so the browser leaves sideways movement there to the card and sends
+     `pointercancel` for a vertical scroll or a pinch as before. Not on the card itself: the
+     toolbar keeps its presses, and no descendant can lift an ancestor's restriction
    - While a swipe moves sideways the content container follows the finger with resistance,
      written straight onto its style and sprung back when the gesture ends; the page the swipe
      asked for slides in once it is drawn (`_syncSwipeArrival`). Both run through the Web
