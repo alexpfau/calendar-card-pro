@@ -5128,6 +5128,21 @@ export const cardStyles = css`
     display: none;
   }
 
+  /* A folded countdown that fits no line goes before the time does: where its separator cannot
+     follow even the start time, where its words are wider than the lane, or where the block has
+     no line to spare for words that no rung keeps beside the time. See grid-time-fit.ts. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text > .time-countdown {
+    display: none;
+  }
+
+  /* With its countdown left out, the time is a clock reading alone and must not break, as it
+     cannot without one: .time-text wraps so a countdown can break inside itself, and its
+     overflow-wrap split "10:00" into "10:0" and "0" where the reading fitted its lane to the
+     pixel. Firefox lays out in sixtieths of a pixel, so that is a lane it meets. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text {
+    white-space: nowrap;
+  }
+
   /* The wrapped rung, where the lane is too narrow for the range on one line but the block
      has a spare line to put the end time on. Blockifying this element is the whole
      mechanism: the outer span is already a block in grid, so making the end time a block

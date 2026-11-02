@@ -2493,6 +2493,24 @@ describe('card stylesheet', () => {
       expect(CSS.indexOf('.grid-time-no-end')).toBeGreaterThan(reveal);
       expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(reveal);
 
+      // A folded countdown that fits no line is left out by a class only the fit sets, so the
+      // time it would otherwise have cost stays. Hidden outright: its words would reach the
+      // block's edge, and its separator alone was what the row could not afford.
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text > .time-countdown',
+          'display',
+        ),
+      ).toBe('none');
+      // And the time it leaves behind cannot break: Firefox drew "10:0" over "0" without this.
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text',
+          'white-space',
+        ),
+      ).toBe('nowrap');
+      expect(CSS.indexOf('.grid-time-no-countdown')).toBeGreaterThan(reveal);
+
       // `no-end` and `wrap` are mutually exclusive by construction — the ladder never sets
       // both, and a withdrawn wrap swaps one for the other — but they target the same
       // element at the same specificity, so if that ever stopped holding source order would

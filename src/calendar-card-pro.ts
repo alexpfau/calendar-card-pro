@@ -2300,10 +2300,9 @@ class CalendarCardPro extends LitElement {
       // was ever offered the extra line - so no location, weather, description or progress
       // row can be withdrawn *because* a time row wrapped, or because its countdown took a line
       // a narrower rung would have saved. Where no rung keeps a countdown's words on the
-      // time's line, there is nothing to fall back on, and the row keeps a time row's priority
-      // with its words below it: in such a narrow lane it can cost a description lines, where
-      // v5.0.0 drew no time at all. That is the opportunistic constraint, held by construction
-      // rather than by ordering care, and its one exception.
+      // time's line, the countdown itself is left out, so its words cannot cost another row a
+      // line either. That is the opportunistic constraint, held by construction rather than
+      // by ordering care.
       const unaffordable = transactions.flatMap((transaction) => {
         const spent = spending.get(transaction.block);
         return spent && gridContentOverflows(transaction.content) ? [spent] : [];

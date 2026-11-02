@@ -564,7 +564,11 @@ weather row does: the time keeps its line whenever it fits, the dot stays at the
 line, and the countdown's words continue on the next, where the block has room for it. The
 clock icon needs room beside the time only, so it stays wherever it fits there. Where the
 block has no room for the extra line, the clock gives way first and then the end time, so the
-countdown can follow the time on its line.
+countdown can follow the time on its line. In a lane too narrow for the countdown, it is the
+countdown that gives way, not the time. Where its dot cannot follow even the start time, or
+its words are wider than the block, the block draws its time exactly as it would with
+`show_countdown: false`; where no time leaves room for its words on their line and the block
+has no line to spare for them, it draws the time on one line, without the countdown.
 
 Calendar labels sit inline before the timed event's title, with the same small gap as in
 List and Column. Text, emoji, icon, image, and merged-calendar labels share that first
