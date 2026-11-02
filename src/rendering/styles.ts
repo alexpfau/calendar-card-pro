@@ -273,12 +273,8 @@ export const cardStyles = css`
     overflow: hidden;
 
     box-sizing: border-box;
-    /* By inline side, as everything the list lays out across the card is: its 8px start is
-       half of the inset the date column completes, and its 16px end faces the events. Written
-       left and right, a right-to-left card kept the narrow side on the left, so its dates
-       sat 24px in from the card's right edge against 16px on a left-to-right one. */
-    padding-block: calc(var(--calendar-card-spacing-additional) + 16px);
-    padding-inline: 8px 16px;
+    padding: calc(var(--calendar-card-spacing-additional) + 16px) 16px
+      calc(var(--calendar-card-spacing-additional) + 16px) 8px;
 
     background: var(--calendar-card-background-color, var(--card-background-color));
     cursor: default;
@@ -289,6 +285,19 @@ export const cardStyles = css`
        column and grid did not. A switch is a change of layout and is drawn at once; the
        card's colors and shadow keep their transition. */
     transition-property: background-color, border-color, box-shadow, color;
+  }
+
+  /* The narrow 8px side is the start, half of the inset the date column completes, and the
+     16px side faces the events, so a right-to-left card turns the pair around: as written above,
+     its dates sat 28px in from its right edge against 16px from a left-to-right card's left.
+     A mirrored shorthand rather than padding-inline, so the four sides still stand or fall
+     together on additional_card_spacing: a var() that resolves to nothing invalidates the whole
+     declaration, which leaves no padding on any side, and split into two declarations it would
+     have left 8px and 16px on a left-to-right card that has always had none. Column and grid
+     view set their own inline padding over either. */
+  ha-card:dir(rtl) {
+    padding: calc(var(--calendar-card-spacing-additional) + 16px) 8px
+      calc(var(--calendar-card-spacing-additional) + 16px) 16px;
   }
 
   ha-card.card-interactive {
@@ -1232,8 +1241,8 @@ export const cardStyles = css`
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
 
   /* The week row, the separators and the date column below hold their insets by inline side,
-     as the card's own padding does, so a right-to-left list is the mirror of a left-to-right
-     one: dates on the right, 8px in from the card's padding, their 12px toward the events, and
+     and the card's own padding turns around with them (ha-card:dir(rtl)), so a right-to-left
+     list is the mirror of a left-to-right one: dates on the right, 8px in from the card's padding, their 12px toward the events, and
      each separator starting where the dates do. Written left and right, a right-to-left card
      kept the left-to-right insets: its dates sat further from the card's edge than they do on
      a left-to-right card, and its separators ran past them toward that edge instead of
@@ -1383,6 +1392,10 @@ export const cardStyles = css`
     height: 100%;
     pointer-events: none;
     z-index: 1;
+    /* The indicator's centering, half its width back toward its inline start; see the
+       right-to-left rule with the indicator styles. Set here, not left to the inline style's
+       fallback, so a theme or card-mod setting the name further up cannot move it. */
+    --calendar-card-today-indicator-shift: -50%;
   }
 
   /* line-height 1 rather than the font-size custom property read a second time: a unitless
@@ -1546,14 +1559,6 @@ export const cardStyles = css`
     --mdc-icon-size: var(--calendar-card-today-indicator-size);
   }
 
-  /* The list view's indicator is placed by today_indicator_position, an inline start and a
-     top, so a margin has nothing to hold apart and could only move it: ha-icon's inline-end gap
-     is its left margin in a right-to-left card. The column view's indicator keeps the gap,
-     which there is the room between it and the weekday. */
-  .today-indicator-container:not(.inline) > ha-icon.today-indicator {
-    margin-inline-end: 0;
-  }
-
   /* The position's first value is measured from the date cell's inline start, the right edge
      in a right-to-left card, so the indicator mirrors with the dates it marks (leaves.ts,
      parseIndicatorPosition). It is centered on that point by a translation, and a translation
@@ -1562,7 +1567,10 @@ export const cardStyles = css`
      than a transform of its own, because the transform is the element's inline style, and a
      rule here could only beat it with !important, which would also beat the pulse animation
      and stop it. Where an animation does replace the transform, both directions lose the
-     translation alike, and the indicator still mirrors. */
+     translation alike, and the indicator still mirrors. ha-icon's 4px inline-end gap needs no
+     reset here: placed from its inline start, the indicator has that margin on its far side in
+     either direction, where it moves nothing. Placed by a left offset, it was the left margin
+     in right-to-left and moved the indicator 4px. */
   .today-indicator-container:not(.inline):dir(rtl) {
     --calendar-card-today-indicator-shift: 50%;
   }

@@ -112,15 +112,19 @@ describe('inline glyph gaps in either text direction', () => {
   });
 
   it("leaves the list view's placed today indicator where its position puts it", () => {
-    // today_indicator_position places it with an inline start and a top. ha-icon's inline-end
-    // gap would be a left margin in right-to-left, and move it 4px; in left-to-right a right
-    // margin moves nothing, so zero changes nothing there.
-    expect(
-      declared(
-        '.today-indicator-container:not(.inline) > ha-icon.today-indicator',
-        'margin-inline-end',
-      ),
-    ).toBe('0');
+    // today_indicator_position places it from its inline start and a top
+    // (today-indicator-position.test.ts), so ha-icon's inline-end gap sits on the side no
+    // offset reads, in either direction, and moves nothing. Placed by a left offset it was the
+    // left margin in right-to-left and moved the indicator 4px, which a reset here canceled;
+    // with nothing left to cancel, no rule touches the indicator's margins.
+    expect(declared('ha-icon', 'margin-inline-end')).toBe('4px');
+    const margins = RULES.filter(
+      (rule) =>
+        /\.today-indicator(?![\w-])/.test(rule.selector) &&
+        !rule.selector.includes('.today-indicator-container.inline') &&
+        declarations(rule.body).some(([prop]) => prop.startsWith('margin')),
+    ).map((rule) => rule.selector);
+    expect(margins).toEqual([]);
   });
 
   it('isolates a text label in its own direction, in either text direction', () => {

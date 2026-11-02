@@ -23,8 +23,9 @@ import { cardStyles } from '../src/rendering/styles';
  * temperature lost one of its margins.
  *
  * Each was measured in Chromium, WebKit and Firefox against the same cards in left-to-right:
- * written by inline side, every box of the list layout mirrors its left-to-right counterpart,
- * and the left-to-right cards stayed byte-identical. happy-dom does no layout, so this reads
+ * written by inline side, with the card's padding turned around under :dir(rtl), every box of
+ * the list layout mirrors its left-to-right counterpart, and the left-to-right cards stayed
+ * byte-identical. happy-dom does no layout, so this reads
  * the stylesheet: what regressed is the declaration.
  */
 
@@ -110,6 +111,9 @@ describe('right-to-left mirroring', () => {
     );
 
     expect(physical).toEqual([
+      // The card's padding, as one shorthand per direction: see the test below.
+      'ha-card { padding: calc(var(--calendar-card-spacing-additional) + 16px) 16px calc(var(--calendar-card-spacing-additional) + 16px) 8px }',
+      'ha-card:dir(rtl) { padding: calc(var(--calendar-card-spacing-additional) + 16px) 8px calc(var(--calendar-card-spacing-additional) + 16px) 16px }',
       // The fallback for a browser without float: inline-start, which follows it.
       '.card-header { float: left }',
       // The filter menu's rows: outside the list layout, and not mirrored.
@@ -126,7 +130,6 @@ describe('right-to-left mirroring', () => {
 
   describe('the list layout holds its insets by inline side', () => {
     it.each([
-      ['ha-card', 'padding-inline', '8px 16px', "the card's own padding, narrow at the dates"],
       ['.week-row-table', 'padding-inline-start', '8px', 'the week row, from the dates side'],
       ['.week-number-cell', 'padding-inline-end', '12px', 'the week pill, as the date column'],
       ['.separator', 'margin-inline-start', '8px', 'a day separator, level with the dates'],
@@ -140,11 +143,22 @@ describe('right-to-left mirroring', () => {
       expect(declared(selector, prop)).toBe(value);
     });
 
-    it("keeps the card's block padding where it was", () => {
-      expect(declared('ha-card', 'padding-block')).toBe(
-        'calc(var(--calendar-card-spacing-additional) + 16px)',
+    it("mirrors the card's own padding as one shorthand, narrow at the dates", () => {
+      // One declaration per direction, so the four sides still stand or fall together on
+      // additional_card_spacing: a var() that resolves to nothing leaves no padding at all, as
+      // it always has in left-to-right. Split into padding-block and padding-inline, the
+      // inline pair would have survived it and padded such a card 8px and 16px.
+      const spacing = 'calc(var(--calendar-card-spacing-additional) + 16px)';
+      expect(declared('ha-card', 'padding')).toBe(`${spacing} 16px ${spacing} 8px`);
+      expect(declared('ha-card:dir(rtl)', 'padding')).toBe(`${spacing} 8px ${spacing} 16px`);
+      for (const prop of ['padding-inline', 'padding-block', 'padding-left', 'padding-right']) {
+        expect(declared('ha-card', prop)).toBe('');
+      }
+      // Column and grid view pad both sides alike, and outweigh either.
+      expect(declared('.calendar-card-pro.column-view', 'padding-inline')).toBe('16px');
+      expect(declared('.calendar-card-pro.grid-view', 'padding-inline')).toBe(
+        'var(--calendar-card-grid-inset)',
       );
-      expect(declared('ha-card', 'padding')).toBe('');
     });
 
     it('floats the title left first, where a browser cannot float it to the inline start', () => {
@@ -169,14 +183,31 @@ describe('right-to-left mirroring', () => {
     // The inline style centers it with translate(var(--calendar-card-today-indicator-shift,
     // -50%), -50%) from its inline start (today-indicator-position.test.ts). Pulled back by
     // half its width is toward the start only in left-to-right.
-    const rtl = '.today-indicator-container:not(.inline):dir(rtl)';
+    const box = '.today-indicator-container:not(.inline)';
+    const rtl = `${box}:dir(rtl)`;
     expect(declared(rtl, '--calendar-card-today-indicator-shift')).toBe('50%');
+    // Set on the indicator's own box too, so a value inherited from a theme or card-mod
+    // further up cannot move a left-to-right one from the -50% it always had.
+    expect(declared(box, '--calendar-card-today-indicator-shift')).toBe('-50%');
 
-    // Nothing else sets it, so a left-to-right card centers it exactly as it always did.
+    // Nothing else sets it.
     const setters = RULES.filter((rule) =>
       declarations(rule.body).some(([prop]) => prop === '--calendar-card-today-indicator-shift'),
     ).map((rule) => rule.selector);
-    expect(setters).toEqual([rtl]);
+    expect(setters).toEqual([box, rtl]);
+  });
+
+  it('keeps the pulse a scale about the center, so a pulsing indicator mirrors too', () => {
+    // The pulse's keyframes replace the inline transform, centering included, in either
+    // direction alike, so its box sits at its inline start and mirrors. A translation in them,
+    // or an origin off center, would move it by the same physical amount both ways.
+    const frames = CSS.match(/@keyframes pulse-animation\s*\{([\s\S]*?\})\s*\}/);
+    expect(frames).not.toBeNull();
+    const transforms = [...(frames?.[1] ?? '').matchAll(/transform:\s*([^;]+);/g)].map((m) =>
+      m[1].trim(),
+    );
+    expect(transforms).toEqual(['scale(0.95)', 'scale(1.1)', 'scale(0.95)']);
+    expect(CSS).not.toMatch(/transform-origin/);
   });
 
   it("rounds the progress fill at its inline start, the end that meets the track's", () => {
