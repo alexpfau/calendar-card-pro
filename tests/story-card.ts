@@ -259,9 +259,18 @@ export function shadow(card: StoryCard): ShadowRoot {
   return card.shadowRoot as ShadowRoot;
 }
 
-/** An element's text with its whitespace collapsed, or `null` when there is no element. */
+/**
+ * An element's text as a reader sees it: whitespace collapsed, and without the invisible bidi
+ * marks a 12-hour time is drawn inside (`isolateClockReadings`), or `null` when there is no
+ * element.
+ */
 export function text(element: Element | null | undefined): string | null {
-  return element ? (element.textContent ?? '').replace(/\s+/g, ' ').trim() : null;
+  return element
+    ? (element.textContent ?? '')
+        .replace(/[\u2066-\u2069\u200e\u200f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : null;
 }
 
 /** One row of a list-view card, as the reader sees it. */

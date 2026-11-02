@@ -461,7 +461,8 @@ function renderAxis(
   );
   const withMinutes = cadence % 60 !== 0;
   const labels = Grid.axisLabelMinutes(band, cadence).map((minute) => ({
-    text: formatAxisLabel(minute, use24h, withMinutes),
+    // A 12-hour label read "AM 9" in a right-to-left card; isolated, it reads "9 AM".
+    text: FormatUtils.isolateClockReadings(formatAxisLabel(minute, use24h, withMinutes)),
     topPct: ((minute - band.startMin) / bandLength) * 100,
   }));
 
