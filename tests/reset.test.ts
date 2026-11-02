@@ -228,6 +228,25 @@ function lit(card: CardUnderTest): boolean {
   return !off;
 }
 
+/**
+ * A whole press by a mouse, down and up, as the card's gesture reads it: a tap runs the card's
+ * `tap_action` only at pointer-up, so a press that stops short of it proves nothing.
+ */
+function tapWithPointer(target: EventTarget): void {
+  for (const type of ['pointerdown', 'pointerup']) {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      button: { value: 0 },
+      isPrimary: { value: true },
+      pointerType: { value: 'mouse' },
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    target.dispatchEvent(event);
+  }
+}
+
 async function pressReset(card: CardUnderTest): Promise<void> {
   resetButton(card)!.click();
   await settle(card);
@@ -455,17 +474,27 @@ describe('the reset button', () => {
     expect(classes(withRefresh)).not.toContain('alone');
   });
 
-  it('keeps a press from becoming a press on the card', async () => {
-    const card = await mount({ tap_action: { action: 'more-info' } });
+  it('keeps a press from becoming a press on the card, as refresh beside it does', async () => {
+    const card = await mount({
+      tap_action: { action: 'more-info' },
+      toolbar: { ...EVERYTHING, refresh: true },
+    });
     await pressNext(card);
     const fired: Event[] = [];
     card.addEventListener('hass-action', (ev) => fired.push(ev));
 
-    resetButton(card)!.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    tapWithPointer(resetButton(card)!);
     resetButton(card)!.click();
     await settle(card);
-
+    const refresh = root(card).querySelector<HTMLButtonElement>('.refresh-button')!;
+    tapWithPointer(refresh);
+    refresh.click();
+    await settle(card);
     expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
   });
 });
 

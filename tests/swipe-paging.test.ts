@@ -329,18 +329,25 @@ describe('a swipe across the days', () => {
     expect(range(card)).toBe(NEXT);
   });
 
-  it('pages from the title too, the one part of the header that is the card', async () => {
+  it('pages from the title too, which is the card, as the toolbar rows around it are', async () => {
     const card = await mount({ title: 'Family' });
     swipe(root(card).querySelector('.card-header')!, ...LEFT);
     await settle(card);
     expect(range(card)).toBe(NEXT);
   });
 
-  it('pages nothing from a press on the toolbar, which keeps its presses from the card', async () => {
+  it('pages nothing from a press on a toolbar control, which keeps its presses', async () => {
     const card = await mount();
     swipe(root(card).querySelector('.toolbar-month-text')!, ...LEFT);
     await settle(card);
     expect(range(card)).toBe(HOME);
+  });
+
+  it("pages from the toolbar's rows around their controls, which are the card", async () => {
+    const card = await mount();
+    swipe(root(card).querySelector('.toolbar-heading')!, ...LEFT);
+    await settle(card);
+    expect(range(card)).toBe(NEXT);
   });
 
   it(`needs ${Constants.UI.SWIPE_MIN_DISTANCE}px sideways, and no less`, async () => {
@@ -642,12 +649,13 @@ describe('what a card that swipes declares to the browser', () => {
     expect(rules).toHaveLength(1);
 
     const [, prelude, body] = rules[0];
-    // The body and the title, never the card itself: the toolbar keeps its presses from the
-    // card, and no descendant can lift a restriction an ancestor declares.
+    // The card, which the header and its controls take, since a swipe starts anywhere on it but
+    // a control; and again the body and everything in it, because a scroll container hands its
+    // own axis back over a restriction it inherits.
     expect(prelude.split(',').map((selector) => selector.replace(/\s+/g, ' ').trim())).toEqual([
+      'ha-card.swipe-paging',
       'ha-card.swipe-paging .content-container',
       'ha-card.swipe-paging .content-container *',
-      'ha-card.swipe-paging .card-header',
     ]);
     // The fallback first: a browser that does not know pinch-zoom drops the second whole.
     expect(

@@ -2877,20 +2877,37 @@ describe('the toolbar controls', () => {
 });
 
 describe("the card's ripple over the toolbar", () => {
-  const RIPPLE_STILL =
-    'ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple';
+  // Every control that keeps its presses from the card (`stopCardGesture`), and nothing else.
+  const CONTROLS = [
+    '.toolbar-button',
+    '.toolbar-month-button',
+    '.view-switcher',
+    '.date-navigation',
+    '.toolbar-legend',
+    '.legend-menu',
+  ];
 
-  it('stays still while the pointer is anywhere on the bar, as it does over an event', () => {
-    // The bar keeps every press and click from the card, rim and gaps included, so the
-    // ripple's hover must not promise a tap there; it washed the card blue behind a control
-    // washing blue. Top level, so it is not gated on (hover: hover) like the controls' fill.
-    expect(declared(RIPPLE_STILL, '--ha-ripple-hover-opacity')).toBe('0');
+  it('stays still while the pointer is on a control, as it does over an event', () => {
+    // A control keeps its presses, rim and near misses included, so the ripple's hover must not
+    // promise a tap there; it washed the card blue behind a control washing blue. Top level, so
+    // it is not gated on (hover: hover) like the controls' fill.
+    const rules = RULES.filter((rule) =>
+      rule.selectors.some(
+        (selector) => selector.startsWith('ha-card:has(.') && selector.includes('.toolbar'),
+      ),
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].selectors).toEqual(
+      CONTROLS.map((control) => `ha-card:has(${control}:hover) > ha-ripple`),
+    );
+    expect(declared(rules[0].selectors[0], '--ha-ripple-hover-opacity')).toBe('0');
   });
 
-  it('still ripples over the title, which runs the card tap action from inside the heading row', () => {
-    // The title is the one part of a toolbar row that is the card's, so the rule spares it.
-    expect(RIPPLE_STILL).toContain(':not(:has(.toolbar-identity > .card-header:hover))');
-    expect(rulesFor('ha-card:has(.card-toolbar:hover) > ha-ripple')).toEqual([]);
+  it('still ripples over the rows around the controls, which are the card', () => {
+    // When the rows kept their whole width from the card, the hover flickered on and off in
+    // stripes as a pointer crossed the header; now only the controls mute it.
+    expect(CSS).not.toContain('.card-toolbar:hover');
+    expect(CSS).not.toContain('.toolbar-identity > .card-header:hover');
   });
 });
 
@@ -2994,11 +3011,12 @@ describe('the legend and refresh', () => {
     );
   });
 
-  it('needs no ripple rule of its own for the chips, which sit inside a toolbar row', () => {
-    // The chips are in the heading row, a `.card-toolbar`, so the bar's own rule covers them.
-    // A rule for their box alone would be dead weight, and its absence is the proof that the
-    // chips never moved back out of the rows.
-    expect(rulesFor('ha-card:has(.toolbar-legend:hover) > ha-ripple')).toEqual([]);
+  it('mutes the ripple over the chips as one control, their gaps and touch target included', () => {
+    // The chips' box is padded around them for the touch target and keeps their presses, so
+    // the ripple stays still over all of it rather than flickering between two chips.
+    expect(
+      declared('ha-card:has(.toolbar-legend:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
+    ).toBe('0');
   });
 });
 

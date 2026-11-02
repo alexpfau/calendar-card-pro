@@ -93,8 +93,8 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
  * @param contentPending Whether the days drawn are about to be replaced by another page's
  * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
  * refresh button does
- * @param swipePaging Whether a swipe across the days pages the card, which hands the browser
- * only vertical panning on its body (`swipe-paging`)
+ * @param swipePaging Whether a swipe pages the card, which hands the browser only vertical
+ * panning on the card, its toolbar's rows and its body (`swipe-paging`)
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(

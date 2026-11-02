@@ -342,25 +342,13 @@ describe('the view switcher', () => {
 
   it.each([
     ['a segment', (card: CardUnderTest) => segment(card, 'grid')],
-    // The gray rim around the segments belongs to the switcher, not to any button.
+    // The gray rim around the segments belongs to the switcher, not to the card.
     ['the track around the segments', (card: CardUnderTest) => switcher(card)!],
-    // The gaps between the action row's controls belong to the row, not to any button.
-    ['a gap in the action row', (card: CardUnderTest) => part(card, '.toolbar-actions')],
-    ['the gap between the filter and add', (card: CardUnderTest) => part(card, '.toolbar-start')],
-    // So do the heading row's: around the month, and between it and the arrows.
-    ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
-    ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
-    // The block the month shares with the title is the row's too, and so is the empty
-    // placeholder an untitled card draws there: only a title is the card's.
-    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
-    [
-      "an untitled card's placeholder over the month",
-      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
-    ],
-    [
-      "the arrows' group at the row's end",
-      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
-    ],
+    ['the add button', (card: CardUnderTest) => part(card, '.add-event-button')],
+    ["the month's date picker", (card: CardUnderTest) => part(card, '.toolbar-month-button')],
+    ['an arrow', (card: CardUnderTest) => part(card, '.date-navigation-segment')],
+    // The arrows stand 4px apart, one group: a press between two is a near miss on it.
+    ['the gap between two arrows', (card: CardUnderTest) => part(card, '.date-navigation')],
   ])(
     "never runs the card's tap action from %s, while the rest of the card still does",
     async (_name, target) => {
@@ -385,6 +373,50 @@ describe('the view switcher', () => {
     },
   );
 
+  // The rows are the card's around their controls, as the space around an event is, so the
+  // card's hover does not flicker on and off as a pointer crosses them.
+  it.each([
+    ['a gap in the action row', (card: CardUnderTest) => part(card, '.toolbar-actions')],
+    ['the room beside add', (card: CardUnderTest) => part(card, '.toolbar-start')],
+    ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
+    ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
+    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
+    [
+      "an untitled card's placeholder over the month",
+      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
+    ],
+    [
+      "the arrows' group at the row's end",
+      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
+    ],
+  ])("runs the card's tap action from %s, as anywhere else on the card", async (_name, target) => {
+    const card = await mount({ toolbar: { show: true }, tap_action: { action: 'more-info' } });
+
+    dispatchPointer(target(card), 'pointerdown');
+    dispatchPointer(target(card), 'pointerup');
+    await card.updateComplete;
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it("runs the card's hold action from the space between the controls, never from one", async () => {
+    const card = await mount({ toolbar: { show: true }, hold_action: { action: 'more-info' } });
+    const holdOn = async (el: Element) => {
+      dispatchPointer(el, 'pointerdown');
+      vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+      dispatchPointer(el, 'pointerup');
+      await card.updateComplete;
+    };
+
+    await holdOn(part(card, '.date-navigation'));
+    await holdOn(part(card, '.add-event-button'));
+    expect(handleAction).not.toHaveBeenCalled();
+
+    await holdOn(part(card, '.toolbar-actions'));
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
   it("still runs the card's tap action from the title drawn over the month", async () => {
     const card = await mount({
       title: 'Family',
@@ -392,8 +424,8 @@ describe('the view switcher', () => {
       tap_action: { action: 'more-info' },
     });
     const title = part(card, '.toolbar-heading .toolbar-identity > h1.card-header');
-    // The toolbar is drawn, so this is the small label over the month, inside the heading row
-    // whose every other press is kept from the card.
+    // The toolbar is drawn, so this is the small label over the month, inside the heading row,
+    // which is the card's around its controls.
     expect(title.nextElementSibling?.className).toBe('toolbar-month with-picker');
 
     dispatchPointer(title, 'pointerdown');

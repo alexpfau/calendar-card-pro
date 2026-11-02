@@ -307,13 +307,16 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   and grid drop the title's margin, and the rows' 8px with it. A view switch is drawn at once:
   Home Assistant's `ha-card` transitions every property, the padding each view sets included, so
   the card limits it to colors and the shadow.
-- **A control never starts the card's gesture.** Each stops `pointerdown`, which arms the card's
-  tap and hold and captures the pointer, and `click`. So does each row's own box
-  (`renderHeaderToolbar`), because the switcher's gray track, the gaps between controls and the
-  plain month are part of a row but no button: a near miss there must not run `tap_action` or
-  `hold_action`. The title above the month is not guarded, and still runs them. None stops
-  `keydown`: the card already ignores keys aimed at anything but itself, and stopping them would
-  hide them from Home Assistant's own shortcuts.
+- **A control never starts the card's gesture; the rows around them are the card.** Each control
+  stops `pointerdown`, which arms the card's tap and hold and captures the pointer, and `click`
+  (`stopCardGesture`). So do the two groups drawn as one, the switcher's gray track and the date
+  arrows, which stand 4px apart, and the chips' padded box, so a near miss there does nothing.
+  The rows themselves stop nothing: the title, the plain month and the space between controls run
+  `tap_action` and `hold_action`, ripple and swipe as the rest of the card does, the way the space
+  around an event is the card's. The rows used to keep all of it, so the card's hover flickered in
+  stripes as a pointer crossed them, between the rows and over the title. None stops `keydown`:
+  the card already ignores keys aimed at anything but itself, and stopping them would hide them
+  from Home Assistant's own shortcuts.
 - **Every control has a 44px touch target.** Each answers a press 44px tall through an invisible
   `::before` box that never overlaps a neighbor's: a 36px button in the action row grows 4px each
   way; a 24px chip or arrow 10px up and down and 2px across, for their 5px and 4px gaps, the
@@ -1125,7 +1128,7 @@ configured, and the rules below decide which one does.
 | ---------------------------------------------------- | ------------------ | ------------------- |
 | An event                                             | `event_tap_action` | `event_hold_action` |
 | An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | none of its own     |
-| The card: everything else on it, the title included  | `tap_action`       | `hold_action`       |
+| The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 The toolbar's controls and the filter menu are none of these: they keep their presses
 (`stopCardGesture`). Targets are read at pointer-down, from its composed path and, for a time
@@ -1176,8 +1179,8 @@ not by the button's name. While the card is being edited, nothing that writes to
 runs, and neither does a swipe.
 
 **Who owns movement.** Vertical pans are always the browser's. Sideways pans are the card's
-while it swipes, which its `touch-action: pan-y pinch-zoom` on the body and the title declares,
-and the browser's on a crammed grid, which scrolls sideways. Mouse drags are nobody's: a mouse
+while it swipes, which its `touch-action: pan-y pinch-zoom` declares, on the card itself and
+again on its body and everything in it, and the browser's on a crammed grid, which scrolls sideways. Mouse drags are nobody's: a mouse
 never swipes, which leaves a drag free for later on a desktop.
 
 **What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on
@@ -1209,11 +1212,12 @@ the gesture began on.
      `tap_action`; a moved pointer
      runs nothing, unless it could swipe and went `UI.SWIPE_MIN_DISTANCE` sideways, mostly
      sideways: that pages through `_stepPage`, the arrows' own path, mirrored reading right to
-     left. A card that swipes declares `touch-action: pan-y pinch-zoom` on its body, everything
-     in it and its title, since a scroll container hands its own axis back over a restriction
-     it only inherits, so the browser leaves sideways movement there to the card and sends
-     `pointercancel` for a vertical scroll or a pinch as before. Not on the card itself: the
-     toolbar keeps its presses, and no descendant can lift an ancestor's restriction
+     left. A card that swipes declares `touch-action: pan-y pinch-zoom` on itself, which the
+     title and the toolbar's rows take, and again on its body and everything in it, since a
+     scroll container hands its own axis back over a restriction it only inherits, so the
+     browser leaves sideways movement to the card and sends `pointercancel` for a vertical scroll
+     or a pinch as before. The toolbar's controls keep their presses, and lose only a sideways
+     pan nothing in the toolbar has
    - While a swipe moves sideways the content container follows the finger with resistance,
      written straight onto its style and sprung back when the gesture ends; the page the swipe
      asked for slides in once it is drawn (`_syncSwipeArrival`). Both run through the Web
