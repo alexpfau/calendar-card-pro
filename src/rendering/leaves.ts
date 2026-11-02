@@ -473,7 +473,7 @@ function renderEventTitle(
 
   // A merged row answers for every calendar that contributed a copy, so it draws each of
   // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
-  // the `margin-right` every label kind already carries. The branch is behavioral rather
+  // the inline-end margin every label kind already carries. The branch is behavioral rather
   // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
   // merge whose winner carries none renders as it always has.
   const labels = mergedLabels

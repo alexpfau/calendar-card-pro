@@ -583,7 +583,7 @@ describe('card stylesheet', () => {
     it.each(['.label-icon', '.label-image', '.calendar-label'])(
       '%s carries the 4px margin the indent arithmetic assumes',
       (selector) => {
-        expect(declared(selector, 'margin-right')).toBe('4px');
+        expect(declared(selector, 'margin-inline-end')).toBe('4px');
       },
     );
   });
@@ -882,7 +882,7 @@ describe('card stylesheet', () => {
 
       expect(declared(selector, 'margin-inline-start')).toBe('0');
       expect(declared(selector, 'font-weight')).toBe('normal');
-      expect(declared('.event-weather .weather-uv-index', 'margin-left')).toBe('2px');
+      expect(declared('.event-weather .weather-uv-index', 'margin-inline-start')).toBe('2px');
     });
 
     it('relies on the list header being a flex container, which discards whitespace', () => {

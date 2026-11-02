@@ -149,9 +149,14 @@ describe('timed Grid labels share the title line', () => {
     const body = declarations(
       '.grid-event-disclosure .calendar-label, .grid-event-disclosure .label-icon, .grid-event-disclosure .label-image',
     );
-    expect(body).toMatch(/margin-right:\s*0;/);
-    expect(body).toMatch(/margin-inline-end:\s*4px;/);
     expect(body).toMatch(/unicode-bidi:\s*isolate;/);
+    // The gap is the one every view's labels carry, at the inline end, so grid declares none of
+    // its own and has no physical margin to cancel.
+    expect(body).not.toMatch(/margin/);
+    for (const selector of ['.calendar-label', '.label-icon', '.label-image']) {
+      expect(declarations(selector)).toMatch(/margin-inline-end:\s*4px;/);
+      expect(declarations(selector)).not.toMatch(/margin-(left|right)/);
+    }
 
     // The margin is the whole gap only if nothing else is laid out after the label. A text
     // node between the last label and the title, or whitespace opening the title, collapses
