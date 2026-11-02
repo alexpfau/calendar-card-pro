@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Prepnúť kompaktný/rozšírený pohľad",
   "card_action.option.refresh.label": "Obnoviť udalosti",
   "card_action.option.add-event.label": "Pridať udalosť",
+  "card_action.option.reset.label": "Resetovať kartu",
   "day_tap_action_mode": "Akcia klepnutia na deň",
   "day_tap_action_mode.option.none.label": "Nič",
   "day_tap_action_mode.option.add-event.label": "Pridať udalosť",

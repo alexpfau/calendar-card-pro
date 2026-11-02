@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Perjungti suglaudintą/išplėstą vaizdą",
   "card_action.option.refresh.label": "Atnaujinti įvykius",
   "card_action.option.add-event.label": "Pridėti įvykį",
+  "card_action.option.reset.label": "Atstatyti kortelę",
   "day_tap_action_mode": "Dienos palietimo veiksmas",
   "day_tap_action_mode.option.none.label": "Nieko",
   "day_tap_action_mode.option.add-event.label": "Pridėti įvykį",

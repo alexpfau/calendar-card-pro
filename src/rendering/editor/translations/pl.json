@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Przełącz Widok Kompaktowy/Rozszerzony",
   "card_action.option.refresh.label": "Odśwież wydarzenia",
   "card_action.option.add-event.label": "Dodaj wydarzenie",
+  "card_action.option.reset.label": "Resetuj kartę",
   "day_tap_action_mode": "Akcja dotknięcia dnia",
   "day_tap_action_mode.option.none.label": "Nic",
   "day_tap_action_mode.option.add-event.label": "Dodaj wydarzenie",

@@ -144,7 +144,10 @@ export interface Config {
   weather?: WeatherConfig;
 
   // Actions
-  /** What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`, `add-event`. */
+  /**
+   * What a tap on the card does. Besides Home Assistant's actions: `expand`, `refresh`,
+   * `add-event`, `reset`.
+   */
   tap_action: ActionConfig;
   /** What a hold on the card does, with the same actions as `tap_action`. */
   hold_action: ActionConfig;

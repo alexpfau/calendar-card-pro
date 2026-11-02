@@ -20,9 +20,10 @@ export const ACTIONS_ICON = mdiGestureTapButton;
  * selector and stopped offering it. The runtime kept working throughout, so this only
  * ever failed the people configuring the card through the UI. `refresh` loads the events
  * again now, as the toolbar's refresh button does. `add-event` opens Home Assistant's
- * new-event dialog on the day the press landed on.
+ * new-event dialog on the day the press landed on. `reset` brings the card back to its
+ * configuration on this device, as the toolbar's reset button does.
  */
-export const CARD_ACTIONS = ['expand', 'refresh', 'add-event'] as const;
+export const CARD_ACTIONS = ['expand', 'refresh', 'add-event', 'reset'] as const;
 
 /**
  * Home Assistant's own action list, mirrored because there is no way to append to it.

@@ -633,8 +633,8 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **actions.ts**:
   - Runs `tap_action` and `hold_action`, for the card
-  - Does nothing for a missing action or `none`, handles the card's own `expand`, `refresh`
-    and `add-event` through callbacks the card hands it per press, and forwards everything
+  - Does nothing for a missing action or `none`, handles the card's own `expand`, `refresh`,
+    `add-event` and `reset` through callbacks the card hands it per press, and forwards everything
     else to Home Assistant as a `hass-action` event naming the card's first calendar as the
     entity
   - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
@@ -1246,7 +1246,7 @@ the gesture began on.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
-     action or `none`, handles the card's own `expand`, `refresh` and `add-event`, and forwards
+     action or `none`, handles the card's own `expand`, `refresh`, `add-event` and `reset`, and forwards
      everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
    - An event's own tap or hold never reaches `actions.ts`: `_runEventTapAction` in

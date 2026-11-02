@@ -2,10 +2,10 @@
  * Action handling for Calendar Card Pro.
  *
  * Standard actions are delegated to Home Assistant via `hass-action`; only
- * card-specific actions (`expand`, `refresh`, `add-event`) are handled locally.
+ * card-specific actions (`expand`, `refresh`, `add-event`, `reset`) are handled locally.
  */
 
-import { ADD_EVENT_ACTION } from '../config/constants';
+import { ADD_EVENT_ACTION, RESET_ACTION } from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
@@ -55,10 +55,12 @@ export interface CardActionCallbacks {
   refresh?: () => void;
   /** `add-event`: open Home Assistant's new-event dialog, where the press landed. */
   addEvent?: () => void;
+  /** `reset`: bring the card back to its configuration, as the toolbar's reset button does. */
+  reset?: () => void;
 }
 
 /**
- * Handle an action: the card's own (`expand`, `refresh`, `add-event`) here, every other one by
+ * Handle an action: the card's own (`expand`, `refresh`, `add-event`, `reset`) here, every other one by
  * delegating to HA's native action handler.
  *
  * @param node - Element that triggered the action
@@ -92,6 +94,12 @@ export function handleAction(
   if (actionConfig.action === ADD_EVENT_ACTION) {
     callbacks.addEvent?.();
     Logger.debug('Executed add-event action');
+    return;
+  }
+
+  if (actionConfig.action === RESET_ACTION) {
+    callbacks.reset?.();
+    Logger.debug('Executed reset action');
     return;
   }
 

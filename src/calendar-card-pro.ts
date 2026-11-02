@@ -595,8 +595,9 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
-   * `add-event` on a card that cannot add one now (`_canAddEvents`). Such an action is no
-   * action at all: no tab stop, ripple or hold indicator promises what a press then refuses.
+   * `add-event` on a card that cannot add one now (`_canAddEvents`), nor `reset` on a card
+   * with nothing a reset could ever undo (`_canReset`). Such an action is no action at all: no
+   * tab stop, ripple or hold indicator promises what a press then refuses.
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -604,7 +605,9 @@ class CalendarCardPro extends LitElement {
   private _cardActionRuns(kind: 'tap' | 'hold'): boolean {
     const action = kind === 'hold' ? this.config.hold_action : this.config.tap_action;
     if (!action || action.action === 'none') return false;
-    return action.action !== Constants.ADD_EVENT_ACTION || this._canAddEvents;
+    if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
+    if (action.action === Constants.RESET_ACTION) return this._canReset;
+    return true;
   }
 
   /**
@@ -1037,6 +1040,7 @@ class CalendarCardPro extends LitElement {
       expand: () => this.toggleExpanded(),
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
+      reset: () => this._resetFromAction(),
     };
   }
 
@@ -5994,22 +5998,38 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Whether the card has something a reset could ever undo: the date navigation, the view
+   * switcher, the legend or an `expand` action. Decided by the configuration alone, never by
+   * what the card shows, so neither the reset button nor a `reset` action comes and goes.
+   */
+  private get _hasResettable(): boolean {
+    return (
+      this._wantsNavigation || this._wantsViewSwitcher || this._wantsLegend || this._hasExpandAction
+    );
+  }
+
+  /**
    * Whether the configuration asks for the reset button, and the card has something it could
-   * ever undo: the date navigation, the view switcher, the legend or an `expand` action.
-   * Without any of them the button could only ever be hidden, so it is not drawn.
-   *
-   * Decided by the configuration alone, never by what the card shows, so the button never
-   * comes and goes and never moves the controls after it.
+   * ever undo (`_hasResettable`). Without that the button could only ever be hidden, so it is
+   * not drawn, and it never moves the controls after it.
    */
   private get _wantsReset(): boolean {
     const toolbar = Config.resolveToolbar(this.config);
-    if (!toolbar.show || !toolbar.reset) return false;
-    return (
-      toolbar.navigation ||
-      toolbar.viewSwitcher ||
-      toolbar.legend !== false ||
-      this._hasExpandAction
-    );
+    return toolbar.show && toolbar.reset && this._hasResettable;
+  }
+
+  /**
+   * Whether a `reset` action may run: the card has something a reset could ever undo, with
+   * or without the button, and is not being edited, when it shows its configuration anyway.
+   * Elsewhere `reset` is no action at all (`_cardActionRuns`).
+   *
+   * Also while an expansion shows that no `expand` action can undo any more: a configuration
+   * change keeps the card expanded, so an edit that swaps `expand` for `reset` would otherwise
+   * leave it expanded until a reload. Asked of the action only; the button keeps its rule.
+   */
+  private get _canReset(): boolean {
+    if (this._isBeingEdited) return false;
+    return this._hasResettable || (this.isExpanded && this.hasCompactModeLimits());
   }
 
   /**
@@ -6100,7 +6120,7 @@ class CalendarCardPro extends LitElement {
       Logger.debug('Not resetting while the card is being edited');
       return;
     }
-    if (!this._wantsReset) return;
+    if (!this._canReset) return;
 
     Logger.debug('Resetting to the configuration');
     if (this._configFingerprint !== null) {
@@ -6125,8 +6145,22 @@ class CalendarCardPro extends LitElement {
 
     this.isExpanded = false;
     this._goToPage(null);
-    this._confirmReset();
+    // The check belongs to the button; a card reset by its action alone has none to show it.
+    if (this._wantsReset) this._confirmReset();
     this.requestUpdate();
+  }
+
+  /**
+   * The card's `reset` action: what the toolbar's reset button does, run only where the card
+   * shows something its configuration does not. Elsewhere there is nothing to undo, so it
+   * writes nothing and shows no check, as the button, hidden then, cannot be pressed.
+   */
+  private _resetFromAction(): void {
+    if (!this._differsFromConfiguration) {
+      Logger.debug('Nothing to reset');
+      return;
+    }
+    this._resetToConfiguration();
   }
 }
 

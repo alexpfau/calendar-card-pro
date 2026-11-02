@@ -462,6 +462,9 @@ what it already holds unless they are due for a refresh anyway.
 The card never goes back by itself. A layout and hidden calendars stay until someone presses
 the button or the card is edited, and a page until then or a reload.
 
+The same reset can run from a tap or a hold on the card, with or without the button, through the
+[`reset` action](/features/actions#resetting-from-a-tap-or-hold).
+
 ::: warning Its Name Needs Home Assistant 2026.2
 The button takes its name from Home Assistant, which has had a word for "Reset" since 2026.2.
 On an older version it is the same icon without a tooltip, and screen readers hear it in

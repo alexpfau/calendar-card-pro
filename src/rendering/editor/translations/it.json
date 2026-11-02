@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Espandi/Comprimi vista",
   "card_action.option.refresh.label": "Aggiorna eventi",
   "card_action.option.add-event.label": "Aggiungi evento",
+  "card_action.option.reset.label": "Ripristina scheda",
   "day_tap_action_mode": "Azione tocco giorno",
   "day_tap_action_mode.option.none.label": "Niente",
   "day_tap_action_mode.option.add-event.label": "Aggiungi evento",

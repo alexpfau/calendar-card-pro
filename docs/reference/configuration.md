@@ -364,7 +364,7 @@ meaning no limit.
 
 | Option               | Type    | Default | Description                                                                                                                                                                                                                                     |
 | -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand`, `refresh` and `add-event` are the card's                                                                                                                          |
+| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand`, `refresh`, `add-event` and `reset` are the card's                                                                                                                 |
 | `hold_action`        | object  | `none`  | Action when holding the card, an event included unless it has an `event_hold_action` of its own                                                                                                                                                 |
 | `day_tap_action`     | object  | `none`  | What tapping a day where it shows no event does. `add-event` opens Home Assistant's new-event dialog on that day, or in grid view at the hour tapped, in place of `tap_action`; `none`, and any other action, leaves such a tap to `tap_action` |
 | `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action`                                                                     |
@@ -376,7 +376,7 @@ meaning no limit.
 
 `tap_action`, `hold_action`, `day_tap_action`, `event_tap_action` and `event_hold_action`
 take an object whose `action` key selects the behavior. For `tap_action` and `hold_action`,
-every action but the card's own `expand`, `refresh` and `add-event` is run by Home Assistant,
+every action but the card's own `expand`, `refresh`, `add-event` and `reset` is run by Home Assistant,
 so the remaining keys are Home Assistant's and depend on which action you chose:
 
 `action` · `entity` · `navigation_path` · `navigation_replace` · `url_path` · `perform_action` · `data` · `target` · `confirmation`
@@ -385,7 +385,7 @@ The older `service` and `service_data` still work in place of `perform_action` a
 `open_tab` is accepted for older configurations and does nothing: Home Assistant decides where a
 `url` action opens its link.
 
-The card's own `expand`, `refresh` and `add-event` take no further keys. `day_tap_action` takes
+The card's own `expand`, `refresh`, `add-event` and `reset` take no further keys. `day_tap_action` takes
 `action` alone: `add-event`, or `none`, its default. So do `event_tap_action` and
 `event_hold_action`: `details`, or `none`, their default.
 
