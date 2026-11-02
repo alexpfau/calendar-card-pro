@@ -4641,6 +4641,27 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
   }
 
+  /* The 2px an unlabeled title keeps under its text, for a labeled one. Grid's summary has no
+     padding of its own, so the space under a title is the title's 2px of bottom padding, which
+     an unlabeled title keeps because it is its own clamping box. A labeled title is inline in
+     the summary, where bottom padding takes no room, so its text sat a fraction of a pixel above
+     the row below it, and an emoji in it touched a progress bar there. Not for a cut title:
+     the cut drops the padding, through which the next line showed (the cut rule above). Nor in
+     the short-block fallback, whose one-line summary has no padding at all (the compact rules
+     below): there the 2px counted against the few pixels the title is fitted into, and a
+     labeled 15-minute block was left blank. */
+  .grid-event:not(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure
+    .summary:not(.summary-scroll):not([data-grid-title-lines]):has(
+      > .event-title:not(:only-child)
+    ) {
+    padding-bottom: 2px;
+  }
+
   .grid-event-disclosure
     .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
     > .event-title {
