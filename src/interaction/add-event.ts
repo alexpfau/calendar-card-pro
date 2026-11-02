@@ -76,13 +76,14 @@ export function addEventLabel(hass: Types.Hass | null | undefined): string | und
 /**
  * The date Home Assistant's create dialog starts a new event on.
  *
- * Now, when today is one of the days the card shows, which opens the dialog at the
- * current hour exactly as Home Assistant's own default does. Otherwise the first day the
- * card shows, at midnight, so a card looking at next month does not offer an event today;
- * Home Assistant's calendar card passes the first day of a week or day view the same way.
+ * Now, when today is one of the days the card covers, which opens the dialog at the
+ * current hour exactly as Home Assistant's own default does. Otherwise the first of those
+ * days, at midnight, so a card looking at next month does not offer an event today; Home
+ * Assistant's calendar card passes the first day of a week or day view the same way. The
+ * days are the page's, whether or not the card draws a row for each of them.
  *
- * @param windowStart - First day the card shows, at local midnight
- * @param daysToShow - How many days the card shows from there
+ * @param windowStart - First day the card covers, at local midnight
+ * @param daysToShow - How many days the card covers from there
  * @param now - The current moment
  * @returns The date to hand the dialog as `selectedDate`
  */

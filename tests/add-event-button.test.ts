@@ -588,6 +588,52 @@ describe('pressing the add-event button', () => {
     expect((await shown).detail.dialogParams.selectedDate).toEqual(expected);
   });
 
+  it('starts a new event on today on a collapsed compact card that draws only an earlier day', async () => {
+    // The days are the page's, not the rows drawn: collapsing a compact card draws fewer days,
+    // never different ones, and today is the day an event is most often added for.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FROZEN_NOW);
+    dialogAlreadyLoaded();
+    const event = (summary: string, day: string, hour: string) => ({
+      summary,
+      start: { dateTime: `${day}T${hour}:00:00Z` },
+      end: { dateTime: `${day}T${hour}:30:00Z` },
+    });
+    const callApi = vi
+      .fn()
+      .mockResolvedValue([
+        event('Breakfast', '2026-06-15', '08'),
+        event('Dentist', '2026-06-17', '14'),
+      ]);
+    const config = {
+      entities: [WRITABLE],
+      toolbar: ADD_ONLY,
+      start_date: '2026-06-15',
+      days_to_show: 3,
+      show_past_events: true,
+    };
+    const drawn = (card: CardUnderTest) =>
+      Array.from(card.shadowRoot!.querySelectorAll('.event-title'), (el) => el.textContent!.trim());
+
+    // The control: the same card, not compact, draws today's event.
+    const open = await mount(config, { callApi });
+    await vi.waitFor(() => expect(drawn(open)).toEqual(['Breakfast', 'Dentist']));
+    open.remove();
+
+    const card = await mount({ ...config, list: { compact_days_to_show: 1 } }, { callApi });
+    await vi.waitFor(() => expect(drawn(card)).toEqual(['Breakfast']));
+    // waitFor advances the faked clock while it polls; put it back on the frozen moment.
+    vi.setSystemTime(FROZEN_NOW);
+    const shown = new Promise<CustomEvent>((resolve) =>
+      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
+        once: true,
+      }),
+    );
+    button(card)!.click();
+
+    expect((await shown).detail.dialogParams.selectedDate).toEqual(FROZEN_NOW);
+  });
+
   it("does not run the card's tap action, while a tap elsewhere on the card still does", async () => {
     dialogAlreadyLoaded();
     const card = await mount({
