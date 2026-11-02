@@ -488,8 +488,15 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   (`paintSelectedView` in `rendering/toolbar.ts`), in `--calendar-card-toolbar-selected-surface`,
   read off its own two stand-ins inside the selected segment. The segments are reused across
   renders, so the one the selection leaves loses the property.
-  Focus is the browser's to return: closing a modal puts it back on the button, without
-  scrolling, however the menu closed.
+  Focus follows how the menu was opened. From the keyboard, the first calendar takes it, as the
+  dialog chooses. Opened by a press, the menu itself takes it, which draws no ring: WebKit counts
+  the dialog's own choice of first control as keyboard focus, and rang the first calendar after a
+  click. Tab then reaches the first calendar. Closing a modal returns focus to where it was before
+  it opened, without scrolling, and after a close someone asked for the card focuses the button
+  as well, which covers a browser that does not. The one exception is a menu a press opened and a
+  press closed: WebKit carries the menu's own focus over to the button as the keyboard's and
+  would ring it, so there focus is left to the browser, which in WebKit, where a press does not
+  focus a button, returns it to where it was. Escape still focuses the button.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
   `_requestRefresh`, which does nothing while a load is under way or before the first has
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be

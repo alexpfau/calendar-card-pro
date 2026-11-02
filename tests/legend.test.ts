@@ -1348,6 +1348,81 @@ describe("the menu the legend's button opens", () => {
     expect(button(card).getAttribute('aria-expanded')).toBe('false');
   });
 
+  /** Open the menu with a click a pointer made, which counts one press. */
+  async function press(card: CardUnderTest): Promise<void> {
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 1, bubbles: true, composed: true }),
+    );
+    await settle(card);
+  }
+
+  it('takes focus itself when a press opens it, so no calendar is focused by a press', async () => {
+    // WebKit counts the dialog's own choice of its first calendar as keyboard focus, and rang
+    // that calendar after a click. The menu draws no ring of its own, and Tab reaches the first
+    // calendar from it.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    await press(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(root(card).activeElement).toBe(dialog(card));
+    expect(dialog(card).getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('leaves focus where the dialog puts it when a key opens it', async () => {
+    // Enter and Space click a button with no presses counted, and the first calendar is where a
+    // keyboard wants to be.
+    const card = await mountMenu();
+    const focus = vi.spyOn(dialog(card), 'focus');
+
+    button(card).dispatchEvent(
+      new MouseEvent('click', { detail: 0, bubbles: true, composed: true }),
+    );
+    await settle(card);
+
+    expect(dialog(card).open).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('leaves focus to the browser after a press opened it and a press outside closed it', async () => {
+    // The menu held focus, which WebKit carries over to the button as the keyboard's when a
+    // script focuses it, so the button was rung after nothing but presses.
+    const card = await mountMenu();
+    await press(card);
+    const focus = vi.spyOn(button(card), 'focus');
+    vi.spyOn(dialog(card), 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 100,
+      right: 300,
+      bottom: 300,
+      width: 200,
+      height: 200,
+    } as DOMRect);
+
+    dialog(card).dispatchEvent(new MouseEvent('click', { clientX: 500, clientY: 150 }));
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(button(card).getAttribute('aria-expanded')).toBe('false');
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it('still hands focus back to its button on Escape after a press opened it', async () => {
+    const card = await mountMenu();
+    await press(card);
+    expect(root(card).activeElement).toBe(dialog(card));
+
+    dialog(card).dispatchEvent(new Event('cancel'));
+    dialog(card).close();
+    await settle(card);
+
+    expect(dialog(card).open).toBe(false);
+    expect(root(card).activeElement).toBe(button(card));
+  });
+
   it('closes on a scroll of the page, and not on one inside it', async () => {
     const card = await mountMenu();
     await open(card);

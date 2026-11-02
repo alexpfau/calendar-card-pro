@@ -163,6 +163,8 @@ export function placeMenu(
 interface OpenMenu {
   /** The button that opened it, which it is placed beside. */
   opener: HTMLElement;
+  /** Whether a press opened it, which leaves focus on the menu itself. */
+  pressed: boolean;
   /** Why it is closing, once something asked it to. */
   reason: CloseReason | undefined;
   /** Removes every listener the open menu holds. */
@@ -247,6 +249,12 @@ function closeMenu(dialog: HTMLDialogElement, reason: CloseReason): void {
  * a scroll, a resize or the button going away, nothing is asked of focus beyond what the
  * browser does.
  *
+ * A menu a press opened and a press closed is the exception, and is left to the browser too. It
+ * held focus itself, and in WebKit that focus counts as the keyboard's, which carries over to
+ * whatever a script focuses next, so focusing the button would ring it after nothing but
+ * presses. There, where a press does not focus a button, focus goes back to where it was before
+ * the menu opened. Escape still focuses the button.
+ *
  * @param dialog - The menu that closed
  */
 function finishClose(dialog: HTMLDialogElement): void {
@@ -258,17 +266,24 @@ function finishClose(dialog: HTMLDialogElement): void {
 
   // Escape is the dialog's own cancel and close, so it arrives with no reason recorded.
   const reason = open.reason ?? 'escape';
-  const deliberate = reason === 'escape' || reason === 'backdrop' || reason === 'button';
+  const deliberate =
+    reason === 'escape' || (!open.pressed && (reason === 'backdrop' || reason === 'button'));
   if (deliberate && open.opener.isConnected) open.opener.focus({ preventScroll: true });
 }
 
 /**
  * Opens a menu beside its button. Nothing happens for one already open or not on the page.
  *
+ * The dialog gives focus to its first calendar, which is where a keyboard wants it. A press
+ * moves it on to the menu itself, which draws no ring, before anything is painted: WebKit counts
+ * the dialog's own choice as keyboard focus, and rang the first calendar after a press. Tab then
+ * reaches the first calendar.
+ *
  * @param dialog - The menu
  * @param opener - The button that opens it
+ * @param pressed - Whether a press opened it, rather than a key
  */
-function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
+function openMenu(dialog: HTMLDialogElement, opener: HTMLElement, pressed: boolean): void {
   if (dialog.open || openMenus.has(dialog) || !dialog.isConnected) return;
 
   try {
@@ -280,6 +295,7 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
   // it, in the middle of the viewport, nor see-through for a frame.
   positionMenu(dialog, opener);
   paintMenu(dialog);
+  if (pressed) dialog.focus({ preventScroll: true });
   opener.setAttribute('aria-expanded', 'true');
 
   const view = dialog.ownerDocument.defaultView ?? window;
@@ -296,6 +312,7 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 
   openMenus.set(dialog, {
     opener,
+    pressed,
     reason: undefined,
     stop: () => {
       view.removeEventListener('scroll', onScroll, { capture: true });
@@ -434,7 +451,8 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
 
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.legend-menu') ?? null;
-  const onClick = (ev: Event) => {
+  // A click from Enter or Space counts no presses; one from a mouse, a finger or a pen does.
+  const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
     const button = ev.currentTarget as HTMLElement;
     const dialog = dialogOf(button);
@@ -444,7 +462,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
       return;
     }
     if (legend.inert) return;
-    openMenu(dialog, button);
+    openMenu(dialog, button, ev.detail > 0);
   };
   // A press on the backdrop arrives at the dialog itself, outside its box. A press on the
   // dialog's own padding arrives there too, inside it, and is ignored.
@@ -477,6 +495,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
     </button>
     <dialog
       class="legend-menu"
+      tabindex="-1"
       aria-label=${name}
       @pointerdown=${stopCardGesture}
       @click=${onDialogClick}
