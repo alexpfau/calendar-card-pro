@@ -260,6 +260,42 @@ describe('a card and the same card in another tab', () => {
     expect(hiddenOn(card)).toEqual([]);
   });
 
+  /** A same-page card takes up whether the set was stored along with the set itself. */
+  it('keeps a refused set on a second card of the same configuration too', async () => {
+    const first = await mount();
+    const second = await mount();
+    const real = localStorage;
+    const refusing = {
+      getItem: (key: string) => real.getItem(key),
+      setItem: () => {
+        throw new DOMException('full', 'QuotaExceededError');
+      },
+      removeItem: () => {
+        throw new DOMException('full', 'QuotaExceededError');
+      },
+    };
+    vi.stubGlobal('localStorage', refusing);
+
+    await press(first, ANNA);
+    expect(hiddenOn(second)).toEqual([ANNA]);
+
+    second.remove();
+    document.body.appendChild(second);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await settle(second);
+    expect(hiddenOn(second)).toEqual([ANNA]);
+
+    // Once the storage takes a press again, both catch up with it again.
+    vi.stubGlobal('localStorage', real);
+    await press(first, BEN);
+    expect(readHiddenCalendars(FINGERPRINT)).toEqual([ANNA, BEN]);
+    second.remove();
+    inAnotherTab(() => forgetChoice(FINGERPRINT));
+    document.body.appendChild(second);
+    await settle(second);
+    expect(hiddenOn(second)).toEqual([]);
+  });
+
   it('keeps a set the storage refused, through a reattach and a return', async () => {
     const card = await mount();
     const real = localStorage;

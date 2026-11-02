@@ -62,6 +62,11 @@ export interface LegendChange {
   fingerprint: string;
   /** Every calendar now hidden. */
   hidden: ReadonlyArray<string>;
+  /**
+   * Whether `localStorage` took the change. A card taking up the set takes this up with it, or
+   * it would catch up with a storage that never held the set and show the calendars again.
+   */
+  stored: boolean;
   /** The card that changed it, which ignores its own announcement. */
   source: unknown;
 }

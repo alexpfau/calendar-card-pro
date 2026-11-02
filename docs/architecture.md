@@ -434,7 +434,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   configuration's changed (`hiddenCalendarsChange`, which compares the event's old and new
   entry). A card that may have missed one reads the entry again when it is attached and when
   its tab comes back (`readStoredHiddenCalendars`), unless its last write was refused, when
-  the set lives in that page only. The switcher's view is not synced: it is written as a patch
+  the set lives in that page only. A same-page announcement carries whether the write was
+  stored, so a card taking up the set takes that up too. The switcher's view is not synced: it is written as a patch
   of its own half, so a stale tab cannot write an old one back.
   `hide_when_empty` acts only while nothing is hidden, for the reason a page away from home
   never hides: the card would take the way back with it.

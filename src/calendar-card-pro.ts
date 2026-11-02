@@ -585,6 +585,7 @@ class CalendarCardPro extends LitElement {
     if (detail.fingerprint !== this._configFingerprint) return;
 
     this._adoptHiddenCalendars(detail.hidden);
+    this._hiddenMatchesStorage = detail.stored;
   };
 
   /**
@@ -5011,7 +5012,7 @@ class CalendarCardPro extends LitElement {
         ...next,
       ]);
     }
-    this._announceHiddenCalendars([...next]);
+    this._announceHiddenCalendars([...next], this._hiddenMatchesStorage);
     Logger.debug(`${next.has(id) ? 'Hid' : 'Showed'} ${id}`);
     this.requestUpdate();
   }
@@ -5021,12 +5022,14 @@ class CalendarCardPro extends LitElement {
    * the remembered set, and take this one up at once (`_handleLegendChanged`).
    *
    * @param hidden - Entity ids of the calendars hidden now
+   * @param stored - Whether `localStorage` took the change
    */
-  private _announceHiddenCalendars(hidden: string[]): void {
+  private _announceHiddenCalendars(hidden: string[], stored: boolean): void {
     if (this._configFingerprint === null) return;
     const change: Legend.LegendChange = {
       fingerprint: this._configFingerprint,
       hidden,
+      stored,
       source: this,
     };
     window.dispatchEvent(new CustomEvent(Legend.LEGEND_CHANGED_EVENT, { detail: change }));
@@ -5433,7 +5436,7 @@ class CalendarCardPro extends LitElement {
 
     if (this._hiddenCalendars.size > 0) {
       this._hiddenCalendars = NO_HIDDEN_CALENDARS;
-      this._announceHiddenCalendars([]);
+      this._announceHiddenCalendars([], this._hiddenMatchesStorage);
     }
 
     this.isExpanded = false;
