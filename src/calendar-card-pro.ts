@@ -566,13 +566,6 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Refetch when another card announces a change that may have touched a calendar this card
-   * shows: one it names, or after a new event, any this card shows that accepts new events.
-   *
-   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
-   * announced write's generation, as the announcer did, so they can share its request.
-   */
-  /**
    * Takes up the calendars another card hid with its legend, when that card has this card's
    * configuration and so shares its remembered choice. Without it the two would disagree on
    * screen, and the next press on either would write its own stale set over the other's.
@@ -643,6 +636,13 @@ class CalendarCardPro extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Refetch when another card announces a change that may have touched a calendar this card
+   * shows: one it names, or after a new event, any this card shows that accepts new events.
+   *
+   * The announcing card is skipped: it refreshed before it announced. Refreshes for the
+   * announced write's generation, as the announcer did, so they can share its request.
+   */
   private readonly _handleCalendarsChanged = (ev: Event): void => {
     const detail = (ev as CustomEvent<CalendarChanges.CalendarsChangedDetail>).detail;
     if (!detail || detail.source === this) return;
@@ -1677,12 +1677,14 @@ class CalendarCardPro extends LitElement {
     }, Constants.TIMING.NOW_LINE_INTERVAL);
 
     // Keep the key across stops so a hidden or disconnected card can detect that midnight
-    // passed before the timer was reacquired.
+    // passed before the timer was reacquired. The midnight timer runs in a hidden tab, and
+    // records the day it loaded for (`_claimRollover`); otherwise this loads through the
+    // cache, as the tick does (`_tickNowLine`).
     const dayKey = FormatUtils.getLocalDateKey(new Date());
     if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
       this._nowLineDayKey = dayKey;
       Logger.debug('Local day rolled over while the now-line timer was stopped, refreshing events');
-      this.updateEvents('network');
+      this.updateEvents('cache');
       return;
     }
 
@@ -1720,10 +1722,12 @@ class CalendarCardPro extends LitElement {
    * - A grid or column card shedding day columns keeps today among the ones it draws
    *   (`visibleDayWindowStart`), so its slice moves at midnight even on fixed dates.
    * - A window that follows today moves at midnight, and draws its new last day empty until
-   *   new events arrive. A grid with its now line is left out: the line's own tick refetches
-   *   on the new day, and a second load would fetch twice.
+   *   new events arrive. A grid with its now line is left out: the line's own tick loads the
+   *   new day within a minute of midnight.
    *
-   * A card on fixed dates drawing all of them has nothing that moves at midnight.
+   * A card on fixed dates drawing all of them has nothing that moves at midnight. A grid with its
+   * now line that sheds columns hears about midnight from both the timer and the line's tick, and
+   * only the first of them loads (`_claimRollover`).
    */
   private get _wantsMidnightTimer(): boolean {
     const shedding =
@@ -1761,8 +1765,28 @@ class CalendarCardPro extends LitElement {
       // A window that follows today moves at midnight — start_of_week only once a week — and
       // drawing the new window from the old window's events shows false empty days. A cache
       // load fetches exactly when the window it asks for has changed.
-      void this.updateEvents('cache');
+      if (this._claimRollover()) void this.updateEvents('cache');
     }, nextMidnight.getTime() - now.getTime());
+  }
+
+  /**
+   * Whether the midnight timer is the one to load the new day.
+   *
+   * A card drawing its now line hears about midnight from the line too: its minute tick, and the
+   * timer starting again when a hidden tab comes back, load the new day the first time they see
+   * it, and record that day (`_nowLineDayKey`). The timer records it the same way, so of the
+   * timer and the line only the first to see the new day loads, and the other only repaints. The
+   * cache cannot promise that on its own: a window with no events is kept for seconds only, and a
+   * browser may keep nothing.
+   *
+   * @returns False where the line has already loaded the new day
+   */
+  private _claimRollover(): boolean {
+    if (!this._wantsNowLine) return true;
+    const dayKey = FormatUtils.getLocalDateKey(new Date());
+    if (this._nowLineDayKey === dayKey) return false;
+    this._nowLineDayKey = dayKey;
+    return true;
   }
 
   private _stopMidnightTimer(): void {
@@ -1851,7 +1875,11 @@ class CalendarCardPro extends LitElement {
    * The rollover check is why this is not simply `requestUpdate()`. At midnight every
    * day header is wrong, "today" has moved to a different column and the events on
    * screen are a day out of date — a repaint would move the line to the top of a column
-   * that is no longer today. Refetching is the only thing that fixes that.
+   * that is no longer today. Loading again is the only thing that fixes that. A shedding grid's
+   * own midnight timer may have loaded the new day already, and recorded it, so the line sees no
+   * rollover then (`_claimRollover`). The load goes through the cache, as the timer's does, so it
+   * fetches only where nothing fresh is stored for the new window: another card on the same
+   * calendars may have fetched it a moment before.
    */
   private _tickNowLine(): void {
     const dayKey = FormatUtils.getLocalDateKey(new Date());
@@ -1859,7 +1887,7 @@ class CalendarCardPro extends LitElement {
     if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
       this._nowLineDayKey = dayKey;
       Logger.debug('Local day rolled over, refreshing events');
-      this.updateEvents('network');
+      this.updateEvents('cache');
       return;
     }
 

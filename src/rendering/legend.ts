@@ -196,6 +196,20 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 }
 
 /**
+ * Paints an open menu opaque where its theme's card background is see-through
+ * (`paintOpaqueSurface`), with the theme's page color read off the hidden stand-in drawn inside
+ * it. The stand-in is drawn with the menu rather than added for the read: the card's mutation
+ * observers take an element added or removed anywhere in the card for a change of the grid's
+ * structure, and refit every block for it, and this runs after every update while the menu is
+ * open.
+ *
+ * @param dialog - The open menu
+ */
+function paintMenu(dialog: HTMLDialogElement): void {
+  paintOpaqueSurface(dialog, dialog.querySelector(':scope > .legend-menu-page'));
+}
+
+/**
  * Closes a menu, saying why. Nothing happens for one that is not open.
  *
  * @param dialog - The menu
@@ -256,7 +270,7 @@ function openMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
   // In the same task as showModal, so the menu is never painted where the browser first puts
   // it, in the middle of the viewport, nor see-through for a frame.
   positionMenu(dialog, opener);
-  paintOpaqueSurface(dialog);
+  paintMenu(dialog);
   opener.setAttribute('aria-expanded', 'true');
 
   const view = dialog.ownerDocument.defaultView ?? window;
@@ -308,7 +322,7 @@ export function repositionLegendMenus(root: ParentNode): void {
       closeMenu(dialog, 'gone');
     } else if (root.contains(dialog)) {
       positionMenu(dialog, open.opener);
-      paintOpaqueSurface(dialog);
+      paintMenu(dialog);
     }
   }
 }
@@ -483,6 +497,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
             </label>`,
         )}
       </div>
+      <span class="legend-menu-page" aria-hidden="true"></span>
     </dialog>`;
 }
 

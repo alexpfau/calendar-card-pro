@@ -472,20 +472,22 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   time it is placed, `paintOpaqueSurface` (`rendering/surface.ts`) reads that background off the
   open menu and, only where it is see-through, paints the menu inline in that background laid
   over the theme's page color, and that over black or white by the text color (`opaqueSurface`,
-  pure). An opaque theme's menu is left exactly as the stylesheet paints it, which is what keeps
-  the default theme pixel-identical: a second background layer under an opaque one would not.
-  Measured, it changes the rendered pixels by up to 31 levels in WebKit. A gradient whose every
-  stop is opaque counts as opaque, and is left alone for the same reason. The view switcher's
-  selected segment is raised out of its track in the card's own background, and gets the same
-  color after every update (`paintSelectedView` in `rendering/toolbar.ts`), with three
-  differences. Its colors are read off two hidden stand-ins drawn inside the selected segment,
-  not off a probe added for the read: the card's mutation observers take any element added or
-  removed in the card for a change of the grid's structure, and refit every block. The color is
-  handed back in a custom property, `--calendar-card-toolbar-selected-surface`, that only the
-  segment's background color takes, so an image the selected color draws stays on top and the
-  segment's own background is never rewritten: a card-mod rule on it, a hover state included,
-  wins as it would against the stylesheet. And the segments are reused across renders, so the one
-  the selection leaves loses the property.
+  pure). The page color is read off a hidden stand-in drawn inside the menu, not off a probe
+  added for the read: the card's mutation observers take any element added or removed in the
+  card for a change of the grid's structure, and refit every block, and the menu is painted
+  again after every update while it is open. An opaque theme's menu is left exactly as the
+  stylesheet paints it, which is what keeps the default theme pixel-identical: a second
+  background layer under an opaque one would not. Measured, it changes the rendered pixels by up
+  to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
+  alone for the same reason. The view switcher's selected segment is raised out of its track in
+  the card's own background, and gets the same color after every update (`paintSelectedView` in
+  `rendering/toolbar.ts`), with three differences. Its own colors are read off a stand-in too,
+  drawn beside the page color's inside the selected segment, rather than off the segment. The
+  color is handed back in a custom property, `--calendar-card-toolbar-selected-surface`, that
+  only the segment's background color takes, so an image the selected color draws stays on top
+  and the segment's own background is never rewritten: a card-mod rule on it, a hover state
+  included, wins as it would against the stylesheet. And the segments are reused across renders,
+  so the one the selection leaves loses the property.
   Focus is the browser's to return: closing a modal puts it back on the button, without
   scrolling, however the menu closed.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
@@ -1045,15 +1047,21 @@ graph TD
      if the cache is due
    - A configuration change refetches; a per-calendar edit only reprocesses the cached payload
    - While grid view draws its now line, a timer repaints it once a minute
-     (`_syncNowLineTimer`, `_tickNowLine`) and refetches when the local day rolls over,
-     including a rollover that passed while the timer was stopped
+     (`_syncNowLineTimer`, `_tickNowLine`) and runs a `cache` load when the local day rolls
+     over, including a rollover that passed while the timer was stopped. A grid shedding day
+     columns hears about midnight from the timer below as well; both record the day they
+     loaded for (`_nowLineDayKey`, `_claimRollover`), so only the first loads. Through the
+     cache, the load asks nothing of a window another card on the same calendars fetched a
+     moment before, unless nothing fresh is stored: a window with no events is kept for 15
+     seconds, and a browser may store nothing
    - A timer fires just after local midnight (`_syncMidnightTimer`) while column or grid view
      draws fewer day columns than its own `days_to_show`, and while the window follows today:
      no `start_date`, or a relative one (`startDateFollowsToday`), in any view but a grid
-     drawing its now line, whose own tick refetches then. It re-renders, so the visible window
+     drawing its now line, whose own tick loads then. It re-renders, so the visible window
      moves to the new today, and runs a `cache` load, which fetches only if the window it
-     asks for moved or the cache is due. Without it a list card drew the new last day empty
-     until its next refresh
+     asks for moved or the cache is due; on a grid drawing its now line, only if the line has
+     not loaded the new day first. Without it a list card drew the new last day empty until
+     its next refresh
    - List, column, and grid without its now line repaint at the next start or end of a
      timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
      then past on time. That timer only repaints; it never fetches
@@ -1067,14 +1075,14 @@ Every load above names one of the six modes `updateEvents` takes (`LoadMode`); i
 docblock holds the last two columns of this table. Every mode but `reload` joins a matching
 request already in flight rather than stopping at the cache.
 
-| Mode        | Used by                                                                                             | Draws the cache                | Asks Home Assistant when                                                                  |
-| ----------- | --------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| `navigate`  | the card appearing, or configured before it first loaded                                            | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
-| `page`      | turning to another page with the date navigation, or back home (`_loadPage`)                        | anything up to 24 h old, first | nothing cached, or the cache due                                                          |
-| `cache`     | the refresh timer, a returning tab, the midnight timer                                              | only if not due                | nothing fresh is cached                                                                   |
-| `reprocess` | a per-calendar edit                                                                                 | anything up to 24 h old        | nothing is cached at all                                                                  |
-| `network`   | a later configuration change, the grid day rollover, going home after a calendar changed while away | no                             | always, joining a matching request under way                                              |
-| `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action                       | no                             | always, never joining a request from before the write                                     |
+| Mode        | Used by                                                                       | Draws the cache                | Asks Home Assistant when                                                                  |
+| ----------- | ----------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `navigate`  | the card appearing, or configured before it first loaded                      | anything up to 24 h old, first | nothing cached, the cache due, or `refresh_on_navigate` (see _Intelligent Cache Refresh_) |
+| `page`      | turning to another page with the date navigation, or back home (`_loadPage`)  | anything up to 24 h old, first | nothing cached, or the cache due                                                          |
+| `cache`     | the refresh timer, a returning tab, the midnight timer, the grid day rollover | only if not due                | nothing fresh is cached                                                                   |
+| `reprocess` | a per-calendar edit                                                           | anything up to 24 h old        | nothing is cached at all                                                                  |
+| `network`   | a later configuration change, going home after a calendar changed while away  | no                             | always, joining a matching request under way                                              |
+| `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action | no                             | always, never joining a request from before the write                                     |
 
 ### Interaction Flow
 

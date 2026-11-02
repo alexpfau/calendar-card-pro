@@ -2926,6 +2926,15 @@ describe('the legend and refresh', () => {
     );
   });
 
+  it("keeps the stand-in the menu's page color is read off hidden, in that color", () => {
+    // Drawn inside the menu so nothing is added to the card for the read; see `paintMenu` in
+    // `legend.ts`.
+    expect(declared('.legend-menu-page', 'display')).toBe('none');
+    expect(declared('.legend-menu-page', 'background-color')).toBe(
+      'var(--primary-background-color)',
+    );
+  });
+
   it('needs no ripple rule of its own for the chips, which sit inside a toolbar row', () => {
     // The chips are in the heading row, a `.card-toolbar`, so the bar's own rule covers them.
     // A rule for their box alone would be dead weight, and its absence is the proof that the
