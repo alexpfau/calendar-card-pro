@@ -111,25 +111,6 @@ export function gradientColors(image: string): string[] | undefined {
 }
 
 /**
- * The theme's page color, as the browser resolves it inside a surface. Read off a hidden probe,
- * because the custom property's own value is only its text: written with `light-dark()` or
- * `currentColor`, it is not yet a color a canvas can paint. Transparent where the theme sets
- * none.
- *
- * @param surface - The surface
- * @returns The resolved color
- */
-function pageColor(surface: HTMLElement): string {
-  const probe = surface.ownerDocument.createElement('span');
-  probe.style.display = 'none';
-  probe.style.backgroundColor = 'var(--primary-background-color)';
-  surface.append(probe);
-  const color = getComputedStyle(probe).backgroundColor;
-  probe.remove();
-  return color;
-}
-
-/**
  * The colors a surface is drawn in, as the browser computes them.
  */
 export interface SurfaceColors {
@@ -139,7 +120,11 @@ export interface SurfaceColors {
   image: string;
   /** The computed text color. */
   ink: string;
-  /** The theme's page color, resolved inside the surface; asked for only where it is needed. */
+  /**
+   * The theme's page color, as the browser resolves it inside the surface, so a theme written
+   * with `light-dark()` or `currentColor` reads as a color a canvas can paint. Transparent where
+   * the theme sets none, and empty where there is nothing to read it off.
+   */
   page: () => string;
 }
 
@@ -178,16 +163,21 @@ export function opaqueSurfaceColor(doc: Document, colors: SurfaceColors): string
  * card-mod rule on it, are both what is read. A card-mod rule marked `!important` still wins
  * over the color set here, so a surface someone made see-through on purpose stays so.
  *
+ * The page color is read off a hidden stand-in the surface draws inside itself, with the
+ * stylesheet giving it the theme's page color, rather than off the custom property, whose own
+ * value is only its text. Nothing is added to the page for the read.
+ *
  * @param surface - The element whose background is the surface
+ * @param page - The stand-in, or null where there is none, which reads as no page color
  */
-export function paintOpaqueSurface(surface: HTMLElement): void {
+export function paintOpaqueSurface(surface: HTMLElement, page: Element | null): void {
   surface.style.removeProperty('background-color');
   const style = getComputedStyle(surface);
   const opaque = opaqueSurfaceColor(surface.ownerDocument, {
     background: style.backgroundColor,
     image: style.backgroundImage,
     ink: style.color,
-    page: () => pageColor(surface),
+    page: () => (page ? getComputedStyle(page).backgroundColor : ''),
   });
   if (opaque) surface.style.backgroundColor = opaque;
 }

@@ -1085,6 +1085,13 @@ export const cardStyles = css`
     background: transparent;
   }
 
+  /* The theme's page color, as paintOpaqueSurface in rendering/surface.ts reads it to paint the
+     menu over. Never shown. */
+  .legend-menu-page {
+    display: none;
+    background-color: var(--primary-background-color);
+  }
+
   .legend-menu-list {
     display: flex;
     flex-direction: column;

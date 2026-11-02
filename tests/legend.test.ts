@@ -1421,15 +1421,14 @@ describe("the menu the legend's button opens", () => {
 
   /**
    * Compute the menu's colors from a theme, as a browser would: the dialog's background and
-   * text, and the page color on the probe the menu resolves it on, a `span` it puts inside
-   * itself for a moment. happy-dom resolves no theme variables, so those are stubbed;
-   * everything else computes as it does.
+   * text, and the page color on the hidden stand-in drawn inside it. happy-dom resolves no theme
+   * variables, so those are stubbed; everything else computes as it does.
    */
   function themeTheMenu(card: CardUnderTest, colors: MenuColors): void {
     const realStyle = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
       const style = realStyle(element, pseudo);
-      if (element.parentNode === dialog(card) && element.tagName === 'SPAN') {
+      if (element.parentNode === dialog(card) && element.matches('.legend-menu-page')) {
         return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
       }
       if (element !== dialog(card)) return style;
@@ -1562,6 +1561,74 @@ describe("the menu the legend's button opens", () => {
     await settle(card);
     expect(dialog(card).style.backgroundColor).toBe('rgb(97, 94, 92)');
   });
+
+  it.each([
+    ['a see-through', SEE_THROUGH, 'rgb(30, 30, 32)'],
+    ['an opaque', OPAQUE, ''],
+  ] as const)(
+    'adds and removes no element while it paints, under %s theme',
+    async (_theme, colors, painted) => {
+      // The card's mutation observers take an element added or removed anywhere in it for a
+      // change of the grid's structure. The page color is read off a stand-in drawn inside the
+      // menu, so an update while it is open changes no element, whichever way the theme leans.
+      const card = await mountMenu({ view: 'grid' });
+      stubCanvas();
+      themeTheMenu(card, colors);
+      await open(card);
+      expect(dialog(card).style.backgroundColor).toBe(painted);
+
+      const records: MutationRecord[] = [];
+      const observer = new MutationObserver((batch) => records.push(...batch));
+      observer.observe(root(card), { childList: true, subtree: true });
+      card.hass = hass();
+      await settle(card);
+      records.push(...observer.takeRecords());
+      observer.disconnect();
+
+      const elements = records.flatMap((record) =>
+        [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].filter(
+          (node) => node instanceof Element,
+        ),
+      );
+      expect(elements).toEqual([]);
+      expect(dialog(card).open).toBe(true);
+      expect(dialog(card).style.backgroundColor).toBe(painted);
+    },
+  );
+
+  it.each([
+    ['a see-through', SEE_THROUGH],
+    ['an opaque', OPAQUE],
+  ] as const)(
+    "refits none of a grid's blocks for updates while it is open, under %s theme",
+    async (_theme, colors) => {
+      // An element added or removed in the card refits every block of a grid, so a probe added
+      // for each read refitted the grid on every update the open menu was painted again for.
+      const card = await mountMenu({ view: 'grid' });
+      stubCanvas();
+      themeTheMenu(card, colors);
+      await open(card);
+      const grid = card as unknown as {
+        _gridDisclosureObserver: ResizeObserver | null;
+        _reconcileGridStructure(): void;
+      };
+      expect(grid._gridDisclosureObserver).not.toBeNull();
+      const refits = vi.spyOn(grid, '_reconcileGridStructure');
+
+      for (let update = 0; update < 5; update += 1) {
+        card.hass = hass();
+        await settle(card);
+      }
+      expect(dialog(card).open).toBe(true);
+      expect(refits).not.toHaveBeenCalled();
+
+      // The control, so a count of nothing is not a counter that cannot count: an element added
+      // in the card is a change of the grid's structure.
+      root(card).querySelector('.grid-day-body')!.append(document.createElement('div'));
+      await settle(card);
+      expect(refits).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('paints nothing of its own where there is no canvas to read the colors', async () => {
     const card = await mountMenu();

@@ -472,20 +472,22 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   time it is placed, `paintOpaqueSurface` (`rendering/surface.ts`) reads that background off the
   open menu and, only where it is see-through, paints the menu inline in that background laid
   over the theme's page color, and that over black or white by the text color (`opaqueSurface`,
-  pure). An opaque theme's menu is left exactly as the stylesheet paints it, which is what keeps
-  the default theme pixel-identical: a second background layer under an opaque one would not.
-  Measured, it changes the rendered pixels by up to 31 levels in WebKit. A gradient whose every
-  stop is opaque counts as opaque, and is left alone for the same reason. The view switcher's
-  selected segment is raised out of its track in the card's own background, and gets the same
-  color after every update (`paintSelectedView` in `rendering/toolbar.ts`), with three
-  differences. Its colors are read off two hidden stand-ins drawn inside the selected segment,
-  not off a probe added for the read: the card's mutation observers take any element added or
-  removed in the card for a change of the grid's structure, and refit every block. The color is
-  handed back in a custom property, `--calendar-card-toolbar-selected-surface`, that only the
-  segment's background color takes, so an image the selected color draws stays on top and the
-  segment's own background is never rewritten: a card-mod rule on it, a hover state included,
-  wins as it would against the stylesheet. And the segments are reused across renders, so the one
-  the selection leaves loses the property.
+  pure). The page color is read off a hidden stand-in drawn inside the menu, not off a probe
+  added for the read: the card's mutation observers take any element added or removed in the
+  card for a change of the grid's structure, and refit every block, and the menu is painted
+  again after every update while it is open. An opaque theme's menu is left exactly as the
+  stylesheet paints it, which is what keeps the default theme pixel-identical: a second
+  background layer under an opaque one would not. Measured, it changes the rendered pixels by up
+  to 31 levels in WebKit. A gradient whose every stop is opaque counts as opaque, and is left
+  alone for the same reason. The view switcher's selected segment is raised out of its track in
+  the card's own background, and gets the same color after every update (`paintSelectedView` in
+  `rendering/toolbar.ts`), with three differences. Its own colors are read off a stand-in too,
+  drawn beside the page color's inside the selected segment, rather than off the segment. The
+  color is handed back in a custom property, `--calendar-card-toolbar-selected-surface`, that
+  only the segment's background color takes, so an image the selected color draws stays on top
+  and the segment's own background is never rewritten: a card-mod rule on it, a hover state
+  included, wins as it would against the stylesheet. And the segments are reused across renders,
+  so the one the selection leaves loses the property.
   Focus is the browser's to return: closing a modal puts it back on the button, without
   scrolling, however the menu closed.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
