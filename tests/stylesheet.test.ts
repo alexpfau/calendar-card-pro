@@ -2834,6 +2834,12 @@ describe('the toolbar controls', () => {
     expect(declared('.view-switcher-segment.selected', 'background')).toBe(
       'var(--calendar-card-toolbar-selected)',
     );
+    // The surface property is set only under a see-through card background; see paintSelectedView.
+    expect(
+      declared('.view-switcher-segment.selected', 'background-color').replace(/\s+/g, ' '),
+    ).toBe(
+      'var( --calendar-card-toolbar-selected-surface, var(--calendar-card-toolbar-selected) )',
+    );
   });
 });
 
@@ -2913,7 +2919,7 @@ describe('the legend and refresh', () => {
 
   it("draws the menu on the theme's card surface, not this card's own background", () => {
     // `background_color` may make the card transparent; a menu over the events must not be.
-    // Where the theme's card surface is see-through, `paintMenuSurface` in `legend.ts` paints
+    // Where the theme's card surface is see-through, `paintOpaqueSurface` in `surface.ts` paints
     // the menu opaque inline; everywhere else this declaration is the whole of it.
     expect(declared('.legend-menu', 'background')).toBe(
       'var(--ha-card-background, var(--card-background-color, #fff))',

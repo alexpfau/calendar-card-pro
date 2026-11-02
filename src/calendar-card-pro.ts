@@ -2641,6 +2641,7 @@ class CalendarCardPro extends LitElement {
     this._syncLegendFit(false);
     Legend.markShortenedChips(this.renderRoot);
     Legend.repositionLegendMenus(this.renderRoot);
+    Toolbar.paintSelectedView(this.renderRoot);
   }
 
   //-----------------------------------------------------------------------------

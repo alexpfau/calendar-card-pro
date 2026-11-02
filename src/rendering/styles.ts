@@ -795,10 +795,30 @@ export const cardStyles = css`
     padding: 0;
   }
 
+  /* Under a see-through card background, paintSelectedView in rendering/toolbar.ts hands the
+     background color an opaque one in its own custom property, beneath any image the selected
+     color draws; everywhere else the property is unset and the color is the selected color
+     again, so nothing changes. */
   .view-switcher-segment.selected {
     background: var(--calendar-card-toolbar-selected);
+    background-color: var(
+      --calendar-card-toolbar-selected-surface,
+      var(--calendar-card-toolbar-selected)
+    );
     color: var(--primary-text-color);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+
+  /* The selected segment's colors and the theme's page color, as paintSelectedView in
+     rendering/toolbar.ts reads them. Never shown. */
+  .view-switcher-probe {
+    display: none;
+    background: var(--calendar-card-toolbar-selected);
+  }
+
+  .view-switcher-probe.view-switcher-page {
+    background: none;
+    background-color: var(--primary-background-color);
   }
 
   /* Too narrow to draw: still there, so the bar keeps its shape, but plainly not on offer. */
@@ -1037,8 +1057,8 @@ export const cardStyles = css`
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintMenuSurface in rendering/legend.ts paints the menu over the theme's page color
-     instead. Where it is opaque, this rule is all there is. */
+     it is, paintOpaqueSurface in rendering/surface.ts paints the menu over the theme's page
+     color instead. Where it is opaque, this rule is all there is. */
   .legend-menu {
     position: fixed;
     inset: auto;

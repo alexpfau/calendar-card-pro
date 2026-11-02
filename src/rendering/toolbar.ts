@@ -38,6 +38,7 @@ import {
 import { TemplateResult, html, nothing, svg } from 'lit';
 
 import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend';
+import { opaqueSurfaceColor } from './surface';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
 import type { MonthHeadingText } from '../utils/paging';
@@ -534,10 +535,84 @@ function renderViewSwitcher(switcher: ViewSwitcher, labeled: boolean): TemplateR
           labeled
             ? html`<span class="toolbar-button-label">${option.label}</span>`
             : renderViewPictogram(option.view)
-        }
+        }${pressed ? SURFACE_PROBES : nothing}
       </button>`;
     })}
   </div>`;
+}
+
+/**
+ * The custom property the selected segment's opaque color is handed to the stylesheet in, which
+ * paints the segment's background color in it, under any image its own
+ * `--calendar-card-toolbar-selected` draws.
+ */
+const SELECTED_SURFACE = '--calendar-card-toolbar-selected-surface';
+
+/**
+ * Two hidden stand-ins inside the selected segment, which the stylesheet gives that segment's
+ * own colors and the theme's page color, so `paintSelectedView` can read both as the browser
+ * resolves them. They are drawn with the segment rather than added when read: the card's
+ * mutation observers take an element added or removed anywhere in the card for a change of the
+ * grid's structure, and refit every block for it.
+ */
+const SURFACE_PROBES = html`<span class="view-switcher-probe" aria-hidden="true"></span
+  ><span class="view-switcher-probe view-switcher-page" aria-hidden="true"></span>`;
+
+/**
+ * Paints the view switcher's selected segment opaque where the card background it is drawn in
+ * is see-through, and takes that paint off every other segment.
+ *
+ * The segment is raised out of its track in the card's own background. A theme made for a
+ * wallpaper makes that see-through, so the segment let the track and the wallpaper show through
+ * it and read as part of the track rather than above it. Where it is see-through, its color is
+ * laid over the theme's page color as the calendar filter's menu is (`opaqueSurfaceColor`);
+ * where it is opaque, nothing is written, so an opaque theme's switcher is exactly what it was.
+ *
+ * Unlike the menu's, the color is read off the stand-ins and handed back as a custom property
+ * for the segment's background color, rather than written over the segment's background. A
+ * gradient the segment draws stays, over the opaque color. The segment's own background is
+ * never touched, so a card-mod rule that sets it, under the pointer or anywhere else, wins as
+ * it would against the stylesheet, and a transition on it cannot be read halfway. A card-mod
+ * rule that changes `--calendar-card-toolbar-selected` instead is followed at the card's next
+ * update. The segments are reused from one render to the next, so the one the selection left
+ * loses its color. Called after every update, which is what follows a theme change.
+ *
+ * @param root - The card's shadow root
+ */
+export function paintSelectedView(root: ParentNode): void {
+  for (const segment of root.querySelectorAll<HTMLElement>('.view-switcher-segment')) {
+    const value = segment.classList.contains('selected') ? selectedSurface(segment) : undefined;
+    if (value === undefined) segment.style.removeProperty(SELECTED_SURFACE);
+    else if (segment.style.getPropertyValue(SELECTED_SURFACE) !== value) {
+      segment.style.setProperty(SELECTED_SURFACE, value);
+    }
+  }
+}
+
+/**
+ * The background color to hand the selected segment, or undefined to leave its own.
+ *
+ * Its own is left wherever it is opaque and draws no image. Where it does draw one, its color is
+ * handed back unchanged when opaque: the stylesheet takes the background color from
+ * `--calendar-card-toolbar-selected` a second time when nothing is handed over, and a value that
+ * also draws an image is no background color, so the color it carried would be lost.
+ *
+ * @param segment - The selected segment
+ * @returns The color, or undefined
+ */
+function selectedSurface(segment: HTMLElement): string | undefined {
+  const [own, page] = segment.querySelectorAll<HTMLElement>(':scope > .view-switcher-probe');
+  if (!own || !page) return undefined;
+  const style = getComputedStyle(own);
+  const background = style.backgroundColor;
+  const image = style.backgroundImage;
+  const opaque = opaqueSurfaceColor(segment.ownerDocument, {
+    background,
+    image,
+    ink: getComputedStyle(segment).color,
+    page: () => getComputedStyle(page).backgroundColor,
+  });
+  return opaque ?? (image && image !== 'none' ? background : undefined);
 }
 
 /**
