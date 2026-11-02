@@ -316,7 +316,7 @@ Wherever a day shows no event, in all three layouts:
 
 A tap on an event never adds: an event covers the day beneath it, so the tap is the event's
 when it has an `event_tap_action`, and the card's otherwise. The same goes for a grid's `+N`
-block, which stands for several events. Week numbers, separators, the grid's time axis, the
+block, which stands for several events. Week numbers, the separators between days, the grid's time axis, the
 title and the [header toolbar](/features/layout-appearance#header-toolbar) are not days either:
 a tap on the title still runs `tap_action`, and the toolbar's controls keep their own.
 

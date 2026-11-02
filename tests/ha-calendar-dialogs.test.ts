@@ -545,8 +545,8 @@ describe('the busy cue', () => {
 
     const request =
       tag === EVENT_EDITOR_DIALOG_TAG
-        ? openCreateEventDialog(node, createParams(), cue)
-        : openEventDetailDialog(node, detailParams(), cue);
+        ? openCreateEventDialog(node, createParams(), { cue })
+        : openEventDetailDialog(node, detailParams(), { cue });
     await request;
 
     expect(calls).toEqual([]);
@@ -562,8 +562,8 @@ describe('the busy cue', () => {
       const { calls, cue } = recordingCue();
       const open = (): Promise<void> =>
         tag === EVENT_EDITOR_DIALOG_TAG
-          ? openCreateEventDialog(node, createParams(), cue)
-          : openEventDetailDialog(node, detailParams(), cue);
+          ? openCreateEventDialog(node, createParams(), { cue })
+          : openEventDetailDialog(node, detailParams(), { cue });
 
       const request = open();
       await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY - 1);
@@ -586,7 +586,7 @@ describe('the busy cue', () => {
     const { node } = host();
     const { calls, cue } = recordingCue();
 
-    await openCreateEventDialog(node, createParams(), cue);
+    await openCreateEventDialog(node, createParams(), { cue });
     await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY * 2);
 
     expect(calls).toEqual([]);
@@ -600,9 +600,9 @@ describe('the busy cue', () => {
     const first = recordingCue('first');
     const second = recordingCue('second');
 
-    const older = openCreateEventDialog(node, createParams(), first.cue);
+    const older = openCreateEventDialog(node, createParams(), { cue: first.cue });
     await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
-    const newer = openEventDetailDialog(node, detailParams(), second.cue);
+    const newer = openEventDetailDialog(node, detailParams(), { cue: second.cue });
     expect(first.calls).toEqual(['first:show', 'first:hide']);
     await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
     expect(second.calls).toEqual(['second:show']);
@@ -618,7 +618,7 @@ describe('the busy cue', () => {
     const { node, dispatched } = host();
     const { calls, cue } = recordingCue();
     // No card helpers at all: the load fails at once, before the delay.
-    const request = openCreateEventDialog(node, createParams(), cue);
+    const request = openCreateEventDialog(node, createParams(), { cue });
     await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY * 2);
     await request;
 
@@ -634,7 +634,7 @@ describe('the busy cue', () => {
     const { node, dispatched } = host();
     const { calls, cue } = recordingCue();
 
-    const request = openCreateEventDialog(node, createParams(), cue);
+    const request = openCreateEventDialog(node, createParams(), { cue });
     await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
     expect(calls).toEqual(['cue:show']);
     fail();
@@ -642,5 +642,42 @@ describe('the busy cue', () => {
 
     expect(calls).toEqual(['cue:show', 'cue:hide']);
     expectFallback(EVENT_EDITOR_DIALOG_TAG, dispatched);
+  });
+});
+
+describe('a request the card no longer wants', () => {
+  it.each(OPENERS)('opens nothing and falls back to nothing for $tag', async ({ tag }) => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    fakeHomeAssistant(new Promise<void>((resolve) => (release = resolve)));
+    const { node, dispatched } = host();
+    let wanted = true;
+    const shown: string[] = [];
+    const options = {
+      cue: { show: () => shown.push('show'), hide: () => shown.push('hide') },
+      stillWanted: () => wanted,
+    };
+
+    const request =
+      tag === EVENT_EDITOR_DIALOG_TAG
+        ? openCreateEventDialog(node, createParams(), options)
+        : openEventDetailDialog(node, detailParams(), options);
+    // Removed or being edited before the cue's delay ran out: no cue either.
+    wanted = false;
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.BUSY_CUE_DELAY);
+    release();
+    await request;
+
+    expect(shown).toEqual([]);
+    expect(dispatched).toEqual([]);
+  });
+
+  it('opens nothing after a failed load either, rather than falling back', async () => {
+    vi.useFakeTimers();
+    const { node, dispatched } = host();
+
+    await openCreateEventDialog(node, createParams(), { stillWanted: () => false });
+
+    expect(dispatched).toEqual([]);
   });
 });

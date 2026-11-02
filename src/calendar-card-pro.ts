@@ -814,7 +814,7 @@ class CalendarCardPro extends LitElement {
         }),
         updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
       },
-      this._busyCue(origin),
+      this._dialogOptions(origin),
     );
   };
 
@@ -3703,11 +3703,10 @@ class CalendarCardPro extends LitElement {
     // and movement after it fired is ignored, so the three never overlap.
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
-    const origin: Feedback.BusyCueOrigin = {
-      x: ev.clientX,
-      y: ev.clientY,
-      pointerType: ev.pointerType,
-    };
+    // Where the press went down: a pointer that moved after a hold fired still acts on what it
+    // held, so the cue belongs there rather than where it was let go.
+    const pressedAt = this._pointerStart ?? { x: ev.clientX, y: ev.clientY };
+    const origin: Feedback.BusyCueOrigin = { ...pressedAt, pointerType: ev.pointerType };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
     if (this._holdTriggered) {
@@ -5064,8 +5063,23 @@ class CalendarCardPro extends LitElement {
         // events, so every card showing one refreshes, and no card showing only read-only ones.
         updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
       },
-      this._busyCue(origin),
+      this._dialogOptions(origin),
     );
+  }
+
+  /**
+   * What a press adds to its dialog request: the cue while the dialog loads, and whether the
+   * card still wants it once it has. The first load can take seconds, during which the card can
+   * be removed or start being edited; it then opens nothing.
+   *
+   * @param origin - Where the press was, for the cue
+   * @returns The options
+   */
+  private _dialogOptions(origin: Feedback.BusyCueOrigin | undefined): Dialogs.OpenOptions {
+    return {
+      cue: this._busyCue(origin),
+      stillWanted: () => this.isConnected && !this._isBeingEdited,
+    };
   }
 
   /**

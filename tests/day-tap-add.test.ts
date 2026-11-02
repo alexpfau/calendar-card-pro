@@ -460,6 +460,30 @@ describe('day_tap_action: add-event', () => {
   );
 
   it.each(['preview', 'editMode'] as const)(
+    'opens nothing when %s begins between the press and the dialog loading',
+    async (flag) => {
+      const { card, dialogs } = await mount(ADD);
+
+      // The open awaits the loader before it dispatches; here the card is edited meanwhile.
+      tap(dayButtons(card)[1]);
+      card[flag] = true;
+      await settle();
+
+      expect(adds(dialogs)).toEqual([]);
+    },
+  );
+
+  it('opens nothing when the card leaves the page between the press and the dialog loading', async () => {
+    const { card, dialogs } = await mount(ADD);
+
+    tap(dayButtons(card)[1]);
+    card.remove();
+    await settle();
+
+    expect(adds(dialogs)).toEqual([]);
+  });
+
+  it.each(['preview', 'editMode'] as const)(
     'draws no day button and adds nothing in %s',
     async (flag) => {
       const { card, dialogs } = await mount(ADD);

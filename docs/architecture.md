@@ -665,6 +665,9 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
   - Shows the press's busy cue while a dialog that is not yet defined loads, once the load has
     run past `TIMING.BUSY_CUE_DELAY`, and hides it before the dialog opens, before a fallback,
     or when a newer press replaces the request. A dialog already defined shows nothing
+  - Asks the card whether it still wants the dialog (`stillWanted`) before the cue shows and
+    again once the dialog has loaded. A card removed from the page, or being edited by then,
+    opens nothing and falls back to nothing: the first load can take seconds
 
 - **event-details.ts**:
   - Builds the detail dialog's entry from the event's `_source`, never from the rendered

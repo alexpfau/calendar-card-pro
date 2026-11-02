@@ -87,6 +87,19 @@ export interface BusyCue {
   hide(): void;
 }
 
+/** What a press adds to its request, beyond what the dialog is opened with. */
+export interface OpenOptions {
+  /** How the press shows that the dialog is loading, if it does. */
+  cue?: BusyCue;
+  /**
+   * Whether the card that asked still wants the dialog, read when the cue would show and again
+   * once the dialog has loaded. A card removed from the page, or being edited by then, opens
+   * nothing, falls back to nothing, and shows no cue: the first load can take seconds, and
+   * nothing that writes may open while a card is edited.
+   */
+  stillWanted?: () => boolean;
+}
+
 interface ShowDialogDetail {
   dialogTag?: unknown;
   dialogImport?: unknown;
@@ -180,6 +193,7 @@ interface OpenRequest {
   params: CreateDialogParams | DetailDialogParams;
   fallback(): void;
   cue?: BusyCue;
+  stillWanted?: () => boolean;
   /** The timer that shows the cue, while it has not fired. */
   cueTimer?: number;
   /** Whether the cue is showing. */
@@ -197,7 +211,7 @@ function armCue(request: OpenRequest): void {
   if (!request.cue) return;
   request.cueTimer = window.setTimeout(() => {
     request.cueTimer = undefined;
-    if (waiting !== request) return;
+    if (waiting !== request || request.stillWanted?.() === false) return;
     request.cueShown = true;
     request.cue?.show();
   }, Constants.TIMING.BUSY_CUE_DELAY);
@@ -375,6 +389,11 @@ async function openDialog(tag: DialogTag, request: OpenRequest): Promise<void> {
   if (waiting !== request) return;
   waiting = undefined;
 
+  if (request.stillWanted?.() === false) {
+    Logger.debug(`Not opening ${tag}: the card that asked no longer wants it`);
+    return;
+  }
+
   if (failed) {
     Logger.warn(`Could not load ${tag}, falling back`, failure);
     request.fallback();
@@ -433,19 +452,19 @@ function showMoreInfo(node: HTMLElement, entityId: string): void {
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
- * @param cue - How the press shows that the dialog is loading, if it does
+ * @param options - The press's cue, and whether the card still wants the dialog
  * @returns Resolves once the request has been dealt with
  */
 export function openCreateEventDialog(
   node: HTMLElement,
   params: CreateDialogParams,
-  cue?: BusyCue,
+  options: OpenOptions = {},
 ): Promise<void> {
   return openDialog(EVENT_EDITOR_DIALOG_TAG, {
     node,
     params,
     fallback: () => navigateToCalendarPanel(node),
-    cue,
+    ...options,
   });
 }
 
@@ -457,18 +476,18 @@ export function openCreateEventDialog(
  *
  * @param node - Element to dispatch from; must be inside Home Assistant's DOM
  * @param params - The dialog's parameters
- * @param cue - How the press shows that the dialog is loading, if it does
+ * @param options - The press's cue, and whether the card still wants the dialog
  * @returns Resolves once the request has been dealt with
  */
 export function openEventDetailDialog(
   node: HTMLElement,
   params: DetailDialogParams,
-  cue?: BusyCue,
+  options: OpenOptions = {},
 ): Promise<void> {
   return openDialog(EVENT_DETAIL_DIALOG_TAG, {
     node,
     params,
     fallback: () => showMoreInfo(node, params.calendarId),
-    cue,
+    ...options,
   });
 }
