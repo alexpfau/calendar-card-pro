@@ -89,6 +89,28 @@ function unchangedFromAuthored(authored: unknown, key: string, value: unknown): 
 }
 
 /**
+ * Whether a value reads as itself, so that resolving it rejected or repaired nothing.
+ *
+ * 🚨 Asked before keeping a held line that resolves to its default, because a rejected value
+ * resolves there too: `slot_minutes: 45` and `min_day_width: 0` fall back to the default and
+ * would otherwise be kept as written, labeled as the layout's own and listed by Customized
+ * Only, while the card draws the default. A number or a switch written as text, as YAML and
+ * the form hand them over, still reads as itself.
+ *
+ * @param value - The value as written
+ * @param resolved - What the card resolves it to
+ * @returns `true` when the card uses the value as written
+ */
+function readsAsWritten(value: unknown, resolved: unknown): boolean {
+  if (deepEqual(value, resolved)) return true;
+  return (
+    typeof value === 'string' &&
+    (typeof resolved === 'number' || typeof resolved === 'boolean') &&
+    value.trim() === String(resolved)
+  );
+}
+
+/**
  * Names the keys that differ between two form-data objects.
  *
  * @param previous - Form data as it was rendered
@@ -153,9 +175,10 @@ export function stripColumnDefaults(
 
     if (isSyntheticKey(key)) continue;
 
-    const kept = unchangedFromAuthored(authored, key, value);
+    const held = unchangedFromAuthored(authored, key, value);
 
     if (key === 'min_days_to_show') {
+      const kept = held && readsAsWritten(value, ViewConfig.resolveMinDaysToShow(config));
       if (!kept && resolvesTheSameWithout(config, key)) continue;
       result[key] = value;
       continue;
@@ -169,6 +192,7 @@ export function stripColumnDefaults(
         key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
         value,
       );
+      const kept = held && readsAsWritten(value, resolved);
       if (!kept && deepEqual(columnDefaults[key], resolved)) continue;
       result[key] = value;
       continue;
@@ -179,8 +203,9 @@ export function stripColumnDefaults(
         config,
         key as keyof Types.ColumnOverrides & keyof Types.Config,
       );
-      if (!kept && deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value)))
-        continue;
+      const resolved = normalizeRootValue(key, value);
+      const kept = held && readsAsWritten(value, resolved);
+      if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
       result[key] = value;
       continue;
     }
@@ -238,7 +263,7 @@ export function stripTimeGridDefaults(
     if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
     if (isSyntheticKey(key)) continue;
 
-    const kept = unchangedFromAuthored(authored, key, value);
+    const held = unchangedFromAuthored(authored, key, value);
 
     if (key in gridDefaults) {
       const resolved = ViewConfig.normalizeTimeGridValue(
@@ -246,7 +271,7 @@ export function stripTimeGridDefaults(
         value,
       );
       if (deepEqual(gridDefaults[key], resolved)) {
-        if (kept) result[key] = value;
+        if (held && readsAsWritten(value, resolved)) result[key] = value;
         continue;
       }
       result[key] = resolved;
@@ -262,8 +287,9 @@ export function stripTimeGridDefaults(
         result[key] = value;
         continue;
       }
-      if (!kept && deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value)))
-        continue;
+      const resolved = normalizeRootValue(key, value);
+      const kept = held && readsAsWritten(value, resolved);
+      if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
       result[key] = value;
       continue;
     }

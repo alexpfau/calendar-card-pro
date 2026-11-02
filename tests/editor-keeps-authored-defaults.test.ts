@@ -294,6 +294,21 @@ describe('the serializer’s authored baseline', () => {
     });
   });
 
+  /**
+   * A rejected value resolves to the default too, so holding it is not enough: the card draws
+   * the default, and the line goes on the next save, as it always did, and is never shown as
+   * the layout's own.
+   */
+  it('still drops a held view value the card rejects for its default', () => {
+    const grid = { slot_minutes: 45, overlap_layout: 'column' };
+    const column = { min_day_width: 0, min_days_to_show: 'some' };
+    const config = merged({ days_to_show: 7, time_grid: grid, column });
+
+    expect(stripTimeGridDefaults(config, grid)).toBeUndefined();
+    expect(stripColumnDefaults(config, column)).toBeUndefined();
+    expect(storedViewBlocks(config)).toEqual({});
+  });
+
   it('keeps nothing that was not a setting or that the card no longer reads', () => {
     const authored = {
       show_week_numbers: null,
