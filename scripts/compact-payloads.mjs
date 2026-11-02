@@ -172,7 +172,7 @@ export function compactEditorStrings(root = process.cwd()) {
     buildStart() {
       // A fresh build snapshot, not configuration-time state: watch can change the key vector.
       english = parseEnglishStrings(readFileSync(stringsPath, 'utf8'), stringsPath);
-      this.addWatchFile(stringsPath);
+      // English is watched by load and transform, wherever a module is generated from it.
     },
     shouldTransformCachedModule({ id }) {
       // Unchanged JSON source still needs a new vector when English keys change.
