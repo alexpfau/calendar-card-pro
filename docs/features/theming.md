@@ -292,6 +292,14 @@ names it as the header's own child, does not while the toolbar is drawn.
 | `.view-switcher-segment`   | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` while it shows its pictogram rather than its word                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
+The menu is drawn in the theme's card background. Where that background is see-through, the
+card makes the menu's background color opaque, the theme's card background laid over
+`--primary-background-color`, so the events never show through it. A card-mod `background` or
+`background-color` on `.legend-menu` takes the place of both, as it would of any color the
+stylesheet gives: write an opaque one, or the events show through the menu. Before v5.1 the card
+painted over such a rule unless it carried `!important`. To tint the menu and still have the card
+keep it opaque, set `--ha-card-background` on `.legend-menu` instead.
+
 The controls are painted from four custom properties:
 
 | Custom Property                        | Paints                                                         |

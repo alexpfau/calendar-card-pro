@@ -14,14 +14,14 @@
  * page inert while it is open, so every way it can end, a press outside, Escape, a scroll, a
  * resize, the card hiding or folding open again, closes it through one path. Floating over the
  * events, it has to be opaque even where a theme's card background is not, so its surface is
- * painted when it opens (`paintOpaqueSurface` in `rendering/surface.ts`).
+ * painted when it opens and after every update while it is open (`paintMenu`).
  */
 
 import { mdiCalendarFilter } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { paintOpaqueSurface } from './surface';
+import { setSurfaceColor, surfaceColor } from './surface';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -108,6 +108,12 @@ export const LEGEND_CHANGED_EVENT = 'calendar-card-pro-legend-changed';
 /** Room kept between the menu and the viewport's edges, and between it and its button. */
 const MENU_VIEWPORT_INSET = 8;
 const MENU_GAP = 4;
+
+/**
+ * The custom property the menu's opaque color is handed to the stylesheet in, which paints the
+ * menu's background color in it, under any image the theme's card background draws.
+ */
+const MENU_SURFACE = '--calendar-card-legend-menu-surface';
 
 //-----------------------------------------------------------------------------
 // PLACEMENT
@@ -196,17 +202,20 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
 }
 
 /**
- * Paints an open menu opaque where its theme's card background is see-through
- * (`paintOpaqueSurface`), with the theme's page color read off the hidden stand-in drawn inside
- * it. The stand-in is drawn with the menu rather than added for the read: the card's mutation
- * observers take an element added or removed anywhere in the card for a change of the grid's
- * structure, and refit every block for it, and this runs after every update while the menu is
- * open.
+ * Paints an open menu opaque where its theme's card background is see-through, by handing the
+ * stylesheet an opaque color for the menu's background color in a custom property
+ * (`surfaceColor` in `surface.ts`), and takes the property away where the background is opaque.
+ * The menu's own background is never written, so a card-mod rule that sets it wins as it would
+ * against the stylesheet, a see-through one included, and a transition on it cannot be read
+ * halfway. Its colors are read off the two hidden stand-ins drawn inside it, which this runs
+ * after every update while the menu is open.
  *
  * @param dialog - The open menu
  */
 function paintMenu(dialog: HTMLDialogElement): void {
-  paintOpaqueSurface(dialog, dialog.querySelector(':scope > .legend-menu-page'));
+  const own = dialog.querySelector(':scope > .legend-menu-surface');
+  const page = dialog.querySelector(':scope > .legend-menu-page');
+  setSurfaceColor(dialog, MENU_SURFACE, own && page ? surfaceColor(own, page, dialog) : undefined);
 }
 
 /**
@@ -497,6 +506,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
             </label>`,
         )}
       </div>
+      <span class="legend-menu-surface" aria-hidden="true"></span>
       <span class="legend-menu-page" aria-hidden="true"></span>
     </dialog>`;
 }
