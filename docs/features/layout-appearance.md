@@ -391,8 +391,8 @@ configuration of the card. A change to the card's configuration shows every cale
 every device, and a configuration changed back to exactly what it was finds its hidden calendars
 again; opening the editor and closing it without a change forgets nothing. The
 [reset button](#resetting-the-card) shows them all again on one device. Two cards with the
-same configuration share their hidden calendars, and a press on either changes both at once.
-Paging and switching layouts keep them.
+same configuration share their hidden calendars, and a press on either changes both at once,
+in other tabs and windows of the same browser too. Paging and switching layouts keep them.
 
 ::: tip Nothing Hides While You Edit
 In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
@@ -441,7 +441,8 @@ something it could undo: the date navigation, the view switcher, the calendar fi
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
 only. Another card with the same configuration shows every calendar again at once, as it does
-after a press on the filter; its layout stays until that card is reset, reloaded or edited.
+after a press on the filter, including one open in another tab of the same browser; its layout
+stays until that card is reset, reloaded or edited.
 Nothing is loaded again for the layout or the calendars, and the card's own days are drawn from
 what it already holds unless they are due for a refresh anyway.
 
