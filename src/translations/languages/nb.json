@@ -13,5 +13,6 @@
   "noEvents": "Ingen hendelser",
   "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig",
-  "loadFailed": "Kunne ikke lastes:"
+  "loadFailed": "Kunne ikke lastes:",
+  "newEvent": "Ny hendelse"
 }

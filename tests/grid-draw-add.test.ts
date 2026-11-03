@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
@@ -34,12 +34,15 @@ interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
   hass: Types.Hass;
   preview: boolean;
+  events: unknown[];
   readonly updateComplete: Promise<boolean>;
 }
 
 const ANNA = 'calendar.anna';
+const BEN = 'calendar.ben';
 const STATES = {
   [ANNA]: { entity_id: ANNA, state: 'off', attributes: { supported_features: 7 } },
+  [BEN]: { entity_id: BEN, state: 'off', attributes: { supported_features: 7 } },
 };
 const EVENTS = [
   {
@@ -187,11 +190,11 @@ describe('drawing a new event in a grid', () => {
     const body = bodies(card)[1];
     expect(drawn(card)).toEqual([body]);
     expect(piece(body)).toEqual([pct(180), pct(60)]);
-    expect(body.getAttribute('data-add-draft-label')).toBe('10:00 - 11:00');
+    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n10:00 - 11:00');
 
     pointer(plane(card, 1), 'pointermove', X(1), Y(12, 20));
     expect(piece(body)).toEqual([pct(180), pct(150)]);
-    expect(body.getAttribute('data-add-draft-label')).toBe('10:00 - 12:30');
+    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n10:00 - 12:30');
 
     pointer(plane(card, 1), 'pointerup', X(1), Y(12, 20));
     await settle();
@@ -204,7 +207,8 @@ describe('drawing a new event in a grid', () => {
       top: Y(10),
       bottom: Y(12, 30),
     });
-    expect(drawn(card)).toEqual([]);
+    // The block stays while the popover adds it, as a "New event" does in a calendar app.
+    expect(drawn(card)).toEqual([body]);
   });
 
   it('adds what a tap would where the finger is held and lifted without moving', async () => {
@@ -222,14 +226,16 @@ describe('drawing a new event in a grid', () => {
     pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
     hold();
     pointer(plane(card, 1), 'pointermove', X(1), Y(8, 40));
-    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe('8:30 - 10:15');
+    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe('New event\n8:30 - 10:15');
 
     // Across to the day after, past the band's end on the first day.
     pointer(plane(card, 1), 'pointermove', X(2), Y(8, 10));
     expect(drawn(card)).toEqual([bodies(card)[1], bodies(card)[2]]);
     expect(piece(bodies(card)[1])).toEqual([pct(180), pct(720)]);
     expect(piece(bodies(card)[2])).toEqual([pct(0), pct(75)]);
-    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe('Thu 10:00 - Fri 8:15');
+    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe(
+      'New event\nThu 10:00 - Fri 8:15',
+    );
     expect(bodies(card)[2].hasAttribute('data-add-draft-label')).toBe(false);
 
     // Back across to the day before, through a whole day: the middle one drawn in full.
@@ -392,6 +398,9 @@ describe('drawing a new event in a grid', () => {
     await settle();
 
     expect(adds(dialogs)).toEqual([[true, JUNE(17), JUNE(19)]]);
+    // Still washed while the popover adds it; gone once it closes without saving.
+    expect(all(card, '[data-add-pressed]')).toEqual(headers);
+    dialogs[0].dialogParams.closed?.();
     expect(all(card, '[data-add-pressed]')).toEqual([]);
   });
 
@@ -409,5 +418,199 @@ describe('drawing a new event in a grid', () => {
     pointer(plane(off.card, 0), 'pointerdown', X(0), Y(10), 'mouse');
     pointer(plane(off.card, 0), 'pointermove', X(0), Y(12), 'mouse');
     expect(drawn(off.card)).toEqual([]);
+  });
+});
+
+describe('the new event while the popover adds it', () => {
+  /** Draws 10:00 to 12:30 on June 18 and lets go, which opens the popover. */
+  async function drawAndRelease(card: Card) {
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    pointer(plane(card, 1), 'pointermove', X(1), Y(12, 20));
+    pointer(plane(card, 1), 'pointerup', X(1), Y(12, 20));
+    await settle();
+  }
+
+  const draftOf = (dialogs: PopoverRequest[], changes: Record<string, unknown>) => ({
+    calendarId: ANNA,
+    summary: '',
+    location: '',
+    description: '',
+    times: dialogs[0].dialogParams.times!,
+    ...changes,
+  });
+
+  it('follows the title typed and the times set in the popover', async () => {
+    const { card, dialogs } = await mount(ADD);
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, {
+        summary: 'Swim practice',
+        times: { allDay: false, start: AT(18, 13), end: AT(18, 14, 30) },
+      }) as never,
+    );
+    expect(drawn(card)).toEqual([body]);
+    expect(body.getAttribute('data-add-draft-label')).toBe('Swim practice\n13:00 - 14:30');
+    expect(piece(body)).toEqual([pct(360), pct(90)]);
+  });
+
+  it('takes the color of the calendar picked in the popover', async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      entities: [
+        { entity: ANNA, accent_color: 'rgb(204, 51, 102)' },
+        { entity: BEN, accent_color: 'rgb(51, 102, 204)' },
+      ],
+    });
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    const color = () => body.style.getPropertyValue('--calendar-card-add-draft-color');
+    expect(color()).toContain('204, 51, 102');
+
+    dialogs[0].dialogParams.changed?.(draftOf(dialogs, { calendarId: BEN }) as never);
+    expect(color()).toContain('51, 102, 204');
+  });
+
+  it('is painted again by every render, which may change how its label reads', async () => {
+    const { card, dialogs } = await mount(ADD);
+    pointer(plane(card, 2), 'pointerdown', X(2), Y(9, 20));
+    pointer(plane(card, 2), 'pointerup', X(2), Y(9, 20));
+    await settle();
+    expect(adds(dialogs)).toHaveLength(1);
+    const body = bodies(card)[2];
+    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n9:15 - 10:15');
+
+    card.hass = { ...card.hass, locale: { language: 'de', time_format: '12' } } as Types.Hass;
+    await card.updateComplete;
+    expect(bodies(card)[2]).toBe(body);
+    expect(drawn(card)).toEqual([body]);
+    const label = body.getAttribute('data-add-draft-label');
+    expect(label).toMatch(/^Neuer Termin\n/);
+    expect(label).toContain('9:15 AM');
+  });
+
+  it('goes as soon as the popover closes without saving', async () => {
+    const { card, dialogs } = await mount(ADD);
+    await drawAndRelease(card);
+    expect(drawn(card)).toHaveLength(1);
+    dialogs[0].dialogParams.closed?.();
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it('stays once saved until the card brings the real event, or a few seconds at most', async () => {
+    const { card, dialogs } = await mount(ADD);
+    await drawAndRelease(card);
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
+    expect(drawn(card)).toHaveLength(1);
+
+    // The card's events arrive again with the event saved.
+    card.events = [...card.events];
+    await card.updateComplete;
+    expect(drawn(card)).toEqual([]);
+
+    // Without them, it goes on its own.
+    await drawAndRelease(card);
+    dialogs[1].dialogParams.updated(ANNA);
+    dialogs[1].dialogParams.closed?.();
+    vi.advanceTimersByTime(Constants.TIMING.NEW_EVENT_HOLD - 1);
+    expect(drawn(card)).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it('goes at once on closing when the real event arrived while the popover was still open', async () => {
+    const { card, dialogs } = await mount(ADD);
+    await drawAndRelease(card);
+    dialogs[0].dialogParams.updated(ANNA);
+    card.events = [...card.events];
+    await card.updateComplete;
+    // Still open: it stays while the popover shows it.
+    expect(drawn(card)).toHaveLength(1);
+    dialogs[0].dialogParams.closed?.();
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it('gives way to the next new event, whatever the one before was waiting on', async () => {
+    const { card, dialogs } = await mount(ADD);
+    const tap = async (column: number, hour: number) => {
+      pointer(plane(card, column), 'pointerdown', X(column), Y(hour));
+      pointer(plane(card, column), 'pointerup', X(column), Y(hour));
+      await settle();
+    };
+
+    // Saved and closed, waiting on its event: a tap elsewhere shows its own block, which the
+    // first one's timer must not take away while its popover is open.
+    await drawAndRelease(card);
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
+    await tap(2, 9);
+    expect(drawn(card)).toEqual([bodies(card)[2]]);
+    vi.advanceTimersByTime(Constants.TIMING.NEW_EVENT_HOLD + 1);
+    expect(drawn(card)).toEqual([bodies(card)[2]]);
+    dialogs[1].dialogParams.closed?.();
+    expect(drawn(card)).toEqual([]);
+
+    // Still open when the next one opens: the first popover's closing leaves the next block be.
+    await tap(0, 9);
+    await tap(2, 11);
+    expect(drawn(card)).toEqual([bodies(card)[2]]);
+    dialogs[2].dialogParams.closed?.();
+    expect(drawn(card)).toEqual([bodies(card)[2]]);
+    expect(bodies(card)[2].getAttribute('data-add-draft-label')).toBe('New event\n11:00 - 12:00');
+  });
+
+  it("gives way to an event the toolbar's button adds, which shows no block", async () => {
+    const { card, dialogs } = await mount({ ...ADD, toolbar: { show: true } });
+    // The refetch after the save has not answered yet, so the block is still waiting on it.
+    let answer: (events: unknown) => void = () => undefined;
+    vi.mocked(card.hass.callApi).mockImplementation(
+      () => new Promise((resolve) => (answer = resolve)),
+    );
+    onTestFinished(() => answer(EVENTS));
+    await drawAndRelease(card);
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
+    expect(drawn(card)).toHaveLength(1);
+
+    card
+      .shadowRoot!.querySelector('.add-event-button')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
+    await settle();
+    expect(adds(dialogs)).toHaveLength(2);
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it('shows the hour a tap adds while the popover is open', async () => {
+    const { card, dialogs } = await mount(ADD);
+    pointer(plane(card, 2), 'pointerdown', X(2), Y(9, 20));
+    pointer(plane(card, 2), 'pointerup', X(2), Y(9, 20));
+    await settle();
+
+    expect(adds(dialogs)).toEqual([[false, AT(19, 9, 15), AT(19, 10, 15)]]);
+    expect(drawn(card)).toEqual([bodies(card)[2]]);
+    expect(bodies(card)[2].getAttribute('data-add-draft-label')).toBe('New event\n9:15 - 10:15');
+    dialogs[0].dialogParams.closed?.();
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it("refuses the lifting finger's touchend once it opened the popover, and only then", async () => {
+    const { card } = await mount(ADD);
+    const haCard = card.shadowRoot!.querySelector('ha-card')!;
+    const touchend = () => {
+      const ev = new Event('touchend', { bubbles: true, composed: true, cancelable: true });
+      plane(card, 0).dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    expect(touchend()).toBe(false);
+
+    pointer(plane(card, 0), 'pointerdown', X(0), Y(9));
+    pointer(plane(card, 0), 'pointerup', X(0), Y(9));
+    expect(touchend()).toBe(true);
+    // Once: the next touch is the page's again.
+    expect(touchend()).toBe(false);
+    expect(haCard.isConnected).toBe(true);
   });
 });

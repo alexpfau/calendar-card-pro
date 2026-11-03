@@ -521,9 +521,15 @@ with its start and end, as in a calendar app. There is no option of its own.
 The block starts as what a tap there adds, an hour from the quarter hour under your finger.
 Drag down and its end follows you; drag up and its start does; drag sideways into another day
 and it runs across days, in quarter hours either way. It is drawn in the color of the calendar
-the popover will offer, with its times on it. Let go, and the popover opens beside it on a new
-event with those times, ready for a title. Press Escape, or touch the screen with a second
-finger, to throw the block away; it also goes if the card turns to other days while you draw.
+the popover will offer, labeled New event over its times. Let go, and the popover opens beside it
+on a new event with those times, ready for a title. Press Escape, or touch the screen with a
+second finger, to throw the block away; it also goes if the card turns to other days while you
+draw.
+
+The block stays while the popover is open, as a new event does in a calendar app: it takes the
+title as you type it, moves when you change the times, and turns the color of the calendar you
+pick. Cancel or Escape takes it away. Once the event is saved, it stays until the card shows
+the real one, a moment later. A tap in the grid shows the hour it adds the same way.
 
 In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
 over several days. The band is there whenever the days shown hold an all-day event.
@@ -580,7 +586,7 @@ Web addresses in the description are links, and so are those in a location you c
 
 ### Keyboard & Screen Readers
 
-The popover is a modal dialog, named by the event's title. It opens with focus on that title, or for a new event in the title field. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
+The popover is a modal dialog, named by the event's title. It opens with focus on that title, for a new event too, so no field starts editing until you tap or Tab to it, and a phone does not raise its keyboard on its own. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
 
 ### Changes Appear at Once
 

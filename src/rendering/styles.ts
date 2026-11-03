@@ -3750,7 +3750,9 @@ export const cardStyles = css`
      time area. Drawn as the body's ::after from the attribute and custom properties the
      recognizer sets on each day it covers, never as an element, for the structure observers'
      sake as with the wash above: its piece of the span, tinted in the color of the calendar
-     the popover will offer, with an accent bar and, on its first day, its times. Above the
+     the popover will offer, with an accent bar and, on its first day, its title, or New event
+     until one is typed, over its times, one to a line. It stays while the popover adds it,
+     following it. Above the
      blocks and the day rules, at the now dot's rung, and see-through, so the events it is
      drawn across stay readable while it is placed. */
   .grid-day-body[data-add-draft]::after {
@@ -3773,6 +3775,7 @@ export const cardStyles = css`
     font-size: 12px;
     font-weight: 500;
     line-height: 1.25;
+    white-space: pre-line;
     overflow: hidden;
     pointer-events: none;
     z-index: 2;

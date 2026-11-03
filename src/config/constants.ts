@@ -91,6 +91,12 @@ export const TIMING = {
    */
   DERIVED_CLICK_WINDOW: 1000,
 
+  /**
+   * How long a grid keeps showing a new event the popover saved, at most, while the events that
+   * bring the real one are on their way; they take it away as soon as they arrive.
+   */
+  NEW_EVENT_HOLD: 5000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,

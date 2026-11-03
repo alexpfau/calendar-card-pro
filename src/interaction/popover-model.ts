@@ -56,6 +56,8 @@ export interface PopoverAnchor {
   rect?: PopoverBox;
   /** Open below the box rather than beside it, as for a toolbar button. */
   below?: boolean;
+  /** What pressed it: `mouse`, `touch` or `pen`, or nothing for the keyboard. */
+  pointerType?: string;
 }
 
 /** What the card hands the popover, through Home Assistant's `show-dialog`. */
@@ -100,6 +102,13 @@ export interface PopoverParams {
    * for a move both. Returns nothing: the card refetches without the popover waiting on it.
    */
   updated: (...calendarIds: string[]) => undefined;
+  /**
+   * Called whenever the popover's draft changes, for a card that draws the new event being
+   * added while the popover is open (a grid's "New event" block). Returns nothing.
+   */
+  changed?: (draft: Draft) => undefined;
+  /** Called once the popover has closed, however it closed. Returns nothing. */
+  closed?: () => undefined;
 }
 
 /** The repeat rule as the popover edits it. */
