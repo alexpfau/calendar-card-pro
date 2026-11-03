@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Rādīt notikuma informāciju“ atver notikuma informāciju turpat blakus, kur to var mainīt vai dzēst, ja notikuma kalendārs to atļauj. Home Assistant darbības var izmantot pieskartā notikuma nosaukumu, laikus, vietu un aprakstu. Ar „Neko nedarīt“ pieskāriens notikumam izpilda pieskāriena darbību, tāpat kā jebkurā citā kartes vietā.",
   "event_hold_action": "Notikuma turēšanas darbība",
   "event_hold_action.helper": "„Rādīt notikuma informāciju“ atver notikuma informāciju turpat blakus, kad turat notikumu. Home Assistant darbības var izmantot turētā notikuma nosaukumu, laikus, vietu un aprakstu. Ar „Neko nedarīt“ notikuma turēšana izpilda turēšanas darbību, tāpat kā jebkurā citā kartes vietā.",
+  "open_links": "Atvērt saites notikumos",
+  "open_links.helper": "Tīmekļa adreses notikuma vietā un aprakstā kļūst par saitēm, kas atveras jaunā pārlūka cilnē. Pieskaroties saitei, tā tiek atvērta, nevis izpildīta pieskāriena darbība.",
   "allow_event_edit": "Atļaut rediģēt notikumus",
   "allow_event_edit.helper": "Ļauj mainīt notikumu tā informācijā kalendāriem, kas to atbalsta.",
   "allow_event_delete": "Atļaut dzēst notikumus",

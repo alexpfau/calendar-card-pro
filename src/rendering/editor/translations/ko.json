@@ -396,6 +396,8 @@
   "panel.actions.helper": "탭 동작과 카드가 캘린더를 다시 읽어오는 주기를 설정합니다.",
   "tap_action": "탭 동작",
   "hold_action": "길게 누르기 동작",
+  "open_links": "이벤트의 링크 열기",
+  "open_links.helper": "이벤트의 장소와 설명에 있는 웹 주소가 링크가 되며, 각각 새 탭에서 열립니다. 링크를 탭하면 탭 동작 대신 링크가 열립니다.",
   "card_action.option.refresh.label": "이벤트 새로고침",
   "card_action.option.add-event.label": "이벤트 추가",
   "card_action.option.reset.label": "카드 초기화",

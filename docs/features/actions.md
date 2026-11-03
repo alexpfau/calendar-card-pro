@@ -309,6 +309,42 @@ event_hold_action:
 action names an `entity` of its own. In the visual editor, the URL, path and data fields of the
 Event Tap Action and Event Hold Action dropdowns take field names in braces as YAML does.
 
+## 🔗 Links in Events
+
+A web address in an event's location or description, such as a video call or a booking page, can
+be a link you tap. Set `open_links` to `true`, and every `http` or `https` address in a row
+becomes one, opening in a new tab:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+show_description: true
+open_links: true
+```
+
+A link a calendar wrote into a description as HTML, as Google Calendar does, keeps its words.
+Where the calendar's [text replacement](/features/core-settings#text-replacement) or a
+[birthday marker](/features/event-content#birthday-ages-anniversary-counts) rewrote the description, only the
+addresses written out in it are links. Only `http` and `https` addresses become links; anything
+else stays text, and so does a location that is not a web address.
+
+Links are drawn only where an event does nothing of its own, so a press on a link can never also
+be a press on its event: `event_tap_action` and `event_hold_action` both `none`, their default,
+or one of the card's own actions, which on an event are nothing too. With either set to
+`details`, the links are in the [popover](#links) instead. A tap on a link follows it and does
+not run the card's `tap_action`, and a hold on it is the browser's, never `hold_action`, so a card
+that expands when tapped still expands from anywhere but its links. A swipe can still start on
+one to [page through dates](/features/layout-appearance#paging-through-dates). Keyboard users
+reach each link with Tab and follow it with Enter; a link that `location_max_lines` or
+`description_max_lines` cut off shows its whole field while it has focus.
+
+Links are drawn in list and column view, and in grid view when the card falls back to a list. A
+grid block draws its words for the eye only, so it draws no links; see
+[Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
+In the visual editor, Open Links in Events sits under Event Hold Action, shown while both event
+actions are Nothing.
+
 ## ✏️ Editing & Deleting Events
 
 Where the event's calendar allows it, the popover is where you change the event, too. There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
@@ -529,4 +565,4 @@ After a save or a delete the card fetches its events again straight away, and ev
 In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have, except `add-event`, which does nothing there.
 :::
 
-Card taps are set with `tap_action` and `hold_action`, day taps with `day_tap_action`, and event taps and holds with `event_tap_action`, `event_hold_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `toolbar → add_event`, under [Header](/reference/configuration#header).
+Card taps are set with `tap_action` and `hold_action`, day taps with `day_tap_action`, event taps and holds with `event_tap_action`, `event_hold_action`, `allow_event_edit` and `allow_event_delete`, and links in rows with `open_links` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `toolbar → add_event`, under [Header](/reference/configuration#header).

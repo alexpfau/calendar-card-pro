@@ -115,15 +115,23 @@ export function cardActionLabelKey(action: string): string {
  * @param language - Effective language code
  * @param opensDetails - Whether a tap or a hold on an event opens its dialog, which is what
  *   the two `allow_event_*` switches depend on
+ * @param eventActs - Whether a tap or a hold on an event runs something of its own, which
+ *   keeps `open_links` out
  * @returns The panel's schema
  */
 const actionsSchema = Helpers.memoizeLast(
-  (language: string, opensDetails: boolean): HaFormSchema[] => [
+  (language: string, opensDetails: boolean, eventActs: boolean): HaFormSchema[] => [
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
     { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     { name: 'event_hold_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
+    // What a press on an event's text can do when the event does nothing of its own: follow a
+    // link in it. Here rather than with the location and the description, because it is a
+    // question of what a press does, and it competes with the two dropdowns above: shown only
+    // while both are Nothing, directly under them, as the two switches below are shown only
+    // while one opens details.
+    ...(eventActs ? [] : [bool('open_links')]),
     // Dependent on purpose: they narrow what the event dialog offers, and without details
     // there is no dialog, so always-visible switches would be inert. Directly under the two
     // dropdowns that reveal them, each a single field rather than a row, so nothing can come
@@ -141,5 +149,9 @@ const actionsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  return actionsSchema(ctx.language, Synthetic.eventOpensDetails(ctx.config));
+  return actionsSchema(
+    ctx.language,
+    Synthetic.eventOpensDetails(ctx.config),
+    Synthetic.eventHasOwnAction(ctx.config),
+  );
 }

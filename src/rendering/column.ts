@@ -203,6 +203,7 @@ function renderColumnEvent(
         progressPlacement: 'row',
         countdownPlacement: 'text',
         hass,
+        links: Presentation.rowLinksOn(config),
       })}
     </div>
   `;

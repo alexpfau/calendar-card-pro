@@ -183,7 +183,7 @@ column:
   filter_duplicates: true # and too narrow to show the same meeting twice
 ```
 
-`toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete` act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
+`toolbar`, `event_tap_action`, `open_links`, `allow_event_edit` and `allow_event_delete` act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
 

@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Zobraziť podrobnosti udalosti“ otvorí podrobnosti udalosti hneď vedľa nej, kde ju môžete zmeniť alebo odstrániť, ak to jej kalendár povoľuje. Akcie Home Assistanta môžu použiť názov, časy, miesto a popis udalosti, na ktorú ste klepli. Pri možnosti „Nič“ klepnutie na udalosť spustí akciu klepnutia, rovnako ako kdekoľvek inde na karte.",
   "event_hold_action": "Akcia podržania udalosti",
   "event_hold_action.helper": "„Zobraziť podrobnosti udalosti“ otvorí podrobnosti udalosti hneď vedľa nej, keď udalosť podržíte. Akcie Home Assistanta môžu použiť názov, časy, miesto a popis podržanej udalosti. Pri možnosti „Nič“ podržanie udalosti spustí akciu podržania, rovnako ako kdekoľvek inde na karte.",
+  "open_links": "Otvárať odkazy v udalostiach",
+  "open_links.helper": "Webové adresy v mieste a popise udalosti sa stanú odkazmi, ktoré sa otvoria na novej karte prehliadača. Klepnutím na odkaz ho otvoríte namiesto spustenia akcie klepnutia.",
   "allow_event_edit": "Povoliť úpravu udalostí",
   "allow_event_edit.helper": "Umožní meniť udalosť v jej podrobnostiach pri kalendároch, ktoré to podporujú.",
   "allow_event_delete": "Povoliť odstraňovanie udalostí",

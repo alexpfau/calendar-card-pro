@@ -528,6 +528,8 @@
   "event_tap_action.helper": "«Mostra dettagli evento» apre i dettagli dell'evento proprio lì accanto, dove puoi modificarlo o eliminarlo se il suo calendario lo consente. Le azioni di Home Assistant possono usare titolo, orari, luogo e descrizione dell'evento toccato. Con «Niente», toccare un evento esegue l'azione tocco, come in qualsiasi altro punto della scheda.",
   "event_hold_action": "Azione tocco prolungato evento",
   "event_hold_action.helper": "«Mostra dettagli evento» apre i dettagli dell'evento proprio lì accanto quando tieni premuto un evento. Le azioni di Home Assistant possono usare titolo, orari, luogo e descrizione dell'evento tenuto premuto. Con «Niente», tenere premuto un evento esegue l'azione tocco prolungato, come in qualsiasi altro punto della scheda.",
+  "open_links": "Apri i link negli eventi",
+  "open_links.helper": "Gli indirizzi web nel luogo e nella descrizione di un evento diventano link, che si aprono ciascuno in una nuova scheda del browser. Se ne tocchi uno, si apre al posto dell'azione tocco.",
   "allow_event_edit": "Consenti la modifica degli eventi",
   "allow_event_edit.helper": "Ti permette di modificare un evento nei suoi dettagli, per i calendari che lo supportano.",
   "allow_event_delete": "Consenti l'eliminazione degli eventi",

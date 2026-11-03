@@ -172,6 +172,12 @@ export interface Config {
    */
   event_hold_action: ActionConfig;
   /**
+   * Whether web addresses in an event row's location and description are links, which open
+   * in a new tab. Only where an event has no tap or hold of its own, so a press on a link and a
+   * press on its event never compete; list and column view only (`VIEW_SCOPE`).
+   */
+  open_links: boolean;
+  /**
    * Whether the event-detail dialog may offer Edit. Narrows only: a calendar that does not
    * support updates never gets Edit, whatever this says.
    */

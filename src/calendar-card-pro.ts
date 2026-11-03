@@ -599,6 +599,12 @@ class CalendarCardPro extends LitElement {
   private _pointerAddContext: Activation.DayHit | null = null;
   /** The day's add button the active press began on, if any; see `_derivedClick`. */
   private _pointerDayAdd: EventTarget | null = null;
+  /**
+   * Whether the active press began on a link in an event's row (`open_links`). Such a press is
+   * armed only to page, by a touch or pen swipe: it captures nothing, and ends in no tap and no
+   * hold, so the browser follows the link wherever the finger stayed put.
+   */
+  private _pointerOnLink = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
 
@@ -3607,19 +3613,26 @@ class CalendarCardPro extends LitElement {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
-    const tapTarget = this._eventTapAt(ev);
-    const dayHit = tapTarget ? undefined : this._dayHitAt(ev);
-    // A press on an event or a day is theirs, so the card's ripple stays still for it from
-    // start to end; the stylesheet reads the mark, and the next press anywhere else clears it.
+    // A press on a link in an event's row is the link's: the browser follows it, so it is no
+    // tap or hold on anything of the card's, and arms only for a swipe, which a finger may
+    // start anywhere on the days.
+    const onLink = this._startsOnRowLink(ev);
+    const tapTarget = onLink ? undefined : this._eventTapAt(ev);
+    const dayHit = onLink || tapTarget ? undefined : this._dayHitAt(ev);
+    // A press on an event, a day or a link is theirs, so the card's ripple stays still for it
+    // from start to end; the stylesheet reads the mark, and the next press anywhere else clears
+    // it.
     (ev.currentTarget as Element | null)?.toggleAttribute?.(
       'data-own-press',
-      Boolean(tapTarget || dayHit),
+      Boolean(onLink || tapTarget || dayHit),
     );
     const swipeable = this._swipeStartsAt(ev);
-    const holds = this._holdRunsFor(tapTarget);
+    const holds = !onLink && this._holdRunsFor(tapTarget);
     // A press arms only when it could end in something: the card's own tap or hold, the
     // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
-    if (!this._hasTapAction && !holds && !tapTarget && !dayHit && !swipeable) {
+    if (
+      onLink ? !swipeable : !this._hasTapAction && !holds && !tapTarget && !dayHit && !swipeable
+    ) {
       return;
     }
     if (ev.isPrimary === false || this._activePointerId !== null) {
@@ -3632,12 +3645,16 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._pointerTapTarget = tapTarget ?? null;
     this._pointerDayHit = dayHit ?? null;
-    this._pointerAddContext = this._addContextAt(ev) ?? null;
-    this._pointerDayAdd = this._dayAddAt(ev)?.element ?? null;
+    this._pointerAddContext = onLink ? null : (this._addContextAt(ev) ?? null);
+    this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev)?.element ?? null);
     this._pointerSwipeable = swipeable;
+    this._pointerOnLink = onLink;
     // A new gesture: whatever click the last one owed has had its chance.
     this._derivedClick = null;
-    this._captureActivePointer(ev);
+    // Not for a link: capture would retarget the click a tap derives to `ha-card`, and the
+    // link would never see it. A swipe needs no capture to be followed, and a finger that
+    // moved far enough to page derives no click at all.
+    if (!onLink) this._captureActivePointer(ev);
     this._washDay(dayHit);
 
     // Defensive cleanup for an indicator left by an externally interrupted prior
@@ -3672,6 +3689,18 @@ class CalendarCardPro extends LitElement {
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
     }
+  }
+
+  /**
+   * Whether a press began on a link drawn in an event's row (`open_links`). See
+   * `_pointerOnLink` for what such a press may still do.
+   *
+   * @param ev - A pointer-down on `ha-card`
+   * @returns True when the press is the link's
+   */
+  private _startsOnRowLink(ev: PointerEvent): boolean {
+    if (typeof ev.composedPath !== 'function') return false;
+    return Activation.startsOnRowLink(ev.composedPath(), ev.currentTarget);
   }
 
   /**
@@ -3856,7 +3885,9 @@ class CalendarCardPro extends LitElement {
         Actions.handleAction(this, this.config, 'hold', actions);
       }
     } else if (!this._pointerMoved) {
-      if (tapTarget && this._eventTapRuns) {
+      if (this._pointerOnLink) {
+        // The link's own tap: the browser follows it with the click it derives.
+      } else if (tapTarget && this._eventTapRuns) {
         this._releasePressFocus();
         this._runEventAction(tapTarget.target, 'tap', origin);
       } else if (dayHit && this._dayTapsActive) {
@@ -3940,6 +3971,7 @@ class CalendarCardPro extends LitElement {
     this._pointerAddContext = null;
     this._pointerDayAdd = null;
     this._pointerSwipeable = false;
+    this._pointerOnLink = false;
     this._washDay(undefined);
     this._springBackSwipe();
 
@@ -4826,9 +4858,9 @@ class CalendarCardPro extends LitElement {
     };
 
     let content: TemplateResult;
-    // Whether the content holds at least one button of its own: an event that is a target, or
-    // a day's add button. Not while loading, and not for an error or, for events, for days
-    // holding nothing but empty-day placeholders.
+    // Whether the content holds at least one control of its own: an event that is a target, a
+    // day's add button, or a link in an event's row. Not while loading, and not for an error
+    // or, for events, for days holding nothing but empty-day placeholders.
     let drawsEventTarget = false;
     const dayAdd = this._dayAddButtons;
 
@@ -4911,7 +4943,8 @@ class CalendarCardPro extends LitElement {
       drawsEventTarget =
         (dayAdd !== undefined && days.length > 0) ||
         (this._eventsActivatable &&
-          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig));
+          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
+        Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
     }
 
     const toolbar = this._headerToolbar();
@@ -5069,16 +5102,16 @@ class CalendarCardPro extends LitElement {
    * present itself as a button around them.
    *
    * The one place that answers it, so every control that makes the card a host joins here:
-   * the toolbar's controls, the events while they are targets, and the days while each is a
-   * button that adds an event. Answered from what
+   * the toolbar's controls, the events while they are targets, the days while each is a
+   * button that adds an event, and the links in event rows (`open_links`). Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. Either way the card keeps its tab stop while it has a tap action; only the
    * button role goes.
    *
    * @param toolbar - The header toolbar this render draws
-   * @param drawsEventTarget - Whether this render draws at least one event as a target, or a
-   *   day's add button
+   * @param drawsEventTarget - Whether this render draws at least one event as a target, a
+   *   day's add button, or a link in an event's row
    * @returns True while the card hosts at least one control
    */
   private _hostsControls(toolbar: Toolbar.HeaderToolbar, drawsEventTarget: boolean): boolean {

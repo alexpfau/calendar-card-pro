@@ -21,7 +21,8 @@ src/
 │   ├── add-event.ts              # Add button: writable calendars, label, new-event times
 │   ├── calendar-changes.ts       # Page-wide announcement after the popover saves
 │   ├── calendar-writes.ts        # Feature bits; the create, update and delete commands
-│   ├── event-actions.ts          # Event actions: kind, the event's fields, filling them in
+│   ├── event-action-kind.ts      # What an event tap or hold amounts to, for card and editor
+│   ├── event-actions.ts          # Event actions: the event's fields, filling them in
 │   ├── event-details.ts          # An event's popover entry, display text and permissions
 │   ├── event-map.ts              # Zone and place lookup, map tiles under a location
 │   ├── event-times.ts            # An event's span, as the popover edits it and as stored
@@ -1275,7 +1276,11 @@ configured, and the rules below decide which one does.
 | The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 The toolbar's controls and the filter menu are none of these: they keep their presses
-(`stopCardGesture`). Targets are read at pointer-down, from its composed path and, for a time
+(`stopCardGesture`). Nor is a link drawn in an event's row, which only an event with no tap or
+hold of its own carries (`open_links`, `rowLinksOn`): a press that begins on one arms and
+captures nothing (`startsOnRowLink`), so the click the browser derives reaches the link, and
+neither the card's tap nor its hold runs. Unlike the toolbar's controls a link stops nothing, so
+Home Assistant's edit-mode drag still starts on it. Targets are read at pointer-down, from its composed path and, for a time
 slot, its coordinates, because the pointer capture taken there retargets everything after.
 Every view marks its days for this through a property no markup shows (`DaySlot` in
 `rendering/activation.ts`): a day's own element names its day, a grid's time area its hours,

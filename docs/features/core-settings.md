@@ -1106,7 +1106,7 @@ remain supported as described below.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
 them: the ones that decide which events are loaded, such as `entities` and `start_date`,
-and `toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete`. See
+and `toolbar`, `event_tap_action`, `open_links`, `allow_event_edit` and `allow_event_delete`. See
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
 `days_to_show` is the exception: it decides what is loaded, and each layout can still have
 its own — see

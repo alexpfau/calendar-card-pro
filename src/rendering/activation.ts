@@ -117,6 +117,36 @@ export function findEventTap(
   return undefined;
 }
 
+/** The class every link drawn in an event row carries (`open_links`). */
+export const ROW_LINK_CLASS = 'event-link';
+
+/**
+ * Whether an input event started on a link drawn in an event row, read from its composed path.
+ *
+ * Such a press is the link's: the browser follows it, and the card arms nothing for it, so a
+ * tap on a link never runs the card's tap and a hold never its hold. Stops at `boundary`, like
+ * `findEventTap`.
+ *
+ * @param path - The input event's composed path, innermost first
+ * @param boundary - Where the walk ends, exclusive
+ * @returns True when the press began on a row's link
+ */
+export function startsOnRowLink(
+  path: ReadonlyArray<EventTarget>,
+  boundary: EventTarget | null,
+): boolean {
+  for (const node of path) {
+    if (node === boundary) return false;
+    if (
+      (node as Element).localName === 'a' &&
+      (node as Element).classList?.contains(ROW_LINK_CLASS)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 //-----------------------------------------------------------------------------
 // DAYS
 //-----------------------------------------------------------------------------

@@ -897,6 +897,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Show Event Details opens the event beside it when you hold it. Home Assistant's own " +
     "actions can use the held event's title, times, location and description. With Nothing, " +
     'holding an event runs the hold action, as anywhere else on the card.',
+  // Shown only while neither event action does anything of its own, directly under them. The
+  // views it reaches are the applicability note's to say (`VIEW_SCOPE`): grid draws no links.
+  open_links: 'Open Links in Events',
+  'open_links.helper':
+    "Web addresses in an event's location and description become links, each opening in a " +
+    'new tab. Tapping one follows it instead of running the tap action.',
   // Shown only while the event tap or hold action is `details`, directly under them, so "the
   // event's details" needs no introduction. Each ends on the calendar because that is the
   // question a user with the switch on and no Edit button is asking: these can only take away.

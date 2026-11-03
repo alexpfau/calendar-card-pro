@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Rodyti įvykio informaciją“ atveria įvykio informaciją šalia jo, kur galite jį pakeisti arba ištrinti, jei įvykio kalendorius tai leidžia. Home Assistant veiksmai gali naudoti paliesto įvykio pavadinimą, laiką, vietą ir aprašymą. Pasirinkus „Nieko“, palietus įvykį vykdomas palietimo veiksmas, kaip ir bet kurioje kitoje kortelės vietoje.",
   "event_hold_action": "Įvykio palaikymo veiksmas",
   "event_hold_action.helper": "„Rodyti įvykio informaciją“ atveria įvykio informaciją šalia jo, kai palaikote įvykį. Home Assistant veiksmai gali naudoti palaikyto įvykio pavadinimą, laiką, vietą ir aprašymą. Pasirinkus „Nieko“, palaikius įvykį vykdomas palaikymo veiksmas, kaip ir bet kurioje kitoje kortelės vietoje.",
+  "open_links": "Atverti nuorodas įvykiuose",
+  "open_links.helper": "Interneto adresai įvykio vietoje ir aprašyme tampa nuorodomis, kurios atsiveria naujame naršyklės skirtuke. Palietus nuorodą, ji atveriama, o ne vykdomas palietimo veiksmas.",
   "allow_event_edit": "Leisti redaguoti įvykius",
   "allow_event_edit.helper": "Leidžia keisti įvykį jo informacijoje tiems kalendoriams, kurie tai palaiko.",
   "allow_event_delete": "Leisti ištrinti įvykius",

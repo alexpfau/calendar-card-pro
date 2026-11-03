@@ -373,6 +373,13 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // to what an unset option writes. Before that reset a clamp on the folded span hid the
   // whole time row. tests/view-scope-inert.test.ts pins both.
   time_max_lines: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // A grid block draws its words for the eye only, behind an accessible name of its own
+  // (`.grid-event-disclosure` is aria-hidden), and reveals or withdraws its rows as it grows
+  // and shrinks. A link in it would be a tab stop assistive technology cannot see, inside a
+  // box often too small to aim at, so the grid draws its text as text. Its banners draw
+  // titles alone.
+  open_links: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**

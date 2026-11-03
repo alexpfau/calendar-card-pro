@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Termindetails anzeigen“ öffnet den Termin direkt daneben, wo du ihn ändern oder löschen kannst, sofern sein Kalender das zulässt. Die Aktionen von Home Assistant können Titel, Zeiten, Ort und Beschreibung des angetippten Termins verwenden. Bei „Nichts“ löst das Antippen eines Termins das Verhalten bei Antippen aus, wie überall sonst auf der Karte.",
   "event_hold_action": "Verhalten bei Festhalten von Terminen",
   "event_hold_action.helper": "„Termindetails anzeigen“ öffnet den Termin direkt daneben, wenn du ihn festhältst. Die Aktionen von Home Assistant können Titel, Zeiten, Ort und Beschreibung des festgehaltenen Termins verwenden. Bei „Nichts“ löst das Festhalten eines Termins das Verhalten bei Festhalten aus, wie überall sonst auf der Karte.",
+  "open_links": "Links in Terminen öffnen",
+  "open_links.helper": "Webadressen im Ort und in der Beschreibung eines Termins werden zu Links, die sich jeweils in einem neuen Tab öffnen. Tippst du einen an, wird er geöffnet, statt das Verhalten bei Antippen auszulösen.",
   "allow_event_edit": "Bearbeiten von Terminen erlauben",
   "allow_event_edit.helper": "Lässt dich einen Termin in seinen Details ändern, bei Kalendern, die das unterstützen.",
   "allow_event_delete": "Löschen von Terminen erlauben",

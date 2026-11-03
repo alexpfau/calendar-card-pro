@@ -172,6 +172,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   day_tap_action: { action: 'none' },
   event_tap_action: { action: 'none' },
   event_hold_action: { action: 'none' },
+  open_links: false,
   allow_event_edit: true,
   allow_event_delete: true,
 
