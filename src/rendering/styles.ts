@@ -3778,9 +3778,11 @@ export const cardStyles = css`
     z-index: 2;
   }
 
-  /* While a tap on a day adds, a hold on a grid's empty slot draws a new event, so the
-     browser's own long press, selecting a word or a link's callout, is turned off there. */
-  ha-card:has(.day-add-button) .grid-day-body {
+  /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
+     event, so the browser's own long press, selecting a word or a link's callout, is turned
+     off there. */
+  ha-card:has(.day-add-button) .grid-day-body,
+  ha-card:has(.day-add-button) .grid-allday-band {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;

@@ -624,6 +624,12 @@ class CalendarCardPro extends LitElement {
   } | null = null;
   /** The day elements the draft is drawn on, so it can be taken off however it ends. */
   private _draftDrawn: Element[] = [];
+  /**
+   * What the grid showed when the draft began (`_draftContext`). A draft drawn on days the card
+   * no longer shows, after a page turn, a view switch or anything else that redrew other days,
+   * is thrown away rather than added on dates nobody can see.
+   */
+  private _draftShown = '';
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
 
@@ -2923,6 +2929,9 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // A new event being drawn on days this render no longer shows is thrown away at once.
+    if (this._draft) this._draftStillShown();
+
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
     if (
@@ -3629,11 +3638,9 @@ class CalendarCardPro extends LitElement {
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
-    // A second contact while a new event is being drawn throws the drawing away.
-    if (this._draft && ev.pointerId !== this._activePointerId) {
-      this._endGesture();
-      return;
-    }
+    // A second contact while a new event is drawn has thrown it away already
+    // (`_draftSecondContact`), and is no new gesture of its own.
+    if (this._draft && ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
@@ -3753,9 +3760,48 @@ class CalendarCardPro extends LitElement {
         : GridDraft.timedDraft(anchor.point, anchor.point, false),
       under: this._pointerDayHit?.element ?? null,
     };
+    this._draftShown = this._draftContext();
     window.addEventListener('keydown', this._draftKeyDown, true);
+    window.addEventListener('pointerdown', this._draftSecondContact, true);
     this._drawDraft();
   }
+
+  /**
+   * What the grid shows now, as far as a draft depends on it: the view, the page, whether a tap
+   * on a day still adds, and the days drawn.
+   *
+   * @returns A string that changes whenever any of them does
+   */
+  private _draftContext(): string {
+    const days = [...this.renderRoot.querySelectorAll('.grid-day-body')].map((body) => {
+      const slot = Activation.daySlotOn(body);
+      return slot?.kind === 'time' ? GridDraft.dayOf(slot.timestamp) : '';
+    });
+    return [this.effectiveView, this._pageShown, this._drawsNewEvents, ...days].join('|');
+  }
+
+  /**
+   * Whether the draft still stands on the days the grid shows; throws it away, and the press
+   * with it, where it does not.
+   *
+   * @returns True while the draft may go on
+   */
+  private _draftStillShown(): boolean {
+    if (!this._draft) return false;
+    if (this._draftContext() === this._draftShown) return true;
+    Logger.debug('The days a new event was drawn on are gone; throwing it away');
+    this._endGesture();
+    return false;
+  }
+
+  /**
+   * A second contact anywhere while a new event is drawn throws it away. Heard on the window in
+   * the capture phase, because the toolbar's controls keep their presses from the card
+   * (`stopCardGesture`) and a second finger on one would otherwise never be heard.
+   */
+  private readonly _draftSecondContact = (ev: PointerEvent): void => {
+    if (this._draft && ev.pointerId !== this._activePointerId) this._endGesture();
+  };
 
   /**
    * Follows the pointer while a new event is drawn: the slot under it in the time area of the
@@ -3766,6 +3812,7 @@ class CalendarCardPro extends LitElement {
    * @param y - The pointer's viewport y
    */
   private _moveDraft(x: number, y: number): void {
+    if (!this._draftStillShown()) return;
     const draft = this._draft;
     if (!draft) return;
     const anchor = draft.anchor;
@@ -3860,6 +3907,7 @@ class CalendarCardPro extends LitElement {
     if (!this._draft) return;
     this._draft = null;
     window.removeEventListener('keydown', this._draftKeyDown, true);
+    window.removeEventListener('pointerdown', this._draftSecondContact, true);
   }
 
   /**
@@ -4143,7 +4191,7 @@ class CalendarCardPro extends LitElement {
     };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
-    const draft = this._draft;
+    const draft = this._draftStillShown() ? this._draft : null;
     if (draft) {
       // The new event drawn: the popover opens on it, beside its piece under the pointer.
       Logger.debug('Adding the event drawn');

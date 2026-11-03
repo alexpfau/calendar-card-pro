@@ -71,12 +71,18 @@ export function timedDraft(anchor: TimePoint, current: TimePoint, moved: boolean
   const step = Constants.UI.ADD_SLOT_MINUTES;
   const start = atMinute(anchor.timestamp, anchor.minute);
   if (!moved) {
-    return { allDay: false, start, end: atMinute(anchor.timestamp, anchor.minute + 60) };
+    // An hour of time, as a tap adds (`newEventTimesOn`): on the days the clocks change, an
+    // hour of wall clock from the changing hour would be two hours, or none at all.
+    return { allDay: false, start, end: new Date(start.getTime() + 60 * 60 * 1000) };
   }
   const here = atMinute(current.timestamp, current.minute);
-  return here < start
-    ? { allDay: false, start: here, end: atMinute(anchor.timestamp, anchor.minute + step) }
-    : { allDay: false, start, end: atMinute(current.timestamp, current.minute + step) };
+  const span =
+    here < start
+      ? { start: here, end: atMinute(anchor.timestamp, anchor.minute + step) }
+      : { start, end: atMinute(current.timestamp, current.minute + step) };
+  // A quarter the clocks skip runs into the next, which can leave no time between the two.
+  const end = span.end > span.start ? span.end : new Date(span.start.getTime() + step * 60 * 1000);
+  return { allDay: false, start: span.start, end };
 }
 
 /**

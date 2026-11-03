@@ -284,6 +284,45 @@ describe('drawing a new event in a grid', () => {
     expect(adds(dialogs)).toEqual([]);
   });
 
+  it('throws the drawing away for a second finger on a toolbar control, which keeps its press', async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      toolbar: { show: true, navigation: true, view_switcher: false, add_event: false },
+    });
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    expect(drawn(card)).toHaveLength(1);
+
+    const segments = all(card, '.date-navigation-segment');
+    const next = segments[segments.length - 1];
+    pointer(next, 'pointerdown', 10, 10, 'touch', 2);
+    expect(drawn(card)).toEqual([]);
+    pointer(plane(card, 1), 'pointerup', X(1), Y(12));
+    await settle();
+    expect(adds(dialogs)).toEqual([]);
+  });
+
+  it('throws the drawing away when the card stops showing the days it was drawn on', async () => {
+    const { card, dialogs } = await mount(ADD);
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    expect(drawn(card)).toHaveLength(1);
+
+    // Another input switches the view while the finger is still down.
+    card.setConfig({
+      entities: [ANNA],
+      days_to_show: 3,
+      show_empty_days: true,
+      view: 'list',
+      ...ADD,
+    });
+    await card.updateComplete;
+    await settle();
+    pointer(card.shadowRoot!.querySelector('ha-card')!, 'pointerup', X(1), Y(12));
+    await settle();
+    expect(adds(dialogs)).toEqual([]);
+  });
+
   it('adds no element to the grid while it draws, so its structure observers see nothing', async () => {
     const { card } = await mount(ADD);
     const changes: MutationRecord[] = [];

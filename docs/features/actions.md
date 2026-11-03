@@ -522,8 +522,8 @@ The block starts as what a tap there adds, an hour from the quarter hour under y
 Drag down and its end follows you; drag up and its start does; drag sideways into another day
 and it runs across days, in quarter hours either way. It is drawn in the color of the calendar
 the popover will offer, with its times on it. Let go, and the popover opens beside it on a new
-event with those times, ready for a title. Press Escape, or touch the card with a second finger,
-to throw the block away.
+event with those times, ready for a title. Press Escape, or touch the screen with a second
+finger, to throw the block away; it also goes if the card turns to other days while you draw.
 
 In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
 over several days. The band is there whenever the days shown hold an all-day event.

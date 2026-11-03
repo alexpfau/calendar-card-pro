@@ -1323,8 +1323,10 @@ stop, ripple or hold indicator promising one.
    or pen swipe pages; a mouse on a grid's empty slot starts drawing a new event at once, as
    though it had held; anything else does nothing.
 4. **Canceled.** The browser took the gesture for a scroll or a pinch (`pointercancel`), or the
-   capture was lost: nothing. Escape, heard on the window while a new event is drawn, cancels
-   the press the same way.
+   capture was lost: nothing. While a new event is drawn, Escape and a second contact anywhere,
+   both heard on the window, cancel the press the same way, the second before a toolbar control
+   can keep it from the card, and so does a render showing other days than the draft was
+   drawn on (`_draftStillShown`), which would otherwise add it on dates nobody can see.
 
 Enter and Space activate the focused card, event or day. There is no key hold: an event with a
 hold and no tap of its own is still a button, and the keys run its hold. While a tap on a day
@@ -1339,8 +1341,12 @@ while it swipes, which its `touch-action: pan-y pinch-zoom` declares, on the car
 again on its body and everything in it, and the browser's on a crammed grid, which scrolls sideways. A finger drawing a new event owns
 all of its movement once the hold has fired: a grid card that adds binds a non-passive
 `touchmove` on `ha-card` (`_draftTouchMove`) that refuses the scroll while it draws, and only
-then, and binds none otherwise, so no other card makes a touch wait on it. Mouse drags are the
-card's only on a grid's empty slot, where they draw a new event; a mouse never swipes.
+then, and binds none otherwise, so no other card makes a touch wait on it. The trade is that
+every touch on such a card, scrolling included, waits on that listener, which returns at once.
+A pen holds first, like a finger; where a browser delivers a pen as pointer events only and lets
+it pan, a vertical pen drag may scroll and cancel the drawing (unverified on such hardware).
+Mouse drags are the card's only on a grid's empty slot, where they draw a new event; a mouse
+never swipes.
 
 **What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on
 empty areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the

@@ -103,4 +103,30 @@ describe(`a drawn event on the days the clocks change, in ${ZONE}`, () => {
       });
     }
   });
+
+  it('holds an unmoved draft to an hour of time, from the hour the clocks change too', () => {
+    for (const midnight of changeDays()) {
+      for (let minute = 0; minute < 24 * 60; minute += 15) {
+        const times = GridDraft.timedDraft(
+          { timestamp: midnight, minute },
+          { timestamp: midnight, minute },
+          false,
+        );
+        expect(times.end.getTime() - times.start.getTime()).toBe(3_600_000);
+      }
+    }
+  });
+
+  it('never draws an empty span, even from a quarter the clocks skip', () => {
+    for (const midnight of changeDays()) {
+      for (let minute = 0; minute < 24 * 60; minute += 15) {
+        const times = GridDraft.timedDraft(
+          { timestamp: midnight, minute },
+          { timestamp: midnight, minute: minute + 15 },
+          true,
+        );
+        expect(times.end.getTime()).toBeGreaterThan(times.start.getTime());
+      }
+    }
+  });
 });
