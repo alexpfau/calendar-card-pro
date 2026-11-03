@@ -47,7 +47,8 @@ const MARGIN = 12;
 const BELOW_GAP = 10;
 const EAR_INSET = 32;
 
-/** The map preview's height. */
+/** The map preview's size: the popover's width inside its padding, and a strip's height. */
+const MAP_WIDTH = POPOVER_WIDTH - 28;
 const MAP_HEIGHT = 120;
 
 /**
@@ -740,7 +741,7 @@ export class EventPopover extends LitElement {
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
     if (!params || params.mode !== 'event' || !location || params.hidden?.location) return;
 
-    const place = await EventMap.resolveLocation(location, this.hass);
+    const place = await EventMap.resolveLocation(location, this.hass, MAP_WIDTH);
     if (!place || this._params !== params) return;
     const token = await EventMap.mapTilesToken(this.hass);
     if (!token || this._params !== params) return;
@@ -748,7 +749,7 @@ export class EventPopover extends LitElement {
     const density = (window.devicePixelRatio ?? 1) >= 1.5 ? 2 : 1;
     const { tiles, tileSize } = EventMap.mapTiles(
       place,
-      { width: POPOVER_WIDTH - 28, height: MAP_HEIGHT },
+      { width: MAP_WIDTH, height: MAP_HEIGHT },
       token,
       density,
       place.zoom,

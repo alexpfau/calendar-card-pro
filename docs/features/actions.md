@@ -500,9 +500,9 @@ Every word in the popover is Home Assistant's own, from its calendar translation
 
 ### Maps & Locations
 
-When an event you open has a location the card can place, the popover draws a small map under it, with a marker on the spot. Pressing the map opens a Google Maps search for the location. A location the card cannot place gets a small pin beside it instead, which opens the same search. The card places a location in one of two ways.
+When an event you open has a location the card can place, the popover draws a small map under it, with a marker on the spot. Every map is the same OpenStreetMap map; what differs is only how the card finds the spot. Pressing the map opens a Google Maps search for the location. A location the card cannot place gets a small pin beside it instead, which opens the same search. The card places a location in one of two ways.
 
-- **A zone.** When the location is the name of one of your Home Assistant zones, the map shows the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Nothing leaves your home to find it.
+- **A zone.** When the location is the name of one of your Home Assistant zones, the map shows the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Nothing leaves your home to find it. The map shows the whole zone: it zooms out until the zone's circle, its radius in Home Assistant, spans the map's width, so a zone drawn around a city shows the city and one drawn around a house shows its street.
 - **A town or a city.** A short place name, such as `Rosenheim`, `Paris` or `Springfield, Illinois`, is looked up in [Open-Meteo](https://open-meteo.com)'s free geocoding service, which needs no account or key.
 
 Only a name of two to 60 characters, with at most four words and one comma for its country or region, is looked up. Anything with a digit, `@`, `/` or `:` in it is never sent, so a street address, a house number, a postal code, an email address or a web address stays in your home and gets the pin.

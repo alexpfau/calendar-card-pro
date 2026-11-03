@@ -25,6 +25,11 @@ export interface Coordinates {
   longitude: number;
 }
 
+/** A zone's center, and how far around it the zone reaches, in meters, when it says. */
+export interface ZonePoint extends Coordinates {
+  radius?: number;
+}
+
 /** Where a location is, how close the map starts on it, and who placed it there. */
 export interface MapPlace extends Coordinates {
   zoom: number;
@@ -44,13 +49,20 @@ export interface MapTile {
 //-----------------------------------------------------------------------------
 
 /**
- * How close in the preview starts: a neighborhood around the point, some 900 meters across the
- * preview at central European latitudes. One step closer showed only a few buildings.
+ * How close the preview comes at most: a neighborhood around the point, some 900 meters across
+ * the preview at central European latitudes, for a zone around a single spot. One step closer
+ * showed only a few buildings.
  */
 export const MAP_ZOOM = 15;
 
 /** Home Assistant's raster tiles are 256 pixels square. */
 const TILE_SIZE = 256;
+
+/** Meters per pixel of a 256-pixel tile at the equator at zoom 0, in Web Mercator. */
+const EQUATOR_METERS_PER_PIXEL = 156_543.034;
+
+/** How far out a zone's map may go: a zone the size of a country still shows where it is. */
+const ZONE_ZOOM_MIN = 5;
 
 /** Open-Meteo's geocoding service, which finds towns and cities by name. */
 export const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -99,12 +111,12 @@ function fold(text: string): string {
  *
  * @param location - An event's location
  * @param hass - Home Assistant instance
- * @returns The zone's point, or undefined
+ * @returns The zone's center and radius, or undefined
  */
 export function zoneCoordinates(
   location: string,
   hass: Types.Hass | null | undefined,
-): Coordinates | undefined {
+): ZonePoint | undefined {
   const wanted = fold(location);
   if (!wanted || !hass?.states) return undefined;
 
@@ -118,9 +130,34 @@ export function zoneCoordinates(
 
     const latitude = Number(state.attributes?.latitude);
     const longitude = Number(state.attributes?.longitude);
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) return { latitude, longitude };
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const radius = Number(state.attributes?.radius);
+    return radius > 0 && Number.isFinite(radius)
+      ? { latitude, longitude, radius }
+      : { latitude, longitude };
   }
   return undefined;
+}
+
+/**
+ * How close a zone's map starts: as close as a single spot (`MAP_ZOOM`) for a small zone, and
+ * out until the zone's circle spans the map's width for a large one. A zone drawn around a city
+ * then shows the city, as a city found by name does, and one around a house its street. The
+ * map is a wide strip, so the circle is fitted to its width, not its height, which would show
+ * a city-sized zone as a region.
+ *
+ * @param zone - The zone's center and radius
+ * @param mapWidth - The map's width in CSS pixels
+ * @returns The zoom level
+ */
+export function zoneZoom(zone: ZonePoint, mapWidth: number): number {
+  if (!zone.radius || !(mapWidth > 0)) return MAP_ZOOM;
+  const latitude = Math.max(-85, Math.min(85, zone.latitude));
+  const metersPerPixel = (2 * zone.radius) / mapWidth;
+  const fit = Math.floor(
+    Math.log2((EQUATOR_METERS_PER_PIXEL * Math.cos((latitude * Math.PI) / 180)) / metersPerPixel),
+  );
+  return Math.max(ZONE_ZOOM_MIN, Math.min(MAP_ZOOM, fit));
 }
 
 /**
@@ -398,19 +435,28 @@ export async function placeCoordinates(
 }
 
 /**
- * Where a location is: a zone of Home Assistant's of that name, else a place name Open-Meteo
- * knows (`placeCoordinates`).
+ * Where a location is: a zone of Home Assistant's of that name, shown whole (`zoneZoom`), else a
+ * place name Open-Meteo knows (`placeCoordinates`).
  *
  * @param location - An event's location
  * @param hass - Home Assistant instance
+ * @param mapWidth - The map's width in CSS pixels, which a zone is fitted to
  * @returns The place, or undefined when the location is neither
  */
 export async function resolveLocation(
   location: string,
   hass: Types.Hass | null | undefined,
+  mapWidth: number,
 ): Promise<MapPlace | undefined> {
   const zone = zoneCoordinates(location, hass);
-  if (zone) return { ...zone, zoom: MAP_ZOOM, source: 'zone' };
+  if (zone) {
+    return {
+      latitude: zone.latitude,
+      longitude: zone.longitude,
+      zoom: zoneZoom(zone, mapWidth),
+      source: 'zone',
+    };
+  }
   return placeCoordinates(location, hass);
 }
 

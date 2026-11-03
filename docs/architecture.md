@@ -744,7 +744,8 @@ caller.
 - **event-map.ts**:
   - Turns a location into a point through one seam, `resolveLocation`. A Home Assistant zone
     comes first (`zoneCoordinates`, its name or its entity ID's object ID, case and spacing
-    ignored), and sends nothing. Otherwise a short place name with no digit, `@`, `/` or `:`
+    ignored), and sends nothing; its map zooms out until the zone's radius spans the map's
+    width (`zoneZoom`), no closer than `MAP_ZOOM`. Otherwise a short place name with no digit, `@`, `/` or `:`
     (`placeQuery`) is looked up in Open-Meteo's geocoding service (`placeCoordinates`), which
     allows personal home automation without a key, in Home Assistant's language, the home
     country's and English in turn (`lookupLanguages`). `pickPlace` is strict, because ordinary

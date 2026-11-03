@@ -599,6 +599,35 @@ describe('the map', () => {
     expect(callWS).toHaveBeenCalledWith({ type: 'map_tiles/access_token' });
   });
 
+  it('shows a zone drawn around a city whole, and one around a spot up close', async () => {
+    const zoomOf = (root: ShadowRoot) =>
+      new Set(
+        Array.from(root.querySelectorAll('a.map-link img')).map(
+          (img) => Number(/raster\/(\d+)\//.exec(img.getAttribute('src')!)![1]) - dense,
+        ),
+      );
+    const dense = window.devicePixelRatio >= 1.5 ? 1 : 0;
+    const city = {
+      'zone.hannover': {
+        entity_id: 'zone.hannover',
+        state: '0',
+        attributes: { friendly_name: 'Hannover', latitude: 52.37, longitude: 9.73, radius: 13000 },
+      },
+    };
+    const wide = await open(
+      { display: { title: 'Swim', location: 'Hannover', description: '' } },
+      { states: city },
+    );
+    await vi.waitFor(() => expect(wide.root.querySelector('a.map-link')).not.toBeNull());
+    // 26 km across fits the 312-pixel map at zoom 10.
+    expect(zoomOf(wide.root)).toEqual(new Set([10]));
+    wide.el.remove();
+
+    const close = await open({}, { states: POOL_ZONE });
+    await vi.waitFor(() => expect(close.root.querySelector('a.map-link')).not.toBeNull());
+    expect(zoomOf(close.root)).toEqual(new Set([15]));
+  });
+
   it('draws no map, and asks nothing, for a street address', async () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);

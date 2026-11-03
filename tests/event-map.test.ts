@@ -16,6 +16,7 @@ import {
   resetMapTilesToken,
   resolveLocation,
   zoneCoordinates,
+  zoneZoom,
 } from '../src/interaction/event-map';
 
 /**
@@ -67,7 +68,7 @@ describe('zoneCoordinates', () => {
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
-    expect(await resolveLocation('Riverside Pool', hass(states))).toEqual({
+    expect(await resolveLocation('Riverside Pool', hass(states), 312)).toEqual({
       latitude: 52.5,
       longitude: 13.45,
       zoom: MAP_ZOOM,
@@ -75,6 +76,60 @@ describe('zoneCoordinates', () => {
     });
     expect(fetch).not.toHaveBeenCalled();
     expect(zoneCoordinates('Home', null)).toBeUndefined();
+  });
+});
+
+describe('zoneZoom', () => {
+  // The popover's map is 312 pixels wide.
+  const at = (latitude: number, radius?: number) => ({ latitude, longitude: 10, radius });
+
+  it('shows a zone around a city whole, fitting its circle to the map width', () => {
+    // 26 km across Hannover fits at zoom 10 (29 km), not 11 (15 km).
+    expect(zoneZoom(at(52.37, 13000), 312)).toBe(10);
+    // 16 km across Rosenheim fits at zoom 11, just.
+    expect(zoneZoom(at(47.86, 8000), 312)).toBe(11);
+    expect(zoneZoom(at(47.86, 8100), 312)).toBe(10);
+  });
+
+  it('comes no closer than a neighborhood for a zone around a single spot', () => {
+    expect(zoneZoom(at(52.37, 100), 312)).toBe(MAP_ZOOM);
+    expect(zoneZoom(at(52.37, 1), 312)).toBe(MAP_ZOOM);
+  });
+
+  it('goes out further far from the equator, where the map stretches the ground', () => {
+    // Web Mercator draws a kilometer larger toward the poles, so a zone needs a wider view.
+    expect(zoneZoom(at(0, 13000), 312)).toBe(10);
+    expect(zoneZoom(at(70, 13000), 312)).toBe(9);
+    expect(zoneZoom(at(-70, 13000), 312)).toBe(9);
+  });
+
+  it('shows the neighborhood for a zone without a radius, and stops short of the world', () => {
+    expect(zoneZoom(at(52.37), 312)).toBe(MAP_ZOOM);
+    expect(zoneZoom(at(52.37, 13000), 0)).toBe(MAP_ZOOM);
+    expect(zoneZoom(at(52.37, 5_000_000), 312)).toBe(5);
+  });
+
+  it('reads the radius Home Assistant gives a zone, and fits the map to it', async () => {
+    const withRadius = (id: string, name: string, latitude: number, radius: number) => ({
+      [id]: {
+        entity_id: id,
+        state: '0',
+        attributes: { friendly_name: name, latitude, longitude: 9.73, radius },
+      },
+    });
+    const zones = {
+      ...withRadius('zone.hannover', 'Hannover', 52.37, 13000),
+      ...withRadius('zone.home', 'Home', 52.5, 100),
+      ...withRadius('zone.broken', 'Broken', 52.5, Number.NaN),
+    };
+    expect(zoneCoordinates('Hannover', hass(zones))).toEqual({
+      latitude: 52.37,
+      longitude: 9.73,
+      radius: 13000,
+    });
+    expect(await resolveLocation('Hannover', hass(zones), 312)).toMatchObject({ zoom: 10 });
+    expect(await resolveLocation('Home', hass(zones), 312)).toMatchObject({ zoom: MAP_ZOOM });
+    expect(zoneCoordinates('Broken', hass(zones))).toEqual({ latitude: 52.5, longitude: 9.73 });
   });
 });
 
