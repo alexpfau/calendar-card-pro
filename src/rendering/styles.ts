@@ -3746,65 +3746,18 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
-  /* A new event being drawn in a grid: a hold, or a mouse drag, on an empty part of a day's
-     time area. Drawn as the body's ::after from the attribute and custom properties the
-     recognizer sets on each day it covers, never as an element, for the structure observers'
-     sake as with the wash above: its piece of the span, tinted in the color of the calendar
-     the popover will offer, with an accent bar and, on its first day, its title, or New event
-     until one is typed, over its times, one to a line. It stays while the popover adds it,
-     following it. Above the blocks and the day rules, at the now dot's rung, and see-through,
-     so the events it is drawn across stay readable while it is placed. */
-  .grid-day-body[data-add-draft]::after {
-    content: attr(data-add-draft-label);
-    position: absolute;
-    inset-inline: 1px;
-    top: var(--calendar-card-add-draft-top, 0);
-    height: var(--calendar-card-add-draft-height, 0);
-    box-sizing: border-box;
-    padding: 2px 4px;
-    border-inline-start: 3px solid var(--calendar-card-add-draft-color, var(--primary-color));
-    border-radius: 4px;
-    background-color: color-mix(
-      in srgb,
-      var(--calendar-card-add-draft-color, var(--primary-color)) 28%,
-      transparent
-    );
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-    color: var(--primary-text-color);
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.25;
-    white-space: pre-line;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 2;
+  /* A new event the card is adding, while a press draws it and while the popover adds it, is
+     drawn by the grid's own templates as the block or the banner it will be once saved, so
+     every option that styles an event styles it. Each sits in an element of its own that lays
+     out as though it were not there: the block is placed against the day's plane as any block
+     is, and the banner on the all-day band's grid, where with no row of its own it takes the
+     first row free across its days, beside the banners or in one more row below them. Nothing
+     in it answers a press. */
+  .grid-new-event {
+    display: contents;
   }
 
-  /* An all-day one is the all-day band's ::after, a bar across the days it covers with its
-     title, or New event, shaped as a banner and lettered as the timed block. The band is a
-     grid on the day columns, so the two custom properties place it there, and with no row of
-     its own it takes the first row free across those days, beside the banners or in one more
-     row below them. */
-  .grid-allday-band[data-add-draft]::after {
-    content: attr(data-add-draft-label);
-    grid-column: var(--calendar-card-add-draft-from) / var(--calendar-card-add-draft-to);
-    box-sizing: border-box;
-    min-width: 0;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background-color: color-mix(
-      in srgb,
-      var(--calendar-card-add-draft-color, var(--primary-color)) 28%,
-      transparent
-    );
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-    color: var(--primary-text-color);
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .grid-new-event > * {
     pointer-events: none;
   }
 

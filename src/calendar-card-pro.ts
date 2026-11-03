@@ -21,7 +21,14 @@
  * This package includes lit/LitElement (BSD-3-Clause License)
  */
 
-import { LitElement, PropertyValues, TemplateResult, html, nothing } from 'lit';
+import {
+  LitElement,
+  PropertyValues,
+  TemplateResult,
+  html,
+  render as litRender,
+  nothing,
+} from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import * as Config from './config/config';
@@ -41,6 +48,7 @@ import type * as PopoverModel from './interaction/popover-model';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
+import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
@@ -163,7 +171,8 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
  * under `show_past_events: false`, expire a banner, repack lanes or drop a sparse day, and the
  * resize observer keyed to existing blocks cannot see a block that did not exist when it was
  * attached. Text and comment nodes are ignored, and so is the cascade-threshold probe, which
- * the reaction to this very signal inserts.
+ * the reaction to this very signal inserts, and so is the new event the card is adding, which
+ * comes and goes with a press and is fitted on its own (`_fitNewBlocks`).
  *
  * @param record - A record from the grid disclosure observer, already known to lie outside
  *   every timed block
@@ -171,9 +180,13 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
  */
 function changesGridStructure(record: MutationRecord): boolean {
   if (record.type !== 'childList') return false;
+  const target = record.target instanceof Element ? record.target : record.target.parentElement;
+  if (target?.closest(`.${GridRender.NEW_EVENT_HOST_CLASS}`)) return false;
   return [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
     (node) =>
-      node instanceof Element && !node.classList.contains(CascadeThreshold.SCALE_PROBE_CLASS),
+      node instanceof Element &&
+      !node.classList.contains(CascadeThreshold.SCALE_PROBE_CLASS) &&
+      !node.classList.contains(GridRender.NEW_EVENT_HOST_CLASS),
   );
 }
 
@@ -630,7 +643,8 @@ class CalendarCardPro extends LitElement {
     times: Times.EventTimes;
     /** The title typed so far; until there is one, the block says "New event". */
     title: string;
-    color?: string;
+    /** The calendar it would be added to, whose options draw it as they draw its events. */
+    calendarId?: string;
     /**
      * What the grid showed when it was first drawn (`_draftContext`). A block on days the card
      * no longer shows, after a page turn, a view switch or anything else that redrew other days,
@@ -645,8 +659,11 @@ class CalendarCardPro extends LitElement {
     /** Whether the refresh after its save has put the card's events on it (`_newArrived`). */
     arrived: boolean;
   } | null = null;
-  /** The day elements the new event is drawn on, so it can be taken off however it goes. */
-  private _newDrawn: Element[] = [];
+  /**
+   * What the new event is drawn into, by the element holding each: a day's plane for a timed
+   * one, the all-day band for an all-day one (`_paintNew`).
+   */
+  private _newHosts = new Map<Element, HTMLElement>();
   /** Takes a saved new event's block away if the events bringing the real one are slow. */
   private _newTimer?: number;
   /**
@@ -3809,7 +3826,7 @@ class CalendarCardPro extends LitElement {
         ? GridDraft.allDayDraft(anchor.timestamp, anchor.timestamp)
         : GridDraft.timedDraft(anchor.point, anchor.point, false),
       title: '',
-      color: this._draftColor(),
+      calendarId: this._draftCalendarId(),
       context: this._draftContext(),
       inPopover: false,
       saved: false,
@@ -3896,24 +3913,27 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Draws the new event onto the grid's own day elements, through attributes and custom
-   * properties alone: each day's time area it covers carries `data-add-draft` and where its
-   * piece sits, the first one its title, or "New event", and its times as a label, and an
-   * all-day one marks the all-day band with the columns it spans and its title. No element is
-   * added, so the grid's structure observers see nothing (see `changesGridStructure`), and
-   * every render paints it again.
+   * Draws the new event as the grid draws its events: on each day it covers, the timed block it
+   * will be once saved, or for an all-day one the banner, through the grid's own templates, so
+   * every option that styles an event styles it. Each is rendered into an element of its own,
+   * `NEW_EVENT_HOST_CLASS`, put into the day's plane or the all-day band, which the grid's
+   * structure observer leaves alone: that it comes and goes changes nothing else the grid
+   * draws, and its block is fitted on its own (`_fitNewBlocks`). Every render paints it again.
    */
   private _paintNew(): void {
-    this._clearNewDrawing();
     const shown = this._newShown;
-    if (!shown) return;
-    const drawn: Element[] = [];
-    const { times, color } = shown;
-    const title = shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent;
+    if (!shown) {
+      this._clearNewDrawing();
+      return;
+    }
+    const config = this.effectiveConfig;
+    const language = this.effectiveLanguage;
+    const hass = this.safeHass;
+    const event = this._newEventData(shown);
+    const { times } = shown;
+    const wanted = new Map<Element, TemplateResult | typeof nothing>();
     if (times.allDay) {
-      // A bar in the all-day band across the days it covers, in the band's own columns: the
-      // first is the hours' axis, so a day's is its index plus two.
-      const band = this.renderRoot.querySelector<HTMLElement>('.grid-allday-band');
+      const band = this.renderRoot.querySelector('.grid-allday-band');
       const covered: number[] = [];
       for (const [index, header] of this.renderRoot
         .querySelectorAll('.grid-day-header')
@@ -3924,51 +3944,132 @@ class CalendarCardPro extends LitElement {
         if (day >= times.start.getTime() && day <= times.end.getTime()) covered.push(index);
       }
       if (band && covered.length) {
-        band.setAttribute('data-add-draft', '');
-        band.setAttribute('data-add-draft-label', title);
-        band.style.setProperty('--calendar-card-add-draft-from', String(covered[0] + 2));
-        band.style.setProperty(
-          '--calendar-card-add-draft-to',
-          String(covered[covered.length - 1] + 3),
+        const span = covered[covered.length - 1] - covered[0] + 1;
+        wanted.set(
+          band,
+          GridRender.renderNewBanner(event, covered[0], span, config, language, hass),
         );
-        if (color) band.style.setProperty('--calendar-card-add-draft-color', color);
-        drawn.push(band);
       }
     } else {
-      let label: string | undefined = `${title}\n${this._draftLabel(times)}`;
-      for (const body of this.renderRoot.querySelectorAll<HTMLElement>('.grid-day-body')) {
+      const multiDay =
+        GridDraft.dayOf(times.start.getTime()) !== GridDraft.dayOf(times.end.getTime() - 1);
+      for (const body of this.renderRoot.querySelectorAll('.grid-day-body')) {
         const slot = Activation.daySlotOn(body);
-        if (slot?.kind !== 'time') continue;
+        const plane = body.querySelector(':scope > .grid-day-plane');
+        if (slot?.kind !== 'time' || !plane) continue;
         const piece = GridDraft.pieceOnDay(times, slot.timestamp);
         if (!piece) continue;
-        const { topPct, heightPct } = Activation.spanPct(piece.fromMin, piece.untilMin, slot);
-        if (!(heightPct > 0)) continue;
-        body.setAttribute('data-add-draft', '');
-        body.style.setProperty('--calendar-card-add-draft-top', `${topPct}%`);
-        body.style.setProperty('--calendar-card-add-draft-height', `${heightPct}%`);
-        if (color) body.style.setProperty('--calendar-card-add-draft-color', color);
-        if (label !== undefined) {
-          body.setAttribute('data-add-draft-label', label);
-          label = undefined;
-        }
-        drawn.push(body);
+        const segment = {
+          ...event,
+          startMin: piece.fromMin,
+          endMin: piece.untilMin,
+          ...(multiDay && {
+            _isMultiDaySegment: true,
+            _gridSegmentStartsEvent:
+              GridDraft.dayOf(slot.timestamp) === GridDraft.dayOf(times.start.getTime()),
+          }),
+        };
+        const band = { startMin: slot.startMin, endMin: slot.endMin, usedFallback: false };
+        const raised = this._coversAnEvent(plane, piece.fromMin, piece.untilMin, band);
+        wanted.set(
+          plane,
+          GridRender.renderNewTimedEvent(segment, band, raised, config, language, hass),
+        );
       }
     }
-    this._newDrawn = drawn;
+
+    for (const [holder, host] of this._newHosts) {
+      if (!wanted.has(holder) || host.parentNode !== holder) this._removeNewHost(holder);
+    }
+    const added: HTMLElement[] = [];
+    for (const [holder, template] of wanted) {
+      let host = this._newHosts.get(holder);
+      if (!host) {
+        host = document.createElement('div');
+        host.className = GridRender.NEW_EVENT_HOST_CLASS;
+        host.setAttribute('data-add-draft', '');
+        host.setAttribute('aria-hidden', 'true');
+        litRender(template, host, { host: this });
+        holder.append(host);
+        this._newHosts.set(holder, host);
+      } else {
+        litRender(template, host, { host: this });
+      }
+      added.push(host);
+    }
+    this._fitNewBlocks(added);
   }
 
-  /** Takes the new event off the elements it is drawn on. */
-  private _clearNewDrawing(): void {
-    for (const element of this._newDrawn) {
-      element.removeAttribute('data-add-draft');
-      element.removeAttribute('data-add-draft-label');
-      if (element instanceof HTMLElement) {
-        for (const name of ['top', 'height', 'from', 'to', 'color']) {
-          element.style.removeProperty(`--calendar-card-add-draft-${name}`);
+  /**
+   * Whether the new event's piece of a day lies over an event the day draws, which is when it
+   * is drawn raised, hiding what is beneath it as a block over another does.
+   *
+   * @param plane - The day's plane
+   * @param fromMin - Where the piece starts, in minutes of the day
+   * @param untilMin - Where it ends
+   * @param band - The day's visible band
+   * @returns True where it covers part of one
+   */
+  private _coversAnEvent(
+    plane: Element,
+    fromMin: number,
+    untilMin: number,
+    band: { startMin: number; endMin: number },
+  ): boolean {
+    const { topPct, heightPct } = Activation.spanPct(fromMin, untilMin, band);
+    return [...plane.querySelectorAll<HTMLElement>(':scope > .grid-event')].some((block) => {
+      const top = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-top'));
+      const height = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-height'));
+      return top < topPct + heightPct && topPct < top + height;
+    });
+  }
+
+  /**
+   * Has the new event's blocks fitted as any block is, once each: its title clamped to the
+   * room it has, and fitted again whenever it is resized or its text changes, as the grid's
+   * observers do for every block. The full refit a block's arrival sets off elsewhere would
+   * measure every block on the grid, twice a press, for one that changes nothing about them.
+   *
+   * @param hosts - The new event's hosts
+   */
+  private _fitNewBlocks(hosts: Iterable<HTMLElement>): void {
+    const observer = this._gridDisclosureObserver;
+    if (!observer) return;
+    let added = false;
+    for (const host of hosts) {
+      for (const block of host.querySelectorAll<HTMLElement>('.grid-event')) {
+        for (const target of [block, ...block.querySelectorAll('.summary, .event-title')]) {
+          if (this._gridDisclosureTargets.has(target)) continue;
+          this._gridDisclosureTargets.set(target, block);
+          observer.observe(target);
+          this._gridDisclosureDirty.add(block);
+          added = true;
         }
       }
     }
-    this._newDrawn = [];
+    if (added) this._scheduleGridDisclosureSafety(false);
+  }
+
+  /**
+   * Takes the new event out of one element, and its block off the observers.
+   *
+   * @param holder - The day's plane or the all-day band it is drawn into
+   */
+  private _removeNewHost(holder: Element): void {
+    const host = this._newHosts.get(holder);
+    if (!host) return;
+    for (const [target, block] of this._gridDisclosureTargets) {
+      if (!host.contains(block)) continue;
+      this._gridDisclosureObserver?.unobserve(target);
+      this._gridDisclosureTargets.delete(target);
+    }
+    host.remove();
+    this._newHosts.delete(holder);
+  }
+
+  /** Takes the new event off the grid. */
+  private _clearNewDrawing(): void {
+    for (const holder of [...this._newHosts.keys()]) this._removeNewHost(holder);
   }
 
   /**
@@ -4004,7 +4105,7 @@ class CalendarCardPro extends LitElement {
     if (!shown?.inPopover) return;
     shown.times = draft.times;
     shown.title = draft.summary;
-    shown.color = this._popoverCalendar(draft.calendarId).color;
+    shown.calendarId = draft.calendarId;
     this._paintNew();
   }
 
@@ -4080,31 +4181,44 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The draft's color: that of the calendar a new event would be added to, as the popover will
-   * preselect it.
+   * The calendar a new event would be added to, as the popover will preselect it.
    *
-   * @returns A CSS color, or undefined where no calendar takes one
+   * @returns Its entity id, or undefined where no calendar takes one
    */
-  private _draftColor(): string | undefined {
-    const id = AddEvent.preselectedCalendarId(this._writableCalendars, this._activeHiddenCalendars);
-    return id ? this._popoverCalendar(id).color : undefined;
+  private _draftCalendarId(): string | undefined {
+    return AddEvent.preselectedCalendarId(this._writableCalendars, this._activeHiddenCalendars);
   }
 
   /**
-   * The times the draft shows, as the card writes a time: `10:15 - 11:30`, with each end's
-   * weekday where it runs across days.
+   * The new event as the card's events are, for the grid to draw it as one of them: its title,
+   * or "New event", its times, and its calendar with that calendar's options, which give it
+   * its color, its label and the rest of what an event of that calendar shows.
    *
-   * @param times - The draft's span
-   * @returns The label
+   * @param shown - The new event
+   * @returns Its event data
    */
-  private _draftLabel(times: Times.EventTimes): string {
-    const use24h = FormatUtils.resolveTimeFormat24h(this.config, this.safeHass);
-    const sameDay = times.start.toDateString() === new Date(times.end.getTime() - 1).toDateString();
-    const weekday = new Intl.DateTimeFormat(this.effectiveLanguage, { weekday: 'short' });
-    const at = (date: Date) =>
-      (sameDay ? '' : `${weekday.format(date)} `) +
-      FormatUtils.formatTime(date, use24h, this.config.time_two_digit_hours);
-    return FormatUtils.isolateClockReadings(`${at(times.start)} - ${at(times.end)}`);
+  private _newEventData(shown: NonNullable<CalendarCardPro['_newShown']>): Types.CalendarEventData {
+    const { times, calendarId } = shown;
+    const config = this.effectiveConfig;
+    const summary = shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent;
+    const dayAfter = (date: Date) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+    const event: Types.CalendarEventData = {
+      summary,
+      start: times.allDay
+        ? { date: FormatUtils.getLocalDateKey(times.start) }
+        : { dateTime: times.start.toISOString() },
+      end: times.allDay
+        ? { date: FormatUtils.getLocalDateKey(dayAfter(times.end)) }
+        : { dateTime: times.end.toISOString() },
+      _entityId: calendarId,
+    };
+    const matched = config.entities.find(
+      (entity) => typeof entity === 'object' && entity.entity === calendarId,
+    );
+    if (typeof matched === 'object') event._matchedConfig = matched;
+    if (calendarId) event._entityLabel = EventUtils.getEntityLabel(calendarId, config, event);
+    return event;
   }
 
   /**
@@ -5759,7 +5873,7 @@ class CalendarCardPro extends LitElement {
         arrived: false,
       };
       shown.times = times;
-      shown.color = this._popoverCalendar(calendarId).color;
+      shown.calendarId = calendarId;
       shown.inPopover = true;
       this._newShown = shown;
       this._paintNew();

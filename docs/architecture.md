@@ -1352,19 +1352,22 @@ never swipes.
 areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the press
 lasts, through an attribute and two custom properties on the day's element (`data-add-pressed`),
 since most of a day's empty space is no element of its own and an element added for the wash would
-set off the grid's structure observers. A new event being drawn is painted the same way: each day's
-time area it covers carries `data-add-draft` and its piece as two custom properties, the first its
-title, or "New event", over its times as `data-add-draft-label`, and the stylesheet draws the block
-as the area's `::after`. An all-day one is the all-day band's `::after`, given the band columns it
-spans as two custom properties and left to take the first row free across them. The block outlives
-the press while the popover adds the event (`_newShown`): the popover reports each change to its
-draft (`changed`) and its closing (`closed`), and the block follows the times, title and calendar,
-goes on a close that saved nothing, and after a save stays until the refresh that save started has
-put the card's events on it (`_newArrived`), or `TIMING.NEW_EVENT_HOLD` passes. Events arriving any
-other way do not count, since another refresh may have started before the save. Every render paints
-it again (`_syncNewShown`): the grid keeps its day elements across renders, but a render can change
-what the label reads, such as its language or time format, and a render that shows other days throws
-the block away.
+set off the grid's structure observers. A new event being drawn is the exception, because it has to
+look exactly like an event of its calendar: the grid's own `renderTimedEvent`, or `renderBanner` for
+an all-day one, draws it from the event it will be (`_newEventData`), and the card renders that with
+Lit into an element of its own (`NEW_EVENT_HOST_CLASS`, laid out as `display: contents`) in each
+day's plane or in the all-day band, where a banner with no row of its own takes the first row free
+across its days. The structure observer skips that element and what happens inside it, so its coming
+and going refits nothing else, and its block is observed and fitted on its own (`_fitNewBlocks`).
+Where it lies over an event the day draws, it is drawn raised, as a block over another is. The block
+outlives the press while the popover adds the event (`_newShown`): the popover reports each change
+to its draft (`changed`) and its closing (`closed`), and the block follows the times, title and
+calendar, goes on a close that saved nothing, and after a save stays until the refresh that save
+started has put the card's events on it (`_newArrived`), or `TIMING.NEW_EVENT_HOLD` passes. Events
+arriving any other way do not count, since another refresh may have started before the save. Every
+render paints it again (`_syncNewShown`): the grid keeps its day elements across renders, but a
+render can change what the block reads, such as its language or time format, and a render that shows
+other days throws the block away.
 
 A tap's own trailing mouse events and click land where the finger lifted, on the popover once it
 has opened there, and would start editing a field. The card refuses the `touchend` of a finger

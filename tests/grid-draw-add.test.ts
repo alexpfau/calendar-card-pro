@@ -106,7 +106,22 @@ const all = <T extends Element = HTMLElement>(card: Card, selector: string): T[]
 const bodies = (card: Card) => all(card, '.grid-day-body');
 const plane = (card: Card, column: number) =>
   bodies(card)[column].querySelector('.grid-day-plane')!;
-const drawn = (card: Card) => all(card, '[data-add-draft]');
+/** The new event's block, or its banner, where it is drawn into a day's time area or the band. */
+const newBlock = (holder: Element) => holder.querySelector<HTMLElement>('.grid-new-event > .event');
+/** Where the new event is drawn: each day's time area holding a block of it, or the band. */
+const drawn = (card: Card) =>
+  all(card, '.grid-new-event').map(
+    (host) => host.closest<HTMLElement>('.grid-day-body') ?? (host.parentElement as HTMLElement),
+  );
+/** What a day's block of the new event reads, as the grid writes an event's: title, then time. */
+const label = (body: HTMLElement) => {
+  const block = newBlock(body);
+  if (!block) return null;
+  const text = (selector: string) =>
+    (block.querySelector(selector)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const time = text('.time-actual');
+  return time ? `${text('.event-title')}\n${time}` : text('.event-title');
+};
 
 function placeAt(
   element: Element,
@@ -159,22 +174,18 @@ const adds = (dialogs: PopoverRequest[]) =>
       dialogParams.times?.end,
     ]);
 
-/** Where a day's drawn piece sits, as its two custom properties say. */
+/** Where a day's block of the new event sits, as the grid places any block. */
 const piece = (body: HTMLElement) => [
-  body.style.getPropertyValue('--calendar-card-add-draft-top'),
-  body.style.getPropertyValue('--calendar-card-add-draft-height'),
+  newBlock(body)!.style.getPropertyValue('--calendar-card-grid-block-top'),
+  newBlock(body)!.style.getPropertyValue('--calendar-card-grid-block-height'),
 ];
 const pct = (minutes: number) => `${(minutes / 900) * 100}%`;
 
-/** The all-day band's drawn bar, as `[from column, to column, label]`, or null for none. */
+/** The new event's banner in the all-day band, as `[its columns, its title]`, or null. */
 const bar = (card: Card) => {
   const band = card.shadowRoot!.querySelector<HTMLElement>('.grid-allday-band')!;
-  if (!band.hasAttribute('data-add-draft')) return null;
-  return [
-    band.style.getPropertyValue('--calendar-card-add-draft-from'),
-    band.style.getPropertyValue('--calendar-card-add-draft-to'),
-    band.getAttribute('data-add-draft-label'),
-  ];
+  const banner = newBlock(band);
+  return banner ? [banner.style.gridColumn, banner.textContent!.trim()] : null;
 };
 
 /**
@@ -225,11 +236,11 @@ describe('drawing a new event in a grid', () => {
     const body = bodies(card)[1];
     expect(drawn(card)).toEqual([body]);
     expect(piece(body)).toEqual([pct(180), pct(60)]);
-    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n10:00 - 11:00');
+    expect(label(body)).toBe('New event\n10:00 - 11:00');
 
     pointer(plane(card, 1), 'pointermove', X(1), Y(12, 20));
     expect(piece(body)).toEqual([pct(180), pct(150)]);
-    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n10:00 - 12:30');
+    expect(label(body)).toBe('New event\n10:00 - 12:30');
 
     pointer(plane(card, 1), 'pointerup', X(1), Y(12, 20));
     await settle();
@@ -261,17 +272,16 @@ describe('drawing a new event in a grid', () => {
     pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
     hold();
     pointer(plane(card, 1), 'pointermove', X(1), Y(8, 40));
-    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe('New event\n8:30 - 10:15');
+    expect(label(bodies(card)[1])).toBe('New event\n8:30 - 10:15');
 
     // Across to the day after, past the band's end on the first day.
     pointer(plane(card, 1), 'pointermove', X(2), Y(8, 10));
     expect(drawn(card)).toEqual([bodies(card)[1], bodies(card)[2]]);
     expect(piece(bodies(card)[1])).toEqual([pct(180), pct(720)]);
     expect(piece(bodies(card)[2])).toEqual([pct(0), pct(75)]);
-    expect(bodies(card)[1].getAttribute('data-add-draft-label')).toBe(
-      'New event\nThu 10:00 - Fri 8:15',
-    );
-    expect(bodies(card)[2].hasAttribute('data-add-draft-label')).toBe(false);
+    // As the grid draws any event across days: its start on the first, its title on the next.
+    expect(label(bodies(card)[1])).toBe('New event\n10:00');
+    expect(label(bodies(card)[2])).toBe('New event');
 
     // Back across to the day before, through a whole day: the middle one drawn in full.
     pointer(plane(card, 1), 'pointermove', X(0), Y(21, 30));
@@ -364,8 +374,12 @@ describe('drawing a new event in a grid', () => {
     expect(adds(dialogs)).toEqual([]);
   });
 
-  it('adds no element to the grid while it draws, so its structure observers see nothing', async () => {
+  it("draws in an element of its own, which the grid's structure observers leave alone", async () => {
     const { card } = await mount(ADD);
+    const refits = vi.spyOn(
+      card as unknown as { _reconcileGridStructure(): void },
+      '_reconcileGridStructure',
+    );
     const changes: MutationRecord[] = [];
     const observer = new MutationObserver((records) => changes.push(...records));
     observer.observe(card.shadowRoot!, { childList: true, subtree: true });
@@ -374,14 +388,70 @@ describe('drawing a new event in a grid', () => {
     hold();
     pointer(plane(card, 0), 'pointermove', X(1), Y(12));
     pointer(plane(card, 0), 'pointermove', X(2), Y(9));
+    pointer(plane(card, 0), 'pointercancel', X(2), Y(9));
     await Promise.resolve();
-    expect(drawn(card)).toHaveLength(3);
+    expect(drawn(card)).toEqual([]);
     observer.disconnect();
 
-    const elements = changes.flatMap((record) =>
-      [...record.addedNodes, ...record.removedNodes].filter((node) => node instanceof Element),
+    // Whatever came and went in the grid was a host of the new event, three days of it.
+    const elements = changes
+      .filter(
+        (record) => record.target instanceof Element && !record.target.closest('.grid-new-event'),
+      )
+      .flatMap((record) =>
+        [...record.addedNodes, ...record.removedNodes].filter((node) => node instanceof Element),
+      );
+    expect(elements.length).toBeGreaterThanOrEqual(6);
+    expect(elements.every((node) => (node as Element).classList.contains('grid-new-event'))).toBe(
+      true,
     );
-    expect(elements).toEqual([]);
+    expect(refits).not.toHaveBeenCalled();
+  });
+
+  it('has its block fitted as the grid fits any block, and forgotten once it goes', async () => {
+    const { card } = await mount(ADD);
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    await vi.advanceTimersByTimeAsync(50);
+    const block = newBlock(bodies(card)[1])!;
+    expect(block.dataset.gridTitleFit).toBeDefined();
+
+    const observed = () => [
+      ...(
+        card as unknown as { _gridDisclosureTargets: Map<Element, Element> }
+      )._gridDisclosureTargets.values(),
+    ];
+    expect(observed()).toContain(block);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(observed()).not.toContain(block);
+  });
+
+  it('is drawn raised where it lies over an event, as a block over another is', async () => {
+    const { card } = await mount(ADD);
+    // The dentist is at 14:00 to 15:00 on the first day. From 15:00, touching it only.
+    pointer(plane(card, 0), 'pointerdown', X(0), Y(15), 'mouse');
+    pointer(plane(card, 0), 'pointermove', X(0), Y(16), 'mouse');
+    const block = () => newBlock(bodies(card)[0])!;
+    expect(label(bodies(card)[0])).toBe('New event\n15:00 - 16:15');
+    expect(block().classList.contains('grid-event-raised')).toBe(false);
+    pointer(plane(card, 0), 'pointermove', X(0), Y(14, 20), 'mouse');
+    expect(block().classList.contains('grid-event-raised')).toBe(true);
+    expect(bodies(card)[0].querySelector('.grid-new-event > .grid-event-backdrop')).not.toBeNull();
+  });
+
+  it("is drawn with its calendar's own options, as that calendar's events are", async () => {
+    const { card } = await mount({
+      ...ADD,
+      entities: [{ entity: ANNA, show_time: false, color: 'rgb(1, 2, 3)' }],
+    });
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    expect(label(bodies(card)[1])).toBe('New event');
+    // Its title in the calendar's own title color, read from the style the grid writes.
+    const title = newBlock(bodies(card)[1])!.querySelector('.event-title')!;
+    const dentist = bodies(card)[0].querySelector('.grid-day-plane > .grid-event .event-title')!;
+    expect(dentist.getAttribute('style')).toContain('rgb(1, 2, 3)');
+    expect(title.getAttribute('style')).toBe(dentist.getAttribute('style'));
   });
 
   it("refuses a finger's scroll only while it draws", async () => {
@@ -426,17 +496,27 @@ describe('drawing a new event in a grid', () => {
 
     pointer(band, 'pointerdown', X(0), 60);
     hold();
-    // A bar in the band's columns, the first of which is the hours' axis.
-    expect(bar(card)).toEqual(['2', '3', 'New event']);
+    // A banner in the band's columns, the first of which is the hours' axis, in no row of its
+    // own; for today, and not shown as over, an all-day event's end being the day after.
+    expect(bar(card)).toEqual(['2 / span 1', 'New event']);
+    expect(newBlock(band)!.style.gridRow).toBe('');
+    expect(newBlock(band)!.classList.contains('past-event')).toBe(false);
+    // Filled as the banner of its calendar beside it is. Read from the style attribute as first
+    // drawn: happy-dom parses no color-mix(), and drops one Lit assigns on a later render.
+    const fill = (banner: Element) =>
+      /background-color:\s*([^;]+)/.exec(banner.getAttribute('style')!)?.[1];
+    const sportsDay = all(card, '.grid-allday-band > .grid-banner')[0];
+    expect(fill(sportsDay)).toContain('color-mix(');
+    expect(fill(newBlock(band)!)).toBe(fill(sportsDay));
     pointer(band, 'pointermove', X(2), 60);
-    expect(bar(card)).toEqual(['2', '5', 'New event']);
+    expect(bar(card)).toEqual(['2 / span 3', 'New event']);
     pointer(band, 'pointerup', X(2), 60);
     await settle();
 
     expect(adds(dialogs)).toEqual([[true, JUNE(17), JUNE(19)]]);
     // It stays while the popover adds it, follows it, and goes once it closes without saving.
-    expect(bar(card)).toEqual(['2', '5', 'New event']);
-    expect(all(card, '[data-add-draft]')).toEqual([band]);
+    expect(bar(card)).toEqual(['2 / span 3', 'New event']);
+    expect(drawn(card)).toEqual([band]);
     expect(headers.filter((header) => header.hasAttribute('data-add-pressed'))).toEqual([]);
     dialogs[0].dialogParams.changed?.({
       calendarId: ANNA,
@@ -445,10 +525,7 @@ describe('drawing a new event in a grid', () => {
       description: '',
       times: { allDay: true, start: JUNE(18), end: JUNE(19) },
     } as never);
-    expect(bar(card)).toEqual(['3', '5', 'Sports camp']);
-    expect((band as HTMLElement).style.getPropertyValue('--calendar-card-add-draft-color')).toBe(
-      'var(--primary-color, #03a9f4)',
-    );
+    expect(bar(card)).toEqual(['3 / span 2', 'Sports camp']);
     dialogs[0].dialogParams.closed?.();
     expect(bar(card)).toBeNull();
   });
@@ -461,7 +538,7 @@ describe('drawing a new event in a grid', () => {
     await settle();
 
     expect(adds(dialogs)).toEqual([[true, JUNE(18), JUNE(18)]]);
-    expect(bar(card)).toEqual(['3', '4', 'New event']);
+    expect(bar(card)).toEqual(['3 / span 1', 'New event']);
     dialogs[0].dialogParams.closed?.();
     expect(bar(card)).toBeNull();
   });
@@ -514,7 +591,7 @@ describe('the new event while the popover adds it', () => {
       }) as never,
     );
     expect(drawn(card)).toEqual([body]);
-    expect(body.getAttribute('data-add-draft-label')).toBe('Swim practice\n13:00 - 14:30');
+    expect(label(body)).toBe('Swim practice\n13:00 - 14:30');
     expect(piece(body)).toEqual([pct(360), pct(90)]);
   });
 
@@ -528,7 +605,8 @@ describe('the new event while the popover adds it', () => {
     });
     await drawAndRelease(card);
     const body = bodies(card)[1];
-    const color = () => body.style.getPropertyValue('--calendar-card-add-draft-color');
+    const color = () =>
+      newBlock(body)!.style.getPropertyValue('--calendar-card-event-accent-bar-color');
     expect(color()).toContain('204, 51, 102');
 
     dialogs[0].dialogParams.changed?.(draftOf(dialogs, { calendarId: BEN }) as never);
@@ -542,15 +620,37 @@ describe('the new event while the popover adds it', () => {
     await settle();
     expect(adds(dialogs)).toHaveLength(1);
     const body = bodies(card)[2];
-    expect(body.getAttribute('data-add-draft-label')).toBe('New event\n9:15 - 10:15');
+    expect(label(body)).toBe('New event\n9:15 - 10:15');
 
     card.hass = { ...card.hass, locale: { language: 'de', time_format: '12' } } as Types.Hass;
     await card.updateComplete;
     expect(bodies(card)[2]).toBe(body);
     expect(drawn(card)).toEqual([body]);
-    const label = body.getAttribute('data-add-draft-label');
-    expect(label).toMatch(/^Neuer Termin\n/);
-    expect(label).toContain('9:15 AM');
+    const text = label(body);
+    expect(text).toMatch(/^Neuer Termin\n/);
+    expect(text).toContain('9:15 AM');
+  });
+
+  it('refits nothing when the times leave the hours shown and come back', async () => {
+    const { card, dialogs } = await mount(ADD);
+    const refits = vi.spyOn(
+      card as unknown as { _reconcileGridStructure(): void },
+      '_reconcileGridStructure',
+    );
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    const times = (start: Date, end: Date) =>
+      dialogs[0].dialogParams.changed?.(
+        draftOf(dialogs, { times: { allDay: false, start, end } }) as never,
+      );
+
+    times(AT(18, 23), AT(18, 23, 30));
+    await settle();
+    expect(newBlock(body)).toBeNull();
+    times(AT(18, 10), AT(18, 11));
+    await settle();
+    expect(label(body)).toBe('New event\n10:00 - 11:00');
+    expect(refits).not.toHaveBeenCalled();
   });
 
   it('goes as soon as the popover closes without saving', async () => {
@@ -628,7 +728,7 @@ describe('the new event while the popover adds it', () => {
     expect(drawn(card)).toEqual([bodies(card)[2]]);
     dialogs[2].dialogParams.closed?.();
     expect(drawn(card)).toEqual([bodies(card)[2]]);
-    expect(bodies(card)[2].getAttribute('data-add-draft-label')).toBe('New event\n11:00 - 12:00');
+    expect(label(bodies(card)[2])).toBe('New event\n11:00 - 12:00');
   });
 
   it("gives way to an event the toolbar's button adds, which shows no block", async () => {
@@ -656,7 +756,7 @@ describe('the new event while the popover adds it', () => {
 
     expect(adds(dialogs)).toEqual([[false, AT(19, 9, 15), AT(19, 10, 15)]]);
     expect(drawn(card)).toEqual([bodies(card)[2]]);
-    expect(bodies(card)[2].getAttribute('data-add-draft-label')).toBe('New event\n9:15 - 10:15');
+    expect(label(bodies(card)[2])).toBe('New event\n9:15 - 10:15');
     dialogs[0].dialogParams.closed?.();
     expect(drawn(card)).toEqual([]);
   });

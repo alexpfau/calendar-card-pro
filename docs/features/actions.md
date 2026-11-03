@@ -520,20 +520,20 @@ with its start and end, as in a calendar app. There is no option of its own.
 
 The block starts as what a tap there adds, an hour from the quarter hour under your finger.
 Drag down and its end follows you; drag up and its start does; drag sideways into another day
-and it runs across days, in quarter hours either way. It is drawn in the color of the calendar
-the popover will offer, labeled New event over its times. Let go, and the popover opens beside it
+and it runs across days, in quarter hours either way. It is drawn as the event will be once
+saved, titled New event, in the calendar the popover will offer: the same colors, accent bar,
+text and time as that calendar's events, set by the same options. Let go, and the popover opens beside it
 on a new event with those times, ready for a title. Press Escape, or touch the screen with a
 second finger, to throw the block away; it also goes if the card turns to other days while you
 draw.
 
 The block stays while the popover is open, as a new event does in a calendar app: it takes the
-title as you type it, moves when you change the times, and turns the color of the calendar you
-pick. Cancel or Escape takes it away. Once the event is saved, it stays until the card shows
+title as you type it, moves when you change the times, and takes on the calendar you pick. Cancel or Escape takes it away. Once the event is saved, it stays until the card shows
 the real one, a moment later. A tap in the grid shows the hour it adds the same way.
 
 In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
-over several days. It shows as a bar across those days, labeled New event, beside the all-day
-events or in a row of its own below them, and stays while the popover is open as a timed one
+over several days. It shows as a banner across those days, as the event's will be, titled New
+event, beside the all-day events or in a row of its own below them, and stays while the popover is open as a timed one
 does. The band is there whenever the days shown hold an all-day event.
 
 A hold on an empty spot of the grid draws even where the card has a `hold_action`; a hold
