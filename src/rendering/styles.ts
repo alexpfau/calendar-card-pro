@@ -3752,9 +3752,8 @@ export const cardStyles = css`
      sake as with the wash above: its piece of the span, tinted in the color of the calendar
      the popover will offer, with an accent bar and, on its first day, its title, or New event
      until one is typed, over its times, one to a line. It stays while the popover adds it,
-     following it. Above the
-     blocks and the day rules, at the now dot's rung, and see-through, so the events it is
-     drawn across stay readable while it is placed. */
+     following it. Above the blocks and the day rules, at the now dot's rung, and see-through,
+     so the events it is drawn across stay readable while it is placed. */
   .grid-day-body[data-add-draft]::after {
     content: attr(data-add-draft-label);
     position: absolute;
@@ -3779,6 +3778,34 @@ export const cardStyles = css`
     overflow: hidden;
     pointer-events: none;
     z-index: 2;
+  }
+
+  /* An all-day one is the all-day band's ::after, a bar across the days it covers with its
+     title, or New event, shaped as a banner and lettered as the timed block. The band is a
+     grid on the day columns, so the two custom properties place it there, and with no row of
+     its own it takes the first row free across those days, beside the banners or in one more
+     row below them. */
+  .grid-allday-band[data-add-draft]::after {
+    content: attr(data-add-draft-label);
+    grid-column: var(--calendar-card-add-draft-from) / var(--calendar-card-add-draft-to);
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background-color: color-mix(
+      in srgb,
+      var(--calendar-card-add-draft-color, var(--primary-color)) 28%,
+      transparent
+    );
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    color: var(--primary-text-color);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
   }
 
   /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new

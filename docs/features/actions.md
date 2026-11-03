@@ -532,7 +532,9 @@ pick. Cancel or Escape takes it away. Once the event is saved, it stays until th
 the real one, a moment later. A tap in the grid shows the hour it adds the same way.
 
 In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
-over several days. The band is there whenever the days shown hold an all-day event.
+over several days. It shows as a bar across those days, labeled New event, beside the all-day
+events or in a row of its own below them, and stays while the popover is open as a timed one
+does. The band is there whenever the days shown hold an all-day event.
 
 A hold on an empty spot of the grid draws even where the card has a `hold_action`; a hold
 anywhere else, on an event included, still runs it. Nothing is drawn while the card is edited.

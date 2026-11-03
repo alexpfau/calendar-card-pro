@@ -1348,25 +1348,28 @@ it pan, a vertical pen drag may scroll and cancel the drawing (unverified on suc
 Mouse drags are the card's only on a grid's empty slot, where they draw a new event; a mouse
 never swipes.
 
-**What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on
-empty areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the
-press lasts, through an attribute and two custom properties on the day's element
-(`data-add-pressed`), since most of a day's empty space is no element of its own and an element
-added for the wash would set off the grid's structure observers. A new event being drawn is
-painted the same way: each day's time area it covers carries `data-add-draft` and its piece as
-two custom properties, the first its title, or "New event", over its times as
-`data-add-draft-label`, and the stylesheet draws the block as the area's `::after`; an all-day one
-washes the days' headers. The block outlives the press while the popover adds the event
-(`_newShown`): the popover reports each change to its draft (`changed`) and its closing
-(`closed`), and the block follows the times, title and calendar, goes on a close that saved
-nothing, and after a save stays until the card's events arrive again or `TIMING.NEW_EVENT_HOLD`
-passes. Every render paints it again (`_syncNewShown`): the grid keeps its day elements across
-renders, but a render can change what the label reads, such as its language or time format, and
-a render that shows other days throws the block away.
+**What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on empty
+areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the press
+lasts, through an attribute and two custom properties on the day's element (`data-add-pressed`),
+since most of a day's empty space is no element of its own and an element added for the wash would
+set off the grid's structure observers. A new event being drawn is painted the same way: each day's
+time area it covers carries `data-add-draft` and its piece as two custom properties, the first its
+title, or "New event", over its times as `data-add-draft-label`, and the stylesheet draws the block
+as the area's `::after`. An all-day one is the all-day band's `::after`, given the band columns it
+spans as two custom properties and left to take the first row free across them. The block outlives
+the press while the popover adds the event (`_newShown`): the popover reports each change to its
+draft (`changed`) and its closing (`closed`), and the block follows the times, title and calendar,
+goes on a close that saved nothing, and after a save stays until the refresh that save started has
+put the card's events on it (`_newArrived`), or `TIMING.NEW_EVENT_HOLD` passes. Events arriving any
+other way do not count, since another refresh may have started before the save. Every render paints
+it again (`_syncNewShown`): the grid keeps its day elements across renders, but a render can change
+what the label reads, such as its language or time format, and a render that shows other days throws
+the block away.
 
 A tap's own trailing mouse events and click land where the finger lifted, on the popover once it
-has opened there, and would start editing a field. The card refuses the `touchend` of a touch
-that opened the popover (`_swallowTouchEnd`), which keeps a browser from deriving them, and the
+has opened there, and would start editing a field. The card refuses the `touchend` of a finger
+whose pointer-up opened the popover (`_swallowTouchEnd`), which keeps a browser from deriving
+them, but not after a click opened it, whose touch has ended already, nor after a pen. And the
 popover itself swallows mouse events and clicks that arrive before any pointer-down of its own,
 for a moment after a touch or pen opened it (`_ghostGuard`). On a card with any hold action,
 a swipe has to start moving before the hold threshold. The hold timer and its indicator arm for

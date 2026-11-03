@@ -642,7 +642,7 @@ class CalendarCardPro extends LitElement {
     inPopover: boolean;
     /** Whether the popover saved it, so it stays until the card's events bring the real one. */
     saved: boolean;
-    /** Whether the card's events have arrived again since it was saved. */
+    /** Whether the refresh after its save has put the card's events on it (`_newArrived`). */
     arrived: boolean;
   } | null = null;
   /** The day elements the new event is drawn on, so it can be taken off however it goes. */
@@ -654,6 +654,8 @@ class CalendarCardPro extends LitElement {
    * the mouse events and click a browser derives from it off the popover (`_swallowTouchEnd`).
    */
   private _swallowTouchEndUntil = 0;
+  /** Whether a finger is lifting, while its pointer-up runs what the press does. */
+  private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
 
@@ -736,13 +738,17 @@ class CalendarCardPro extends LitElement {
    * home while this card is paged away, or a card on another view (`expireStoredCalendars`).
    *
    * @param changed - The calendars the change may have touched
+   * @param committed - Called once this card's refresh has put the events on it
    */
-  private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
+  private _refreshAfterWrite(
+    changed: CalendarChanges.ChangedCalendars,
+    committed?: () => void,
+  ): undefined {
     this._markHomeStaleIfAway();
     const hass = this.safeHass;
     EventUtils.expireStoredCalendars((ids) => CalendarChanges.touchesCalendars(changed, ids, hass));
     const writeGeneration = EventUtils.advanceWriteGeneration();
-    void this.refreshEvents(writeGeneration);
+    void this.refreshEvents(writeGeneration).then(() => committed?.());
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
   }
 
@@ -916,9 +922,9 @@ class CalendarCardPro extends LitElement {
         window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ??
         false,
     };
-    // A finger that opened it lifts onto the popover; see `_swallowTouchEnd`.
-    const pressedWith = params.anchor?.pointerType;
-    if (pressedWith === 'touch' || pressedWith === 'pen') {
+    // A finger lifting as it opens it lifts onto the popover; see `_swallowTouchEnd`. Not a
+    // click, whose touch has ended already, nor a pen, which sends no touch events.
+    if (this._liftingTouch) {
       this._swallowTouchEndUntil = Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW;
     }
     const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
@@ -2958,7 +2964,7 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
-    this._syncNewShown(changedProps);
+    this._syncNewShown();
 
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
@@ -3761,22 +3767,12 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Keeps the new event's block in step with a render: painted again, so its label follows the
-   * language and the time format; taken away once the grid shows other days (and a press drawing
-   * it thrown away); and, once saved and closed, taken away when the card's events bring the real
-   * event.
-   *
-   * @param changedProps - What changed in this render
+   * language and the time format, and taken away once the grid shows other days (and a press
+   * drawing it thrown away).
    */
-  private _syncNewShown(changedProps: PropertyValues): void {
+  private _syncNewShown(): void {
     const shown = this._newShown;
     if (!shown) return;
-    if (shown.saved && changedProps.has('events')) {
-      shown.arrived = true;
-      if (!shown.inPopover) {
-        this._dropNew();
-        return;
-      }
-    }
     if (this._draftContext() !== shown.context) {
       if (this._draft) this._draftStillShown();
       else this._dropNew();
@@ -3903,29 +3899,43 @@ class CalendarCardPro extends LitElement {
    * Draws the new event onto the grid's own day elements, through attributes and custom
    * properties alone: each day's time area it covers carries `data-add-draft` and where its
    * piece sits, the first one its title, or "New event", and its times as a label, and an
-   * all-day one washes each day's header. No element is added, so the grid's structure
-   * observers see nothing (see `changesGridStructure`), and every render paints it again.
+   * all-day one marks the all-day band with the columns it spans and its title. No element is
+   * added, so the grid's structure observers see nothing (see `changesGridStructure`), and
+   * every render paints it again.
    */
   private _paintNew(): void {
     this._clearNewDrawing();
     const shown = this._newShown;
     if (!shown) return;
     const drawn: Element[] = [];
-    const { times } = shown;
+    const { times, color } = shown;
+    const title = shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent;
     if (times.allDay) {
-      for (const header of this.renderRoot.querySelectorAll('.grid-day-header')) {
+      // A bar in the all-day band across the days it covers, in the band's own columns: the
+      // first is the hours' axis, so a day's is its index plus two.
+      const band = this.renderRoot.querySelector<HTMLElement>('.grid-allday-band');
+      const covered: number[] = [];
+      for (const [index, header] of this.renderRoot
+        .querySelectorAll('.grid-day-header')
+        .entries()) {
         const slot = Activation.daySlotOn(header);
         if (slot?.kind !== 'day') continue;
         const day = GridDraft.dayOf(slot.timestamp);
-        if (day < times.start.getTime() || day > times.end.getTime()) continue;
-        header.setAttribute('data-add-pressed', '');
-        drawn.push(header);
+        if (day >= times.start.getTime() && day <= times.end.getTime()) covered.push(index);
+      }
+      if (band && covered.length) {
+        band.setAttribute('data-add-draft', '');
+        band.setAttribute('data-add-draft-label', title);
+        band.style.setProperty('--calendar-card-add-draft-from', String(covered[0] + 2));
+        band.style.setProperty(
+          '--calendar-card-add-draft-to',
+          String(covered[covered.length - 1] + 3),
+        );
+        if (color) band.style.setProperty('--calendar-card-add-draft-color', color);
+        drawn.push(band);
       }
     } else {
-      const color = shown.color;
-      let label: string | undefined =
-        `${shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent}\n` +
-        this._draftLabel(times);
+      let label: string | undefined = `${title}\n${this._draftLabel(times)}`;
       for (const body of this.renderRoot.querySelectorAll<HTMLElement>('.grid-day-body')) {
         const slot = Activation.daySlotOn(body);
         if (slot?.kind !== 'time') continue;
@@ -3952,11 +3962,10 @@ class CalendarCardPro extends LitElement {
     for (const element of this._newDrawn) {
       element.removeAttribute('data-add-draft');
       element.removeAttribute('data-add-draft-label');
-      element.removeAttribute('data-add-pressed');
       if (element instanceof HTMLElement) {
-        element.style.removeProperty('--calendar-card-add-draft-top');
-        element.style.removeProperty('--calendar-card-add-draft-height');
-        element.style.removeProperty('--calendar-card-add-draft-color');
+        for (const name of ['top', 'height', 'from', 'to', 'color']) {
+          element.style.removeProperty(`--calendar-card-add-draft-${name}`);
+        }
       }
     }
     this._newDrawn = [];
@@ -4015,6 +4024,19 @@ class CalendarCardPro extends LitElement {
       this._newTimer = undefined;
       if (this._newShown === shown) this._dropNew();
     }, Constants.TIMING.NEW_EVENT_HOLD);
+  }
+
+  /**
+   * The refresh after the new event was saved has put the card's events on it, the real event
+   * among them: its block goes, or goes as the popover closes if it is still open. Only that
+   * refresh counts, since any other may have started before the save and not carry the event.
+   *
+   * @param shown - The block the saved event was added from
+   */
+  private _newArrived(shown: NonNullable<CalendarCardPro['_newShown']>): void {
+    if (this._newShown !== shown) return;
+    shown.arrived = true;
+    if (!shown.inPopover) this._dropNew();
   }
 
   /**
@@ -4285,6 +4307,7 @@ class CalendarCardPro extends LitElement {
   private _handlePointerUp(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) return;
+    this._liftingTouch = ev.pointerType === 'touch';
 
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
@@ -4423,6 +4446,7 @@ class CalendarCardPro extends LitElement {
     this._pointerSwipeable = false;
     this._pointerOnLink = false;
     this._pointerDraftFrom = null;
+    this._liftingTouch = false;
     this._endDraft();
     this._washDay(undefined);
     this._springBackSwipe();
@@ -5753,9 +5777,11 @@ class CalendarCardPro extends LitElement {
       // The popover names the calendar it wrote to; one that does not is any that accepts
       // new events.
       updated: (...ids) => {
-        if (follows && this._newShown === shown && shown) shown.saved = true;
+        const saved = follows && shown && this._newShown === shown ? shown : null;
+        if (saved) saved.saved = true;
         return this._refreshAfterWrite(
           ids.length ? { ids } : { feature: Writes.CREATE_EVENT_FEATURE },
+          saved ? () => this._newArrived(saved) : undefined,
         );
       },
       changed: follows

@@ -166,6 +166,41 @@ const piece = (body: HTMLElement) => [
 ];
 const pct = (minutes: number) => `${(minutes / 900) * 100}%`;
 
+/** The all-day band's drawn bar, as `[from column, to column, label]`, or null for none. */
+const bar = (card: Card) => {
+  const band = card.shadowRoot!.querySelector<HTMLElement>('.grid-allday-band')!;
+  if (!band.hasAttribute('data-add-draft')) return null;
+  return [
+    band.style.getPropertyValue('--calendar-card-add-draft-from'),
+    band.style.getPropertyValue('--calendar-card-add-draft-to'),
+    band.getAttribute('data-add-draft-label'),
+  ];
+};
+
+/**
+ * Holds every later fetch of the card's events until the test answers it, as a refresh after
+ * a save that has not come back yet. Answered at the latest as the test ends, so no request
+ * is left waiting into the next one.
+ *
+ * @returns Answers the fetches under way with the events
+ */
+function holdFetches(card: Card): () => Promise<void> {
+  const waiting: Array<(events: unknown) => void> = [];
+  vi.mocked(card.hass.callApi).mockImplementation(
+    () => new Promise((resolve) => waiting.push(resolve)),
+  );
+  const release = () => {
+    for (const resolve of waiting.splice(0)) resolve(EVENTS);
+  };
+  onTestFinished(release);
+  return async () => {
+    await settle();
+    expect(waiting.length).toBeGreaterThan(0);
+    release();
+    await settle();
+  };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FROZEN_NOW);
@@ -391,17 +426,44 @@ describe('drawing a new event in a grid', () => {
 
     pointer(band, 'pointerdown', X(0), 60);
     hold();
-    expect(all(card, '[data-add-pressed]')).toEqual([headers[0]]);
+    // A bar in the band's columns, the first of which is the hours' axis.
+    expect(bar(card)).toEqual(['2', '3', 'New event']);
     pointer(band, 'pointermove', X(2), 60);
-    expect(all(card, '[data-add-pressed]')).toEqual(headers);
+    expect(bar(card)).toEqual(['2', '5', 'New event']);
     pointer(band, 'pointerup', X(2), 60);
     await settle();
 
     expect(adds(dialogs)).toEqual([[true, JUNE(17), JUNE(19)]]);
-    // Still washed while the popover adds it; gone once it closes without saving.
-    expect(all(card, '[data-add-pressed]')).toEqual(headers);
+    // It stays while the popover adds it, follows it, and goes once it closes without saving.
+    expect(bar(card)).toEqual(['2', '5', 'New event']);
+    expect(all(card, '[data-add-draft]')).toEqual([band]);
+    expect(headers.filter((header) => header.hasAttribute('data-add-pressed'))).toEqual([]);
+    dialogs[0].dialogParams.changed?.({
+      calendarId: ANNA,
+      summary: 'Sports camp',
+      location: '',
+      description: '',
+      times: { allDay: true, start: JUNE(18), end: JUNE(19) },
+    } as never);
+    expect(bar(card)).toEqual(['3', '5', 'Sports camp']);
+    expect((band as HTMLElement).style.getPropertyValue('--calendar-card-add-draft-color')).toBe(
+      'var(--primary-color, #03a9f4)',
+    );
     dialogs[0].dialogParams.closed?.();
-    expect(all(card, '[data-add-pressed]')).toEqual([]);
+    expect(bar(card)).toBeNull();
+  });
+
+  it('shows the all-day event a tap in the band adds while the popover is open', async () => {
+    const { card, dialogs } = await mount(ADD);
+    const band = card.shadowRoot!.querySelector('.grid-allday-band')!;
+    pointer(band, 'pointerdown', X(1), 60);
+    pointer(band, 'pointerup', X(1), 60);
+    await settle();
+
+    expect(adds(dialogs)).toEqual([[true, JUNE(18), JUNE(18)]]);
+    expect(bar(card)).toEqual(['3', '4', 'New event']);
+    dialogs[0].dialogParams.closed?.();
+    expect(bar(card)).toBeNull();
   });
 
   it('draws nothing while the card is edited, nor where a tap on a day does not add', async () => {
@@ -499,22 +561,29 @@ describe('the new event while the popover adds it', () => {
     expect(drawn(card)).toEqual([]);
   });
 
-  it('stays once saved until the card brings the real event, or a few seconds at most', async () => {
+  it('stays once saved until the refresh after the save brings the real event', async () => {
     const { card, dialogs } = await mount(ADD);
+    const answer = holdFetches(card);
     await drawAndRelease(card);
     dialogs[0].dialogParams.updated(ANNA);
     dialogs[0].dialogParams.closed?.();
     expect(drawn(card)).toHaveLength(1);
 
-    // The card's events arrive again with the event saved.
+    // Events that arrive another way may have left before the save, so they do not count.
     card.events = [...card.events];
     await card.updateComplete;
-    expect(drawn(card)).toEqual([]);
+    expect(drawn(card)).toHaveLength(1);
 
-    // Without them, it goes on its own.
+    await answer();
+    expect(drawn(card)).toEqual([]);
+  });
+
+  it('goes on its own a few seconds after the save if that refresh is slow', async () => {
+    const { card, dialogs } = await mount(ADD);
+    holdFetches(card);
     await drawAndRelease(card);
-    dialogs[1].dialogParams.updated(ANNA);
-    dialogs[1].dialogParams.closed?.();
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
     vi.advanceTimersByTime(Constants.TIMING.NEW_EVENT_HOLD - 1);
     expect(drawn(card)).toHaveLength(1);
     vi.advanceTimersByTime(1);
@@ -523,10 +592,10 @@ describe('the new event while the popover adds it', () => {
 
   it('goes at once on closing when the real event arrived while the popover was still open', async () => {
     const { card, dialogs } = await mount(ADD);
+    const answer = holdFetches(card);
     await drawAndRelease(card);
     dialogs[0].dialogParams.updated(ANNA);
-    card.events = [...card.events];
-    await card.updateComplete;
+    await answer();
     // Still open: it stays while the popover shows it.
     expect(drawn(card)).toHaveLength(1);
     dialogs[0].dialogParams.closed?.();
@@ -565,11 +634,7 @@ describe('the new event while the popover adds it', () => {
   it("gives way to an event the toolbar's button adds, which shows no block", async () => {
     const { card, dialogs } = await mount({ ...ADD, toolbar: { show: true } });
     // The refetch after the save has not answered yet, so the block is still waiting on it.
-    let answer: (events: unknown) => void = () => undefined;
-    vi.mocked(card.hass.callApi).mockImplementation(
-      () => new Promise((resolve) => (answer = resolve)),
-    );
-    onTestFinished(() => answer(EVENTS));
+    holdFetches(card);
     await drawAndRelease(card);
     dialogs[0].dialogParams.updated(ANNA);
     dialogs[0].dialogParams.closed?.();
@@ -612,5 +677,29 @@ describe('the new event while the popover adds it', () => {
     // Once: the next touch is the page's again.
     expect(touchend()).toBe(false);
     expect(haCard.isConnected).toBe(true);
+
+    // A pen sends no touch events, so its lifting leaves the next finger's alone.
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(9), 'pen');
+    pointer(plane(card, 1), 'pointerup', X(1), Y(9), 'pen');
+    expect(touchend()).toBe(false);
+  });
+
+  it("leaves touchend alone when a finger's click opens the popover, its touch ended", async () => {
+    const { card, dialogs } = await mount({ ...ADD, toolbar: { show: true } });
+    const button = card.shadowRoot!.querySelector('.add-event-button')!;
+    placeAt(button, { left: 10, top: 10, width: 32, height: 32 });
+    // A finger's press that ran nothing, a swipe, leaves nothing armed behind it either.
+    pointer(plane(card, 0), 'pointerdown', X(0), Y(9));
+    pointer(plane(card, 0), 'pointermove', X(0) + 60, Y(9));
+    pointer(plane(card, 0), 'pointerup', X(0) + 60, Y(9));
+    expect(dialogs).toEqual([]);
+    const click = new MouseEvent('click', { bubbles: true, composed: true, detail: 1 });
+    button.dispatchEvent(Object.assign(click, { pointerType: 'touch' }));
+    await settle();
+    expect(dialogs[0].dialogParams.anchor?.pointerType).toBe('touch');
+
+    const ev = new Event('touchend', { bubbles: true, composed: true, cancelable: true });
+    plane(card, 0).dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
   });
 });
