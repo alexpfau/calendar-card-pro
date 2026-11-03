@@ -937,12 +937,170 @@ describe('Cancel', () => {
     expect(writes()).toEqual([]);
     expect(updated).not.toHaveBeenCalled();
     expect(closed).toHaveBeenCalledTimes(1);
-    expect(root.querySelector('dialog')?.open).not.toBe(true);
+    await vi.waitFor(() => expect(root.querySelector('dialog')?.open).not.toBe(true));
   });
 
   it('is never offered on an event that may not be changed', async () => {
     const { root } = await open({ canEdit: false, canDelete: false });
     expect(root.querySelector('.foot')).toBeNull();
+  });
+});
+
+describe('opening and closing', () => {
+  // As measured from a screen recording of Calendar on macOS.
+  const css = () =>
+    (customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }).styles
+      .cssText;
+  const played = () => {
+    const animate = vi.spyOn(HTMLElement.prototype, 'animate');
+    onTestFinished(() => animate.mockRestore());
+    return () =>
+      animate.mock.calls.map(([keyframes, options]) => ({
+        keyframes,
+        options: options as KeyframeAnimationOptions,
+      }));
+  };
+
+  it('grows out of its arrow from a tenth of its size, and fades in a little faster', () => {
+    const rule = (selector: string) =>
+      new RegExp(`${selector.replace(/[[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
+    for (const part of ['.panel', '.arrow']) {
+      const animation = rule(`dialog.popover[open][data-placed] > ${part}`);
+      expect(animation).toContain('230ms cubic-bezier(0.33, 1, 0.68, 1)');
+      expect(animation).toContain('pop-fade 180ms cubic-bezier(0, 0, 0.58, 1)');
+    }
+    expect(css()).toMatch(/@keyframes pop-grow\s*\{\s*from\s*\{\s*transform:\s*scale\(0\.1\)/);
+    expect(css()).toMatch(
+      /@keyframes arrow-grow\s*\{\s*from\s*\{\s*transform:\s*rotate\(45deg\) scale\(0\.1\)/,
+    );
+    // None of it where the system asks for less motion, the sheet included.
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\}\s*\}/.exec(
+      css(),
+    )?.[1];
+    for (const selector of [
+      'dialog.popover[open][data-placed] > .panel',
+      'dialog.popover[open][data-placed] > .arrow',
+      'dialog.sheet[open][data-placed] > .panel',
+    ]) {
+      expect(reduced).toContain(selector);
+    }
+  });
+
+  it('starts growing only once it is placed, so none of it plays unseen', async () => {
+    const { root } = await open({});
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.hasAttribute('data-placed')).toBe(true);
+    expect(dialog.style.visibility).not.toBe('hidden');
+  });
+
+  it('tells Home Assistant at once, then shrinks toward its arrow and fades before it closes', async () => {
+    const calls = played();
+    const { el, root, closed } = await open({ anchor: { x: 150, y: 300 } });
+    expect(root.querySelector('.arrow')).not.toBeNull();
+    const dialog = root.querySelector('dialog')!;
+    expect(el.closeDialog()).toBe(true);
+    expect(closed).toHaveBeenCalledTimes(1);
+    // Still drawn while it plays out, and nothing in it can be pressed.
+    await el.updateComplete;
+    expect(dialog.open).toBe(true);
+    expect(root.querySelector('.panel')!.hasAttribute('inert')).toBe(true);
+    expect(calls()).toEqual([
+      {
+        keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(0.15)' }],
+        options: { duration: 180, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', fill: 'forwards' },
+      },
+      {
+        keyframes: [{ opacity: 1 }, { opacity: 0 }],
+        options: { duration: 180, easing: 'ease', fill: 'forwards' },
+      },
+      {
+        keyframes: [
+          { transform: 'rotate(45deg) scale(1)' },
+          { transform: 'rotate(45deg) scale(0.15)' },
+        ],
+        options: { duration: 180, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', fill: 'forwards' },
+      },
+      {
+        keyframes: [{ opacity: 1 }, { opacity: 0 }],
+        options: { duration: 180, easing: 'ease', fill: 'forwards' },
+      },
+    ]);
+    // A second request while it plays out is already answered.
+    expect(el.closeDialog()).toBe(true);
+    expect(closed).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(dialog.open).toBe(false));
+    expect(root.querySelector('.panel')).toBeNull();
+  });
+
+  it('closes at once where the system asks for less motion', async () => {
+    const calls = played();
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          ({ matches: query.includes('prefers-reduced-motion: reduce') }) as MediaQueryList,
+      );
+    onTestFinished(() => media.mockRestore());
+    const { el, root, closed } = await open({});
+    el.closeDialog();
+    expect(closed).toHaveBeenCalledTimes(1);
+    expect(root.querySelector('dialog')!.open).toBe(false);
+    expect(calls()).toEqual([]);
+  });
+
+  it('sinks away as a sheet on a narrow screen', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const calls = played();
+    const { el, root } = await open({});
+    expect(root.querySelector('dialog')!.classList.contains('sheet')).toBe(true);
+    el.closeDialog();
+    expect(calls()).toEqual([
+      {
+        keyframes: [
+          { transform: 'none', opacity: 1 },
+          { transform: 'translateY(24px)', opacity: 0 },
+        ],
+        options: { duration: 180, easing: 'ease-in', fill: 'forwards' },
+      },
+    ]);
+  });
+
+  it('opens afresh when opened again while it plays its way out', async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, 'animate');
+    onTestFinished(() => animate.mockRestore());
+    const { el, root, closed } = await open({});
+    el.closeDialog();
+    const leaving = animate.mock.results.map((result) => result.value as Animation);
+    expect(leaving.length).toBeGreaterThan(0);
+    el.showDialog({
+      mode: 'event',
+      calendarId: BEN.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [BEN],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    // Well past the way out the first one was playing, the second is still open, unchanged.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await el.updateComplete;
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('input.title')?.value).toBe('Piano');
+    expect(root.querySelector('.panel')!.hasAttribute('inert')).toBe(false);
+    // The way out is canceled, not left filling: the panel is drawn again, not held shrunk.
+    expect(leaving.map((animation) => animation.playState)).toEqual(leaving.map(() => 'idle'));
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 });
 

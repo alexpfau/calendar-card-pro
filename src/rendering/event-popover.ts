@@ -47,6 +47,15 @@ const MARGIN = 12;
 const BELOW_GAP = 10;
 const EAR_INSET = 32;
 
+/**
+ * How the popover leaves, the reverse of how it opens, as measured from a screen recording of
+ * Calendar on macOS: it shrinks toward its arrow to about a sixth of its size, slow at both
+ * ends, and fades out a little ahead of it, over 180 ms. The opening half is in the stylesheet.
+ */
+const LEAVE_MS = 180;
+const LEAVE_SCALE = 0.15;
+const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
+
 /** The map preview's size: the popover's width inside its padding, and a strip's height. */
 const MAP_WIDTH = POPOVER_WIDTH - 28;
 const MAP_HEIGHT = 120;
@@ -165,6 +174,11 @@ export class EventPopover extends LitElement {
     source: EventMap.MapPlace['source'];
   };
 
+  /** Closing: Home Assistant has been told, and the popover is playing its way out. */
+  @state() private _closing = false;
+  /** The animations it is leaving by, canceled once it has gone or is opened again. */
+  private _leaving?: Animation[];
+
   private _original?: Model.Draft;
   private _wantOpen = false;
   private _openedAt = 0;
@@ -184,6 +198,8 @@ export class EventPopover extends LitElement {
    * @param params - What the card handed over
    */
   public showDialog(params: Model.PopoverParams): void {
+    // Opened again while still playing its way out: gone at once, so it opens afresh.
+    if (this._closing) this._closeNow();
     const draft = Model.draftFromParams(params);
     if (!draft) {
       Logger.warn('Event popover: the event has no readable start');
@@ -410,6 +426,7 @@ export class EventPopover extends LitElement {
    * @returns Whether the popover closed now
    */
   private _requestClose(mode: 'save' | 'discard', range?: Writes.RecurrenceRange): boolean {
+    if (this._closing) return true;
     if (this._busy) return false;
     const params = this._params;
     const draft = this._draft;
@@ -594,19 +611,97 @@ export class EventPopover extends LitElement {
   }
 
   /**
-   * Closes the modal and tells Home Assistant's dialog manager the popover is gone.
+   * Tells Home Assistant's dialog manager the popover is gone, and closes the modal once it has
+   * played its way out (`_leave`), or at once where there is nothing to play.
    *
    * @returns Always true
    */
   private _finish(): boolean {
+    this._wantOpen = false;
+    const animations = this._leave();
+    if (animations.length) {
+      this._closing = true;
+      this._leaving = animations;
+      // A tab in the background may hold animations back, so the popover goes regardless soon.
+      void Promise.race([
+        Promise.all(animations.map((animation) => animation.finished)),
+        new Promise((resolve) => setTimeout(resolve, LEAVE_MS + 200)),
+      ])
+        .catch(() => undefined)
+        .then(() => {
+          if (this._leaving === animations) this._closeNow();
+        });
+    } else {
+      this._closeNow();
+    }
+    this._fireClosed();
+    return true;
+  }
+
+  /** Closes the modal, drops what it showed, and stops any way out it was playing. */
+  private _closeNow(): void {
     const dialog = this._dialog;
     if (dialog?.open) dialog.close();
-    this._wantOpen = false;
+    // Canceled after the close, so the panel never flashes back at full size.
+    this._leaving?.forEach((animation) => animation.cancel());
+    this._leaving = undefined;
+    this._closing = false;
     this._params = undefined;
     this._draft = undefined;
     this._original = undefined;
-    this._fireClosed();
-    return true;
+  }
+
+  /**
+   * Plays the popover's way out: shrinking toward its arrow and fading, or a sheet sinking away.
+   * Nothing where the system asks for less motion, or where the browser cannot animate.
+   *
+   * @returns The animations, or none
+   */
+  private _leave(): Animation[] {
+    const dialog = this._dialog;
+    const panel = dialog?.querySelector<HTMLElement>('.panel');
+    if (!dialog?.open || !panel || typeof panel.animate !== 'function') return [];
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [];
+
+    const timing = (easing: string): KeyframeAnimationOptions => ({
+      duration: LEAVE_MS,
+      easing,
+      fill: 'forwards',
+    });
+    if (this._sheet) {
+      return [
+        panel.animate(
+          [
+            { transform: 'none', opacity: 1 },
+            { transform: 'translateY(24px)', opacity: 0 },
+          ],
+          timing('ease-in'),
+        ),
+      ];
+    }
+    // The panel and its arrow shrink about the same point, the arrow's center on the panel's
+    // edge, which the panel's transform-origin names; the arrow keeps its quarter turn.
+    const animations = [
+      panel.animate(
+        [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
+        timing(LEAVE_SHRINK),
+      ),
+      panel.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
+    ];
+    const arrow = dialog.querySelector<HTMLElement>('.arrow');
+    if (arrow) {
+      animations.push(
+        arrow.animate(
+          [
+            { transform: 'rotate(45deg) scale(1)' },
+            { transform: `rotate(45deg) scale(${LEAVE_SCALE})` },
+          ],
+          timing(LEAVE_SHRINK),
+        ),
+        arrow.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
+      );
+    }
+    return animations;
   }
 
   private _fireClosed(): void {
@@ -810,6 +905,7 @@ export class EventPopover extends LitElement {
     return html`
       <dialog
         class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}"
+        ?data-placed=${this._sheet || !!place}
         style=${style}
         aria-labelledby="popover-title"
         @cancel=${this._onCancel}
@@ -819,7 +915,7 @@ export class EventPopover extends LitElement {
         <div
           class="panel"
           style="--event-color:${color};${place?.arrow ? `transform-origin:${arrowPoint(place.arrow)}` : ''}"
-          ?inert=${this._busy}
+          ?inert=${this._busy || this._closing}
         >
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
           <h2
@@ -1411,26 +1507,37 @@ export class EventPopover extends LitElement {
       inset: auto 0 0 0;
       width: 100%;
     }
-    /* It opens as a macOS popover does: a short fade and grow out of its arrow, whose point the
-       panel's inline transform-origin names, or as a sheet rising from the bottom. Without
-       motion where the system asks for less. */
-    dialog[open] > .panel {
-      animation: pop-in 150ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    /* It opens as a popover in Calendar on macOS does, as measured from a screen recording of
+       it: growing out of its arrow from a tenth of its size, fast and then settling, over
+       230 ms, and fading in over 180 ms, with no overshoot. The arrow grows with it about the
+       same point, its own center on the panel's edge, which the panel's inline transform-origin
+       names. A sheet rises from the bottom instead. Each starts once the popover is placed, so
+       none of it plays unseen. The way out is played from script (_leave). Without motion
+       where the system asks for less. */
+    dialog.popover[open][data-placed] > .panel {
+      animation:
+        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
+        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
     }
-    dialog[open] > .arrow {
-      animation: fade-in 150ms ease-out;
+    dialog.popover[open][data-placed] > .arrow {
+      animation:
+        arrow-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
+        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
     }
-    dialog.sheet[open] > .panel {
-      animation-name: sheet-in;
-      animation-duration: 220ms;
+    dialog.sheet[open][data-placed] > .panel {
+      animation: sheet-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
     }
-    @keyframes pop-in {
+    @keyframes pop-grow {
       from {
-        opacity: 0;
-        transform: scale(0.94);
+        transform: scale(0.1);
       }
     }
-    @keyframes fade-in {
+    @keyframes arrow-grow {
+      from {
+        transform: rotate(45deg) scale(0.1);
+      }
+    }
+    @keyframes pop-fade {
       from {
         opacity: 0;
       }
@@ -1442,8 +1549,9 @@ export class EventPopover extends LitElement {
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      dialog[open] > .panel,
-      dialog[open] > .arrow {
+      dialog.popover[open][data-placed] > .panel,
+      dialog.popover[open][data-placed] > .arrow,
+      dialog.sheet[open][data-placed] > .panel {
         animation: none;
       }
     }
