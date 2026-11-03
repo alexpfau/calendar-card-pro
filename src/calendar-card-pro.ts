@@ -1403,6 +1403,9 @@ class CalendarCardPro extends LitElement {
    */
   private _midnightTimerId: number | null = null;
 
+  /** The local day the midnight timer was set on, so a midnight it slept through is noticed. */
+  private _midnightArmedDay: string | null = null;
+
   /** Whether the configured start date follows today, for the start date it was worked out for. */
   private _followsTodayCache: { startDate: string | undefined; follows: boolean } | null = null;
 
@@ -2166,6 +2169,11 @@ class CalendarCardPro extends LitElement {
    * Reconciled from `updated()`, like the now-line timer, because the column count and the
    * view both change after connection. The timer re-renders once and this re-arms it for the
    * following midnight, so a card left open for a week moves its window every night.
+   *
+   * Set again on every render with the delay measured then, like the other display timers: a
+   * timer the browser held back while the machine slept keeps the delay it had left. And where
+   * the day it was set on has already ended, midnight passed while it was held back, so the
+   * new day loads at once rather than waiting for the following midnight.
    */
   private _syncMidnightTimer(): void {
     if (!this.isConnected || !this._wantsMidnightTimer) {
@@ -2173,22 +2181,33 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    if (this._midnightTimerId !== null) {
-      return;
-    }
-
     const now = new Date();
+    const today = FormatUtils.getLocalDateKey(now);
+    const missed =
+      this._midnightTimerId !== null &&
+      this._midnightArmedDay !== null &&
+      this._midnightArmedDay !== today;
+    this._stopMidnightTimer();
+    this._midnightArmedDay = today;
+    if (missed) this._onMidnight();
+
     // One second past, so the render it causes reads the new day even if the timer fires a
     // little early. Built from local fields, so a DST night is as long as it really is.
     const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
     this._midnightTimerId = window.setTimeout(() => {
       this._midnightTimerId = null;
-      this.requestUpdate();
-      // A window that follows today moves at midnight — start_of_week only once a week — and
-      // drawing the new window from the old window's events shows false empty days. A cache
-      // load fetches exactly when the window it asks for has changed.
-      if (this._claimRollover()) void this.updateEvents('cache');
+      this._midnightArmedDay = null;
+      this._onMidnight();
     }, nextMidnight.getTime() - now.getTime());
+  }
+
+  /** Midnight has passed: repaint, and load the new day where the window moved with it. */
+  private _onMidnight(): void {
+    this.requestUpdate();
+    // A window that follows today moves at midnight — start_of_week only once a week — and
+    // drawing the new window from the old window's events shows false empty days. A cache
+    // load fetches exactly when the window it asks for has changed.
+    if (this._claimRollover()) void this.updateEvents('cache');
   }
 
   /**

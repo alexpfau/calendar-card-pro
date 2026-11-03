@@ -1257,6 +1257,10 @@ graph TD
      the card no longer renders for them. Like the now-line tick, it refits no grid block
    - The now-line, event-boundary and clock timers stop while the tab is hidden, and a
      returning tab repaints at once
+   - The midnight, event-boundary and clock timers are set again on every render with the
+     delay measured then, because a timer the browser held back while the machine slept keeps
+     the delay it had left. A midnight passed during the sleep loads the new day on the first
+     render after it (`_midnightArmedDay`)
    - `refreshEvents()` refetches without joining a request that may have started before a
      calendar changed. Given a write's generation, it joins a request started since that
      write; given none, it joins nothing

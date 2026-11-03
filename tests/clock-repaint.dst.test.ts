@@ -116,3 +116,72 @@ describe('midnight on fixed dates', () => {
     expect(callApi).not.toHaveBeenCalled();
   });
 });
+
+describe('midnight on a window that follows today, after a sleep', () => {
+  // The window moves at midnight, so the new day has to be loaded, not only drawn. Armed at
+  // 22:00; awake until 23:00, asleep until 23:50, so the pending load timer kept the delay it
+  // had left at 23:00. The render on waking sets it again, and the 19th arrives at midnight.
+  const DAYS: Types.CalendarEventData[] = [
+    { summary: 'Book club', start: { date: '2026-06-17' }, end: { date: '2026-06-18' } },
+    { summary: 'Field trip', start: { date: '2026-06-18' }, end: { date: '2026-06-19' } },
+    { summary: 'Bake sale', start: { date: '2026-06-19' }, end: { date: '2026-06-20' } },
+  ];
+
+  /** Mounted at 22:00 on the 17th, answering with the events of the window asked for. */
+  async function mountFollowing() {
+    vi.setSystemTime(new Date(2026, 5, 17, 22, 0, 0));
+    const windowed = vi.fn(async (_method: string, path: string) => {
+      const query = new URLSearchParams(path.split('?')[1]);
+      const start = new Date(query.get('start')!).getTime();
+      const end = new Date(query.get('end')!).getTime();
+      return DAYS.filter((event) => {
+        const [y, m, d] = event.start.date!.split('-').map(Number);
+        const day = new Date(y, m - 1, d).getTime();
+        return day >= start && day < end;
+      });
+    });
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig({ view: 'list', entities: ['calendar.anna'], days_to_show: 2 });
+    card.hass = {
+      states: {},
+      locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
+      callApi: windowed,
+      callService: vi.fn(),
+    } as unknown as Types.Hass;
+    document.body.appendChild(card);
+    await card.updateEvents(true);
+    await card.updateComplete;
+    return { card, windowed };
+  }
+
+  it('loads the new day at midnight, not a sleep later', async () => {
+    const { card, windowed } = await mountFollowing();
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    const loadsBefore = windowed.mock.calls.length;
+
+    vi.setSystemTime(new Date(2026, 5, 17, 23, 50, 0));
+    card.requestUpdate();
+    await card.updateComplete;
+    await vi.advanceTimersByTimeAsync(20 * 60_000);
+    await card.updateComplete;
+
+    expect(windowed.mock.calls.length).toBeGreaterThan(loadsBefore);
+    expect(card.shadowRoot!.textContent).toContain('Bake sale');
+  });
+
+  it('loads the missed day at once on waking after midnight', async () => {
+    const { card, windowed } = await mountFollowing();
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    const loadsBefore = windowed.mock.calls.length;
+
+    // Asleep from 23:00 until 01:00: the timer for midnight is still pending on waking.
+    vi.setSystemTime(new Date(2026, 5, 18, 1, 0, 0));
+    card.requestUpdate();
+    await card.updateComplete;
+    await vi.advanceTimersByTimeAsync(1000);
+    await card.updateComplete;
+
+    expect(windowed.mock.calls.length).toBeGreaterThan(loadsBefore);
+    expect(card.shadowRoot!.textContent).toContain('Bake sale');
+  });
+});
