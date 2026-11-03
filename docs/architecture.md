@@ -862,9 +862,22 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
   - Shows the title, location and description as the card does until a field is edited, then
     as stored (`displayText` in `event-details.ts`), since the stored text is what a save writes
   - Places itself beside the press, from the `PressOrigin` and the pressed element's box: to
-    the right where it fits, else to the left, with an arrow at the press. Below 600 pixels of
-    viewport width it is a sheet from the bottom instead. It is drawn dark while Home
-    Assistant's `themes.darkMode` is on
+    the right where it fits, else to the left, with an arrow at the press. A box narrower than
+    the popover is passed by its edge, so it stays uncovered; a wider one, a list row across
+    the card above all, is passed at the press's own point, because its edge can be a card's
+    width away from where the eye was. One rule for every view, rather than one per view, so a
+    one-day grid block as wide as a list row behaves as one. Below 600 pixels of viewport width
+    it is a sheet from the bottom instead. It is drawn dark while Home Assistant's
+    `themes.darkMode` is on
+  - Moves an event to another calendar by adding it there and then deleting it from its own,
+    since Home Assistant has no move command; adding first means a failure between the two
+    leaves it in both calendars, never in neither. The card offers the move only where it may
+    both edit and delete, to its own calendars that accept new events. A series moved from an
+    occurrence on is written with its stored rule, and a rule ending after a `COUNT` ends on
+    its last occurrence instead (`UNTIL`), read from the calendar's REST API within the furthest
+    the count can reach, because a count would start again from the occurrence moved.
+    Occurrences deleted from the series or changed on their own cannot be carried over by the
+    write commands and come back as plain occurrences, which the docs say
   - Takes every word from `hass.localize`, Home Assistant's own strings, almost all of them
     under `ui.components.calendar.*`, each with an English fallback for a key Home Assistant lacks, so the card carries
     no translations for it; dates through `Intl` in Home Assistant's language. Ships in the

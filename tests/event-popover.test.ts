@@ -45,6 +45,8 @@ interface Options {
   states?: Record<string, unknown>;
   write?: (message: Record<string, unknown>) => Promise<unknown>;
   tiles?: boolean;
+  /** What Home Assistant's calendar REST API answers, for a series moved by its count. */
+  occurrences?: unknown;
 }
 
 /**
@@ -61,13 +63,15 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
     }
     return options.write ? options.write(message) : undefined;
   });
-  const updated = vi.fn((_calendarId?: string) => undefined);
+  const updated = vi.fn((..._calendarIds: string[]) => undefined);
+  const callApi = vi.fn(async (_method: string, _path: string) => options.occurrences ?? []);
   const closed = vi.fn();
 
   const el = document.createElement(EVENT_POPOVER_TAG) as Popover;
   el.hass = {
     states: options.states ?? {},
     callWS,
+    callApi,
     localize: (key: string) => options.strings?.[key] ?? '',
   } as unknown as Types.Hass;
   el.addEventListener('dialog-closed', (ev) => closed((ev as CustomEvent).detail));
@@ -115,7 +119,7 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
     (target as HTMLElement).click();
     await el.updateComplete;
   };
-  return { el, root, callWS, updated, closed, writes, buttons, button, type, press };
+  return { el, root, callWS, callApi, updated, closed, writes, buttons, button, type, press };
 }
 
 afterEach(() => {
@@ -456,10 +460,14 @@ describe('a new event', () => {
     expect(updated).toHaveBeenCalledWith('calendar.anna');
   });
 
-  it('throws it away on Delete', async () => {
-    const { type, button, press, writes, closed } = await open(fresh);
+  it('has nothing to delete, and throws it away on Cancel once anything was typed', async () => {
+    const { root, type, button, press, writes, closed } = await open(fresh);
+    expect(root.querySelector('.foot')).toBeNull();
     await type('input.title', 'Piano');
-    await press(button('Delete'));
+    expect(
+      Array.from(root.querySelectorAll('.foot button')).map((b) => b.textContent?.trim()),
+    ).toEqual(['Cancel']);
+    await press(button('Cancel'));
     expect(writes()).toEqual([]);
     expect(closed).toHaveBeenCalledTimes(1);
   });
@@ -770,5 +778,249 @@ describe('the keyboard', () => {
     edit.click();
     await el.updateComplete;
     expect(root.querySelector('textarea')?.value).toBe('Bring goggles');
+  });
+});
+
+describe('Cancel', () => {
+  const foot = (root: ShadowRoot) =>
+    Array.from(root.querySelectorAll('.foot button')).map((b) => [
+      b.textContent?.trim(),
+      b.classList.contains('end'),
+    ]);
+
+  it('appears beside Delete, at the end of the row, once anything was changed', async () => {
+    const { root, type } = await open({});
+    expect(foot(root)).toEqual([['Delete', false]]);
+    await type('input.title', 'Swim lesson');
+    expect(foot(root)).toEqual([
+      ['Delete', false],
+      ['Cancel', true],
+    ]);
+    // Typed back to what it was, there is nothing to cancel.
+    await type('input.title', '🏊 Swim');
+    expect(foot(root)).toEqual([['Delete', false]]);
+  });
+
+  it('throws every change away and closes, writing nothing', async () => {
+    const { root, type, press, button, writes, closed, updated } = await open({});
+    await type('input.title', 'Swim lesson');
+    await type('input.plain', '12 Mill Road');
+    await press(button('Cancel'));
+    expect(writes()).toEqual([]);
+    expect(updated).not.toHaveBeenCalled();
+    expect(closed).toHaveBeenCalledTimes(1);
+    expect(root.querySelector('dialog')?.open).not.toBe(true);
+  });
+
+  it('is never offered on an event that may not be changed', async () => {
+    const { root } = await open({ canEdit: false, canDelete: false });
+    expect(root.querySelector('.foot')).toBeNull();
+  });
+});
+
+describe('placing beside a wide event', () => {
+  it('opens beside the press on an event wider than the popover, centered on the event', async () => {
+    // A list row across the card, pressed on its title near the left.
+    const { root } = await open({
+      anchor: { x: 150, y: 210, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
+    });
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.style.left).toBe(`${150 + 14}px`);
+    expect(root.querySelector('.arrow.left')).not.toBeNull();
+  });
+
+  it('opens beside the middle of a wide event pressed from the keyboard', async () => {
+    const { root } = await open({
+      anchor: { x: 590, y: 220, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${590 + 14}px`);
+  });
+
+  it('turns to the left of the press where the right has no room', async () => {
+    const { root } = await open({
+      anchor: { x: 900, y: 210, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 14 - 340}px`);
+    expect(root.querySelector('.arrow.right')).not.toBeNull();
+  });
+});
+
+describe('moving to another calendar', () => {
+  const pick = async (root: ShadowRoot, el: Popover, id: string) => {
+    const picker = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    picker.value = id;
+    picker.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+  };
+
+  it("offers the calendars the card names, the event's own first", async () => {
+    const { root } = await open({ calendars: [BEN, ANNA] });
+    const picker = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    expect(Array.from(picker.options).map((o) => [o.value, o.selected])).toEqual([
+      ['calendar.ben', true],
+      ['calendar.anna', false],
+    ]);
+  });
+
+  it('offers no picker on an event that may not be changed', async () => {
+    const { root } = await open({ calendars: [BEN, ANNA], canEdit: false });
+    expect(root.querySelector('.cell.calendar select')).toBeNull();
+    expect(root.querySelector('.cell.calendar')?.textContent?.trim()).toBe('Ben');
+  });
+
+  it('adds the event to the new calendar, then deletes it from its own, and refreshes both', async () => {
+    const { el, root, writes, updated, closed } = await open({ calendars: [BEN, ANNA] });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      {
+        type: 'calendar/event/create',
+        entity_id: 'calendar.anna',
+        event: {
+          summary: '🏊 Swim',
+          dtstart: '2026-11-03T16:00:00Z',
+          dtend: '2026-11-03T17:00:00Z',
+          description: 'Bring goggles',
+          location: 'Riverside Pool',
+        },
+      },
+      { type: 'calendar/event/delete', entity_id: 'calendar.ben', uid: 'u-swim' },
+    ]);
+    expect(updated).toHaveBeenCalledWith('calendar.anna', 'calendar.ben');
+  });
+
+  it('moves one occurrence of a repeating event as a single event', async () => {
+    const { el, root, writes, closed, press, button } = await open({
+      entry: WEEKLY,
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('Only this event'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0]).toMatchObject({
+      type: 'calendar/event/create',
+      entity_id: 'calendar.anna',
+    });
+    expect(writes()[0].event).not.toHaveProperty('rrule');
+    expect(writes()[1]).toEqual({
+      type: 'calendar/event/delete',
+      entity_id: 'calendar.ben',
+      uid: 'u-swim',
+      recurrence_id: '20261103T160000Z',
+      recurrence_range: '',
+    });
+  });
+
+  it('moves a series from the occurrence pressed on, keeping a rule without a count', async () => {
+    const { el, root, writes, closed, press, button, callApi } = await open({
+      entry: WEEKLY,
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).toMatchObject({ rrule: 'FREQ=WEEKLY;BYDAY=TU' });
+    expect(writes()[1]).toMatchObject({
+      type: 'calendar/event/delete',
+      recurrence_range: 'THISANDFUTURE',
+    });
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('ends a series counted in occurrences on its last one, read from the calendar', async () => {
+    const counted = { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' };
+    const occurrences = [
+      // Another event, and the occurrence before the one pressed, are both left out.
+      { uid: 'u-other', start: { dateTime: '2026-12-29T16:00:00+00:00' } },
+      { uid: 'u-swim', start: { dateTime: '2026-10-27T16:00:00+00:00' } },
+      { uid: 'u-swim', start: { dateTime: '2026-11-03T16:00:00+00:00' } },
+      { uid: 'u-swim', start: { dateTime: '2026-11-10T16:00:00+00:00' } },
+      { uid: 'u-swim', start: { dateTime: '2026-11-17T16:00:00+00:00' } },
+    ];
+    const { el, root, writes, closed, press, button, callApi } = await open(
+      { entry: counted, calendars: [BEN, ANNA] },
+      { occurrences },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+
+    const [method, path] = callApi.mock.calls[0];
+    expect(method).toBe('GET');
+    // From the occurrence pressed, as far as six weeks could reach.
+    expect(path).toBe(
+      `calendars/calendar.ben?start=${encodeURIComponent('2026-11-03T16:00:00.000Z')}&end=${encodeURIComponent('2026-12-16T16:00:00.000Z')}`,
+    );
+    expect(writes()[0].event).toMatchObject({
+      rrule: 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261117T160000Z',
+    });
+  });
+
+  it('moves nothing when the occurrence pressed is not among those the calendar lists', async () => {
+    // Without it, the series would be written to end before it starts, and then deleted here.
+    const counted = { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' };
+    const occurrences = [{ uid: 'u-swim', start: { dateTime: '2026-10-27T16:00:00+00:00' } }];
+    const { el, root, writes, closed, press, button } = await open(
+      { entry: counted, calendars: [BEN, ANNA] },
+      { occurrences },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(root.querySelector('[role="alert"]')).not.toBeNull());
+    expect(writes()).toEqual([]);
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('changes nothing and says why when the new calendar refuses the event', async () => {
+    const { el, root, writes, closed } = await open(
+      { calendars: [BEN, ANNA] },
+      {
+        write: async (message) =>
+          message.type === 'calendar/event/create'
+            ? Promise.reject({ message: 'Calendar is read-only' })
+            : undefined,
+      },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only'),
+    );
+    expect(writes().map((w) => w.type)).toEqual(['calendar/event/create']);
+    expect(closed).not.toHaveBeenCalled();
+    expect(root.querySelector('.cell.calendar select')).not.toBeNull();
+  });
+
+  it('offers nothing more to write once it is in both calendars, after the delete failed', async () => {
+    const { el, root, writes, updated, closed } = await open(
+      { calendars: [BEN, ANNA] },
+      {
+        write: async (message) =>
+          message.type === 'calendar/event/delete'
+            ? Promise.reject({ message: 'Not found' })
+            : undefined,
+      },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Not found'),
+    );
+    expect(updated.mock.calls).toEqual([['calendar.anna']]);
+    expect(root.querySelectorAll('input, textarea, select')).toHaveLength(0);
+    expect(root.querySelector('.foot')).toBeNull();
+
+    expect(el.closeDialog()).toBe(true);
+    expect(writes().map((w) => w.type)).toEqual(['calendar/event/create', 'calendar/event/delete']);
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 });

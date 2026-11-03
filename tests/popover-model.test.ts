@@ -7,7 +7,10 @@ import {
   draftProblem,
   eventWrite,
   isDirty,
+  countReachDays,
   rebaseRepeat,
+  repeatChanged,
+  untilRule,
   spanText,
   writtenRule,
 } from '../src/interaction/popover-model';
@@ -307,5 +310,34 @@ describe('spanText', () => {
     ],
   ])('words %s', (_name, times, hour24, text) => {
     expect(spanText(times, 'en', hour24).replace(/\u202f/g, ' ')).toBe(text);
+  });
+});
+
+describe('moving a series', () => {
+  it('ends a rule on an occurrence instead of a count', () => {
+    expect(untilRule('FREQ=WEEKLY;BYDAY=TU;COUNT=6', new Date('2026-11-17T16:00:00Z'), false)).toBe(
+      'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261117T160000Z',
+    );
+    expect(untilRule('FREQ=DAILY;UNTIL=20270101;COUNT=3', new Date(2026, 10, 20), true)).toBe(
+      'FREQ=DAILY;UNTIL=20261120',
+    );
+  });
+
+  it.each([
+    ['FREQ=WEEKLY;COUNT=6', 43],
+    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=6', 85],
+    ['FREQ=MONTHLY;COUNT=12', 373],
+    ['FREQ=DAILY;COUNT=30', 31],
+    ['FREQ=HOURLY;COUNT=10', 11],
+    ['FREQ=WEEKLY;BYDAY=TU', undefined],
+    ['FREQ=WEEKLY;UNTIL=20270101T000000Z', undefined],
+  ])('bounds how far %s can reach: %j days', (rule, days) => {
+    expect(countReachDays(rule)).toBe(days);
+  });
+
+  it('tells a changed repeat from an untouched one', () => {
+    const draft = opened(WEEKLY);
+    expect(repeatChanged({ ...draft, summary: 'Swim lesson' }, draft)).toBe(false);
+    expect(repeatChanged({ ...draft, repeat: { kind: 'none' } }, draft)).toBe(true);
   });
 });

@@ -3,11 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   addDays,
   dateValue,
+  dayDifference,
   moveStart,
   parseDate,
   setAllDay,
-  timeValue,
   timesFromEntry,
+  timeValue,
   validTimes,
   withDate,
   withTime,
@@ -163,5 +164,13 @@ describe('editing', () => {
     expect(validTimes({ allDay: true, start, end: start })).toBe(true);
     expect(validTimes({ allDay: true, start: end, end: addDays(start, -1) })).toBe(false);
     expect(validTimes({ allDay: false, start: new Date(NaN), end })).toBe(false);
+  });
+});
+
+describe('dayDifference', () => {
+  it('counts calendar days, whatever the time of day', () => {
+    expect(dayDifference(new Date(2026, 10, 3, 23), new Date(2026, 10, 5, 1))).toBe(2);
+    expect(dayDifference(new Date(2026, 10, 5), new Date(2026, 10, 3))).toBe(-2);
+    expect(dayDifference(new Date(2026, 10, 3, 9), new Date(2026, 10, 3, 18))).toBe(0);
   });
 });

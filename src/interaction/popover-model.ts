@@ -63,7 +63,10 @@ export interface PopoverParams {
   canDelete: boolean;
   /** The event's color. */
   color?: string;
-  /** The calendars to name: the event's own, or every one a new event may go to. */
+  /**
+   * The calendars to name. For an event, its own first, then any it may be moved to; for a new
+   * event, every one it may go to.
+   */
   calendars: PopoverCalendar[];
   /** Where a new event starts and ends. */
   times?: Times.EventTimes;
@@ -75,10 +78,10 @@ export interface PopoverParams {
   dark: boolean;
   anchor?: PopoverAnchor;
   /**
-   * Called once Home Assistant has saved a change, naming the calendar written to. Returns
-   * nothing: the card refetches without the popover waiting on it.
+   * Called once Home Assistant has saved a change, naming the calendars written to: one, or
+   * for a move both. Returns nothing: the card refetches without the popover waiting on it.
    */
-  updated: (calendarId?: string) => undefined;
+  updated: (...calendarIds: string[]) => undefined;
 }
 
 /** The repeat rule as the popover edits it. */
@@ -210,6 +213,58 @@ export function isDirty(draft: Draft, original: Draft): boolean {
     draft.times.end.getTime() !== original.times.end.getTime() ||
     repeatKey(draft) !== repeatKey(original)
   );
+}
+
+/**
+ * Whether the repeat was changed, as the rule a draft would write.
+ *
+ * @param draft - The draft now
+ * @param original - The draft the popover opened with
+ * @returns Whether the two would write different rules
+ */
+export function repeatChanged(draft: Draft, original: Draft): boolean {
+  return repeatKey(draft) !== repeatKey(original);
+}
+
+/**
+ * A rule ending at a given occurrence instead of after a count: `COUNT` and any `UNTIL` are
+ * replaced by an `UNTIL` on that occurrence. A series moved from one of its occurrences on
+ * keeps the end it had that way, where its count would start again from the occurrence moved.
+ *
+ * @param rule - The rule as written
+ * @param last - The last occurrence's start
+ * @param allDay - Whether the event is all day, which writes the `UNTIL` as a date
+ * @returns The rule with its new end
+ */
+export function untilRule(rule: string, last: Date, allDay: boolean): string {
+  const parts = rule.split(';').filter((part) => !/^(COUNT|UNTIL)=/i.test(part));
+  const until = allDay
+    ? Times.dateValue(last).replace(/-/g, '')
+    : `${last.toISOString().slice(0, 19).replace(/[-:]/g, '')}Z`;
+  return [...parts, `UNTIL=${until}`].join(';');
+}
+
+/** Days per period of each frequency, at most: what bounds the span a count can reach. */
+const PERIOD_DAYS: Readonly<Record<string, number>> = {
+  DAILY: 1,
+  WEEKLY: 7,
+  MONTHLY: 31,
+  YEARLY: 366,
+};
+
+/**
+ * How far past an occurrence a rule that ends after a count can still reach: its count of
+ * periods, each at its longest. Sub-daily rules count as daily, which they never exceed.
+ *
+ * @param rule - The rule as written
+ * @returns The number of days, or undefined for a rule without a count
+ */
+export function countReachDays(rule: string): number | undefined {
+  const value = (name: string) => new RegExp(`(?:^|;)${name}=([^;]+)`, 'i').exec(rule)?.[1];
+  const count = Number(value('COUNT'));
+  if (!Number.isInteger(count) || count < 1) return undefined;
+  const interval = Math.max(1, Number(value('INTERVAL')) || 1);
+  return count * interval * (PERIOD_DAYS[(value('FREQ') ?? '').toUpperCase()] ?? 1) + 1;
 }
 
 /**

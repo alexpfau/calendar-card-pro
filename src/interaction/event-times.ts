@@ -132,6 +132,22 @@ export function writeTimes(times: EventTimes): { dtstart: string; dtend: string 
 //-----------------------------------------------------------------------------
 
 /**
+ * How many local calendar days lie between two dates, counted by their days alone, so a change
+ * of offset between them does not count.
+ *
+ * @param from - The earlier date
+ * @param to - The later date
+ * @returns The days from one to the other, negative when `to` is earlier
+ */
+export function dayDifference(from: Date, to: Date): number {
+  return Math.round(
+    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
+      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
+      86400000,
+  );
+}
+
+/**
  * A date with its local calendar day replaced, keeping its time of day.
  *
  * @param date - The date to change
@@ -178,12 +194,7 @@ export function withTime(date: Date, value: string): Date | undefined {
  */
 export function moveStart(times: EventTimes, start: Date): EventTimes {
   if (times.allDay) {
-    const days = Math.round(
-      (Date.UTC(times.end.getFullYear(), times.end.getMonth(), times.end.getDate()) -
-        Date.UTC(times.start.getFullYear(), times.start.getMonth(), times.start.getDate())) /
-        86400000,
-    );
-    return { allDay: true, start, end: addDays(start, days) };
+    return { allDay: true, start, end: addDays(start, dayDifference(times.start, times.end)) };
   }
   return {
     allDay: false,

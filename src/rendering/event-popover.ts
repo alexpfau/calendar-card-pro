@@ -270,13 +270,23 @@ export class EventPopover extends LitElement {
       return;
     }
 
-    const rect = anchor.rect ?? {
-      left: anchor.x,
-      right: anchor.x,
-      top: anchor.y,
-      bottom: anchor.y,
-    };
-    const centerY = anchor.rect ? (rect.top + rect.bottom) / 2 : anchor.y;
+    // An event narrower than the popover, a column event or a grid block, is passed by its edge,
+    // so the popover covers none of it. A wider one, a list row across the card above all, says
+    // little about where on it the eye was, so the popover opens beside the press instead, still
+    // centered on the event. A press without a position, from the keyboard, is the event's
+    // center.
+    const box = anchor.rect;
+    const wide = box !== undefined && box.right - box.left > POPOVER_WIDTH;
+    const rect =
+      box && !wide
+        ? box
+        : {
+            left: anchor.x,
+            right: anchor.x,
+            top: box?.top ?? anchor.y,
+            bottom: box?.bottom ?? anchor.y,
+          };
+    const centerY = (rect.top + rect.bottom) / 2;
     let side: 'left' | 'right' | undefined = 'left';
     let left = rect.right + GAP;
     if (left + POPOVER_WIDTH > width - MARGIN) {
@@ -372,6 +382,10 @@ export class EventPopover extends LitElement {
     this._phase = 'saving';
     this._editing = undefined;
     this._error = undefined;
+    if (params.mode === 'event' && draft.calendarId !== params.calendarId) {
+      await this._move(hass, params, draft, original, range, openId);
+      return;
+    }
     try {
       if (params.mode === 'new') {
         await Writes.createEvent(hass, draft.calendarId, Model.eventWrite(draft, undefined));
@@ -393,6 +407,130 @@ export class EventPopover extends LitElement {
     }
     params.updated(draft.calendarId);
     if (openId === this._openId) this._finish();
+  }
+
+  /**
+   * Moves the event to the calendar picked: adds it there, then deletes it from its own. In that
+   * order, so a failure part way leaves it in both calendars rather than in neither.
+   *
+   * A repeating event moves as the occurrences chosen do: the one pressed alone, as a single
+   * event, or the series from it on. Occurrences deleted from that part, or changed on their
+   * own, come back as plain occurrences of the series: Home Assistant's commands cannot carry
+   * either to another calendar.
+   *
+   * @param hass - Home Assistant
+   * @param params - What the popover opened with
+   * @param draft - The draft, naming the calendar to move to
+   * @param original - The draft the popover opened with
+   * @param range - For a repeating event, which occurrences
+   * @param openId - The open this move belongs to
+   */
+  private async _move(
+    hass: Types.Hass,
+    params: Model.PopoverParams,
+    draft: Model.Draft,
+    original: Model.Draft | undefined,
+    range: Writes.RecurrenceRange | undefined,
+    openId: number,
+  ): Promise<void> {
+    const entry = params.entry;
+    const from = params.calendarId;
+    let added = false;
+    try {
+      if (!entry?.uid) throw new Error('The event has no identifier to move it by');
+      const scoped = entry.recurrence_id ? (range ?? '') : undefined;
+      let event = Model.eventWrite(draft, original, scoped);
+      if (
+        scoped === 'THISANDFUTURE' &&
+        event.rrule &&
+        original &&
+        !Model.repeatChanged(draft, original)
+      ) {
+        event = {
+          ...event,
+          rrule: await this._movedRule(hass, from, entry.uid, event.rrule, draft, original),
+        };
+      }
+      await Writes.createEvent(hass, draft.calendarId, event);
+      added = true;
+      await Writes.deleteEvent(hass, {
+        entityId: from,
+        uid: entry.uid,
+        recurrenceId: entry.recurrence_id,
+        range: scoped,
+      });
+    } catch (error) {
+      Logger.warn('Event popover: moving failed', error);
+      if (added) params.updated(draft.calendarId);
+      if (openId !== this._openId) return;
+      this._phase = 'edit';
+      this._error = Writes.writeErrorMessage(error) ?? UNKNOWN_ERROR;
+      // Added but not deleted: the event is in both calendars, and the copy added cannot be
+      // reached from here, so nothing more is offered that would write it a third time.
+      if (added) this._settle(draft);
+      return;
+    }
+    params.updated(draft.calendarId, from);
+    if (openId === this._openId) this._finish();
+  }
+
+  /**
+   * The rule a series moved from one of its occurrences on is written with. One that ends
+   * after a count ends on its last occurrence instead, since a count would start again from the
+   * occurrence moved; the occurrences left are read from the calendar, within the furthest the
+   * count could reach. They move by as much as the occurrence pressed did.
+   *
+   * @param hass - Home Assistant
+   * @param calendarId - The calendar the series is in
+   * @param uid - The series' identifier
+   * @param rule - The rule as written
+   * @param draft - The draft
+   * @param original - The draft the popover opened with
+   * @returns The rule to write
+   */
+  private async _movedRule(
+    hass: Types.Hass,
+    calendarId: string,
+    uid: string,
+    rule: string,
+    draft: Model.Draft,
+    original: Model.Draft,
+  ): Promise<string> {
+    const reach = Model.countReachDays(rule);
+    if (reach === undefined) return rule;
+    const from = original.times.start;
+    const starts = await Writes.occurrenceStarts(
+      hass,
+      calendarId,
+      uid,
+      from,
+      Times.addDays(from, reach),
+    );
+    const last = starts
+      .map((value) => (value.includes('T') ? new Date(value) : Times.parseDate(value)))
+      .filter((date): date is Date => !!date && !Number.isNaN(date.getTime()) && date >= from)
+      .reduce<Date | undefined>(
+        (latest, date) => (!latest || date > latest ? date : latest),
+        undefined,
+      );
+    if (!last) throw new Error('The series has no occurrence left to move');
+    const shifted = original.times.allDay
+      ? Times.addDays(last, Times.dayDifference(from, draft.times.start))
+      : new Date(last.getTime() + draft.times.start.getTime() - from.getTime());
+    return Model.untilRule(rule, shifted, draft.times.allDay);
+  }
+
+  /**
+   * Leaves the popover showing a draft that was written in part, with nothing more to save or
+   * delete: it closes as it is.
+   *
+   * @param draft - The draft as written
+   */
+  private _settle(draft: Model.Draft): void {
+    const params = this._params;
+    if (!params) return;
+    this._params = { ...params, display: undefined, canEdit: false, canDelete: false };
+    this._original = { ...draft, times: { ...draft.times } };
   }
 
   /**
@@ -1007,7 +1145,7 @@ export class EventPopover extends LitElement {
     const draft = this._draft!;
     const current = this._calendar(draft.calendarId);
     const dot = (color: string) => html`<span class="dot" style="background:${color}"></span>`;
-    if (params.mode !== 'new' || params.calendars.length < 2) {
+    if (!this._editable || params.calendars.length < 2) {
       return html`<div class="cell calendar">
         ${dot(current?.color ?? params.color ?? 'var(--primary-color)')}
         <span>${current?.name ?? draft.calendarId}</span>
@@ -1144,22 +1282,35 @@ export class EventPopover extends LitElement {
     </div>`;
   }
 
+  /**
+   * The row under the cells: Delete for a stored event, on the left, and once anything was
+   * changed Cancel on the right, which throws the changes away and closes, as Escape does where
+   * there is no Escape key. A new event has nothing to delete, so Cancel is its only button.
+   */
   private _renderFoot(): TemplateResult | typeof nothing {
     const params = this._params!;
-    const canDelete = params.mode === 'new' || params.canDelete;
-    if (!canDelete || this._phase !== 'edit') {
-      return this._phase === 'saving'
-        ? html`<div class="foot"><span class="spinner" role="progressbar"></span></div>`
-        : nothing;
+    if (this._phase === 'saving') {
+      return html`<div class="foot"><span class="spinner" role="progressbar"></span></div>`;
     }
+    if (this._phase !== 'edit') return nothing;
+    const canDelete = params.mode === 'event' && params.canDelete;
+    const canCancel = this._editable && this._dirty;
+    if (!canDelete && !canCancel) return nothing;
     return html`<div class="foot">
-      <button
-        class="btn"
-        @click=${() =>
-          params.mode === 'new' ? void this._requestClose('discard') : (this._phase = 'delete')}
-      >
-        ${this._t('delete')}
-      </button>
+      ${
+        canDelete
+          ? html`<button class="btn" @click=${() => (this._phase = 'delete')}>
+              ${this._t('delete')}
+            </button>`
+          : nothing
+      }
+      ${
+        canCancel
+          ? html`<button class="btn end" @click=${() => this._requestClose('discard')}>
+              ${this._t('cancel')}
+            </button>`
+          : nothing
+      }
     </div>`;
   }
 
@@ -1591,6 +1742,9 @@ export class EventPopover extends LitElement {
       align-items: center;
       gap: 8px;
       margin-top: 3px;
+    }
+    .foot .end {
+      margin-inline-start: auto;
     }
     .btn {
       height: 28px;

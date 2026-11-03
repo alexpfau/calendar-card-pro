@@ -157,7 +157,8 @@ async function save(
   expect(dialogs[0].dialogTag).toBe(EVENT_POPOVER_TAG);
   const params = dialogs[0].dialogParams;
   calendars['calendar.anna'] = after;
-  params.updated(naming ? params.calendarId : undefined);
+  if (naming) params.updated(params.calendarId);
+  else params.updated();
   await settle(card);
 }
 

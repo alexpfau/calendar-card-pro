@@ -316,16 +316,29 @@ Where the event's calendar allows it, the popover is where you change the event,
 - **Title & location.** Tap either one to type.
 - **Date & time.** Tap the date line to open the start and the end, All day and Repeat. Moving the start moves the end with it, so the event keeps its length.
 - **Description.** Tap it to edit it. A tap on a link in it follows the link instead.
+- **Calendar.** Tap it to [move the event to another calendar](#moving-to-another-calendar).
 
 Repeat offers what Home Assistant's own event editor offers: daily, weekly on the weekdays you pick, monthly on a day of the month or on an nth or last weekday, and yearly, ending never, after a number of occurrences, or on a date. A repeat rule outside that set, which another calendar app may have written, is shown as written and kept unless you pick another.
 
 ### Saving & Discarding
 
-The popover saves once, when it closes: with a press outside it, or with Back. Escape closes it and throws the changes away instead. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
+The popover saves once, when it closes: with a press outside it, or with Back. To close it without saving, press **Cancel**, which appears at the bottom right once you have changed something, or Escape on a keyboard; either throws every change away. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
 
 For one occurrence of a repeating event, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events.
 
 If Home Assistant refuses the change, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
+
+### Moving to Another Calendar
+
+Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own, which is why moving needs a calendar that allows deleting, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.
+
+A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on, and a series that ends after a number of occurrences still ends on the same day.
+
+::: warning Moving a Series Brings Back What You Changed in It
+Home Assistant cannot carry an occurrence you deleted from a series, or one you changed on its own, over to another calendar. Moving the series brings each of them back in the new calendar as a plain occurrence, on its usual day and with the series' title and times. Delete or change them again there.
+:::
+
+The card adds before it deletes, so a failure between the two leaves the event in both calendars rather than in neither. The popover then says why, and offers nothing more to save.
 
 ### Deleting
 
@@ -382,7 +395,7 @@ toolbar:
 
 The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
 
-Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it untouched, press **Delete**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
+Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 
 The popover's calendar is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is chosen anyway. On a card with only one such calendar, the popover names it.
 
@@ -460,7 +473,7 @@ read-only calendars, a tap on a day stays a tap on the card.
 
 ## 💬 The Event Popover
 
-An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event or button you pressed, with an arrow pointing at it; on a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
+An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event or button you pressed, with an arrow pointing at it: beside the edge of a column event or a grid block, and beside the point you pressed on an event wider than the popover, such as a list row stretching across the card, so it opens where you were looking. On a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;

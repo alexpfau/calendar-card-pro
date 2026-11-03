@@ -5,6 +5,7 @@ import { FROZEN_NOW } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
 import {
   type DetailContext,
   buildDetailEntry,
@@ -1440,6 +1441,93 @@ describe('what the card lets the popover offer', () => {
     const { card, dialogs } = await mount({ ...DETAILS, ...options }, { states: calendarState(7) });
 
     expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual(expected);
+  });
+
+  it.each([
+    ['may be changed and deleted', {}, 7, ['calendar.anna', 'calendar.ben']],
+    ['may not be deleted here', { allow_event_delete: false }, 7, ['calendar.anna']],
+    ['may not be changed here', { allow_event_edit: false }, 7, ['calendar.anna']],
+    // Ben's calendar can delete and change events, but takes no new ones.
+    ['has nowhere to go', {}, 6, ['calendar.anna']],
+  ])(
+    "offers to move an event that %s to the card's calendars that take new ones",
+    async (_name, options, benFeatures, calendars) => {
+      const states = {
+        ...calendarState(7),
+        'calendar.ben': {
+          entity_id: 'calendar.ben',
+          state: 'off',
+          attributes: { supported_features: benFeatures, friendly_name: 'Ben' },
+        },
+      };
+      const { card, dialogs } = await mount(
+        { ...DETAILS, ...options, entities: ['calendar.anna', 'calendar.ben'] },
+        { states, eventsFor: { 'calendar.ben': [] } },
+      );
+      buttonsShowing(card, 'Dentist')[0].click();
+      await settle();
+      const params = dialogs[dialogs.length - 1].dialogParams;
+      expect(params.calendarId).toBe('calendar.anna');
+      expect(params.calendars.map((calendar) => calendar.id)).toEqual(calendars);
+    },
+  );
+
+  it('refreshes both calendars an event was moved between, and tells the page', async () => {
+    const { card, dialogs, callApi } = await mount(
+      { ...DETAILS, entities: ['calendar.anna', 'calendar.ben'] },
+      { states: twoCalendars, eventsFor: { 'calendar.ben': [] } },
+    );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    callApi.mockClear();
+    // Other cards on the page refresh by what is announced, so both calendars must be in it.
+    const announced: unknown[] = [];
+    const listen = (ev: Event) => announced.push((ev as CustomEvent).detail.changed);
+    window.addEventListener(CALENDARS_CHANGED_EVENT, listen);
+    onTestFinished(() => window.removeEventListener(CALENDARS_CHANGED_EVENT, listen));
+    dialogs[dialogs.length - 1].dialogParams.updated('calendar.ben', 'calendar.anna');
+    expect(announced).toEqual([{ ids: ['calendar.ben', 'calendar.anna'] }]);
+    await settle();
+    await vi.waitFor(() => {
+      const paths = callApi.mock.calls.map(([, path]) => path.split('?')[0]).sort();
+      expect(paths).toEqual(['calendars/calendar.anna', 'calendars/calendar.ben']);
+    });
+  });
+
+  it("anchors the popover at the end of a list row's text, not at its far edge", async () => {
+    const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
+    const target = buttonsShowing(card, 'Dentist')[0];
+    // happy-dom lays nothing out: the row spans the card, its words end at 180.
+    const box = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 200,
+      right: 1100,
+      bottom: 260,
+      width: 1000,
+      height: 60,
+    } as DOMRect);
+    let selected: Node | null = null;
+    const range = vi.spyOn(document, 'createRange').mockImplementation(
+      () =>
+        ({
+          selectNodeContents: (node: Node) => (selected = node),
+          getClientRects: () =>
+            selected?.nodeValue?.includes('Dentist') ? [{ left: 110, right: 180 }] : [],
+        }) as unknown as Range,
+    );
+    try {
+      target.click();
+      await settle();
+    } finally {
+      box.mockRestore();
+      range.mockRestore();
+    }
+    expect(dialogs[dialogs.length - 1].dialogParams.anchor?.rect).toEqual({
+      left: 100,
+      top: 200,
+      right: 180,
+      bottom: 260,
+    });
   });
 
   it('opens a duplicate merged from two calendars with neither Edit nor Delete', async () => {
