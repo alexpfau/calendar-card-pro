@@ -470,6 +470,21 @@ class CalendarCardPro extends LitElement {
    * response to discard itself instead of committing.
    */
   private _eventRequestGeneration = 0;
+
+  /**
+   * The newest partial result of a cold load, and the timer that will draw it
+   * (`_schedulePartialCommit`). Calendars answering within one task draw once, and a load whose
+   * calendars all answer together draws only its full result.
+   */
+  private _partialCommit: {
+    partial: Types.EventFetchResult;
+    instanceId: string;
+    page: string | null;
+    generation: number;
+  } | null = null;
+
+  private _partialTimer: number | null = null;
+
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -1954,6 +1969,7 @@ class CalendarCardPro extends LitElement {
     this._stopMidnightTimer();
     this._stopNowBoundaryTimer();
     this._stopClockTimer();
+    this._cancelPartialCommit();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -5529,15 +5545,27 @@ class CalendarCardPro extends LitElement {
         return;
       }
 
-      const result = await EventUtils.fetchEventData(
-        hass,
-        config,
-        instanceId,
-        load === 'reload' ? 'reload' : 'network',
-        this._failureCountHint,
-        afterWrite,
-        store,
-      );
+      // Nothing on screen for this window yet: draw each calendar as it answers, so one slow
+      // calendar no longer holds back the others. Where cached events for it are drawn, they
+      // stay until every calendar has answered, so none of them vanishes and comes back.
+      const cold = this.isInitialLoad || this._eventsInstanceId !== instanceId;
+      let result: Types.EventFetchResult;
+      try {
+        result = await EventUtils.fetchEventData(
+          hass,
+          config,
+          instanceId,
+          load === 'reload' ? 'reload' : 'network',
+          this._failureCountHint,
+          afterWrite,
+          store,
+          cold
+            ? (partial) => this._schedulePartialCommit(partial, instanceId, page, generation)
+            : undefined,
+        );
+      } finally {
+        this._cancelPartialCommit(generation);
+      }
 
       if (isSuperseded()) {
         Logger.debug('Discarding a superseded event response');
@@ -5631,6 +5659,56 @@ class CalendarCardPro extends LitElement {
       // run of failures this card had counted.
       this._failureCountHint = 0;
     }
+  }
+
+  /**
+   * Draw the calendars of a cold load that have answered so far, in the next task.
+   *
+   * Calendars still out are simply not drawn yet, and nothing is reported failed until every
+   * calendar has answered: the header keeps its loading spinner, and the full result replaces
+   * this one. Neither the cache nor the deadlines move.
+   *
+   * @param partial The events of every calendar that has answered
+   * @param instanceId Query identity the events were loaded for
+   * @param page The page they belong to, null for home
+   * @param generation The request they belong to; a newer one discards them
+   */
+  private _schedulePartialCommit(
+    partial: Types.EventFetchResult,
+    instanceId: string,
+    page: string | null,
+    generation: number,
+  ): void {
+    this._partialCommit = { partial, instanceId, page, generation };
+    if (this._partialTimer !== null) return;
+
+    this._partialTimer = window.setTimeout(() => {
+      this._partialTimer = null;
+      const pending = this._partialCommit;
+      this._partialCommit = null;
+      if (!pending || pending.generation !== this._eventRequestGeneration || !this.isConnected) {
+        return;
+      }
+      this.events = [...pending.partial.events];
+      this._eventsInstanceId = pending.instanceId;
+      this._pageShown = pending.page;
+      this._eventsFetchedAt = pending.partial.fetchedAt;
+      this.isInitialLoad = false;
+    }, 0);
+  }
+
+  /**
+   * Drop a partial commit still waiting for its timer, once its request has settled.
+   *
+   * @param generation The settled request; a newer one's pending commit is left alone
+   */
+  private _cancelPartialCommit(generation?: number): void {
+    if (generation !== undefined && this._partialCommit?.generation !== generation) return;
+    if (this._partialTimer !== null) {
+      clearTimeout(this._partialTimer);
+      this._partialTimer = null;
+    }
+    this._partialCommit = null;
   }
 
   /**

@@ -22,7 +22,10 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   Cards showing the same calendars over the same dates share one cache, so one card's
   refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as
-  long as the slowest calendar rather than the sum of all of them.
+  long as the slowest calendar rather than the sum of all of them. When the card has nothing
+  to draw yet, on its first load or on dates it has not shown before, it draws each calendar
+  as it answers, so one slow calendar no longer holds back the rest. A card already showing
+  saved events keeps them until every calendar has answered.
 - **At once after a change made on the card.** Adding, editing or deleting an event through
   the card's [event popover](/features/actions#the-event-popover) refetches straight
   away, on that card and on every other Calendar Card Pro card on the page that shows the
