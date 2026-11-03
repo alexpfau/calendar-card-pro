@@ -775,7 +775,13 @@ export class EventPopover extends LitElement {
         @pointerdown=${this._onPointerDown}
         @click=${this._onClick}
       >
-        <div class="panel" style="--event-color:${color}" ?inert=${this._busy}>
+        <div
+          class="panel"
+          style="--event-color:${color};${
+            place?.arrow ? `transform-origin:${place.arrow.side} ${place.arrow.top}px` : ''
+          }"
+          ?inert=${this._busy}
+        >
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
           <h2
             id="popover-title"
@@ -1331,6 +1337,42 @@ export class EventPopover extends LitElement {
     dialog.sheet {
       inset: auto 0 0 0;
       width: 100%;
+    }
+    /* It opens as a macOS popover does: a short fade and grow out of its arrow, whose point the
+       panel's inline transform-origin names, or as a sheet rising from the bottom. Without
+       motion where the system asks for less. */
+    dialog[open] > .panel {
+      animation: pop-in 150ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    dialog[open] > .arrow {
+      animation: fade-in 150ms ease-out;
+    }
+    dialog.sheet[open] > .panel {
+      animation-name: sheet-in;
+      animation-duration: 220ms;
+    }
+    @keyframes pop-in {
+      from {
+        opacity: 0;
+        transform: scale(0.94);
+      }
+    }
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+      }
+    }
+    @keyframes sheet-in {
+      from {
+        transform: translateY(24px);
+        opacity: 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      dialog[open] > .panel,
+      dialog[open] > .arrow {
+        animation: none;
+      }
     }
     dialog.sheet::backdrop {
       background: rgba(0, 0, 0, 0.25);

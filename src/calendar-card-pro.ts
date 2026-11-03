@@ -3608,6 +3608,12 @@ class CalendarCardPro extends LitElement {
     }
     const tapTarget = this._eventTapAt(ev);
     const dayHit = tapTarget ? undefined : this._dayHitAt(ev);
+    // A press on an event or a day is theirs, so the card's ripple stays still for it from
+    // start to end; the stylesheet reads the mark, and the next press anywhere else clears it.
+    (ev.currentTarget as Element | null)?.toggleAttribute?.(
+      'data-own-press',
+      Boolean(tapTarget || dayHit),
+    );
     const swipeable = this._swipeStartsAt(ev);
     const holds = this._holdRunsFor(tapTarget);
     // A press arms only when it could end in something: the card's own tap or hold, the

@@ -836,6 +836,16 @@ describe('placing at the press', () => {
     expect(top(root) + arrowTop(root)).toBe(300);
   });
 
+  it('grows out of its arrow as it opens', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    const panel = root.querySelector<HTMLElement>('.panel')!;
+    expect(panel.style.transformOrigin).toBe(`left ${arrowTop(root)}px`);
+  });
+
   it('turns to the left of the press where the right has no room', async () => {
     const { root } = await open({ anchor: { x: 900, y: 300 } });
     expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 14 - 340}px`);

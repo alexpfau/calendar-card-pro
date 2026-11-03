@@ -652,6 +652,27 @@ describe("the list view's event button", () => {
   });
 });
 
+describe("the card's ripple and a press on an event", () => {
+  it('marks a press on an event as its own, and a press elsewhere on the card clears it', async () => {
+    const { card } = await mount({ ...DETAILS, hold_action: { action: 'refresh' } });
+    const haCard = card.shadowRoot!.querySelector('ha-card')!;
+    expect(haCard.querySelector('ha-ripple')).not.toBeNull();
+
+    const event = leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist');
+    pointer(event, 'pointerdown', 40, 40);
+    pointer(event, 'pointerup', 40, 40);
+    click(event);
+    await settle();
+    // Still marked after the press ended: the ripple is finishing it while the popover opens.
+    expect(haCard.hasAttribute('data-own-press')).toBe(true);
+
+    const title = card.shadowRoot!.querySelector('.card-header') ?? haCard;
+    pointer(title, 'pointerdown', 5, 5);
+    expect(haCard.hasAttribute('data-own-press')).toBe(false);
+    pointer(title, 'pointerup', 5, 5);
+  });
+});
+
 describe('the card around events that are buttons', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const TAPPABLE = { tap_action: { action: 'expand' } } as const;

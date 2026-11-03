@@ -3586,6 +3586,15 @@ export const cardStyles = css`
     --ha-ripple-pressed-opacity: 0;
   }
 
+  /* Hover and :active alone cannot hold the ripple still to the end of a press. The ripple
+     finishes a press for a while after it is let go, and an event's popover opens at that
+     moment, over the event: :hover and :active leave it, and the ripple's press flashed across
+     the whole card as the popover appeared. So the card marks a press that began on an event or
+     a day, and keeps the ripple's press still until the next press begins anywhere else. */
+  ha-card[data-own-press] > ha-ripple {
+    --ha-ripple-pressed-opacity: 0;
+  }
+
   /* List view draws an event in a table cell, and a cell may not be a button, so the button
    * is a block inside the cell, around the event's content. Layout stays the cell's: the
    * button takes no padding and no size of its own. But the cell can be taller than its

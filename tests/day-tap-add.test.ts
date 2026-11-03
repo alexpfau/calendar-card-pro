@@ -381,6 +381,15 @@ describe('day_tap_action: add-event', () => {
     expect(adds(dialogs)).toEqual([]);
   });
 
+  it("keeps the card's ripple still for a press on a day, beyond the press itself", async () => {
+    const { card } = await mount({ ...ADD, hold_action: { action: 'more-info' } });
+    const haCard = card.shadowRoot!.querySelector('ha-card')!;
+    expect(haCard.querySelector('ha-ripple')).not.toBeNull();
+    tap(dayButtons(card)[1]);
+    await settle();
+    expect(haCard.hasAttribute('data-own-press')).toBe(true);
+  });
+
   it("leaves a hold on a day to the card's hold action", async () => {
     const { card, dialogs, hassActions } = await mount({
       ...ADD,

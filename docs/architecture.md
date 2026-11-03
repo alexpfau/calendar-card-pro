@@ -767,10 +767,15 @@ caller.
 
 - **feedback.ts**:
   - Creates the hold indicator at the pointer, and fades it out and removes it
-  - Describes where a press was (`PressOrigin`), with the pressed event's or button's box,
-    for the popover to open beside
+  - Describes where a press was (`PressOrigin`): a pointer's point, or for a press without
+    one the element's box (`eventBox`), for the popover to open at or beside
   - Draws no ripple: that is an `<ha-ripple>` which `renderMainCardStructure` in
-    `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`
+    `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`. A
+    press on an event or a day is theirs, and `:hover` and `:active` alone could not keep the
+    ripple still through it: the ripple finishes a press after it is let go, and the popover
+    opens over the event at that moment, so both leave it and the ripple flashed across the
+    card. `_handlePointerDown` therefore marks such a press on `ha-card` (`data-own-press`),
+    which mutes the ripple's press until the next press begins elsewhere
 
 ### Rendering (`rendering/`)
 
