@@ -170,6 +170,151 @@ describe('opening', () => {
   });
 });
 
+/**
+ * A finger lifts where it pressed, and a browser sends the mouse events and click it derives
+ * from the touch there, after the popover has opened over that spot. Those must not start
+ * editing a field: the title would raise a phone's keyboard, the times would open.
+ */
+describe('the touch that opened it', () => {
+  const ghost = (target: Element) => {
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      target.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, composed: true, cancelable: true }),
+      );
+    }
+  };
+  const touched = { anchor: { x: 10, y: 10, pointerType: 'touch' } };
+
+  it.each(['touch', 'pen'])('leaves the times closed for the click a %s derives', async (kind) => {
+    const { el, root } = await open({ anchor: { x: 10, y: 10, pointerType: kind } });
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).not.toBeNull();
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+  });
+
+  it('answers a click that comes after the derived one, as a key pressing a button sends', async () => {
+    const { el, root, press } = await open(touched);
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    await press(root.querySelector('button.time')!);
+    expect(root.querySelector('button.time')).toBeNull();
+  });
+
+  it('guards only for a moment after it opened', async () => {
+    const { el, root } = await open(touched);
+    const opened = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(opened + 1000);
+    onTestFinished(() => vi.mocked(Date.now).mockRestore());
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).toBeNull();
+  });
+
+  it('keeps the focus off a field the derived events focus anyway', async () => {
+    const { el, root } = await open(touched);
+    root.querySelector<HTMLInputElement>('input.title')!.focus();
+    await el.updateComplete;
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+  });
+
+  it("answers the popover's own presses: one that begins with a pointer-down", async () => {
+    const { el, root } = await open(touched);
+    const time = root.querySelector('button.time')!;
+    time.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    ghost(time);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).toBeNull();
+  });
+
+  it('guards nothing after a mouse press or a key, which click what they mean to', async () => {
+    const { el, root } = await open({ anchor: { x: 10, y: 10, pointerType: 'mouse' } });
+    ghost(root.querySelector('button.time')!);
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).toBeNull();
+  });
+});
+
+describe('a new event opened by finger or pen', () => {
+  it.each(['touch', 'pen'])(
+    'opens on its title heading after a %s, no field editing',
+    async (kind) => {
+      const { root } = await open({
+        mode: 'new',
+        entry: undefined,
+        display: undefined,
+        times: { allDay: false, start: new Date(2026, 10, 3, 9), end: new Date(2026, 10, 3, 10) },
+        canDelete: false,
+        anchor: { x: 10, y: 10, pointerType: kind },
+      });
+      // Not the title field: a field taking the focus raises a phone's keyboard unasked.
+      expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+      expect(root.querySelector('button.time')).not.toBeNull();
+    },
+  );
+});
+
+describe("Home Assistant's shortcuts", () => {
+  it('never hears a letter typed in the popover, outside a text field too', async () => {
+    const { root } = await open({});
+    const heard: string[] = [];
+    const listen = (ev: Event) => heard.push((ev as KeyboardEvent).key);
+    document.addEventListener('keydown', listen);
+    onTestFinished(() => document.removeEventListener('keydown', listen));
+    const key = (target: Element, init: KeyboardEventInit) =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, composed: true, ...init }),
+      );
+
+    key(root.querySelector('h2#popover-title')!, { key: 'a' });
+    key(root.querySelector('button.time')!, { key: 'E', shiftKey: true });
+    key(root.querySelector('h2#popover-title')!, { key: 'c', metaKey: true });
+    key(root.querySelector('h2#popover-title')!, { key: 'Tab' });
+    expect(heard).toEqual(['c', 'Tab']);
+  });
+});
+
+describe('telling the card', () => {
+  it('reports every change to the draft, and its closing once', async () => {
+    const changed = vi.fn();
+    const hook = vi.fn();
+    const { el, closed, type } = await open({ changed, closed: hook });
+    await type('input.title', 'Swim practice');
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ summary: 'Swim practice' }));
+    expect(hook).not.toHaveBeenCalled();
+
+    el.closeDialog();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalled());
+    expect(hook).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens again with no field being edited, whatever was when it last closed', async () => {
+    const { el, root, closed, press } = await open({});
+    await press(root.querySelector('button.time')!);
+    expect(root.querySelector('button.time')).toBeNull();
+    el.closeDialog();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalled());
+
+    el.showDialog({
+      mode: 'event',
+      calendarId: BEN.id,
+      entry: SWIM,
+      display: { title: 'Swim', location: SWIM.location, description: SWIM.description },
+      canEdit: true,
+      canDelete: true,
+      color: BEN.color,
+      calendars: [BEN],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: vi.fn(),
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(root.querySelector('button.time')).not.toBeNull();
+  });
+});
+
 describe('saving on close', () => {
   it('closes without writing when nothing changed, even after a field was focused', async () => {
     const { el, root, writes, closed, updated } = await open({});
@@ -470,7 +615,7 @@ describe('a new event', () => {
     calendars: [BEN, ANNA],
   };
 
-  it('opens on its title, and adds nothing without one', async () => {
+  it('opens in its title field by mouse or key, and adds nothing without a title', async () => {
     const { el, root, writes, closed } = await open(fresh);
     expect(root.activeElement).toBe(root.querySelector('input.title'));
     expect(el.closeDialog()).toBe(true);

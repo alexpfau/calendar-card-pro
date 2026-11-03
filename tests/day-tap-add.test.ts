@@ -73,7 +73,8 @@ const EVENTS = [
 const JUNE = (day: number, hour = 0) => new Date(2026, 5, day, hour);
 
 /** The span a new event opens with on a day, as `[start, end]`: from the hour, for an hour. */
-const SPAN = (day: number, hour: number) => [JUNE(day, hour), JUNE(day, hour + 1)] as const;
+const SPAN = (day: number, hour: number, minute = 0) =>
+  [new Date(2026, 5, day, hour, minute), new Date(2026, 5, day, hour + 1, minute)] as const;
 
 const ADD = { day_tap_action: { action: 'add-event' } } as const;
 
@@ -293,17 +294,22 @@ describe('day_tap_action: add-event', () => {
     expect(hassActions.map(({ action }) => action)).toEqual(['tap']);
   });
 
-  it('adds at the hour under the pointer in a grid, rounded down', async () => {
+  it('adds at the quarter hour under the pointer in a grid, rounded down, for an hour', async () => {
     const { card, dialogs } = await mount({ view: 'grid', ...ADD });
 
     // The default band runs 07:00 to 22:00: 900 minutes over 1500 px.
     const body = all(card, '.grid-day-body')[2];
     placeAt(body, { left: 200, top: 0, width: 100, height: 1500 });
     const plane = body.querySelector('.grid-day-plane')!;
-    tap(plane, 250, ((13 * 60 + 45 - 7 * 60) / 900) * 1500);
+    tap(plane, 250, ((13 * 60 + 52 - 7 * 60) / 900) * 1500);
+    await settle();
+    tap(plane, 250, ((9 * 60 + 15 - 7 * 60) / 900) * 1500);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 13)]]);
+    expect(adds(dialogs)).toEqual([
+      [ANNA, ...SPAN(19, 13, 45)],
+      [ANNA, ...SPAN(19, 9, 15)],
+    ]);
   });
 
   it('washes the hour pressed in a grid, and only while it is pressed', async () => {
@@ -311,18 +317,18 @@ describe('day_tap_action: add-event', () => {
 
     const body = all(card, '.grid-day-body')[2];
     placeAt(body, { left: 200, top: 0, width: 100, height: 1500 });
-    pointer(body.querySelector('.grid-day-plane')!, 'pointerdown', 250, 420);
+    pointer(body.querySelector('.grid-day-plane')!, 'pointerdown', 250, 450);
 
     expect(body.hasAttribute('data-add-pressed')).toBe(true);
-    // 420 px is 11:12, so the hour of 11:00, 240 to 300 minutes into the band.
+    // 450 px is 11:30, the start of the hour a tap adds: 270 to 330 minutes into the band.
     expect(body.style.getPropertyValue('--calendar-card-add-hour-top')).toBe(
-      `${(240 / 900) * 100}%`,
+      `${(270 / 900) * 100}%`,
     );
     expect(body.style.getPropertyValue('--calendar-card-add-hour-height')).toBe(
       `${(60 / 900) * 100}%`,
     );
 
-    pointer(body, 'pointerup', 250, 420);
+    pointer(body, 'pointerup', 250, 450);
     expect(body.hasAttribute('data-add-pressed')).toBe(false);
     expect(body.style.getPropertyValue('--calendar-card-add-hour-top')).toBe('');
   });
@@ -346,7 +352,9 @@ describe('day_tap_action: add-event', () => {
     click(band);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 10)]]);
+    // An all-day event on that day, which `EventTimes` ends on its last day.
+    expect(adds(dialogs)).toEqual([[ANNA, JUNE(19), JUNE(19)]]);
+    expect(dialogs[dialogs.length - 1].dialogParams.times?.allDay).toBe(true);
   });
 
   it('never adds from a banner in the all-day band', async () => {
@@ -659,7 +667,7 @@ describe('add-event as the card action', () => {
     expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
   });
 
-  it('adds at the hour under a hold in a grid, through an event', async () => {
+  it('adds at the quarter hour under a hold in a grid, through an event', async () => {
     const { card, dialogs } = await mount({ view: 'grid', hold_action: { action: 'add-event' } });
 
     const body = all(card, '.grid-day-body')[0];
@@ -668,7 +676,7 @@ describe('add-event as the card action', () => {
     hold(dentist, 50, ((14 * 60 + 20 - 7 * 60) / 900) * 1500);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(17, 14)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(17, 14, 15)]]);
   });
 
   it('adds on the date the add button uses where no day is under the press', async () => {

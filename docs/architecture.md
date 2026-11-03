@@ -1272,7 +1272,7 @@ configured, and the rules below decide which one does.
 | Target                                               | Tap                | Hold                |
 | ---------------------------------------------------- | ------------------ | ------------------- |
 | An event                                             | `event_tap_action` | `event_hold_action` |
-| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | none of its own     |
+| An empty slot: a day's empty space, a grid time slot | `day_tap_action`   | draws, in a grid    |
 | The card: everything else, title and toolbar rows    | `tap_action`       | `hold_action`       |
 
 The toolbar's controls and the filter menu are none of these: they keep their presses
@@ -1287,8 +1287,9 @@ Every view marks its days for this through a property no markup shows (`DaySlot`
 and every event and `+N` block says it covers the day beneath it. Space that is no day's element,
 under a short column-view column or in a grid's all-day band, takes the day whose column holds
 the pointer, read from the columns' drawn rects, so right to left needs nothing of its own
-(`findDayHit`). A time slot is the hour under the pointer, rounded down, which is where a new
-event added there starts.
+(`findDayHit`). A time slot is the quarter hour under the pointer, rounded down on the clock
+(`minuteAt`), which is where a new event added there starts; a press in a grid's all-day band
+adds an all-day event.
 
 **Precedence.** A tap or a hold runs the innermost target's action for it, else the next
 target out's. An event covers its slot: a press on an event falls through to the card, never to
@@ -1297,11 +1298,14 @@ the slot beneath it. So a hold on an event runs the card's `hold_action` unless
 card's `tap_action`. Which target runs is one question and where the press landed another: the
 card's own `add-event` action, in `tap_action` or `hold_action`, starts the new event on the day
 under the press, events walked past (`_addContextAt`), so a hold on an event adds on its day.
+A grid's empty slot, its time area or its all-day band, has a hold of its own while a tap on a
+day adds there: it draws a new event (below), so a hold there never reaches `hold_action`.
 
 **Arming.** A press with the primary button or the primary contact arms only when it could end
 in something: a tap or a hold that resolves to an action, or a touch or pen press on a card that
 swipes (`_swipeAvailable`), away from the screen's edges. Any other press is left wholly to the
-browser. One gesture runs at a time; a second contact is ignored. Adding an event resolves to an
+browser. One gesture runs at a time; a second contact is ignored, except that it throws away a
+new event being drawn. Adding an event resolves to an
 action only where the card can add one: a calendar that accepts new events, and not while the
 card is edited (`_canAddEvents`). Anywhere else `add-event` is no action at all, with no tab
 stop, ripple or hold indicator promising one.
@@ -1311,13 +1315,18 @@ stop, ripple or hold indicator promising one.
 
 1. **Held.** The pointer stayed within `UI.POINTER_MOVE_TOLERANCE` for `TIMING.HOLD_THRESHOLD`,
    and a hold resolves to an action; the timer runs only then. Movement after that belongs to
-   the hold: ignored today, and the place a hold-then-drag would go, such as dragging out a time
-   span. Never a swipe.
+   the hold, and is ignored, except on a grid's empty slot, where the hold draws a new event and
+   the movement draws its span (`_startDraft`, `_moveDraft`); pointer-up then opens the popover
+   on it. Never a swipe.
 2. **Stayed.** Within the tolerance and no hold: a tap, by precedence.
 3. **Moved.** Past the tolerance before any hold: never a tap or a hold on any target. A touch
-   or pen swipe pages; anything else does nothing.
+   or pen swipe pages; a mouse on a grid's empty slot starts drawing a new event at once, as
+   though it had held; anything else does nothing.
 4. **Canceled.** The browser took the gesture for a scroll or a pinch (`pointercancel`), or the
-   capture was lost: nothing.
+   capture was lost: nothing. While a new event is drawn, Escape and a second contact anywhere,
+   both heard on the window, cancel the press the same way, the second before a toolbar control
+   can keep it from the card, and so does a render showing other days than the draft was
+   drawn on (`_draftStillShown`), which would otherwise add it on dates nobody can see.
 
 Enter and Space activate the focused card, event or day. There is no key hold: an event with a
 hold and no tap of its own is still a button, and the keys run its hold. While a tap on a day
@@ -1329,14 +1338,47 @@ runs, and neither does a swipe.
 
 **Who owns movement.** Vertical pans are always the browser's. Sideways pans are the card's
 while it swipes, which its `touch-action: pan-y pinch-zoom` declares, on the card itself and
-again on its body and everything in it, and the browser's on a crammed grid, which scrolls sideways. Mouse drags are nobody's: a mouse
-never swipes, which leaves a drag free for later on a desktop.
+again on its body and everything in it, and the browser's on a crammed grid, which scrolls sideways. A finger drawing a new event owns
+all of its movement once the hold has fired: a grid card that adds binds a non-passive
+`touchmove` on `ha-card` (`_draftTouchMove`) that refuses the scroll while it draws, and only
+then, and binds none otherwise, so no other card makes a touch wait on it. The trade is that
+every touch on such a card, scrolling included, waits on that listener, which returns at once.
+A pen holds first, like a finger; where a browser delivers a pen as pointer events only and lets
+it pan, a vertical pen drag may scroll and cancel the drawing (unverified on such hardware).
+Mouse drags are the card's only on a grid's empty slot, where they draw a new event; a mouse
+never swipes.
 
-**What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on
-empty areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the
-press lasts, through an attribute and two custom properties on the day's element
-(`data-add-pressed`), since most of a day's empty space is no element of its own and an element
-added for the wash would set off the grid's structure observers. On a card with any hold action,
+**What adding where a press lands takes on.** A slot tap beats the card's `tap_action` on empty
+areas, so it is opted into (`day_tap_action`). The day it would add on is washed while the press
+lasts, through an attribute and two custom properties on the day's element (`data-add-pressed`),
+since most of a day's empty space is no element of its own and an element added for the wash would
+set off the grid's structure observers. A new event being drawn is the exception, because it has to
+look exactly like an event of its calendar: the grid's own `renderTimedEvent`, or `renderBanner` for
+an all-day one, draws it from the event it will be. The card runs that event through its own
+pipeline (`processEvents`, then `groupEventsByDay`, in `_newEventByDay`), so it is matched to the
+calendar entry the saved event will match, its text replaced and split into days as the card's
+events are; where the card would not show it at all, it is split as it stands with its calendar's
+first entry, so a press still sees where it goes. The card renders that with Lit into an element of
+its own (`NEW_EVENT_HOST_CLASS`, laid out as `display: contents`) in each day's plane or in the
+all-day band, where a banner with no row of its own takes the first row free across its days. The
+structure observer skips that element and what happens inside it, so its coming and going refits
+nothing else, and its block is observed and fitted on its own (`_fitNewBlocks`). Where it lies over
+an event the day draws, it is drawn raised, as a block over another is, and a pointer moving within
+one quarter hour draws nothing again. The block outlives the press while the popover adds the event
+(`_newShown`): the popover reports each change to its draft (`changed`) and its closing (`closed`),
+and the block follows the times, title and calendar, goes on a close that saved nothing, and after a
+save stays until the refresh that save started has put the card's events on it (`_newArrived`), or
+`TIMING.NEW_EVENT_HOLD` passes. Events arriving any other way do not count, since another refresh
+may have started before the save. Every render paints it again (`_syncNewShown`): the grid keeps its
+day elements across renders, but a render can change what the block reads, such as its language or
+time format, and a render that shows other days throws the block away.
+
+A tap's own trailing mouse events and click land where the finger lifted, on the popover once it
+has opened there, and would start editing a field. The card refuses the `touchend` of a finger
+whose pointer-up opened the popover (`_swallowTouchEnd`), which keeps a browser from deriving
+them, but not after a click opened it, whose touch has ended already, nor after a pen. And the
+popover itself swallows mouse events and clicks that arrive before any pointer-down of its own,
+for a moment after a touch or pen opened it (`_ghostGuard`). On a card with any hold action,
 a swipe has to start moving before the hold threshold. The hold timer and its indicator arm for
 an event's own hold as for the card's. The derived-click guard covers the event or day button
 the gesture began on.

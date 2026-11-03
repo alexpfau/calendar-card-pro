@@ -1034,7 +1034,8 @@ function renderOverflow(
  *
  * @param event - All-day event to render
  * @param placement - Columns it spans
- * @param row - Band row it occupies, 1-based
+ * @param row - Band row it occupies, 1-based, or undefined to take the first row free across
+ *   its columns
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
@@ -1046,7 +1047,7 @@ function renderOverflow(
 function renderBanner(
   event: Types.CalendarEventData,
   placement: Grid.BannerPlacement,
-  row: number,
+  row: number | undefined,
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
@@ -1068,7 +1069,7 @@ function renderBanner(
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
-        gridRow: String(row),
+        ...(row === undefined ? {} : { gridRow: String(row) }),
         backgroundColor: presentation.entityAccentBackgroundColor,
         ...presentation.accentTextProperties,
       })}
@@ -1081,6 +1082,82 @@ function renderBanner(
       <span class="grid-banner-title">${event.summary ?? ''}</span>
     </div>
   `;
+}
+
+/**
+ * The class of the element the card draws a new event into while adding it, in a day's plane
+ * or the all-day band. It holds the block or banner and lays out as though it were not there.
+ */
+export const NEW_EVENT_HOST_CLASS = 'grid-new-event';
+
+/**
+ * A new event the card is adding, on one day, drawn as the block it will be once saved:
+ * `renderTimedEvent`'s own markup, so every option that styles an event's block styles it too.
+ * It spans its whole day, as an event alone there does, and is raised, with the backdrop and
+ * outline of a block drawn over another, where it covers one.
+ *
+ * @param event - The new event as the day shows it, with its minutes on it
+ * @param band - The day's visible band
+ * @param raised - Whether it covers an event the day already draws
+ * @param nowMin - The minute the day draws its now line at, or `null` for none
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param weatherForecasts - Weather forecasts for event badges
+ * @param hass - Home Assistant instance
+ * @returns The block, or nothing where it lies outside the band
+ */
+export function renderNewTimedEvent(
+  event: Types.CalendarEventData & Grid.LaneInput,
+  band: Grid.GridBand,
+  raised: boolean,
+  nowMin: number | null,
+  config: Types.Config,
+  language: string,
+  weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
+): TemplateResult | typeof nothing {
+  const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
+  if (!placement) return nothing;
+  const [edges] = Grid.resolveBlockEdges(
+    [{ ...event, x0Pct: 0, x1Pct: 100 }],
+    band,
+    ViewConfig.resolveTimeGridOption(config, 'slot_minutes'),
+  );
+  const horizontal = { ...spanHorizontal(0, 100), raised };
+  return renderTimedEvent(
+    event,
+    placement,
+    edges,
+    horizontal,
+    config,
+    language,
+    weatherForecasts,
+    hass,
+    false,
+    undefined,
+    nowMin,
+  );
+}
+
+/**
+ * A new all-day event the card is adding, drawn as the banner it will be once saved, in the
+ * first row free across its days.
+ *
+ * @param event - The new event
+ * @param placement - The days it covers on screen, as `computeBannerPlacement` finds them
+ * @param config - Card configuration
+ * @param language - Language code for translations
+ * @param hass - Home Assistant instance
+ * @returns The banner
+ */
+export function renderNewBanner(
+  event: Types.CalendarEventData,
+  placement: Grid.BannerPlacement,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): TemplateResult {
+  return renderBanner(event, placement, undefined, config, language, hass);
 }
 
 /**

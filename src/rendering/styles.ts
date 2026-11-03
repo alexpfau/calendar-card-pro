@@ -3746,6 +3746,31 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* A new event the card is adding, while a press draws it and while the popover adds it, is
+     drawn by the grid's own templates as the block or the banner it will be once saved, so
+     every option that styles an event styles it. Each sits in an element of its own that lays
+     out as though it were not there: the block is placed against the day's plane as any block
+     is, and the banner on the all-day band's grid, where with no row of its own it takes the
+     first row free across its days, beside the banners or in one more row below them. Nothing
+     in it answers a press. */
+  .grid-new-event {
+    display: contents;
+  }
+
+  .grid-new-event > * {
+    pointer-events: none;
+  }
+
+  /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
+     event, so the browser's own long press, selecting a word or a link's callout, is turned
+     off there. */
+  ha-card:has(.day-add-button) .grid-day-body,
+  ha-card:has(.day-add-button) .grid-allday-band {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   .day-add-button:focus {
     outline: none;
   }
@@ -3757,7 +3782,12 @@ export const cardStyles = css`
 
   /* A press on a day is the day's, as one on an event is the event's: the card's ripple is
      muted while one is down, and while a day's button is under the pointer or focused. */
-  ha-card:has([data-add-pressed], .day-add-button:hover, .day-add-button:focus-visible)
+  ha-card:has(
+      [data-add-pressed],
+      [data-add-draft],
+      .day-add-button:hover,
+      .day-add-button:focus-visible
+    )
     > ha-ripple {
     --ha-ripple-hover-opacity: 0;
     --ha-ripple-pressed-opacity: 0;
@@ -5812,7 +5842,7 @@ export const cardStyles = css`
      drop the line itself. And .grid-now-line styles only the part between blocks, so the
      line is restyled through now_color, not through that class. */
   @supports (background-position: 0 calc(1cqh - clamp(0px, 1cqh, 100cqh))) {
-    .grid-day-plane-now > .grid-event-now {
+    .grid-day-plane-now .grid-event-now {
       background-image: linear-gradient(
         var(--calendar-card-now-color, #34d399),
         var(--calendar-card-now-color, #34d399)

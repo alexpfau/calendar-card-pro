@@ -140,6 +140,13 @@ export function renderMainCardStructure(
     pointerCancel: (ev: PointerEvent) => void;
     pointerLeave: (ev: PointerEvent) => void;
     lostPointerCapture: (ev: PointerEvent) => void;
+    /**
+     * A listener that may refuse a finger's scroll, bound only where the card can be drawing
+     * a new event; anywhere else the card binds none, so a touch never waits on it.
+     */
+    touchMove?: EventListenerObject;
+    /** Refuses the `touchend` of a finger that just opened the popover; see the card. */
+    touchEnd?: (ev: TouchEvent) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
@@ -213,6 +220,8 @@ export function renderMainCardStructure(
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}
       @lostpointercapture=${handlers.lostPointerCapture}
+      @touchmove=${handlers.touchMove ?? nothing}
+      @touchend=${handlers.touchEnd ?? nothing}
     >
       ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${

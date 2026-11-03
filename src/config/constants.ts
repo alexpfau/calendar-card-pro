@@ -91,6 +91,12 @@ export const TIMING = {
    */
   DERIVED_CLICK_WINDOW: 1000,
 
+  /**
+   * How long a grid keeps showing a new event the popover saved, at most, while the events that
+   * bring the real one are on their way; they take it away as soon as they arrive.
+   */
+  NEW_EVENT_HOLD: 5000,
+
   HOLD_INDICATOR_TRANSITION: 200,
 
   HOLD_INDICATOR_FADEOUT: 300,
@@ -182,6 +188,13 @@ export const UI = {
    * Pointer travel that still counts as a tap rather than a scroll or drag.
    */
   POINTER_MOVE_TOLERANCE: 8,
+
+  /**
+   * The slot, in minutes, a new event added in a grid's time area starts on and a drawn one
+   * snaps to: a tap opens at the quarter hour under the finger, and a drag draws in quarters.
+   * On the clock, from midnight, whatever the band's own start.
+   */
+  ADD_SLOT_MINUTES: 15,
 
   /**
    * Horizontal travel, in CSS pixels, from which a touch or pen gesture that lifts pages the

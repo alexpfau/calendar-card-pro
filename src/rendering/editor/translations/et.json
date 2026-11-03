@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Päeva puudutuse tegevus",
   "day_tap_action_mode.option.none.label": "Mitte midagi",
   "day_tap_action_mode.option.add-event.label": "Lisa sündmus",
-  "day_tap_action_mode.helper": "„Lisa sündmus“ avab täitmiseks uue sündmuse, kui puudutada päeva kohas, kus sündmust pole: selle kuupäeva, sündmuste all olevat ala või ajarastris puudutatud tundi. Valikuga „Mitte midagi“ käivitab selline puudutus puudutuse tegevuse.",
+  "day_tap_action_mode.helper": "„Lisa sündmus“ avab täitmiseks uue sündmuse, kui puudutada päeva kohas, kus sündmust pole: selle kuupäeva, sündmuste all olevat ala või ajarastris puudutatud veerandtundi. Ajarastris saad sündmuse ka joonistada: hoia vaba kohta all ja lohista või lohista hiirega. Valikuga „Mitte midagi“ käivitab selline puudutus puudutuse tegevuse.",
   "event_tap_action": "Sündmuse puudutuse tegevus",
   "card_action.option.details.label": "Näita sündmuse üksikasju",
   "event_tap_action.helper": "„Näita sündmuse üksikasju“ avab sündmuse üksikasjad otse selle kõrval, kus saad seda muuta või kustutada, kui sündmuse kalender seda lubab. Home Assistanti enda tegevused saavad kasutada puudutatud sündmuse pealkirja, aegu, asukohta ja kirjeldust. Valikuga „Mitte midagi“ käivitab sündmuse puudutamine puudutuse tegevuse, nagu kõikjal mujal kaardil.",

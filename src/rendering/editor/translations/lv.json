@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Dienas pieskāriena darbība",
   "day_tap_action_mode.option.none.label": "Neko nedarīt",
   "day_tap_action_mode.option.add-event.label": "Pievienot notikumu",
-  "day_tap_action_mode.helper": "„Pievienot notikumu“ atver jaunu notikumu aizpildīšanai, kad pieskaraties dienai vietā, kur netiek rādīts neviens notikums: tās datumam, laukumam zem tās notikumiem vai laika režģī stundai, kurai pieskaraties. Ar „Neko nedarīt“ šāds pieskāriens izpilda pieskāriena darbību.",
+  "day_tap_action_mode.helper": "„Pievienot notikumu“ atver jaunu notikumu aizpildīšanai, kad pieskaraties dienai vietā, kur netiek rādīts neviens notikums: tās datumam, laukumam zem tās notikumiem vai laika režģī stundas ceturksnim, kuram pieskaraties. Režģī notikumu var arī uzzīmēt: turiet brīvu vietu un velciet vai velciet ar peli. Ar „Neko nedarīt“ šāds pieskāriens izpilda pieskāriena darbību.",
   "event_tap_action": "Notikuma pieskāriena darbība",
   "card_action.option.details.label": "Rādīt notikuma informāciju",
   "event_tap_action.helper": "„Rādīt notikuma informāciju“ atver notikuma informāciju turpat blakus, kur to var mainīt vai dzēst, ja notikuma kalendārs to atļauj. Home Assistant darbības var izmantot pieskartā notikuma nosaukumu, laikus, vietu un aprakstu. Ar „Neko nedarīt“ pieskāriens notikumam izpilda pieskāriena darbību, tāpat kā jebkurā citā kartes vietā.",

@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Akcia klepnutia na deň",
   "day_tap_action_mode.option.none.label": "Nič",
   "day_tap_action_mode.option.add-event.label": "Pridať udalosť",
-  "day_tap_action_mode.helper": "„Pridať udalosť“ otvorí novú udalosť na vyplnenie, keď klepnete na deň na mieste, kde nie je žiadna udalosť: na jeho dátum, na priestor pod jeho udalosťami alebo v časovej mriežke na hodinu, na ktorú klepnete. Pri možnosti „Nič“ takéto klepnutie spustí akciu klepnutia.",
+  "day_tap_action_mode.helper": "„Pridať udalosť“ otvorí novú udalosť na vyplnenie, keď klepnete na deň na mieste, kde nie je žiadna udalosť: na jeho dátum, na priestor pod jeho udalosťami alebo v časovej mriežke na štvrťhodinu, na ktorú klepnete. V mriežke môžete udalosť aj nakresliť: podržte voľné miesto a potiahnite alebo potiahnite myšou. Pri možnosti „Nič“ takéto klepnutie spustí akciu klepnutia.",
   "event_tap_action": "Akcia klepnutia na udalosť",
   "card_action.option.details.label": "Zobraziť podrobnosti udalosti",
   "event_tap_action.helper": "„Zobraziť podrobnosti udalosti“ otvorí podrobnosti udalosti hneď vedľa nej, kde ju môžete zmeniť alebo odstrániť, ak to jej kalendár povoľuje. Akcie Home Assistanta môžu použiť názov, časy, miesto a popis udalosti, na ktorú ste klepli. Pri možnosti „Nič“ klepnutie na udalosť spustí akciu klepnutia, rovnako ako kdekoľvek inde na karte.",

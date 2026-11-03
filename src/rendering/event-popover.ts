@@ -67,6 +67,13 @@ const EAR_INSET = 32;
  */
 const LEAVE_MS = 180;
 const LEAVE_SCALE = 0.15;
+
+/**
+ * How long after opening the popover still takes a mouse event or click with no press of its own
+ * before it for the one a touch derives (`_ghostGuard`). Browsers send those at once, or after
+ * the 300 ms a page that can zoom waits for a second tap.
+ */
+const GHOST_MS = 700;
 const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
 
 /** The map preview's size: the popover's width inside its padding, and a strip's height. */
@@ -196,6 +203,16 @@ export class EventPopover extends LitElement {
   private _wantOpen = false;
   private _openedAt = 0;
   private _backdropDown = false;
+  /**
+   * Whether the press that opened the popover may still send it the mouse events and click a
+   * browser derives from a touch, which arrive where the finger lifted, on the popover now. No
+   * press of the popover's own has begun yet; see `_ghostGuard`.
+   */
+  private _ghostPossible = false;
+  /** Whether a finger or a pen opened it, which leaves even a new event's title unfocused. */
+  private _touched = false;
+  /** Who to tell once the popover has closed (`closed`), taken when it opens. */
+  private _onClosed?: () => undefined;
   /** Counts opens, so a write that finishes after the popover was opened again leaves it be. */
   private _openId = 0;
 
@@ -222,7 +239,16 @@ export class EventPopover extends LitElement {
     this._params = params;
     this._draft = draft;
     this._original = { ...draft, times: { ...draft.times } };
-    this._editing = params.mode === 'new' ? 'title' : undefined;
+    this._onClosed = params.closed;
+    // Nothing is being edited when it opens. A new event opened by mouse or key starts in its
+    // title, as macOS does; by finger or pen it does not, since a field taking the focus raises
+    // a phone's keyboard over the popover before anyone asked to type.
+    this._editing = undefined;
+    // Only a finger or a pen leaves derived events behind: a mouse's click goes where its press
+    // began, and the keyboard and assistive technology click what they mean to.
+    const pressedWith = params.anchor?.pointerType;
+    this._touched = pressedWith === 'touch' || pressedWith === 'pen';
+    this._ghostPossible = this._touched;
     this._phase = 'edit';
     this._error = undefined;
     this._map = undefined;
@@ -279,9 +305,15 @@ export class EventPopover extends LitElement {
     }
   }
 
+  /** Whether it opens in the title field: a new event's, opened by mouse or key. */
+  private get _titleFirst(): boolean {
+    return this._params?.mode === 'new' && !this._touched;
+  }
+
   /**
-   * Puts focus where the popover starts: the title field of a new event, or the event's title
-   * heading, so a screen reader announces the event and Tab moves through its cells.
+   * Puts focus where the popover starts: a new event's title field, opened by mouse or key, so
+   * the title can be typed at once as in macOS; otherwise its title heading, so a screen reader
+   * announces it while no field starts editing and no phone raises its keyboard unasked.
    */
   private _focusStart(): void {
     const dialog = this._dialog;
@@ -716,6 +748,9 @@ export class EventPopover extends LitElement {
   }
 
   private _fireClosed(): void {
+    const closed = this._onClosed;
+    this._onClosed = undefined;
+    closed?.();
     this.dispatchEvent(
       new CustomEvent('dialog-closed', {
         bubbles: true,
@@ -748,19 +783,78 @@ export class EventPopover extends LitElement {
    */
   private readonly _onPointerDown = (ev: PointerEvent): void => {
     this._backdropDown = ev.target === this._dialog;
+    // A press of the popover's own: what follows it is its own too.
+    this._ghostPossible = false;
   };
 
-  private readonly _onClick = (ev: MouseEvent): void => {
-    if (ev.target !== this._dialog || !this._backdropDown) return;
-    this._backdropDown = false;
-    if (Date.now() - this._openedAt < 300) return;
-    this._requestClose('save');
+  /**
+   * Swallows the mouse events and the click a browser derives from the touch that opened the
+   * popover. They arrive after it has opened, where the finger lifted, which is on the popover
+   * now, so they would start editing whichever field was there: the title, raising the phone's
+   * keyboard, or the times, opening them. Only before any press of the popover's own, which
+   * begins with a pointer-down they never have, and only for a moment after it opened. Heard in
+   * the capture phase, before any field's own handler.
+   */
+  private readonly _ghostGuard = {
+    handleEvent: (ev: MouseEvent): void => {
+      if (!this._ghostPossible) return;
+      if (Date.now() - this._openedAt > GHOST_MS) {
+        this._ghostPossible = false;
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.type === 'click') this._ghostPossible = false;
+    },
+    capture: true,
+  };
+
+  /**
+   * Keeps the keys typed in the popover in it. Home Assistant answers a bare letter typed
+   * anywhere outside a text field with a shortcut of its own, opening Assist or its search
+   * over the popover, and a letter typed with the focus on the heading or a button, before the
+   * title field was chosen, would do that. A key with Ctrl, Alt or the command key, and every
+   * key that is not a character, still goes on.
+   */
+  private readonly _keepKeys = (ev: KeyboardEvent): void => {
+    if (ev.key.length === 1 && !ev.ctrlKey && !ev.altKey && !ev.metaKey) ev.stopPropagation();
+  };
+
+  /** A field the derived events focused anyway leaves the focus where the popover put it. */
+  private readonly _ghostFocus = {
+    handleEvent: (ev: FocusEvent): void => {
+      if (!this._ghostPossible || Date.now() - this._openedAt > GHOST_MS) return;
+      const target = ev.target as HTMLElement | null;
+      if (!target || target.id === 'popover-title') return;
+      if (!target.matches('input, textarea, select')) return;
+      target.blur();
+      this._focusStart();
+    },
+    capture: true,
+  };
+
+  /**
+   * A click: the derived one of the opening touch, swallowed (`_ghostGuard`), or one on the
+   * backdrop, which closes the popover, saving. In the capture phase, so the guard runs before
+   * any field's own click.
+   */
+  private readonly _onClick = {
+    handleEvent: (ev: MouseEvent): void => {
+      this._ghostGuard.handleEvent(ev);
+      if (ev.defaultPrevented) return;
+      if (ev.target !== this._dialog || !this._backdropDown) return;
+      this._backdropDown = false;
+      if (Date.now() - this._openedAt < 300) return;
+      this._requestClose('save');
+    },
+    capture: true,
   };
 
   private _update(changes: Partial<Model.Draft>): void {
     if (!this._draft || this._busy) return;
     this._draft = { ...this._draft, ...changes };
     this._error = undefined;
+    this._params?.changed?.(this._draft);
   }
 
   /** Moves the event, and its repeat with it, so the series stays on the day it moved to. */
@@ -922,6 +1016,10 @@ export class EventPopover extends LitElement {
         @cancel=${this._onCancel}
         @pointerdown=${this._onPointerDown}
         @click=${this._onClick}
+        @mousedown=${this._ghostGuard}
+        @mouseup=${this._ghostGuard}
+        @focusin=${this._ghostFocus}
+        @keydown=${this._keepKeys}
       >
         <div
           class="panel"
@@ -933,7 +1031,7 @@ export class EventPopover extends LitElement {
             id="popover-title"
             class="visually-hidden"
             tabindex="-1"
-            ?autofocus=${params.mode === 'event'}
+            ?autofocus=${!this._titleFirst}
           >
             ${titleText || this._t('summary')}
           </h2>
@@ -998,10 +1096,10 @@ export class EventPopover extends LitElement {
     }
     return html`<input
       class="cell title"
+      ?autofocus=${this._titleFirst}
       .value=${text}
       placeholder=${this._t('summary')}
       aria-label=${this._t('summary')}
-      ?autofocus=${this._params?.mode === 'new'}
       @focus=${() => (this._editing = 'title')}
       @blur=${() => this._editing === 'title' && (this._editing = undefined)}
       @input=${(ev: Event) => this._update({ summary: (ev.target as HTMLInputElement).value })}

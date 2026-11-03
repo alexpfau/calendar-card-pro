@@ -21,7 +21,14 @@
  * This package includes lit/LitElement (BSD-3-Clause License)
  */
 
-import { LitElement, PropertyValues, TemplateResult, html, nothing } from 'lit';
+import {
+  LitElement,
+  PropertyValues,
+  TemplateResult,
+  html,
+  render as litRender,
+  nothing,
+} from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import * as Config from './config/config';
@@ -34,11 +41,14 @@ import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
 import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
+import type * as Times from './interaction/event-times';
 import * as Feedback from './interaction/feedback';
+import * as GridDraft from './interaction/grid-draft';
 import type * as PopoverModel from './interaction/popover-model';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
+import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
@@ -161,7 +171,8 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
  * under `show_past_events: false`, expire a banner, repack lanes or drop a sparse day, and the
  * resize observer keyed to existing blocks cannot see a block that did not exist when it was
  * attached. Text and comment nodes are ignored, and so is the cascade-threshold probe, which
- * the reaction to this very signal inserts.
+ * the reaction to this very signal inserts, and so is the new event the card is adding, which
+ * comes and goes with a press and is fitted on its own (`_fitNewBlocks`).
  *
  * @param record - A record from the grid disclosure observer, already known to lie outside
  *   every timed block
@@ -169,9 +180,13 @@ function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): b
  */
 function changesGridStructure(record: MutationRecord): boolean {
   if (record.type !== 'childList') return false;
+  const target = record.target instanceof Element ? record.target : record.target.parentElement;
+  if (target?.closest(`.${GridRender.NEW_EVENT_HOST_CLASS}`)) return false;
   return [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
     (node) =>
-      node instanceof Element && !node.classList.contains(CascadeThreshold.SCALE_PROBE_CLASS),
+      node instanceof Element &&
+      !node.classList.contains(CascadeThreshold.SCALE_PROBE_CLASS) &&
+      !node.classList.contains(GridRender.NEW_EVENT_HOST_CLASS),
   );
 }
 
@@ -605,6 +620,64 @@ class CalendarCardPro extends LitElement {
    * hold, so the browser follows the link wherever the finger stayed put.
    */
   private _pointerOnLink = false;
+  /**
+   * Where a new event may be drawn from, for the active press: a grid's time area or all-day
+   * band, while a tap on a day adds. Such a press has a hold of its own, which draws instead of
+   * running `hold_action` (`_startDraft`).
+   */
+  private _pointerDraftFrom: GridDraft.DraftAnchor | null = null;
+  /** The new event the active press is drawing, if any; see `_startDraft`. */
+  private _draft: {
+    readonly anchor: GridDraft.DraftAnchor;
+    /** Whether the pointer has left the slot the draft began in. */
+    moved: boolean;
+    /** The day element under the pointer, for the popover to open beside. */
+    under: Element | null;
+  } | null = null;
+  /**
+   * The new event a grid shows as a block of its own: while a press draws it, and then while
+   * the popover adds it, following what is typed and chosen there, as Calendar on macOS shows
+   * a "New Event" until it is saved or thrown away (`_paintNew`).
+   */
+  private _newShown: {
+    times: Times.EventTimes;
+    /** The title typed so far; until there is one, the block says "New event". */
+    title: string;
+    /** The calendar it would be added to, whose options draw it as they draw its events. */
+    calendarId?: string;
+    /** The location and description typed so far, which an event's block may show. */
+    location?: string;
+    description?: string;
+    /**
+     * What the grid showed when it was first drawn (`_draftContext`). A block on days the card
+     * no longer shows, after a page turn, a view switch or anything else that redrew other days,
+     * is taken away, and a press drawing it is thrown away rather than added on dates nobody can
+     * see.
+     */
+    context: string;
+    /** Whether the add popover is open on it, which it outlives the press that drew it for. */
+    inPopover: boolean;
+    /** Whether the popover saved it, so it stays until the card's events bring the real one. */
+    saved: boolean;
+    /** Whether the refresh after its save has put the card's events on it (`_newArrived`). */
+    arrived: boolean;
+  } | null = null;
+  /**
+   * What the new event is drawn into, by the element holding each: a day's plane for a timed
+   * one, the all-day band for an all-day one (`_paintNew`).
+   */
+  private _newHosts = new Map<Element, HTMLElement>();
+  /** The new event's blocks the grid's fitting observes, to be forgotten once they go. */
+  private _newObserved = new Set<HTMLElement>();
+  /** Takes a saved new event's block away if the events bringing the real one are slow. */
+  private _newTimer?: number;
+  /**
+   * Until when the `touchend` of a finger that just opened the popover is refused, which keeps
+   * the mouse events and click a browser derives from it off the popover (`_swallowTouchEnd`).
+   */
+  private _swallowTouchEndUntil = 0;
+  /** Whether a finger is lifting, while its pointer-up runs what the press does. */
+  private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
 
@@ -687,13 +760,17 @@ class CalendarCardPro extends LitElement {
    * home while this card is paged away, or a card on another view (`expireStoredCalendars`).
    *
    * @param changed - The calendars the change may have touched
+   * @param committed - Called once this card's refresh has put the events on it
    */
-  private _refreshAfterWrite(changed: CalendarChanges.ChangedCalendars): undefined {
+  private _refreshAfterWrite(
+    changed: CalendarChanges.ChangedCalendars,
+    committed?: () => void,
+  ): undefined {
     this._markHomeStaleIfAway();
     const hass = this.safeHass;
     EventUtils.expireStoredCalendars((ids) => CalendarChanges.touchesCalendars(changed, ids, hass));
     const writeGeneration = EventUtils.advanceWriteGeneration();
-    void this.refreshEvents(writeGeneration);
+    void this.refreshEvents(writeGeneration).then(() => committed?.());
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
   }
 
@@ -867,6 +944,11 @@ class CalendarCardPro extends LitElement {
         window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ??
         false,
     };
+    // A finger lifting as it opens it lifts onto the popover; see `_swallowTouchEnd`. Not a
+    // click, whose touch has ended already, nor a pen, which sends no touch events.
+    if (this._liftingTouch) {
+      this._swallowTouchEndUntil = Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW;
+    }
     const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
     (showDialog as Event & { detail?: unknown }).detail = {
       dialogTag: EventPopover.EVENT_POPOVER_TAG,
@@ -2904,6 +2986,8 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    this._syncNewShown();
+
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
     if (
@@ -3610,6 +3694,9 @@ class CalendarCardPro extends LitElement {
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    // A second contact while a new event is drawn has thrown it away already
+    // (`_draftSecondContact`), and is no new gesture of its own.
+    if (this._draft && ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
@@ -3627,7 +3714,9 @@ class CalendarCardPro extends LitElement {
       Boolean(onLink || tapTarget || dayHit),
     );
     const swipeable = this._swipeStartsAt(ev);
-    const holds = !onLink && this._holdRunsFor(tapTarget);
+    const draftFrom = this._draftAnchorFor(dayHit);
+    // A press where a new event may be drawn has a hold of its own, which draws one.
+    const holds = !onLink && (draftFrom !== undefined || this._holdRunsFor(tapTarget));
     // A press arms only when it could end in something: the card's own tap or hold, the
     // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
     if (
@@ -3649,6 +3738,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev)?.element ?? null);
     this._pointerSwipeable = swipeable;
     this._pointerOnLink = onLink;
+    this._pointerDraftFrom = draftFrom ?? null;
     // A new gesture: whatever click the last one owed has had its chance.
     this._derivedClick = null;
     // Not for a link: capture would retarget the click a tap derives to `ha-card`, and the
@@ -3680,6 +3770,12 @@ class CalendarCardPro extends LitElement {
           // The hold indicator is a hold's feedback; the day's wash promised a tap.
           this._washDay(undefined);
 
+          // The slot's own hold: the draft is its feedback, under the finger.
+          if (this._pointerDraftFrom) {
+            this._startDraft();
+            return;
+          }
+
           if (this._holdIndicator) {
             Feedback.removeHoldIndicator(this._holdIndicator);
             this._holdIndicator = null;
@@ -3689,6 +3785,562 @@ class CalendarCardPro extends LitElement {
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
     }
+  }
+
+  /**
+   * Keeps the new event's block in step with a render: painted again, so its label follows the
+   * language and the time format, and taken away once the grid shows other days (and a press
+   * drawing it thrown away).
+   */
+  private _syncNewShown(): void {
+    const shown = this._newShown;
+    if (!shown) return;
+    if (this._draftContext() !== shown.context) {
+      if (this._draft) this._draftStillShown();
+      else this._dropNew();
+      return;
+    }
+    this._paintNew();
+  }
+
+  /**
+   * Where a press may draw a new event from: a grid's time area or its all-day band, while a
+   * tap on a day adds an event there (`_dayTapsActive`), so the same switch turns both on.
+   *
+   * @param hit - The day the press landed on, if any
+   * @returns The draft's anchor, or undefined where nothing may be drawn
+   */
+  private _draftAnchorFor(hit: Activation.DayHit | undefined): GridDraft.DraftAnchor | undefined {
+    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsActive) return undefined;
+    if (hit.allDay) return { allDay: true, timestamp: hit.timestamp };
+    if (hit.minute === undefined) return undefined;
+    return { allDay: false, point: { timestamp: hit.timestamp, minute: hit.minute } };
+  }
+
+  /**
+   * Begins drawing a new event, from the slot or day the press is on: what a tap there would
+   * add, until the pointer moves (`_moveDraft`). Escape throws it away.
+   */
+  private _startDraft(): void {
+    const anchor = this._pointerDraftFrom;
+    if (!anchor || this._draft) return;
+    this._dropNew();
+    this._draft = { anchor, moved: false, under: this._pointerDayHit?.element ?? null };
+    this._newShown = {
+      times: anchor.allDay
+        ? GridDraft.allDayDraft(anchor.timestamp, anchor.timestamp)
+        : GridDraft.timedDraft(anchor.point, anchor.point, false),
+      title: '',
+      calendarId: this._draftCalendarId(),
+      context: this._draftContext(),
+      inPopover: false,
+      saved: false,
+      arrived: false,
+    };
+    window.addEventListener('keydown', this._draftKeyDown, true);
+    window.addEventListener('pointerdown', this._draftSecondContact, true);
+    this._paintNew();
+  }
+
+  /**
+   * What the grid shows now, as far as a draft depends on it: the view, the page, whether a tap
+   * on a day still adds, and the days drawn.
+   *
+   * @returns A string that changes whenever any of them does
+   */
+  private _draftContext(): string {
+    const days = [...this.renderRoot.querySelectorAll('.grid-day-body')].map((body) => {
+      const slot = Activation.daySlotOn(body);
+      return slot?.kind === 'time' ? GridDraft.dayOf(slot.timestamp) : '';
+    });
+    return [this.effectiveView, this._pageShown, this._drawsNewEvents, ...days].join('|');
+  }
+
+  /**
+   * Whether the draft still stands on the days the grid shows; throws it away, and the press
+   * with it, where it does not.
+   *
+   * @returns True while the draft may go on
+   */
+  private _draftStillShown(): boolean {
+    if (!this._draft || !this._newShown) return false;
+    if (this._draftContext() === this._newShown.context) return true;
+    Logger.debug('The days a new event was drawn on are gone; throwing it away');
+    this._endGesture();
+    return false;
+  }
+
+  /**
+   * A second contact anywhere while a new event is drawn throws it away. Heard on the window in
+   * the capture phase, because the toolbar's controls keep their presses from the card
+   * (`stopCardGesture`) and a second finger on one would otherwise never be heard.
+   */
+  private readonly _draftSecondContact = (ev: PointerEvent): void => {
+    if (this._draft && ev.pointerId !== this._activePointerId) this._endGesture();
+  };
+
+  /**
+   * Follows the pointer while a new event is drawn: the slot under it in the time area of the
+   * day whose column is nearest, or that day in the all-day band, which may be another day
+   * than the one the press began on.
+   *
+   * @param x - The pointer's viewport x
+   * @param y - The pointer's viewport y
+   */
+  private _moveDraft(x: number, y: number): void {
+    if (!this._draftStillShown()) return;
+    const draft = this._draft;
+    const shown = this._newShown;
+    if (!draft || !shown) return;
+    const anchor = draft.anchor;
+    const before = shown.times;
+    if (anchor.allDay) {
+      const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-header'), x);
+      if (!day) return;
+      shown.times = GridDraft.allDayDraft(anchor.timestamp, day.timestamp);
+      draft.under = day.element;
+    } else {
+      const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-body'), x);
+      if (!day?.band) return;
+      const point = {
+        timestamp: day.timestamp,
+        minute: Activation.minuteAt(
+          day.element.getBoundingClientRect(),
+          y,
+          day.band.startMin,
+          day.band.endMin,
+        ),
+      };
+      if (!GridDraft.sameSlot(point, anchor.point)) draft.moved = true;
+      shown.times = GridDraft.timedDraft(anchor.point, point, draft.moved);
+      draft.under = day.element;
+    }
+    // A pointer moves many times within one quarter hour; only a new span is drawn again.
+    if (GridDraft.sameSpan(before, shown.times)) return;
+    this._paintNew();
+  }
+
+  /**
+   * Draws the new event as the grid draws its events: on each day it covers, the timed block it
+   * will be once saved, or for an all-day one the banner, through the grid's own templates, so
+   * every option that styles an event styles it. Each is rendered into an element of its own,
+   * `NEW_EVENT_HOST_CLASS`, put into the day's plane or the all-day band, which the grid's
+   * structure observer leaves alone: that it comes and goes changes nothing else the grid
+   * draws, and its block is fitted on its own (`_fitNewBlocks`). Every render paints it again.
+   */
+  private _paintNew(): void {
+    const shown = this._newShown;
+    if (!shown) {
+      this._clearNewDrawing();
+      return;
+    }
+    const config = this.effectiveConfig;
+    const language = this.effectiveLanguage;
+    const hass = this.safeHass;
+    const daysOn = (selector: string, kind: 'day' | 'time') =>
+      [...this.renderRoot.querySelectorAll(selector)].flatMap((element) => {
+        const slot = Activation.daySlotOn(element);
+        return slot?.kind === kind ? [{ element, slot, day: GridDraft.dayOf(slot.timestamp) }] : [];
+      });
+    const wanted = new Map<Element, unknown>();
+    if (shown.times.allDay) {
+      const headers = daysOn('.grid-day-header', 'day');
+      const dayStarts = headers.map(({ day }) => day);
+      const byDay = this._newEventByDay(shown, dayStarts);
+      const band = this.renderRoot.querySelector('.grid-allday-band');
+      const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
+      const shownAs = byDay.values().next().value;
+      if (band && shownAs && columns.length) {
+        // As the grid lays out a banner: the event's whole span, over each run of its days.
+        const event = { ...shownAs, ...(shownAs._gridSource ?? {}) };
+        const banners: unknown[] = [];
+        let runStart = 0;
+        for (let index = 1; index <= columns.length; index++) {
+          if (index < columns.length && columns[index] === columns[index - 1] + 1) continue;
+          const first = columns[runStart];
+          const run = dayStarts.slice(first, columns[index - 1] + 1).map((day) => new Date(day));
+          const placement = GridUtils.computeBannerPlacement(event, run);
+          if (placement) {
+            banners.push(
+              GridRender.renderNewBanner(
+                event,
+                { ...placement, columnIndex: placement.columnIndex + first },
+                config,
+                language,
+                hass,
+              ),
+            );
+          }
+          runStart = index;
+        }
+        wanted.set(band, banners);
+      }
+    } else {
+      const bodies = daysOn('.grid-day-body', 'time');
+      const byDay = this._newEventByDay(
+        shown,
+        bodies.map(({ day }) => day),
+      );
+      const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
+      const now = new Date();
+      now.setSeconds(0, 0);
+      for (const { element, slot, day } of bodies) {
+        const plane = element.querySelector(':scope > .grid-day-plane');
+        const event = byDay.get(day);
+        const extent = event && GridUtils.segmentMinutes(event);
+        if (slot.kind !== 'time' || !plane || !event || !extent) continue;
+        const band = { startMin: slot.startMin, endMin: slot.endMin, usedFallback: false };
+        // As the grid draws the line over the block under way, on today's column only.
+        const nowMin =
+          showNowLine &&
+          day === GridDraft.dayOf(now.getTime()) &&
+          GridUtils.computeNowLinePct(now, band) !== null
+            ? GridUtils.minutesFromMidnight(now)
+            : null;
+        const raised = this._coversAnEvent(plane, extent.startMin, extent.endMin, band);
+        wanted.set(
+          plane,
+          GridRender.renderNewTimedEvent(
+            { ...event, ...extent },
+            band,
+            raised,
+            nowMin,
+            config,
+            language,
+            this.weatherForecasts,
+            hass,
+          ),
+        );
+      }
+    }
+
+    for (const [holder, host] of this._newHosts) {
+      if (!wanted.has(holder) || host.parentNode !== holder) this._removeNewHost(holder);
+    }
+    for (const [holder, template] of wanted) {
+      let host = this._newHosts.get(holder);
+      if (!host) {
+        host = document.createElement('div');
+        host.className = GridRender.NEW_EVENT_HOST_CLASS;
+        host.setAttribute('data-add-draft', '');
+        host.setAttribute('aria-hidden', 'true');
+        litRender(template, host, { host: this });
+        holder.append(host);
+        this._newHosts.set(holder, host);
+      } else {
+        litRender(template, host, { host: this });
+      }
+    }
+    this._fitNewBlocks();
+  }
+
+  /**
+   * Whether the new event's piece of a day lies over an event the day draws, which is when it
+   * is drawn raised, hiding what is beneath it as a block over another does.
+   *
+   * @param plane - The day's plane
+   * @param fromMin - Where the piece starts, in minutes of the day
+   * @param untilMin - Where it ends
+   * @param band - The day's visible band
+   * @returns True where it covers part of one
+   */
+  private _coversAnEvent(
+    plane: Element,
+    fromMin: number,
+    untilMin: number,
+    band: { startMin: number; endMin: number },
+  ): boolean {
+    const { topPct, heightPct } = Activation.spanPct(fromMin, untilMin, band);
+    return [...plane.querySelectorAll<HTMLElement>(':scope > .grid-event')].some((block) => {
+      const top = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-top'));
+      const height = parseFloat(block.style.getPropertyValue('--calendar-card-grid-block-height'));
+      return top < topPct + heightPct && topPct < top + height;
+    });
+  }
+
+  /**
+   * Has the new event's blocks fitted as any block is: its title clamped to the room it has,
+   * and fitted again whenever it is resized or its text changes, as the grid's observers do for
+   * every block, with its title scrolling where long titles scroll. The full refit a block's
+   * arrival sets off elsewhere would measure every block on the grid, twice a press, for one
+   * that changes nothing about them. A block that has gone, with its host or replaced inside
+   * it, is forgotten.
+   */
+  private _fitNewBlocks(): void {
+    for (const block of [...this._newObserved]) {
+      if (block.isConnected) continue;
+      for (const [target, observed] of this._gridDisclosureTargets) {
+        if (observed !== block) continue;
+        this._gridDisclosureObserver?.unobserve(target);
+        this._gridDisclosureTargets.delete(target);
+      }
+      this._newObserved.delete(block);
+    }
+    const blocks = [...this._newHosts.values()].flatMap((host) => [
+      ...host.querySelectorAll<HTMLElement>(':scope > .grid-event'),
+    ]);
+    if (!blocks.length) return;
+    // A grid with no timed block of its own has no observers yet.
+    if (!this._gridDisclosureObserver) this._syncGridDisclosureSafety(false);
+    const observer = this._gridDisclosureObserver;
+    if (!observer) return;
+    let added = false;
+    for (const block of blocks) {
+      this._newObserved.add(block);
+      for (const target of [block, ...block.querySelectorAll('.summary, .event-title')]) {
+        if (this._gridDisclosureTargets.has(target)) continue;
+        this._gridDisclosureTargets.set(target, block);
+        observer.observe(target);
+        this._gridDisclosureDirty.add(block);
+        added = true;
+      }
+    }
+    if (!added) return;
+    this._scheduleGridDisclosureSafety(false);
+    this._syncTitleScroll();
+  }
+
+  /**
+   * Takes the new event out of one element.
+   *
+   * @param holder - The day's plane or the all-day band it is drawn into
+   */
+  private _removeNewHost(holder: Element): void {
+    this._newHosts.get(holder)?.remove();
+    this._newHosts.delete(holder);
+  }
+
+  /** Takes the new event off the grid, and its blocks off the observers. */
+  private _clearNewDrawing(): void {
+    for (const holder of [...this._newHosts.keys()]) this._removeNewHost(holder);
+    this._fitNewBlocks();
+  }
+
+  /**
+   * Ends the press drawing a new event. Its block goes with it, unless the popover has just
+   * opened on it, which keeps it until the popover closes (`_newClosed`).
+   */
+  private _endDraft(): void {
+    if (!this._draft) return;
+    this._draft = null;
+    window.removeEventListener('keydown', this._draftKeyDown, true);
+    window.removeEventListener('pointerdown', this._draftSecondContact, true);
+    if (!this._newShown?.inPopover) this._dropNew();
+  }
+
+  /** Takes the new event's block away, whatever it was waiting for. */
+  private _dropNew(): void {
+    this._clearNewDrawing();
+    this._newShown = null;
+    if (this._newTimer !== undefined) {
+      clearTimeout(this._newTimer);
+      this._newTimer = undefined;
+    }
+  }
+
+  /**
+   * Follows the popover adding the new event: its block moves with the times, takes the
+   * calendar's color, and is titled as it is typed.
+   *
+   * @param draft - The popover's draft
+   */
+  private _followNew(draft: PopoverModel.Draft): void {
+    const shown = this._newShown;
+    if (!shown?.inPopover) return;
+    shown.times = draft.times;
+    shown.title = draft.summary;
+    shown.calendarId = draft.calendarId;
+    shown.location = draft.location;
+    shown.description = draft.description;
+    this._paintNew();
+  }
+
+  /**
+   * The popover adding the new event has closed. Thrown away, its block goes at once; saved,
+   * it stays until the card's events bring the real event, or a few seconds if they are slow.
+   */
+  private _newClosed(): void {
+    const shown = this._newShown;
+    if (!shown?.inPopover) return;
+    shown.inPopover = false;
+    if (!shown.saved || shown.arrived) {
+      this._dropNew();
+      return;
+    }
+    this._newTimer = window.setTimeout(() => {
+      this._newTimer = undefined;
+      if (this._newShown === shown) this._dropNew();
+    }, Constants.TIMING.NEW_EVENT_HOLD);
+  }
+
+  /**
+   * The refresh after the new event was saved has put the card's events on it, the real event
+   * among them: its block goes, or goes as the popover closes if it is still open. Only that
+   * refresh counts, since any other may have started before the save and not carry the event.
+   *
+   * @param shown - The block the saved event was added from
+   */
+  private _newArrived(shown: NonNullable<CalendarCardPro['_newShown']>): void {
+    if (this._newShown !== shown) return;
+    shown.arrived = true;
+    if (!shown.inPopover) this._dropNew();
+  }
+
+  /**
+   * Refuses the `touchend` of a finger that just opened the popover, for a moment: the mouse
+   * events and the click a browser derives from a touch arrive where it lifted, on the popover
+   * now, and would start editing whichever field is there. The popover guards itself as well
+   * (`_ghostGuard`), for a browser that sends `touchend` before the pointer-up that opens it.
+   */
+  private readonly _swallowTouchEnd = (ev: TouchEvent): void => {
+    if (Date.now() > this._swallowTouchEndUntil) return;
+    this._swallowTouchEndUntil = 0;
+    if (ev.cancelable) ev.preventDefault();
+  };
+
+  /**
+   * Escape while a new event is drawn throws it away, and the press with it. Heard on the
+   * window, since a pointer press leaves no focus in the card for a key to reach it by.
+   */
+  private readonly _draftKeyDown = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'Escape' || !this._draft) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this._endGesture();
+  };
+
+  /**
+   * While a new event is drawn, a finger's movement is the drawing's, not the page's, so its
+   * scroll is refused. Bound without `passive` on `ha-card`, and only on a grid card that adds
+   * (`_drawsNewEvents`), so no other card makes the browser wait on a touch to scroll.
+   */
+  private readonly _draftTouchMove = {
+    handleEvent: (ev: TouchEvent): void => {
+      if (this._draft && ev.cancelable) ev.preventDefault();
+    },
+    passive: false,
+  };
+
+  /** Whether a press on this card may draw a new event: a grid whose day taps add. */
+  private get _drawsNewEvents(): boolean {
+    return this.effectiveView === 'grid' && this._dayTapsActive;
+  }
+
+  /**
+   * The calendar a new event would be added to, as the popover will preselect it.
+   *
+   * @returns Its entity id, or undefined where no calendar takes one
+   */
+  private _draftCalendarId(): string | undefined {
+    return AddEvent.preselectedCalendarId(this._writableCalendars, this._activeHiddenCalendars);
+  }
+
+  /**
+   * The new event as Home Assistant will return it once saved: its title, or "New event", its
+   * times, location and description, on its calendar.
+   *
+   * @param shown - The new event
+   * @returns Its event data, before the card has matched it to a calendar entry
+   */
+  private _newEventSource(
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): Types.CalendarEventData {
+    const { times } = shown;
+    const dayAfter = (date: Date) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+    return {
+      summary: shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent,
+      start: times.allDay
+        ? { date: FormatUtils.getLocalDateKey(times.start) }
+        : { dateTime: times.start.toISOString() },
+      end: times.allDay
+        ? { date: FormatUtils.getLocalDateKey(dayAfter(times.end)) }
+        : { dateTime: times.end.toISOString() },
+      ...(shown.location?.trim() && { location: shown.location }),
+      ...(shown.description?.trim() && { description: shown.description }),
+      _entityId: shown.calendarId,
+    };
+  }
+
+  /**
+   * The new event as the card will show it once saved, by day: matched to the calendar entry
+   * that will admit it (`processEvents`) and grouped into days as the card's events are
+   * (`groupEventsByDay`), so that entry's options, its text replacements and every rule about
+   * which days show what apply as they will. Where the card would not show it at all, as a
+   * title an entry's filter turns away or a time a hidden past covers, it is split into days as
+   * it stands, with its calendar's first entry, so a press drawing it still sees where it goes.
+   *
+   * @param shown - The new event
+   * @param dayStarts - The days the grid shows, as the start of each
+   * @returns Its pieces, by the start of the day each is on
+   */
+  private _newEventByDay(
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+    dayStarts: readonly number[],
+  ): Map<number, Types.CalendarEventData> {
+    const config = this.effectiveConfig;
+    const source = this._newEventSource(shown);
+    const byDay = new Map<number, Types.CalendarEventData>();
+    const [matched] = EventUtils.processEvents([source], config);
+    if (matched) {
+      const days = EventUtils.groupEventsByDay(
+        [matched],
+        config,
+        this.isExpanded,
+        this.effectiveLanguage,
+        this.effectiveView,
+        this.hass,
+      );
+      for (const day of days) {
+        const event = day.events.find((candidate) => !candidate._isEmptyDay);
+        if (event) byDay.set(GridDraft.dayOf(day.timestamp), event);
+      }
+      if (byDay.size) return byDay;
+    }
+    if (!dayStarts.length) return byDay;
+    const entry = config.entities.find(
+      (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
+    );
+    const asItStands: Types.CalendarEventData = {
+      ...source,
+      ...(typeof entry === 'object' && { _matchedConfig: entry }),
+    };
+    asItStands._entityLabel = EventUtils.getEntityLabel(source._entityId, config, asItStands);
+    const first = new Date(Math.min(...dayStarts));
+    const last = new Date(Math.max(...dayStarts));
+    const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    for (const piece of GridUtils.splitGridEventByDay(asItStands, first, end)) {
+      const day = piece.start.dateTime
+        ? new Date(piece.start.dateTime)
+        : FormatUtils.parseAllDayDate(piece.start.date ?? '');
+      byDay.set(GridDraft.dayOf(day.getTime()), piece);
+    }
+    return byDay;
+  }
+
+  /**
+   * The box of the draft's piece on one day, for the popover to open beside.
+   *
+   * @param element - A day's time area, or its header for an all-day draft
+   * @returns The box, in viewport coordinates
+   */
+  private _draftBoxOn(element: Element): Feedback.PressOrigin['rect'] {
+    const rect = element.getBoundingClientRect();
+    const slot = Activation.daySlotOn(element);
+    const times = this._newShown?.times;
+    const piece =
+      times && !times.allDay && slot?.kind === 'time'
+        ? GridDraft.pieceOnDay(times, slot.timestamp)
+        : undefined;
+    if (!piece || slot?.kind !== 'time') return rect;
+    const { topPct, heightPct } = Activation.spanPct(piece.fromMin, piece.untilMin, slot);
+    const top = rect.top + (rect.height * topPct) / 100;
+    return {
+      left: rect.left,
+      right: rect.right,
+      top,
+      bottom: top + (rect.height * heightPct) / 100,
+    };
   }
 
   /**
@@ -3764,7 +4416,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Washes the day a press is on, where the new event would go: the date or header, and in a
-   * grid's time area the hour. Through an attribute and two custom properties on the day's own
+   * grid's time area the hour a tap there adds. Through an attribute and two custom properties on the day's own
    * element, so the grid's structure observers, which watch elements come and go, see nothing.
    * Undefined unwashes the day washed last.
    *
@@ -3783,8 +4435,8 @@ class CalendarCardPro extends LitElement {
     if (!hit) return;
 
     hit.element.setAttribute('data-add-pressed', '');
-    if (hit.hour !== undefined && hit.band && hit.element instanceof HTMLElement) {
-      const { topPct, heightPct } = Activation.hourBandPct(hit.hour, hit.band);
+    if (hit.minute !== undefined && hit.band && hit.element instanceof HTMLElement) {
+      const { topPct, heightPct } = Activation.spanPct(hit.minute, hit.minute + 60, hit.band);
       hit.element.style.setProperty('--calendar-card-add-hour-top', `${topPct}%`);
       hit.element.style.setProperty('--calendar-card-add-hour-height', `${heightPct}%`);
     }
@@ -3803,14 +4455,31 @@ class CalendarCardPro extends LitElement {
    * follow the finger (`_nudgeSwipe`).
    */
   private _handlePointerMove(ev: PointerEvent) {
-    if (ev.pointerId !== this._activePointerId || this._holdTriggered || !this._pointerStart) {
+    if (ev.pointerId !== this._activePointerId || !this._pointerStart) return;
+    if (this._draft) {
+      this._moveDraft(ev.clientX, ev.clientY);
       return;
     }
+    if (this._holdTriggered) return;
 
     const deltaX = ev.clientX - this._pointerStart.x;
     const deltaY = ev.clientY - this._pointerStart.y;
     if (!this._pointerMoved) {
       if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+        return;
+      }
+
+      // A mouse never swipes or scrolls the card, so where a hold would draw a new event, a
+      // drag draws it at once, as Calendar on macOS does. Touch and pen hold first.
+      if (this._pointerDraftFrom && ev.pointerType === 'mouse') {
+        if (this._holdTimer) {
+          clearTimeout(this._holdTimer);
+          this._holdTimer = null;
+        }
+        this._holdTriggered = true;
+        this._washDay(undefined);
+        this._startDraft();
+        this._moveDraft(ev.clientX, ev.clientY);
         return;
       }
 
@@ -3849,6 +4518,7 @@ class CalendarCardPro extends LitElement {
   private _handlePointerUp(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) return;
     if (typeof ev.button === 'number' && ev.button !== 0) return;
+    this._liftingTouch = ev.pointerType === 'touch';
 
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
@@ -3875,7 +4545,21 @@ class CalendarCardPro extends LitElement {
     };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
-    if (this._holdTriggered) {
+    const draft = this._draftStillShown() ? this._draft : null;
+    const drawn = draft ? this._newShown : null;
+    if (draft && drawn) {
+      // The new event drawn: the popover opens on it, beside its piece under the pointer, and
+      // the block stays while it is open.
+      Logger.debug('Adding the event drawn');
+      const box = draft.under ? this._draftBoxOn(draft.under) : undefined;
+      this._releasePressFocus();
+      this._openCreateEventDialog(
+        drawn.times,
+        { x: ev.clientX, y: ev.clientY, pointerType: ev.pointerType, rect: box },
+        true,
+      );
+      ranOffEvents = true;
+    } else if (this._holdTriggered) {
       if (tapTarget && this._eventHoldRuns) {
         this._releasePressFocus();
         this._runEventAction(tapTarget.target, 'hold', origin);
@@ -3972,6 +4656,9 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = null;
     this._pointerSwipeable = false;
     this._pointerOnLink = false;
+    this._pointerDraftFrom = null;
+    this._liftingTouch = false;
+    this._endDraft();
     this._washDay(undefined);
     this._springBackSwipe();
 
@@ -4855,6 +5542,8 @@ class CalendarCardPro extends LitElement {
       pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
       lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
+      touchMove: this._drawsNewEvents ? this._draftTouchMove : undefined,
+      touchEnd: this._swallowTouchEnd,
     };
 
     let content: TemplateResult;
@@ -5213,11 +5902,11 @@ class CalendarCardPro extends LitElement {
    * Opens the event popover on a new event, for a press: the add button, a tap on a day, or the
    * card's own `add-event` action.
    *
-   * The new event starts where the press landed: on a day, at the hour it is now, or in a
-   * grid's time area at the hour pressed (`newEventDateOn`); with no day under the press, on
-   * the date the add button uses (`_newEventDate`). It lasts an hour. The calendar is the first
-   * writable one the legend shows (`preselectedCalendarId`), read when pressed so it follows the
-   * legend.
+   * The new event starts where the press landed (`newEventTimesOn`): on a day, at the hour it
+   * is now; in a grid's time area, at the quarter hour pressed; in a grid's all-day band, as an
+   * all-day event. With no day under the press, it starts on the date the add button uses
+   * (`_newEventDate`). A timed one lasts an hour. The calendar is the first writable one the
+   * legend shows (`preselectedCalendarId`), read when pressed so it follows the legend.
    *
    * @param hit - The day the press landed on, if any
    * @param origin - Where the press was, for the popover to open beside
@@ -5229,11 +5918,13 @@ class CalendarCardPro extends LitElement {
     dayTimestamp?: number,
   ): void {
     const timestamp = hit?.timestamp ?? dayTimestamp;
-    const selectedDate =
+    const times =
       timestamp === undefined
-        ? this._newEventDate()
-        : AddEvent.newEventDateOn(timestamp, hit?.hour);
-    this._openCreateEventDialog(selectedDate, origin);
+        ? AddEvent.newEventTimes(this._newEventDate())
+        : AddEvent.newEventTimesOn(timestamp, hit?.allDay ? 'all-day' : hit?.minute);
+    // A press in a grid's time area or all-day band shows the event being added there.
+    const inGrid = hit !== undefined && (hit.minute !== undefined || hit.allDay === true);
+    this._openCreateEventDialog(times, origin, inGrid);
   }
 
   /**
@@ -5242,31 +5933,80 @@ class CalendarCardPro extends LitElement {
    * Refuses while the card is being edited: the button is still drawn there, so the
    * preview shows the layout the dashboard will have, but a press on it opens nothing.
    *
-   * @param selectedDate - The date the new event starts on
+   * @param times - The span the new event starts with
    * @param origin - Where the press was, for the popover to open beside
+   * @param showNew - Whether a grid shows the new event as a block while the popover is open
+   *   (`_newShown`): one a press drew, or a tap in the grid adds
    */
-  private _openCreateEventDialog(selectedDate: Date, origin?: Feedback.PressOrigin): void {
+  private _openCreateEventDialog(
+    times: Times.EventTimes,
+    origin?: Feedback.PressOrigin,
+    showNew = false,
+  ): void {
     if (this._isBeingEdited) {
       Logger.debug('Not opening a new event while the card is being edited');
+      this._dropNew();
       return;
     }
 
     const writable = this._writableCalendars;
     const calendarId = AddEvent.preselectedCalendarId(writable, this._activeHiddenCalendars);
-    if (!calendarId) return;
+    if (!calendarId) {
+      this._dropNew();
+      return;
+    }
+
+    // Only the block this press drew carries on into the popover. Any other is left from an
+    // earlier one, still open or waiting on its saved event, and gives way, its timer with it.
+    let shown = this._draft ? this._newShown : null;
+    if (!shown) this._dropNew();
+    if (showNew && this._drawsNewEvents) {
+      shown ??= {
+        times,
+        title: '',
+        context: this._draftContext(),
+        inPopover: false,
+        saved: false,
+        arrived: false,
+      };
+      shown.times = times;
+      shown.calendarId = calendarId;
+      shown.inPopover = true;
+      this._newShown = shown;
+      this._paintNew();
+    }
+    const follows = shown !== null && shown.inPopover;
 
     this._openPopover({
       mode: 'new',
       calendarId,
       calendars: writable.map((id) => this._popoverCalendar(id)),
-      times: AddEvent.newEventTimes(selectedDate),
+      times,
       canEdit: true,
       canDelete: false,
       anchor: origin,
       // The popover names the calendar it wrote to; one that does not is any that accepts
       // new events.
-      updated: (...ids) =>
-        this._refreshAfterWrite(ids.length ? { ids } : { feature: Writes.CREATE_EVENT_FEATURE }),
+      updated: (...ids) => {
+        const saved = follows && shown && this._newShown === shown ? shown : null;
+        if (saved) saved.saved = true;
+        return this._refreshAfterWrite(
+          ids.length ? { ids } : { feature: Writes.CREATE_EVENT_FEATURE },
+          saved ? () => this._newArrived(saved) : undefined,
+        );
+      },
+      changed: follows
+        ? (draft) => {
+            if (this._newShown === shown) this._followNew(draft);
+            return undefined;
+          }
+        : undefined,
+      closed: follows
+        ? () => {
+            if (this._newShown === shown) this._newClosed();
+            return undefined;
+          }
+        : undefined,
     });
   }
 

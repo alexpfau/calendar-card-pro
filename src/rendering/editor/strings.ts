@@ -880,8 +880,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'day_tap_action_mode.option.add-event.label': 'Add Event',
   'day_tap_action_mode.helper':
     'Add Event opens a new event, ready to fill in, when you tap a day where it shows no ' +
-    'event: its date, the space under its events, or in the grid layout the hour you tap. ' +
-    'With Nothing, such a tap runs the tap action.',
+    'event: its date, the space under its events, or in the grid layout the quarter hour you ' +
+    'tap. In the grid you can also draw the event: hold an empty spot and drag, or drag with a ' +
+    'mouse. With Nothing, such a tap runs the tap action.',
   // Home Assistant's action editor, as for the card's two. `details` is the one action only an
   // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
   // wording the event's own two-choice dropdown carried before, in every language.

@@ -105,25 +105,41 @@ export function newEventDate(windowStart: Date, daysToShow: number, now: Date = 
 }
 
 /**
- * The date a new event starts on, for one day of the card.
+ * The span a new event added on one day of the card starts with.
  *
- * The hour comes from where the press landed: a press on a grid's time area names its own,
- * and anything else on a day takes the hour it is now. So a tap on today opens at the current
- * hour, as the add button does, and a tap on another day at the same clock hour that day,
- * which is a daytime hour whenever someone is adding one.
+ * Where the press landed decides it. A press on a grid's time area names its quarter hour, and
+ * the event starts there, an hour long. A press in a grid's all-day band adds an all-day event
+ * on that day. Anything else on a day takes the hour it is now, as the add button does: a tap
+ * on today opens at the current hour, and a tap on another day at the same clock hour that
+ * day, which is a daytime hour whenever someone is adding one.
  *
- * Set as a wall-clock hour on the day's own date, so a day on which the clocks change still
- * opens at that hour, or at the first one after it where the hour does not exist that day.
+ * Set as a wall-clock time on the day's own date, so a day on which the clocks change still
+ * opens at that time, or at the first one after it where the time does not exist that day.
  *
- * @param dayTimestamp - The day's local midnight
- * @param hour - The hour the press named, or undefined to take the hour it is now
+ * @param dayTimestamp - The day, as any moment of it: the views stamp a day with its first
+ *   event's display date where it has one
+ * @param at - Where on the day: a minute from midnight a grid's time area named, `'all-day'`
+ *   for its all-day band, or undefined to take the hour it is now
  * @param now - The current moment
- * @returns The date the new event starts on
+ * @returns The span
  */
-export function newEventDateOn(dayTimestamp: number, hour?: number, now: Date = new Date()): Date {
-  const date = new Date(dayTimestamp);
-  date.setHours(hour ?? now.getHours(), 0, 0, 0);
-  return date;
+export function newEventTimesOn(
+  dayTimestamp: number,
+  at?: number | 'all-day',
+  now: Date = new Date(),
+): EventTimes {
+  const day = new Date(dayTimestamp);
+  day.setHours(0, 0, 0, 0);
+  if (at === 'all-day') {
+    return { allDay: true, start: day, end: new Date(day) };
+  }
+  const start = new Date(day);
+  if (at === undefined) {
+    start.setHours(now.getHours(), 0, 0, 0);
+  } else {
+    start.setHours(0, at, 0, 0);
+  }
+  return { allDay: false, start, end: new Date(start.getTime() + 60 * 60 * 1000) };
 }
 
 /**

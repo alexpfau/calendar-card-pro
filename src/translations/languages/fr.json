@@ -13,5 +13,6 @@
   "noEvents": "Aucun événement",
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée",
-  "loadFailed": "Échec du chargement:"
+  "loadFailed": "Échec du chargement:",
+  "newEvent": "Nouvel événement"
 }

@@ -34,5 +34,6 @@
   "noEvents": "Sündmusi pole",
   "loading": "Kalendrisündmuste laadimine...",
   "error": "Viga: kalendri entiteeti ei leitud või see on valesti seadistatud",
-  "loadFailed": "Laadimine ebaõnnestus:"
+  "loadFailed": "Laadimine ebaõnnestus:",
+  "newEvent": "Uus sündmus"
 }

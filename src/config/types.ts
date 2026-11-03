@@ -1263,6 +1263,8 @@ export interface Translations {
   error: string;
   /** Label before the names of calendars that could not be loaded. */
   loadFailed: string;
+  /** The title a new event drawn in a grid shows until it has one of its own. */
+  newEvent: string;
   allDay: string;
   multiDay: string;
   at: string;
