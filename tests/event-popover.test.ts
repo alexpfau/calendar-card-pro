@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import type * as Types from '../src/config/types';
 import { PLACES_STORAGE_KEY, resetMapTilesToken } from '../src/interaction/event-map';
 import type { PopoverParams } from '../src/interaction/popover-model';
-import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
+import { BEAK_EDGE, EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
 /**
  * The event popover as Home Assistant's dialog manager drives it: `showDialog` before the
@@ -718,7 +718,7 @@ describe('placing', () => {
     });
     const dialog = root.querySelector('dialog')!;
     expect(dialog.classList.contains('popover')).toBe(true);
-    expect(dialog.style.left).toBe('314px');
+    expect(dialog.style.left).toBe('310px');
     expect(root.querySelector('.arrow.left')).not.toBeNull();
   });
 
@@ -726,7 +726,7 @@ describe('placing', () => {
     const { root } = await open({
       anchor: { x: 900, y: 215, rect: { left: 700, right: 980, top: 200, bottom: 230 } },
     });
-    expect(root.querySelector('dialog')!.style.left).toBe(`${700 - 14 - 340}px`);
+    expect(root.querySelector('dialog')!.style.left).toBe(`${700 - 10 - 340}px`);
     expect(root.querySelector('.arrow.right')).not.toBeNull();
   });
 
@@ -970,9 +970,6 @@ describe('opening and closing', () => {
       expect(animation).toContain('pop-fade 180ms cubic-bezier(0, 0, 0.58, 1)');
     }
     expect(css()).toMatch(/@keyframes pop-grow\s*\{\s*from\s*\{\s*transform:\s*scale\(0\.1\)/);
-    expect(css()).toMatch(
-      /@keyframes arrow-grow\s*\{\s*from\s*\{\s*transform:\s*rotate\(45deg\) scale\(0\.1\)/,
-    );
     // None of it where the system asks for less motion, the sheet included.
     const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\}\s*\}/.exec(
       css(),
@@ -1014,10 +1011,7 @@ describe('opening and closing', () => {
         options: { duration: 180, easing: 'ease', fill: 'forwards' },
       },
       {
-        keyframes: [
-          { transform: 'rotate(45deg) scale(1)' },
-          { transform: 'rotate(45deg) scale(0.15)' },
-        ],
+        keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(0.15)' }],
         options: { duration: 180, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', fill: 'forwards' },
       },
       {
@@ -1104,6 +1098,43 @@ describe('opening and closing', () => {
   });
 });
 
+describe('the beak and the outline', () => {
+  const css = () =>
+    (customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }).styles
+      .cssText;
+  // A rule's body by its exact selector, whitespace collapsed, so wrapping does not matter.
+  const rule = (selector: string) => {
+    const escaped = selector.replace(/[.[\]()]/g, '\\$&');
+    const body = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
+    return body.replace(/\s+/g, ' ').replace(/\(\s/g, '(').replace(/\s\)/g, ')');
+  };
+
+  it('outlines the panel with one hairline, and no second ring outside it', () => {
+    const panel = rule('.panel');
+    // A half-pixel line just inside the edge, the one the beak's outline continues, and the
+    // shadow below; no border and no ring outside.
+    expect(panel).toContain(
+      'box-shadow: inset 0 0 0 0.5px var(--pop-outline), 0 18px 50px rgba(0, 0, 0, 0.35);',
+    );
+    expect(panel.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/(^|;)\s*border:/);
+  });
+
+  it('points with a rounded beak whose outline continues the hairline', async () => {
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    const arrow = root.querySelector('.arrow.left')!;
+    expect(arrow.querySelector('.beak > .glass')).not.toBeNull();
+    expect(arrow.querySelector('.beak > svg path')!.getAttribute('d')).toBe(BEAK_EDGE);
+    // Its outline is the panel's own line, half a pixel wide.
+    expect(rule('.beak path')).toMatch(/stroke:\s*var\(--pop-outline\);\s*stroke-width:\s*0\.5;/);
+    // The glass is cut to the same curve, closed along the border's inner side.
+    expect(rule('.glass')).toContain(`clip-path: path('${BEAK_EDGE}L15 7L0 7Z')`);
+    // Drawn pointing up, and turned toward its side.
+    expect(rule('.arrow.left .beak')).toContain('rotate(-90deg)');
+    expect(rule('.arrow.right .beak')).toContain('rotate(90deg)');
+    expect(rule('.arrow.bottom .beak')).toContain('rotate(180deg)');
+  });
+});
+
 describe('placing at the press', () => {
   const arrowTop = (root: ShadowRoot) =>
     Number.parseFloat((root.querySelector('.arrow') as HTMLElement).style.top);
@@ -1117,7 +1148,7 @@ describe('placing at the press', () => {
     });
     // A list row's title near the left of a row across the card: no box comes with the press.
     const { root } = await open({ anchor: { x: 150, y: 300 } });
-    expect(root.querySelector('dialog')!.style.left).toBe(`${150 + 14}px`);
+    expect(root.querySelector('dialog')!.style.left).toBe(`${150 + 10}px`);
     expect(root.querySelector('.arrow.left')).not.toBeNull();
     expect(top(root) + arrowTop(root)).toBe(300);
   });
@@ -1134,7 +1165,7 @@ describe('placing at the press', () => {
 
   it('turns to the left of the press where the right has no room', async () => {
     const { root } = await open({ anchor: { x: 900, y: 300 } });
-    expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 14 - 340}px`);
+    expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 10 - 340}px`);
     expect(root.querySelector('.arrow.right')).not.toBeNull();
   });
 
@@ -1442,13 +1473,15 @@ describe('below a toolbar button', () => {
     expect(root.querySelector<HTMLElement>('.panel')!.style.transformOrigin).toBe('32px top');
   });
 
-  it('keeps on screen at the left edge, the arrow still under the button', async () => {
+  it('keeps on screen at the left edge, the beak off its corner and still at the button', async () => {
     heightIs(400);
     const { root } = await open({
       anchor: { x: 20, y: 118, rect: { left: 4, top: 100, right: 36, bottom: 136 }, below: true },
     });
     expect(root.querySelector('dialog')!.style.left).toBe('12px');
-    expect(root.querySelector<HTMLElement>('.arrow.top')!.style.left).toBe('20px');
+    // 24 pixels in: the 16-pixel corner and half the beak's 15. Its near side, at 12 + 24 - 7.5,
+    // still lies under the button, which ends at 36.
+    expect(root.querySelector<HTMLElement>('.arrow.top')!.style.left).toBe('24px');
   });
 
   it('opens above the button where there is no room below', async () => {

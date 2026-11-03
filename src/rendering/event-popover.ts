@@ -36,9 +36,22 @@ const SHEET_BELOW_PX = 600;
 /** The popover's width beside a press. */
 const POPOVER_WIDTH = 340;
 
-/** How far the popover keeps from the press and from the viewport's edges. */
-const GAP = 14;
+/**
+ * How far the popover keeps from the box it opens beside, which leaves its beak's tip a few
+ * pixels off it, and from the viewport's edges.
+ */
+const GAP = 10;
 const MARGIN = 12;
+
+/**
+ * The beak the popover points with, drawn as Calendar on macOS draws its own: a short, rounded
+ * point whose sides curve into the panel's edge, outlined by the same hairline as the panel.
+ * Drawn pointing up from the edge, which runs along y = 6.5, and turned for the other sides.
+ * The outline runs along the middle of the panel's half-pixel edge line, so the two join. The
+ * glass under it (`.glass` in the stylesheet) is cut to the same curve closed along that
+ * line's inner side, so no line shows across the beak's base.
+ */
+export const BEAK_EDGE = 'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75';
 
 /**
  * Below a toolbar button: how far the popover's top keeps from the button, and how far in from
@@ -375,7 +388,8 @@ export class EventPopover extends LitElement {
       Math.max(MARGIN, centerX - EAR_INSET),
       Math.max(MARGIN, width - POPOVER_WIDTH - MARGIN),
     );
-    const at = Math.min(Math.max(20, centerX - left), POPOVER_WIDTH - 20);
+    // Kept off the panel's rounded corners, so the beak meets a straight edge.
+    const at = Math.min(Math.max(24, centerX - left), POPOVER_WIDTH - 24);
     const below = rect.bottom + BELOW_GAP;
     const above = rect.top - BELOW_GAP - panelHeight;
     if (below + panelHeight > height - MARGIN && above >= MARGIN) {
@@ -679,8 +693,8 @@ export class EventPopover extends LitElement {
         ),
       ];
     }
-    // The panel and its arrow shrink about the same point, the arrow's center on the panel's
-    // edge, which the panel's transform-origin names; the arrow keeps its quarter turn.
+    // The panel and its beak shrink about the same point, where the beak meets the panel's
+    // edge, which the panel's transform-origin names and the beak's box sits on.
     const animations = [
       panel.animate(
         [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
@@ -692,10 +706,7 @@ export class EventPopover extends LitElement {
     if (arrow) {
       animations.push(
         arrow.animate(
-          [
-            { transform: 'rotate(45deg) scale(1)' },
-            { transform: `rotate(45deg) scale(${LEAVE_SCALE})` },
-          ],
+          [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
           timing(LEAVE_SHRINK),
         ),
         arrow.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
@@ -942,6 +953,10 @@ export class EventPopover extends LitElement {
             ? html`<span
                 class="arrow ${place.arrow.side}"
                 style="${place.arrow.side === 'left' || place.arrow.side === 'right' ? 'top' : 'left'}:${place.arrow.at}px"
+                ><span class="beak"
+                  ><span class="glass"></span
+                  ><svg viewBox="0 0 15 7" aria-hidden="true">
+                    <path d=${BEAK_EDGE}></path></svg></span
               ></span>`
             : nothing
         }
@@ -1509,8 +1524,8 @@ export class EventPopover extends LitElement {
     }
     /* It opens as a popover in Calendar on macOS does, as measured from a screen recording of
        it: growing out of its arrow from a tenth of its size, fast and then settling, over
-       230 ms, and fading in over 180 ms, with no overshoot. The arrow grows with it about the
-       same point, its own center on the panel's edge, which the panel's inline transform-origin
+       230 ms, and fading in over 180 ms, with no overshoot. The beak grows with it about the
+       same point, where it meets the panel's edge, which the panel's inline transform-origin
        names. A sheet rises from the bottom instead. Each starts once the popover is placed, so
        none of it plays unseen. The way out is played from script (_leave). Without motion
        where the system asks for less. */
@@ -1521,7 +1536,7 @@ export class EventPopover extends LitElement {
     }
     dialog.popover[open][data-placed] > .arrow {
       animation:
-        arrow-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
+        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
         pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
     }
     dialog.sheet[open][data-placed] > .panel {
@@ -1530,11 +1545,6 @@ export class EventPopover extends LitElement {
     @keyframes pop-grow {
       from {
         transform: scale(0.1);
-      }
-    }
-    @keyframes arrow-grow {
-      from {
-        transform: rotate(45deg) scale(0.1);
       }
     }
     @keyframes pop-fade {
@@ -1561,6 +1571,7 @@ export class EventPopover extends LitElement {
     .light {
       --pop-bg: rgba(246, 246, 246, 0.82);
       --pop-edge: rgba(0, 0, 0, 0.12);
+      --pop-outline: rgba(0, 0, 0, 0.22);
       --cell: rgba(0, 0, 0, 0.045);
       --cell-hover: rgba(0, 0, 0, 0.07);
       --text: rgba(0, 0, 0, 0.86);
@@ -1573,6 +1584,7 @@ export class EventPopover extends LitElement {
     .dark {
       --pop-bg: rgba(44, 44, 46, 0.78);
       --pop-edge: rgba(255, 255, 255, 0.14);
+      --pop-outline: rgba(255, 255, 255, 0.2);
       --cell: rgba(255, 255, 255, 0.075);
       --cell-hover: rgba(255, 255, 255, 0.11);
       --text: rgba(255, 255, 255, 0.92);
@@ -1595,11 +1607,13 @@ export class EventPopover extends LitElement {
       background: var(--pop-bg);
       -webkit-backdrop-filter: blur(28px) saturate(170%);
       backdrop-filter: blur(28px) saturate(170%);
-      border: 1px solid var(--pop-edge);
+      /* One hairline, as on macOS, which the beak's outline continues. An inset shadow rather
+         than a border: browsers draw a half-pixel shadow as one, and some round a half-pixel
+         border up to a whole one, which would no longer match the beak's line. */
       border-radius: 16px;
       box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.35),
-        0 0 0 0.5px rgba(0, 0, 0, 0.3);
+        inset 0 0 0 0.5px var(--pop-outline),
+        0 18px 50px rgba(0, 0, 0, 0.35);
       font-size: 15px;
       line-height: 1.35;
     }
@@ -1616,47 +1630,65 @@ export class EventPopover extends LitElement {
       border-radius: 3px;
       background: var(--dim);
     }
-    /* The arrow hangs off the dialog, not the panel, whose scrolling would clip it. Only its
-       outer half is drawn, overlapping the panel's border by a pixel so the two read as one. */
+    /* The beak hangs off the dialog, not the panel, whose scrolling would clip it. Its box is a
+       point on the panel's outer edge, where it grows from and shrinks to; the beak is drawn
+       from there pointing up and turned to its side. Its glass blurs what is behind it as the
+       panel does, cut to the beak's shape, and the outline is drawn over it. */
     .arrow {
       position: absolute;
-      width: 16px;
-      height: 16px;
-      background: var(--pop-bg);
-      border: 1px solid var(--pop-edge);
-      transform: rotate(45deg);
-    }
-    .arrow.left,
-    .arrow.right {
-      margin-top: -8px;
-    }
-    .arrow.top,
-    .arrow.bottom {
-      margin-left: -8px;
+      width: 0;
+      height: 0;
+      transform-origin: 0 0;
     }
     .arrow.top {
-      top: -8px;
-      border-right: 0;
-      border-bottom: 0;
-      clip-path: polygon(0 0, 100% 0, 0 100%);
+      top: 0;
     }
     .arrow.bottom {
-      bottom: -8px;
-      border-top: 0;
-      border-left: 0;
-      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      top: 100%;
     }
     .arrow.left {
-      left: -8px;
-      border-top: 0;
-      border-right: 0;
-      clip-path: polygon(0 0, 0 100%, 100% 100%);
+      left: 0;
     }
     .arrow.right {
-      right: -8px;
-      border-bottom: 0;
-      border-left: 0;
-      clip-path: polygon(0 0, 100% 0, 100% 100%);
+      left: 100%;
+    }
+    .beak {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
+    }
+    .arrow.right .beak {
+      transform: rotate(90deg);
+    }
+    .arrow.bottom .beak {
+      transform: rotate(180deg);
+    }
+    .arrow.left .beak {
+      transform: rotate(-90deg);
+    }
+    .beak > * {
+      position: absolute;
+      left: -7.5px;
+      top: -6.5px;
+      width: 15px;
+      height: 7px;
+    }
+    .glass {
+      background: var(--pop-bg);
+      -webkit-backdrop-filter: blur(28px) saturate(170%);
+      backdrop-filter: blur(28px) saturate(170%);
+      clip-path: path(
+        'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75L15 7L0 7Z'
+      );
+    }
+    .beak svg {
+      overflow: visible;
+    }
+    .beak path {
+      fill: none;
+      stroke: var(--pop-outline);
+      stroke-width: 0.5;
     }
     /* Hidden until the keyboard reaches it, then a button like the others. */
     .reveal:not(:focus-visible),
