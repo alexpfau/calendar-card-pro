@@ -20,6 +20,7 @@ interface CardUnderTest extends HTMLElement {
   hass: Types.Hass;
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
+  requestUpdate(): void;
   _clockTimerAt: number | null;
 }
 
@@ -84,6 +85,24 @@ describe('midnight on fixed dates', () => {
     const card = await mount();
 
     expect(card._clockTimerAt).toBe(new Date(2026, 5, 18, 0, 0, 1).getTime());
+  });
+
+  it('sets the repaint again on waking, rather than keep one stretched by sleep', async () => {
+    // Armed at 22:00 for midnight; awake until 23:00, asleep until 23:50. The pending timer
+    // kept the delay it had left at 23:00, so untouched it would fire at 00:50.
+    vi.setSystemTime(new Date(2026, 5, 17, 22, 0, 0));
+    const card = await mount();
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+    vi.setSystemTime(new Date(2026, 5, 17, 23, 50, 0));
+    card.requestUpdate();
+    await card.updateComplete;
+    expect(today(card)).toBe('Book club');
+
+    await vi.advanceTimersByTimeAsync(20 * 60_000);
+    await card.updateComplete;
+
+    expect(today(card)).toBe('Field trip');
   });
 
   it('moves the mark of today with no hass update and no fetch', async () => {

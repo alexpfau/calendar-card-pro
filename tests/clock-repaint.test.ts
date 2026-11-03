@@ -199,6 +199,55 @@ describe('an all-day event that allday_expires_at retires', () => {
     expect(callApi).not.toHaveBeenCalled();
   });
 
+  it("retires today's row of a split event that began on an earlier day", async () => {
+    // Only the days still ahead count: the 15th's and 16th's moments have passed, and a timer
+    // looking at them alone would leave today's row up.
+    const fiveDays: Types.CalendarEventData = {
+      summary: 'Trash pickup',
+      start: { date: '2026-06-15' },
+      end: { date: '2026-06-20' },
+    };
+    const card = await mount({ ...config('10:30'), days_to_show: 3, split_multiday_events: true }, [
+      fiveDays,
+    ]);
+    const rows = () => text(card, '.event-title').filter((t) => t === 'Trash pickup').length;
+    expect(rows()).toBe(3);
+
+    await passMinutes(card, 31);
+
+    expect(rows()).toBe(2);
+  });
+
+  it("retires tomorrow's row at tomorrow's time, on fixed dates", async () => {
+    // Today's moment has passed. On fixed dates nothing is loaded at midnight, so the events
+    // stay the same array and the boundary computed today is reused: it has to be tomorrow's
+    // 10:30, not the timed event later tomorrow.
+    vi.setSystemTime(new Date('2026-06-17T11:00:00Z'));
+    const card = await mount(
+      {
+        ...config('10:30'),
+        start_date: '2026-06-17',
+        days_to_show: 3,
+        split_multiday_events: true,
+        refresh_interval: 1440,
+      },
+      [
+        { summary: 'Trash pickup', start: { date: '2026-06-17' }, end: { date: '2026-06-20' } },
+        {
+          summary: 'Dentist',
+          start: { dateTime: '2026-06-18T15:00:00Z' },
+          end: { dateTime: '2026-06-18T16:00:00Z' },
+        },
+      ],
+    );
+    const rows = () => text(card, '.event-title').filter((t) => t === 'Trash pickup').length;
+    expect(rows()).toBe(2);
+
+    await passMinutes(card, 23 * 60 + 31);
+
+    expect(rows()).toBe(1);
+  });
+
   it('stays all day without it (control)', async () => {
     const card = await mount(config(), [TODAY]);
 
@@ -254,6 +303,28 @@ describe('the timer itself', () => {
     await passMinutes(card, 10);
 
     expect(text(card, '.time-countdown').join()).toMatch(/20 minutes/);
+  });
+
+  it('sets an event boundary again on waking, rather than keep one stretched by sleep', async () => {
+    // Armed at 22:00 for 10:00 the next day; the machine sleeps until 09:00, and the pending
+    // timer keeps the delay it had left. The render on waking measures it again.
+    vi.setSystemTime(new Date('2026-06-16T22:00:00Z'));
+    const card = await mount({ view: 'list', show_past_events: false, refresh_interval: 1440 }, [
+      {
+        summary: 'Piano lesson',
+        start: { dateTime: '2026-06-17T09:30:00Z' },
+        end: { dateTime: '2026-06-17T10:00:00Z' },
+      },
+    ]);
+
+    vi.setSystemTime(new Date('2026-06-17T09:00:00Z'));
+    card.requestUpdate();
+    await card.updateComplete;
+    expect(card.shadowRoot!.textContent).toContain('Piano lesson');
+
+    await passMinutes(card, 65);
+
+    expect(card.shadowRoot!.textContent).not.toContain('Piano lesson');
   });
 
   it('is released when the card is removed', async () => {

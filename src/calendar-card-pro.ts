@@ -2235,8 +2235,8 @@ class CalendarCardPro extends LitElement {
    * Holds a timer for the next event boundary exactly while a view that needs one is on screen.
    *
    * Reconciled from `updated()` like the other timers, and re-armed by the render the timer
-   * itself causes, so it walks from one boundary to the next. It keeps a timer already set
-   * from the same events, so the renders `hass` causes in between cost nothing here.
+   * itself causes, so it walks from one boundary to the next. It reuses the boundary computed
+   * from the same events, so the renders in between cost no scan, only setting the timer again.
    */
   private _syncNowBoundaryTimer(): void {
     const wanted =
@@ -2247,29 +2247,27 @@ class CalendarCardPro extends LitElement {
 
     // An armed timer computed from these same events is still right until it fires: no
     // boundary lies between the moment it was computed and the one it waits for, and a
-    // later moment cannot add one. So the renders hass causes in between skip the scan.
-    if (
+    // later moment cannot add one. So the renders in between skip the scan.
+    const next =
       wanted &&
       this._nowBoundaryTimerId !== null &&
       this._nowBoundaryEvents === events &&
       this._nowBoundaryConfig === config &&
       this._nowBoundaryAt !== null &&
       this._nowBoundaryAt > Date.now()
-    ) {
-      return;
-    }
-
-    const next = wanted ? EventUtils.nextEventBoundary(events, Date.now(), config) : null;
+        ? this._nowBoundaryAt
+        : wanted
+          ? EventUtils.nextEventBoundary(events, Date.now(), config)
+          : null;
 
     if (next === null) {
       this._stopNowBoundaryTimer();
       return;
     }
 
-    if (this._nowBoundaryTimerId !== null && this._nowBoundaryAt === next) {
-      return;
-    }
-
+    // Set again on every render, with the delay measured now. A timer the browser held back
+    // while the machine slept keeps the delay it had left, and would fire late by the length
+    // of the sleep; the render on waking is the moment to correct it.
     this._stopNowBoundaryTimer();
     this._nowBoundaryAt = next;
     this._nowBoundaryEvents = events;
@@ -2387,9 +2385,11 @@ class CalendarCardPro extends LitElement {
   /**
    * Holds the clock repaint (`_nextClockRepaint`) while the card is connected and visible.
    *
-   * Reconciled from `updated()` like the other timers. A timer already set no later than the
-   * time needed stays: it fires early, repaints, and the render re-arms it. So a minute tick
-   * keeps its cadence however often other renders happen in between.
+   * Reconciled from `updated()` like the other timers, and set again on every render with the
+   * delay measured then. A timer the browser held back while the machine slept keeps the delay
+   * it had left, and would fire late by the length of the sleep; the render on waking is the
+   * moment to correct it. A render also redraws everything this repaints, so a minute tick
+   * pushed back by renders in between loses nothing.
    */
   private _syncClockTimer(): void {
     const next =
@@ -2399,17 +2399,6 @@ class CalendarCardPro extends LitElement {
 
     if (next === null) {
       this._stopClockTimer();
-      return;
-    }
-
-    // Kept only while it is still ahead: a timer the browser held back past its moment, as it
-    // can through a machine's sleep, would otherwise stand in for the minute tick indefinitely.
-    if (
-      this._clockTimerId !== null &&
-      this._clockTimerAt !== null &&
-      this._clockTimerAt <= next &&
-      this._clockTimerAt > Date.now()
-    ) {
       return;
     }
 
@@ -2431,6 +2420,7 @@ class CalendarCardPro extends LitElement {
    * is not a bare request: it refits no block (`_gridDisclosureChanged`).
    */
   private _tickClock(): void {
+    Logger.debug(`Clock repaint due ${new Date(this._clockTimerAt ?? Date.now()).toISOString()}`);
     this._clockTimerId = null;
     this._clockTimerAt = null;
     this._clockRepainting = true;
