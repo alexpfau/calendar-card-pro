@@ -53,28 +53,28 @@ time_grid:
   event_font_size: 13px
 ```
 
-Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own. Grid leaves locations off its blocks by default; the dialog shows them.
+Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own. Grid leaves locations off its blocks by default; the popover a tap opens shows them.
 
 ## 🧭 What It Adds
 
-| Editor                                        | YAML                                                                                                             | What it adds                                                                                       |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Layout › Card Displays · Time Range & Content | `view: grid`, `days_to_show: 2`                                                                                  | Two days on one hour axis                                                                          |
-| Layout › Time Axis · Events                   | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar` | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event       |
-| Time Range & Content · Calendars              | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                 | A face and color per person; shared plans once, in gold                                            |
-| Weather                                       | `position: both`, `event.show_conditions: false`                                                                 | The day's forecast over each column; the hour's icon and temperature in each timed event with room |
-| Card & Header › Toolbar                       | `legend: false`, `view_switcher: false`                                                                          | Add, refresh, paging and the date picker; no filter or layout switch                               |
-| Actions & Refresh                             | `event_tap_action: details`                                                                                      | The whole event on tap, with Edit and Delete where the calendar allows, but not on a shared plan   |
+| Editor                                        | YAML                                                                                                             | What it adds                                                                                         |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Layout › Card Displays · Time Range & Content | `view: grid`, `days_to_show: 2`                                                                                  | Two days on one hour axis                                                                            |
+| Layout › Time Axis · Events                   | `start_time` / `end_time`, `hour_height: 56px`, `slot_minutes: 30`, `event_font_size: 13px`, `show_progress_bar` | 07:00 to 21:00, ruled every half hour, readable across a kitchen; a bar on the running event         |
+| Time Range & Content · Calendars              | `filter_duplicates`, `duplicate_accent_color`, labels and colors                                                 | A face and color per person; shared plans once, in gold                                              |
+| Weather                                       | `position: both`, `event.show_conditions: false`                                                                 | The day's forecast over each column; the hour's icon and temperature in each timed event with room   |
+| Card & Header › Toolbar                       | `legend: false`, `view_switcher: false`                                                                          | Add, refresh, paging and the date picker; no filter or layout switch                                 |
+| Actions & Refresh                             | `event_tap_action: details`                                                                                      | The whole event on tap, editable and with Delete where the calendar allows, but not on a shared plan |
 
 ## 🔀 Adapt It
 
 - **Other hours.** `start_time` and `end_time` are hard bounds: an event wholly outside them is not drawn.
-- **Read only.** `allow_event_edit: false` and `allow_event_delete: false` take Edit and Delete out of the dialog.
+- **Read only.** `allow_event_edit: false` and `allow_event_delete: false` make the popover read-only and take Delete out of it.
 - **Lanes on a tablet.** `overlap_layout: columns` inside `time_grid:` puts overlaps side by side, which a phone cramps.
 
 ## 📚 Next Steps
 
 - [Grid View](/features/grid-view) — the axis, its hours and how overlaps are drawn
 - [Weather in the Grid Layout](/features/weather#weather-in-the-grid-layout) — both forecast positions
-- [Editing & Deleting Events](/features/actions#editing-deleting-events) — what the dialog offers
+- [Editing & Deleting Events](/features/actions#editing-deleting-events) — what the popover offers
 - [Configuration Reference](/reference/configuration) — every option

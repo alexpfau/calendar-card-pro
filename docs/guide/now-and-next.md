@@ -52,7 +52,7 @@ Nothing on the card says that more events are waiting. Tap it to see them all, a
 | Layout · Calendars   | `event_gap: 4px`, `person.*` labels                                                                         | Separate bars; a face per person, in the theme's accent                                                           |
 
 ::: info Why Events Do Not Open on Tap
-`event_tap_action: details` is left out on purpose. A tap on an event wins over the card's tap, and events cover most of this card, so most taps would open a dialog instead of expanding. `hold_action: expand` would avoid that, but a hold cannot be made from the keyboard.
+`event_tap_action: details` is left out on purpose. A tap on an event wins over the card's tap, and events cover most of this card, so most taps would open an event's popover instead of expanding. `hold_action: expand` would avoid that, but a hold cannot be made from the keyboard.
 :::
 
 ## 🔀 Adapt It

@@ -31,12 +31,14 @@ import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
 import * as CalendarChanges from './interaction/calendar-changes';
+import * as Writes from './interaction/calendar-writes';
 import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
-import * as Dialogs from './interaction/ha-calendar-dialogs';
+import type * as PopoverModel from './interaction/popover-model';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
+import * as EventPopover from './rendering/event-popover';
 import * as Legend from './rendering/legend';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
@@ -174,16 +176,21 @@ function changesGridStructure(record: MutationRecord): boolean {
 }
 
 /**
- * Where an element is on screen, as a point a busy cue can be centered on: for a press made
- * without a pointer, by the keyboard or assistive technology, whose events carry no position.
+ * Where an element is on screen, for the popover to open beside: its center, and its box. For
+ * a press made without a pointer, by the keyboard or assistive technology, whose events carry
+ * no position, and for the box of an event pressed with one.
  *
  * @param node - The element pressed
- * @returns Its center, or undefined for anything that is not an element
+ * @returns Its center and box, or undefined for anything that is not an element
  */
-function originOf(node: EventTarget | null): Feedback.BusyCueOrigin | undefined {
+function originOf(node: EventTarget | null): Feedback.PressOrigin | undefined {
   if (!(node instanceof Element)) return undefined;
   const rect = node.getBoundingClientRect();
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+  };
 }
 
 /** Whether the person asked for less motion, which turns a swipe's nudge and arrival off. */
@@ -784,20 +791,23 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Opens Home Assistant's event-detail dialog for a tapped event, and refetches once the
-   * dialog reports an edit or a delete.
+   * Opens the event popover on a tapped event.
    *
    * Refuses while the card is being edited. Events are not tap targets then, so nothing
-   * should reach here; this is the last guard for anything that does, since the dialog
-   * offers Edit and Delete.
+   * should reach here; this is the last guard for anything that does, since the popover
+   * edits and deletes events.
+   *
+   * @param event - The event
+   * @param color - The accent it is drawn in
+   * @param origin - Where the press was, for the popover to open beside
    */
   private readonly _openEventDetails = (
     event: Types.CalendarEventData,
     color: string | undefined,
-    origin?: Feedback.BusyCueOrigin,
+    origin?: Feedback.PressOrigin,
   ): void => {
     if (this._isBeingEdited) {
-      Logger.debug('Not opening event details while the card is being edited');
+      Logger.debug('Not opening the event popover while the card is being edited');
       return;
     }
 
@@ -805,22 +815,99 @@ class CalendarCardPro extends LitElement {
     const entry = EventDetails.buildDetailEntry(event);
     if (!calendarId || !entry) return;
 
-    void Dialogs.openEventDetailDialog(
-      this,
-      {
-        calendarId,
-        entry,
-        color,
-        ...EventDetails.detailPermissions(this.safeHass, event, entry, {
-          allowEdit: this.config.allow_event_edit !== false,
-          allowDelete: this.config.allow_event_delete !== false,
-          failedEntities: this._failedEntities,
-        }),
-        updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
-      },
-      this._dialogOptions(origin),
-    );
+    const calendar = this._popoverCalendar(calendarId, color);
+    this._openPopover({
+      mode: 'event',
+      calendarId,
+      entry,
+      display: EventDetails.displayText(event),
+      color: calendar.color,
+      calendars: [calendar],
+      ...EventDetails.detailPermissions(this.safeHass, event, entry, {
+        allowEdit: this.config.allow_event_edit !== false,
+        allowDelete: this.config.allow_event_delete !== false,
+        failedEntities: this._failedEntities,
+      }),
+      anchor: origin,
+      updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
+    });
   };
+
+  /**
+   * Opens the event popover through Home Assistant's dialog manager, which puts it above the
+   * whole page, closes it on Back and gives focus back afterwards.
+   *
+   * @param params - The popover's parameters, without what every popover shares
+   */
+  private _openPopover(
+    params: Omit<PopoverModel.PopoverParams, 'language' | 'hour24' | 'dark'>,
+  ): void {
+    const hass = this.safeHass;
+    const dialogParams: PopoverModel.PopoverParams = {
+      ...params,
+      language: hass?.locale?.language ?? this._language ?? 'en',
+      hour24: FormatUtils.resolveTimeFormat24h(this.config, hass),
+      dark:
+        hass?.themes?.darkMode ??
+        window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ??
+        false,
+    };
+    const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
+    (showDialog as Event & { detail?: unknown }).detail = {
+      dialogTag: EventPopover.EVENT_POPOVER_TAG,
+      dialogImport: () => customElements.whenDefined(EventPopover.EVENT_POPOVER_TAG),
+      dialogParams,
+    };
+    this.dispatchEvent(showDialog);
+    Logger.debug(`Opened the event popover for ${params.calendarId}`);
+  }
+
+  /**
+   * A calendar as the popover names it: its name in Home Assistant, and its accent resolved to
+   * a color that means something outside the card, where the popover is drawn.
+   *
+   * @param id - The calendar
+   * @param color - Its accent where the caller has it already, else the card's for it
+   * @returns The calendar
+   */
+  private _popoverCalendar(id: string, color?: string): PopoverModel.PopoverCalendar {
+    const name = this.safeHass?.states?.[id]?.attributes?.friendly_name;
+    const accent =
+      color ??
+      EventUtils.getEntityAccentColorWithOpacity(
+        id,
+        this.config,
+        undefined,
+        undefined,
+        EntityColors.entityColors(),
+      );
+    return {
+      id,
+      name: typeof name === 'string' && name ? name : id,
+      color: this._resolvedColor(accent),
+    };
+  }
+
+  /**
+   * A color with the card's own custom properties read out of it, since the popover is drawn
+   * outside the card where they are not defined. Theme variables stay as they are: they mean
+   * the same everywhere on the page.
+   *
+   * @param color - A color as the card draws it
+   * @returns The same color for use outside the card
+   */
+  private _resolvedColor(color: string): string {
+    const style = getComputedStyle(this);
+    let resolved = color;
+    for (let depth = 0; depth < 3 && /var\(--calendar-card-/.test(resolved); depth++) {
+      resolved = resolved.replace(
+        /var\((--calendar-card-[\w-]+)(?:,\s*([^()]*))?\)/g,
+        (_match, name: string, fallback?: string) =>
+          style.getPropertyValue(name).trim() || fallback?.trim() || 'var(--primary-color)',
+      );
+    }
+    return resolved;
+  }
 
   /**
    * Whether a tap on an event runs something of its own: `event_tap_action` opens the event's
@@ -877,7 +964,7 @@ class CalendarCardPro extends LitElement {
   private _runEventAction(
     { event, color }: Activation.EventTapTarget,
     gesture: 'tap' | 'hold',
-    origin?: Feedback.BusyCueOrigin,
+    origin?: Feedback.PressOrigin,
   ): void {
     const action =
       gesture === 'hold' ? this.config.event_hold_action : this.config.event_tap_action;
@@ -1060,7 +1147,7 @@ class CalendarCardPro extends LitElement {
    */
   private _cardActions(
     context?: Activation.DayHit | null,
-    origin?: Feedback.BusyCueOrigin,
+    origin?: Feedback.PressOrigin,
   ): Actions.CardActionCallbacks {
     return {
       expand: () => this.toggleExpanded(),
@@ -1726,8 +1813,6 @@ class CalendarCardPro extends LitElement {
     }
 
     this._endGesture();
-    // A press still waiting on a dialog's first load opens nothing now, and its cue ends.
-    Dialogs.abandonRequest(this);
     this._derivedClick = null;
     this._spaceArmedOn = null;
     this._swipeArrival = null;
@@ -2804,12 +2889,6 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
-    // Nothing that writes may open while the card is edited, a press still waiting on a
-    // dialog's first load included.
-    if ((changedProps.has('editMode') || changedProps.has('preview')) && this._isBeingEdited) {
-      Dialogs.abandonRequest(this);
-    }
-
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
     if (
@@ -3743,7 +3822,11 @@ class CalendarCardPro extends LitElement {
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
     // held, so the cue belongs there rather than where it was let go.
     const pressedAt = this._pointerStart ?? { x: ev.clientX, y: ev.clientY };
-    const origin: Feedback.BusyCueOrigin = { ...pressedAt, pointerType: ev.pointerType };
+    const origin: Feedback.PressOrigin = {
+      ...pressedAt,
+      pointerType: ev.pointerType,
+      rect: tapTarget ? originOf(tapTarget.element)?.rect : undefined,
+    };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
     if (this._holdTriggered) {
@@ -4129,7 +4212,7 @@ class CalendarCardPro extends LitElement {
    */
   private _activate(
     target: { event: Activation.EventTapTarget } | { day: number },
-    origin: Feedback.BusyCueOrigin | undefined,
+    origin: Feedback.PressOrigin | undefined,
   ): void {
     if ('event' in target) {
       this._runEventAction(target.event, this._eventTapRuns ? 'tap' : 'hold', origin);
@@ -5073,21 +5156,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Opens Home Assistant's create-event dialog for a press: the add button, a tap on a day,
-   * or the card's own `add-event` action.
+   * Opens the event popover on a new event, for a press: the add button, a tap on a day, or the
+   * card's own `add-event` action.
    *
    * The new event starts where the press landed: on a day, at the hour it is now, or in a
    * grid's time area at the hour pressed (`newEventDateOn`); with no day under the press, on
-   * the date the add button uses (`_newEventDate`). The calendar is the first writable one the
-   * legend shows (`preselectedCalendarId`), read when pressed so it follows the legend.
+   * the date the add button uses (`_newEventDate`). It lasts an hour. The calendar is the first
+   * writable one the legend shows (`preselectedCalendarId`), read when pressed so it follows the
+   * legend.
    *
    * @param hit - The day the press landed on, if any
-   * @param origin - Where the press was, for the cue while the dialog loads
+   * @param origin - Where the press was, for the popover to open beside
    * @param dayTimestamp - A day to add on with no hit, from a day's add button
    */
   private _addEventAt(
     hit: Activation.DayHit | undefined,
-    origin?: Feedback.BusyCueOrigin,
+    origin?: Feedback.PressOrigin,
     dayTimestamp?: number,
   ): void {
     const timestamp = hit?.timestamp ?? dayTimestamp;
@@ -5099,73 +5183,37 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Opens Home Assistant's create-event dialog, and refetches once it reports a new event.
+   * Opens the event popover on a new event, and refetches once it has saved one.
    *
    * Refuses while the card is being edited: the button is still drawn there, so the
    * preview shows the layout the dashboard will have, but a press on it opens nothing.
    *
    * @param selectedDate - The date the new event starts on
-   * @param origin - Where the press was, for the cue while the dialog loads
+   * @param origin - Where the press was, for the popover to open beside
    */
-  private _openCreateEventDialog(selectedDate: Date, origin?: Feedback.BusyCueOrigin): void {
+  private _openCreateEventDialog(selectedDate: Date, origin?: Feedback.PressOrigin): void {
     if (this._isBeingEdited) {
-      Logger.debug('Not opening the new-event dialog while the card is being edited');
+      Logger.debug('Not opening a new event while the card is being edited');
       return;
     }
 
-    const calendarId = AddEvent.preselectedCalendarId(
-      this._writableCalendars,
-      this._activeHiddenCalendars,
-    );
+    const writable = this._writableCalendars;
+    const calendarId = AddEvent.preselectedCalendarId(writable, this._activeHiddenCalendars);
     if (!calendarId) return;
 
-    void Dialogs.openCreateEventDialog(
-      this,
-      {
-        calendarId,
-        selectedDate,
-        // Home Assistant's create dialog lets the user pick any calendar that accepts new
-        // events, so every card showing one refreshes, and no card showing only read-only ones.
-        updated: () => this._refreshAfterWrite({ feature: Dialogs.CREATE_EVENT_FEATURE }),
-      },
-      this._dialogOptions(origin),
-    );
-  }
-
-  /**
-   * What a press adds to its dialog request: the cue while the dialog loads, and whether the
-   * card still wants it once it has. The first load can take seconds, during which the card can
-   * be removed or start being edited; it then opens nothing.
-   *
-   * @param origin - Where the press was, for the cue
-   * @returns The options
-   */
-  private _dialogOptions(origin: Feedback.BusyCueOrigin | undefined): Dialogs.OpenOptions {
-    return {
-      cue: this._busyCue(origin),
-      stillWanted: () => this.isConnected && !this._isBeingEdited,
-    };
-  }
-
-  /**
-   * How a press shows that the dialog it asked for is still loading: a pulse where it was,
-   * shown and hidden by `ha-calendar-dialogs.ts`.
-   *
-   * @param origin - Where the press was; none shows no cue
-   * @returns The cue, or undefined
-   */
-  private _busyCue(origin: Feedback.BusyCueOrigin | undefined): Dialogs.BusyCue | undefined {
-    if (!origin) return undefined;
-    let cue: HTMLElement | undefined;
-    return {
-      show: () => {
-        cue = Feedback.createBusyCue(origin, this.config);
-      },
-      hide: () => {
-        if (cue) Feedback.removeBusyCue(cue);
-        cue = undefined;
-      },
-    };
+    this._openPopover({
+      mode: 'new',
+      calendarId,
+      calendars: writable.map((id) => this._popoverCalendar(id)),
+      times: AddEvent.newEventTimes(selectedDate),
+      canEdit: true,
+      canDelete: false,
+      anchor: origin,
+      // The popover names the calendar it wrote to; one that does not is any that accepts
+      // new events.
+      updated: (id) =>
+        this._refreshAfterWrite(id ? { ids: [id] } : { feature: Writes.CREATE_EVENT_FEATURE }),
+    });
   }
 
   //-----------------------------------------------------------------------------

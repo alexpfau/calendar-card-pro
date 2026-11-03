@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryEvent,
   type StoryHass,
@@ -40,12 +41,6 @@ vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const PAGE = 'now-and-next';
@@ -106,13 +101,16 @@ const haCard = (card: Awaited<ReturnType<typeof mountStory>>) =>
   shadow(card).querySelector('ha-card') as Element;
 
 describe('the Now & Next card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -181,7 +179,7 @@ describe('the Now & Next card behaves as its page describes', () => {
     const card = await mountStory(CARD, WEEK);
     await tap(card, rowTitled(card, 'Swimming').target);
     expect(titles(card)).toEqual(EXPANDED);
-    expect(openDetails).not.toHaveBeenCalled();
+    expect(popovers.opened).not.toHaveBeenCalled();
 
     // Control: the option the page leaves out. The same tap on the same event now opens the
     // event and the card stays collapsed, which is the trade the page declines.
@@ -191,7 +189,7 @@ describe('the Now & Next card behaves as its page describes', () => {
     );
     await tap(details, rowTitled(details, 'Swimming').target);
     expect(titles(details)).toEqual(COLLAPSED);
-    expect(openDetails).toHaveBeenCalledTimes(1);
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
   });
 
   it('still shows today when nothing is left on it', async () => {

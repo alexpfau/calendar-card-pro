@@ -18,12 +18,16 @@ src/
 │   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Runs the card's tap and hold actions
-│   ├── add-event.ts              # Add button: writable calendars, label, start date
-│   ├── calendar-changes.ts       # Page-wide announcement after a dialog saves
+│   ├── add-event.ts              # Add button: writable calendars, label, new-event times
+│   ├── calendar-changes.ts       # Page-wide announcement after the popover saves
+│   ├── calendar-writes.ts        # Feature bits; the create, update and delete commands
 │   ├── event-actions.ts          # Event actions: kind, the event's fields, filling them in
-│   ├── event-details.ts          # Event dialog entry, Edit and Delete permissions
+│   ├── event-details.ts          # An event's popover entry, display text and permissions
+│   ├── event-map.ts              # Zone lookup and map tiles under an event's location
+│   ├── event-times.ts            # An event's span, as the popover edits it and as stored
 │   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
-│   └── ha-calendar-dialogs.ts    # Loads and opens Home Assistant's calendar dialogs
+│   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
+│   └── rrule.ts                  # Home Assistant's repeat rules: read, written, worded
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
@@ -51,6 +55,7 @@ src/
 │   ├── legend.ts                 # The calendar filter: its chips, its button and menu
 │   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
+│   ├── event-popover.ts          # The event popover: details, editing in place, new events
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
@@ -88,6 +93,7 @@ src/
     ├── title-words.ts            # Splits grid titles so they wrap only at spaces
     ├── view-choice.ts            # The switcher's view and the legend's hidden calendars, per device
     ├── editor-url.ts             # Where the editor file lives, relative to the card
+    ├── links.ts                  # Web addresses in an event's text, as link pieces
     ├── weather.ts                # Weather data fetching and processing
     └── weather-i18n.ts           # Condition text in the card's language
 ```
@@ -184,6 +190,11 @@ dynamic `import()` would make Rollup emit a shared chunk that the editor imports
 from the card, and the query string HACS appends to the card's own URL would make the
 browser treat that as a second copy of the card. `npm run check:bundle` asserts the
 result after every build.
+
+The event popover (`rendering/event-popover.ts`) is the opposite case: it ships inside the
+card's file rather than as a third file fetched when first opened. Every asset attached to a
+release is downloaded by every HACS user, so a third file would spare no installation its
+bytes, and with the popover already in the card's file nothing has to load when one opens.
 
 ### Compact Payloads, Readable Sources
 
@@ -569,8 +580,9 @@ The main entry point serves as the orchestrator for the entire card:
 - **State Management**: Manages loading state, expanded state, and events data
 - **Event Handling**: Runs the one gesture recognizer for card taps, event taps, holds,
   swipes and keys (see _Interaction Flow_)
-- **Write Coordination**: Opens Home Assistant's calendar dialogs, refetches after a save,
-  and listens for other cards' change announcements
+- **Write Coordination**: Opens the event popover through Home Assistant's dialog manager
+  (`_openPopover`), refetches after a save, and listens for other cards' change
+  announcements
 - **Configuration Processing**: Handles config updates from Home Assistant
 - **Rendering Coordination**: Builds the component's DOM structure
 - **Timers**: Arms the refresh timer for the deadline of the data on screen, and reconciles
@@ -626,11 +638,14 @@ Manages all configuration aspects of the card:
 
 ### Interaction (`interaction/`)
 
-Handles all user interaction with the card. The card never writes a calendar itself: adding,
-viewing, editing and deleting all happen in Home Assistant's own dialogs, so the forms,
-validation, recurrence and service calls stay Home Assistant's. `add-event.ts` and
-`event-details.ts` decide what goes into a dialog and hold no side effects;
-`ha-calendar-dialogs.ts` is the only module that opens one.
+Handles all user interaction with the card. Viewing, adding, editing and deleting events all
+happen in the card's own event popover (`rendering/event-popover.ts`), which writes through
+Home Assistant's calendar WebSocket commands, the ones its Calendar panel sends. The modules
+here decide what the popover is handed and what it writes: `event-details.ts` and
+`add-event.ts` build its parameters, `popover-model.ts` its draft, `event-times.ts` and
+`rrule.ts` the times and the repeat rule, and `event-map.ts` the map. None of them touches the
+DOM. `calendar-writes.ts` is the only module that writes a calendar, and the popover its only
+caller.
 
 - **actions.ts**:
   - Runs `tap_action` and `hold_action`, for the card
@@ -644,7 +659,7 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **event-actions.ts**:
   - Reads an event action as one of three kinds (`eventActionKind`): `details`, which opens the
-    event's dialog; one of Home Assistant's actions, which is forwarded; or nothing, which is
+    event's popover; one of Home Assistant's actions, which is forwarded; or nothing, which is
     `none`, a bare key, and the card's own actions, since those act on the whole card
   - Builds the tapped event's fields (`eventFields`) from `_source` rather than the row, which
     carries only what the card shows: a location the grid hides, or a description while
@@ -662,62 +677,87 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     own calendar as `entity`, so
     `more-info` opens the pressed event's calendar unless the action names another
 
-- **ha-calendar-dialogs.ts**:
-  - Gets Home Assistant's `dialog-calendar-event-editor` and `dialog-calendar-event-detail`
-    defined and opens them. It is the one module that reaches into Home Assistant's
-    frontend internals
-  - The dialogs live in a lazily loaded chunk whose file name is a build hash, so the card
-    borrows its import. It creates a core calendar card through
-    `window.loadCardHelpers()`, which defines `ha-full-calendar`, then calls that element's
-    private `_createEvent` or `_handleEventClick` on a stand-in that records the
-    `show-dialog` event instead of dispatching it, awaits whatever the handler returns, so
-    an asynchronous handler and its rejection are both handled, and runs the captured
-    `dialogImport`. Nothing else is taken from the borrow: the card dispatches its own
-    `show-dialog` with its own parameters
-  - Keeps one load in flight per element for the whole page, bounded by
-    `LOAD_TIMEOUT_MS`, and one waiting request for both dialogs. A press made while a dialog
-    loads replaces any older waiting request, for either dialog, so one dialog opens: the
-    newest, with its parameters
-  - Checks every step and falls back on any mismatch or timeout: details to
-    `hass-more-info` for the event's calendar, which keeps the user on the dashboard, and
-    add to the `/calendar` panel. The card asks Home Assistant to navigate there with a
-    `hass-action` carrying a `navigate` action, as `actions.ts` does for a configured one,
-    so Home Assistant's own navigation runs: it closes open dialogs and lets a page with
-    unsaved changes refuse. The card never pushes history itself
-  - Reads the calendar feature bits from `supported_features`: 1 create, 2 delete,
-    4 update
-  - Shows the press's busy cue while a dialog that is not yet defined loads, once the load has
-    run past `TIMING.BUSY_CUE_DELAY`, and hides it before the dialog opens, before a fallback,
-    or when a newer press replaces the request. A dialog already defined shows nothing
-  - Asks the card whether it still wants the dialog (`stillWanted`) before the cue shows and
-    again once the dialog has loaded. A card removed from the page, or being edited by then,
-    opens nothing and falls back to nothing: the first load can take seconds. The card also
-    drops its waiting request when it is removed or editing begins (`abandonRequest`), which
-    ends a cue already showing at once and cannot be undone by putting the card back
-
 - **event-details.ts**:
-  - Builds the detail dialog's entry from the event's `_source`, never from the rendered
-    row, whose text is display text and whose interval may be one day of a split event
-  - Decides Edit and Delete: the calendar's feature bit, a `uid`, `allow_event_edit` or
+  - Builds the popover's entry from the event's `_source`, never from the rendered row, whose
+    text is display text and whose interval may be one day of a split event
+  - Builds the title, location and description as the card shows them (`displayText`), with
+    the calendar's text replacement applied, for the popover to show until a field is edited.
+    Read from `_source` too, so a location the grid hides, or a description while
+    `show_description` is off, is still there, and the title carries no appended age
+  - Decides editing and Delete: the calendar's feature bit, a `uid`, `allow_event_edit` or
     `allow_event_delete`, a row that is not a `filter_duplicates` merge, and a calendar that
-    is not failing to load. Edit also needs an end the calendar stores
+    is not failing to load. Editing also needs an end the calendar stores
 
 - **add-event.ts**:
   - Lists the writable calendars, in `entities` order and without failing ones; none means
-    no button, and the first is preselected
+    no button. They are every calendar the popover's picker offers a new event
   - Takes the button's label from `hass.localize`, and never draws an English word in its
     place
-  - Picks the dialog's `selectedDate`: for the add button and presses with no day under them,
-    now when today is in the card's window, otherwise the window's first day; for a day, the
-    hour it is now on that day, or in a grid's time area the hour pressed (`newEventDateOn`)
+  - Picks the date a new event starts on: for the add button and presses with no day under
+    them, now when today is in the card's window, otherwise the window's first day; for a day,
+    the hour it is now on that day, or in a grid's time area the hour pressed
+    (`newEventDateOn`). `newEventTimes` rounds it down to the hour and makes it an hour long
   - Preselects the first writable calendar the legend shows, or the first writable one when it
     hides them all (`preselectedCalendarId`)
 
+- **calendar-writes.ts**:
+  - Reads the calendar feature bits from `supported_features`, as Home Assistant's calendar
+    panel does (`calendarSupports`): 1 create, 2 delete, 4 update
+  - Sends `calendar/event/create`, `calendar/event/update` and `calendar/event/delete`, Home
+    Assistant's public calendar commands, the ones its own calendar panel sends; an update or
+    a delete of one occurrence of a repeating event carries its `recurrence_id` and the range
+  - Writes a timed event's start and end as UTC instants (`…Z`). Home Assistant requires the
+    two to carry the same time zone, which two offsets either side of a clock change would
+    not, and converts an aware time to its own zone itself. An all-day event is written as
+    dates, its end the day after its last
+  - Reads the message off a refused write (`writeErrorMessage`), for the popover to show as
+    Home Assistant wrote it
+
+- **popover-model.ts**:
+  - The popover's draft, kept apart from how it is drawn: built from what the card hands over
+    (`draftFromParams`), compared with the draft it opened with (`isDirty`), checked as Home
+    Assistant would check it (`draftProblem`: no title, or times that make no valid event),
+    and turned into the write command's event (`eventWrite`)
+  - A repeat rule left alone is written back exactly as it was stored, so a rule the popover
+    could not have written itself survives an edit of the title. A change to one occurrence
+    leaves the rule out, as Home Assistant's own editor does
+  - Words the time cell's date and times (`spanText`) in Home Assistant's language
+
+- **event-times.ts**:
+  - An event's span as the popover edits it, in the browser's own zone as the card's rows show
+    it: an all-day event as its first and last dates, though Home Assistant stores the day
+    after the last; a timed one as two instants
+  - Moving the start keeps the length (`moveStart`); switching to all day covers the days the
+    times touched (`setAllDay`); `validTimes` accepts what Home Assistant accepts, an end after
+    the start, or for all day not before it
+
+- **rrule.ts**:
+  - The part of RFC 5545 Home Assistant's own event editor offers, read, written and worded as
+    it does: daily, weekly on chosen weekdays, monthly on a day of the month or on an nth or
+    last weekday, and yearly, each ending never, after a count or on a date
+  - Any other rule is custom: kept verbatim, never rewritten and never worded, because reading
+    it into the supported part would silently change the days it repeats on
+  - Words a rule from Home Assistant's own `ui.components.calendar.event.rrule.*` strings, so
+    the card adds no text of its own. Home Assistant does all three jobs with the `rrule`
+    package; the card does them by hand, for bundle size
+
+- **event-map.ts**:
+  - Turns a location into a point through one swappable seam, `resolveLocation`, which today
+    is `zoneCoordinates`: a Home Assistant zone matched by its name or its entity ID's object
+    ID, case and spacing ignored. Nothing is sent anywhere to find it; an address lookup, if
+    one is ever chosen, plugs in there
+  - Draws the map from Home Assistant's own tile proxy: a token from `map_tiles/access_token`,
+    reused for 20 minutes, and tiles from `/api/map_tiles/raster/{z}/{x}/{y}.png`. A Home
+    Assistant without the command, before 2026.10, gets no map
+  - Builds the Google Maps search a press on the map, or on the pin beside any other location,
+    opens (`mapsSearchUrl`)
+
 - **calendar-changes.ts**:
-  - Announces a saved change on `window`. An edit or a delete names the event's calendar. A
-    create names the create feature bit instead, because Home Assistant's create dialog can
-    write to any calendar that accepts new events: a receiving card refreshes only if it
-    shows such a calendar, read from its own `hass.states`
+  - Announces a saved change on `window`, naming the calendar written to: the event's own for
+    an edit or a delete, the one picked for a new event. A receiving card refreshes only if it
+    shows that calendar. A change can also be announced by feature bit, for a new event whose
+    calendar is not known, read against the receiving card's own `hass.states`; the popover
+    always names its calendar
   - Carries the write's generation, which the announcing card advanced once. Every
     connected card listens, from `connectedCallback` to `disconnectedCallback`, and calls
     `refreshEvents()` with that generation when it shows an affected calendar, skipping the
@@ -727,8 +767,8 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **feedback.ts**:
   - Creates the hold indicator at the pointer, and fades it out and removes it
-  - Creates the busy cue, the same circle pulsing where a press was while its dialog loads
-    (still under `prefers-reduced-motion`), on `document.body` like the indicator
+  - Describes where a press was (`PressOrigin`), with the pressed event's or button's box,
+    for the popover to open beside
   - Draws no ripple: that is an `<ha-ripple>` which `renderMainCardStructure` in
     `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`
 
@@ -794,6 +834,42 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     from `dayLabelId` only while events are tap targets, unique within the shadow root
     because every view draws one header per day; a grid banner names the first day it
     covers on screen
+
+- **event-popover.ts**:
+  - The event popover: an event's details, editable in place, and a new event. The card never
+    renders it: the card dispatches Home Assistant's `show-dialog` with the popover's own tag,
+    `calendar-card-pro-event-popover` (`calendar-card-pro-dev-event-popover` in the dev build),
+    and a `dialogImport` that only waits for that tag to be defined, since the element is
+    defined when the card's module loads. Home Assistant's dialog manager then creates it,
+    hands it `hass`, closes it on Back and gives focus back afterwards. Nothing of Home
+    Assistant's frontend is borrowed beyond that public contract
+  - The manager calls `showDialog` before attaching the element, so the popover keeps the
+    request and opens its native `<dialog>` with `showModal()` in `updated()`, once it is
+    connected; that puts it in the top layer, above the whole page. Its own `showModal()`
+    focusing finds nothing, because the dialog is hidden until it is placed, so it focuses its
+    start once placed. For Back the manager calls `closeDialog()` and compares the answer with
+    `false` without awaiting it, so the answer is a plain boolean: `true` once the popover is
+    gone, `false` to keep it open, to ask which occurrences a change covers, to show why a save
+    was refused, or while a save is under way. A save closes the popover when it is done, by
+    firing `dialog-closed`, which is also how every other close tells the manager it is gone
+  - A save or a delete under way makes the panel `inert` and refuses every close, so nothing
+    typed meanwhile is lost and an Escape cannot hide a delete that still goes ahead. Each
+    `showDialog` starts a new generation, and a write that finishes after the element was
+    reused for another event refreshes the calendar it wrote to but leaves the new event open
+  - Keeps every change as a draft (`popover-model.ts`) and writes once, on close: a press that
+    starts and ends on the backdrop saves, as Back does, and Escape, the dialog's `cancel`,
+    discards. A field that is focused but not changed writes nothing
+  - Shows the title, location and description as the card does until a field is edited, then
+    as stored (`displayText` in `event-details.ts`), since the stored text is what a save writes
+  - Places itself beside the press, from the `PressOrigin` and the pressed element's box: to
+    the right where it fits, else to the left, with an arrow at the press. Below 600 pixels of
+    viewport width it is a sheet from the bottom instead. It is drawn dark while Home
+    Assistant's `themes.darkMode` is on
+  - Takes every word from `hass.localize`, Home Assistant's own strings, almost all of them
+    under `ui.components.calendar.*`, each with an English fallback for a key Home Assistant lacks, so the card carries
+    no translations for it; dates through `Intl` in Home Assistant's language. Ships in the
+    card's own file (see _Two Files, One Card_)
+  - Draws links through `utils/links.ts` and the map through `interaction/event-map.ts`
 
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
@@ -925,11 +1001,10 @@ Provides core functionality across the card:
   - Rejects malformed endpoint or text payloads before processing, without discarding
     valid neighboring events; a timed event with a missing or backwards end is kept as an
     instant at its start, so every view draws it the same way
-  - Stamps `_source`, the fields Home Assistant's event dialogs read, as Home Assistant
-    returned them, `status` included. It is taken before `keepWellFormedEvents` repairs an
-    end and carried through splitting and the `groupEventsByDay` projection, so the detail
-    dialog shows the event as stored and Edit never writes a repaired end or display text
-    back
+  - Stamps `_source`, the fields the event popover reads, as Home Assistant returned them,
+    `status` included. It is taken before `keepWellFormedEvents` repairs an end and carried
+    through splitting and the `groupEventsByDay` projection, so the popover opens on the event
+    as stored and a save never writes a repaired end or display text back
   - Retains the original start of split List/Column events for anniversary counts,
     without changing their per-day countdown or expiry behavior
   - Derives Grid's daily coverage before per-day filters and empty-day omission, without
@@ -997,6 +1072,13 @@ Provides core functionality across the card:
   - Computes where `editor.js` sits relative to the card, and carries the card's own
     cache-busting query onto it (see _Two Files, One Card_)
 
+- **links.ts**:
+  - Finds the links in an event's description or location: bare web addresses, and the
+    `<a href>` links calendars write into descriptions, which keep their words
+  - Returns plain text and link pieces for a Lit template to draw, never markup, so nothing in
+    an event can become an element. Only `http` and `https` addresses become links; any other
+    scheme, `javascript:` included, is drawn as its words
+
 - **view-choice.ts**:
   - Remembers the view switcher's choice and the calendars the legend hides per device, in
     one `localStorage` entry keyed by a fingerprint of the raw configuration (see _Header
@@ -1045,8 +1127,9 @@ graph TD
     %% Interaction flow
     Inter --> Actions[Action Handling]
     Inter --> Feedback[Hold Indicator]
-    Inter --> Dialogs[Home Assistant Calendar Dialogs]
-    Dialogs --> Changes[Page-Wide Change Announcement]
+    Inter --> Popover[Event Popover]
+    Popover --> Writes[Calendar WebSocket Commands]
+    Popover --> Changes[Page-Wide Change Announcement]
 
     %% State management
     State --> Lifecycle[Component Lifecycle]
@@ -1159,8 +1242,8 @@ Every view marks its days for this through a property no markup shows (`DaySlot`
 and every event and `+N` block says it covers the day beneath it. Space that is no day's element,
 under a short column-view column or in a grid's all-day band, takes the day whose column holds
 the pointer, read from the columns' drawn rects, so right to left needs nothing of its own
-(`findDayHit`). A time slot is the hour under the pointer, rounded down, which is as fine as
-Home Assistant's create dialog goes.
+(`findDayHit`). A time slot is the hour under the pointer, rounded down, which is where a new
+event added there starts.
 
 **Precedence.** A tap or a hold runs the innermost target's action for it, else the next
 target out's. An event covers its slot: a press on an event falls through to the card, never to
@@ -1256,14 +1339,14 @@ the gesture began on.
      card's own Enter and Space handling is unchanged
    - A press by pointer that runs something leaves no focus in the card
      (`_releasePressFocus`), the add button included. Home Assistant gives focus back, by
-     script, to whatever held it when its dialog opened, and a browser rings that focus, so the
-     event or day pressed stayed ringed after its dialog closed. The keyboard and assistive
+     script, to whatever held it when the popover opened, and a browser rings that focus, so the
+     event or day pressed stayed ringed after the popover closed. The keyboard and assistive
      technology keep their focus, and have it back with its ring
    - Events stop no pointer event, so a hold, and Home Assistant's edit-mode drag, work on
      them as on the rest of the card
    - While Home Assistant draws the card for editing (`preview` in the card editor,
      `editMode` on a dashboard) events are not tap targets, and the functions that open
-     the create and detail dialogs refuse, so nothing in a preview can write to a calendar.
+     the event popover refuse, so nothing in a preview can write to a calendar.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
@@ -1271,12 +1354,13 @@ the gesture began on.
      everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
    - An event's own tap or hold never reaches `handleAction`: `_runEventAction` in
-     `calendar-card-pro.ts` opens the event's details through `openEventDetailDialog` in
-     `ha-calendar-dialogs.ts`, or hands one of Home Assistant's actions, with the event's
-     fields filled in, straight to `fireHassAction`. Nor does a tap on a day: `_addEventAt` opens the new-event
-     dialog through `openCreateEventDialog`, as the add button and `add-event` do
+     `calendar-card-pro.ts` opens the event's popover through `_openEventDetails`, or hands
+     one of Home Assistant's actions, with the event's fields filled in, straight to
+     `fireHassAction`. Nor does a tap on a day: `_addEventAt` opens the popover on a new event
+     through `_openCreateEventDialog`, as the add button and `add-event` do
 3. **After a Write**:
-   - A dialog's `updated` callback advances the page's write generation once
+   - The popover's `updated` callback, called once Home Assistant has saved or deleted,
+     advances the page's write generation once
      (`advanceWriteGeneration` in `events.ts`), calls `refreshEvents()` with it, and
      announces the change with it through `calendar-changes.ts`, so other cards showing the
      calendar refetch too
@@ -1303,8 +1387,8 @@ the gesture began on.
      requests, the page store and the held entries are this tab's and this copy's: another
      tab, or a development build beside a release, is reached only through the entries in
      `localStorage`
-   - The callback returns nothing. Home Assistant awaits it before closing the dialog and
-     re-enables Save meanwhile, so returning the refetch would invite a duplicate event
+   - The callback returns nothing: the card refetches without the popover waiting on it, and
+     the popover closes as soon as Home Assistant has saved
    - `updateEvents('network')` is not used: it joins a matching request already under way,
      which may have started before Home Assistant committed the save
 

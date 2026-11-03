@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildConfig } from './fixtures';
 import * as AddEvent from '../src/interaction/add-event';
-import * as Feedback from '../src/interaction/feedback';
 import * as Activation from '../src/rendering/activation';
 
 /**
@@ -216,43 +214,5 @@ describe('preselectedCalendarId', () => {
       ),
     ).toBe('calendar.anna');
     expect(AddEvent.preselectedCalendarId([], new Set())).toBeUndefined();
-  });
-});
-
-describe('the busy cue', () => {
-  it('is drawn on the page, outside the card, at the press, hidden from assistive technology', () => {
-    const cue = Feedback.createBusyCue({ x: 120, y: 80, pointerType: 'touch' }, buildConfig());
-
-    expect(cue.parentElement).toBe(document.body);
-    expect(cue.getAttribute('aria-hidden')).toBe('true');
-    expect(cue.style.position).toBe('fixed');
-    expect(cue.style.pointerEvents).toBe('none');
-    expect([cue.style.left, cue.style.top]).toEqual(['120px', '80px']);
-    expect(cue.style.width).toBe('100px');
-  });
-
-  it("is a pointer's size for anything but a touch", () => {
-    const cue = Feedback.createBusyCue({ x: 0, y: 0 }, buildConfig());
-    expect(cue.style.width).toBe('50px');
-  });
-
-  it('pulses, unless less motion was asked for', () => {
-    const animate = vi.fn(() => ({ finished: Promise.resolve() }) as unknown as Animation);
-    vi.spyOn(HTMLElement.prototype, 'animate').mockImplementation(animate);
-    Feedback.createBusyCue({ x: 0, y: 0 }, buildConfig());
-    expect(animate).toHaveBeenCalledTimes(1);
-
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
-    Feedback.createBusyCue({ x: 0, y: 0 }, buildConfig());
-    expect(animate).toHaveBeenCalledTimes(1);
-  });
-
-  it('is gone once removed', () => {
-    vi.useFakeTimers();
-    const cue = Feedback.createBusyCue({ x: 0, y: 0 }, buildConfig());
-    Feedback.removeBusyCue(cue);
-    vi.runAllTimers();
-    expect(cue.isConnected).toBe(false);
-    vi.useRealTimers();
   });
 });

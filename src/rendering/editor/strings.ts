@@ -554,7 +554,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Loads the events again now, rather than at the next scheduled refresh.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper':
-    "Opens Home Assistant's new-event dialog. Shown when a calendar on the card accepts new events.",
+    'Opens a new event, ready to fill in. Shown when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
   'toolbar.legend.helper':
     "Hides each calendar's events on this device. Menu opens a checkbox per calendar; Chips shows " +
@@ -861,7 +861,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
   // The card's other action: load the events again now, as the toolbar's refresh button does.
   'card_action.option.refresh.label': 'Refresh Events',
-  // And its third: open Home Assistant's new-event dialog, on the day the press landed on.
+  // And its third: open a new event, on the day the press landed on.
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
@@ -873,7 +873,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'day_tap_action_mode.option.none.label': 'Nothing',
   'day_tap_action_mode.option.add-event.label': 'Add Event',
   'day_tap_action_mode.helper':
-    "Add Event opens Home Assistant's new-event dialog when you tap a day where it shows no " +
+    'Add Event opens a new event, ready to fill in, when you tap a day where it shows no ' +
     'event: its date, the space under its events, or in the grid layout the hour you tap. ' +
     'With Nothing, such a tap runs the tap action.',
   // Home Assistant's action editor, as for the card's two. `details` is the one action only an
@@ -882,23 +882,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.details.label': 'Show Event Details',
   event_tap_action: 'Event Tap Action',
   'event_tap_action.helper':
-    "Show Event Details opens Home Assistant's event dialog, offering Edit and Delete where " +
-    "the event's calendar allows them. Home Assistant's own actions can use the tapped " +
-    "event's title, times, location and description. With Nothing, a tap on an event runs " +
-    'the tap action, as anywhere else on the card.',
+    'Show Event Details opens the event beside it, where you can change or delete it if its ' +
+    "calendar allows. Home Assistant's own actions can use the tapped event's title, times, " +
+    'location and description. With Nothing, a tap on an event runs the tap action, as ' +
+    'anywhere else on the card.',
   event_hold_action: 'Event Hold Action',
   'event_hold_action.helper':
-    "Show Event Details opens Home Assistant's event dialog when you hold an event. Home " +
-    "Assistant's own actions can use the held event's title, times, location and " +
-    'description. With Nothing, holding an event runs the hold action, as anywhere else on ' +
-    'the card.',
+    "Show Event Details opens the event beside it when you hold it. Home Assistant's own " +
+    "actions can use the held event's title, times, location and description. With Nothing, " +
+    'holding an event runs the hold action, as anywhere else on the card.',
   // Shown only while the event tap or hold action is `details`, directly under them, so "the
-  // event dialog" needs no introduction. Each ends on the calendar because that is the
+  // event's details" needs no introduction. Each ends on the calendar because that is the
   // question a user with the switch on and no Edit button is asking: these can only take away.
   allow_event_edit: 'Allow Editing Events',
-  'allow_event_edit.helper': 'Offers Edit in the event dialog, on calendars that support it.',
+  'allow_event_edit.helper':
+    'Lets you change an event in its details, on calendars that support it.',
   allow_event_delete: 'Allow Deleting Events',
-  'allow_event_delete.helper': 'Offers Delete in the event dialog, on calendars that support it.',
+  'allow_event_delete.helper': "Offers Delete in an event's details, on calendars that support it.",
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

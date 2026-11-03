@@ -1,24 +1,19 @@
 /**
- * What Home Assistant's event-detail dialog is handed for one rendered event.
- *
- * A tap on an event opens Home Assistant's own event-detail dialog — the one its calendar
- * panel opens — so the full description, the recurrence and, where the calendar allows
- * them, Edit and Delete all stay Home Assistant's. This module builds the entry and the
- * permissions; `ha-calendar-dialogs.ts` opens the dialog.
+ * What the event popover is handed for one rendered event: the event as stored, as the card
+ * shows it, and whether it may be changed and deleted. No side effects; the card opens the
+ * popover (`event-popover.ts`).
  */
 
-import {
-  DELETE_EVENT_FEATURE,
-  UPDATE_EVENT_FEATURE,
-  calendarSupports,
-} from './ha-calendar-dialogs';
+import { DELETE_EVENT_FEATURE, UPDATE_EVENT_FEATURE, calendarSupports } from './calendar-writes';
 import * as Types from '../config/types';
+import { stripHtmlTags } from '../utils/format';
+import * as TextReplace from '../utils/text-replace';
 
 //-----------------------------------------------------------------------------
 // DIALOG PARAMETERS
 //-----------------------------------------------------------------------------
 
-/** Home Assistant's `CalendarEventData`, the shape its event dialogs read. */
+/** Home Assistant's `CalendarEventData`: an event as it is stored. */
 export interface DetailEntry {
   summary: string;
   dtstart: string;
@@ -43,7 +38,7 @@ function storedEnd(event: Types.CalendarEventData): string | undefined {
 }
 
 /**
- * The event as Home Assistant's dialog expects it, built from what Home Assistant returned.
+ * The event as stored, built from what Home Assistant returned.
  *
  * Reads `_source` rather than the row: a split segment's interval is one day of the event,
  * a repaired event's end is the card's, and the row's text is display text. Mirrors the
@@ -51,9 +46,9 @@ function storedEnd(event: Types.CalendarEventData): string | undefined {
  * conversion.
  *
  * An end that is stored but before the start is handed over as stored. An event with no
- * end at all is shown as the instant at its start, because Home Assistant's dialog
- * formats `dtend` unconditionally and cannot render without one; `detailPermissions`
- * then withholds Edit, which would write that instant back as if the calendar stored it.
+ * end at all is shown as the instant at its start, since the popover needs an end to show;
+ * `detailPermissions` then withholds editing, which would write that instant back as if the
+ * calendar stored it.
  *
  * @param event - A rendered event
  * @returns The dialog entry, or undefined for a row that is not an event
@@ -89,7 +84,7 @@ export interface DetailContext {
 }
 
 /**
- * Whether the dialog may offer Edit and Delete for this event.
+ * Whether the popover may change and delete this event.
  *
  * Follows the calendar's advertised features, as Home Assistant's calendar panel does,
  * and narrows them; nothing here can offer what a calendar does not support. Both need:
@@ -130,5 +125,43 @@ export function detailPermissions(
       calendarSupports(hass, entityId, UPDATE_EVENT_FEATURE) &&
       storedEnd(event) !== undefined,
     canDelete: context.allowDelete && calendarSupports(hass, entityId, DELETE_EVENT_FEATURE),
+  };
+}
+
+/**
+ * The event's title, location and description as the card shows them, its calendar's text
+ * replacement applied, for the popover to show while a field is not being edited.
+ *
+ * Built from `_source` rather than the row, which carries only what the card draws: a
+ * location the grid hides, or any description while `show_description` is off, would be
+ * empty there, and the title would carry an age count the card appended. A description keeps
+ * its markup, so the popover can keep its links, unless a replacement rewrites it, which the
+ * row applies to its plain text.
+ *
+ * @param event - A rendered event
+ * @returns The three texts
+ */
+export function displayText(event: Types.CalendarEventData): {
+  title: string;
+  location: string;
+  description: string;
+} {
+  const source = event._source ?? event;
+  const matched = event._matchedConfig;
+  const rule = TextReplace.resolveTextReplacement(
+    matched?.replace_field,
+    matched?.replace_pattern,
+    matched?.replace_with,
+  );
+  const replaced = (text: string, field: Types.ReplaceField) =>
+    TextReplace.applyTextReplacement(text, rule, field).text;
+  const description = source.description ?? '';
+  return {
+    title: replaced(source.summary ?? '', 'title'),
+    location: replaced(source.location ?? '', 'location'),
+    description:
+      rule?.field === 'description'
+        ? replaced(stripHtmlTags(description), 'description')
+        : description,
   };
 }

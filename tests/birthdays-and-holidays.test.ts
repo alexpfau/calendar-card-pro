@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryEvent,
   type StoryHass,
@@ -41,12 +42,6 @@ vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const PAGE = 'birthdays-and-holidays';
@@ -90,13 +85,16 @@ const SEASON: StoryHass = {
 const DRAWN = ['Midsummer fair', 'Mia (36)', 'Bank holiday', 'Noah', 'Summer break', 'Clara (7)'];
 
 describe('the Birthdays & Holidays card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -141,15 +139,13 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
 
   it('opens the entry as the calendar stores it, without the age', async () => {
     // "A tap opens the entry as the calendar stores it, so the dialog shows the title without
-    // the age." The row it was tapped on does carry the age, so its absence below is the dialog.
+    // the age." The row it was tapped on does carry the age, so its absence below is the
+    // popover's.
     const card = await mountStory(CARD, SEASON);
     await tap(card, rowTitled(card, 'Mia (36)').target);
-    expect(openDetails).toHaveBeenCalledTimes(1);
-    const { calendarId, entry } = (openDetails.mock.calls[0] as unknown[])[1] as {
-      calendarId: string;
-      entry: { summary: string; description?: string };
-    };
-    expect([calendarId, entry.summary, entry.description]).toEqual([
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
+    const { calendarId, entry } = popovers.opened.mock.calls[0][0];
+    expect([calendarId, entry?.summary, entry?.description]).toEqual([
       'calendar.birthdays',
       'Mia',
       'YEAR=1990',

@@ -1,7 +1,8 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import type { PopoverRequest } from './popover-spy';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
@@ -9,20 +10,19 @@ import {
   buildDetailEntry,
   detailPermissions,
 } from '../src/interaction/event-details';
-import { EVENT_DETAIL_DIALOG_TAG } from '../src/interaction/ha-calendar-dialogs';
 import type * as Activation from '../src/rendering/activation';
+import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
 /**
- * `event_tap_action`: with `details`, a tap on an event opens Home Assistant's event-detail
- * dialog instead of running the card's tap. Home Assistant's own actions run with the tapped
- * event's fields filled in; `none` and the card's own actions read as nothing.
+ * `event_tap_action`: with `details`, a tap on an event opens the card's event popover on it
+ * instead of running the card's tap. Home Assistant's own actions run with the tapped event's
+ * fields filled in; `none` and the card's own actions read as nothing.
  *
- * Driven through the real card, from the fetch to the click, because the entry the dialog
+ * Driven through the real card, from the fetch to the click, because the entry the popover
  * receives is assembled across three stages — processing stamps `_source`, grouping copies
  * it into the display row, rendering hands the row to the click handler — and a stage
- * that drops it breaks only this. The dialog is defined up front, which is the state of
- * any session that has opened it once; the paths that load it are in
- * `ha-calendar-dialogs.test.ts`.
+ * that drops it breaks only this. The popover is asked for through Home Assistant's
+ * `show-dialog`, which nothing answers here, so each request is read off that event.
  */
 
 interface Card extends HTMLElement {
@@ -30,18 +30,6 @@ interface Card extends HTMLElement {
   hass: Types.Hass;
   refreshEvents(): Promise<void>;
   readonly updateComplete: Promise<boolean>;
-}
-
-interface DialogDetail {
-  dialogTag: string;
-  dialogParams: {
-    calendarId: string;
-    entry: Record<string, unknown>;
-    color?: string;
-    canEdit: boolean;
-    canDelete: boolean;
-    updated: () => void;
-  };
 }
 
 /** The event tap action this file is mostly about. */
@@ -113,11 +101,11 @@ async function mount(
     callService: vi.fn(),
   };
 
-  const dialogs: DialogDetail[] = [];
+  const dialogs: PopoverRequest[] = [];
   const actions: string[] = [];
   const hassActions: HassActionDetail[] = [];
   card.addEventListener('show-dialog', (ev) =>
-    dialogs.push((ev as Event & { detail: DialogDetail }).detail),
+    dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
   card.addEventListener('hass-action', (ev) => {
     const detail = (ev as Event & { detail: HassActionDetail }).detail;
@@ -191,12 +179,11 @@ function leafShowing(root: Element, text: string): Element {
   return leaves[leaves.length - 1] ?? root;
 }
 
-/** Let the async open finish; it awaits the loader before dispatching. */
+/**
+ * Let anything a press deferred run. The popover opens synchronously, so this only matters to a
+ * count that must stay where it is: it gives a late or second open the chance to show up.
+ */
 const settle = () => vi.advanceTimersByTimeAsync(0);
-
-beforeAll(() => {
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -256,13 +243,14 @@ describe('event_tap_action details', () => {
       click(target);
       await settle();
       expect(dialogs).toHaveLength(1);
-      expect(dialogs[0].dialogTag).toBe(EVENT_DETAIL_DIALOG_TAG);
+      expect(dialogs[0].dialogTag).toBe(EVENT_POPOVER_TAG);
+      expect(dialogs[0].dialogParams.mode).toBe('event');
       expect(dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
-      expect(dialogs[0].dialogParams.entry.summary).toBe(summary);
+      expect(dialogs[0].dialogParams.entry?.summary).toBe(summary);
     },
   );
 
-  it('hands the dialog every field Home Assistant returned', async () => {
+  it('hands the popover every field Home Assistant returned', async () => {
     const { card, dialogs } = await mount({ ...DETAILS });
 
     buttonsShowing(card, 'Dentist')[0].click();
@@ -315,14 +303,16 @@ describe('event_tap_action details', () => {
     expect(dialogs[0].dialogParams).toMatchObject(expected);
   });
 
-  it('fetches again once the dialog has edited or deleted the event', async () => {
+  it('fetches again once the popover has edited or deleted the event', async () => {
     const { card, callApi, dialogs } = await mount({ ...DETAILS });
 
     buttonsShowing(card, 'Dentist')[0].click();
     await settle();
     const fetchesBefore = callApi.mock.calls.length;
 
-    dialogs[0].dialogParams.updated();
+    // The popover names the calendar it wrote to, as it does after every save.
+    const { calendarId, updated } = dialogs[0].dialogParams;
+    updated(calendarId);
     await vi.waitFor(() => expect(callApi.mock.calls.length).toBeGreaterThan(fetchesBefore));
   });
 
@@ -336,14 +326,13 @@ describe('event_tap_action details', () => {
     async (view, summary) => {
       const { card, dialogs } = await mount({ view, ...DETAILS });
 
-      // On the event's content rather than its root, where a real pointer lands. That the
-      // tap and its click open it once, not twice, is pinned under "the click a pointer
-      // gesture owes", which lets each request finish before the next: here the two share a
-      // tick, and a second request in the same tick supersedes the first, so this count
-      // cannot tell.
+      // On the event's content rather than its root, where a real pointer lands. Every
+      // request opens its own popover at once, so this count would see the tap and its click
+      // opening it twice; the click a tap owes is pinned on its own under "the click a pointer
+      // gesture owes".
       tap(leafShowing(buttonsShowing(card, summary)[0], summary));
       await settle();
-      expect(dialogs.map((dialog) => dialog.dialogParams.entry.summary)).toEqual([summary]);
+      expect(dialogs.map((dialog) => dialog.dialogParams.entry?.summary)).toEqual([summary]);
     },
   );
 
@@ -534,7 +523,7 @@ describe('event_tap_action details', () => {
 
   it('lets the pointer through, and keeps the clicks and keys it acts on', async () => {
     // A wrapping card or dashboard handler does not ignore the card's descendants, and would
-    // act on the same click or key that opened the dialog. Pointer events are different: the
+    // act on the same click or key that opened the popover. Pointer events are different: the
     // card's own recognizer listens for them on `ha-card`, and Home Assistant's edit mode
     // drags a card by them, so they travel on as a press anywhere else on the card does.
     const { card } = await mount({ ...DETAILS });
@@ -1122,9 +1111,9 @@ describe('the click a pointer gesture owes', () => {
   // pointer went down on. That click must not act a second time; any other click is an
   // activation in its own right, which is what assistive technology sends.
   //
-  // Counted on the dialogs opened, which name their event: Dentist is Anna's and Swimming is
-  // Ben's. Every step settles before the next, because two requests for the dialog in one
-  // tick open it once, so a click acting in the tick of its own tap would count once too.
+  // Counted on the popovers opened, which name their event: Dentist is Anna's and Swimming is
+  // Ben's. Each request opens its popover at once, so a click acting a second time, even in
+  // the tick of its own tap, counts a second time.
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
   const TWO_CALENDARS = { entities: ['calendar.anna', 'calendar.ben'], ...DETAILS };
 
@@ -1135,7 +1124,7 @@ describe('the click a pointer gesture owes', () => {
     );
     const runs = () =>
       mounted.dialogs.map(
-        (dialog) => `${dialog.dialogParams.entry.summary} ${dialog.dialogParams.calendarId}`,
+        (dialog) => `${dialog.dialogParams.entry?.summary} ${dialog.dialogParams.calendarId}`,
       );
     const dentist = buttonsShowing(mounted.card, 'Dentist')[0];
     const swimming = buttonsShowing(mounted.card, 'Swimming')[0];
@@ -1332,7 +1321,7 @@ describe("a tappable event's day", () => {
   );
 });
 
-describe('what the dialog is handed for events the card had to change', () => {
+describe('what the popover is handed for events the card had to change', () => {
   /** No end at all: kept as the instant at its start. */
   const REMINDER = {
     summary: 'Reminder',
@@ -1388,9 +1377,9 @@ describe('what the dialog is handed for events the card had to change', () => {
 
       buttonsShowing(card, 'Reminder')[0].click();
       await settle();
-      // Home Assistant's dialog formats `dtend` unconditionally, so it is shown the instant
-      // the card draws. Edit would save that instant as the event's end, so it is withheld;
-      // Delete addresses the event by its uid and stays.
+      // The popover reads the event's times from `dtend` as well as `dtstart`, so it is shown
+      // the instant the card draws. Edit would save that instant as the event's end, so it is
+      // withheld; Delete addresses the event by its uid and stays.
       expect(dialogs[0].dialogParams.entry).toMatchObject({
         dtstart: '2026-06-17T16:00:00Z',
         dtend: '2026-06-17T16:00:00Z',
@@ -1415,14 +1404,14 @@ describe('what the dialog is handed for events the card had to change', () => {
     buttonsShowing(card, 'Dentist')[0].click();
     await settle();
 
-    expect(dialogs.map((dialog) => dialog.dialogParams.entry.status)).toEqual([
+    expect(dialogs.map((dialog) => dialog.dialogParams.entry?.status)).toEqual([
       'tentative',
       undefined,
     ]);
   });
 });
 
-describe('what the card lets the dialog offer', () => {
+describe('what the card lets the popover offer', () => {
   const twoCalendars = {
     ...calendarState(7),
     'calendar.ben': {
@@ -1432,7 +1421,7 @@ describe('what the card lets the dialog offer', () => {
     },
   };
 
-  async function permissionsFor(card: Card, dialogs: DialogDetail[], summary: string) {
+  async function permissionsFor(card: Card, dialogs: PopoverRequest[], summary: string) {
     buttonsShowing(card, summary)[0].click();
     await settle();
     const { canEdit, canDelete } = dialogs[dialogs.length - 1].dialogParams;

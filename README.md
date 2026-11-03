@@ -50,7 +50,7 @@ This motivated me to build a **dedicated calendar card**, fast by design. It has
 
 - 🗓️ **List, Columns & Grid** – An agenda, the [days side by side](https://calendar-card-pro.alexpfau.com/features/column-view), or [hour by hour](https://calendar-card-pro.alexpfau.com/features/grid-view).
 - 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts and show or hide calendars](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar).
-- ✏️ **Add & Edit Events** – Through [Home Assistant's own dialogs](https://calendar-card-pro.alexpfau.com/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
+- ✏️ **Add & Edit Events** – Right on the card, in [its own event popover](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Each with its own color, label or [a person's photo](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture), and its own filters.
 - ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only) for any setting.
 - 🌦️ **Weather** – [Forecasts](https://calendar-card-pro.alexpfau.com/features/weather) beside the date or each event.

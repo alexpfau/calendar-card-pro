@@ -143,8 +143,9 @@ you edit the card, any more than the card's other actions are.
 
 ### Adding an Event From a Tap or Hold
 
-`add-event` opens Home Assistant's new-event dialog, as the [add button](#add-event-button) does,
-and starts the new event on the day you pressed. On a wall tablet, a hold is a good place for it:
+`add-event` opens a new event in the [event popover](#the-event-popover), as the
+[add button](#add-event-button) does, and starts it on the day you pressed. On a wall tablet, a
+hold is a good place for it:
 
 ```yaml
 hold_action:
@@ -182,7 +183,7 @@ after a reset, as after a press.
 
 ## 🗒️ Tapping an Event
 
-A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
+A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in the card's [event popover](#the-event-popover), right beside it, with its times, its location, its full description and, for a repeating event, how it repeats:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -197,10 +198,17 @@ event_tap_action:
 
 ### Event Details
 
-The dialog shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, the dialog also offers **Edit** and **Delete**; [Editing & Deleting Events](#editing-deleting-events) covers when it does.
+The popover shows the whole event, whichever part of it you tapped: a multi-day event the card draws across several days opens with its real start and end. Where the event's calendar allows it, you can also change the event right there and delete it; [Editing & Deleting Events](#editing-deleting-events) covers how, and when.
 
-::: warning The Dialog Shows the Event as Stored
-The card's display options do not reach the dialog. A title you rewrote with [text replacement](/features/core-settings#text-replacement), a location or description you hid, or a [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appended appears in the dialog the way the calendar stores it. Leave `details` off a card whose replacements exist to keep something private.
+The title, location and description read as they do on the card, with the calendar's [text replacement](/features/core-settings#text-replacement) applied, so a title you masked or reworded stays that way. A [birthday age](/features/event-content#birthday-ages-anniversary-counts) the card appends is not part of the title there.
+
+::: warning What the Popover Reveals
+Two things go further than the card itself:
+
+- **The location and the description always show**, even where the card hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks.
+- **Editing a field shows it as the calendar stores it**, because that is what a save writes. Tap into a masked title and the real one appears.
+
+On a card whose replacements exist to keep something private, set `allow_event_edit: false`. Where a hidden location or description must stay hidden too, leave `details` off that card.
 :::
 
 ### Where You Can Tap
@@ -303,11 +311,29 @@ Event Tap Action and Event Hold Action dropdowns take field names in braces as Y
 
 ## ✏️ Editing & Deleting Events
 
-The event dialog can change an event as well as show it. **Edit** opens the same form the Calendar panel uses, and **Delete** removes the event; for a repeating event, Home Assistant asks which occurrences you mean. Once the change is saved the card fetches its events again, so it appears straight away.
+Where the event's calendar allows it, the popover is where you change the event, too. There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
+
+- **Title & location.** Tap either one to type.
+- **Date & time.** Tap the date line to open the start and the end, All day and Repeat. Moving the start moves the end with it, so the event keeps its length.
+- **Description.** Tap it to edit it. A tap on a link in it follows the link instead.
+
+Repeat offers what Home Assistant's own event editor offers: daily, weekly on the weekdays you pick, monthly on a day of the month or on an nth or last weekday, and yearly, ending never, after a number of occurrences, or on a date. A repeat rule outside that set, which another calendar app may have written, is shown as written and kept unless you pick another.
+
+### Saving & Discarding
+
+The popover saves once, when it closes: with a press outside it, or with Back. Escape closes it and throws the changes away instead. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
+
+For one occurrence of a repeating event, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events.
+
+If Home Assistant refuses the change, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
+
+### Deleting
+
+Where the calendar allows deleting, **Delete** sits at the bottom of the popover. It asks you to confirm, and for a repeating event whether you mean **Only this event** or **This and all future events**; **Cancel** keeps the event.
 
 ### What Each Integration Allows
 
-Whether a calendar offers Edit, Delete or new events at all is decided by the integration it comes from, not by the card. For the calendar integrations that ship with Home Assistant:
+Whether a calendar's events can be changed, deleted or added at all is decided by the integration it comes from, not by the card. The popover saves through Home Assistant's own calendar commands, the ones its Calendar panel uses, and offers only what the calendar declares. For the calendar integrations that ship with Home Assistant:
 
 | Integration                                            | Add | Edit | Delete |
 | ------------------------------------------------------ | --- | ---- | ------ |
@@ -318,9 +344,9 @@ Whether a calendar offers Edit, Delete or new events at all is decided by the in
 
 A Local Calendar can also edit or delete a repeating event from one occurrence onward. A Google calendar added to Home Assistant as read-only offers nothing, and calendars from custom integrations offer whatever their integration declares. The Add column decides which calendars the [add-event button](#add-event-button) can write to.
 
-### Narrowing What the Dialog Offers
+### Narrowing What the Popover Offers
 
-`allow_event_edit` and `allow_event_delete` take Edit or Delete away on one card, for a dashboard where events should be read but not changed, such as a wall tablet in the hall. Both are on by default, and neither can offer a button the integration does not:
+`allow_event_edit` and `allow_event_delete` take editing or Delete away on one card, for a dashboard where events should be read but not changed, such as a wall tablet in the hall. With `allow_event_edit: false` every part of the popover is plain text, and with `allow_event_delete: false` it has no Delete. Both are on by default, and neither can offer what the integration does not:
 
 ```yaml
 event_tap_action:
@@ -329,20 +355,20 @@ allow_event_edit: false
 allow_event_delete: false
 ```
 
-The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no dialog for them to narrow.
+The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no popover for them to narrow.
 
 ### When the Card Leaves Them Out
 
-The details still open, but the card withholds Edit and Delete where using them would go wrong, whatever the two options say:
+The details still open, but the card makes the event read-only and leaves out Delete where changing it would go wrong, whatever the two options say:
 
 - **A row merged by [`filter_duplicates`](/features/core-settings#filtering-duplicate-events).** The event exists in more than one calendar, so editing one copy is ambiguous, and deleting one brings the row straight back from the other.
 - **An event from a calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load).** The card is drawing it from its cache, which can be up to a day old, and saving an edit would write those old values over the calendar's current ones.
 - **An event without an identifier.** Home Assistant finds the event to change by its unique ID, and some calendars do not send one.
-- **Edit only, an event its calendar stores without an end.** The dialog shows it ending where it starts, and saving the form would write that end into the calendar.
+- **Editing only, an event its calendar stores without an end.** The popover shows it ending where it starts, and saving a change would write that end into the calendar.
 
 ## ➕ Add Event Button
 
-The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. It opens Home Assistant's own new-event dialog, the same one the Calendar panel and Home Assistant's calendar card use:
+The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. It opens the [event popover](#the-event-popover) on a new, empty event, with the cursor in its title:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -356,7 +382,11 @@ toolbar:
 
 The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
 
-The dialog opens with the first calendar in `entities` that accepts new events preselected, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is preselected anyway. Its calendar picker is Home Assistant's own, though, so it offers every calendar in Home Assistant that accepts new events, not only this card's, and the event is saved to whichever you pick. The new event is set for today when the days the card covers include today, and for the first of them otherwise, so a card looking at next week, or paged to it, does not suggest today. Those days are the page on screen, whether or not the card draws a row for today: a collapsed compact card that shows only the days before it, or an empty today that `show_empty_days: false` leaves out, still suggests today, the day an event is most often added for.
+Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it untouched, press **Delete**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
+
+The popover's calendar is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is chosen anyway. On a card with only one such calendar, the popover names it.
+
+The new event starts on the hour and lasts an hour: today, at the current hour, when the days the card covers include today, and otherwise at the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. Those days are the page on screen, whether or not the card draws a row for today: a collapsed compact card that shows only the days before it, or an empty today that `show_empty_days: false` leaves out, still suggests today, the day an event is most often added for.
 
 The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars draws no add button even with the toolbar shown. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
 
@@ -371,7 +401,7 @@ The button does not trigger the card's `tap_action` or `hold_action`, so it can 
 ## 📆 Tapping a Day to Add an Event
 
 A tap on a day can add an event on it. Set `day_tap_action` to `add-event`, and a tap on a day
-where it shows no event opens Home Assistant's new-event dialog for that day:
+where it shows no event opens a new event on that day in the [event popover](#the-event-popover):
 
 ```yaml
 type: custom:calendar-card-pro
@@ -408,10 +438,10 @@ is washed in the card's accent, and in the grid the hour you are about to add at
 
 The new event starts on the day you tapped, at the hour it is now: a tap on today opens at the
 current hour, as the add button does, and a tap on another day at the same hour that day. In
-grid view a tap in the time grid opens at the hour you tapped instead, rounded down: Home
-Assistant's dialog always starts a new event on the hour and makes it one hour long, so a grid
-with `slot_minutes: 30` still opens at the hour. The dialog cannot start an all-day event either,
-so a tap in the all-day band opens at the current hour too; switch on All Day in the dialog.
+grid view a tap in the time grid starts at the hour you tapped instead, rounded down, so a grid
+with `slot_minutes: 30` still starts on the hour, and a tap in the all-day band starts at the
+current hour. Either way it lasts an hour. That is only a starting point: the popover lets you
+change the start, the end and All day before you close it.
 
 The calendar is the one [the add button](#add-event-button) would preselect: the first in
 `entities` that accepts new events and that the calendar filter shows.
@@ -428,20 +458,42 @@ events](#what-each-integration-allows) and is not failing to load. On a card sho
 read-only calendars, a tap on a day stays a tap on the card.
 :::
 
-## 🧩 Home Assistant's Own Dialogs
+## 💬 The Event Popover
 
-The event dialog and the new-event dialog are Home Assistant's own rather than copies of them: the forms, the validation, the repeat rules and the saving all stay Home Assistant's, and the card only decides what to open them with. Three things follow from that.
+An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event or button you pressed, with an arrow pointing at it; on a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
 
-- **Their words are Home Assistant's.** The button's label and everything in the dialogs follow the language of your Home Assistant profile, not the card's `language` option.
-- **Changes appear at once.** After a save in either dialog the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`. A new event could have gone to any calendar that accepts new events, so after one every card showing such a calendar refreshes, and a card showing only read-only calendars, such as a holiday feed, stays as it is. Cards that are not on the page load the changed calendar again when they next appear (see [Performance & Caching](/features/performance#loading-refreshing)).
-- **They are loaded when first needed.** Home Assistant offers custom cards no public way to open its calendar dialogs, so the first time one is needed the card loads it through Home Assistant's own calendar code. That can take a moment, so while it loads a soft circle pulses where you pressed, or on the button you pressed from the keyboard; it stays still when your device asks for less motion. Once a dialog has opened, it opens at once.
+- the title, beside a bar in the color of the event's calendar;
+- the date and the times, or All day, and for a repeating event how it repeats, in words;
+- the location, with a [map or a pin](#maps-locations);
+- the calendar's name, with its color;
+- the description, with its web addresses as [links](#links).
 
-::: info When a Dialog Cannot Be Loaded
-A future Home Assistant release may change the calendar code the card loads its dialogs through. If loading fails, or has not finished after ten seconds, the card falls back rather than doing nothing: a tap that should show an event's details opens its calendar's more-info dialog instead, and the add button opens the Calendar panel, which has an add button of its own.
-:::
+The popover is part of the card's own file, so nothing is loaded when it opens.
+
+### Words & Language
+
+Every word in the popover is Home Assistant's own, from its calendar translations, so the popover follows the language of your Home Assistant profile rather than the card's `language` option, as the add button's tooltip does. Dates and weekday names follow that language too, and times follow the card's 12- or 24-hour format, `time_24h`.
+
+### Maps & Locations
+
+When the location of an event you open is the name of one of your Home Assistant zones, the popover draws a small map under it, with a marker on the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Pressing the map opens a Google Maps search for the location. Any other location gets a small pin beside it, which opens the same search.
+
+The map is drawn from Home Assistant's own map tile proxy, which fetches the OpenStreetMap tiles itself; the map credits them with © OpenStreetMap. That proxy arrived in Home Assistant 2026.10, so on an older version the popover shows the pin instead. The card sends nothing to any outside service to draw the map, and the location goes nowhere unless you press the map or the pin, which opens Google Maps in your browser. There is no option for the map; it is there whenever a location names a zone.
+
+### Links
+
+Web addresses in the description are links, and so are those in a location you cannot edit; each opens in a new tab. A link a calendar wrote into a description as HTML keeps its words. Only `http` and `https` addresses become links, and anything else stays text. A press on a link follows it, and does not start editing.
+
+### Keyboard & Screen Readers
+
+The popover is a modal dialog, named by the event's title. It opens with focus on that title, or for a new event in the title field. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
+
+### Changes Appear at Once
+
+After a save or a delete the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`. A card showing only other calendars, such as a holiday feed, stays as it is. Cards that are not on the page load the changed calendar again when they next appear (see [Performance & Caching](/features/performance#loading-refreshing)).
 
 ::: tip Nothing Opens While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a dialog that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have, except `add-event`, which does nothing there.
+In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have, except `add-event`, which does nothing there.
 :::
 
 Card taps are set with `tap_action` and `hold_action`, day taps with `day_tap_action`, and event taps and holds with `event_tap_action`, `event_hold_action`, `allow_event_edit` and `allow_event_delete` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `toolbar → add_event`, under [Header](/reference/configuration#header).

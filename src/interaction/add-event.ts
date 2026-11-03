@@ -1,13 +1,13 @@
 /**
  * What the add-event button needs to know, without opening anything.
  *
- * The button, a tap on a day and the card's own `add-event` action open Home Assistant's own
- * create-event dialog through `ha-calendar-dialogs.ts`. This module decides whether there is
- * anywhere to write, which calendar and date the dialog starts on, and what the button is
- * called.
+ * The button, a tap on a day and the card's own `add-event` action open the event popover on a
+ * new event (`event-popover.ts`). This module decides whether there is anywhere to write, which
+ * calendar and times the new event starts with, and what the button is called.
  */
 
-import { CREATE_EVENT_FEATURE, calendarSupports } from './ha-calendar-dialogs';
+import { CREATE_EVENT_FEATURE, calendarSupports } from './calendar-writes';
+import type { EventTimes } from './event-times';
 import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ export const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
  * what hides the button on a card that has nowhere to write to. Whether a calendar is
  * writable is the integration's call, not its name's.
  *
- * Calendars that failed on the card's last load are left out too: the dialog preselects
+ * Calendars that failed on the card's last load are left out too: the popover preselects
  * the first calendar here, and preselecting one that is not answering invites a save that
  * fails, or one the card cannot show afterwards.
  *
@@ -84,10 +84,10 @@ export function addEventLabel(hass: Types.Hass | null | undefined): string | und
 }
 
 /**
- * The date Home Assistant's create dialog starts a new event on.
+ * The date a new event starts on, before `newEventTimes` rounds it to the hour.
  *
- * Now, when today is one of the days the card covers, which opens the dialog at the
- * current hour exactly as Home Assistant's own default does. Otherwise the first of those
+ * Now, when today is one of the days the card covers, which opens the new event at the
+ * current hour. Otherwise the first of those
  * days, at midnight, so a card looking at next month does not offer an event today; Home
  * Assistant's calendar card passes the first day of a week or day view the same way. The
  * days are the page's, whether or not the card draws a row for each of them.
@@ -95,7 +95,7 @@ export function addEventLabel(hass: Types.Hass | null | undefined): string | und
  * @param windowStart - First day the card covers, at local midnight
  * @param daysToShow - How many days the card covers from there
  * @param now - The current moment
- * @returns The date to hand the dialog as `selectedDate`
+ * @returns The date the new event starts on
  */
 export function newEventDate(windowStart: Date, daysToShow: number, now: Date = new Date()): Date {
   const windowEnd = new Date(windowStart);
@@ -105,13 +105,12 @@ export function newEventDate(windowStart: Date, daysToShow: number, now: Date = 
 }
 
 /**
- * The date Home Assistant's create dialog starts a new event on, for one day of the card.
+ * The date a new event starts on, for one day of the card.
  *
  * The hour comes from where the press landed: a press on a grid's time area names its own,
  * and anything else on a day takes the hour it is now. So a tap on today opens at the current
  * hour, as the add button does, and a tap on another day at the same clock hour that day,
- * which is a daytime hour whenever someone is adding one. Home Assistant's dialog rounds the
- * start down to the hour and cannot open on a whole day, so an hour is as fine as this goes.
+ * which is a daytime hour whenever someone is adding one.
  *
  * Set as a wall-clock hour on the day's own date, so a day on which the clocks change still
  * opens at that hour, or at the first one after it where the hour does not exist that day.
@@ -119,7 +118,7 @@ export function newEventDate(windowStart: Date, daysToShow: number, now: Date = 
  * @param dayTimestamp - The day's local midnight
  * @param hour - The hour the press named, or undefined to take the hour it is now
  * @param now - The current moment
- * @returns The date to hand the dialog as `selectedDate`
+ * @returns The date the new event starts on
  */
 export function newEventDateOn(dayTimestamp: number, hour?: number, now: Date = new Date()): Date {
   const date = new Date(dayTimestamp);
@@ -128,12 +127,12 @@ export function newEventDateOn(dayTimestamp: number, hour?: number, now: Date = 
 }
 
 /**
- * The calendar Home Assistant's create dialog preselects: the first of the writable ones the
+ * The calendar a new event starts in: the first of the writable ones the
  * card currently shows.
  *
  * A calendar the legend hides is passed over, so hiding one never opens a new event in it.
  * When the legend hides every writable calendar the first writable one is taken anyway: the
- * picker in the dialog offers every calendar that accepts new events, so this is only where
+ * popover's calendar picker offers all of the card's writable calendars, so this is only where
  * the choice starts, and adding must not stop working because of a filter.
  *
  * @param writable - The card's writable calendars, in configuration order
@@ -145,4 +144,15 @@ export function preselectedCalendarId(
   hidden: ReadonlySet<string>,
 ): string | undefined {
   return writable.find((id) => !hidden.has(id)) ?? writable[0];
+}
+
+/**
+ * The span a new event starts with: the hour its date falls in, one hour long.
+ *
+ * @param date - The date it starts on, from `newEventDate` or `newEventDateOn`
+ * @returns The span
+ */
+export function newEventTimes(date: Date): EventTimes {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours());
+  return { allDay: false, start, end: new Date(start.getTime() + 60 * 60 * 1000) };
 }

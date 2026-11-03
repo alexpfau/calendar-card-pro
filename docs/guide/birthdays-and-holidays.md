@@ -34,7 +34,7 @@ entities:
 
 Replace the two `calendar.*` ids with your own birthday and holiday calendars.
 
-For the ages, write the birth year into each birthday's description as `YEAR=1990`. The card adds the age to the title, `(36)` in 2026, and counts up by itself every year. A tap opens the entry as the calendar stores it, so the dialog shows the title without the age.
+For the ages, write the birth year into each birthday's description as `YEAR=1990`. The card adds the age to the title, `(36)` in 2026, and counts up by itself every year. The age is the card's own addition, so the popover a tap opens shows the title without it.
 
 ## 🧭 What It Adds
 
@@ -57,5 +57,5 @@ For the ages, write the birth year into each birthday's description as `YEAR=199
 - [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) — how to write the marker, and what the card does with it
 - [Countdown Display](/features/event-content#countdown-display) — the wording under each event
 - [Week Numbers & Visual Separators](/features/layout-appearance#week-numbers-visual-separators) — the rule between months
-- [Tapping an Event](/features/actions#tapping-an-event) — what the dialog shows
+- [Tapping an Event](/features/actions#tapping-an-event) — what the popover shows
 - [Configuration Reference](/reference/configuration) — every option
