@@ -1638,6 +1638,16 @@ export const cardStyles = css`
     animation-name: pulse-animation-placed;
   }
 
+  /* Under reduced motion the pulse holds still, at full size and opacity, where the dot sits.
+     The list's placed selector is named again so its animation-name cannot outrank the reset
+     and run a zero-length animation, which still fires its events. */
+  @media (prefers-reduced-motion: reduce) {
+    ha-icon.today-indicator.pulse,
+    .today-indicator-container:not(.inline) ha-icon.today-indicator.pulse {
+      animation: none;
+    }
+  }
+
   ha-icon.today-indicator.glow {
     filter: drop-shadow(
       0 0 calc(var(--calendar-card-today-indicator-size) * 0.5)
@@ -2661,13 +2671,19 @@ export const cardStyles = css`
    * No font-size: every placement draws the countdown inside .time, which carries
    * time_font_size, and font-size-nesting.test.ts fails if one does not. Declaring it here
    * as well applied a relative size twice, so 1.5em drew the countdown at 2.25x beside a
-   * time at 1.5x. */
+   * time at 1.5x.
+   *
+   * Never hyphenated, in any placement; grid's folded countdown already was not. Column
+   * view split "tomorrow" as "to-" / "morrow" in all three engines rather than move it whole
+   * to the next line. A word too wide for any line breaks without a hyphen instead, through
+   * .column-events .time-countdown. Inert in list view, where the countdown is one line. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
     margin-inline-start: auto;
     margin-inline-end: 12px;
     white-space: nowrap;
+    hyphens: manual;
   }
 
   .location {
@@ -3759,6 +3775,17 @@ export const cardStyles = css`
     padding-inline: 16px;
   }
 
+  /* The body's clip, out at the card's inline end. A countdown's dot follows its time word
+     whole, so where "12:30 ·" no longer fits its column (one-day cards under 102px) the pair
+     stands past the column, and the body's overflow-x cut the dot off. Taking the end inset as
+     the body's own padding lets that overhang draw in the inset, up to 16px; nothing inside
+     the body moves. Only the end, the side a dot overhangs on: at the start edge the today
+     tile meets the clip, and moving it redrew the tile's edge in Chromium. */
+  .calendar-card-pro.column-view .content-container {
+    margin-inline-end: -16px;
+    padding-inline-end: 16px;
+  }
+
   /* The title's 8px margin exists to add to the list view's 8px card padding.
      Column view already supplies the full 16px, so the margin would push the
      title 8px past the first column's edge. The toolbar's rows line up with that
@@ -3970,10 +3997,15 @@ export const cardStyles = css`
     margin-inline-start: calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px));
   }
 
+  /* anywhere, not break-word: a countdown word breaks only where it cannot fit a line of its
+     own, and it stops holding the row at its own width. .time-actual is a flex item at
+     min-width: auto, so an unhyphenated "tomorrow" otherwise stood out of an 80px column. The
+     time and its dot still hold the row, so the dot never has to be broken off it. */
   .column-events .time-countdown {
     margin-inline-start: 0;
     text-align: start;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   /* Generated, not baked into the strings: the countdown is translated into 35 languages
@@ -3983,10 +4015,58 @@ export const cardStyles = css`
      being orphaned at the end of the line.
 
      4px, down from the 8px this and the column-gap above both inherited from .time, and
-     now matching the weather row's separator gutter. */
+     now matching the weather row's separator gutter.
+
+     overflow-wrap reaches the folded separator too, whose content and margin above win on
+     specificity: the countdown's anywhere stops at it, or a narrow line could break between
+     the word joiner and the dot and start with the dot. Firefox hyphenates a run between
+     spaces as one word, and only where all of it allows hyphenation, so the countdown's
+     first word, behind the zero-width space, also stops the word before the dot hyphenating
+     there ("Ganztägig" before "morgen"). */
   .column-events .time-countdown::before {
     content: '·';
     margin-inline-end: 4px;
+    overflow-wrap: normal;
+  }
+
+  /* A badge row wraps, so a time text with no room beside the pill moves under it. Where that
+     text is the countdown alone, as for a single-day all-day event, the countdown also gives up
+     its boxes, so the dot and the words become items of the row: the words move under the pill
+     while the dot ends the pill's line, "[ALL DAY] ·" / "tomorrow". Squeezed beside the pill it
+     broke as "to-mor-row", and moved whole it would have led with the dot. A multi-day event's
+     time text starts with its end ("until Saturday, Jun 20"), which the dot follows, so it keeps
+     its boxes and moves under the pill whole: given up, its words and the dot became items of
+     their own, and the dot could start a line. :first-child tells the two apart, because that
+     end is a span of its own ahead of the countdown. The indent moves to the icon, so the
+     wrapped line starts under the pill.
+
+     Every badge row caps the pill at its line less its own 5px margin, the only part of it
+     outside its border box, so a pill wider than the space beside the clock is cut short there
+     rather than wrapping below the clock and leaving it alone on a line. Where the time text is
+     the countdown alone, the pill also leaves room for 0.5em of dot and the dot's 4px, or a
+     pill clamped to the line would push the dot onto the next line alone. */
+  .column-events .time-actual:has(> .allday-badge + .time-text) {
+    flex-wrap: wrap;
+    margin-inline-start: 0;
+  }
+
+  .column-events .time-actual:has(> .allday-badge + .time-text) > ha-icon {
+    margin-inline-start: calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px));
+  }
+
+  .column-events .time-actual:has(> .allday-badge + .time-text) > .allday-badge {
+    max-width: calc(100% - 5px);
+  }
+
+  .column-events
+    .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child)
+    > .allday-badge {
+    max-width: calc(100% - 9px - 0.5em);
+  }
+
+  .column-events .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child),
+  .column-events .time-actual .allday-badge + .time-text > .time-countdown:first-child {
+    display: contents;
   }
 
   /* Vertical day, week, or month rule in the gap between columns. Variable
@@ -5116,6 +5196,21 @@ export const cardStyles = css`
 
   .grid-event-disclosure.grid-time-no-end .time .time-actual .time-end {
     display: none;
+  }
+
+  /* A folded countdown that fits no line goes before the time does: where its separator cannot
+     follow even the start time, where its words are wider than the lane, or where the block has
+     no line to spare for words that no rung keeps beside the time. See grid-time-fit.ts. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text > .time-countdown {
+    display: none;
+  }
+
+  /* With its countdown left out, the time is a clock reading alone and must not break, as it
+     cannot without one: .time-text wraps so a countdown can break inside itself, and its
+     overflow-wrap split "10:00" into "10:0" and "0" where the reading fitted its lane to the
+     pixel. Firefox lays out in sixtieths of a pixel, so that is a lane it meets. */
+  .grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text {
+    white-space: nowrap;
   }
 
   /* The wrapped rung, where the lane is too narrow for the range on one line but the block

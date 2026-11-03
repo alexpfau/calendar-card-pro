@@ -174,7 +174,8 @@ describe('an event with no duration in each view', () => {
   it.each(
     VIEWS.flatMap((view) => [
       [view, '24-hour', { time_24h: true }, '14:41'],
-      [view, '12-hour', { time_24h: false }, '2:41 PM'],
+      // A 12-hour reading is drawn inside invisible bidi isolates (clock-reading-bidi.test.ts).
+      [view, '12-hour', { time_24h: false }, '\u20682:41 PM\u2069'],
     ]) as Array<[Types.EffectiveView, string, Partial<Types.Config>, string]>,
   )(
     'writes the start time once into the %s view time row on a %s clock',

@@ -81,6 +81,15 @@
  * the widest rung that keeps them on the time's line (`gridTimeFallback`). A one-hour block
  * with room for one time line keeps "6:30 PM · in 2 days" rather than losing the whole row to
  * "6:30 PM - 7:30 PM ·" and a second line it cannot show.
+ *
+ * Where the countdown fits no line, it is left out and the time stays, drawn as the ladder
+ * draws a row with no countdown (`withoutCountdown`). That is the case in three places: where
+ * its separator cannot follow even the start time, so keeping it would cost the whole row;
+ * where its words are wider than the lane, so no line holds them; and where no rung keeps the
+ * words on the time's line and the block has no line to spare for them, the one place the
+ * last two decide on height rather than width. Leaving it out never brings the clock back:
+ * the clock is drawn only where the row with its separator had room for it, so it still goes
+ * once as a lane narrows.
  */
 
 /** Sub-pixel rounding tolerance, matching the title fitter's. No design slack beyond it. */
@@ -109,6 +118,11 @@ export interface GridTimeCosts {
    * flow after the time, so no rung has to fit them on its line.
    */
   words?: number;
+  /**
+   * Width a folded countdown's separator takes out of `full`, with its margins, 0 where none
+   * is folded in. Leaving the countdown out takes this off with the words.
+   */
+  separator?: number;
 }
 
 /** Which pieces of a time row survive at the widest rung that fits. */
@@ -121,6 +135,8 @@ export interface GridTimeFit {
   end: boolean;
   /** Whether the end time is drawn on a second line. Never true unless `end` is. */
   wrap: boolean;
+  /** `false` where a folded countdown is left out so the time can stay; absent otherwise. */
+  countdown?: false;
 }
 
 const HIDDEN: GridTimeFit = { time: false, icon: false, end: false, wrap: false };
@@ -147,6 +163,7 @@ const FIT_CLASSES = [
   'grid-time-no-icon',
   'grid-time-no-end',
   'grid-time-wrap',
+  'grid-time-no-countdown',
 ] as const;
 
 /**
@@ -278,13 +295,16 @@ export function measureGridTimeCosts(
   available: number,
   wrapped = 0,
 ): GridTimeCosts {
+  const words = countdownWordsWidth(target);
   return {
     available,
     full: target.time.getBoundingClientRect().width,
     icon: target.icon ? outerInlineWidth(target.icon) : 0,
     end: target.end ? outerInlineWidth(target.end) : 0,
     wrapped,
-    words: countdownWordsWidth(target),
+    words,
+    // The countdown is one unbroken line here, so its box is its separator and its words.
+    separator: target.countdown ? outerInlineWidth(target.countdown) - words : 0,
   };
 }
 
@@ -365,6 +385,7 @@ export function applyGridTimeFit(target: GridTimeTarget, fit: GridTimeFit): void
   if (!fit.icon) target.disclosure.classList.add('grid-time-no-icon');
   if (!fit.end) target.disclosure.classList.add('grid-time-no-end');
   if (fit.wrap) target.disclosure.classList.add('grid-time-wrap');
+  if (fit.countdown === false) target.disclosure.classList.add('grid-time-no-countdown');
 }
 
 /** An element's own width plus the horizontal margins that go with it when it is dropped. */
@@ -377,7 +398,8 @@ function outerInlineWidth(element: HTMLElement): number {
 }
 
 /**
- * Pick the widest rung of the ladder that fits.
+ * Pick the widest rung of the ladder that fits, leaving a folded countdown out where it fits
+ * no line.
  *
  * Pure and total: a non-finite or non-positive measurement yields the hidden rung rather
  * than an exception, because a block that has not been laid out has not been measured and
@@ -387,6 +409,23 @@ function outerInlineWidth(element: HTMLElement): number {
  * @returns The pieces to draw
  */
 export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
+  const fit = gridTimeLadder(costs);
+  if (!foldsCountdown(costs)) return fit;
+  // The countdown fits no line where its separator cannot follow even the start time, which
+  // would cost the whole row, or where its words are wider than the lane, so that no line
+  // holds them. Either way it is the countdown that goes, not the time.
+  const { available, words = 0 } = costs;
+  if (fit.time && words <= available + PRECISION) return fit;
+  return withoutCountdownFit(costs, fit, false);
+}
+
+/**
+ * The ladder itself, with a folded countdown's words flowing after whatever rung it picks.
+ *
+ * @param costs What the row needs and what each droppable piece of it takes
+ * @returns The pieces to draw
+ */
+function gridTimeLadder(costs: GridTimeCosts): GridTimeFit {
   const { available, full, icon, end, wrapped, words = 0 } = costs;
 
   if (![available, full, icon, end, wrapped, words].every(Number.isFinite)) return HIDDEN;
@@ -422,6 +461,55 @@ export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
   return HIDDEN;
 }
 
+/** Whether a countdown is folded into the row these costs were measured on. */
+function foldsCountdown(costs: GridTimeCosts): boolean {
+  return (costs.words ?? 0) > 0 || (costs.separator ?? 0) > 0;
+}
+
+/**
+ * What the row costs with its folded countdown left out.
+ *
+ * The words and the separator come off the full row. On the wrapped row the separator ends the
+ * second line, so it comes off that line, and the first line is the start time, which is what
+ * is left of the full row without the clock and the end time.
+ *
+ * @param costs Measurements of the row with its countdown
+ * @returns Measurements of the same row without it
+ */
+export function withoutCountdown(costs: GridTimeCosts): GridTimeCosts {
+  const { full, icon, end, wrapped, words = 0, separator = 0 } = costs;
+  const rest = full - words - separator;
+  return {
+    ...costs,
+    full: rest,
+    words: 0,
+    separator: 0,
+    wrapped: wrapped > 0 ? Math.max(rest - icon - end, wrapped - separator) : 0,
+  };
+}
+
+/**
+ * The row with its folded countdown left out, drawn as the ladder draws a row that has none.
+ *
+ * The clock is kept only where `fit`, the row with its countdown, kept it. Without the
+ * separator a range needs less room beside the clock, so in a lane narrower than the words the
+ * clock would otherwise come back after the lane had already taken it away.
+ *
+ * @param costs The measurements `fit` was decided from
+ * @param fit The decision for the row with its countdown
+ * @param oneLine Whether the time must keep to one line, as where the block has none to spare
+ * @returns The decision without the countdown, or the hidden rung where not even that fits
+ */
+function withoutCountdownFit(
+  costs: GridTimeCosts,
+  fit: GridTimeFit,
+  oneLine: boolean,
+): GridTimeFit {
+  const rest = withoutCountdown(costs);
+  const drawn = gridTimeLadder(oneLine ? { ...rest, wrapped: 0 } : rest);
+  return drawn.time ? { ...drawn, icon: drawn.icon && fit.icon, countdown: false } : HIDDEN;
+}
+
 /**
  * The decision to fall back on where a block cannot afford the line `fit` spends.
  *
@@ -430,19 +518,24 @@ export function gridTimeFit(costs: GridTimeCosts): GridTimeFit {
  * The caller grants both optimistically and, where the block's content then overflows,
  * applies this instead. A wrap falls back to rung 4, the start time alone, which always
  * saves its line. Flowing words fall back to the widest rung that keeps them on the time's
- * line -- the range without the clock, or the start time alone. Where neither does, a clock
- * still goes, because it narrows the column the words wrap in and so can cost a line of its
- * own; otherwise no rung is shorter, and the height pass weighs the row against the others,
- * as it does any time row.
+ * line -- the range without the clock, or the start time alone. Where none does, the
+ * countdown is left out and the time keeps to one line, so the words never cost another row a
+ * line. That can draw less than the same block with no countdown, which may still afford the
+ * wrap: the fallback is one step, and a wrap is the one step it cannot know is affordable.
  *
  * @param costs The measurements `fit` was decided from
  * @param fit The decision `gridTimeFit` made from them
  * @returns The decision that saves the line, or `null` where none would
  */
 export function gridTimeFallback(costs: GridTimeCosts, fit: GridTimeFit): GridTimeFit | null {
-  if (fit.wrap) return START_ONLY;
+  if (fit.countdown === false) return fit.wrap ? { ...START_ONLY, countdown: false } : null;
   if (!fit.time) return null;
-  const oneLine = gridTimeFit({ ...costs, wrapped: 0, words: 0 });
+  const oneLine = gridTimeLadder({ ...costs, wrapped: 0, words: 0 });
+  if (fit.wrap) {
+    return oneLine.time || !foldsCountdown(costs)
+      ? START_ONLY
+      : withoutCountdownFit(costs, fit, true);
+  }
   const same =
     oneLine.time === fit.time &&
     oneLine.icon === fit.icon &&
@@ -450,7 +543,7 @@ export function gridTimeFallback(costs: GridTimeCosts, fit: GridTimeFit): GridTi
     oneLine.wrap === fit.wrap;
   if (same) return null;
   if (oneLine.time) return oneLine;
-  return fit.icon ? { time: true, icon: false, end: true, wrap: false } : null;
+  return withoutCountdownFit(costs, fit, true);
 }
 
 /**

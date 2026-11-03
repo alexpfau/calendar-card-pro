@@ -79,23 +79,24 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles three actions itself — `expand`, `refresh` and `add-event` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles four actions itself — `expand`, `refresh`, `add-event` and `reset` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
-| Action Type                       | Description                                       | Additional Parameters                              |
-| --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| `expand`                          | Toggle between compact and full calendar view     | None                                               |
-| `refresh`                         | Load the events again now                         | None                                               |
-| `add-event`                       | Add an event on the day you pressed               | None                                               |
-| `more-info`                       | Open the Home Assistant entity dialog             | `entity` (optional): which entity; see below       |
-| `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                  |
-| `url`                             | Open external URL or internal page                | `url_path: https://example.com`                    |
-| `perform-action` / `call-service` | Call any Home Assistant action (service)          | `perform_action: domain.service`, `data`, `target` |
-| `toggle`                          | Toggle the target entity                          | None                                               |
-| `assist`                          | Open the Assist dialog                            | None                                               |
-| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through             |
-| `none`                            | Disable the action                                | None                                               |
+| Action Type                       | Description                                          | Additional Parameters                              |
+| --------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| `expand`                          | Toggle between compact and full calendar view        | None                                               |
+| `refresh`                         | Load the events again now                            | None                                               |
+| `add-event`                       | Add an event on the day you pressed                  | None                                               |
+| `reset`                           | Undo this device's choices, as the reset button does | None                                               |
+| `more-info`                       | Open the Home Assistant entity dialog                | `entity` (optional): which entity; see below       |
+| `navigate`                        | Go to another Lovelace view                          | `navigation_path: /lovelace/view`                  |
+| `url`                             | Open external URL or internal page                   | `url_path: https://example.com`                    |
+| `perform-action` / `call-service` | Call any Home Assistant action (service)             | `perform_action: domain.service`, `data`, `target` |
+| `toggle`                          | Toggle the target entity                             | None                                               |
+| `assist`                          | Open the Assist dialog                               | None                                               |
+| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others)    | Any additional keys are passed through             |
+| `none`                            | Disable the action                                   | None                                               |
 
 ::: tip Both Action Names Work
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations. The same goes for its keys: the older `service` and `service_data` still work in place of `perform_action` and `data`.
@@ -114,12 +115,12 @@ To open the event you tapped instead, use [`event_tap_action`](#tapping-an-event
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh` and `add-event` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event` and `reset` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
-A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh` and `details` have none.
+A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset` and `details` have none.
 
 ### Refreshing From a Tap or Hold
 
@@ -159,6 +160,25 @@ the card, it does nothing, and the card offers no hold or tap for it.
 
 To add with a tap on a day while a tap elsewhere on the card does something else, use
 [`day_tap_action`](#tapping-a-day-to-add-an-event) instead.
+
+### Resetting From a Tap or Hold
+
+`reset` does what the toolbar's [reset button](/features/layout-appearance#resetting-the-card)
+does: it brings back the days the card opens with, its configured `view` and every calendar,
+collapses a compact card, and forgets the layout and calendars this device chose. It works with
+or without the button, so a card shared on a wall tablet can keep its toolbar short and still be
+put back with a hold:
+
+```yaml
+hold_action:
+  action: reset
+```
+
+Where the card already shows how it is set up, it does nothing. It is an action only on a card
+with something it could undo: a toolbar with the date navigation, the view switcher or the
+calendar filter, or an `expand` action. On any other card, and while you edit the card, the card
+offers no tap or hold for it. On a card that has the reset button, the button shows its check
+after a reset, as after a press.
 
 ## 🗒️ Tapping an Event
 

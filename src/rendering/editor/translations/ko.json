@@ -396,6 +396,7 @@
   "hold_action": "길게 누르기 동작",
   "card_action.option.refresh.label": "이벤트 새로고침",
   "card_action.option.add-event.label": "이벤트 추가",
+  "card_action.option.reset.label": "카드 초기화",
   "refresh_interval": "새로고침 주기",
   "refresh_interval.helper": "다시 가져오기 전까지 카드가 캐시된 이벤트를 유지하는 시간입니다.",
   "refresh_on_navigate": "탐색 시 새로고침",

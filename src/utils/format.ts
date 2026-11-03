@@ -711,6 +711,80 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
 }
 
 /**
+ * A 12-hour clock reading as the card writes one: "9:41 AM" and "09:41 PM" from `formatTime`,
+ * and the grid axis's hour-only "9 AM". The 24-hour form has no letter in it and is
+ * deliberately not matched. No translation writes AM or PM, so nothing else in a time row can
+ * match.
+ */
+const CLOCK_READING_12H = /\d{1,2}(?::\d{2})? [AP]M/g;
+
+/** Letters the bidi algorithm reads right to left: Hebrew through NKo, and the presentation forms. */
+const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
+
+/**
+ * The direction of the last letter before a clock reading, skipping the meridiem of any reading
+ * before it, which a 24-hour clock would not have written. Null where no letter precedes it, as
+ * at the start of a range.
+ *
+ * @param text Time text up to the reading
+ * @returns The direction of that letter, or null
+ */
+function directionBefore(text: string): 'ltr' | 'rtl' | null {
+  const chars = [...text.replace(CLOCK_READING_12H, '')];
+  for (let i = chars.length - 1; i >= 0; i--) {
+    if (RTL_LETTER.test(chars[i])) return 'rtl';
+    if (/\p{L}/u.test(chars[i])) return 'ltr';
+  }
+  return null;
+}
+
+/**
+ * Lay out each 12-hour clock reading in `text` the way the bidi algorithm lays out a 24-hour
+ * one, with its meridiem kept beside its digits.
+ *
+ * A 24-hour reading is a European number: digits, a colon and a dash, none of them a strong
+ * letter. A right-to-left line orders a range of them start first, from the right, and a number
+ * after a left-to-right word joins that word's run ("ends tomorrow at 0:30"). AM and PM are
+ * strong left-to-right letters, so the algorithm grouped the first reading's meridiem with the
+ * dash and the whole second reading instead of with its own digits: "AM - 12:30 PM 11:30".
+ *
+ * Each reading therefore becomes what a number already is, case by case:
+ *
+ *   - after a left-to-right letter it is left as it is. A number there turns left-to-right
+ *     itself, so the reading is one run with the word before it, as the 24-hour one is.
+ *   - anywhere else it is wrapped in FIRST STRONG ISOLATE and POP DIRECTIONAL ISOLATE, which
+ *     keeps it whole and neutral to the text around it, as a number is there.
+ *   - after a right-to-left letter the isolate is followed by a RIGHT-TO-LEFT MARK, because a
+ *     number there counts as right-to-left for the text after it. An isolate alone counts as
+ *     neutral and, in a left-to-right card, moved to the far side of the Hebrew run it ends.
+ *
+ * Isolating every reading instead is simpler and wrong in one place a right-to-left card already
+ * got right: "Ends tomorrow at 12:30 AM" in an English card, where a neutral reading at the end
+ * of the line goes to its far end, "12:30 AM Ends tomorrow at".
+ *
+ * Characters rather than elements, so the time stays one text node: Chromium places the text
+ * after a node boundary up to 2/64 px differently, which would move every left-to-right row
+ * with a range, while these invisible format characters move nothing in any of the three
+ * engines. The text a reader copies carries them, as the grid's accessible names already do
+ * (grid-accessibility.ts).
+ *
+ * For the time row and the grid axis only. The formatter's own strings stay plain, so every
+ * caller that compares or announces them is unaffected.
+ *
+ * @param text Time text as the formatter wrote it
+ * @param before Text drawn before `text` in the same line, for a droppable end time drawn as an
+ *   element of its own
+ * @returns The text, with its 12-hour readings laid out; unchanged where it has none
+ */
+export function isolateClockReadings(text: string, before = ''): string {
+  return text.replace(CLOCK_READING_12H, (reading: string, index: number) => {
+    const context = directionBefore(before + text.slice(0, index));
+    if (context === 'ltr') return reading;
+    return `\u2068${reading}\u2069${context === 'rtl' ? '\u200f' : ''}`;
+  });
+}
+
+/**
  * Resolve the configured clock convention the same way everywhere times are drawn.
  *
  * @param config Card configuration

@@ -61,6 +61,12 @@ export const LOGGING = {
  */
 export const ADD_EVENT_ACTION = 'add-event';
 
+/**
+ * The card action that brings the card back to its configuration on this device, as the
+ * toolbar's reset button does: a value of `tap_action` and `hold_action`.
+ */
+export const RESET_ACTION = 'reset';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 

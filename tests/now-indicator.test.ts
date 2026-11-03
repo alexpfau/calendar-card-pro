@@ -138,7 +138,10 @@ describe.each(['list', 'column'] as const)('in %s view', (view) => {
     const run = row.children[1];
     expect(run.className).toBe('now-time');
     expect([...run.children].map((child) => child.className)).toEqual(['now-indicator', '']);
-    expect(run.textContent?.replace(/\s+/g, ' ').trim()).toBe('Now9:30 AM - 11:00 AM');
+    // Each 12-hour reading is drawn inside invisible bidi isolates (clock-reading-bidi.test.ts).
+    expect(run.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Now\u20689:30 AM\u2069 - \u206811:00 AM\u2069',
+    );
 
     const idle = container.querySelector('.event:not(.event-now) .time-actual > ha-icon');
     expect(idle?.getAttribute('icon')).toBe('mdi:clock-outline');

@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Växla kompakt/utökat läge",
   "card_action.option.refresh.label": "Uppdatera händelser",
   "card_action.option.add-event.label": "Lägg till händelse",
+  "card_action.option.reset.label": "Återställ kortet",
   "day_tap_action_mode": "Tryckåtgärd för dagar",
   "day_tap_action_mode.option.none.label": "Ingenting",
   "day_tap_action_mode.option.add-event.label": "Lägg till händelse",

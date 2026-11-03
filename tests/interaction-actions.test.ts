@@ -165,14 +165,19 @@ describe("handleAction keeps the card's own actions to itself", () => {
   });
 
   /** Each of the card's own actions, by the callback that runs it. */
-  const OWN = { expand: 'expand', refresh: 'refresh', 'add-event': 'addEvent' } as const;
+  const OWN = {
+    expand: 'expand',
+    refresh: 'refresh',
+    'add-event': 'addEvent',
+    reset: 'reset',
+  } as const;
 
   it.each(Object.keys(OWN) as Array<keyof typeof OWN>)(
     'runs the %s callback, and only it, and dispatches nothing',
     (action) => {
       // The card's own actions have no Home Assistant equivalent, so delegating one would
       // reach a handler that does not know the name.
-      const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn() };
+      const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
       const { node, events } = listeningNode();
 
       handleAction(node, config({ hold_action: { action } }), 'hold', callbacks);
@@ -184,7 +189,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
-  it.each(['expand', 'refresh', 'add-event'] as const)(
+  it.each(['expand', 'refresh', 'add-event', 'reset'] as const)(
     'does not delegate %s when no callback was supplied',
     (action) => {
       const { node, events } = listeningNode();
@@ -198,7 +203,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
   it('does not run a callback for any other action', () => {
     // The control for the pair above: the callbacks are passed on every real call site in
     // `calendar-card-pro.ts`, so it has to be the action that selects one, not its presence.
-    const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn() };
+    const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
     const { node, events } = listeningNode();
 
     handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', callbacks);
@@ -206,6 +211,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     expect(callbacks.expand).not.toHaveBeenCalled();
     expect(callbacks.refresh).not.toHaveBeenCalled();
     expect(callbacks.addEvent).not.toHaveBeenCalled();
+    expect(callbacks.reset).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });
 });

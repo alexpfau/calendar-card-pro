@@ -279,8 +279,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(178_000);
-    // A grid countdown that flows like the weather chips moved the ceiling last, from 175,000 to
+    expect(saved).toBeLessThan(183_000);
+    // Column countdowns moved the ceiling last, from 178,000 to 183,000: the notes on why the
+    // countdown is never hyphenated and its separator stops overflow-wrap, why a badge row
+    // wraps with its countdown's boxes given up so the dot ends the pill's line, how far the
+    // pill leaves room for the dot, and why the column body's clip moves out to the card's
+    // inline end, and on that side only. Firefox reading the label before the dot as one word
+    // with the countdown's first is the expensive kind: nothing in the declarations hints at
+    // it. The reading went 177,710 to 180,180, taken with stripComments after the last comment
+    // in the change was written.
+    //
+    // A grid countdown that flows like the weather chips moved the ceiling before that, from 175,000 to
     // 178,000: the notes on why a folded countdown's end time stays inline behind a line break
     // on the wrapped rung, why its words may break but are never hyphenated, and why a labeled
     // grid title carries the 2px an unlabeled one has, except where its title is cut or fitted

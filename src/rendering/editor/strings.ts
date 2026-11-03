@@ -863,6 +863,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.refresh.label': 'Refresh Events',
   // And its third: open Home Assistant's new-event dialog, on the day the press landed on.
   'card_action.option.add-event.label': 'Add Event',
+  // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
+  'card_action.option.reset.label': 'Reset Card',
   // The day's own dropdown, two choices like the event's below. Its options mirror the event
   // tap's: "Nothing" is Home Assistant's own word, and "Add Event" is the card action's label.
   day_tap_action_mode: 'Day Tap Action',

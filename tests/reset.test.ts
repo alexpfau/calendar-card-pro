@@ -797,3 +797,153 @@ describe('reset beside other cards and while editing', () => {
     expect(lit(card)).toBe(true);
   });
 });
+
+//-----------------------------------------------------------------------------
+// THE RESET ACTION
+//-----------------------------------------------------------------------------
+
+describe('the reset card action', () => {
+  /** Every control reset can undo, and no reset button. */
+  const NO_BUTTON: Types.ToolbarConfig = { ...EVERYTHING, reset: false };
+
+  const haCard = (card: CardUnderTest): HTMLElement =>
+    root(card).querySelector<HTMLElement>('ha-card')!;
+
+  /** A whole tap on the card's own space, which runs `tap_action`. */
+  async function tapCard(card: CardUnderTest): Promise<void> {
+    tapWithPointer(haCard(card));
+    await settle(card);
+  }
+
+  it('undoes every choice from a tap, on a card without the reset button', async () => {
+    const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' } };
+    const card = await mount(overrides);
+    const fingerprint = configFingerprint(configFor(overrides));
+    const home = range(card);
+    expect(resetButton(card)).toBeNull();
+
+    await pressChip(card, BEN);
+    await pressNext(card);
+    await pressView(card, 'column');
+    expect(drawnView(card)).toBe('column');
+    // Remembered for this configuration, so the reads below can see them forgotten.
+    expect(readViewChoice(fingerprint)).toBe('column');
+    expect(readHiddenCalendars(fingerprint)).toEqual([BEN]);
+
+    const writes = watchChoiceWrites();
+    await tapCard(card);
+
+    expect(writes()).toEqual(['remove']);
+    expect(readViewChoice(fingerprint)).toBeUndefined();
+    expect(readHiddenCalendars(fingerprint)).toEqual([]);
+    expect(drawnView(card)).toBe('list');
+    expect(range(card)).toBe(home);
+    expect(titles(card)).toContain('Football');
+  });
+
+  it('runs from a hold as from a tap', async () => {
+    const card = await mount({ toolbar: NO_BUTTON, hold_action: { action: 'reset' } });
+    const home = range(card);
+
+    await pressNext(card);
+    expect(range(card)).not.toBe(home);
+
+    (card as unknown as { handleAction(action: Types.ActionConfig): void }).handleAction(
+      (card as unknown as { config: Types.Config }).config.hold_action!,
+    );
+    await settle(card);
+
+    expect(range(card)).toBe(home);
+  });
+
+  it('collapses an expanded card whose only control is its expand action', async () => {
+    // No toolbar at all: expand is then the one thing a reset could undo.
+    const card = await mount({
+      toolbar: { show: false },
+      compact_events_to_show: 1,
+      tap_action: { action: 'expand' },
+      hold_action: { action: 'reset' },
+    });
+    await expand(card);
+    expect(titles(card)).toHaveLength(3);
+
+    (card as unknown as { handleAction(action: Types.ActionConfig): void }).handleAction(
+      (card as unknown as { config: Types.Config }).config.hold_action!,
+    );
+    await settle(card);
+
+    expect(card.isExpanded).toBe(false);
+    expect(titles(card)).toHaveLength(1);
+  });
+
+  it('collapses an expansion its expand action was edited away from', async () => {
+    // The configuration changes, the expansion stays: with no expand action left, only the
+    // reset action can still undo it, so it must still run.
+    const compact = { toolbar: { show: false }, compact_events_to_show: 1 };
+    const card = await mount({ ...compact, tap_action: { action: 'expand' } });
+    await expand(card);
+    expect(titles(card)).toHaveLength(3);
+
+    card.setConfig(configFor({ ...compact, tap_action: { action: 'reset' } }));
+    await settle(card);
+    expect(card.isExpanded).toBe(true);
+    expect(root(card).querySelector('ha-card')!.getAttribute('role')).toBe('button');
+
+    await tapCard(card);
+
+    expect(card.isExpanded).toBe(false);
+    expect(titles(card)).toHaveLength(1);
+  });
+
+  it('does nothing where the card shows its configuration: no write, no request, no check', async () => {
+    const card = await mount({ tap_action: { action: 'reset' } });
+    const requests = callApi.mock.calls.length;
+    const writes = watchChoiceWrites();
+
+    await tapCard(card);
+
+    expect(writes()).toEqual([]);
+    expect(callApi.mock.calls.length).toBe(requests);
+    expect(resetButton(card)!.classList.contains('reset-done')).toBe(false);
+  });
+
+  it("shows the button's check where the card has the button", async () => {
+    const card = await mount({ tap_action: { action: 'reset' } });
+    await pressNext(card);
+    expect(lit(card)).toBe(true);
+
+    await tapCard(card);
+
+    expect(resetButton(card)!.classList.contains('reset-done')).toBe(true);
+  });
+
+  it('is no action at all on a card with nothing a reset could undo', async () => {
+    // No toolbar and no expand action: nothing could ever differ from the configuration, so the
+    // card promises nothing, as `add-event` on a card that cannot add one does not.
+    const card = await mount({ toolbar: { show: false }, tap_action: { action: 'reset' } });
+
+    expect(haCard(card).hasAttribute('role')).toBe(false);
+    expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+
+    // The control: the same card with an action that runs is a button with a tab stop.
+    const control = await mount({ toolbar: { show: false }, tap_action: { action: 'refresh' } });
+    expect(haCard(control).getAttribute('role')).toBe('button');
+    expect(haCard(control).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('is no action while the card is edited, and loses nothing', async () => {
+    const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' } };
+    const fingerprint = configFingerprint(configFor(overrides));
+    writeViewChoice(fingerprint, 'grid');
+    writeHiddenCalendars(fingerprint, [BEN]);
+    const card = await mount(overrides, { flag: 'editMode' });
+
+    await tapCard(card);
+    expect(readViewChoice(fingerprint)).toBe('grid');
+    expect(readHiddenCalendars(fingerprint)).toEqual([BEN]);
+
+    card.editMode = false;
+    await settle(card);
+    expect(drawnView(card)).toBe('grid');
+  });
+});

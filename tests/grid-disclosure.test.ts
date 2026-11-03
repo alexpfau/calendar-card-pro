@@ -1263,6 +1263,8 @@ describe('grid disclosure countdown flow', () => {
       rect(has('grid-time-wrap') ? Math.max(START, END + DOT + WORDS) : FULL);
     root.querySelector<HTMLElement>('ha-icon')!.getBoundingClientRect = () => rect(ICON);
     root.querySelector<HTMLElement>('.time-end')!.getBoundingClientRect = () => rect(END);
+    root.querySelector<HTMLElement>('.time-countdown')!.getBoundingClientRect = () =>
+      rect(DOT + WORDS);
     vi.spyOn(Range.prototype, 'getBoundingClientRect').mockImplementation(function (this: Range) {
       return rect(this.toString().trim() === 'in 2 days' ? WORDS : START);
     });
@@ -1280,7 +1282,7 @@ describe('grid disclosure countdown flow', () => {
           DOT +
           WORDS +
           (has('grid-time-no-icon') ? 0 : ICON);
-      return (wrap ? 2 : 1) + (last > lane ? 1 : 0);
+      return (wrap ? 2 : 1) + (!has('grid-time-no-countdown') && last > lane ? 1 : 0);
     };
     for (const row of [time, location]) {
       row.getClientRects = () =>
@@ -1299,9 +1301,13 @@ describe('grid disclosure countdown flow', () => {
   }
 
   const rungOf = (disclosure: HTMLElement) =>
-    ['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end', 'grid-time-wrap'].filter((name) =>
-      disclosure.classList.contains(name),
-    );
+    [
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-wrap',
+      'grid-time-no-countdown',
+    ].filter((name) => disclosure.classList.contains(name));
   /** Wide enough for the start time with its words, or the range alone; not the range with them. */
   const FLOWING = START + DOT + WORDS + 4;
   /** Wide enough for the start time and its separator, not for the words after them. */
@@ -1351,20 +1357,62 @@ describe('grid disclosure countdown flow', () => {
     },
   );
 
-  it.each([
-    ['the start time alone', START_ONLY],
-    ['a wrap', Math.max(START, END + DOT) + 1],
-  ])('falls back from %s to the start time, then weighs it as any time row', (_, lane) => {
-    // Where the start time's own words need a second line, rung 4 is the shortest time row
-    // there is, and the loop keeps a time row ahead of the location, as it always has.
-    const { card, disclosure, content, time, location } = block(lane, TITLE + 2 * LINE);
+  it('keeps the time without its countdown where the separator cannot follow the start time', () => {
+    // "18:30 ·" does not fit, "18:30" does: v5.0.0 drew a wrap with the dot leading a line.
+    const { card, disclosure, content, time, location } = block(START + 2, TITLE + 2 * LINE);
 
     card._applyGridDisclosureSafety();
 
-    expect(rungOf(disclosure)).toEqual(['grid-time-fits', 'grid-time-no-icon', 'grid-time-no-end']);
+    expect(rungOf(disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-no-countdown',
+    ]);
     expect(time.classList.contains('grid-event-detail-clipped')).toBe(false);
-    expect(location.classList.contains('grid-event-detail-clipped')).toBe(true);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
     expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it('leaves the countdown out rather than let its words cost the location its place', () => {
+    // The words fit a line of their own, not beside any time, and the block has no line for
+    // them: the countdown goes, and the time keeps its one line.
+    const lane = WORDS + 2;
+    const tall = block(lane, TITLE + 4 * LINE);
+    tall.card._applyGridDisclosureSafety();
+    expect(rungOf(tall.disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-wrap',
+    ]);
+
+    const { card, disclosure, content, location } = block(lane, TITLE + 2 * LINE);
+    card._applyGridDisclosureSafety();
+    expect(rungOf(disclosure)).toEqual([
+      'grid-time-fits',
+      'grid-time-no-icon',
+      'grid-time-no-end',
+      'grid-time-no-countdown',
+    ]);
+    expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(content)).toBe(false);
+  });
+
+  it.each([
+    ['the start time alone', START_ONLY],
+    ['a wrap', Math.max(START, END + DOT) + 1],
+  ])('leaves out words wider than the lane, beside %s, however tall the block', (_, lane) => {
+    for (const lines of [2, 4]) {
+      const { card, disclosure, content, time, location } = block(lane, TITLE + lines * LINE);
+
+      card._applyGridDisclosureSafety();
+
+      expect(rungOf(disclosure)).toContain('grid-time-no-countdown');
+      expect(rungOf(disclosure)).toContain('grid-time-fits');
+      expect(time.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(location.classList.contains('grid-event-detail-clipped')).toBe(false);
+      expect(gridContentOverflows(content)).toBe(false);
+    }
   });
 });
 

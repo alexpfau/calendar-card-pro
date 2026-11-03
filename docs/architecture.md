@@ -633,8 +633,8 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
 
 - **actions.ts**:
   - Runs `tap_action` and `hold_action`, for the card
-  - Does nothing for a missing action or `none`, handles the card's own `expand`, `refresh`
-    and `add-event` through callbacks the card hands it per press, and forwards everything
+  - Does nothing for a missing action or `none`, handles the card's own `expand`, `refresh`,
+    `add-event` and `reset` through callbacks the card hands it per press, and forwards everything
     else to Home Assistant as a `hass-action` event naming the card's first calendar as the
     entity
   - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
@@ -1246,7 +1246,7 @@ the gesture began on.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
-     action or `none`, handles the card's own `expand`, `refresh` and `add-event`, and forwards
+     action or `none`, handles the card's own `expand`, `refresh`, `add-event` and `reset`, and forwards
      everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
    - An event's own tap or hold never reaches `actions.ts`: `_runEventTapAction` in
@@ -1275,9 +1275,12 @@ the gesture began on.
      the latest write). No card refreshes a window it is not drawing, so home while the card
      is paged away, or the window of a card on another view, would otherwise look fresh until
      `refresh_interval` passed, which `refresh_on_navigate: false` trusts. An expired entry is
-     still drawn first, like any stored entry. The requests and the page store are this
-     tab's and this copy's: another tab, or a development build beside a release, is reached
-     only through the entries in `localStorage`
+     still drawn first, like any stored entry. A window `localStorage` refused is held in
+     memory instead (`heldEntries`), stamped with the generation its request started at, and
+     reads as expired once any write is made since, whatever calendar it touched. The
+     requests, the page store and the held entries are this tab's and this copy's: another
+     tab, or a development build beside a release, is reached only through the entries in
+     `localStorage`
    - The callback returns nothing. Home Assistant awaits it before closing the dialog and
      re-enables Save meanwhile, so returning the refetch would invite a duplicate event
    - `updateEvents('network')` is not used: it joins a matching request already under way,
@@ -1289,6 +1292,9 @@ the gesture began on.
 
 1. **Smart Caching**:
    - Cached event data with configurable lifetime, drawn on the first frame
+   - Where the browser refuses to store (full, blocked, or a private window), the entry is
+     held in memory instead, the 16 used last, and read by the same rules, so cards on one
+     window still share one request rather than each refetching at their own times
    - Deterministic cache keys based on configuration
    - Calendars requested in parallel, each bounded by a timeout
 

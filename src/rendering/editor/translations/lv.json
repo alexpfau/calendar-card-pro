@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Pārslēgt kompakto/izvērsto skatu",
   "card_action.option.refresh.label": "Atjaunot notikumus",
   "card_action.option.add-event.label": "Pievienot notikumu",
+  "card_action.option.reset.label": "Atiestatīt karti",
   "day_tap_action_mode": "Dienas pieskāriena darbība",
   "day_tap_action_mode.option.none.label": "Neko nedarīt",
   "day_tap_action_mode.option.add-event.label": "Pievienot notikumu",

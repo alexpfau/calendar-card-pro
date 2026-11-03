@@ -913,6 +913,9 @@ export function renderEventContent(
       ? eventTimeEnd
       : null;
 
+  // The text before a droppable end, which the end's own layout depends on (see below).
+  const timeHead = splitEnd ? eventTime.slice(0, -splitEnd.length) : eventTime;
+
   // No whitespace inside the split: a text node between the two spans would put a second
   // space in the middle of "10:00 - 12:00".
   //
@@ -922,11 +925,15 @@ export function renderEventContent(
   // >` -- so no text node appears and the DOM is identical. What it buys is that the source
   // reads as the single line the browser sees, instead of the `>`-on-its-own-line form that
   // is exactly what the two lines above are warning about.
+  //
+  // Each piece goes through `isolateClockReadings`, so a 12-hour reading reads as one unit in a
+  // right-to-left card. The end is handed the text before it, because how each reading
+  // is laid out depends on the letter that precedes it.
   // prettier-ignore
   const timeValue = eventTime
     ? splitEnd
-      ? html`<span>${eventTime.slice(0, -splitEnd.length)}<span class="time-end">${splitEnd}</span></span>`
-      : html`<span>${eventTime}</span>`
+      ? html`<span>${FormatUtils.isolateClockReadings(timeHead)}<span class="time-end">${FormatUtils.isolateClockReadings(splitEnd, timeHead)}</span></span>`
+      : html`<span>${FormatUtils.isolateClockReadings(eventTime)}</span>`
     : nothing;
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter

@@ -1258,6 +1258,22 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   on `HTML_MARKUP` in `src/utils/format.ts`. The function is not a sanitizer and its output
   only ever reaches a Lit text binding; the docblock above the pattern says why, and why the
   obvious fix would be a regression. Do not reopen it without reading that first.
+- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 32
+  (`minimatch`, moderate), both transitive and dev-only. Neither reaches `dist/`, and only
+  this repository's own lint globs and Rollup options reach them. The lockfile refresh above
+  changes nothing for either: `minimatch` is patched only in 11, which ESLint, its config
+  loader and its plugins do not accept yet, and `deepmerge` has no patched release at all,
+  while `@rollup/plugin-node-resolve` still depends on it. An `overrides` entry forcing
+  `minimatch` 11 was tried and stops ESLint loading its config: `@eslint/eslintrc` imports a
+  default export 11 removed, and `eslint-plugin-import-x` imports `makeRe`, which 11 also
+  removed. Several packages hold `minimatch` back, so ask npm rather than any one of them:
+  revisit when the audit below stops saying "No fix available" for `minimatch`, or
+  "`npm audit fix --force`" for `deepmerge`. The lockfile refresh above then clears it, or
+  Dependabot's monthly tooling bump carries it:
+
+  ```bash
+  npx npm@11 audit --package-lock-only
+  ```
 
 ## Docs site deployment
 

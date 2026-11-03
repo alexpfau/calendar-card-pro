@@ -516,6 +516,7 @@
   "card_action.option.expand.label": "Kompakte/Erweiterte Ansicht umschalten",
   "card_action.option.refresh.label": "Termine aktualisieren",
   "card_action.option.add-event.label": "Termin hinzufügen",
+  "card_action.option.reset.label": "Karte zurücksetzen",
   "day_tap_action_mode": "Verhalten bei Antippen von Tagen",
   "day_tap_action_mode.option.none.label": "Nichts",
   "day_tap_action_mode.option.add-event.label": "Termin hinzufügen",

@@ -61,10 +61,79 @@ const PAGE_STORE_LIMIT = 16;
 const pageStore = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
 
 /**
- * Forget every paged window. For tests; a calendar write retires entries on its own.
+ * Forget every window kept in memory: paged windows, and those storage refused
+ * (`heldEntries`). For tests; a calendar write retires entries on its own.
  */
 export function clearPageStore(): void {
   pageStore.clear();
+  heldEntries.clear();
+}
+
+/**
+ * Entries `localStorage` refused that memory holds before it drops the one used longest ago: as
+ * many as the page store, since a dashboard has a handful of windows and a dropped one only costs
+ * a request.
+ */
+const HELD_ENTRY_LIMIT = PAGE_STORE_LIMIT;
+
+/**
+ * Cache entries for the window a card opens with that `localStorage` refused to keep, least
+ * recently used first, each with the write generation its request started at.
+ *
+ * A browser can refuse every write: storage full, blocked in its settings, or a private window
+ * that allows none. Without these, nothing settled was shared at all, between cards or across
+ * time, and only a request still in flight could be joined. Two cards on one key whose loads
+ * landed more than a round trip apart each fetched, at midnight when their timers fired apart
+ * and at every refresh from then on, and a card coming back, its tab coming back or a
+ * per-calendar edit fetched what storage would have answered. Held here, an entry is read as the
+ * stored one would have been, by the same rules (`isEntryDue`, `MAX_STALE_HOURS`).
+ *
+ * One whose request started before the latest calendar write is read as expired, as
+ * `expireStoredCalendars` marks a stored one, but whatever calendars the write touched: the
+ * generation says that a write happened, not where. It is still drawn first while it is fetched
+ * again. The write generation lives on `globalThis`, so this holds for writes made through
+ * another copy of the card as well.
+ *
+ * Module state, like `pageStore`, so every card on the page shares it and a reload forgets it.
+ * Another copy of the card on the page, a development build beside a release, holds its own.
+ */
+const heldEntries = new Map<string, { entry: Types.CacheEntry; writeGeneration: number }>();
+
+/**
+ * Hold an entry `localStorage` refused, dropping the one used longest ago past the limit.
+ *
+ * @param key Cache key
+ * @param entry Entry to hold
+ * @param writeGeneration The write generation its request started at
+ */
+function holdEntry(key: string, entry: Types.CacheEntry, writeGeneration: number): void {
+  heldEntries.delete(key);
+  heldEntries.set(key, { entry, writeGeneration });
+  while (heldEntries.size > HELD_ENTRY_LIMIT) {
+    heldEntries.delete(heldEntries.keys().next().value as string);
+  }
+}
+
+/**
+ * Read an entry held in memory: dropped once it is too old to draw, as `readCacheEntry` drops a
+ * stored one, and expired once a calendar write has been made since its request started.
+ *
+ * @param key Cache key
+ * @returns The entry, or null
+ */
+function readHeldEntry(key: string): Types.CacheEntry | null {
+  const held = heldEntries.get(key);
+  if (!held) return null;
+
+  heldEntries.delete(key);
+  if (Date.now() - held.entry.timestamp >= Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000) {
+    return null;
+  }
+  // Most recently used last, so the oldest is the first to go.
+  heldEntries.set(key, held);
+  return held.writeGeneration === currentWriteGeneration() || held.entry.expired
+    ? held.entry
+    : { ...held.entry, expired: true };
 }
 
 /**
@@ -75,12 +144,20 @@ export function clearPageStore(): void {
  * no card on the page refreshes it. The write generation lives on `globalThis`, so this holds
  * for writes made through another copy of the card as well.
  *
+ * The window a card opens with is read from `localStorage`, or from memory where storage
+ * refused it (`heldEntries`), whichever is newer: a write refused for want of space leaves the
+ * entry before it in storage.
+ *
  * @param store Where the entry lives
  * @param key Cache key
  * @returns The entry, or null
  */
 function readStoredEntry(store: CacheStore, key: string): Types.CacheEntry | null {
-  if (store === 'persistent') return readCacheEntry(key);
+  if (store === 'persistent') {
+    const stored = readCacheEntry(key);
+    const held = readHeldEntry(key);
+    return held && (!stored || held.timestamp > stored.timestamp) ? held : stored;
+  }
 
   const held = pageStore.get(key);
   if (!held) return null;
@@ -115,7 +192,8 @@ function writeStoredEntry(
   writeGeneration: number,
 ): void {
   if (store === 'persistent') {
-    writeCacheEntry(key, entry);
+    if (writeCacheEntry(key, entry)) heldEntries.delete(key);
+    else holdEntry(key, entry, writeGeneration);
     return;
   }
 
@@ -308,7 +386,7 @@ export function readEventSnapshot(
  * @param instanceId Component instance ID for caching
  * @param load How to use the cache and requests already in flight
  * @param failureCountHint Consecutive failures the caller has seen for this query, used
- *   when no cache entry records them (storage unavailable)
+ *   when no cache entry records them (nothing stored or held in memory)
  * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
  *   `advanceWriteGeneration`. Ignored by every other load
  * @param store Where the window's cache entry lives
@@ -530,7 +608,7 @@ async function fetchRawEvents(
 
   if (failed.size > 0) {
     // The entry is the shared record. The caller's own count is only a stand-in for when
-    // there is no entry at all — storage unavailable — and must never outvote one: a card
+    // there is no entry at all, stored or held, and must never outvote one: a card
     // that saw an outage, then only ever drew another card's healthy entry, still carries
     // the old count, and letting it win would start the next outage at a 30-minute wait.
     const previousCount = previous
