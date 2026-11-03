@@ -845,10 +845,17 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     Assistant's frontend is borrowed beyond that public contract
   - The manager calls `showDialog` before attaching the element, so the popover keeps the
     request and opens its native `<dialog>` with `showModal()` in `updated()`, once it is
-    connected; that puts it in the top layer, above the whole page. For Back the manager calls
-    `closeDialog()`, which saves, and a `false` or a promise of one keeps the popover open, to
-    ask which occurrences a change covers or to show why a save failed. Closing fires
-    `dialog-closed`, which tells the manager it is gone
+    connected; that puts it in the top layer, above the whole page. Its own `showModal()`
+    focusing finds nothing, because the dialog is hidden until it is placed, so it focuses its
+    start once placed. For Back the manager calls `closeDialog()` and compares the answer with
+    `false` without awaiting it, so the answer is a plain boolean: `true` once the popover is
+    gone, `false` to keep it open, to ask which occurrences a change covers, to show why a save
+    was refused, or while a save is under way. A save closes the popover when it is done, by
+    firing `dialog-closed`, which is also how every other close tells the manager it is gone
+  - A save or a delete under way makes the panel `inert` and refuses every close, so nothing
+    typed meanwhile is lost and an Escape cannot hide a delete that still goes ahead. Each
+    `showDialog` starts a new generation, and a write that finishes after the element was
+    reused for another event refreshes the calendar it wrote to but leaves the new event open
   - Keeps every change as a draft (`popover-model.ts`) and writes once, on close: a press that
     starts and ends on the backdrop saves, as Back does, and Escape, the dialog's `cancel`,
     discards. A field that is focused but not changed writes nothing

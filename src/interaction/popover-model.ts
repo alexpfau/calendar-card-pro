@@ -142,6 +142,56 @@ export function draftFromParams(params: PopoverParams, now: Date = new Date()): 
   };
 }
 
+/** RFC 5545's weekday for each `Date.getDay()`, Sunday first. */
+const WEEKDAY_OF: readonly RRule.Weekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+/**
+ * Whether two monthly choices are the same kind of choice: both a day of the month, both an
+ * nth weekday, both the last weekday, or both the last day.
+ */
+function sameMonthlyKind(a: RRule.MonthlyMode, b: RRule.MonthlyMode): boolean {
+  if (a.kind !== b.kind) return false;
+  return a.kind !== 'weekday' || b.kind !== 'weekday' || Math.sign(a.nth) === Math.sign(b.nth);
+}
+
+function sameMonthly(a: RRule.MonthlyMode, b: RRule.MonthlyMode): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * A repeat rule moved with its event's start, so the series stays on the day the event moved
+ * to: a weekly rule on the start's own weekday follows it to the new weekday, as Home
+ * Assistant's editor does (`_computeWeekday`), and a monthly rule keeps the same choice among
+ * the new start's, the day of the month, the nth weekday or the last. A rule tied to some other
+ * day, such as weekly on Monday and Friday, stays as it is, and so does a custom one.
+ *
+ * @param repeat - The repeat as it stands
+ * @param from - The start it was chosen for
+ * @param to - The new start
+ * @returns The repeat for the new start
+ */
+export function rebaseRepeat(repeat: RepeatState, from: Date, to: Date): RepeatState {
+  if (repeat.kind !== 'rule') return repeat;
+  const rule = repeat.rule;
+  if (rule.freq === 'weekly') {
+    const before = WEEKDAY_OF[from.getDay()];
+    const after = WEEKDAY_OF[to.getDay()];
+    return rule.weekdays.length === 1 && rule.weekdays[0] === before && before !== after
+      ? { kind: 'rule', rule: { ...rule, weekdays: [after] } }
+      : repeat;
+  }
+  if (rule.freq === 'monthly' && rule.monthly) {
+    const chosen = RRule.monthlyOptions(from).find((mode) => sameMonthly(mode, rule.monthly!));
+    if (!chosen) return repeat;
+    const options = RRule.monthlyOptions(to);
+    const monthly = options.find((mode) => sameMonthlyKind(mode, chosen)) ?? options[0];
+    return sameMonthly(monthly, rule.monthly)
+      ? repeat
+      : { kind: 'rule', rule: { ...rule, monthly } };
+  }
+  return repeat;
+}
+
 /**
  * Whether two drafts differ in anything the popover would write.
  *

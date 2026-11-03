@@ -87,6 +87,7 @@ const T = {
     'The duration of the event is not valid. Please check start and end date.',
   ],
   delete: ['ui.common.delete', 'Delete'],
+  edit: ['ui.common.edit', 'Edit'],
   cancel: ['ui.common.cancel', 'Cancel'],
   close: ['ui.common.close', 'Close'],
 } as const;
@@ -142,7 +143,8 @@ export class EventPopover extends LitElement {
   private _wantOpen = false;
   private _openedAt = 0;
   private _backdropDown = false;
-  private _closing?: Promise<boolean>;
+  /** Counts opens, so a write that finishes after the popover was opened again leaves it be. */
+  private _openId = 0;
 
   //---------------------------------------------------------------------------
   // HOME ASSISTANT'S DIALOG CONTRACT
@@ -170,7 +172,7 @@ export class EventPopover extends LitElement {
     this._error = undefined;
     this._map = undefined;
     this._place = undefined;
-    this._closing = undefined;
+    this._openId++;
     this._wantOpen = true;
     this.requestUpdate();
     void this._loadMap();
@@ -179,10 +181,12 @@ export class EventPopover extends LitElement {
   /**
    * Closes the popover for Home Assistant's Back, saving what changed.
    *
-   * @returns Whether it closed; false keeps it open, to ask which occurrences, or to show why
-   *   a save failed
+   * Home Assistant reads the answer at once rather than waiting on it, so it is a boolean.
+   *
+   * @returns True once the popover is gone. False keeps it open: to ask which occurrences, to
+   *   show why a change was refused, or while a save is under way, which closes it when done
    */
-  public closeDialog(): Promise<boolean> {
+  public closeDialog(): boolean {
     return this._requestClose('save');
   }
 
@@ -205,6 +209,18 @@ export class EventPopover extends LitElement {
       // The modal opens hidden until it is placed, and a hidden control cannot take focus, so
       // the focusing steps of `showModal` land on nothing. Focus once it is drawn in place.
       void this.updateComplete.then(() => this._focusStart());
+    }
+
+    // A question takes focus, so the keyboard and a screen reader land on its choices; backing
+    // out of it puts focus back where the popover started.
+    const phases = changed as Map<string, unknown>;
+    if (phases.has('_phase')) {
+      const before = phases.get('_phase');
+      if (this._phase === 'update' || this._phase === 'delete') {
+        this.renderRoot.querySelector<HTMLElement>('.ask button')?.focus();
+      } else if (this._phase === 'edit' && (before === 'update' || before === 'delete')) {
+        this._focusStart();
+      }
     }
   }
 
@@ -298,62 +314,63 @@ export class EventPopover extends LitElement {
     return Boolean(this._params?.entry?.recurrence_id);
   }
 
+  /** Whether a save or a delete is waiting on Home Assistant. */
+  private get _busy(): boolean {
+    return this._phase === 'saving';
+  }
+
   /**
    * Closes the popover, saving first unless asked to discard.
    *
-   * A new event without a title, or an event nothing was changed on, closes at once. A change
-   * Home Assistant would refuse keeps the popover open and says why. A change to a repeating
-   * event asks first which occurrences it covers.
+   * Nothing changed, or nothing that may be changed, closes at once; so does an untouched new
+   * event. A change Home Assistant would refuse, such as a new event given a date but no title,
+   * keeps the popover open and says why. A change to a repeating event asks first which
+   * occurrences it covers. Anything else is saved, and the popover closes once it is. Nothing
+   * closes it while a write is under way.
    *
    * @param mode - Save what changed, or throw it away
    * @param range - For a repeating event, the occurrences already chosen
-   * @returns Whether the popover closed
+   * @returns Whether the popover closed now
    */
-  private _requestClose(
-    mode: 'save' | 'discard',
-    range?: Writes.RecurrenceRange,
-  ): Promise<boolean> {
-    if (this._closing) return this._closing;
+  private _requestClose(mode: 'save' | 'discard', range?: Writes.RecurrenceRange): boolean {
+    if (this._busy) return false;
     const params = this._params;
     const draft = this._draft;
-    if (!params || !draft) return Promise.resolve(this._finish());
+    if (!params || !draft) return this._finish();
 
-    const nothingToSave =
-      mode === 'discard' ||
-      !this._editable ||
-      (params.mode === 'new' ? !draft.summary.trim() : !this._dirty);
-    if (nothingToSave) return Promise.resolve(this._finish());
+    if (mode === 'discard' || !this._editable || !this._dirty) return this._finish();
 
     const problem = Model.draftProblem(draft);
     if (problem) {
       this._error = this._t(problem === 'missing' ? 'missing' : 'duration');
-      return Promise.resolve(false);
+      return false;
     }
     if (params.mode === 'event' && this._recurring && range === undefined) {
       this._phase = 'update';
       this._editing = undefined;
-      return Promise.resolve(false);
+      return false;
     }
 
-    this._closing = this._save(range).finally(() => {
-      this._closing = undefined;
-    });
-    return this._closing;
+    void this._save(range);
+    return false;
   }
 
   /**
-   * Writes the draft, and closes once Home Assistant has saved it.
+   * Writes the draft, and closes once Home Assistant has saved it. The popover takes no input
+   * meanwhile, so nothing typed during the save is silently left out of it.
    *
    * @param range - For a repeating event, which occurrences
-   * @returns Whether the popover closed
    */
-  private async _save(range?: Writes.RecurrenceRange): Promise<boolean> {
+  private async _save(range?: Writes.RecurrenceRange): Promise<void> {
     const params = this._params;
     const draft = this._draft;
+    const original = this._original;
     const hass = this.hass;
-    if (!params || !draft || !hass) return false;
+    if (!params || !draft || !hass) return;
 
+    const openId = this._openId;
     this._phase = 'saving';
+    this._editing = undefined;
     this._error = undefined;
     try {
       if (params.mode === 'new') {
@@ -364,17 +381,18 @@ export class EventPopover extends LitElement {
         await Writes.updateEvent(
           hass,
           { entityId: params.calendarId, uid: entry.uid, recurrenceId: entry.recurrence_id, range },
-          Model.eventWrite(draft, this._original, entry.recurrence_id ? range : undefined),
+          Model.eventWrite(draft, original, entry.recurrence_id ? range : undefined),
         );
       }
     } catch (error) {
+      Logger.warn('Event popover: saving failed', error);
+      if (openId !== this._openId) return;
       this._phase = 'edit';
       this._error = Writes.writeErrorMessage(error) ?? UNKNOWN_ERROR;
-      Logger.warn('Event popover: saving failed', error);
-      return false;
+      return;
     }
     params.updated(draft.calendarId);
-    return this._finish();
+    if (openId === this._openId) this._finish();
   }
 
   /**
@@ -386,8 +404,9 @@ export class EventPopover extends LitElement {
     const params = this._params;
     const entry = params?.entry;
     const hass = this.hass;
-    if (!params || !entry?.uid || !hass) return;
+    if (this._busy || !params || !entry?.uid || !hass) return;
 
+    const openId = this._openId;
     this._phase = 'saving';
     this._error = undefined;
     try {
@@ -398,13 +417,14 @@ export class EventPopover extends LitElement {
         range: entry.recurrence_id ? range : undefined,
       });
     } catch (error) {
+      Logger.warn('Event popover: deleting failed', error);
+      if (openId !== this._openId) return;
       this._phase = 'delete';
       this._error = Writes.writeErrorMessage(error) ?? UNKNOWN_ERROR;
-      Logger.warn('Event popover: deleting failed', error);
       return;
     }
     params.updated(params.calendarId);
-    this._finish();
+    if (openId === this._openId) this._finish();
   }
 
   /**
@@ -437,14 +457,17 @@ export class EventPopover extends LitElement {
   // INPUT
   //---------------------------------------------------------------------------
 
-  /** Escape throws the changes away; the one undo the popover has. */
+  /**
+   * Escape throws the changes away, the one undo the popover has, or backs out of a question.
+   * While a write is under way it does nothing, as `_requestClose` refuses then.
+   */
   private readonly _onCancel = (ev: Event): void => {
     ev.preventDefault();
     if (this._phase === 'update' || this._phase === 'delete') {
       this._phase = 'edit';
       return;
     }
-    void this._requestClose('discard');
+    this._requestClose('discard');
   };
 
   /**
@@ -459,17 +482,23 @@ export class EventPopover extends LitElement {
     if (ev.target !== this._dialog || !this._backdropDown) return;
     this._backdropDown = false;
     if (Date.now() - this._openedAt < 300) return;
-    void this._requestClose('save');
+    this._requestClose('save');
   };
 
   private _update(changes: Partial<Model.Draft>): void {
-    if (!this._draft) return;
+    if (!this._draft || this._busy) return;
     this._draft = { ...this._draft, ...changes };
     this._error = undefined;
   }
 
+  /** Moves the event, and its repeat with it, so the series stays on the day it moved to. */
   private _setTimes(times: Times.EventTimes): void {
-    this._update({ times });
+    const draft = this._draft;
+    if (!draft) return;
+    this._update({
+      times,
+      repeat: Model.rebaseRepeat(draft.repeat, draft.times.start, times.start),
+    });
   }
 
   private _setStartDate(value: string): void {
@@ -614,7 +643,7 @@ export class EventPopover extends LitElement {
         @pointerdown=${this._onPointerDown}
         @click=${this._onClick}
       >
-        <div class="panel" style="--event-color:${color}">
+        <div class="panel" style="--event-color:${color}" ?inert=${this._busy}>
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
           <h2
             id="popover-title"
@@ -624,7 +653,7 @@ export class EventPopover extends LitElement {
           >
             ${titleText || this._t('summary')}
           </h2>
-          <button class="visually-hidden" @click=${() => this._requestClose('save')}>
+          <button class="btn reveal" @click=${() => this._requestClose('save')}>
             ${this._t('close')}
           </button>
           <div class="group">
@@ -1012,16 +1041,16 @@ export class EventPopover extends LitElement {
           (this.renderRoot.querySelector('textarea') as HTMLTextAreaElement | null)?.focus(),
         );
       };
+      // The text stays text, so its links are links to every reader. A press beside them edits
+      // it; the keyboard reaches the same through a button that shows once it has focus.
       return this._editable
-        ? html`<div
-            class="cell notes ${text ? '' : 'dim'}"
-            tabindex="0"
-            role="textbox"
-            aria-multiline="true"
-            aria-label=${this._t('description')}
-            @click=${enter}
-            @keydown=${(ev: KeyboardEvent) => (ev.key === 'Enter' && ev.target === ev.currentTarget ? enter(ev) : undefined)}
-          >
+        ? html`<div class="cell notes ${text ? '' : 'dim'}" @click=${enter}>
+            <button
+              class="btn reveal"
+              aria-label=${`${this._t('edit')}: ${this._t('description')}`}
+            >
+              ${this._t('edit')}
+            </button>
             <span class="lines">${text ? this._pieces(pieces) : this._t('description')}</span>
           </div>`
         : html`<div class="cell notes"><span class="lines">${this._pieces(pieces)}</span></div>`;
@@ -1242,6 +1271,8 @@ export class EventPopover extends LitElement {
       border-left: 0;
       clip-path: polygon(0 0, 100% 0, 100% 100%);
     }
+    /* Hidden until the keyboard reaches it, then a button like the others. */
+    .reveal:not(:focus-visible),
     .visually-hidden {
       position: absolute;
       width: 1px;

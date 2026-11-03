@@ -321,7 +321,7 @@ Repeat offers what Home Assistant's own event editor offers: daily, weekly on th
 
 ### Saving & Discarding
 
-The popover saves once, when it closes: with a press outside it, or with Back. Escape closes it and throws the changes away instead. A part you only looked at, or tapped into without changing, writes nothing. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
+The popover saves once, when it closes: with a press outside it, or with Back. Escape closes it and throws the changes away instead. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
 
 For one occurrence of a repeating event, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events.
 
@@ -382,7 +382,7 @@ toolbar:
 
 The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
 
-Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it without a title, press **Delete**, or press Escape, and nothing is added. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
+Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it untouched, press **Delete**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 
 The popover's calendar is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is chosen anyway. On a card with only one such calendar, the popover names it.
 
@@ -486,7 +486,7 @@ Web addresses in the description are links, and so are those in a location you c
 
 ### Keyboard & Screen Readers
 
-The popover is a modal dialog, named by the event's title. It opens with focus on that title, or for a new event in the title field. Tab moves through its fields, links and buttons, Enter on the description starts editing it, and Escape throws the changes away and closes the popover; while it asks which occurrences you mean, Escape goes back to editing instead. Screen readers also find a Close button, which saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
+The popover is a modal dialog, named by the event's title. It opens with focus on that title, or for a new event in the title field. Tab moves through its fields, links and buttons. The description's text stays readable text with working links, and an Edit button, shown once Tab reaches it, starts editing it. A question, such as which occurrences you mean, takes focus onto its choices, and Escape there goes back to editing; anywhere else Escape throws the changes away and closes the popover. A Close button, shown once Tab reaches it, saves as a press outside does. Once the popover closes, Home Assistant gives focus back to where it was.
 
 ### Changes Appear at Once
 

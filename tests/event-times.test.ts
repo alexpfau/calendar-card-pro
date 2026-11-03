@@ -121,17 +121,37 @@ describe('editing', () => {
     expect(dateValue(overnight.end)).toBe('2026-11-04');
   });
 
-  it('switches from all day to an hour on its first day', () => {
-    const timed = setAllDay(
-      { allDay: true, start: new Date(2026, 10, 20), end: new Date(2026, 10, 22) },
-      false,
-      14,
-    );
-    expect(timed).toEqual({
+  it('switches from all day to an hour, keeping every day of a longer event', () => {
+    expect(
+      setAllDay(
+        { allDay: true, start: new Date(2026, 10, 20), end: new Date(2026, 10, 20) },
+        false,
+        14,
+      ),
+    ).toEqual({
       allDay: false,
       start: new Date(2026, 10, 20, 14),
       end: new Date(2026, 10, 20, 15),
     });
+    // Three days stay three days: from the first at the hour to the last an hour later.
+    expect(
+      setAllDay(
+        { allDay: true, start: new Date(2026, 10, 20), end: new Date(2026, 10, 22) },
+        false,
+        14,
+      ),
+    ).toEqual({
+      allDay: false,
+      start: new Date(2026, 10, 20, 14),
+      end: new Date(2026, 10, 22, 15),
+    });
+    expect(
+      setAllDay(
+        { allDay: true, start: new Date(2026, 10, 20), end: new Date(2026, 10, 21) },
+        false,
+        23,
+      ),
+    ).toEqual({ allDay: false, start: new Date(2026, 10, 20, 23), end: new Date(2026, 10, 22, 0) });
     // The same state asked for again is returned as it is.
     const same = { allDay: false, start, end };
     expect(setAllDay(same, false, 3)).toBe(same);

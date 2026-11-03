@@ -196,7 +196,8 @@ export function moveStart(times: EventTimes, start: Date): EventTimes {
  * The span switched to or from all day.
  *
  * To all day, it covers the days its times touched; an end at midnight belongs to the day
- * before. From all day, it starts on its first day at `hour` and lasts an hour.
+ * before. From all day, it starts on its first day at `hour` and lasts an hour, or for an
+ * event over several days ends at that hour plus one on its last day, so no day is dropped.
  *
  * @param times - The span
  * @param allDay - Whether it is to be all day
@@ -223,6 +224,15 @@ export function setAllDay(times: EventTimes, allDay: boolean, hour: number): Eve
     times.start.getDate(),
     hour,
   );
+  if (dateValue(times.end) > dateValue(times.start)) {
+    const end = new Date(
+      times.end.getFullYear(),
+      times.end.getMonth(),
+      times.end.getDate(),
+      hour + 1,
+    );
+    return { allDay: false, start, end };
+  }
   return { allDay: false, start, end: new Date(start.getTime() + 3600000) };
 }
 

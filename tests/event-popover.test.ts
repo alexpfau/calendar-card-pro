@@ -14,7 +14,7 @@ import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 type Popover = HTMLElement & {
   hass?: Types.Hass;
   showDialog(params: PopoverParams): void;
-  closeDialog(): Promise<boolean>;
+  closeDialog(): boolean;
   readonly updateComplete: Promise<boolean>;
 };
 
@@ -162,7 +162,7 @@ describe('saving on close', () => {
     const { el, root, writes, closed, updated } = await open({});
     root.querySelector('input.title')!.dispatchEvent(new Event('focus'));
     await el.updateComplete;
-    expect(await el.closeDialog()).toBe(true);
+    expect(el.closeDialog()).toBe(true);
     expect(writes()).toEqual([]);
     expect(updated).not.toHaveBeenCalled();
     expect(closed).toHaveBeenCalledWith({ dialog: EVENT_POPOVER_TAG });
@@ -174,7 +174,10 @@ describe('saving on close', () => {
     await type('input.plain', '12 Mill Road');
     expect(writes()).toEqual([]);
 
-    expect(await el.closeDialog()).toBe(true);
+    // Home Assistant reads the answer at once, so a save under way is a plain false, and the
+    // popover closes itself, through dialog-closed, once Home Assistant has saved.
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
     expect(writes()).toEqual([
       {
         type: 'calendar/event/update',
@@ -238,15 +241,17 @@ describe('saving on close', () => {
     );
     await type('input.title', 'Swim lesson');
 
-    expect(await el.closeDialog()).toBe(false);
-    await el.updateComplete;
-    expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only');
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only'),
+    );
     expect(root.querySelector('dialog')?.open).toBe(true);
 
     answer = { code: 'failed' };
-    expect(await el.closeDialog()).toBe(false);
-    await el.updateComplete;
-    expect(root.querySelector('[role="alert"]')?.textContent).toBe('Unknown error');
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Unknown error'),
+    );
     expect(closed).not.toHaveBeenCalled();
   });
 
@@ -258,7 +263,7 @@ describe('saving on close', () => {
     endTime.dispatchEvent(new Event('change'));
     await el.updateComplete;
 
-    expect(await el.closeDialog()).toBe(false);
+    expect(el.closeDialog()).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('[role="alert"]')?.textContent).toBe(
       'The duration of the event is not valid. Please check start and end date.',
@@ -274,7 +279,7 @@ describe('saving on close', () => {
     startTime.dispatchEvent(new Event('change'));
     await el.updateComplete;
 
-    await el.closeDialog();
+    el.closeDialog();
     expect(writes()[0].event).toMatchObject({
       dtstart: '2026-11-03T18:30:00Z',
       dtend: '2026-11-03T19:30:00Z',
@@ -295,7 +300,7 @@ describe('a repeating event', () => {
     });
     await type('input.title', 'Swim lesson');
 
-    expect(await el.closeDialog()).toBe(false);
+    expect(el.closeDialog()).toBe(false);
     await el.updateComplete;
     expect(root.querySelector('.ask')).not.toBeNull();
     expect(writes()).toEqual([]);
@@ -318,7 +323,7 @@ describe('a repeating event', () => {
   it('goes back to editing on Escape while it asks, closing nothing', async () => {
     const { el, root, type, closed } = await open({ entry: WEEKLY, display });
     await type('input.title', 'Swim lesson');
-    await el.closeDialog();
+    el.closeDialog();
     await el.updateComplete;
 
     root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
@@ -391,7 +396,7 @@ describe('what an event may not do', () => {
     expect(root.querySelector('.cell.title')?.textContent).toBe('Swim');
     expect(root.querySelector('button.time')).toBeNull();
     expect(root.querySelector('.foot')).toBeNull();
-    expect(await el.closeDialog()).toBe(true);
+    expect(el.closeDialog()).toBe(true);
     expect(writes()).toEqual([]);
   });
 
@@ -420,7 +425,7 @@ describe('a new event', () => {
   it('opens on its title, and adds nothing without one', async () => {
     const { el, root, writes, closed } = await open(fresh);
     expect(root.activeElement).toBe(root.querySelector('input.title'));
-    expect(await el.closeDialog()).toBe(true);
+    expect(el.closeDialog()).toBe(true);
     expect(writes()).toEqual([]);
     expect(closed).toHaveBeenCalledTimes(1);
   });
@@ -433,7 +438,8 @@ describe('a new event', () => {
     picker.dispatchEvent(new Event('change'));
     await type('input.title', 'Piano');
 
-    expect(await el.closeDialog()).toBe(true);
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() => expect(updated).toHaveBeenCalledWith('calendar.anna'));
     expect(writes()).toEqual([
       {
         type: 'calendar/event/create',
@@ -600,5 +606,169 @@ describe('placing', () => {
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
     }
+  });
+});
+
+/** A write Home Assistant answers only when the test says so. */
+function deferredWrite() {
+  let settle!: (fail?: unknown) => void;
+  const write = vi.fn(
+    () =>
+      new Promise<unknown>((resolve, reject) => {
+        settle = (fail?: unknown) => (fail ? reject(fail) : resolve(undefined));
+      }),
+  );
+  return { write, settle: (fail?: unknown) => settle(fail) };
+}
+
+describe('while Home Assistant is saving', () => {
+  it('takes no input, so nothing typed meanwhile is silently left out', async () => {
+    const { write, settle } = deferredWrite();
+    const { el, root, type, writes, closed } = await open({}, { write });
+    await type('input.title', 'First');
+    expect(el.closeDialog()).toBe(false);
+    await el.updateComplete;
+    expect(root.querySelector('.panel')?.hasAttribute('inert')).toBe(true);
+
+    const title = root.querySelector<HTMLInputElement>('input.title')!;
+    title.value = 'Second';
+    title.dispatchEvent(new Event('input'));
+    settle();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].event).toMatchObject({ summary: 'First' });
+  });
+
+  it('closes on nothing else, and a delete Escape cannot call back still closes once', async () => {
+    const { write, settle } = deferredWrite();
+    const { el, root, button, press, writes, closed } = await open({}, { write });
+    await press(button('Delete'));
+    await press(button('Delete'));
+
+    root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+    expect(el.closeDialog()).toBe(false);
+    await el.updateComplete;
+    expect(closed).not.toHaveBeenCalled();
+    expect(root.querySelector('dialog')?.open).toBe(true);
+
+    settle();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      { type: 'calendar/event/delete', entity_id: 'calendar.ben', uid: 'u-swim' },
+    ]);
+  });
+
+  it.each([
+    ['fails', { message: 'Calendar is read-only' }],
+    ['succeeds', undefined],
+  ])('leaves the event opened next alone when an earlier save %s', async (outcome, failure) => {
+    const { write, settle } = deferredWrite();
+    const { el, root, type, updated, closed } = await open({}, { write });
+    await type('input.title', 'Swim lesson');
+    el.closeDialog();
+
+    // Home Assistant reuses the element for the next event before the first save is back.
+    el.showDialog({
+      mode: 'event',
+      calendarId: ANNA.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [ANNA],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    settle(failure);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+
+    expect(root.querySelector('dialog')?.open).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('input.title')?.value).toBe('Piano');
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+    expect(root.querySelector('.panel')?.hasAttribute('inert')).toBe(false);
+    expect(closed).not.toHaveBeenCalled();
+    // A save that went through still refreshes the calendar it wrote to.
+    expect(updated.mock.calls).toEqual(outcome === 'succeeds' ? [['calendar.ben']] : []);
+  });
+});
+
+describe('a new event changed but not titled', () => {
+  it('stays open and asks for a title rather than losing the change', async () => {
+    const { el, root, writes, closed } = await open({
+      mode: 'new',
+      entry: undefined,
+      display: undefined,
+      times: {
+        allDay: false,
+        start: new Date('2026-11-04T09:00:00Z'),
+        end: new Date('2026-11-04T10:00:00Z'),
+      },
+      canDelete: false,
+      calendars: [BEN, ANNA],
+    });
+    const picker = root.querySelector<HTMLSelectElement>('select')!;
+    picker.value = 'calendar.anna';
+    picker.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+
+    expect(el.closeDialog()).toBe(false);
+    await el.updateComplete;
+    expect(root.querySelector('[role="alert"]')?.textContent).toBe(
+      'Not all required fields are filled in',
+    );
+    expect(writes()).toEqual([]);
+    expect(closed).not.toHaveBeenCalled();
+  });
+});
+
+describe('moving a repeating event', () => {
+  it('moves its weekday with it', async () => {
+    const { el, root, type, press, button, writes, closed } = await open({ entry: WEEKLY });
+    await press(root.querySelector('button.time')!);
+    const [startDate] = Array.from(root.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+    startDate.value = '2026-11-04';
+    startDate.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    await type('input.title', 'Swim lesson');
+
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).toMatchObject({
+      dtstart: '2026-11-04T16:00:00Z',
+      rrule: 'FREQ=WEEKLY;BYDAY=WE',
+    });
+  });
+});
+
+describe('the keyboard', () => {
+  it('lands on the choices of a question, and back where it started once it is backed out of', async () => {
+    const { el, root, type } = await open({ entry: WEEKLY });
+    await type('input.title', 'Swim lesson');
+    el.closeDialog();
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(root.activeElement).toBe(root.querySelector('.ask button'));
+
+    root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+    await el.updateComplete;
+    await el.updateComplete;
+    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+  });
+
+  it('reaches the description through a button, and leaves its text as text', async () => {
+    const { el, root } = await open({});
+    const notes = root.querySelector('.notes')!;
+    expect(notes.getAttribute('role')).toBeNull();
+    const edit = notes.querySelector<HTMLButtonElement>('button.reveal')!;
+    expect(edit.getAttribute('aria-label')).toBe('Edit: Description');
+    edit.click();
+    await el.updateComplete;
+    expect(root.querySelector('textarea')?.value).toBe('Bring goggles');
   });
 });

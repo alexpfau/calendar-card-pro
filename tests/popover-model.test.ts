@@ -7,9 +7,11 @@ import {
   draftProblem,
   eventWrite,
   isDirty,
+  rebaseRepeat,
   spanText,
   writtenRule,
 } from '../src/interaction/popover-model';
+import type * as RRule from '../src/interaction/rrule';
 
 /**
  * The popover's draft: what it opens with, when a close has something to save, what Home
@@ -118,6 +120,53 @@ describe('isDirty', () => {
     ['the repeat', (d) => ({ ...d, repeat: { kind: 'none' } })],
   ])('finds a change to %s', (_name, change) => {
     expect(isDirty(change(opened(WEEKLY)), original)).toBe(true);
+  });
+});
+
+describe('rebaseRepeat', () => {
+  const rule = (r: Partial<RRule.RepeatRule>): Draft['repeat'] => ({
+    kind: 'rule',
+    rule: { freq: 'weekly', interval: 1, weekdays: [], end: { kind: 'never' }, ...r },
+  });
+  // Tuesday Nov 3 and Thursday Nov 5, 2026; Nov 3 is the month's first Tuesday.
+  const TUE = new Date(2026, 10, 3, 16);
+  const THU = new Date(2026, 10, 5, 16);
+  const CUSTOM: Draft['repeat'] = { kind: 'custom', raw: 'FREQ=WEEKLY;BYDAY=TU;BYHOUR=9' };
+
+  it.each<[string, Draft['repeat'], Draft['repeat']]>([
+    ['weekly on its own weekday', rule({ weekdays: ['TU'] }), rule({ weekdays: ['TH'] })],
+    ['weekly on other days', rule({ weekdays: ['MO', 'FR'] }), rule({ weekdays: ['MO', 'FR'] })],
+    ['weekly on one other day', rule({ weekdays: ['FR'] }), rule({ weekdays: ['FR'] })],
+    [
+      'monthly on its day of the month',
+      rule({ freq: 'monthly', monthly: { kind: 'day', day: 3 } }),
+      rule({ freq: 'monthly', monthly: { kind: 'day', day: 5 } }),
+    ],
+    [
+      'monthly on its nth weekday',
+      rule({ freq: 'monthly', monthly: { kind: 'weekday', nth: 1, weekday: 'TU' } }),
+      rule({ freq: 'monthly', monthly: { kind: 'weekday', nth: 1, weekday: 'TH' } }),
+    ],
+    [
+      'monthly on a day not its own',
+      rule({ freq: 'monthly', monthly: { kind: 'day', day: 15 } }),
+      rule({ freq: 'monthly', monthly: { kind: 'day', day: 15 } }),
+    ],
+    ['a custom rule', CUSTOM, CUSTOM],
+    ['no repeat', { kind: 'none' }, { kind: 'none' }],
+  ])('moves %s as the start moves', (_name, before, after) => {
+    expect(rebaseRepeat(before, TUE, THU)).toEqual(after);
+  });
+
+  it('takes the last weekday to the last weekday of the new month', () => {
+    // Tuesday Nov 24 is the month's last Tuesday; Monday Dec 28 is December's last Monday.
+    expect(
+      rebaseRepeat(
+        rule({ freq: 'monthly', monthly: { kind: 'weekday', nth: -1, weekday: 'TU' } }),
+        new Date(2026, 10, 24),
+        new Date(2026, 11, 28),
+      ),
+    ).toEqual(rule({ freq: 'monthly', monthly: { kind: 'weekday', nth: -1, weekday: 'MO' } }));
   });
 });
 
