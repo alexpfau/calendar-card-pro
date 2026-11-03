@@ -11,6 +11,7 @@ interface Card extends HTMLElement {
   readonly visibleEventCount: number;
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
+  requestUpdate(): void;
 }
 
 const EVENTS: Record<string, Types.CalendarEventData> = {
@@ -89,8 +90,10 @@ describe.each(['list', 'column', 'grid'] as const)('%s time-dependent visibility
     expect(realEvents(card)).toHaveLength(1);
     expect(card.visibleEventCount).toBe(1);
 
+    // A render just after the moment. What schedules one there is pinned beside the timers,
+    // in `tests/clock-repaint.test.ts`; this file pins what that render draws.
     vi.setSystemTime(new Date(lastVisible).getTime() + 1);
-    card.hass = { ...card.hass };
+    card.requestUpdate();
     await card.updateComplete;
 
     expect(card.events).toBe(events);
@@ -108,7 +111,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s time-dependent visibility
       const { card, callApi } = await mount(view, kind, true, true);
       expect(card.visibleEventCount).toBe(1);
       vi.setSystemTime('2026-06-17T10:01:00Z');
-      card.hass = { ...card.hass };
+      card.requestUpdate();
       await card.updateComplete;
 
       expect(callApi).not.toHaveBeenCalled();
@@ -123,7 +126,7 @@ describe.each(['list', 'column', 'grid'] as const)('%s time-dependent visibility
     expect(card.visibleEventCount).toBe(1);
     const events = card.events;
     vi.setSystemTime('2026-06-18T00:00:00Z');
-    card.hass = { ...card.hass };
+    card.requestUpdate();
     await card.updateComplete;
 
     expect(card.events).toBe(events);

@@ -312,6 +312,7 @@ describe('the card repaints at each boundary', () => {
     updateEvents(force?: boolean): Promise<void>;
     _nowBoundaryTimerId: number | null;
     _nowBoundaryAt: number | null;
+    requestUpdate(): void;
   }
 
   beforeEach(() => {
@@ -379,7 +380,9 @@ describe('the card repaints at each boundary', () => {
     const armed = card._nowBoundaryTimerId;
     const scan = vi.spyOn(EventUtils, 'nextEventBoundary');
 
-    card.hass = { ...card.hass };
+    // A render that changes neither the events nor the config. A new `hass` alone would not
+    // render at all any more (`shouldUpdate`), and would prove nothing here.
+    card.requestUpdate();
     await card.updateComplete;
 
     expect(card._nowBoundaryTimerId).toBe(armed);

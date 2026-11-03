@@ -1087,8 +1087,9 @@ function parseTimeOfDay(
  * absent. It is reported once per distinct value, because this runs per event and a silent
  * typo is a support question nobody can answer.
  *
- * Nothing schedules a render at the returned instant. An event retires on the first
- * render after its moment passes.
+ * Where the configured time retires an event, `nextEventBoundary` schedules a repaint at the
+ * returned instant; midnight is repainted for on every card. Past either, an event retires on
+ * the first render after its moment.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated
@@ -2564,33 +2565,51 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
  * Those are the instants at which list and column view change with no new data: an event
  * becomes "now", stops being it, or turns past (dimmed, or gone under
  * `show_past_events: false`). So is the next local midnight while a timed event runs through
- * it, where a split event's segments hand over. All-day events are left out — their
- * boundaries are local midnights, when the whole day grouping moves, which is a refresh
- * rather than a repaint.
+ * it, where a split event's segments hand over.
+ *
+ * An all-day event has a boundary of its own only where `allday_expires_at` retires it during
+ * its last day, with past events hidden; the card shows nothing else that would draw it gone
+ * at that moment. Its other boundaries are local midnights, which the card repaints for anyway.
  *
  * @param events Events the card holds
  * @param now Instant to measure from, in milliseconds
- * @returns The next boundary in milliseconds, or `null` when no timed event has one ahead
+ * @param config The configuration the events are drawn with, for `allday_expires_at`; without
+ *   it all-day events are left out
+ * @returns The next boundary in milliseconds, or `null` when no event has one ahead
  */
 export function nextEventBoundary(
   events: ReadonlyArray<Types.CalendarEventData>,
   now: number,
+  config?: Types.Config,
 ): number | null {
   let next: number | null = null;
   const today = new Date(now);
   const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+  const consider = (at: number): void => {
+    if (at > now && (next === null || at < next)) next = at;
+  };
 
   for (const event of events) {
-    if (event._isEmptyDay || !event.start?.dateTime || !event.end?.dateTime) continue;
+    if (event._isEmptyDay) continue;
+
+    if (config && !config.show_past_events && event.start?.date && event.end?.date) {
+      const configured = getEntitySetting(event._entityId, 'allday_expires_at', config, event);
+      if (parseTimeOfDay(configured)) {
+        const lastDay = FormatUtils.parseAllDayDate(event.end.date);
+        lastDay.setDate(lastDay.getDate() - 1);
+        consider(allDayExpiryInstant(lastDay, configured).getTime());
+      }
+      continue;
+    }
+
+    if (!event.start?.dateTime || !event.end?.dateTime) continue;
 
     const start = new Date(event.start.dateTime).getTime();
     const end = new Date(event.end.dateTime).getTime();
     // An event running through midnight changes there too when split_multiday_events splits
     // it: one day's segment ends and the next day's begins, though the event does neither.
     const crossings = start < midnight && end > midnight ? [start, end, midnight] : [start, end];
-    for (const at of crossings) {
-      if (at > now && (next === null || at < next)) next = at;
-    }
+    crossings.forEach(consider);
   }
 
   return next;

@@ -63,6 +63,7 @@ import * as CascadeThreshold from './utils/grid-cascade-threshold';
 import * as OverflowStrip from './utils/grid-overflow-strip';
 import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
+import * as HassRelevance from './utils/hass-relevance';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Paging from './utils/paging';
@@ -1367,8 +1368,32 @@ class CalendarCardPro extends LitElement {
   private _bareUpdateRequests = 0;
   private _bareUpdateRequestsSeen = 0;
 
-  /** True only while `_tickNowLine` is requesting its repaint. */
-  private _nowLineRepainting = false;
+  /**
+   * True only while a clock repaint is requesting itself: the now line's tick, or the minute
+   * tick of countdowns and progress bars (`_tickClock`). Neither moves a block, so neither
+   * counts as a bare request.
+   */
+  private _clockRepainting = false;
+
+  /**
+   * Whether a bare `requestUpdate()`, a clock repaint's included, is waiting in the current
+   * batch. `shouldUpdate` skips a batch whose only change is a `hass` that changed nothing
+   * drawn, and must never skip one that also carries such a request: a registry color or a
+   * forecast arriving in the same microtask as an unrelated state tick would be lost.
+   */
+  private _bareUpdatePending = false;
+
+  /**
+   * One-shot timer for the next time the card draws something different with nothing else
+   * changing, and the instant it is set for; see `_nextClockRepaint`.
+   *
+   * Every unrelated `hass` update used to repaint the card, and that is what kept a countdown,
+   * a progress bar and the marks of today moving. The card skips those renders now
+   * (`shouldUpdate`), so this repaints in their place.
+   */
+  private _clockTimerId: number | null = null;
+
+  private _clockTimerAt: number | null = null;
 
   /**
    * One-shot timer for the next local midnight, held while something on the card moves then
@@ -1382,21 +1407,27 @@ class CalendarCardPro extends LitElement {
   private _followsTodayCache: { startDate: string | undefined; follows: boolean } | null = null;
 
   /**
-   * One-shot timer for the next moment a timed event starts or ends, held in list and column
-   * view and in a grid without its now line, and the instant it is set for.
+   * One-shot timer for the next moment a timed event starts or ends, or `allday_expires_at`
+   * retires an all-day one, held in list and column view and in a grid without its now line,
+   * and the instant it is set for.
    *
-   * Those views otherwise repaint only when `hass` happens to change, so an event could keep
+   * Those views otherwise repaint only when something they draw changes, so an event could keep
    * its "Now" label, or a finished one stay on screen under `show_past_events: false`, until
-   * some unrelated entity updated. A timeout per boundary rather than a tick: a day with eight
-   * events costs sixteen repaints, not 1,440. A grid with its now line needs none of it,
-   * because the line's tick already repaints every minute.
+   * the next refresh. A timeout per boundary rather than a tick: a day with eight events costs
+   * sixteen repaints, not 1,440. A grid with its now line needs none of it, because the line's
+   * tick already repaints every minute.
    */
   private _nowBoundaryTimerId: number | null = null;
 
   private _nowBoundaryAt: number | null = null;
 
-  /** The event list the armed boundary was computed from, so an unrelated update skips the scan. */
+  /**
+   * The event list and configuration the armed boundary was computed from, so an unrelated
+   * update skips the scan.
+   */
   private _nowBoundaryEvents: ReadonlyArray<Types.CalendarEventData> | null = null;
+
+  private _nowBoundaryConfig: Types.Config | null = null;
 
   /**
    * Pending trailing timer for the last width measurement.
@@ -1919,6 +1950,7 @@ class CalendarCardPro extends LitElement {
     this._stopNowLineTimer();
     this._stopMidnightTimer();
     this._stopNowBoundaryTimer();
+    this._stopClockTimer();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -2211,6 +2243,7 @@ class CalendarCardPro extends LitElement {
       this.isConnected && this._wantsNowBoundary && document.visibilityState !== 'hidden';
     // What is drawn, so a hidden calendar's events never wake the card.
     const events = this._shownEvents;
+    const config = this.effectiveConfig;
 
     // An armed timer computed from these same events is still right until it fires: no
     // boundary lies between the moment it was computed and the one it waits for, and a
@@ -2219,13 +2252,14 @@ class CalendarCardPro extends LitElement {
       wanted &&
       this._nowBoundaryTimerId !== null &&
       this._nowBoundaryEvents === events &&
+      this._nowBoundaryConfig === config &&
       this._nowBoundaryAt !== null &&
       this._nowBoundaryAt > Date.now()
     ) {
       return;
     }
 
-    const next = wanted ? EventUtils.nextEventBoundary(events, Date.now()) : null;
+    const next = wanted ? EventUtils.nextEventBoundary(events, Date.now(), config) : null;
 
     if (next === null) {
       this._stopNowBoundaryTimer();
@@ -2239,6 +2273,7 @@ class CalendarCardPro extends LitElement {
     this._stopNowBoundaryTimer();
     this._nowBoundaryAt = next;
     this._nowBoundaryEvents = events;
+    this._nowBoundaryConfig = config;
     // A second past the boundary, so the render reads the new state even if the timer fires
     // a little early, and capped so a boundary far ahead never meets setTimeout's 24.8-day
     // limit; the capped timer simply re-arms.
@@ -2257,6 +2292,7 @@ class CalendarCardPro extends LitElement {
     }
     this._nowBoundaryAt = null;
     this._nowBoundaryEvents = null;
+    this._nowBoundaryConfig = null;
   }
 
   /**
@@ -2283,26 +2319,156 @@ class CalendarCardPro extends LitElement {
     }
 
     this._nowLineDayKey = dayKey;
-    this._nowLineRepainting = true;
+    this._clockRepainting = true;
     try {
       this.requestUpdate();
     } finally {
-      this._nowLineRepainting = false;
+      this._clockRepainting = false;
     }
   }
 
   /**
-   * Counts every bare update request except the now line's repaint; see
-   * `_bareUpdateRequests`.
+   * When the card next draws something different with nothing else changing, other than at
+   * an event's start or end, which `_syncNowBoundaryTimer` covers.
+   *
+   * A minute from now while a countdown that names minutes or hours, or a progress bar, is on
+   * screen. Otherwise the next local midnight, which moves the mark of today, "Today" and
+   * "Tomorrow", a countdown that names days, and the dimming of a past all-day event or empty
+   * day, on every card. Null where the now line's own tick repaints every minute anyway.
+   *
+   * @param now - Epoch milliseconds
+   * @returns Epoch milliseconds, or null
+   */
+  private _nextClockRepaint(now: number): number | null {
+    if (this._wantsNowLine) return null;
+
+    const today = new Date(now);
+    // One second past, so the render reads the new day even if the timer fires a little early.
+    // Built from local fields, so a DST night is as long as it really is.
+    const midnight = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+      0,
+      0,
+      1,
+    ).getTime();
+
+    return this._drawsMovingClockText(now, midnight)
+      ? Math.min(now + Constants.TIMING.CLOCK_TICK_INTERVAL, midnight)
+      : midnight;
+  }
+
+  /**
+   * Whether a countdown or a progress bar on screen changes within the next minute or so.
+   *
+   * A countdown to a start later today reads in minutes or hours; one to a later day reads in
+   * days, and moves only at midnight. A progress bar moves while its event runs.
+   *
+   * @param now - Epoch milliseconds
+   * @param midnight - The next local midnight, in epoch milliseconds
+   * @returns True when the minute tick is needed
+   */
+  private _drawsMovingClockText(now: number, midnight: number): boolean {
+    const config = this.effectiveConfig;
+    const countdown = config.show_countdown;
+    const progress = config.show_progress_bar;
+    if (!countdown && !progress) return false;
+
+    return this._shownEvents.some((event) => {
+      if (event._isEmptyDay) return false;
+      if (progress && EventUtils.calculateEventProgress(event) !== null) return true;
+      if (!countdown || !event.start?.dateTime) return false;
+      const start = new Date(event.start.dateTime).getTime();
+      return start > now && start < midnight;
+    });
+  }
+
+  /**
+   * Holds the clock repaint (`_nextClockRepaint`) while the card is connected and visible.
+   *
+   * Reconciled from `updated()` like the other timers. A timer already set no later than the
+   * time needed stays: it fires early, repaints, and the render re-arms it. So a minute tick
+   * keeps its cadence however often other renders happen in between.
+   */
+  private _syncClockTimer(): void {
+    const next =
+      this.isConnected && document.visibilityState !== 'hidden'
+        ? this._nextClockRepaint(Date.now())
+        : null;
+
+    if (next === null) {
+      this._stopClockTimer();
+      return;
+    }
+
+    if (this._clockTimerId !== null && this._clockTimerAt !== null && this._clockTimerAt <= next) {
+      return;
+    }
+
+    this._stopClockTimer();
+    this._clockTimerAt = next;
+    this._clockTimerId = window.setTimeout(() => this._tickClock(), Math.max(0, next - Date.now()));
+  }
+
+  private _stopClockTimer(): void {
+    if (this._clockTimerId !== null) {
+      clearTimeout(this._clockTimerId);
+      this._clockTimerId = null;
+    }
+    this._clockTimerAt = null;
+  }
+
+  /**
+   * Repaints for the clock alone. Nothing moves in the grid, so like the now line's tick this
+   * is not a bare request: it refits no block (`_gridDisclosureChanged`).
+   */
+  private _tickClock(): void {
+    this._clockTimerId = null;
+    this._clockTimerAt = null;
+    this._clockRepainting = true;
+    try {
+      this.requestUpdate();
+    } finally {
+      this._clockRepainting = false;
+    }
+  }
+
+  /**
+   * Counts every bare update request except a clock repaint (see `_bareUpdateRequests`), and
+   * marks any bare request as pending for `shouldUpdate`.
    *
    * Lit calls this from its own constructor, before the counter's initializer has run, hence
    * the `?? 0`.
    */
   override requestUpdate(...args: Parameters<LitElement['requestUpdate']>): void {
-    if (args[0] === undefined && !this._nowLineRepainting) {
-      this._bareUpdateRequests = (this._bareUpdateRequests ?? 0) + 1;
+    if (args[0] === undefined) {
+      this._bareUpdatePending = true;
+      if (!this._clockRepainting) {
+        this._bareUpdateRequests = (this._bareUpdateRequests ?? 0) + 1;
+      }
     }
     super.requestUpdate(...args);
+  }
+
+  /**
+   * Skips an update whose only cause is a `hass` that changed nothing the card draws: another
+   * entity's state, on a dashboard where something changes every few seconds. Everything else
+   * updates, a bare `requestUpdate()` batched with that `hass` included.
+   *
+   * @param changedProps - Properties changed since the last update
+   * @returns False to skip the update
+   */
+  protected override shouldUpdate(changedProps: PropertyValues): boolean {
+    const bare = this._bareUpdatePending;
+    this._bareUpdatePending = false;
+    if (bare || changedProps.size !== 1 || !changedProps.has('hass')) return true;
+
+    return HassRelevance.hassChangeIsVisible(
+      changedProps.get('hass') as Types.Hass | undefined,
+      this.hass,
+      HassRelevance.configEntityIds(this.config),
+    );
   }
 
   private _stopWidthObserver(): void {
@@ -3006,9 +3172,10 @@ class CalendarCardPro extends LitElement {
     this._syncMidnightTimer();
     this._syncReplacedRefresh();
     this._syncNowBoundaryTimer();
+    this._syncClockTimer();
     this._syncSwipeArrival();
     // The same gate as the disclosure pass: a hass refresh that changed nothing this card
-    // draws re-measures neither, and neither does the now line's repaint. A resize reaches
+    // draws re-measures neither, and neither does a clock repaint. A resize reaches
     // the cascade through the width observer.
     const gridChanged = this._gridDisclosureChanged(changedProps);
     // Read before the passes below run: each can request another update from in here, and
@@ -3416,9 +3583,11 @@ class CalendarCardPro extends LitElement {
     // `requestUpdate` below it is what redraws immediately on return.
     this._syncNowLineTimer();
     this._syncNowBoundaryTimer();
+    this._syncClockTimer();
 
     if (document.visibilityState === 'visible') {
-      // A boundary may have passed while the tab was hidden and its timer stopped.
+      // A boundary, a minute or midnight may have passed while the tab was hidden and its
+      // timers stopped.
       if (this._wantsNowLine || this._wantsNowBoundary) {
         this.requestUpdate();
       }
