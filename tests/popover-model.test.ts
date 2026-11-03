@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   type Draft,
   type PopoverParams,
+  countReachDays,
   draftFromParams,
   draftProblem,
   eventWrite,
   isDirty,
-  countReachDays,
   rebaseRepeat,
   repeatChanged,
-  untilRule,
   spanText,
+  untilRule,
   writtenRule,
 } from '../src/interaction/popover-model';
 import type * as RRule from '../src/interaction/rrule';
