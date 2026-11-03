@@ -1,12 +1,10 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import type { PopoverRequest } from './popover-spy';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
-import {
-  EVENT_DETAIL_DIALOG_TAG,
-  EVENT_EDITOR_DIALOG_TAG,
-} from '../src/interaction/ha-calendar-dialogs';
+import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 import '../src/calendar-card-pro';
 
 vi.mock('../src/utils/logger', () => ({
@@ -26,8 +24,8 @@ vi.mock('../src/utils/logger', () => ({
  *
  * Every option here defaults off, so a suite built from default config sees none of it; each
  * case turns its option on, and the off-states that must add nothing are cases of their own.
- * The dialogs are defined up front, the state of any session that has opened one once, so a
- * press opens its dialog at once; loading and the busy cue are in `ha-calendar-dialogs.test.ts`.
+ * A press opens the card's event popover at once, through Home Assistant's `show-dialog`, which
+ * nothing answers here, so each request is read off that event.
  *
  * happy-dom computes no layout, so where a day is found from the pointer's position rather
  * than from the element under it (a grid's time area, its all-day band, the space under a
@@ -43,11 +41,6 @@ interface Card extends HTMLElement {
   readonly updateComplete: Promise<boolean>;
   _hiddenCalendars: ReadonlySet<string>;
   _holdIndicator: HTMLElement | null;
-}
-
-interface DialogDetail {
-  dialogTag: string;
-  dialogParams: { calendarId: string; selectedDate?: Date; entry?: { summary?: string } };
 }
 
 interface HassActionDetail {
@@ -79,6 +72,9 @@ const EVENTS = [
 /** The days the card covers, at local midnight. The unit project runs in UTC. */
 const JUNE = (day: number, hour = 0) => new Date(2026, 5, day, hour);
 
+/** The span a new event opens with on a day, as `[start, end]`: from the hour, for an hour. */
+const SPAN = (day: number, hour: number) => [JUNE(day, hour), JUNE(day, hour + 1)] as const;
+
 const ADD = { day_tap_action: { action: 'add-event' } } as const;
 
 async function mount(
@@ -102,10 +98,10 @@ async function mount(
     localize: (key: string) => (key === 'ui.components.calendar.event.add' ? 'Add event' : key),
   } as unknown as Types.Hass;
 
-  const dialogs: DialogDetail[] = [];
+  const dialogs: PopoverRequest[] = [];
   const hassActions: HassActionDetail[] = [];
   card.addEventListener('show-dialog', (ev) =>
-    dialogs.push((ev as Event & { detail: DialogDetail }).detail),
+    dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
   card.addEventListener('hass-action', (ev) =>
     hassActions.push((ev as Event & { detail: HassActionDetail }).detail),
@@ -186,19 +182,32 @@ function placeAt(
   } as DOMRect);
 }
 
-/** Let an open finish: it awaits the loader, already settled, before dispatching. */
+/**
+ * Let anything a press deferred run. The popover opens synchronously, so this only matters to a
+ * count that must stay where it is: it gives a late or second open the chance to show up.
+ */
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
-/** What the editor dialogs asked for, as `[calendar, date]`. */
-const adds = (dialogs: DialogDetail[]) =>
+/** What the popovers opened on a new event asked for, as `[calendar, start, end]`. */
+const adds = (dialogs: PopoverRequest[]) =>
   dialogs
-    .filter(({ dialogTag }) => dialogTag === EVENT_EDITOR_DIALOG_TAG)
-    .map(({ dialogParams }) => [dialogParams.calendarId, dialogParams.selectedDate]);
+    .filter(
+      ({ dialogTag, dialogParams }) =>
+        dialogTag === EVENT_POPOVER_TAG && dialogParams.mode === 'new',
+    )
+    .map(({ dialogParams }) => [
+      dialogParams.calendarId,
+      dialogParams.times?.start,
+      dialogParams.times?.end,
+    ]);
 
-beforeAll(() => {
-  customElements.define(EVENT_EDITOR_DIALOG_TAG, class extends HTMLElement {});
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-});
+/** Each popover opened, as `[tag, mode, title]`: the title is the event's, for one on an event. */
+const opened = (dialogs: PopoverRequest[]) =>
+  dialogs.map(({ dialogTag, dialogParams }) => [
+    dialogTag,
+    dialogParams.mode,
+    dialogParams.entry?.summary,
+  ]);
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -225,7 +234,7 @@ describe('day_tap_action: add-event', () => {
 
       // FROZEN_NOW is 10:00. The read-only calendar listed first is passed over, and the
       // derived click that follows the tap is not a second add.
-      expect(adds(dialogs)).toEqual([[ANNA, JUNE(18, 10)]]);
+      expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
     },
   );
 
@@ -236,7 +245,7 @@ describe('day_tap_action: add-event', () => {
     tap(empty.querySelector('td.event')!.firstElementChild ?? empty);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(19, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 10)]]);
   });
 
   it("never adds from a press on an event: with no tap of its own it is the card's", async () => {
@@ -258,7 +267,7 @@ describe('day_tap_action: add-event', () => {
     tap(leafShowing(card, 'Dentist'));
     await settle();
 
-    expect(dialogs.map(({ dialogTag }) => dialogTag)).toEqual([EVENT_DETAIL_DIALOG_TAG]);
+    expect(opened(dialogs)).toEqual([[EVENT_POPOVER_TAG, 'event', 'Dentist']]);
   });
 
   it("leaves the title to the card's tap action", async () => {
@@ -285,7 +294,7 @@ describe('day_tap_action: add-event', () => {
     tap(plane, 250, ((13 * 60 + 45 - 7 * 60) / 900) * 1500);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(19, 13)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 13)]]);
   });
 
   it('washes the hour pressed in a grid, and only while it is pressed', async () => {
@@ -328,7 +337,7 @@ describe('day_tap_action: add-event', () => {
     click(band);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(19, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 10)]]);
   });
 
   it('never adds from a banner in the all-day band', async () => {
@@ -355,7 +364,7 @@ describe('day_tap_action: add-event', () => {
 
     tap(grid, 150, 300);
     await settle();
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(18, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
   });
 
   it('adds nothing from a press that moved', async () => {
@@ -393,13 +402,13 @@ describe('day_tap_action: add-event', () => {
     key(first, 'keydown', 'Enter', true);
     key(second, 'keydown', ' ');
     await settle();
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(17, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(17, 10)]]);
 
     key(second, 'keyup', ' ');
     await settle();
     expect(adds(dialogs)).toEqual([
-      [ANNA, JUNE(17, 10)],
-      [ANNA, JUNE(18, 10)],
+      [ANNA, ...SPAN(17, 10)],
+      [ANNA, ...SPAN(18, 10)],
     ]);
   });
 
@@ -409,7 +418,7 @@ describe('day_tap_action: add-event', () => {
     click(dayButtons(card)[2]);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(19, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(19, 10)]]);
   });
 
   it.each(['list', 'column', 'grid'])(
@@ -459,28 +468,15 @@ describe('day_tap_action: add-event', () => {
     },
   );
 
-  it.each(['preview', 'editMode'] as const)(
-    'opens nothing when %s begins between the press and the dialog loading',
-    async (flag) => {
-      const { card, dialogs } = await mount(ADD);
-
-      // The open awaits the loader before it dispatches; here the card is edited meanwhile.
-      tap(dayButtons(card)[1]);
-      card[flag] = true;
-      await settle();
-
-      expect(adds(dialogs)).toEqual([]);
-    },
-  );
-
-  it('opens nothing when the card leaves the page between the press and the dialog loading', async () => {
+  it("opens in the press's own task, leaving no moment to be edited or removed in first", async () => {
+    // The popover is defined with the card, so nothing loads between a press and the popover
+    // opening: there is no request left waiting for editing to begin or the card to leave the
+    // page under, and so none to refuse once it has.
     const { card, dialogs } = await mount(ADD);
 
     tap(dayButtons(card)[1]);
-    card.remove();
-    await settle();
 
-    expect(adds(dialogs)).toEqual([]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
   });
 
   it.each(['preview', 'editMode'] as const)(
@@ -519,8 +515,9 @@ describe('day_tap_action: add-event', () => {
 });
 
 describe('focus after a press', () => {
-  // Home Assistant gives focus back to whatever held it when its dialog opened, by script, and
-  // a browser rings such a focus; a press by pointer must leave none behind. The keyboard keeps it.
+  // Home Assistant's dialog manager gives focus back to whatever held it when the popover
+  // opened, by script, and a browser rings such a focus; a press by pointer must leave none
+  // behind. The keyboard keeps it.
   const focused = (card: Card) => root(card).activeElement;
 
   it.each([
@@ -632,7 +629,7 @@ describe('add-event as the card action', () => {
     hold(all(card, '.date-column')[1]);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(18, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
   });
 
   it("adds on an event's own day when the hold lands on it", async () => {
@@ -641,7 +638,7 @@ describe('add-event as the card action', () => {
     hold(leafShowing(card, 'Sports day'));
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(18, 10)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(18, 10)]]);
   });
 
   it('adds at the hour under a hold in a grid, through an event', async () => {
@@ -653,7 +650,7 @@ describe('add-event as the card action', () => {
     hold(dentist, 50, ((14 * 60 + 20 - 7 * 60) / 900) * 1500);
     await settle();
 
-    expect(adds(dialogs)).toEqual([[ANNA, JUNE(17, 14)]]);
+    expect(adds(dialogs)).toEqual([[ANNA, ...SPAN(17, 14)]]);
   });
 
   it('adds on the date the add button uses where no day is under the press', async () => {
@@ -664,13 +661,14 @@ describe('add-event as the card action', () => {
     key(root(card).querySelector('ha-card')!, 'keydown', 'Enter');
     await settle();
 
-    // Today is in the page, so the add button's date: now, the moment of the press. Fake time
-    // stands still between the presses and here.
+    // Today is in the page, so the add button's date: now, the moment of the press, which the
+    // new event takes the hour of. Fake time stands still between the presses and here.
     const now = new Date(Date.now());
     expect(now.getHours()).toBe(FROZEN_NOW.getHours());
+    expect([now.getDate(), now.getHours()]).toEqual([17, 10]);
     expect(adds(dialogs)).toEqual([
-      [ANNA, now],
-      [ANNA, now],
+      [ANNA, ...SPAN(17, 10)],
+      [ANNA, ...SPAN(17, 10)],
     ]);
   });
 
@@ -721,9 +719,7 @@ describe('event_hold_action: details', () => {
     click(dentist);
     await settle();
 
-    expect(
-      dialogs.map(({ dialogTag, dialogParams }) => [dialogTag, dialogParams.entry?.summary]),
-    ).toEqual([[EVENT_DETAIL_DIALOG_TAG, 'Dentist']]);
+    expect(opened(dialogs)).toEqual([[EVENT_POPOVER_TAG, 'event', 'Dentist']]);
   });
 
   it("leaves a tap on the event to the card's tap action", async () => {
@@ -747,7 +743,7 @@ describe('event_hold_action: details', () => {
     key(button, 'keydown', 'Enter');
     await settle();
 
-    expect(dialogs.map(({ dialogTag }) => dialogTag)).toEqual([EVENT_DETAIL_DIALOG_TAG]);
+    expect(opened(dialogs)).toEqual([[EVENT_POPOVER_TAG, 'event', 'Dentist']]);
   });
 
   it("leaves a hold on an event to the card's hold action by default", async () => {

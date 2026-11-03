@@ -57,7 +57,7 @@ entities:
     accent_color: '#43a047'
 ```
 
-Replace `calendar.trash_pickup` with your waste calendar and each `allowlist` with your feed's word for that bin. `replace_pattern` removes the 🗑️ this feed puts before every title; match your own prefix, or drop it. A tap shows the entry as the feed stores it, prefix included.
+Replace `calendar.trash_pickup` with your waste calendar and each `allowlist` with your feed's word for that bin. `replace_pattern` removes the 🗑️ this feed puts before every title; match your own prefix, or drop it. A tap shows the entry's title as the card does, without the prefix: a feed cannot be edited, so the popover never switches to the title as stored.
 
 ## 🧭 What It Adds
 

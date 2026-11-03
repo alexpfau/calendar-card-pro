@@ -68,6 +68,6 @@ Calendar Card Pro offers two ways to customize your card:
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
 - **Page, Switch Layouts & Add Events on the Card** - The [header toolbar](/features/layout-appearance#header-toolbar) puts [date navigation](/features/layout-appearance#paging-through-dates), a [calendar filter](/features/layout-appearance#showing-hiding-calendars), a List, Columns and Grid switcher and an add-event button on the card itself
-- **Open an Event** - With `event_tap_action: details`, [a tap on an event](/features/actions#tapping-an-event) opens it in Home Assistant's own event dialog, where it can also be edited or deleted if its calendar allows
+- **Open an Event** - With `event_tap_action: details`, [a tap on an event](/features/actions#tapping-an-event) opens it in the card's own popover, where it can also be changed or deleted if its calendar allows
 - **Reference Configuration** - Use [Configuration Options](/reference/configuration) as the complete option reference
 - **Get Involved!** - See [Contributing & Roadmap](/contributing) to contribute or view upcoming features

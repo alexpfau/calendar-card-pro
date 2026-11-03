@@ -19,6 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryCard,
   type StoryEvent,
@@ -38,12 +39,6 @@ vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const { config: CARD, entities: BLOCKS } = readStoryCard('today-and-tomorrow');
@@ -186,13 +181,16 @@ const withWeatherAt = (position: string) =>
   withOptions(CARD, { weather: { ...(CARD.weather as object), position } });
 
 describe('the Today & Tomorrow card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -346,14 +344,8 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
     // shared plan." Every calendar here allows both.
     const card = await mountStory(CARD, DAYS);
     const opened = () => {
-      const params = openDetails.mock.calls[openDetails.mock.calls.length - 1] as unknown[];
-      const { calendarId, entry, canEdit, canDelete } = params[1] as {
-        calendarId: string;
-        entry: { summary: string };
-        canEdit: boolean;
-        canDelete: boolean;
-      };
-      return { calendarId, summary: entry.summary, canEdit, canDelete };
+      const { calendarId, entry, canEdit, canDelete } = popovers.opened.mock.lastCall![0];
+      return { calendarId, summary: entry?.summary, canEdit, canDelete };
     };
 
     await tap(card, block(card, 'Standup').target);
@@ -371,7 +363,7 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       canEdit: false,
       canDelete: false,
     });
-    expect(openDetails).toHaveBeenCalledTimes(2);
+    expect(popovers.opened).toHaveBeenCalledTimes(2);
 
     // Control: the same zoo trip, not merged, is Anna's event alone and editable like any other,
     // so what withheld Edit and Delete above is the merge.

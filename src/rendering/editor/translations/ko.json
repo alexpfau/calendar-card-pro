@@ -212,7 +212,7 @@
   "toolbar.refresh": "새로고침 버튼",
   "toolbar.refresh.helper": "다음 예정된 새로고침을 기다리지 않고 지금 바로 이벤트를 다시 가져옵니다.",
   "toolbar.add_event": "이벤트 추가 버튼",
-  "toolbar.add_event.helper": "홈어시스턴트의 새 이벤트 대화 상자를 엽니다. 카드의 캘린더 중 하나 이상이 새 이벤트를 받을 때 표시됩니다.",
+  "toolbar.add_event.helper": "작성할 새 이벤트를 엽니다. 카드의 캘린더 중 하나 이상이 새 이벤트를 받을 때 표시됩니다.",
   "toolbar.legend": "캘린더 필터",
   "toolbar.legend.helper": "이 기기에서 캘린더별로 이벤트를 숨깁니다. 메뉴는 캘린더마다 체크박스를 제공하고, 칩은 월 옆에 캘린더를 표시하며 자리가 부족하면 메뉴로 대체됩니다.",
   "toolbar.legend.option.off.label": "끄기",

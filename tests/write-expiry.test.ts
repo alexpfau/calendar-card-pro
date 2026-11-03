@@ -1,5 +1,5 @@
 /**
- * A calendar write through one of Home Assistant's dialogs, and the windows stored on disk.
+ * A calendar write through the card's event popover, and the windows stored on disk.
  *
  * Every card on the page refreshes after a write, but only for the window it is drawing. The
  * windows stored in `localStorage` for anything else kept looking fresh: home's, while the
@@ -13,15 +13,13 @@
  * write cannot have touched, and a request that started before the write and lands after it.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import { memoryStorage } from './memory-storage';
+import type { PopoverRequest } from './popover-spy';
 import type * as Types from '../src/config/types';
-import {
-  EVENT_DETAIL_DIALOG_TAG,
-  EVENT_EDITOR_DIALOG_TAG,
-} from '../src/interaction/ha-calendar-dialogs';
+import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 import * as EventUtils from '../src/utils/events';
 import '../src/calendar-card-pro';
 
@@ -39,11 +37,6 @@ interface Card extends HTMLElement {
   setConfig(config: unknown): void;
   hass: Types.Hass;
   readonly updateComplete: Promise<boolean>;
-}
-
-interface DialogDetail {
-  dialogTag: string;
-  dialogParams: { calendarId?: string; updated: () => unknown };
 }
 
 const event = (summary: string, day: number, hour: number) => {
@@ -111,9 +104,9 @@ async function mount(config: Record<string, unknown>, callApi = answering()) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig(buildConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config }));
   card.hass = makeHass(callApi);
-  const dialogs: DialogDetail[] = [];
+  const dialogs: PopoverRequest[] = [];
   card.addEventListener('show-dialog', (ev) =>
-    dialogs.push((ev as Event & { detail: DialogDetail }).detail),
+    dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
   document.body.appendChild(card);
   await settle(card);
@@ -134,19 +127,22 @@ async function pageForward(card: Card): Promise<void> {
 }
 
 /**
- * Save through a dialog: the add dialog from the toolbar, or the details dialog from an event.
- * Anna's calendar then holds what the save left, and the dialog reports it.
+ * Save through the event popover: on a new event from the toolbar, or on an event pressed.
+ * Anna's calendar then holds what the save left, and the popover reports it, naming the
+ * calendar it wrote to as the popover does, unless a test asks for a report naming none.
  *
- * @param card - The card the dialog opens from
- * @param dialogs - The dialogs it has opened
- * @param how - Which dialog, and for details the event it opens on
+ * @param card - The card the popover opens from
+ * @param dialogs - The popovers it has opened
+ * @param how - A new event, or the event the popover opens on
  * @param after - Anna's events once the save landed; by default Lunch is added
+ * @param naming - Whether the report names the calendar written to
  */
 async function save(
   card: Card,
-  dialogs: DialogDetail[],
+  dialogs: PopoverRequest[],
   how: 'add' | { details: string },
   after: unknown[] = [DENTIST, LUNCH],
+  naming = true,
 ): Promise<void> {
   if (how === 'add') {
     card.shadowRoot!.querySelector<HTMLElement>('.add-event-button')!.click();
@@ -158,8 +154,10 @@ async function save(
   }
   await settle(card);
   expect(dialogs).toHaveLength(1);
+  expect(dialogs[0].dialogTag).toBe(EVENT_POPOVER_TAG);
+  const params = dialogs[0].dialogParams;
   calendars['calendar.anna'] = after;
-  dialogs[0].dialogParams.updated();
+  params.updated(naming ? params.calendarId : undefined);
   await settle(card);
 }
 
@@ -169,11 +167,6 @@ async function reload(card: Card, config: Record<string, unknown>) {
   await vi.advanceTimersByTimeAsync(10_000);
   return mount(config);
 }
-
-beforeAll(() => {
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-  customElements.define(EVENT_EDITOR_DIALOG_TAG, class extends HTMLElement {});
-});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -192,7 +185,7 @@ afterEach(() => {
 describe('a write while the card is paged away from home', () => {
   const config = { toolbar: TOOLBAR, refresh_on_navigate: false };
 
-  it('through the add dialog: a reload fetches home again and draws the new event', async () => {
+  it('through the popover on a new event: a reload fetches home again and draws it', async () => {
     const first = await mount(config);
     expect(drawn(first.card)).toEqual(['Dentist']);
     await pageForward(first.card);
@@ -204,7 +197,7 @@ describe('a write while the card is paged away from home', () => {
     expect(second.callApi).toHaveBeenCalledTimes(1);
   });
 
-  it('through the details dialog: an event moved onto a home date is there after a reload', async () => {
+  it('through the popover on an event: one moved onto a home date is there after a reload', async () => {
     calendars['calendar.anna'] = [DENTIST, RECITAL];
     const withDetails = { ...config, event_tap_action: { action: 'details' } };
     const first = await mount(withDetails);
@@ -279,7 +272,7 @@ describe('the stored windows of cards that are not on the page', () => {
     card.remove();
   }
 
-  it('expires one holding the calendar a details dialog wrote to', async () => {
+  it('expires one holding the calendar the popover wrote to, from an event', async () => {
     await visit(elsewhere(['calendar.anna']));
     const writer = await mount({ event_tap_action: { action: 'details' } });
     await save(writer.card, writer.dialogs, { details: 'Dentist' });
@@ -299,18 +292,32 @@ describe('the stored windows of cards that are not on the page', () => {
     expect(drawn(back.card)).toEqual(['Piano']);
   });
 
-  it('after a new event, expires every one holding a calendar that accepts new events', async () => {
-    // Home Assistant's add dialog lets the user pick any writable calendar, not only the one
-    // the card offered, so Ben's window may hold the new event too. The holidays cannot.
+  it('after a new event naming no calendar, expires every one holding a calendar that accepts new events', async () => {
+    // The popover lets the user pick any writable calendar, not only the one the card offered,
+    // so a report that names none may come from Ben's calendar too. The holidays cannot.
     await visit(elsewhere(['calendar.ben']));
     await visit(elsewhere(['calendar.holidays']));
     const writer = await mount({ toolbar: TOOLBAR });
-    await save(writer.card, writer.dialogs, 'add');
+    await save(writer.card, writer.dialogs, 'add', undefined, false);
 
     const ben = await mount(elsewhere(['calendar.ben']));
     expect(ben.callApi).toHaveBeenCalledTimes(1);
     const holidays = await mount(elsewhere(['calendar.holidays']));
     expect(holidays.callApi).not.toHaveBeenCalled();
+  });
+
+  it('after a new event the popover names a calendar for, expires only the windows holding it', async () => {
+    // What the popover does: it names the calendar it wrote to, which here is Anna's.
+    await visit(elsewhere(['calendar.anna']));
+    await visit(elsewhere(['calendar.ben']));
+    const writer = await mount({ toolbar: TOOLBAR });
+    await save(writer.card, writer.dialogs, 'add');
+
+    const anna = await mount(elsewhere(['calendar.anna']));
+    expect(anna.callApi).toHaveBeenCalledTimes(1);
+    expect(drawn(anna.card)).toEqual(['Dentist', 'Lunch']);
+    const ben = await mount(elsewhere(['calendar.ben']));
+    expect(ben.callApi).not.toHaveBeenCalled();
   });
 });
 

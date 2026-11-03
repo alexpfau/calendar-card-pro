@@ -31,7 +31,7 @@ features:
     details: Page through the dates, switch layouts and show or hide calendars, right on the dashboard.
   - icon: ✏️
     title: Add & Edit Events
-    details: Open, add, edit and delete events through Home Assistant's own dialogs, as far as each calendar allows.
+    details: Open, add, edit and delete events in the card's own popover, as far as each calendar allows.
   - icon: ✅
     title: Multi-Calendar Support
     details: Display any number of calendars, each with its own styling and filters.
@@ -56,7 +56,7 @@ features:
 
 **Calendar Card Pro** was inspired by a beautiful [calendar design using button-card and Hass calendar add-on](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) shared in the Home Assistant community. While the original design was visually stunning, implementing it with **button-card** and **card-mod** led to **performance issues**.
 
-This motivated me to create a **dedicated calendar card**. It started out doing one thing well, **displaying upcoming events beautifully and efficiently**, and has since grown into a calendar you can work with right on the dashboard: **three layouts**, a **toolbar** to page through the dates and switch between them, and **adding, opening and editing events** through Home Assistant's own dialogs.
+This motivated me to create a **dedicated calendar card**. It started out doing one thing well, **displaying upcoming events beautifully and efficiently**, and has since grown into a calendar you can work with right on the dashboard: **three layouts**, a **toolbar** to page through the dates and switch between them, and **adding, opening and editing events** in a popover of its own.
 
 **Performance** is still the foundation: cached events are on screen the moment a dashboard opens, every calendar loads in parallel, and the visual editor is only downloaded when you open it.
 
@@ -64,7 +64,7 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 
 - 🗓️ **List, Columns & Grid** – Stack the days as an agenda, lay them [side by side](/features/column-view), or draw them [hour by hour](/features/grid-view), each event sized by how long it runs.
 - 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts, show or hide each calendar and refresh](/features/layout-appearance#header-toolbar), each device remembering its layout and which calendars it shows.
-- ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card through [Home Assistant's own dialogs](/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
+- ✏️ **Add & Edit Events** – Open, add, edit and delete events from the card in [its own popover](/features/actions#the-event-popover), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Give each calendar its own color, label or [a person's photo](/features/core-settings#showing-a-persons-picture) and its own filters; an event on several calendars [can be merged into one](/features/core-settings#labeling-coloring-shared-events).
 - ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](/features/editor#search-customized-only) that finds any setting by name or YAML key.
 - 🌦️ **Weather** – [Forecasts](/features/weather) in the date column or beside each event.

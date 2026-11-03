@@ -1,0 +1,110 @@
+/**
+ * Text with its links found: bare web addresses, and the `<a href>` links calendars such as
+ * Google's write into descriptions.
+ *
+ * The result is plain text and link pieces for a Lit template to draw, never markup: text goes
+ * through a text binding and a link's address through an attribute, so nothing in an event
+ * can become an element. Only `http` and `https` links are kept as links; any other scheme,
+ * `javascript:` included, is drawn as its words.
+ */
+
+import { stripHtmlTags } from './format';
+
+//-----------------------------------------------------------------------------
+// TYPES
+//-----------------------------------------------------------------------------
+
+/** A run of plain text, or a link with the words drawn for it. */
+export type TextPiece = { text: string } | { text: string; href: string };
+
+//-----------------------------------------------------------------------------
+// CONSTANTS
+//-----------------------------------------------------------------------------
+
+/** An `<a>` element with an `href`, its quoted, single-quoted or bare value, and its words. */
+const ANCHOR = /<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi;
+
+/** A web address in running text, up to the first space or angle bracket or quote. */
+const BARE_URL = /\bhttps?:\/\/[^\s<>"']+/gi;
+
+/** Markup that ends a line, kept as a line break so a description keeps its paragraphs. */
+const LINE_ENDING_MARKUP = /<br\s*\/?>|<\/(?:p|div|li|h[1-6]|tr)\s*>/gi;
+
+/** Marks where an anchor stood, in characters no calendar text uses. */
+const ANCHOR_MARK = /\uE000(\d+)\uE001/;
+
+//-----------------------------------------------------------------------------
+// PUBLIC API
+//-----------------------------------------------------------------------------
+
+/**
+ * A link's address when it may be drawn as one: `http` or `https` only.
+ *
+ * @param href - An address, entities already decoded
+ * @returns The address, or undefined
+ */
+export function safeHref(href: string): string | undefined {
+  const value = href.trim();
+  return /^https?:\/\//i.test(value) ? value : undefined;
+}
+
+/**
+ * Split plain text at its web addresses. Trailing punctuation that ends a sentence stays text,
+ * and a closing parenthesis stays with the address only when the address opened one.
+ *
+ * @param text - Plain text
+ * @returns The pieces, in order
+ */
+export function linkPlainText(text: string): TextPiece[] {
+  const pieces: TextPiece[] = [];
+  let last = 0;
+  for (const match of text.matchAll(BARE_URL)) {
+    let url = match[0];
+    while (/[.,;:!?'"]$/.test(url) || (url.endsWith(')') && !url.includes('('))) {
+      url = url.slice(0, -1);
+    }
+    const start = match.index ?? 0;
+    if (start > last) pieces.push({ text: text.slice(last, start) });
+    pieces.push({ text: url, href: url });
+    last = start + url.length;
+  }
+  if (last < text.length) pieces.push({ text: text.slice(last) });
+  return pieces;
+}
+
+/**
+ * A description or a location as pieces of text and links.
+ *
+ * Markup is removed as the card's rows remove it, with line-ending tags kept as line breaks,
+ * except that an `<a href>` link keeps its address: the words of the link, linked. A link with
+ * no words shows its address.
+ *
+ * @param raw - The text as the calendar delivered it
+ * @returns The pieces, in order
+ */
+export function linkText(raw: string | null | undefined): TextPiece[] {
+  if (!raw) return [];
+  const anchors: Array<{ href: string; words: string }> = [];
+  const marked = raw
+    .replace(ANCHOR, (_match, doubled: string, single: string, bare: string, words: string) => {
+      anchors.push({ href: doubled ?? single ?? bare ?? '', words });
+      return `\uE000${anchors.length - 1}\uE001`;
+    })
+    .replace(LINE_ENDING_MARKUP, '\n');
+  const plain = stripHtmlTags(marked).replace(/\n{3,}/g, '\n\n');
+
+  const pieces: TextPiece[] = [];
+  const parts = plain.split(ANCHOR_MARK);
+  parts.forEach((part, index) => {
+    if (index % 2 === 0) {
+      pieces.push(...linkPlainText(part));
+      return;
+    }
+    const anchor = anchors[Number(part)];
+    if (!anchor) return;
+    const href = safeHref(stripHtmlTags(anchor.href));
+    const words = stripHtmlTags(anchor.words) || stripHtmlTags(anchor.href);
+    pieces.push(href ? { text: words, href } : { text: words });
+  });
+  return pieces.filter((piece) => piece.text !== '');
+}

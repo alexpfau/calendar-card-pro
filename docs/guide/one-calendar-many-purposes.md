@@ -127,7 +127,7 @@ Grandma's birthday is a yearly all-day event on the Family calendar, _🎂 Grand
 - [`replace_pattern`](/features/core-settings#dropping-a-prefix-from-every-title) deletes the cake and the _'s birthday_. With no `replace_with`, whatever matches is removed, and the `|` lets one pattern remove both.
 - The age comes from the `YEAR=1956` marker, as [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) explains.
 
-What the Family Hub shows as _🎂 Grandma's birthday (70)_ reads here as **🎂 Grandma (70)**. Next year it says 71, and nobody edits anything. A tap opens the birthday as the calendar stores it, _🎂 Grandma's birthday_, without the age, which only the card works out.
+What the Family Hub shows as _🎂 Grandma's birthday (70)_ reads here as **🎂 Grandma (70)**. Next year it says 71, and nobody edits anything. A tap opens the birthday titled _Grandma_, without the age, which only the card works out.
 
 ### A Reminder That Retires Itself
 
@@ -156,6 +156,8 @@ An event with no description counts as **not matching**, so an allowlist drops i
 
 ::: warning A Title Is Not the Only Thing That Leaks
 `show_location: false` does real work on the _Busy_ block, because locations show by default and _Meeting Room 2_ gives the game away. `show_description: false` changes nothing yet, but keeps the block safe the day you turn [`show_description`](/reference/configuration#core-settings) on card-wide.
+
+Neither reaches the [event popover](/features/actions#event-details), though. A tap on a _Busy_ event shows _Busy_, but with its location and description, and editing the title shows the real one. `allow_event_edit: false` closes the second gap; only leaving `event_tap_action` off closes the first.
 :::
 
 ### Why This Works
@@ -218,7 +220,7 @@ The position is a share of the day's height, so on a day with one event the word
 
 ### Read Only on a Shared Screen
 
-The dialog offers [Edit and Delete](/features/actions#narrowing-what-the-dialog-offers) where the calendar allows them. On a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take them out.
+A tap opens the event in the card's popover, where it can be [changed and deleted](/features/actions#narrowing-what-the-popover-offers) if the calendar allows. On a screen everyone walks past, `allow_event_edit: false` and `allow_event_delete: false` take both out.
 
 ## 🔀 Combining the Techniques
 
@@ -234,6 +236,6 @@ Every block on this page also works in grid view, apart from the all-day layer, 
 - [Core Settings](/features/core-settings): every per-calendar option
 - [Event Content & Display](/features/event-content): the all-day badge and birthday ages
 - [Header Toolbar](/features/layout-appearance#header-toolbar): the filter, paging and refresh
-- [Tapping an Event](/features/actions#tapping-an-event): the details dialog
+- [Tapping an Event](/features/actions#tapping-an-event): the event popover
 - [Configuration Reference](/reference/configuration): every option
 - [Example Stories](/reference/examples): every story

@@ -1093,6 +1093,8 @@ export interface Hass {
   };
   /** Sends a one-shot WebSocket command; optional so callers can degrade gracefully. */
   callWS?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
+  /** Home Assistant's theme state; the event popover is drawn dark while `darkMode` is on. */
+  themes?: { darkMode?: boolean };
   /**
    * Home Assistant's own entity-state formatter.
    *

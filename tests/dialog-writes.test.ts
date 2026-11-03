@@ -1,23 +1,20 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
+import type { PopoverRequest } from './popover-spy';
 import type * as Types from '../src/config/types';
 import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
-import {
-  EVENT_DETAIL_DIALOG_TAG,
-  EVENT_EDITOR_DIALOG_TAG,
-} from '../src/interaction/ha-calendar-dialogs';
 import * as EventUtils from '../src/utils/events';
 
 /**
- * What the card does once one of Home Assistant's dialogs reports that it saved a change.
+ * What the card does once its event popover reports that it saved a change.
  *
- * Driven through the real card, from the press that opens the dialog to the `updated`
- * callback the dialog would call, because the contract is entirely about timing: which
- * request answers after the save, and when Home Assistant may close the dialog. Both
- * dialogs are defined up front, which is the state of any session that has opened them
- * once; `ha-calendar-dialogs.test.ts` covers loading them.
+ * Driven through the real card, from the press that opens the popover to the `updated`
+ * callback the popover calls, because the contract is entirely about timing: which request
+ * answers after the save, and that the popover is not kept waiting on it. The popover is asked
+ * for through Home Assistant's `show-dialog`, which nothing answers here, so the callback is
+ * read off that event and called as the popover would call it.
  */
 
 interface Card extends HTMLElement {
@@ -26,11 +23,6 @@ interface Card extends HTMLElement {
   updateEvents(mode?: unknown): Promise<void>;
   refreshEvents(afterWrite?: number): Promise<void>;
   readonly updateComplete: Promise<boolean>;
-}
-
-interface DialogDetail {
-  dialogTag: string;
-  dialogParams: { calendarId?: string; updated: () => unknown };
 }
 
 const DENTIST = {
@@ -50,7 +42,7 @@ const LUNCH = {
 
 /**
  * Create, delete and update. Every calendar may be written to unless a test says otherwise,
- * so both dialogs can be opened from any card.
+ * so the popover can be opened on a new event or on an event from any card.
  */
 const WRITABLE = 7;
 
@@ -82,9 +74,9 @@ async function mount(config: Record<string, unknown>, features: Record<string, n
     callService: vi.fn(),
   } as unknown as Types.Hass;
 
-  const dialogs: DialogDetail[] = [];
+  const dialogs: PopoverRequest[] = [];
   card.addEventListener('show-dialog', (ev) =>
-    dialogs.push((ev as Event & { detail: DialogDetail }).detail),
+    dialogs.push((ev as Event & { detail: PopoverRequest }).detail),
   );
 
   document.body.appendChild(card);
@@ -132,10 +124,19 @@ function cached(card: Card): string[] {
  */
 const pending: Array<(events: unknown) => void> = [];
 
-/** Let the async open finish; it awaits the loader before dispatching. */
+/** Let the card's refresh, and the requests it makes, run as far as they can. */
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
-/** Open one of the two dialogs from the card, the way a user would. */
+/**
+ * Report a save the way the popover does, naming the calendar it wrote to.
+ *
+ * @param request - The popover the card opened
+ * @returns What the card's callback returned
+ */
+const reportSave = ({ dialogParams }: PopoverRequest) =>
+  dialogParams.updated(dialogParams.calendarId);
+
+/** Open the popover from the card, on a new event or on an event, the way a user would. */
 const OPENERS = {
   add: async (card: Card) => {
     card.shadowRoot!.querySelector<HTMLElement>('.add-event-button')!.click();
@@ -153,11 +154,6 @@ const DIALOG_CONFIG = {
   details: { event_tap_action: { action: 'details' } },
 } as const;
 
-beforeAll(() => {
-  customElements.define(EVENT_DETAIL_DIALOG_TAG, class extends HTMLElement {});
-  customElements.define(EVENT_EDITOR_DIALOG_TAG, class extends HTMLElement {});
-});
-
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FROZEN_NOW);
@@ -173,13 +169,13 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-describe.each(['add', 'details'] as const)('after the %s dialog saves', (which) => {
-  it('returns nothing, so Home Assistant closes the dialog straight away', async () => {
+describe.each(['add', 'details'] as const)('after the popover opened by %s saves', (which) => {
+  it('returns nothing, so the popover has no refetch to wait on', async () => {
     const { card, dialogs } = await mount(DIALOG_CONFIG[which]);
     await OPENERS[which](card);
 
     expect(dialogs).toHaveLength(1);
-    expect(dialogs[0].dialogParams.updated()).toBeUndefined();
+    expect(reportSave(dialogs[0])).toBeUndefined();
   });
 
   it('asks Home Assistant again even while an older request is still in flight', async () => {
@@ -194,7 +190,7 @@ describe.each(['add', 'details'] as const)('after the %s dialog saves', (which) 
     await settle();
     expect(callApi.mock.calls.length).toBe(before + 1);
 
-    dialogs[0].dialogParams.updated();
+    reportSave(dialogs[0]);
     await settle();
 
     // Joining the older request would leave this at `before + 1`, and the change would
@@ -221,7 +217,7 @@ describe('telling the other cards on the page', () => {
     const calls = counter([editing, sameCalendar, otherCalendar]);
     const ownRefresh = vi.spyOn(editing.card, 'refreshEvents');
 
-    editing.dialogs[0].dialogParams.updated();
+    reportSave(editing.dialogs[0]);
     await settle();
 
     expect(calls()).toEqual([1, 1, 0]);
@@ -231,10 +227,25 @@ describe('telling the other cards on the page', () => {
     expect(ownRefresh).toHaveBeenCalledOnce();
   });
 
-  it('refreshes after a new event every card showing a calendar it could have gone to', async () => {
+  it('refreshes after a new event the popover names a calendar for only the cards showing it', async () => {
+    // What the popover does: it names the calendar it saved to, here the one preselected.
     const adding = await mount({ toolbar: { show: true, view_switcher: false } });
-    // Home Assistant's create dialog can save to any calendar that accepts new events, not
-    // only the one the card preselected.
+    const sameCalendar = await mount({ entities: [{ entity: 'calendar.anna' }], days_to_show: 7 });
+    const otherCalendar = await mount({ entities: ['calendar.ben'] });
+    await OPENERS.add(adding.card);
+    expect(adding.dialogs[0].dialogParams.calendarId).toBe('calendar.anna');
+    const calls = counter([adding, sameCalendar, otherCalendar]);
+
+    reportSave(adding.dialogs[0]);
+    await settle();
+
+    expect(calls()).toEqual([1, 1, 0]);
+  });
+
+  it('refreshes after a new event reported with no calendar every card showing one it could have gone to', async () => {
+    const adding = await mount({ toolbar: { show: true, view_switcher: false } });
+    // The popover can save a new event to any calendar that accepts new events, not only the
+    // one the card preselected, so a report that names none could be about any of them.
     const otherCalendar = await mount({ entities: ['calendar.ben'] });
     // One calendar that accepts new events among read-only ones is enough.
     const mixed = await mount(
@@ -266,7 +277,7 @@ describe('telling the other cards on the page', () => {
     const refresh = vi.spyOn(detached.card, 'refreshEvents');
     await OPENERS.details(editing.card);
 
-    editing.dialogs[0].dialogParams.updated();
+    reportSave(editing.dialogs[0]);
     await settle();
 
     expect(refresh).not.toHaveBeenCalled();
@@ -303,11 +314,11 @@ describe('one request per write', () => {
     return held;
   }
 
-  /** Mount a card that can open the details dialog, and open it. */
+  /** Mount a card that can open the popover on an event, and open it. */
   async function editingCard() {
     const editing = await mount(DIALOG_CONFIG.details);
     await OPENERS.details(editing.card);
-    return { ...editing, save: () => editing.dialogs[0].dialogParams.updated() };
+    return { ...editing, save: () => reportSave(editing.dialogs[0]) };
   }
 
   it('shares it between the cards showing the same calendars over the same days', async () => {
