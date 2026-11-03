@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import type * as Types from '../src/config/types';
-import { resetMapTilesToken } from '../src/interaction/event-map';
+import { PLACES_STORAGE_KEY, resetMapTilesToken } from '../src/interaction/event-map';
 import type { PopoverParams } from '../src/interaction/popover-model';
 import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
@@ -118,10 +118,23 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
   return { el, root, callWS, updated, closed, writes, buttons, button, type, press };
 }
 
+// A location that reads as a place name is looked up in Open-Meteo, and tests must never reach
+// the network: every test starts with a fetch that finds nothing, and one that wants a place
+// stubs its own. The places kept in local storage go with each test.
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ results: [] }) })),
+  );
+  localStorage.removeItem(PLACES_STORAGE_KEY);
+});
+
 afterEach(() => {
   document.body.innerHTML = '';
   resetMapTilesToken();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  localStorage.removeItem(PLACES_STORAGE_KEY);
 });
 
 describe('opening', () => {
@@ -527,8 +540,8 @@ describe('links', () => {
 describe('the map', () => {
   it('draws a place Home Assistant knows from its own tiles, and links it to Google Maps', async () => {
     const { root, callWS } = await open({}, { states: POOL_ZONE });
-    await vi.waitFor(() => expect(root.querySelector('a.map')).not.toBeNull());
-    const map = root.querySelector<HTMLAnchorElement>('a.map')!;
+    await vi.waitFor(() => expect(root.querySelector('a.map-link')).not.toBeNull());
+    const map = root.querySelector<HTMLAnchorElement>('a.map-link')!;
     expect(map.getAttribute('href')).toBe(
       'https://www.google.com/maps/search/?api=1&query=Riverside%20Pool',
     );
@@ -539,19 +552,31 @@ describe('the map', () => {
         /^\/api\/map_tiles\/raster\/\d+\/\d+\/\d+\.png\?token=tok$/.test(img.getAttribute('src')!),
       ),
     ).toBe(true);
-    expect(map.textContent).toContain('© OpenStreetMap');
+    // The credit sits beside the map's link, not in it, linking to OpenStreetMap's terms; a
+    // zone owes Open-Meteo nothing.
+    const credit = root.querySelector('.map > .attribution')!;
+    expect(
+      Array.from(credit.querySelectorAll('a')).map((a) => [a.textContent, a.getAttribute('href')]),
+    ).toEqual([['OpenStreetMap', 'https://www.openstreetmap.org/copyright']]);
+    expect(map.contains(credit)).toBe(false);
     // The map is the location's link now; the pin beside the text would be a second one.
     expect(root.querySelector('a.pin')).toBeNull();
     expect(callWS).toHaveBeenCalledWith({ type: 'map_tiles/access_token' });
   });
 
-  it('draws no map, and asks nothing, for a place no zone is called', async () => {
+  it('draws no map, and asks nothing, for a street address', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
     const { root, callWS } = await open(
       { display: { title: 'Swim', location: '12 Mill Road', description: '' } },
       { states: POOL_ZONE },
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(root.querySelector('a.map')).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(root.querySelector('.map')).toBeNull();
     expect(root.querySelector('a.pin')?.getAttribute('href')).toContain('query=12%20Mill%20Road');
     expect(callWS).not.toHaveBeenCalled();
   });
@@ -560,8 +585,49 @@ describe('the map', () => {
     const { root, callWS } = await open({}, { states: POOL_ZONE, tiles: false });
     await vi.waitFor(() => expect(callWS).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(root.querySelector('a.map')).toBeNull();
+    expect(root.querySelector('.map')).toBeNull();
     expect(root.querySelector('a.pin')).not.toBeNull();
+  });
+
+  it('places a town Open-Meteo knows, and credits it beside OpenStreetMap', async () => {
+    localStorage.removeItem('calendar-card-pro-places');
+    const fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [
+          {
+            name: 'Rosenheim',
+            latitude: 47.86,
+            longitude: 12.12,
+            country_code: 'DE',
+            feature_code: 'PPLA3',
+            population: 61844,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetch);
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+      localStorage.removeItem('calendar-card-pro-places');
+    });
+    const { root } = await open({
+      // This Home Assistant names no home country, so the town needs its region beside it.
+      display: { title: 'Swim', location: 'Rosenheim, Bayern', description: '' },
+    });
+    await vi.waitFor(() => expect(root.querySelector('a.map-link')).not.toBeNull());
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // A town is drawn closer than a city: zoom 13, one finer on a dense screen.
+    const zooms = Array.from(root.querySelectorAll('a.map-link img')).map((img) =>
+      Number(/raster\/(\d+)\//.exec(img.getAttribute('src')!)![1]),
+    );
+    expect(new Set(zooms)).toEqual(new Set([window.devicePixelRatio >= 1.5 ? 14 : 13]));
+    const credit = root.querySelector('.map > .attribution')!;
+    expect(Array.from(credit.querySelectorAll('a')).map((a) => a.getAttribute('href'))).toEqual([
+      'https://www.openstreetmap.org/copyright',
+      'https://open-meteo.com/',
+    ]);
   });
 
   it('looks nothing up for a new event, even one handed a place', async () => {

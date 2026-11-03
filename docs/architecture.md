@@ -23,7 +23,7 @@ src/
 │   ├── calendar-writes.ts        # Feature bits; the create, update and delete commands
 │   ├── event-actions.ts          # Event actions: kind, the event's fields, filling them in
 │   ├── event-details.ts          # An event's popover entry, display text and permissions
-│   ├── event-map.ts              # Zone lookup and map tiles under an event's location
+│   ├── event-map.ts              # Zone and place lookup, map tiles under a location
 │   ├── event-times.ts            # An event's span, as the popover edits it and as stored
 │   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
 │   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
@@ -742,10 +742,19 @@ caller.
     package; the card does them by hand, for bundle size
 
 - **event-map.ts**:
-  - Turns a location into a point through one swappable seam, `resolveLocation`, which today
-    is `zoneCoordinates`: a Home Assistant zone matched by its name or its entity ID's object
-    ID, case and spacing ignored. Nothing is sent anywhere to find it; an address lookup, if
-    one is ever chosen, plugs in there
+  - Turns a location into a point through one seam, `resolveLocation`. A Home Assistant zone
+    comes first (`zoneCoordinates`, its name or its entity ID's object ID, case and spacing
+    ignored), and sends nothing. Otherwise a short place name with no digit, `@`, `/` or `:`
+    (`placeQuery`) is looked up in Open-Meteo's geocoding service (`placeCoordinates`), which
+    allows personal home automation without a key, in Home Assistant's language, the home
+    country's and English in turn (`lookupLanguages`). `pickPlace` is strict, because ordinary
+    words name hamlets somewhere: an exact name, a town or city feature code, and 5,000 people
+    near home (the home's country, within 100 km, or the region named after a comma) or a
+    million elsewhere (100,000 for a capital); a place within 100 km wins a tie, and its
+    population sets how close the map starts. Each name is kept in `localStorage` for 30
+    days, a miss for 7 and a failed request for an hour, at most 300 names, and two popovers
+    asking at once share one request. The popover asks only when an event with a location
+    opens
   - Draws the map from Home Assistant's own tile proxy: a token from `map_tiles/access_token`,
     reused for 20 minutes, and tiles from `/api/map_tiles/raster/{z}/{x}/{y}.png`. A Home
     Assistant without the command, before 2026.10, gets no map

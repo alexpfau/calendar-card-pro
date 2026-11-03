@@ -1070,7 +1070,7 @@ export interface Hass {
     first_weekday?: string;
   };
   /**
-   * Home Assistant's core configuration. Only the field the card reads is declared.
+   * Home Assistant's core configuration. Only the fields the card reads are declared.
    *
    * Optional, unlike in Home Assistant's own `HassConfig`, because a non-standard `hass`
    * may omit it, and the card then reads the weekend from the language instead.
@@ -1078,9 +1078,13 @@ export interface Hass {
   config?: {
     /**
      * The home's country as an ISO 3166-1 alpha-2 code, or `null` when none is set. It
-     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}.
+     * decides which days are the weekend; see {@link FormatUtils.getWeekendDays}. The
+     * popover's place lookup reads it too, with the home's position below.
      */
     country?: string | null;
+    /** Where the home is, which decides which of two towns of one name the popover maps. */
+    latitude?: number;
+    longitude?: number;
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;

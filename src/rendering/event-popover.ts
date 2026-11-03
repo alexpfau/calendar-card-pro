@@ -160,6 +160,8 @@ export class EventPopover extends LitElement {
     tileSize: number;
     href: string;
     label: string;
+    /** Who placed the marker, whose credit the map shows beside OpenStreetMap's. */
+    source: EventMap.MapPlace['source'];
   };
 
   private _original?: Model.Draft;
@@ -738,19 +740,26 @@ export class EventPopover extends LitElement {
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
     if (!params || params.mode !== 'event' || !location) return;
 
-    const point = await EventMap.resolveLocation(location, this.hass);
-    if (!point) return;
+    const place = await EventMap.resolveLocation(location, this.hass);
+    if (!place || this._params !== params) return;
     const token = await EventMap.mapTilesToken(this.hass);
     if (!token || this._params !== params) return;
 
     const density = (window.devicePixelRatio ?? 1) >= 1.5 ? 2 : 1;
     const { tiles, tileSize } = EventMap.mapTiles(
-      point,
+      place,
       { width: POPOVER_WIDTH - 28, height: MAP_HEIGHT },
       token,
       density,
+      place.zoom,
     );
-    this._map = { tiles, tileSize, href: EventMap.mapsSearchUrl(location), label: location };
+    this._map = {
+      tiles,
+      tileSize,
+      href: EventMap.mapsSearchUrl(location),
+      label: location,
+      source: place.source,
+    };
   }
 
   //---------------------------------------------------------------------------
@@ -1255,25 +1264,38 @@ export class EventPopover extends LitElement {
   private _renderMap(): TemplateResult | typeof nothing {
     const map = this._map;
     if (!map || this._editing === 'location') return nothing;
-    return html`<a
-      class="map"
-      href=${map.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label=${`${this._t('location')}: ${map.label}`}
-    >
-      ${map.tiles.map(
-        (tile) =>
-          html`<img
-            alt=""
-            src=${tile.url}
-            draggable="false"
-            style="left:${tile.left}px;top:${tile.top}px;width:${map.tileSize}px;height:${map.tileSize}px"
-          />`,
-      )}
-      <span class="marker" aria-hidden="true"></span>
-      <span class="attribution">© OpenStreetMap</span>
-    </a>`;
+    // The credit is a sibling of the map's link, not inside it: a link may not hold links, and
+    // both sources ask for one (OpenStreetMap's copyright page, Open-Meteo's site).
+    const credit = (href: string, text: string) =>
+      html`<a href=${href} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    return html`<div class="map">
+      <a
+        class="map-link"
+        href=${map.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label=${`${this._t('location')}: ${map.label}`}
+      >
+        ${map.tiles.map(
+          (tile) =>
+            html`<img
+              alt=""
+              src=${tile.url}
+              draggable="false"
+              style="left:${tile.left}px;top:${tile.top}px;width:${map.tileSize}px;height:${map.tileSize}px"
+            />`,
+        )}
+        <span class="marker" aria-hidden="true"></span>
+      </a>
+      <span class="attribution"
+        >©
+        ${credit('https://www.openstreetmap.org/copyright', 'OpenStreetMap')}${
+          map.source === 'open-meteo'
+            ? html` · ${credit('https://open-meteo.com/', 'Open-Meteo')}`
+            : nothing
+        }</span
+      >
+    </div>`;
   }
 
   private _renderError(): TemplateResult | typeof nothing {
@@ -1812,6 +1834,11 @@ export class EventPopover extends LitElement {
       border: 2px solid #fff;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     }
+    .map-link {
+      position: absolute;
+      inset: 0;
+      display: block;
+    }
     .attribution {
       position: absolute;
       right: 6px;
@@ -1821,6 +1848,9 @@ export class EventPopover extends LitElement {
       font-size: 9px;
       color: #333;
       background: rgba(255, 255, 255, 0.7);
+    }
+    .attribution a {
+      color: inherit;
     }
     .error {
       padding: 8px 12px;
