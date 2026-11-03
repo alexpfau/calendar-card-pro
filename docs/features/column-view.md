@@ -229,7 +229,7 @@ A [countdown](/features/event-content#countdown-display) and a [progress bar](/f
 🕐 09:30 – 11:00 · in 2 days
 ```
 
-In a column too narrow to hold it, the whole phrase wraps as ordinary running text and continues under the time.
+In a column too narrow to hold it, the whole phrase wraps as ordinary running text and continues under the time. The middot stays at the end of a line and never starts one. The countdown's words are not hyphenated: a word that does not fit at the end of a line moves whole to the next one, and only a word wider than the column itself is split. Beside an [all-day pill](/features/event-content#where-the-pill-goes) on the time row, a countdown that cannot share the pill's line moves under the pill, and the middot stays after it.
 
 ::: tip Icon Alignment
 Because the time can now occupy two lines, `event_icon_vertical_alignment` decides where the clock sits against it. The default `top` lines the icon up with the first line; `middle` centers it against the whole wrapped block. See [Spacing & Alignment](/features/layout-appearance#spacing-alignment).

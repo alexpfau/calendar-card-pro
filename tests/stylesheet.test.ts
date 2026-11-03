@@ -1232,6 +1232,121 @@ describe('card stylesheet', () => {
       expect(declared(words, 'hyphens')).toBe('manual');
     });
 
+    it('never hyphenates a countdown, in any view or placement', () => {
+      // `.content-container` hyphenates the card's text, which is right for a title and wrong
+      // for a generated phrase: column view split "tomorrow" as "to-" / "morrow" after the
+      // time in Chromium, WebKit and Firefox rather than move it whole to the next line.
+      // Declared on the base rule, so the folded span and column's leftover div both carry
+      // it. `manual` rather than `none`, as grid's, so an explicit soft hyphen still counts.
+      expect(declared('.time-countdown', 'hyphens')).toBe('manual');
+      for (const rule of RULES.filter((r) =>
+        r.selectors.some((s) => s.includes('.time-countdown')),
+      )) {
+        expect(rule.body).not.toMatch(/hyphens\s*:\s*auto/);
+      }
+
+      // Titles keep theirs.
+      expect(declared('.content-container', 'hyphens')).toBe('auto');
+      expect(declared('.event-title', 'hyphens')).toBe('');
+    });
+
+    it('breaks a column countdown word only where it cannot fit a line, never off its dot', () => {
+      // anywhere, not break-word: a word breaks inside only where it cannot fit a line of its
+      // own, and it no longer holds the row at its own width. With hyphenation gone that
+      // width is a whole word, and `.time-actual`, a flex item at min-width: auto, stood
+      // "tomorrow" up to 9px out of an 80px column.
+      expect(declared('.column-events .time-countdown', 'overflow-wrap')).toBe('anywhere');
+
+      // The time and its dot still hold the row. Letting the row shrink instead (min-width:
+      // 0) let break-word split the joiner from the dot, and Firefox then started 56 lines
+      // with the dot. So the row keeps its floor, and the countdown's anywhere stops at the
+      // separator, which the countdown's own rule would otherwise hand down to it.
+      expect(declared('.column-events .time-actual', 'min-width')).toBe('');
+      expect(declared('.column-events .time-countdown::before', 'overflow-wrap')).toBe('normal');
+    });
+
+    it('ends a column badge row with its dot when the countdown wraps under the pill', () => {
+      // Squeezed beside the pill, the countdown broke inside its words, "to- / mor- / row";
+      // moved under it whole, it would start its line with the dot, which a countdown never
+      // does. So the row wraps, and the countdown and its wrapper give up their boxes: the
+      // dot and the words become items of the row, and only the words move under the pill,
+      // "[ALL DAY] ·" / "tomorrow".
+      const row = '.column-events .time-actual:has(> .allday-badge + .time-text)';
+      expect(declared(row, 'flex-wrap')).toBe('wrap');
+      // Only where the time text is the countdown alone: a multi-day event's end is a span ahead
+      // of the countdown, which the dot follows, so that time text keeps its boxes and moves
+      // under the pill whole (allday-badge.test.ts pins the markup this reads).
+      const alone = '.time-countdown:first-child';
+      expect(
+        declared(
+          `.column-events .time-actual .allday-badge + .time-text:has(> ${alone})`,
+          'display',
+        ),
+      ).toBe('contents');
+      expect(
+        declared(`.column-events .time-actual .allday-badge + .time-text > ${alone}`, 'display'),
+      ).toBe('contents');
+      expect(declared('.column-events .time-actual .allday-badge + .time-text', 'display')).toBe(
+        '',
+      );
+      expect(
+        declared(
+          '.column-events .time-actual .allday-badge + .time-text > .time-countdown',
+          'display',
+        ),
+      ).toBe('');
+
+      // The hanging indent moves from the row to the clock, so a wrapped line starts under
+      // the pill, and the clock is pulled into the gutter by exactly what the row was.
+      expect(declared(row, 'margin-inline-start')).toBe('0');
+      expect(expr(declared(`${row} > ha-icon`, 'margin-inline-start'))).toBe(
+        expr(declared('.column-events .time-actual', 'margin-inline-start')),
+      );
+
+      // The pill leaves the dot its room: its own margin and the dot's, plus 0.5em for the
+      // glyph. Flex lines break on the items' own widths, so a pill clamped to the whole
+      // line pushed the dot alone onto the next one.
+      const gaps =
+        parseFloat(declared('.allday-badge', 'margin-inline-end')) +
+        parseFloat(
+          declared('.time .time-actual .time-text > .time-countdown::before', 'margin-inline-end'),
+        );
+      expect(
+        declared(
+          '.column-events .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child) > .allday-badge',
+          'max-width',
+        ),
+      ).toBe(`calc(100% - ${gaps}px - 0.5em)`);
+
+      // Every other badge row still caps the pill, at its line less its own margin (the pill
+      // is border-box, so the margin is all that lies outside the cap). Without a cap, a
+      // multi-day row whose pill did not fit beside the clock wrapped before the pill and left
+      // the clock alone on a line, in 268 of 972 narrow rows per engine.
+      expect(declared('.allday-badge', 'box-sizing')).toBe('border-box');
+      expect(declared(`${row} > .allday-badge`, 'max-width')).toBe(
+        `calc(100% - ${declared('.allday-badge', 'margin-inline-end')})`,
+      );
+    });
+
+    it('clips column view at the card edge, so a dot standing past its column is drawn', () => {
+      // A countdown's dot follows its time word whole, so in a column too narrow for
+      // "12:30 ·" the pair stands past the column, and the body's overflow-x cut the dot
+      // off, at every 24-hour one-day card from 101px down. The body takes the card's
+      // end inset as its own padding instead, so its clip moves out to the card's edge and
+      // nothing inside it moves. Only the end: the start edge keeps its clip, because the
+      // today tile sits on it.
+      const inset = declared('.calendar-card-pro.column-view', 'padding-inline');
+      const body = '.calendar-card-pro.column-view .content-container';
+      expect(declared('.content-container', 'overflow-x')).toBe('hidden');
+      expect(declared(body, 'padding-inline-end')).toBe(inset);
+      expect(declared(body, 'margin-inline-end')).toBe(`-${inset}`);
+      expect(declared(body, 'margin-inline-start')).toBe('');
+      expect(declared(body, 'margin-inline')).toBe('');
+
+      // content-box, or the padding would come out of the columns' width.
+      expect(declared('.content-container', 'box-sizing')).toBe('');
+    });
+
     it('spaces the folded separator evenly on both sides', () => {
       // The wrapper's leading margin against the pseudo-element's trailing one. In the
       // trailing placement `.time`'s column-gap supplied the leading half; inline siblings
