@@ -110,9 +110,11 @@ describe('updated(): fetch, language and weather re-wiring', () => {
     await card.updateComplete;
     const afterFirst = updateEvents.mock.calls.filter((c) => c[0] === 'navigate').length;
 
-    card.hass = { ...HASS, states: { 'light.x': { state: 'on' } } };
+    // Changes to the card's own calendar, so each one reaches `updated()`: a change elsewhere
+    // in the house is skipped before it (`shouldUpdate`) and would pin nothing here.
+    card.hass = { ...HASS, states: { 'calendar.personal': { state: 'on' } } };
     await card.updateComplete;
-    card.hass = { ...HASS, states: { 'light.x': { state: 'off' } } };
+    card.hass = { ...HASS, states: { 'calendar.personal': { state: 'off' } } };
     await card.updateComplete;
 
     // Positive control: the first hass really does run the pending appear load.
@@ -186,7 +188,20 @@ describe('updated(): title template subscription lifecycle', () => {
     expect(subscriptions[0].updates.slice(-1)[0]).toBe('{{ states("sensor.y") }}');
   });
 
-  it('keeps the subscription in step when hass changes', async () => {
+  it('keeps the subscription in step when the connection changes', async () => {
+    const card = make({ title: '{{ states("sensor.x") }}' });
+    await mount(card);
+    const before = subscriptions[0].updates.length;
+
+    card.hass = { ...HASS, connection: {} };
+    await card.updateComplete;
+
+    expect(subscriptions[0].updates.length).toBeGreaterThan(before);
+  });
+
+  it('leaves the subscription alone when only another entity changed', async () => {
+    // Home Assistant renders the template and pushes the result; the card reads none of
+    // `hass.states` for it, so a state elsewhere in the house is no reason to touch it.
     const card = make({ title: '{{ states("sensor.x") }}' });
     await mount(card);
     const before = subscriptions[0].updates.length;
@@ -194,7 +209,7 @@ describe('updated(): title template subscription lifecycle', () => {
     card.hass = { ...HASS, states: { 'light.x': { state: 'on' } } };
     await card.updateComplete;
 
-    expect(subscriptions[0].updates.length).toBeGreaterThan(before);
+    expect(subscriptions[0].updates.length).toBe(before);
   });
 
   it('destroys the subscription and clears the rendered title when the template goes away', async () => {

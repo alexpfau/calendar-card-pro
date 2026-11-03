@@ -1599,6 +1599,23 @@ _timed / all-day / multi-day_ is not a partition, and no selection over it can e
 names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
 definition before it can offer one.
 
+### The card renders only for `hass` changes it draws
+
+`shouldUpdate` skips an update whose only change is a `hass` in which nothing the card reads
+moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
+
+- **A new `hass` read needs nothing here** as long as it reads a top-level key, or the state
+  of an entity the configuration names. Walking every state (`Object.keys(hass.states)`), or
+  reading an entity the configuration does not name, silently breaks the rule:
+  `tests/hass-relevance.test.ts` records every read across a matrix of views and fails on
+  either. Add a case there when a feature reads `hass` in a new way.
+- **Nothing on screen may rely on `hass` traffic to stay current.** Unrelated updates used to
+  repaint every card every few seconds, which kept countdowns, progress bars,
+  `allday_expires_at` and midnight moving without anything scheduling it. Text that changes
+  with time alone needs a timer: the event boundary (`nextEventBoundary`) or the clock repaint
+  (`_nextClockRepaint`). A test that sets `card.hass = { ...card.hass }` to force a render now
+  renders nothing; call `requestUpdate()`, or pass time with fake timers.
+
 ## Editor (`src/rendering/editor/`)
 
 The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of

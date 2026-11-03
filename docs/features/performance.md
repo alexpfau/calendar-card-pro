@@ -47,6 +47,19 @@ refresh_interval: 15
 refresh_on_navigate: false
 ```
 
+## 🖥️ Redrawing
+
+Home Assistant tells the card about every change in the house, often several a second. The
+card redraws only when something it shows has changed: one of its calendars, a label's
+person or entity, its weather entity, or your language, theme or Home Assistant settings. A
+light switching in another room costs it nothing.
+
+Some of what the card shows changes with time alone, and it redraws for that on its own:
+
+- when an event starts or ends, and when `allday_expires_at` retires an all-day event;
+- once a minute while a countdown to something later today, or a progress bar, is on screen;
+- just after midnight, which moves the mark of today, even on a card whose dates are fixed.
+
 ## ⚠️ When a Calendar Fails to Load
 
 A calendar can fail to load because its integration returns an error, because Home

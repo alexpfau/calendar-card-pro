@@ -312,6 +312,7 @@ describe('the card repaints at each boundary', () => {
     updateEvents(force?: boolean): Promise<void>;
     _nowBoundaryTimerId: number | null;
     _nowBoundaryAt: number | null;
+    requestUpdate(): void;
   }
 
   beforeEach(() => {
@@ -374,15 +375,20 @@ describe('the card repaints at each boundary', () => {
     expect(card._nowBoundaryTimerId).not.toBeNull();
   });
 
-  it('keeps its timer through an unrelated update instead of rescanning', async () => {
+  it('keeps its boundary through an unrelated update instead of rescanning', async () => {
     const card = await mounted('list');
-    const armed = card._nowBoundaryTimerId;
+    const armed = card._nowBoundaryAt;
     const scan = vi.spyOn(EventUtils, 'nextEventBoundary');
 
-    card.hass = { ...card.hass };
+    // A render that changes neither the events nor the config. A new `hass` alone would not
+    // render at all any more (`shouldUpdate`), and would prove nothing here.
+    card.requestUpdate();
     await card.updateComplete;
 
-    expect(card._nowBoundaryTimerId).toBe(armed);
+    // The timer itself is set again with a fresh delay (see the sleep case in
+    // `tests/clock-repaint.test.ts`); the boundary it waits for is reused, not rescanned.
+    expect(card._nowBoundaryAt).toBe(armed);
+    expect(card._nowBoundaryTimerId).not.toBeNull();
     expect(scan).not.toHaveBeenCalled();
     scan.mockRestore();
   });

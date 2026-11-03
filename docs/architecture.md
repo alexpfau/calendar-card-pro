@@ -586,10 +586,16 @@ The main entry point serves as the orchestrator for the entire card:
   announcements
 - **Configuration Processing**: Handles config updates from Home Assistant
 - **Rendering Coordination**: Builds the component's DOM structure
+- **Render Skipping**: `shouldUpdate` skips an update whose only change is a `hass` that
+  changed nothing the card draws: another entity's state, which on a busy dashboard is
+  nearly every update. Any other key of `hass` counts, and so does the state of any entity
+  the configuration names anywhere (`src/utils/hass-relevance.ts`). A bare `requestUpdate()`
+  in the same batch always renders. `tests/hass-relevance.test.ts` reconciles the rule with
+  every `hass` read the card makes, so a new reader the rule misses fails there
 - **Timers**: Arms the refresh timer for the deadline of the data on screen, and reconciles
-  three display timers in `updated()` against what the render draws — the grid now line,
-  local midnight, and the next event boundary (see _Refresh Mechanisms_).
-  `disconnectedCallback` stops all four
+  four display timers in `updated()` against what the render draws — the grid now line,
+  the midnight load, the next event boundary, and the clock repaint (see _Refresh
+  Mechanisms_). `disconnectedCallback` stops all five
   Key design patterns:
 
 - Uses [LitElement](https://lit.dev/) for efficient DOM updates and property management
@@ -1240,10 +1246,21 @@ graph TD
      empty until its next refresh, and a grid drawing its now line kept the old day until the
      line's next tick, up to a minute later
    - List, column, and grid without its now line repaint at the next start or end of a
-     timed event (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and
-     then past on time. That timer only repaints; it never fetches
-   - The now-line and event-boundary timers stop while the tab is hidden, and a returning
-     tab repaints at once
+     timed event, or the moment `allday_expires_at` retires an all-day one
+     (`_syncNowBoundaryTimer`, `nextEventBoundary`), so an event turns "now" and then past on
+     time. That timer only repaints; it never fetches
+   - Every card without a now line repaints once more on its own (`_syncClockTimer`,
+     `_nextClockRepaint`): a minute after its last render while a countdown to a start later
+     today or a running progress bar is on screen, and otherwise just after local midnight,
+     which moves the mark of today, "Today" and "Tomorrow", countdowns in days and the dimming
+     of past days on fixed dates too. Unrelated `hass` updates used to do this incidentally;
+     the card no longer renders for them. Like the now-line tick, it refits no grid block
+   - The now-line, event-boundary and clock timers stop while the tab is hidden, and a
+     returning tab repaints at once
+   - The midnight, event-boundary and clock timers are set again on every render with the
+     delay measured then, because a timer the browser held back while the machine slept keeps
+     the delay it had left. A midnight passed during the sleep loads the new day on the first
+     render after it (`_midnightArmedDay`)
    - `refreshEvents()` refetches without joining a request that may have started before a
      calendar changed. Given a write's generation, it joins a request started since that
      write; given none, it joins nothing

@@ -179,6 +179,13 @@ export const TIMING = {
    * invisible where the arithmetic to align it would not be.
    */
   NOW_LINE_INTERVAL: 60_000,
+  /**
+   * How often a countdown or progress bar on screen is repainted with nothing else changing.
+   *
+   * A minute, the resolution both are read at. They used to move with every unrelated `hass`
+   * update, which the card no longer renders for.
+   */
+  CLOCK_TICK_INTERVAL: 60_000,
   /** Longest wait for the next event boundary before the timer re-arms (24 hours). */
   NOW_BOUNDARY_MAX_DELAY: 86_400_000,
 };
