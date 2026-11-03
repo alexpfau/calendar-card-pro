@@ -309,10 +309,10 @@ async function readEditorOptionKeys() {
   const editor = await loadEditor();
   const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
   const { DEFAULT_CONFIG, VIEWS } = editor;
-  const { CARD_ACTIONS, cardActionLabelKey } = editor;
+  const { LABELED_ACTIONS, cardActionLabelKey } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
-  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
+  assertFound(LABELED_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
   /** Option-label key -> the qualified node names that looked it up. */
   const asked = new Map();
@@ -338,7 +338,7 @@ async function readEditorOptionKeys() {
       const uiAction = node.selector.ui_action;
       if (uiAction && Array.isArray(uiAction.actions)) {
         for (const action of uiAction.actions) {
-          if (!CARD_ACTIONS.includes(action)) continue;
+          if (!LABELED_ACTIONS.includes(action)) continue;
           const key = cardActionLabelKey(action);
           const nodes = asked.get(key) ?? new Set();
           nodes.add(where);
@@ -680,18 +680,18 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
 async function checkEditorStrings() {
   const { labels, titles, helpers, roots, strings, viewScopeEntries, defaultOverridesByView } =
     await readEditorSchemaKeys();
-  const { CARD_ACTIONS, cardActionLabelKey } = await loadEditor();
+  const { LABELED_ACTIONS, cardActionLabelKey } = await loadEditor();
 
   assertFound([...labels.keys()], 'any labeled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
-  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
+  assertFound(LABELED_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
   // A card action's label hangs off no field: Home Assistant's action dropdown asks for
   // it by action, not by the node it sits under. Rooting it on the action list keeps the
   // reconciliation honest in the direction that matters — drop `expand` from
-  // CARD_ACTIONS and its string stops being reachable here, rather than lingering as a
+  // LABELED_ACTIONS and its string stops being reachable here, rather than lingering as a
   // translated name for an option nothing offers.
-  for (const action of CARD_ACTIONS) roots.add(cardActionLabelKey(action));
+  for (const action of LABELED_ACTIONS) roots.add(cardActionLabelKey(action));
 
   for (const [qualified, bare] of labels) {
     if (!(qualified in strings) && !(bare in strings)) {
