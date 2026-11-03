@@ -95,16 +95,16 @@ const links = (card: Card) => all<HTMLAnchorElement>(card, 'a.event-link');
 const rowText = (card: Card) =>
   all(card, '.location span, .description span').map((span) => span.textContent);
 
-function pointer(target: Element, type: string): void {
+function pointer(target: Element, type: string, pointerType = 'mouse', x = 400, y = 300): void {
   const ev = new Event(type, { bubbles: true, composed: true });
   target.dispatchEvent(
     Object.assign(ev, {
       pointerId: 1,
       button: 0,
       isPrimary: true,
-      pointerType: 'mouse',
-      clientX: 0,
-      clientY: 0,
+      pointerType,
+      clientX: x,
+      clientY: y,
     }),
   );
 }
@@ -282,6 +282,48 @@ describe('open_links: a press on a link is the link', () => {
     links(card)[0].dispatchEvent(key);
     expect(key.defaultPrevented).toBe(false);
     expect(hassActions).toEqual([]);
+  });
+
+  describe('on a card that swipes', () => {
+    const SWIPES = {
+      ...CARD_ACTIONS,
+      days_to_show: 7,
+      toolbar: {
+        show: true,
+        navigation: true,
+        view_switcher: false,
+        add_event: false,
+        refresh: false,
+      },
+    } as const;
+    const range = (card: Card) => all(card, '.toolbar-range-text')[0]?.textContent?.trim();
+
+    it('pages for a finger swiping from a link, and taps the link where it stays put', async () => {
+      const { card, hassActions } = await mount(SWIPES);
+      const before = range(card);
+      expect(before).toBeTruthy();
+
+      // A tap with a finger: the link's, with no tap of the card's, and armed to page without
+      // capturing the finger, which would take the click it derives away from the link.
+      const capture = vi.fn();
+      Object.assign(all(card, 'ha-card')[0], {
+        setPointerCapture: capture,
+        hasPointerCapture: () => false,
+      });
+      pointer(links(card)[0], 'pointerdown', 'touch');
+      pointer(links(card)[0], 'pointerup', 'touch');
+      expect(hassActions).toEqual([]);
+      expect(range(card)).toBe(before);
+      expect(capture).not.toHaveBeenCalled();
+
+      // A swipe starting on the same link pages, as it would anywhere on the days.
+      const link = links(card)[0];
+      pointer(link, 'pointerdown', 'touch', 400, 300);
+      for (const x of [370, 340, 310, 280]) pointer(link, 'pointermove', 'touch', x, 305);
+      pointer(link, 'pointerup', 'touch', 280, 305);
+      await vi.waitFor(() => expect(range(card)).not.toBe(before));
+      expect(hassActions).toEqual([]);
+    });
   });
 
   it('stops presenting the card as a button while it holds a link', async () => {

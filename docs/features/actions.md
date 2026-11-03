@@ -329,12 +329,15 @@ Where the calendar's [text replacement](/features/core-settings#text-replacement
 addresses written out in it are links. Only `http` and `https` addresses become links; anything
 else stays text, and so does a location that is not a web address.
 
-Links are drawn only where an event does nothing of its own, with `event_tap_action` and
-`event_hold_action` both at `none`, so a press on a link can never also be a press on its event.
-With either set, events stay what they are and their links are in the
-[popover](#links). A tap on a link follows it and does not run the card's `tap_action`, and a hold
-on it is the browser's, never `hold_action`, so a card that expands when tapped still expands
-from anywhere but its links. Keyboard users reach each link with Tab and follow it with Enter.
+Links are drawn only where an event does nothing of its own, so a press on a link can never also
+be a press on its event: `event_tap_action` and `event_hold_action` both `none`, their default,
+or one of the card's own actions, which on an event are nothing too. With either set to
+`details`, the links are in the [popover](#links) instead. A tap on a link follows it and does
+not run the card's `tap_action`, and a hold on it is the browser's, never `hold_action`, so a card
+that expands when tapped still expands from anywhere but its links. A swipe can still start on
+one to [page through dates](/features/layout-appearance#paging-through-dates). Keyboard users
+reach each link with Tab and follow it with Enter; a link that `location_max_lines` or
+`description_max_lines` cut off shows its whole field while it has focus.
 
 Links are drawn in list and column view, and in grid view when the card falls back to a list. A
 grid block draws its words for the eye only, so it draws no links; see

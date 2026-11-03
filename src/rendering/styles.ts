@@ -2714,6 +2714,14 @@ export const cardStyles = css`
     border-radius: 2px;
   }
 
+  /* A link past location_max_lines or description_max_lines is still a stop for the keyboard,
+     so the field drops its clamp while one of its links has the keyboard's focus, rather than
+     moving focus somewhere nothing shows. */
+  .location span:has(> .event-link:focus-visible),
+  .description span:has(> .event-link:focus-visible) {
+    -webkit-line-clamp: none;
+  }
+
   /* A press on a link is the link's, so the card's ripple stays still over it, as it does over
      an event that is a button of its own; the gesture recognizer marks the press itself with
      data-own-press, as it marks a press on an event or a day. */

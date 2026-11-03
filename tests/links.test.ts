@@ -161,6 +161,48 @@ describe('linkShownText', () => {
   });
 });
 
+describe('a link shows where it goes', () => {
+  const SPOOF = '<a href="https://elsewhere.example/login">https://bank.example/login</a>';
+
+  it('links an address written as the words of an anchor to itself, not to its href', () => {
+    const own = [{ text: 'https://bank.example/login', href: 'https://bank.example/login' }];
+    expect(linkText(SPOOF)).toEqual(own);
+    expect(linkShownText(stripHtmlTags(SPOOF), SPOOF)).toEqual(own);
+  });
+
+  it('keeps the closing parenthesis of a sentence out of an address that holds a pair', () => {
+    expect(linkPlainText('See (https://en.wikipedia.org/wiki/Pool_(game)).')).toEqual([
+      { text: 'See (' },
+      {
+        text: 'https://en.wikipedia.org/wiki/Pool_(game)',
+        href: 'https://en.wikipedia.org/wiki/Pool_(game)',
+      },
+      { text: ').' },
+    ]);
+  });
+});
+
+/**
+ * Markup that never closes, which anyone who can write to a calendar can put in a description.
+ * The anchor pattern this replaced took 37 s on the first input here and 280 ms on the second;
+ * each takes about a millisecond now, so a bound this loose still fails on the old one.
+ *
+ * Only inputs whose tags do close somewhere, or are short: a long run of tags that never close
+ * at all (`<a ` twenty thousand times) is slow in `stripHtmlTags`, which every row has run on
+ * its description since long before links, and is not what this pins.
+ */
+describe('markup that never closes', () => {
+  it.each([
+    ['an unclosed quote', '<a href="'.repeat(2000)],
+    ['an unclosed anchor', '<a href="https://e.example">x'.repeat(5000)],
+  ])('reads %s in linear time', (_name, raw) => {
+    const started = performance.now();
+    linkText(raw);
+    linkShownText('x', raw);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
+
 describe('rowLinks', () => {
   it('hands back pieces only for a field that links somewhere', () => {
     const links = rowLinks({ location: 'Pool', description: 'See https://swim.example' });
