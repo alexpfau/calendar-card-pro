@@ -68,6 +68,12 @@ const MISSED_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 const FAILED_FOR_MS = 60 * 60 * 1000;
 /** How many names are kept, the oldest given up first. */
 const PLACES_KEPT = 300;
+/**
+ * The version of the rule that decides which result counts (`placeQuery`, `pickPlace`,
+ * `lookupLanguages`). A name kept under another version is asked again, so a change to the
+ * rule is not undone for weeks by what browsers kept. Raise it with any change to the rule.
+ */
+export const PLACES_RULE = 1;
 
 /** How long a tile token is reused. Home Assistant rotates it every 30 minutes and accepts the last two. */
 const TOKEN_REUSE_MS = 20 * 60 * 1000;
@@ -298,11 +304,15 @@ export function lookupLanguages(hass: Types.Hass | null | undefined): string[] {
   return [...new Set([own, home, 'en'].filter((language): language is string => !!language))];
 }
 
-/** A name looked up, kept: when, the place it found, if any, and for how long it holds. */
+/**
+ * A name looked up, kept: when, the place it found, if any, for how long it holds, and under
+ * which version of the rule.
+ */
 interface KeptPlace {
   at: number;
   place?: MapPlace;
   for: number;
+  rule: number;
 }
 
 function readKept(): Record<string, KeptPlace> {
@@ -356,7 +366,7 @@ export async function placeCoordinates(
   const name = foldName(query);
 
   const kept = readKept()[name];
-  if (kept && now - kept.at < kept.for) return kept.place;
+  if (kept && kept.rule === PLACES_RULE && now - kept.at < kept.for) return kept.place;
   const pending = asking.get(name);
   if (pending) return pending;
 
@@ -374,10 +384,10 @@ export async function placeCoordinates(
         place = pickPlace(query, results, hass?.config?.country, hass?.config);
         if (place) break;
       }
-      keep(name, { at: now, place, for: place ? FOUND_FOR_MS : MISSED_FOR_MS });
+      keep(name, { at: now, place, for: place ? FOUND_FOR_MS : MISSED_FOR_MS, rule: PLACES_RULE });
       return place;
     } catch {
-      keep(name, { at: now, for: FAILED_FOR_MS });
+      keep(name, { at: now, for: FAILED_FOR_MS, rule: PLACES_RULE });
       return undefined;
     } finally {
       asking.delete(name);

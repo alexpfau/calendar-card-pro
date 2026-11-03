@@ -372,6 +372,15 @@ allow_event_delete: false
 
 The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no popover for them to narrow.
 
+A calendar can keep its locations or descriptions out of the popover too. Set to `false` on the calendar itself, Never show in the visual editor, `show_location` and `show_description` hide them from that calendar's events everywhere: the rows leave them out, and so does the popover, which draws no map for them and looks nothing up. Saving a change to such an event keeps them as they are stored. Set on the card or a view instead, the two options only tidy the rows, and the popover still shows what they leave out, since it is where you go to read it. A new event shows every field, because you are the one writing it.
+
+```yaml
+entities:
+  - entity: calendar.work
+    show_location: false # no meeting rooms, in rows or in the popover
+    show_description: false
+```
+
 ### When the Card Leaves Them Out
 
 The details still open, but the card makes the event read-only and leaves out Delete where changing it would go wrong, whatever the two options say:
@@ -500,7 +509,7 @@ Only a name of two to 60 characters, with at most four words and one comma for i
 
 The lookup is strict, because a wrong map is worse than none, and many ordinary words are the names of tiny places somewhere: `School`, `Park` and `Beach` all are. So only a town or a city whose name is exactly the one written counts, accents aside, never a district, a park or a mountain. A town in your home's country, within 100 km of your home, or in the country or region the location names after its comma needs 5,000 people. One anywhere else needs a million, or 100,000 for a capital. Where several places pass, one within 100 km of home comes first, else the one Open-Meteo ranks first, usually the largest. Your home's country and position are the ones set in Home Assistant. `Paris` therefore finds the French capital unless you live near Paris, Texas, and a smaller town far away needs its country: `Salzburg, Austria`. Names are asked for in your Home Assistant language, then in your home country's, then in English, until one finds the place. A home in Germany therefore finds `Köln`, `Cologne` and `München` alike; a home elsewhere finds a place by its name in one of those languages, so `Cologne` from the United States or France, not `Köln`.
 
-Your browser sends the name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The lookup runs only when you open an event in the popover; event rows, the card editor and typing a location never send anything. If the lookup fails, the popover shows the pin, as it would without one.
+Your browser sends the name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The lookup runs only when you open an event in the popover, and never for a calendar that keeps its locations out of it; event rows, the card editor and typing a location never send anything. If the lookup fails, the popover shows the pin, as it would without one.
 
 The map is drawn from Home Assistant's own map tile proxy, which fetches the OpenStreetMap tiles itself, so your browser asks no map server for them. That proxy arrived in Home Assistant 2026.10, so on an older version the popover shows the pin instead. The map credits © OpenStreetMap, and Open-Meteo when it found the place, each with a link, as their licenses ask. There is no option for the map; it is there whenever a location can be placed.
 

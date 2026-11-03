@@ -209,6 +209,41 @@ describe('saving on close', () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps out what the event's calendar hides, and saves it as stored", async () => {
+    // The control: the same event, nothing hidden, shows both and asks for the zone's map.
+    const shown = await open({}, { states: POOL_ZONE });
+    expect(shown.root.querySelector('input.plain')).not.toBeNull();
+    expect(shown.root.querySelector('.notes')).not.toBeNull();
+    await vi.waitFor(() => expect(shown.root.querySelector('a.map-link')).not.toBeNull());
+    shown.el.remove();
+
+    const { el, root, callWS, type, writes, closed } = await open(
+      { hidden: { location: true, description: true } },
+      { states: POOL_ZONE },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(root.querySelector('input.plain')).toBeNull();
+    expect(root.querySelector('.notes')).toBeNull();
+    expect(root.querySelector('a.pin, a.map-link')).toBeNull();
+    expect(callWS.mock.calls.map(([message]) => message.type)).not.toContain(
+      'map_tiles/access_token',
+    );
+
+    await type('input.title', 'Swim lesson');
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      expect.objectContaining({
+        event: expect.objectContaining({
+          summary: 'Swim lesson',
+          location: 'Riverside Pool',
+          description: 'Bring goggles',
+        }),
+      }),
+    ]);
+  });
+
   it('throws the changes away on Escape', async () => {
     const { root, type, writes, closed } = await open({});
     await type('input.title', 'Swim lesson');

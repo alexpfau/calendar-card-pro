@@ -4,6 +4,7 @@ import type * as Types from '../src/config/types';
 import {
   GEOCODING_URL,
   MAP_ZOOM,
+  PLACES_RULE,
   PLACES_STORAGE_KEY,
   lookupLanguages,
   mapTiles,
@@ -245,6 +246,28 @@ describe('placeCoordinates', () => {
     ).toEqual(place);
     expect(request).toHaveBeenCalledTimes(1);
     await placeCoordinates('Berlin', HASS, 31 * DAY, request as unknown as typeof fetch);
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks again for a name kept under another version of the rule', async () => {
+    localStorage.setItem(
+      PLACES_STORAGE_KEY,
+      JSON.stringify({
+        // A miss kept by an older rule, and one kept before the rule had a version at all.
+        berlin: { at: 0, for: 7 * DAY, rule: PLACES_RULE - 1 },
+        paris: { at: 0, for: 7 * DAY },
+      }),
+    );
+    const request = ok([BERLIN, { ...BERLIN, name: 'Paris', latitude: 48.85 }]);
+    expect(
+      await placeCoordinates('Berlin', HASS, 1, request as unknown as typeof fetch),
+    ).toMatchObject({ latitude: 52.52 });
+    expect(
+      await placeCoordinates('Paris', HASS, 1, request as unknown as typeof fetch),
+    ).toMatchObject({ latitude: 48.85 });
+    expect(request).toHaveBeenCalledTimes(2);
+    // Kept again under this one, so it is not asked a third time.
+    await placeCoordinates('Berlin', HASS, 2, request as unknown as typeof fetch);
     expect(request).toHaveBeenCalledTimes(2);
   });
 

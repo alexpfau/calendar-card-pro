@@ -833,6 +833,7 @@ class CalendarCardPro extends LitElement {
       calendarId,
       entry,
       display: EventDetails.displayText(event),
+      hidden: EventDetails.hiddenFields(event),
       color: calendar.color,
       calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
       ...permissions,

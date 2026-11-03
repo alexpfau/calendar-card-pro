@@ -71,6 +71,11 @@ export interface PopoverParams {
    * Shown while a field is not being edited; editing shows and saves what is stored.
    */
   display?: { title: string; location: string; description: string };
+  /**
+   * Fields the event's calendar keeps out of view (`hiddenFields`): not drawn, never looked up
+   * for a map, and saved as they are stored. Only for an existing event; a new one shows all.
+   */
+  hidden?: { location: boolean; description: boolean };
   /** Whether the event may be changed here, and deleted. */
   canEdit: boolean;
   canDelete: boolean;

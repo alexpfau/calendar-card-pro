@@ -738,7 +738,7 @@ export class EventPopover extends LitElement {
   private async _loadMap(): Promise<void> {
     const params = this._params;
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
-    if (!params || params.mode !== 'event' || !location) return;
+    if (!params || params.mode !== 'event' || !location || params.hidden?.location) return;
 
     const place = await EventMap.resolveLocation(location, this.hass);
     if (!place || this._params !== params) return;
@@ -1151,6 +1151,7 @@ export class EventPopover extends LitElement {
   }
 
   private _renderLocation(): TemplateResult | typeof nothing {
+    if (this._params?.hidden?.location) return nothing;
     const text = this._displayed('location');
     const pin =
       text && !this._map
@@ -1213,6 +1214,7 @@ export class EventPopover extends LitElement {
   }
 
   private _renderDescription(): TemplateResult | typeof nothing {
+    if (this._params?.hidden?.description) return nothing;
     const text = this._displayed('description');
     if (!this._editable || this._editing !== 'description') {
       if (!text && !this._editable) return nothing;
