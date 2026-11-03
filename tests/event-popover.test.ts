@@ -235,6 +235,45 @@ describe('the touch that opened it', () => {
   });
 });
 
+describe('a new event opened by finger or pen', () => {
+  it.each(['touch', 'pen'])(
+    'opens on its title heading after a %s, no field editing',
+    async (kind) => {
+      const { root } = await open({
+        mode: 'new',
+        entry: undefined,
+        display: undefined,
+        times: { allDay: false, start: new Date(2026, 10, 3, 9), end: new Date(2026, 10, 3, 10) },
+        canDelete: false,
+        anchor: { x: 10, y: 10, pointerType: kind },
+      });
+      // Not the title field: a field taking the focus raises a phone's keyboard unasked.
+      expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+      expect(root.querySelector('button.time')).not.toBeNull();
+    },
+  );
+});
+
+describe("Home Assistant's shortcuts", () => {
+  it('never hears a letter typed in the popover, outside a text field too', async () => {
+    const { root } = await open({});
+    const heard: string[] = [];
+    const listen = (ev: Event) => heard.push((ev as KeyboardEvent).key);
+    document.addEventListener('keydown', listen);
+    onTestFinished(() => document.removeEventListener('keydown', listen));
+    const key = (target: Element, init: KeyboardEventInit) =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, composed: true, ...init }),
+      );
+
+    key(root.querySelector('h2#popover-title')!, { key: 'a' });
+    key(root.querySelector('button.time')!, { key: 'E', shiftKey: true });
+    key(root.querySelector('h2#popover-title')!, { key: 'c', metaKey: true });
+    key(root.querySelector('h2#popover-title')!, { key: 'Tab' });
+    expect(heard).toEqual(['c', 'Tab']);
+  });
+});
+
 describe('telling the card', () => {
   it('reports every change to the draft, and its closing once', async () => {
     const changed = vi.fn();
@@ -576,10 +615,9 @@ describe('a new event', () => {
     calendars: [BEN, ANNA],
   };
 
-  it('opens on its title heading, with no field editing, and adds nothing without a title', async () => {
+  it('opens in its title field by mouse or key, and adds nothing without a title', async () => {
     const { el, root, writes, closed } = await open(fresh);
-    // Not the title field: a field taking the focus raises a phone's keyboard unasked.
-    expect(root.activeElement).toBe(root.querySelector('h2#popover-title'));
+    expect(root.activeElement).toBe(root.querySelector('input.title'));
     expect(el.closeDialog()).toBe(true);
     expect(writes()).toEqual([]);
     expect(closed).toHaveBeenCalledTimes(1);

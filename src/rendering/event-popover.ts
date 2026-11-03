@@ -209,6 +209,8 @@ export class EventPopover extends LitElement {
    * press of the popover's own has begun yet; see `_ghostGuard`.
    */
   private _ghostPossible = false;
+  /** Whether a finger or a pen opened it, which leaves even a new event's title unfocused. */
+  private _touched = false;
   /** Who to tell once the popover has closed (`closed`), taken when it opens. */
   private _onClosed?: () => undefined;
   /** Counts opens, so a write that finishes after the popover was opened again leaves it be. */
@@ -238,13 +240,15 @@ export class EventPopover extends LitElement {
     this._draft = draft;
     this._original = { ...draft, times: { ...draft.times } };
     this._onClosed = params.closed;
-    // Nothing is being edited when it opens, a new event included: a field taking the focus
-    // raises a phone's keyboard over the popover before anyone asked to type.
+    // Nothing is being edited when it opens. A new event opened by mouse or key starts in its
+    // title, as macOS does; by finger or pen it does not, since a field taking the focus raises
+    // a phone's keyboard over the popover before anyone asked to type.
     this._editing = undefined;
     // Only a finger or a pen leaves derived events behind: a mouse's click goes where its press
     // began, and the keyboard and assistive technology click what they mean to.
     const pressedWith = params.anchor?.pointerType;
-    this._ghostPossible = pressedWith === 'touch' || pressedWith === 'pen';
+    this._touched = pressedWith === 'touch' || pressedWith === 'pen';
+    this._ghostPossible = this._touched;
     this._phase = 'edit';
     this._error = undefined;
     this._map = undefined;
@@ -301,10 +305,15 @@ export class EventPopover extends LitElement {
     }
   }
 
+  /** Whether it opens in the title field: a new event's, opened by mouse or key. */
+  private get _titleFirst(): boolean {
+    return this._params?.mode === 'new' && !this._touched;
+  }
+
   /**
-   * Puts focus where the popover starts: its title heading, for a new event too, so a screen
-   * reader announces it and Tab moves through its cells from the title field, while no field
-   * starts editing and no phone raises its keyboard unasked.
+   * Puts focus where the popover starts: a new event's title field, opened by mouse or key, so
+   * the title can be typed at once as in macOS; otherwise its title heading, so a screen reader
+   * announces it while no field starts editing and no phone raises its keyboard unasked.
    */
   private _focusStart(): void {
     const dialog = this._dialog;
@@ -800,6 +809,17 @@ export class EventPopover extends LitElement {
     capture: true,
   };
 
+  /**
+   * Keeps the keys typed in the popover in it. Home Assistant answers a bare letter typed
+   * anywhere outside a text field with a shortcut of its own, opening Assist or its search
+   * over the popover, and a letter typed with the focus on the heading or a button, before the
+   * title field was chosen, would do that. A key with Ctrl, Alt or the command key, and every
+   * key that is not a character, still goes on.
+   */
+  private readonly _keepKeys = (ev: KeyboardEvent): void => {
+    if (ev.key.length === 1 && !ev.ctrlKey && !ev.altKey && !ev.metaKey) ev.stopPropagation();
+  };
+
   /** A field the derived events focused anyway leaves the focus where the popover put it. */
   private readonly _ghostFocus = {
     handleEvent: (ev: FocusEvent): void => {
@@ -999,6 +1019,7 @@ export class EventPopover extends LitElement {
         @mousedown=${this._ghostGuard}
         @mouseup=${this._ghostGuard}
         @focusin=${this._ghostFocus}
+        @keydown=${this._keepKeys}
       >
         <div
           class="panel"
@@ -1006,7 +1027,12 @@ export class EventPopover extends LitElement {
           ?inert=${this._busy || this._closing}
         >
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
-          <h2 id="popover-title" class="visually-hidden" tabindex="-1" autofocus>
+          <h2
+            id="popover-title"
+            class="visually-hidden"
+            tabindex="-1"
+            ?autofocus=${!this._titleFirst}
+          >
             ${titleText || this._t('summary')}
           </h2>
           <button class="btn reveal" @click=${() => this._requestClose('save')}>
@@ -1070,6 +1096,7 @@ export class EventPopover extends LitElement {
     }
     return html`<input
       class="cell title"
+      ?autofocus=${this._titleFirst}
       .value=${text}
       placeholder=${this._t('summary')}
       aria-label=${this._t('summary')}
