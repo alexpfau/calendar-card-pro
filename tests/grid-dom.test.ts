@@ -2449,7 +2449,9 @@ describe('the now line (#325)', () => {
   describe('drawn again inside the block under way', () => {
     const property = (element: Element | null | undefined, name: string) =>
       (element as HTMLElement | null | undefined)?.style.getPropertyValue(name) ?? '';
-    const COPY = '.grid-day-plane-now > .grid-event-now';
+    // Any block under way in the plane: its own, or the new event the card is adding, which
+    // sits in an element of its own there (`.grid-new-event`).
+    const COPY = '.grid-day-plane-now .grid-event-now';
     // The stylesheet without its comments and with its whitespace collapsed, so a rule is
     // found by its whole selector list and a declaration matched whatever Prettier did to it.
     const CSS = cardStyles.cssText

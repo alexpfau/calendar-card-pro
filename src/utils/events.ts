@@ -1869,7 +1869,17 @@ function getEntityIndex(entityId: string | undefined, config: Types.Config): num
 // EVENT PROCESSING & FILTERING
 //-----------------------------------------------------------------------------
 
-function processEvents(
+/**
+ * Matches fetched events to the card's calendars: each calendar's entries in turn, through
+ * their filters, stamped with the entry they matched (`_matchedConfig`) and its label. An
+ * event no entry admits is dropped. The card's new event goes through it too, so it is drawn
+ * with the entry the saved event will match.
+ *
+ * @param events - Events as Home Assistant returned them, tagged with their calendar
+ * @param config - Card configuration
+ * @returns The events the card shows, once per entry that admits each
+ */
+export function processEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): Types.CalendarEventData[] {

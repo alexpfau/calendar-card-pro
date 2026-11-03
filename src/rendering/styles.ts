@@ -5842,7 +5842,7 @@ export const cardStyles = css`
      drop the line itself. And .grid-now-line styles only the part between blocks, so the
      line is restyled through now_color, not through that class. */
   @supports (background-position: 0 calc(1cqh - clamp(0px, 1cqh, 100cqh))) {
-    .grid-day-plane-now > .grid-event-now {
+    .grid-day-plane-now .grid-event-now {
       background-image: linear-gradient(
         var(--calendar-card-now-color, #34d399),
         var(--calendar-card-now-color, #34d399)

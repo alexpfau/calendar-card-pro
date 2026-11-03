@@ -1096,20 +1096,24 @@ export const NEW_EVENT_HOST_CLASS = 'grid-new-event';
  * It spans its whole day, as an event alone there does, and is raised, with the backdrop and
  * outline of a block drawn over another, where it covers one.
  *
- * @param event - The new event's piece of this day, with its minutes on it
+ * @param event - The new event as the day shows it, with its minutes on it
  * @param band - The day's visible band
  * @param raised - Whether it covers an event the day already draws
+ * @param nowMin - The minute the day draws its now line at, or `null` for none
  * @param config - Card configuration
  * @param language - Language code for translations
+ * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
- * @returns The block, or nothing where its piece lies outside the band
+ * @returns The block, or nothing where it lies outside the band
  */
 export function renderNewTimedEvent(
   event: Types.CalendarEventData & Grid.LaneInput,
   band: Grid.GridBand,
   raised: boolean,
+  nowMin: number | null,
   config: Types.Config,
   language: string,
+  weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult | typeof nothing {
   const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
@@ -1120,7 +1124,19 @@ export function renderNewTimedEvent(
     ViewConfig.resolveTimeGridOption(config, 'slot_minutes'),
   );
   const horizontal = { ...spanHorizontal(0, 100), raised };
-  return renderTimedEvent(event, placement, edges, horizontal, config, language, undefined, hass);
+  return renderTimedEvent(
+    event,
+    placement,
+    edges,
+    horizontal,
+    config,
+    language,
+    weatherForecasts,
+    hass,
+    false,
+    undefined,
+    nowMin,
+  );
 }
 
 /**
@@ -1128,8 +1144,7 @@ export function renderNewTimedEvent(
  * first row free across its days.
  *
  * @param event - The new event
- * @param columnIndex - The first day it covers on screen, zero-based
- * @param span - How many days it covers on screen
+ * @param placement - The days it covers on screen, as `computeBannerPlacement` finds them
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param hass - Home Assistant instance
@@ -1137,13 +1152,11 @@ export function renderNewTimedEvent(
  */
 export function renderNewBanner(
   event: Types.CalendarEventData,
-  columnIndex: number,
-  span: number,
+  placement: Grid.BannerPlacement,
   config: Types.Config,
   language: string,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const placement = { columnIndex, span, continuesBefore: false, continuesAfter: false };
   return renderBanner(event, placement, undefined, config, language, hass);
 }
 

@@ -645,6 +645,9 @@ class CalendarCardPro extends LitElement {
     title: string;
     /** The calendar it would be added to, whose options draw it as they draw its events. */
     calendarId?: string;
+    /** The location and description typed so far, which an event's block may show. */
+    location?: string;
+    description?: string;
     /**
      * What the grid showed when it was first drawn (`_draftContext`). A block on days the card
      * no longer shows, after a page turn, a view switch or anything else that redrew other days,
@@ -664,6 +667,8 @@ class CalendarCardPro extends LitElement {
    * one, the all-day band for an all-day one (`_paintNew`).
    */
   private _newHosts = new Map<Element, HTMLElement>();
+  /** The new event's blocks the grid's fitting observes, to be forgotten once they go. */
+  private _newObserved = new Set<HTMLElement>();
   /** Takes a saved new event's block away if the events bringing the real one are slow. */
   private _newTimer?: number;
   /**
@@ -3888,6 +3893,7 @@ class CalendarCardPro extends LitElement {
     const shown = this._newShown;
     if (!draft || !shown) return;
     const anchor = draft.anchor;
+    const before = shown.times;
     if (anchor.allDay) {
       const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-header'), x);
       if (!day) return;
@@ -3909,6 +3915,8 @@ class CalendarCardPro extends LitElement {
       shown.times = GridDraft.timedDraft(anchor.point, point, draft.moved);
       draft.under = day.element;
     }
+    // A pointer moves many times within one quarter hour; only a new span is drawn again.
+    if (GridDraft.sameSpan(before, shown.times)) return;
     this._paintNew();
   }
 
@@ -3929,51 +3937,79 @@ class CalendarCardPro extends LitElement {
     const config = this.effectiveConfig;
     const language = this.effectiveLanguage;
     const hass = this.safeHass;
-    const event = this._newEventData(shown);
-    const { times } = shown;
-    const wanted = new Map<Element, TemplateResult | typeof nothing>();
-    if (times.allDay) {
+    const daysOn = (selector: string, kind: 'day' | 'time') =>
+      [...this.renderRoot.querySelectorAll(selector)].flatMap((element) => {
+        const slot = Activation.daySlotOn(element);
+        return slot?.kind === kind ? [{ element, slot, day: GridDraft.dayOf(slot.timestamp) }] : [];
+      });
+    const wanted = new Map<Element, unknown>();
+    if (shown.times.allDay) {
+      const headers = daysOn('.grid-day-header', 'day');
+      const dayStarts = headers.map(({ day }) => day);
+      const byDay = this._newEventByDay(shown, dayStarts);
       const band = this.renderRoot.querySelector('.grid-allday-band');
-      const covered: number[] = [];
-      for (const [index, header] of this.renderRoot
-        .querySelectorAll('.grid-day-header')
-        .entries()) {
-        const slot = Activation.daySlotOn(header);
-        if (slot?.kind !== 'day') continue;
-        const day = GridDraft.dayOf(slot.timestamp);
-        if (day >= times.start.getTime() && day <= times.end.getTime()) covered.push(index);
-      }
-      if (band && covered.length) {
-        const span = covered[covered.length - 1] - covered[0] + 1;
-        wanted.set(
-          band,
-          GridRender.renderNewBanner(event, covered[0], span, config, language, hass),
-        );
+      const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
+      const shownAs = byDay.values().next().value;
+      if (band && shownAs && columns.length) {
+        // As the grid lays out a banner: the event's whole span, over each run of its days.
+        const event = { ...shownAs, ...(shownAs._gridSource ?? {}) };
+        const banners: unknown[] = [];
+        let runStart = 0;
+        for (let index = 1; index <= columns.length; index++) {
+          if (index < columns.length && columns[index] === columns[index - 1] + 1) continue;
+          const first = columns[runStart];
+          const run = dayStarts.slice(first, columns[index - 1] + 1).map((day) => new Date(day));
+          const placement = GridUtils.computeBannerPlacement(event, run);
+          if (placement) {
+            banners.push(
+              GridRender.renderNewBanner(
+                event,
+                { ...placement, columnIndex: placement.columnIndex + first },
+                config,
+                language,
+                hass,
+              ),
+            );
+          }
+          runStart = index;
+        }
+        wanted.set(band, banners);
       }
     } else {
-      const multiDay =
-        GridDraft.dayOf(times.start.getTime()) !== GridDraft.dayOf(times.end.getTime() - 1);
-      for (const body of this.renderRoot.querySelectorAll('.grid-day-body')) {
-        const slot = Activation.daySlotOn(body);
-        const plane = body.querySelector(':scope > .grid-day-plane');
-        if (slot?.kind !== 'time' || !plane) continue;
-        const piece = GridDraft.pieceOnDay(times, slot.timestamp);
-        if (!piece) continue;
-        const segment = {
-          ...event,
-          startMin: piece.fromMin,
-          endMin: piece.untilMin,
-          ...(multiDay && {
-            _isMultiDaySegment: true,
-            _gridSegmentStartsEvent:
-              GridDraft.dayOf(slot.timestamp) === GridDraft.dayOf(times.start.getTime()),
-          }),
-        };
+      const bodies = daysOn('.grid-day-body', 'time');
+      const byDay = this._newEventByDay(
+        shown,
+        bodies.map(({ day }) => day),
+      );
+      const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
+      const now = new Date();
+      now.setSeconds(0, 0);
+      for (const { element, slot, day } of bodies) {
+        const plane = element.querySelector(':scope > .grid-day-plane');
+        const event = byDay.get(day);
+        const extent = event && GridUtils.segmentMinutes(event);
+        if (slot.kind !== 'time' || !plane || !event || !extent) continue;
         const band = { startMin: slot.startMin, endMin: slot.endMin, usedFallback: false };
-        const raised = this._coversAnEvent(plane, piece.fromMin, piece.untilMin, band);
+        // As the grid draws the line over the block under way, on today's column only.
+        const nowMin =
+          showNowLine &&
+          day === GridDraft.dayOf(now.getTime()) &&
+          GridUtils.computeNowLinePct(now, band) !== null
+            ? GridUtils.minutesFromMidnight(now)
+            : null;
+        const raised = this._coversAnEvent(plane, extent.startMin, extent.endMin, band);
         wanted.set(
           plane,
-          GridRender.renderNewTimedEvent(segment, band, raised, config, language, hass),
+          GridRender.renderNewTimedEvent(
+            { ...event, ...extent },
+            band,
+            raised,
+            nowMin,
+            config,
+            language,
+            this.weatherForecasts,
+            hass,
+          ),
         );
       }
     }
@@ -3981,7 +4017,6 @@ class CalendarCardPro extends LitElement {
     for (const [holder, host] of this._newHosts) {
       if (!wanted.has(holder) || host.parentNode !== holder) this._removeNewHost(holder);
     }
-    const added: HTMLElement[] = [];
     for (const [holder, template] of wanted) {
       let host = this._newHosts.get(holder);
       if (!host) {
@@ -3995,9 +4030,8 @@ class CalendarCardPro extends LitElement {
       } else {
         litRender(template, host, { host: this });
       }
-      added.push(host);
     }
-    this._fitNewBlocks(added);
+    this._fitNewBlocks();
   }
 
   /**
@@ -4025,51 +4059,61 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Has the new event's blocks fitted as any block is, once each: its title clamped to the
-   * room it has, and fitted again whenever it is resized or its text changes, as the grid's
-   * observers do for every block. The full refit a block's arrival sets off elsewhere would
-   * measure every block on the grid, twice a press, for one that changes nothing about them.
-   *
-   * @param hosts - The new event's hosts
+   * Has the new event's blocks fitted as any block is: its title clamped to the room it has,
+   * and fitted again whenever it is resized or its text changes, as the grid's observers do for
+   * every block, with its title scrolling where long titles scroll. The full refit a block's
+   * arrival sets off elsewhere would measure every block on the grid, twice a press, for one
+   * that changes nothing about them. A block that has gone, with its host or replaced inside
+   * it, is forgotten.
    */
-  private _fitNewBlocks(hosts: Iterable<HTMLElement>): void {
+  private _fitNewBlocks(): void {
+    for (const block of [...this._newObserved]) {
+      if (block.isConnected) continue;
+      for (const [target, observed] of this._gridDisclosureTargets) {
+        if (observed !== block) continue;
+        this._gridDisclosureObserver?.unobserve(target);
+        this._gridDisclosureTargets.delete(target);
+      }
+      this._newObserved.delete(block);
+    }
+    const blocks = [...this._newHosts.values()].flatMap((host) => [
+      ...host.querySelectorAll<HTMLElement>(':scope > .grid-event'),
+    ]);
+    if (!blocks.length) return;
+    // A grid with no timed block of its own has no observers yet.
+    if (!this._gridDisclosureObserver) this._syncGridDisclosureSafety(false);
     const observer = this._gridDisclosureObserver;
     if (!observer) return;
     let added = false;
-    for (const host of hosts) {
-      for (const block of host.querySelectorAll<HTMLElement>('.grid-event')) {
-        for (const target of [block, ...block.querySelectorAll('.summary, .event-title')]) {
-          if (this._gridDisclosureTargets.has(target)) continue;
-          this._gridDisclosureTargets.set(target, block);
-          observer.observe(target);
-          this._gridDisclosureDirty.add(block);
-          added = true;
-        }
+    for (const block of blocks) {
+      this._newObserved.add(block);
+      for (const target of [block, ...block.querySelectorAll('.summary, .event-title')]) {
+        if (this._gridDisclosureTargets.has(target)) continue;
+        this._gridDisclosureTargets.set(target, block);
+        observer.observe(target);
+        this._gridDisclosureDirty.add(block);
+        added = true;
       }
     }
-    if (added) this._scheduleGridDisclosureSafety(false);
+    if (!added) return;
+    this._scheduleGridDisclosureSafety(false);
+    this._syncTitleScroll();
   }
 
   /**
-   * Takes the new event out of one element, and its block off the observers.
+   * Takes the new event out of one element.
    *
    * @param holder - The day's plane or the all-day band it is drawn into
    */
   private _removeNewHost(holder: Element): void {
-    const host = this._newHosts.get(holder);
-    if (!host) return;
-    for (const [target, block] of this._gridDisclosureTargets) {
-      if (!host.contains(block)) continue;
-      this._gridDisclosureObserver?.unobserve(target);
-      this._gridDisclosureTargets.delete(target);
-    }
-    host.remove();
+    this._newHosts.get(holder)?.remove();
     this._newHosts.delete(holder);
   }
 
-  /** Takes the new event off the grid. */
+  /** Takes the new event off the grid, and its blocks off the observers. */
   private _clearNewDrawing(): void {
     for (const holder of [...this._newHosts.keys()]) this._removeNewHost(holder);
+    this._fitNewBlocks();
   }
 
   /**
@@ -4106,6 +4150,8 @@ class CalendarCardPro extends LitElement {
     shown.times = draft.times;
     shown.title = draft.summary;
     shown.calendarId = draft.calendarId;
+    shown.location = draft.location;
+    shown.description = draft.description;
     this._paintNew();
   }
 
@@ -4190,35 +4236,86 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * The new event as the card's events are, for the grid to draw it as one of them: its title,
-   * or "New event", its times, and its calendar with that calendar's options, which give it
-   * its color, its label and the rest of what an event of that calendar shows.
+   * The new event as Home Assistant will return it once saved: its title, or "New event", its
+   * times, location and description, on its calendar.
    *
    * @param shown - The new event
-   * @returns Its event data
+   * @returns Its event data, before the card has matched it to a calendar entry
    */
-  private _newEventData(shown: NonNullable<CalendarCardPro['_newShown']>): Types.CalendarEventData {
-    const { times, calendarId } = shown;
-    const config = this.effectiveConfig;
-    const summary = shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent;
+  private _newEventSource(
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): Types.CalendarEventData {
+    const { times } = shown;
     const dayAfter = (date: Date) =>
       new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    const event: Types.CalendarEventData = {
-      summary,
+    return {
+      summary: shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent,
       start: times.allDay
         ? { date: FormatUtils.getLocalDateKey(times.start) }
         : { dateTime: times.start.toISOString() },
       end: times.allDay
         ? { date: FormatUtils.getLocalDateKey(dayAfter(times.end)) }
         : { dateTime: times.end.toISOString() },
-      _entityId: calendarId,
+      ...(shown.location?.trim() && { location: shown.location }),
+      ...(shown.description?.trim() && { description: shown.description }),
+      _entityId: shown.calendarId,
     };
-    const matched = config.entities.find(
-      (entity) => typeof entity === 'object' && entity.entity === calendarId,
+  }
+
+  /**
+   * The new event as the card will show it once saved, by day: matched to the calendar entry
+   * that will admit it (`processEvents`) and grouped into days as the card's events are
+   * (`groupEventsByDay`), so that entry's options, its text replacements and every rule about
+   * which days show what apply as they will. Where the card would not show it at all, as a
+   * title an entry's filter turns away or a time a hidden past covers, it is split into days as
+   * it stands, with its calendar's first entry, so a press drawing it still sees where it goes.
+   *
+   * @param shown - The new event
+   * @param dayStarts - The days the grid shows, as the start of each
+   * @returns Its pieces, by the start of the day each is on
+   */
+  private _newEventByDay(
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+    dayStarts: readonly number[],
+  ): Map<number, Types.CalendarEventData> {
+    const config = this.effectiveConfig;
+    const source = this._newEventSource(shown);
+    const byDay = new Map<number, Types.CalendarEventData>();
+    const [matched] = EventUtils.processEvents([source], config);
+    if (matched) {
+      const days = EventUtils.groupEventsByDay(
+        [matched],
+        config,
+        this.isExpanded,
+        this.effectiveLanguage,
+        this.effectiveView,
+        this.hass,
+      );
+      for (const day of days) {
+        const event = day.events.find((candidate) => !candidate._isEmptyDay);
+        if (event) byDay.set(GridDraft.dayOf(day.timestamp), event);
+      }
+      if (byDay.size) return byDay;
+    }
+    if (!dayStarts.length) return byDay;
+    const entry = config.entities.find(
+      (candidate) => typeof candidate === 'object' && candidate.entity === source._entityId,
     );
-    if (typeof matched === 'object') event._matchedConfig = matched;
-    if (calendarId) event._entityLabel = EventUtils.getEntityLabel(calendarId, config, event);
-    return event;
+    const asItStands: Types.CalendarEventData = {
+      ...source,
+      ...(typeof entry === 'object' && { _matchedConfig: entry }),
+    };
+    asItStands._entityLabel = EventUtils.getEntityLabel(source._entityId, config, asItStands);
+    const first = new Date(Math.min(...dayStarts));
+    const last = new Date(Math.max(...dayStarts));
+    const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    for (const piece of GridUtils.splitGridEventByDay(asItStands, first, end)) {
+      const day = piece.start.dateTime
+        ? new Date(piece.start.dateTime)
+        : FormatUtils.parseAllDayDate(piece.start.date ?? '');
+      byDay.set(GridDraft.dayOf(day.getTime()), piece);
+    }
+    return byDay;
   }
 
   /**

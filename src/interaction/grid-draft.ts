@@ -133,3 +133,19 @@ export function pieceOnDay(
 export function sameSlot(a: TimePoint, b: TimePoint): boolean {
   return dayOf(a.timestamp) === dayOf(b.timestamp) && a.minute === b.minute;
 }
+
+/**
+ * Whether two spans are the same: both timed or both all-day, from the same instant to the
+ * same instant.
+ *
+ * @param a - One span
+ * @param b - The other
+ * @returns True when they are the same
+ */
+export function sameSpan(a: EventTimes, b: EventTimes): boolean {
+  return (
+    a.allDay === b.allDay &&
+    a.start.getTime() === b.start.getTime() &&
+    a.end.getTime() === b.end.getTime()
+  );
+}

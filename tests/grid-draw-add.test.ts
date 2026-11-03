@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
-import { FROZEN_NOW } from './fixtures';
+import { FROZEN_NOW, WEATHER } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
@@ -64,7 +64,7 @@ const Y = (hour: number, minute = 0) => 80 + hour * 60 + minute - 7 * 60;
 /** The x in the middle of a day's column: 0 is June 17. */
 const X = (column: number) => 100 + column * 100;
 
-async function mount(config: Record<string, unknown>, preview = false) {
+async function mount(config: Record<string, unknown>, preview = false, events = EVENTS) {
   const card = document.createElement('calendar-card-pro-dev') as unknown as Card;
   card.preview = preview;
   card.setConfig({
@@ -77,7 +77,7 @@ async function mount(config: Record<string, unknown>, preview = false) {
   card.hass = {
     states: STATES as unknown as Types.Hass['states'],
     locale: { language: 'en', time_format: '24' },
-    callApi: vi.fn(async () => EVENTS),
+    callApi: vi.fn(async () => events),
     callService: vi.fn(),
     localize: (key: string) => (key === 'ui.components.calendar.event.add' ? 'Add event' : key),
   } as unknown as Types.Hass;
@@ -91,7 +91,9 @@ async function mount(config: Record<string, unknown>, preview = false) {
     hassActions.push((ev as Event & { detail: { action: string } }).detail.action),
   );
   document.body.appendChild(card);
-  await vi.waitFor(() => expect(card.shadowRoot?.textContent).toContain('Dentist'));
+  await vi.waitFor(() =>
+    expect(card.shadowRoot?.textContent).toContain(events === EVENTS ? 'Dentist' : 'Sports day'),
+  );
   for (const [index, header] of all(card, '.grid-day-header').entries()) {
     placeAt(header, { left: 50 + index * 100, top: 0, width: 100, height: 40 });
   }
@@ -644,13 +646,132 @@ describe('the new event while the popover adds it', () => {
         draftOf(dialogs, { times: { allDay: false, start, end } }) as never,
       );
 
+    const first = newBlock(body)!;
+    const observed = () => [
+      ...(
+        card as unknown as { _gridDisclosureTargets: Map<Element, Element> }
+      )._gridDisclosureTargets.values(),
+    ];
+    expect(observed()).toContain(first);
     times(AT(18, 23), AT(18, 23, 30));
     await settle();
     expect(newBlock(body)).toBeNull();
+    expect(observed()).not.toContain(first);
     times(AT(18, 10), AT(18, 11));
     await settle();
     expect(label(body)).toBe('New event\n10:00 - 11:00');
     expect(refits).not.toHaveBeenCalled();
+  });
+
+  it('is drawn with the entry of its calendar the saved event will match, and its text', async () => {
+    const { card, dialogs } = await mount({
+      ...ADD,
+      time_grid: { show_location: true },
+      entities: [
+        {
+          entity: ANNA,
+          allowlist: 'Dentist',
+          accent_color: 'rgb(204, 51, 102)',
+          color: 'rgb(1, 2, 3)',
+        },
+        {
+          entity: ANNA,
+          allowlist: 'Swim',
+          accent_color: 'rgb(51, 102, 204)',
+          replace_pattern: 'Swim',
+          replace_with: 'Pool',
+        },
+      ],
+    });
+    await drawAndRelease(card);
+    const body = bodies(card)[1];
+    const accent = () =>
+      newBlock(body)!.style.getPropertyValue('--calendar-card-event-accent-bar-color');
+    // "New event" passes neither filter: drawn as it stands, with the calendar's first entry.
+    expect(label(body)).toBe('New event\n10:00 - 12:30');
+    expect(accent()).toBe('rgb(204, 51, 102)');
+    expect(newBlock(body)!.querySelector('.event-title')!.getAttribute('style')).toContain(
+      'rgb(1, 2, 3)',
+    );
+
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { summary: 'Swim club', location: 'Riverside Pool' }) as never,
+    );
+    expect(accent()).toBe('rgb(51, 102, 204)');
+    expect(label(body)).toBe('Pool club\n10:00 - 12:30');
+    expect(newBlock(body)!.textContent).toContain('Riverside Pool');
+  });
+
+  it("is drawn by the day, as the grid draws an event's days", async () => {
+    // Today is June 17 at 10:00. From 9:00 today to 11:00 tomorrow, with progress bars.
+    const { card, dialogs } = await mount({ ...ADD, show_progress_bar: true });
+    await drawAndRelease(card);
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { times: { allDay: false, start: AT(17, 9), end: AT(18, 11) } }) as never,
+    );
+    const [today, tomorrow] = bodies(card);
+    // Under way today, so today's block repeats the now line and runs a progress bar; the
+    // piece tomorrow has not begun.
+    expect(newBlock(today)!.classList.contains('grid-event-now')).toBe(true);
+    expect(newBlock(today)!.querySelector('.progress-bar')).not.toBeNull();
+    expect(newBlock(tomorrow)!.classList.contains('grid-event-now')).toBe(false);
+    expect(newBlock(tomorrow)!.querySelector('.progress-bar')).toBeNull();
+  });
+
+  it('shows the weather forecast for its time, as an event there does', async () => {
+    const { card } = await mount({
+      ...ADD,
+      weather: { entity: 'weather.home', position: 'event', event: { show_temp: true } },
+    });
+    (card as unknown as { weatherForecasts: unknown }).weatherForecasts = WEATHER;
+    await card.updateComplete;
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(14));
+    hold();
+    expect(newBlock(bodies(card)[1])!.querySelector('.event-weather')).not.toBeNull();
+  });
+
+  it('is drawn as a banner running past the days shown, with its continuation marks', async () => {
+    const { card, dialogs } = await mount(ADD);
+    const band = card.shadowRoot!.querySelector('.grid-allday-band')!;
+    pointer(band, 'pointerdown', X(1), 60);
+    pointer(band, 'pointerup', X(1), 60);
+    await settle();
+    dialogs[0].dialogParams.changed?.(
+      draftOf(dialogs, { times: { allDay: true, start: JUNE(15), end: JUNE(22) } }) as never,
+    );
+    expect(bar(card)).toEqual(['2 / span 3', 'New event']);
+    const classes = newBlock(band)!.classList;
+    expect([classes.contains('continues-before'), classes.contains('continues-after')]).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it('is fitted on a grid with no timed event of its own yet', async () => {
+    const { card } = await mount(ADD, false, [EVENTS[1]]);
+    expect(all(card, '.grid-day-plane > .grid-event')).toEqual([]);
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    const observed = [
+      ...(
+        card as unknown as { _gridDisclosureTargets: Map<Element, Element> }
+      )._gridDisclosureTargets.values(),
+    ];
+    expect(observed).toContain(newBlock(bodies(card)[1]));
+  });
+
+  it('is drawn again only when what it spans changes, not on every move', async () => {
+    const { card } = await mount(ADD);
+    const paints = vi.spyOn(card as unknown as { _paintNew(): void }, '_paintNew');
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10));
+    hold();
+    paints.mockClear();
+    pointer(plane(card, 1), 'pointermove', X(1), Y(11, 1));
+    pointer(plane(card, 1), 'pointermove', X(1), Y(11, 5));
+    pointer(plane(card, 1), 'pointermove', X(1), Y(11, 10));
+    expect(paints).toHaveBeenCalledTimes(1);
+    pointer(plane(card, 1), 'pointermove', X(1), Y(11, 20));
+    expect(paints).toHaveBeenCalledTimes(2);
   });
 
   it('goes as soon as the popover closes without saving', async () => {

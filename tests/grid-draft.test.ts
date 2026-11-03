@@ -103,3 +103,18 @@ describe('pieceOnDay', () => {
     expect(GridDraft.pieceOnDay(toMidnight, DAY(17))).toEqual({ fromMin: 1320, untilMin: 1440 });
   });
 });
+
+describe('sameSpan', () => {
+  const span = (allDay: boolean, start: number, end: number) => ({
+    allDay,
+    start: new Date(start),
+    end: new Date(end),
+  });
+
+  it('holds two spans with the same kind and ends the same, and no others', () => {
+    expect(GridDraft.sameSpan(span(false, 1, 2), span(false, 1, 2))).toBe(true);
+    expect(GridDraft.sameSpan(span(false, 1, 2), span(true, 1, 2))).toBe(false);
+    expect(GridDraft.sameSpan(span(false, 1, 2), span(false, 0, 2))).toBe(false);
+    expect(GridDraft.sameSpan(span(false, 1, 2), span(false, 1, 3))).toBe(false);
+  });
+});
