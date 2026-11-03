@@ -31,6 +31,7 @@ import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
 import * as CalendarChanges from './interaction/calendar-changes';
+import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
 import * as Feedback from './interaction/feedback';
 import * as Dialogs from './interaction/ha-calendar-dialogs';
@@ -822,25 +823,23 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
-   * Whether a tap on an event opens its details, the one thing `event_tap_action` does.
+   * Whether a tap on an event runs something of its own: `event_tap_action` opens the event's
+   * details, or is one of Home Assistant's actions, run with the event's fields filled in.
    *
-   * Every other value, Home Assistant's actions and `expand` included, reads as `none`: the
-   * events stay what they are by default, and a tap on one is a tap on the card. A bare
-   * `event_tap_action:` in YAML is `null`, which reads the same way.
+   * `none` and the card's own actions read as nothing (`eventActionKind`): the events stay what
+   * they are by default, and a tap on one is a tap on the card. A bare `event_tap_action:` in
+   * YAML is `null`, which reads the same way.
    */
-  private get _eventTapOpensDetails(): boolean {
-    const eventTapAction: Types.ActionConfig | null | undefined = this.config.event_tap_action;
-    return eventTapAction?.action === 'details';
+  private get _eventTapRuns(): boolean {
+    return EventActions.eventActionKind(this.config.event_tap_action) !== 'none';
   }
 
   /**
-   * Whether a hold on an event opens its details, the one thing `event_hold_action` does.
-   * Read like `_eventTapOpensDetails`: anything else leaves a hold on an event to the card's
-   * `hold_action`.
+   * Whether a hold on an event runs something of its own, read like `_eventTapRuns`: anything
+   * else leaves a hold on an event to the card's `hold_action`.
    */
-  private get _eventHoldOpensDetails(): boolean {
-    const eventHoldAction: Types.ActionConfig | null | undefined = this.config.event_hold_action;
-    return eventHoldAction?.action === 'details';
+  private get _eventHoldRuns(): boolean {
+    return EventActions.eventActionKind(this.config.event_hold_action) !== 'none';
   }
 
   /**
@@ -855,27 +854,54 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether events are targets of their own: a tap or a hold on one opens its details, and the
-   * card is not being edited. While it is, events render and behave as they do with both off.
-   * A target is a button, reached by the keyboard, whichever of the two it has.
+   * Whether events are targets of their own: a tap or a hold on one runs an action of its own,
+   * and the card is not being edited. While it is, events render and behave as they do with
+   * both off. A target is a button, reached by the keyboard, whichever of the two it has.
    */
   private get _eventsActivatable(): boolean {
-    return (this._eventTapOpensDetails || this._eventHoldOpensDetails) && !this._isBeingEdited;
+    return (this._eventTapRuns || this._eventHoldRuns) && !this._isBeingEdited;
   }
 
   /**
-   * Runs an event's own action, which opens its details: `event_tap_action` or
-   * `event_hold_action`, the only thing either does.
+   * Runs an event's own action for a tap or a hold: `event_tap_action` or `event_hold_action`.
+   *
+   * `details` opens the event's details. One of Home Assistant's actions goes to Home Assistant
+   * with the event's fields filled in (`fillEventAction`), and with the event's calendar as its
+   * entity, so `more-info` opens the calendar of the event pressed rather than the card's
+   * first. An action that names an entity of its own keeps it.
    *
    * @param target - The event and the accent color it is drawn in
+   * @param gesture - Whether the event was tapped or held
    * @param origin - Where the press was, for the cue while the dialog loads
    */
-  private _runEventTapAction(
+  private _runEventAction(
     { event, color }: Activation.EventTapTarget,
+    gesture: 'tap' | 'hold',
     origin?: Feedback.BusyCueOrigin,
   ): void {
-    Logger.debug('Executing event action');
-    this._openEventDetails(event, color, origin);
+    const action =
+      gesture === 'hold' ? this.config.event_hold_action : this.config.event_tap_action;
+    const kind = EventActions.eventActionKind(action);
+    if (kind === 'details') {
+      Logger.debug(`Executing event ${gesture} action: details`);
+      this._openEventDetails(event, color, origin);
+      return;
+    }
+    if (kind !== 'forward' || !action || this._isBeingEdited) return;
+
+    const filled = EventActions.fillEventAction(action, EventActions.eventFields(event));
+    if (!filled) {
+      Logger.warn(
+        `Not running event ${gesture} action: it puts an event's text outside its data or URL query, or its URL would not open over http or https`,
+      );
+      return;
+    }
+    Actions.fireHassAction(
+      this,
+      { entity: event._entityId, [`${gesture}_action`]: filled },
+      gesture,
+    );
+    Logger.debug(`Delegated event ${gesture} action (${filled.action}) to HA native handler`);
   }
 
   /**
@@ -3562,7 +3588,7 @@ class CalendarCardPro extends LitElement {
    * @returns Whether a hold would run an action
    */
   private _holdRunsFor(tapTarget: Activation.EventTapHit | undefined | null): boolean {
-    return (tapTarget != null && this._eventHoldOpensDetails) || this._hasHoldAction;
+    return (tapTarget != null && this._eventHoldRuns) || this._hasHoldAction;
   }
 
   /**
@@ -3721,18 +3747,18 @@ class CalendarCardPro extends LitElement {
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
     if (this._holdTriggered) {
-      if (tapTarget && this._eventHoldOpensDetails) {
+      if (tapTarget && this._eventHoldRuns) {
         this._releasePressFocus();
-        this._runEventTapAction(tapTarget.target, origin);
+        this._runEventAction(tapTarget.target, 'hold', origin);
       } else if (this._hasHoldAction) {
         Logger.debug('Executing hold action');
         this._releasePressFocus();
         Actions.handleAction(this, this.config, 'hold', actions);
       }
     } else if (!this._pointerMoved) {
-      if (tapTarget && this._eventTapOpensDetails) {
+      if (tapTarget && this._eventTapRuns) {
         this._releasePressFocus();
-        this._runEventTapAction(tapTarget.target, origin);
+        this._runEventAction(tapTarget.target, 'tap', origin);
       } else if (dayHit && this._dayTapsActive) {
         Logger.debug('Executing day tap action');
         this._releasePressFocus();
@@ -4095,8 +4121,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Activates a button of the card's own from the keyboard or assistive technology: an
-   * event's own action, or a day's add button. Neither has a hold there, so an event whose
-   * only action is its hold opens its details on activation too.
+   * event's own action, or a day's add button. Neither has a hold there, so an event runs its
+   * tap where it has one, and otherwise its hold.
    *
    * @param target - What the button acts on
    * @param origin - Where the button is, for the cue while the dialog loads
@@ -4106,7 +4132,7 @@ class CalendarCardPro extends LitElement {
     origin: Feedback.BusyCueOrigin | undefined,
   ): void {
     if ('event' in target) {
-      this._runEventTapAction(target.event, origin);
+      this._runEventAction(target.event, this._eventTapRuns ? 'tap' : 'hold', origin);
     } else {
       Logger.debug('Executing day tap action');
       this._addEventAt(undefined, origin, target.day);

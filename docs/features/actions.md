@@ -111,11 +111,11 @@ tap_action:
   entity: calendar.family
 ```
 
-To open the event you tapped instead, use [`event_tap_action`](#tapping-an-event).
+To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-event): its `more-info` opens the calendar of that event, and its other actions can [use the event's title and times](#using-the-events-fields-in-an-action).
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event` and `reset` alongside Home Assistant's standard actions. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event` and `reset` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
@@ -182,7 +182,7 @@ after a reset, as after a press.
 
 ## 🗒️ Tapping an Event
 
-A tap on an event can open that event instead of acting on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
+A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in Home Assistant's own event dialog, the one the Calendar panel shows, with its full description, its location and, for a repeating event, how it repeats:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -193,7 +193,7 @@ event_tap_action:
   action: details
 ```
 
-`details` is the one thing a tap on an event does. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. Any other value, such as `more-info` or `expand`, reads as `none`. The visual editor's Event Tap Action dropdown offers the same two choices: Nothing and Show Event Details.
+`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event` and `reset`, act on the whole card, so on an event they read as `none` too. The visual editor's Event Tap Action dropdown offers Show Event Details and Home Assistant's actions.
 
 ### Event Details
 
@@ -205,7 +205,7 @@ The card's display options do not reach the dialog. A title you rewrote with [te
 
 ### Where You Can Tap
 
-With `details` set, every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
+With an event tap action set, every event is a tap target, in all three layouts: a list row, a column event, and a grid block or all-day banner. In list view the whole colored block answers, not only its text.
 
 Two things on the card are not events, so a tap on them is a tap on the card: the "No events" line of an empty day, and a grid `+N` block, which stands for several events. [Raise `max_simultaneous_events`](/features/grid-view#how-many-fit-side-by-side) to tap those one by one.
 
@@ -233,13 +233,73 @@ event_hold_action:
   action: details
 ```
 
-`details` is the one thing a hold on an event does; left at `none`, the default, a hold on an
-event is a hold on the card and runs `hold_action`. With the two together, an event answers a
-tap with `event_tap_action` and a hold with `event_hold_action`. The visual editor's Event Hold
-Action dropdown offers Nothing and Show Event Details.
+It takes the same actions as `event_tap_action`: `details`, or one of Home Assistant's actions
+with the [held event's fields](#using-the-events-fields-in-an-action). Left at `none`, the
+default, a hold on an event is a hold on the card and runs `hold_action`. With the two together,
+an event answers a tap with `event_tap_action` and a hold with `event_hold_action`. The visual
+editor's Event Hold Action dropdown offers what its Event Tap Action dropdown does.
 
 An event that has either is a button for keyboard users and screen readers. The keyboard has no
-hold, so Enter or Space on an event opens its details whichever of the two it has.
+hold, so Enter or Space on an event runs its tap action, or its hold action when it has no tap
+action.
+
+### Using the Event's Fields in an Action
+
+Home Assistant's own actions in `event_tap_action` and `event_hold_action`, such as `url`,
+`navigate` and `perform-action`, can use the event you pressed. Write a field's name in braces,
+and the card fills it in before Home Assistant runs the action:
+
+```yaml
+event_tap_action:
+  action: url
+  url_path: https://www.google.com/search?q={title}
+```
+
+| Placeholder     | What it holds                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `{title}`       | The event's title, with the calendar's [text replacement](/features/core-settings#text-replacement) applied                         |
+| `{start}`       | When it starts: a date and time with its offset, such as `2026-11-03T17:00:00+01:00`, or a date, such as `2026-11-03`, when all-day |
+| `{end}`         | When it ends, written the same way. An all-day event ends on the day after its last day, as calendars store it                      |
+| `{all_day}`     | `true` for an all-day event, `false` for any other                                                                                  |
+| `{location}`    | Its location, with the text replacement applied                                                                                     |
+| `{description}` | Its description as plain text, with any markup removed and the text replacement applied                                             |
+| `{calendar}`    | The entity ID of its calendar, such as `calendar.anna`                                                                              |
+
+The fields describe the whole event, whichever day of a multi-day event you pressed, and they are
+filled even where the card does not show them: a grid that leaves locations out, or a card with
+`show_description` off, still fills `{location}` and `{description}`. A name in braces that is
+not one of these stays as you wrote it.
+
+::: warning An Event's Text Is Not Yours
+Whoever writes an event writes its title, location and description, and on a shared calendar, a
+subscribed feed or a calendar that accepts invitations, that can be anyone. So `{title}`,
+`{location}` and `{description}` only fill places where text cannot change what the action
+does: anything under `data` or `service_data`, a confirmation's `text`, and the part of a
+`url_path` or `navigation_path` after its `?` or `#`. An action that puts one anywhere else, such
+as `perform_action`, a `target`, an `entity`, or the host or path of a URL, does not run at all.
+`{start}`, `{end}`, `{all_day}` and `{calendar}` can only ever be dates, `true` or `false`, and
+your own calendar's ID, so they fill anywhere.
+:::
+
+In `url_path` and `navigation_path` each field is percent-encoded, so a title with spaces, an
+ampersand or a slash stays a single search term and cannot add a parameter of its own. Everywhere
+else, a field goes in as plain text. A `url` action that would open anything but an `http` or
+`https` address once a field is in it does not run either. YAML reads a value that starts with a
+brace as something else, so quote it:
+
+```yaml
+event_hold_action:
+  action: perform-action
+  perform_action: script.announce_event
+  data:
+    title: '{title}'
+    starts: '{start}'
+    calendar: '{calendar}'
+```
+
+`more-info` opens the calendar of the event you pressed, rather than the card's first, unless the
+action names an `entity` of its own. In the visual editor, the URL, path and data fields of the
+Event Tap Action and Event Hold Action dropdowns take field names in braces as YAML does.
 
 ## ✏️ Editing & Deleting Events
 

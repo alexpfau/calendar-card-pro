@@ -4,6 +4,7 @@
 
 import { mdiGestureTapButton } from '@mdi/js';
 
+import { CARD_ACTION_VALUES, EVENT_DETAILS_ACTION } from '../../../config/constants';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
@@ -23,7 +24,7 @@ export const ACTIONS_ICON = mdiGestureTapButton;
  * new-event dialog on the day the press landed on. `reset` brings the card back to its
  * configuration on this device, as the toolbar's reset button does.
  */
-export const CARD_ACTIONS = ['expand', 'refresh', 'add-event', 'reset'] as const;
+export const CARD_ACTIONS = CARD_ACTION_VALUES;
 
 /**
  * Home Assistant's own action list, mirrored because there is no way to append to it.
@@ -48,23 +49,39 @@ const HA_ACTIONS = [
 export const ACTION_OPTIONS: ReadonlyArray<string> = [...CARD_ACTIONS, ...HA_ACTIONS];
 
 /**
- * What the event tap dropdown offers, the default first.
- *
- * A plain dropdown rather than Home Assistant's action selector, because a tap on an event
- * does one thing of its own and the card reads every other action as `none`. That
- * selector would offer Home Assistant's whole list, none of it about an event, and a
- * "Default" entry that clears the action and so shows as Nothing straight after. Nothing
- * is `none` and stores nothing; see `event_tap_action_mode` in `SYNTHETIC_FIELDS`.
+ * Actions only an event takes, which Home Assistant cannot know about and the card's own
+ * dropdowns do not offer: `details` opens the tapped event's dialog.
  */
-export const EVENT_TAP_CHOICES = ['none', 'details'] as const;
-
-/** What the event hold dropdown offers, the default first, for the reason the tap one does. */
-export const EVENT_HOLD_CHOICES = ['none', 'details'] as const;
+export const EVENT_ACTIONS = [EVENT_DETAILS_ACTION] as const;
 
 /**
- * What the day tap dropdown offers, the default first. A plain dropdown for the reason the
- * event tap one is: a tap on a day does one thing of its own. Nothing stores nothing; see
- * `day_tap_action_mode` in `SYNTHETIC_FIELDS`.
+ * Every action the card names itself in Home Assistant's dropdowns, which have no string for
+ * them: the card's own and the event's own. The label wrapper answers for exactly these, and
+ * `check:i18n` roots their strings on this list, so an action leaving it takes its string's
+ * reachability with it rather than leaving a translated name for an option nothing offers.
+ */
+export const LABELED_ACTIONS: ReadonlyArray<string> = [...CARD_ACTIONS, ...EVENT_ACTIONS];
+
+/**
+ * Every action the event tap and hold dropdowns offer: the event's own first, then Home
+ * Assistant's, which run with the tapped event's fields filled in.
+ *
+ * Home Assistant's selector rather than a plain dropdown, since an event now runs any of Home
+ * Assistant's actions, and its selector is what shows each one's own keys (the URL, the
+ * path, the action and its data) to fill in. `toggle` is left out: a calendar cannot be
+ * toggled. The card's own actions are left out too, since on an event they are nothing.
+ */
+export const EVENT_ACTION_OPTIONS: ReadonlyArray<string> = [
+  ...EVENT_ACTIONS,
+  ...HA_ACTIONS.filter((action) => action !== 'toggle'),
+];
+
+/**
+ * What the day tap dropdown offers, the default first. A plain dropdown rather than Home
+ * Assistant's action selector, because a tap on a day does one thing of its own and the card
+ * reads every other action as `none`; that selector would offer Home Assistant's whole list,
+ * none of it about a day. Nothing stores nothing; see `day_tap_action_mode` in
+ * `SYNTHETIC_FIELDS`.
  */
 export const DAY_TAP_CHOICES = ['none', 'add-event'] as const;
 
@@ -96,8 +113,8 @@ export function cardActionLabelKey(action: string): string {
  * halves, and the day's and event's own labels already set them apart from the card's two.
  *
  * @param language - Effective language code
- * @param opensDetails - Whether a tap or a hold on an event opens Home Assistant's event
- *   dialog, which is what the two `allow_event_*` switches depend on
+ * @param opensDetails - Whether a tap or a hold on an event opens its dialog, which is what
+ *   the two `allow_event_*` switches depend on
  * @returns The panel's schema
  */
 const actionsSchema = Helpers.memoizeLast(
@@ -105,8 +122,8 @@ const actionsSchema = Helpers.memoizeLast(
     { name: 'tap_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     { name: 'hold_action', selector: { ui_action: { actions: ACTION_OPTIONS } } },
     select(language, 'day_tap_action_mode', DAY_TAP_CHOICES),
-    select(language, 'event_tap_action_mode', EVENT_TAP_CHOICES),
-    select(language, 'event_hold_action_mode', EVENT_HOLD_CHOICES),
+    { name: 'event_tap_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
+    { name: 'event_hold_action', selector: { ui_action: { actions: EVENT_ACTION_OPTIONS } } },
     // Dependent on purpose: they narrow what the event dialog offers, and without details
     // there is no dialog, so always-visible switches would be inert. Directly under the two
     // dropdowns that reveal them, each a single field rather than a row, so nothing can come
@@ -124,9 +141,5 @@ const actionsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildActionsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  return actionsSchema(
-    ctx.language,
-    Synthetic.eventTapActionMode(ctx.config) === 'details' ||
-      Synthetic.eventHoldActionMode(ctx.config) === 'details',
-  );
+  return actionsSchema(ctx.language, Synthetic.eventOpensDetails(ctx.config));
 }

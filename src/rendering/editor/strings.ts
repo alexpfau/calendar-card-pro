@@ -865,8 +865,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
-  // The day's own dropdown, two choices like the event's below. Its options mirror the event
-  // tap's: "Nothing" is Home Assistant's own word, and "Add Event" is the card action's label.
+  // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
+  // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
+  // takes Home Assistant's own word for it, so the panel says it one way in every language.
+  // "Add Event" is the card action's label.
   day_tap_action_mode: 'Day Tap Action',
   'day_tap_action_mode.option.none.label': 'Nothing',
   'day_tap_action_mode.option.add-event.label': 'Add Event',
@@ -874,23 +876,22 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Add Event opens Home Assistant's new-event dialog when you tap a day where it shows no " +
     'event: its date, the space under its events, or in the grid layout the hour you tap. ' +
     'With Nothing, such a tap runs the tap action.',
-  // The card's own dropdown rather than Home Assistant's action editor, so it names both of
-  // its choices. "Nothing" is the word Home Assistant's action editor uses for `none` in the
-  // two dropdowns above, and each translation takes Home Assistant's own word for it, so the
-  // panel says it one way in every language.
-  event_tap_action_mode: 'Event Tap Action',
-  'event_tap_action_mode.option.none.label': 'Nothing',
-  'event_tap_action_mode.option.details.label': 'Show Event Details',
-  'event_tap_action_mode.helper':
+  // Home Assistant's action editor, as for the card's two. `details` is the one action only an
+  // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
+  // wording the event's own two-choice dropdown carried before, in every language.
+  'card_action.option.details.label': 'Show Event Details',
+  event_tap_action: 'Event Tap Action',
+  'event_tap_action.helper':
     "Show Event Details opens Home Assistant's event dialog, offering Edit and Delete where " +
-    "the event's calendar allows them. With Nothing, a tap on an event runs the tap action, " +
-    'as anywhere else on the card.',
-  event_hold_action_mode: 'Event Hold Action',
-  'event_hold_action_mode.option.none.label': 'Nothing',
-  'event_hold_action_mode.option.details.label': 'Show Event Details',
-  'event_hold_action_mode.helper':
-    "Show Event Details opens Home Assistant's event dialog when you hold an event. With " +
-    'Nothing, holding an event runs the hold action, as anywhere else on the card.',
+    "the event's calendar allows them. Home Assistant's own actions can use the tapped " +
+    "event's title, times, location and description. With Nothing, a tap on an event runs " +
+    'the tap action, as anywhere else on the card.',
+  event_hold_action: 'Event Hold Action',
+  'event_hold_action.helper':
+    "Show Event Details opens Home Assistant's event dialog when you hold an event. Home " +
+    "Assistant's own actions can use the held event's title, times, location and " +
+    'description. With Nothing, holding an event runs the hold action, as anywhere else on ' +
+    'the card.',
   // Shown only while the event tap or hold action is `details`, directly under them, so "the
   // event dialog" needs no introduction. Each ends on the calendar because that is the
   // question a user with the switch on and no Edit button is asking: these can only take away.

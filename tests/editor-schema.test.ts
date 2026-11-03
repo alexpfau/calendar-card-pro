@@ -803,8 +803,6 @@ describe('editor: change detection', () => {
       'card_height',
       'card_max_height',
       'day_tap_action_mode',
-      'event_hold_action_mode',
-      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -1892,8 +1890,6 @@ describe('editor: the panel set', () => {
       height: 'height_mode',
       max_height: 'height_mode',
       day_tap_action: 'day_tap_action_mode',
-      event_tap_action: 'event_tap_action_mode',
-      event_hold_action: 'event_hold_action_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2841,8 +2837,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
-      'event_tap_action_mode',
-      'event_hold_action_mode',
+      'event_tap_action',
+      'event_hold_action',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
@@ -2853,8 +2849,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
-      'event_tap_action_mode',
-      'event_hold_action_mode',
+      'event_tap_action',
+      'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
       'refresh_interval',
@@ -2868,8 +2864,8 @@ describe('editor: the Actions & Refresh panel', () => {
       'tap_action',
       'hold_action',
       'day_tap_action_mode',
-      'event_tap_action_mode',
-      'event_hold_action_mode',
+      'event_tap_action',
+      'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
       'refresh_interval',
@@ -2878,17 +2874,16 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 
   /**
-   * Every action but `details`, each by name. The card reads all of them as `none`, which
-   * the dropdown shows as Nothing, so there is no dialog and the switches could change
-   * nothing; offering them would invite the reading that turning one on adds a way to
-   * edit. Home Assistant's actions and `expand` are what YAML written for the earlier
-   * selector may still hold, and a bare `event_tap_action:` is `null`.
+   * Every action but `details`, each by name. None of them opens the event dialog, so the
+   * switches could change nothing; offering them would invite the reading that turning one on
+   * adds a way to edit. Home Assistant's actions run with the event's fields, `expand` is
+   * nothing on an event, and a bare `event_tap_action:` is `null`.
    */
   it.each(['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none', 'expand'])(
     'withholds the dialog switches while the event tap action is %s',
     (action) => {
       const names = namesIn(withEventTap(action));
-      expect(names).toContain('event_tap_action_mode');
+      expect(names).toContain('event_tap_action');
       expect(names).not.toContain('allow_event_edit');
       expect(names).not.toContain('allow_event_delete');
     },
@@ -2896,7 +2891,7 @@ describe('editor: the Actions & Refresh panel', () => {
 
   it('withholds the dialog switches for a bare event_tap_action', () => {
     const names = namesIn(withEventTap(null));
-    expect(names).toContain('event_tap_action_mode');
+    expect(names).toContain('event_tap_action');
     expect(names).not.toContain('allow_event_edit');
     expect(names).not.toContain('allow_event_delete');
   });
@@ -5113,8 +5108,6 @@ describe('editor: every enumerated synthetic option is selectable', () => {
       'accent_color_mode',
       'allday_badge_position',
       'day_tap_action_mode',
-      'event_hold_action_mode',
-      'event_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

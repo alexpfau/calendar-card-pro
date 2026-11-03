@@ -362,22 +362,23 @@ meaning no limit.
 
 ## 👆 Actions
 
-| Option               | Type    | Default | Description                                                                                                                                                                                                                                     |
-| -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand`, `refresh`, `add-event` and `reset` are the card's                                                                                                                 |
-| `hold_action`        | object  | `none`  | Action when holding the card, an event included unless it has an `event_hold_action` of its own                                                                                                                                                 |
-| `day_tap_action`     | object  | `none`  | What tapping a day where it shows no event does. `add-event` opens Home Assistant's new-event dialog on that day, or in grid view at the hour tapped, in place of `tap_action`; `none`, and any other action, leaves such a tap to `tap_action` |
-| `event_tap_action`   | object  | `none`  | What tapping an event does. `details` opens Home Assistant's event dialog, in place of `tap_action`; `none`, and any other action, leaves a tap on an event to `tap_action`                                                                     |
-| `event_hold_action`  | object  | `none`  | What holding an event does. `details` opens Home Assistant's event dialog, in place of `hold_action`; `none`, and any other action, leaves a hold on an event to `hold_action`                                                                  |
-| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                                |
-| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                              |
+| Option               | Type    | Default | Description                                                                                                                                                                                                                                                            |
+| -------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tap_action`         | object  | `none`  | Action when tapping the card. Besides Home Assistant's own actions, `expand`, `refresh`, `add-event` and `reset` are the card's                                                                                                                                        |
+| `hold_action`        | object  | `none`  | Action when holding the card, an event included unless it has an `event_hold_action` of its own                                                                                                                                                                        |
+| `day_tap_action`     | object  | `none`  | What tapping a day where it shows no event does. `add-event` opens Home Assistant's new-event dialog on that day, or in grid view at the hour tapped, in place of `tap_action`; `none`, and any other action, leaves such a tap to `tap_action`                        |
+| `event_tap_action`   | object  | `none`  | What tapping an event does, in place of `tap_action`. `details` opens Home Assistant's event dialog; Home Assistant's own actions run with the event's fields, such as `{title}`, filled in; `none` and the card's own actions leave a tap on an event to `tap_action` |
+| `event_hold_action`  | object  | `none`  | What holding an event does, in place of `hold_action`, with the same actions as `event_tap_action`; `none` and the card's own actions leave a hold on an event to `hold_action`                                                                                        |
+| `allow_event_edit`   | boolean | `true`  | Whether the event dialog may offer Edit. Only narrows: a calendar whose integration cannot update events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                                                       |
+| `allow_event_delete` | boolean | `true`  | Whether the event dialog may offer Delete. Only narrows: a calendar whose integration cannot delete events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                                                     |
 
 ### Action Parameters
 
 `tap_action`, `hold_action`, `day_tap_action`, `event_tap_action` and `event_hold_action`
 take an object whose `action` key selects the behavior. For `tap_action` and `hold_action`,
 every action but the card's own `expand`, `refresh`, `add-event` and `reset` is run by Home Assistant,
-so the remaining keys are Home Assistant's and depend on which action you chose:
+and for `event_tap_action` and `event_hold_action` every action but `details`, so the remaining
+keys are Home Assistant's and depend on which action you chose:
 
 `action` · `entity` · `navigation_path` · `navigation_replace` · `url_path` · `perform_action` · `data` · `target` · `confirmation`
 
@@ -386,12 +387,15 @@ The older `service` and `service_data` still work in place of `perform_action` a
 `url` action opens its link.
 
 The card's own `expand`, `refresh`, `add-event` and `reset` take no further keys. `day_tap_action` takes
-`action` alone: `add-event`, or `none`, its default. So do `event_tap_action` and
-`event_hold_action`: `details`, or `none`, their default.
+`action` alone: `add-event`, or `none`, its default. `details` takes no further keys either. In
+`event_tap_action` and `event_hold_action`, Home Assistant's keys take the event's fields in
+braces, such as `{title}` or `{start}`; the title, location and description only in `data`,
+`service_data`, a confirmation's `text`, or after the `?` or `#` of a URL or path.
 
 **→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
 **→ [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)** — where a tap on a day counts, and the day, hour and calendar the new event starts with.
 **→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap or a hold on an event opens, and where on the card it counts.
+**→ [Using the Event's Fields in an Action](/features/actions#using-the-events-fields-in-an-action)** — every field an event action can fill in, and how each is encoded.
 **→ [Editing & Deleting Events](/features/actions#editing-deleting-events)** — which calendars allow Edit and Delete, and when the card leaves them out.
 
 ## ⚡ Cache & Refresh
