@@ -110,9 +110,11 @@ describe('updated(): fetch, language and weather re-wiring', () => {
     await card.updateComplete;
     const afterFirst = updateEvents.mock.calls.filter((c) => c[0] === 'navigate').length;
 
-    card.hass = { ...HASS, states: { 'light.x': { state: 'on' } } };
+    // Changes to the card's own calendar, so each one reaches `updated()`: a change elsewhere
+    // in the house is skipped before it (`shouldUpdate`) and would pin nothing here.
+    card.hass = { ...HASS, states: { 'calendar.personal': { state: 'on' } } };
     await card.updateComplete;
-    card.hass = { ...HASS, states: { 'light.x': { state: 'off' } } };
+    card.hass = { ...HASS, states: { 'calendar.personal': { state: 'off' } } };
     await card.updateComplete;
 
     // Positive control: the first hass really does run the pending appear load.

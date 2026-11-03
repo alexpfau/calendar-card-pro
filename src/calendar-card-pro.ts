@@ -2402,7 +2402,14 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    if (this._clockTimerId !== null && this._clockTimerAt !== null && this._clockTimerAt <= next) {
+    // Kept only while it is still ahead: a timer the browser held back past its moment, as it
+    // can through a machine's sleep, would otherwise stand in for the minute tick indefinitely.
+    if (
+      this._clockTimerId !== null &&
+      this._clockTimerAt !== null &&
+      this._clockTimerAt <= next &&
+      this._clockTimerAt > Date.now()
+    ) {
       return;
     }
 

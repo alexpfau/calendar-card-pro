@@ -21,6 +21,7 @@ interface CardUnderTest extends HTMLElement {
   readonly updateComplete: Promise<boolean>;
   updateEvents(force?: boolean): Promise<void>;
   render(): unknown;
+  requestUpdate(): void;
   _clockTimerId: number | null;
   _clockTimerAt: number | null;
 }
@@ -178,6 +179,26 @@ describe('an all-day event that allday_expires_at retires', () => {
     expect(callApi).not.toHaveBeenCalled();
   });
 
+  it('retires each day of a split multi-day event at its own time, not only the last', async () => {
+    // Under split_multiday_events each day is a row of its own and leaves at 10:30 on its day.
+    // A timer for the event's last day alone left today's row up until something else redrew.
+    const threeDays: Types.CalendarEventData = {
+      summary: 'Trash pickup',
+      start: { date: '2026-06-17' },
+      end: { date: '2026-06-20' },
+    };
+    const card = await mount({ ...config('10:30'), days_to_show: 3, split_multiday_events: true }, [
+      threeDays,
+    ]);
+    const rows = () => text(card, '.event-title').filter((t) => t === 'Trash pickup').length;
+    expect(rows()).toBe(3);
+
+    await passMinutes(card, 31);
+
+    expect(rows()).toBe(2);
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
   it('stays all day without it (control)', async () => {
     const card = await mount(config(), [TODAY]);
 
@@ -208,6 +229,31 @@ describe('the timer itself', () => {
 
     expect(text(card, '.time-countdown').join()).toMatch(/20 minutes/);
     expect(card._clockTimerId).not.toBeNull();
+  });
+
+  it('replaces a timer the browser held back past its moment, as through a sleep', async () => {
+    // Set at 22:00 for midnight, with only a countdown in days on screen; the machine sleeps
+    // until 09:00, the timer has not fired, and by then the countdown reads in minutes.
+    vi.setSystemTime(new Date('2026-06-16T22:00:00Z'));
+    const morning: Types.CalendarEventData = {
+      summary: 'Piano lesson',
+      start: { dateTime: '2026-06-17T09:30:00Z' },
+      end: { dateTime: '2026-06-17T10:00:00Z' },
+    };
+    const card = await mount({ view: 'list', show_countdown: true, refresh_interval: 1440 }, [
+      morning,
+    ]);
+    expect(card._clockTimerAt).toBe(nextMidnight(new Date('2026-06-16T22:00:00Z').getTime()));
+
+    // The clock jumps; the pending timer keeps the delay it had left.
+    vi.setSystemTime(new Date('2026-06-17T09:00:00Z'));
+    card.requestUpdate();
+    await card.updateComplete;
+    expect(text(card, '.time-countdown').join()).toMatch(/30 minutes/);
+
+    await passMinutes(card, 10);
+
+    expect(text(card, '.time-countdown').join()).toMatch(/20 minutes/);
   });
 
   it('is released when the card is removed', async () => {

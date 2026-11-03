@@ -2567,9 +2567,12 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
  * `show_past_events: false`). So is the next local midnight while a timed event runs through
  * it, where a split event's segments hand over.
  *
- * An all-day event has a boundary of its own only where `allday_expires_at` retires it during
- * its last day, with past events hidden; the card shows nothing else that would draw it gone
- * at that moment. Its other boundaries are local midnights, which the card repaints for anyway.
+ * An all-day event has a boundary of its own only where `allday_expires_at` retires it, with
+ * past events hidden; the card shows nothing else that would draw it gone at that moment. Under
+ * `split_multiday_events` each day's row retires at that time on its own day, so the next such
+ * moment still ahead counts, today's or tomorrow's, not only the last day's. Where the event is
+ * drawn unsplit the earlier ones cost a repaint that changes nothing. Its other boundaries are
+ * local midnights, which the card repaints for anyway.
  *
  * @param events Events the card holds
  * @param now Instant to measure from, in milliseconds
@@ -2597,7 +2600,13 @@ export function nextEventBoundary(
       if (parseTimeOfDay(configured)) {
         const lastDay = FormatUtils.parseAllDayDate(event.end.date);
         lastDay.setDate(lastDay.getDate() - 1);
-        consider(allDayExpiryInstant(lastDay, configured).getTime());
+        const day = FormatUtils.parseAllDayDate(event.start.date);
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        if (day < startOfToday) day.setTime(startOfToday.getTime());
+        // Today's and tomorrow's: one of them is the next ahead, whatever the hour.
+        for (let i = 0; i < 2 && day <= lastDay; i++, day.setDate(day.getDate() + 1)) {
+          consider(allDayExpiryInstant(day, configured).getTime());
+        }
       }
       continue;
     }
