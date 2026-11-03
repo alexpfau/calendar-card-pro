@@ -246,8 +246,8 @@ action.
 ### Using the Event's Fields in an Action
 
 Home Assistant's own actions in `event_tap_action` and `event_hold_action`, such as `url`,
-`navigate` and `perform-action`, can use the event you pressed. Write a field's name in braces
-anywhere in the action, and the card fills it in before Home Assistant runs it:
+`navigate` and `perform-action`, can use the event you pressed. Write a field's name in braces,
+and the card fills it in before Home Assistant runs the action:
 
 ```yaml
 event_tap_action:
@@ -270,11 +270,22 @@ filled even where the card does not show them: a grid that leaves locations out,
 `show_description` off, still fills `{location}` and `{description}`. A name in braces that is
 not one of these stays as you wrote it.
 
+::: warning An Event's Text Is Not Yours
+Whoever writes an event writes its title, location and description, and on a shared calendar, a
+subscribed feed or a calendar that accepts invitations, that can be anyone. So `{title}`,
+`{location}` and `{description}` only fill places where text cannot change what the action
+does: anything under `data` or `service_data`, a confirmation's `text`, and the part of a
+`url_path` or `navigation_path` after its `?` or `#`. An action that puts one anywhere else, such
+as `perform_action`, a `target`, an `entity`, or the host or path of a URL, does not run at all.
+`{start}`, `{end}`, `{all_day}` and `{calendar}` can only ever be dates, `true` or `false`, and
+your own calendar's ID, so they fill anywhere.
+:::
+
 In `url_path` and `navigation_path` each field is percent-encoded, so a title with spaces, an
-ampersand or a slash stays a single search term, and nothing in an event can change where a link
-leads. Everywhere else, such as in an action's `data`, a field goes in as plain text. A `url`
-action that would open anything but an `http` or `https` address once a field is in it does not
-run. YAML reads a value that starts with a brace as something else, so quote it:
+ampersand or a slash stays a single search term and cannot add a parameter of its own. Everywhere
+else, a field goes in as plain text. A `url` action that would open anything but an `http` or
+`https` address once a field is in it does not run either. YAML reads a value that starts with a
+brace as something else, so quote it:
 
 ```yaml
 event_hold_action:

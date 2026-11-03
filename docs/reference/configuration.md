@@ -389,7 +389,8 @@ The older `service` and `service_data` still work in place of `perform_action` a
 The card's own `expand`, `refresh`, `add-event` and `reset` take no further keys. `day_tap_action` takes
 `action` alone: `add-event`, or `none`, its default. `details` takes no further keys either. In
 `event_tap_action` and `event_hold_action`, Home Assistant's keys take the event's fields in
-braces, such as `{title}` or `{start}`.
+braces, such as `{title}` or `{start}`; the title, location and description only in `data`,
+`service_data`, a confirmation's `text`, or after the `?` or `#` of a URL or path.
 
 **→ [Available Actions](/features/actions#available-actions)** — every supported action and the parameters it takes.
 **→ [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)** — where a tap on a day counts, and the day, hour and calendar the new event starts with.

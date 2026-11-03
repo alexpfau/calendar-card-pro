@@ -651,10 +651,15 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     `show_description` is off, would otherwise be empty. The calendar's text replacement is
     applied from `_matchedConfig`, as the row applies it, so a masked calendar stays masked
   - Fills `{title}`, `{start}` and the other fields into every string of the action, at any
-    depth, except its name (`fillEventAction`). In `url_path` and `navigation_path` each field
-    is percent-encoded, so an event can add text to a URL but never a scheme, a host or a
-    parameter; a `url` action whose filled URL would open anything but http or https is
-    refused. The card forwards the result under the event's own calendar as `entity`, so
+    depth, except its name (`fillEventAction`). The title, location and description are
+    written by whoever wrote the event, so they fill only the payload: under `data` or
+    `service_data`, a confirmation's `text`, and a URL's or path's query or fragment
+    (`FREE_TEXT_FIELDS`). An action that puts one anywhere else is refused, since there it
+    could choose the service, the target, the host or, as `..`, climb out of a path;
+    percent-encoding guards none of those. In `url_path` and `navigation_path` each field is
+    percent-encoded, so it stays one query value, and a `url` action whose filled URL would
+    open anything but http or https is refused. The card forwards the result under the event's
+    own calendar as `entity`, so
     `more-info` opens the pressed event's calendar unless the action names another
 
 - **ha-calendar-dialogs.ts**:

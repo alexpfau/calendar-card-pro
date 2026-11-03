@@ -71,40 +71,43 @@ describe('EVENT_FIELDS', () => {
 });
 
 describe('fillEventAction', () => {
-  it('percent-encodes fields in url_path and navigation_path only', () => {
+  it('percent-encodes fields in url_path and navigation_path, and only there', () => {
     expect(
       fillEventAction(
         action({
           action: 'url',
-          url_path: 'https://example.com/?q={title}&at={location}',
-          note: '{title}',
+          url_path: 'https://example.com/?q={title}&at={location}#{description}',
+          data: { note: '{title}' },
         }),
         FIELDS,
       ),
     ).toEqual({
       action: 'url',
-      url_path: 'https://example.com/?q=Swim%20%26%20dive&at=Pool%201%2FB%2C%20Mill%20Road',
-      note: 'Swim & dive',
+      url_path:
+        'https://example.com/?q=Swim%20%26%20dive&at=Pool%201%2FB%2C%20Mill%20Road#Bring%20goggles',
+      data: { note: 'Swim & dive' },
     });
     expect(
       fillEventAction(
-        action({ action: 'navigate', navigation_path: '/lovelace/day?d={start}' }),
+        action({ action: 'navigate', navigation_path: '/lovelace/{calendar}?d={start}' }),
         FIELDS,
       ),
     ).toEqual({
       action: 'navigate',
-      navigation_path: '/lovelace/day?d=2026-06-17T14%3A00%3A00%2B02%3A00',
+      navigation_path: '/lovelace/calendar.ben?d=2026-06-17T14%3A00%3A00%2B02%3A00',
     });
   });
 
-  it('fills strings at any depth, keeps other values, and never fills a key or the action', () => {
+  it('fills free text into data, service_data and a confirmation, at any depth', () => {
     expect(
       fillEventAction(
         action({
           action: 'perform-action',
           perform_action: 'script.{calendar}',
           data: { '{title}': '{title}', list: ['{start}', 2, true, null], nested: { at: '{end}' } },
+          service_data: { where: '{location}' },
           target: { entity_id: '{calendar}' },
+          confirmation: { text: 'Run for {title}?' },
         }),
         FIELDS,
       ),
@@ -116,47 +119,107 @@ describe('fillEventAction', () => {
         list: ['2026-06-17T14:00:00+02:00', 2, true, null],
         nested: { at: '2026-06-17T15:00:00+02:00' },
       },
+      service_data: { where: 'Pool 1/B, Mill Road' },
       target: { entity_id: 'calendar.ben' },
+      confirmation: { text: 'Run for Swim & dive?' },
     });
+    // A popup another card opens, whose data sits one level down, is payload too.
+    expect(
+      fillEventAction(
+        action({
+          action: 'fire-dom-event',
+          popup: { service: 'example.popup', data: { title: '{title}' } },
+        }),
+        FIELDS,
+      ),
+    ).toEqual({
+      action: 'fire-dom-event',
+      popup: { service: 'example.popup', data: { title: 'Swim & dive' } },
+    });
+  });
+
+  /**
+   * An event's title, location and description are written by whoever wrote the event, so
+   * none of them may decide what an action does. Each row puts one where it would, and the
+   * action must not run at all: filled, the event would choose the service, the device, the
+   * site or the page.
+   */
+  it.each([
+    ['the service', { action: 'perform-action', perform_action: '{title}' }],
+    ['part of the service', { action: 'perform-action', perform_action: 'script.{title}' }],
+    ['the legacy service', { action: 'call-service', service: '{title}' }],
+    [
+      'the target',
+      {
+        action: 'perform-action',
+        perform_action: 'light.turn_on',
+        target: { entity_id: '{location}' },
+      },
+    ],
+    ['the entity', { action: 'more-info', entity: '{title}' }],
+    [
+      'a confirmation exemption',
+      { action: 'toggle', confirmation: { text: 'ok', exemptions: [{ user: '{title}' }] } },
+    ],
+    ['a key of an unknown action', { action: 'fire-dom-event', name: '{title}' }],
+    ['the host of a URL', { action: 'url', url_path: 'https://{location}/join' }],
+    [
+      'a path segment, where .. climbs out',
+      { action: 'url', url_path: 'https://example.com/events/{title}/view' },
+    ],
+    ['the start of a URL', { action: 'url', url_path: '{title}' }],
+    ['a navigation path', { action: 'navigate', navigation_path: '/lovelace/{title}/secret' }],
+  ])('refuses free text in %s', (_name, value) => {
+    expect(fillEventAction(action(value), FIELDS)).toBeUndefined();
+    expect(
+      fillEventAction(action(value), { ...FIELDS, title: '..', location: 'evil.example' }),
+    ).toBeUndefined();
   });
 
   it("never fills a field into the action's own name", () => {
     // An event's title must not choose which action Home Assistant runs.
-    expect(fillEventAction(action({ action: '{title}', note: '{title}' }), FIELDS)).toEqual({
+    expect(
+      fillEventAction(action({ action: '{title}', data: { note: '{title}' } }), FIELDS),
+    ).toEqual({
       action: '{title}',
-      note: 'Swim & dive',
+      data: { note: 'Swim & dive' },
     });
   });
 
   it('leaves names that are not fields as written, case included', () => {
     expect(
       fillEventAction(
-        action({ action: 'fire-dom-event', a: '{Title} {unknown} {} {title', b: '{{title}}' }),
+        action({
+          action: 'fire-dom-event',
+          a: '{Title} {unknown} {} {title',
+          data: { b: '{{title}}' },
+        }),
         FIELDS,
       ),
     ).toEqual({
       action: 'fire-dom-event',
       a: '{Title} {unknown} {} {title',
-      b: '{Swim & dive}',
+      data: { b: '{Swim & dive}' },
     });
   });
 
   it.each([
-    ['javascript', 'javascript:alert("{title}")'],
-    ['an uppercase scheme', 'JavaScript:alert("{title}")'],
-    ['leading space', '  javascript:{title}'],
-    ['data', 'data:text/html,{title}'],
-    ['tel', 'tel:{title}'],
+    ['javascript', 'javascript:alert("{start}")'],
+    ['an uppercase scheme', 'JavaScript:alert("{start}")'],
+    ['leading space', '  javascript:{start}'],
+    ['data', 'data:text/html,{start}'],
+    ['tel', 'tel:{start}'],
+    ['javascript, with free text in its query', 'javascript:x()?{title}'],
   ])('refuses a url action with %s once a field is filled into it', (_name, urlPath) => {
     expect(fillEventAction(action({ action: 'url', url_path: urlPath }), FIELDS)).toBeUndefined();
   });
 
   it('runs http, https and paths with a field, and any scheme the user wrote without one', () => {
     for (const urlPath of [
-      'http://example.com/{title}',
-      'HTTPS://example.com/{title}',
-      '/x/{title}',
-      '{title}',
+      'http://example.com/{start}',
+      'HTTPS://example.com/day/{start}?q={title}',
+      '/x/{calendar}?q={title}',
+      '?q={title}',
     ]) {
       expect(fillEventAction(action({ action: 'url', url_path: urlPath }), FIELDS)).toBeDefined();
     }
@@ -165,21 +228,25 @@ describe('fillEventAction', () => {
       action: 'url',
       url_path: 'tel:+4912345',
     });
-    // A scheme only another key carries is not the URL's.
-    expect(
-      fillEventAction(
-        action({ action: 'navigate', navigation_path: 'javascript:{title}' }),
-        FIELDS,
-      ),
-    ).toBeDefined();
   });
 
-  it('keeps a field from forming a scheme even where the URL starts with it', () => {
-    const fields = { ...FIELDS, title: 'javascript:alert(1)' };
-    expect(fillEventAction(action({ action: 'url', url_path: '{title}' }), fields)).toEqual({
-      action: 'url',
-      url_path: 'javascript%3Aalert(1)',
-    });
+  it('fills free text into a fragment that has no query before it', () => {
+    expect(
+      fillEventAction(
+        action({ action: 'navigate', navigation_path: '/lovelace/plan#{title}' }),
+        FIELDS,
+      ),
+    ).toEqual({ action: 'navigate', navigation_path: '/lovelace/plan#Swim%20%26%20dive' });
+  });
+
+  it('keeps a field from adding a parameter, a fragment or a path to a query', () => {
+    const fields = { ...FIELDS, title: 'a&b=c#d/../e?f' };
+    expect(
+      fillEventAction(
+        action({ action: 'url', url_path: 'https://example.com/s?q={title}' }),
+        fields,
+      ),
+    ).toEqual({ action: 'url', url_path: 'https://example.com/s?q=a%26b%3Dc%23d%2F..%2Fe%3Ff' });
   });
 });
 

@@ -1067,14 +1067,14 @@ describe("event actions with Home Assistant's actions", () => {
     expect(hassActions).toEqual([]);
   });
 
-  it('keeps a field from forming a scheme, a host or a parameter of its own', async () => {
+  it('keeps a field to one query value, whatever it holds', async () => {
     const sneaky = {
       ...RAW_EVENTS[0],
-      summary: 'javascript:alert(1)//&next=https://evil.example',
+      summary: 'javascript:alert(1)//&next=https://evil.example#x',
       uid: 'uid-sneaky',
     };
     const { card, hassActions } = await mount(
-      { event_tap_action: { action: 'url', url_path: '{title}' } },
+      { event_tap_action: { action: 'url', url_path: 'https://example.com/?q={title}' } },
       { events: [sneaky], shows: 'javascript:alert(1)' },
     );
 
@@ -1082,8 +1082,26 @@ describe("event actions with Home Assistant's actions", () => {
     await settle();
     expect(hassActions[0].config.tap_action).toEqual({
       action: 'url',
-      url_path: 'javascript%3Aalert(1)%2F%2F%26next%3Dhttps%3A%2F%2Fevil.example',
+      url_path:
+        'https://example.com/?q=javascript%3Aalert(1)%2F%2F%26next%3Dhttps%3A%2F%2Fevil.example%23x',
     });
+  });
+
+  it("runs nothing that would let an event's text choose the site or the service", async () => {
+    const { card, hassActions } = await mount({
+      event_tap_action: { action: 'url', url_path: 'https://{location}/join' },
+      event_hold_action: { action: 'perform-action', perform_action: '{title}' },
+    });
+    const dentist = buttonsShowing(card, 'Dentist')[0];
+
+    tap(dentist);
+    await settle();
+    pointer(dentist, 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(dentist, 'pointerup');
+    click(dentist);
+    await settle();
+    expect(hassActions).toEqual([]);
   });
 
   it('runs nothing and draws no buttons while the card is edited', async () => {

@@ -891,7 +891,9 @@ class CalendarCardPro extends LitElement {
 
     const filled = EventActions.fillEventAction(action, EventActions.eventFields(event));
     if (!filled) {
-      Logger.warn(`Not running event ${gesture} action: its URL would not open over http or https`);
+      Logger.warn(
+        `Not running event ${gesture} action: it puts an event's text outside its data or URL query, or its URL would not open over http or https`,
+      );
       return;
     }
     Actions.fireHassAction(
