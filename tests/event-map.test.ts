@@ -87,10 +87,15 @@ describe('mapTiles', () => {
     }
   });
 
+  it('starts at a neighborhood, not a few buildings', () => {
+    expect(MAP_ZOOM).toBe(15);
+  });
+
   it('draws the point at the preview center', () => {
-    // At zoom 16, 0°/0° is the top-left corner of tile 32768/32768.
+    // 0°/0° is the top-left corner of the tile in the middle of the world, 2^(zoom-1) across.
     const { tiles } = mapTiles({ latitude: 0, longitude: 0 }, { width: 200, height: 100 }, 't');
-    const corner = tiles.find((t) => t.url.includes('/16/32768/32768.png'))!;
+    const middle = 2 ** (MAP_ZOOM - 1);
+    const corner = tiles.find((t) => t.url.includes(`/${MAP_ZOOM}/${middle}/${middle}.png`))!;
     expect(corner).toMatchObject({ left: 100, top: 50 });
   });
 
@@ -102,7 +107,10 @@ describe('mapTiles', () => {
       2,
     );
     expect(tileSize).toBe(128);
-    expect(tiles.find((t) => t.url.includes(`/${MAP_ZOOM + 1}/65536/65536.png`))).toMatchObject({
+    const middle = 2 ** MAP_ZOOM;
+    expect(
+      tiles.find((t) => t.url.includes(`/${MAP_ZOOM + 1}/${middle}/${middle}.png`)),
+    ).toMatchObject({
       left: 100,
       top: 50,
     });

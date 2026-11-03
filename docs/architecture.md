@@ -863,18 +863,26 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     reused for another event refreshes the calendar it wrote to but leaves the new event open
   - Keeps every change as a draft (`popover-model.ts`) and writes once, on close: a press that
     starts and ends on the backdrop saves, as Back does, and Escape, the dialog's `cancel`,
-    discards. A field that is focused but not changed writes nothing
+    discards. A field that is focused but not changed writes nothing. Once the draft differs,
+    Cancel and Save (Add for a new event) appear in the bottom row, both in Home Assistant's
+    words: closing alone was a way to save that nobody looked for. Save, and Return in the
+    title, take the same path as a close, so a refusal or the which-occurrences question
+    behave the same whichever way the change is confirmed
   - Shows the title, location and description as the card does until a field is edited, then
     as stored (`displayText` in `event-details.ts`), since the stored text is what a save writes
-  - Places itself at the press, from the `PressOrigin`: to the right where it fits, else to
-    the left, with its arrow on the point. A pointer's press carries only its point, so the
-    popover opens where the cursor already is, in every view, whatever it covers of the event it
-    shows. A press without a position, a key or assistive technology, carries the element's box
-    (`originOf`), and the popover opens beside it: a grid block's edge, and for a list row or
-    column event, which draws no box of its own, the end of its text (`eventBox`), leaving out
-    a part pinned to the far edge past a wide gap, such as a weather badge; a right-to-left row
-    keeps its box. The add button passes its click's point too, and its box only for a key. Below 600 pixels of viewport width it is a sheet from the bottom
-    instead. It is drawn dark while Home Assistant's `themes.darkMode` is on
+  - Places itself from the `PressOrigin`. A press on an event carries what can be seen of it
+    (`eventBox`), and the popover opens beside that, to the right where it fits, else to the
+    left, its arrow at the middle, as macOS opens one beside an event: an event drawn as a
+    tinted box, a grid block or any event under `event_background_opacity`, ends where its box
+    does, and one drawn without (its computed background paints nothing, `paints`) ends where
+    its text does, leaving out a part pinned to the far edge past a wide gap, such as a weather
+    badge; a right-to-left row keeps its box. The tint, not the view, decides, because an
+    untinted list row's box is the card's width and says nothing about where its words are. A
+    press on a day or an empty slot carries only its point, and the popover opens right there.
+    The add button asks for the popover below it (`below`), the arrow on its top edge under the
+    button, as macOS places its toolbar's; above it where there is no room below. Below 600
+    pixels of viewport width it is a sheet from the bottom instead. It is drawn dark while Home
+    Assistant's `themes.darkMode` is on
   - Moves an event to another calendar by adding it there and then deleting it from its own,
     since Home Assistant has no move command; adding first means a failure between the two
     leaves it in both calendars, never in neither. The card offers the move only where it may

@@ -507,10 +507,9 @@ describe('pressing the add-event button', () => {
     return popovers.opened.mock.calls[0][0];
   }
 
-  it('opens the popover where a pointer pressed it, and beside the button for a key', async () => {
+  it('opens the popover below the button, by pointer or by key', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
 
-    // A pointer's click counts its clicks; the popover opens at its point, with no box.
     button(card)!.dispatchEvent(
       new MouseEvent('click', {
         bubbles: true,
@@ -521,12 +520,14 @@ describe('pressing the add-event button', () => {
       }),
     );
     const pressed = openedOnce().anchor;
-    expect(pressed).toMatchObject({ x: 42, y: 17, pointerType: 'mouse' });
-    expect(pressed?.rect).toBeUndefined();
+    expect(pressed).toMatchObject({ below: true, pointerType: 'mouse' });
+    expect(pressed?.rect).toBeDefined();
 
-    // A key's click has no detail and no position: the popover opens beside the button's box.
+    // A key's click has no detail and no pointer.
     button(card)!.click();
-    expect(popovers.opened.mock.calls[1][0].anchor?.rect).toBeDefined();
+    const keyed = popovers.opened.mock.calls[1][0].anchor;
+    expect(keyed).toMatchObject({ below: true });
+    expect(keyed).not.toHaveProperty('pointerType');
   });
 
   it('opens the popover on a new event for the first writable calendar and refreshes once saved', async () => {

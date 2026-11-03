@@ -3834,10 +3834,15 @@ class CalendarCardPro extends LitElement {
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
-    // held, so the cue belongs there rather than where it was let go. It carries no box: a
-    // popover opened by a pointer opens at the press itself, where the eye and the cursor are.
+    // held, so the cue belongs there rather than where it was let go. On an event it carries
+    // what can be seen of the event, for the popover to open beside; on a day or an empty slot
+    // only the point, for it to open right there.
     const pressedAt = this._pointerStart ?? { x: ev.clientX, y: ev.clientY };
-    const origin: Feedback.PressOrigin = { ...pressedAt, pointerType: ev.pointerType };
+    const origin: Feedback.PressOrigin = {
+      ...pressedAt,
+      pointerType: ev.pointerType,
+      rect: tapTarget ? originOf(tapTarget.element)?.rect : undefined,
+    };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
     if (this._holdTriggered) {
@@ -5160,9 +5165,12 @@ class CalendarCardPro extends LitElement {
         // A press leaves no focus behind for Home Assistant to ring when the dialog closes;
         // see `_releasePressFocus`. A key keeps it.
         if (pressed) this._releasePressFocus();
-        // A pointer's press opens the popover where it was, as every press does; a key's,
-        // which has no position, beside the button.
-        this._addEventAt(undefined, pressed ?? originOf(button));
+        // The popover opens below the button, as macOS opens its toolbar's, by pointer or key.
+        const at = originOf(button);
+        this._addEventAt(
+          undefined,
+          at && { ...at, ...(pressed && { pointerType: pressed.pointerType }), below: true },
+        );
       },
     };
   }

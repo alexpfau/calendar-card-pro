@@ -37,15 +37,25 @@ export interface StoredEvent {
   status?: string;
 }
 
+/** A box in viewport coordinates. */
+export interface PopoverBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 /** Where the press was that opened the popover, which it opens beside. */
 export interface PopoverAnchor {
   x: number;
   y: number;
   /**
-   * The pressed element's box, for a press without a position of its own: a key, or the add
-   * button. A pointer's press has none, and the popover opens at its point.
+   * What can be seen of the event pressed (`eventBox`), or the button pressed. A press with no
+   * event under it, on a day or an empty slot, has none, and the popover opens at its point.
    */
-  rect?: { left: number; top: number; right: number; bottom: number };
+  rect?: PopoverBox;
+  /** Open below the box rather than beside it, as for a toolbar button. */
+  below?: boolean;
 }
 
 /** What the card hands the popover, through Home Assistant's `show-dialog`. */

@@ -238,6 +238,15 @@ describe('day_tap_action: add-event', () => {
     },
   );
 
+  it('opens the new event at the point a day was tapped, with no box', async () => {
+    const { card, dialogs } = await mount({ view: 'grid', ...ADD });
+    tap(dayButtons(card)[1], 120, 80);
+    await settle();
+    const anchor = dialogs[dialogs.length - 1].dialogParams.anchor;
+    expect(anchor).toMatchObject({ x: 120, y: 80 });
+    expect(anchor?.rect).toBeUndefined();
+  });
+
   it("adds on an empty day from its 'No events' line in list view", async () => {
     const { card, dialogs } = await mount(ADD);
 

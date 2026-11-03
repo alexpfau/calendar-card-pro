@@ -45,8 +45,11 @@ export interface MapTile {
 // CONSTANTS
 //-----------------------------------------------------------------------------
 
-/** How close in the preview starts: a few streets around the point. */
-export const MAP_ZOOM = 16;
+/**
+ * How close in the preview starts: a neighborhood around the point, some 900 meters across the
+ * preview at central European latitudes. One step closer showed only a few buildings.
+ */
+export const MAP_ZOOM = 15;
 
 /** Home Assistant's raster tiles are 256 pixels square. */
 const TILE_SIZE = 256;

@@ -1515,7 +1515,7 @@ describe('what the card lets the popover offer', () => {
     });
   });
 
-  it('opens the popover at a pointer press itself, with no box for it to move to', async () => {
+  it('opens the popover beside a pointer-pressed event, with what can be seen of it', async () => {
     const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
     const target = leafShowing(buttonsShowing(card, 'Dentist')[0], 'Dentist');
     pointer(target, 'pointerdown', 150, 210);
@@ -1524,7 +1524,7 @@ describe('what the card lets the popover offer', () => {
     await settle();
     const anchor = dialogs[dialogs.length - 1].dialogParams.anchor;
     expect(anchor).toMatchObject({ x: 150, y: 210 });
-    expect(anchor?.rect).toBeUndefined();
+    expect(anchor?.rect).toBeDefined();
   });
 
   it("anchors a keyboard or assistive press at the end of a list row's text, not its far edge", async () => {

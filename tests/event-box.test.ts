@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { eventBox, textBlockRight } from '../src/interaction/feedback';
+import { eventBox, paints, textBlockRight } from '../src/interaction/feedback';
 
 /**
  * Where the popover takes an event to end: a grid block at its box, a list row or column event
@@ -95,13 +95,23 @@ describe('eventBox', () => {
     expect(eventBox(button).right).toBe(230);
   });
 
-  it.each(['event grid-event', 'event grid-banner'])(
-    'keeps the box of a grid block, %s, which is drawn as one',
-    (classes) => {
-      stubLayout();
-      expect(eventBox(row(classes)).right).toBe(1100);
-    },
-  );
+  it.each([
+    ['a grid block', 'rgba(63, 81, 181, 0.2)'],
+    // happy-dom keeps an rgba() as written; Chrome's color() form is read in `paints` below.
+    ['a list row under event_background_opacity', 'rgba(0, 154, 199, 0.2)'],
+  ])('keeps the box of %s, which is drawn tinted', (_name, tint) => {
+    stubLayout();
+    const tinted = row('event');
+    tinted.style.backgroundColor = tint;
+    expect(eventBox(tinted).right).toBe(1100);
+  });
+
+  it('measures the words of a row whose tint is fully transparent', () => {
+    stubLayout();
+    const clear = row('event');
+    clear.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+    expect(eventBox(clear).right).toBe(230);
+  });
 
   it('keeps the box of a right-to-left row, whose words it does not measure', () => {
     stubLayout();
@@ -116,5 +126,22 @@ describe('eventBox', () => {
     button.textContent = 'Swim lesson';
     document.body.append(button);
     expect(eventBox(button).right).toBe(1100);
+  });
+});
+
+describe('paints', () => {
+  it.each([
+    ['rgba(0, 0, 0, 0)', false],
+    ['transparent', false],
+    ['', false],
+    ['color(srgb 0 0.6 0.78 / 0)', false],
+    ['rgb(0 0 0 / 0%)', false],
+    ['rgba(63, 81, 181, 0.2)', true],
+    ['rgb(255, 0, 0)', true],
+    ['color(srgb 0 0.6 0.78 / 0.2)', true],
+    ['rgb(0 0 0 / 50%)', true],
+    ['a color it cannot read', true],
+  ])('reads %j as painting: %j', (color, painted) => {
+    expect(paints(color)).toBe(painted);
   });
 });

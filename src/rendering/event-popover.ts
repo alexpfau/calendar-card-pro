@@ -40,8 +40,28 @@ const POPOVER_WIDTH = 340;
 const GAP = 14;
 const MARGIN = 12;
 
+/**
+ * Below a toolbar button: how far the popover's top keeps from the button, and how far in from
+ * the popover's left edge its arrow points up at the button.
+ */
+const BELOW_GAP = 10;
+const EAR_INSET = 32;
+
 /** The map preview's height. */
 const MAP_HEIGHT = 120;
+
+/**
+ * Where the arrow points, as a CSS position on the panel: the point the popover grows out of
+ * as it opens.
+ *
+ * @param arrow - The arrow's side and its offset along it
+ * @returns A `transform-origin` value
+ */
+function arrowPoint(arrow: { side: 'left' | 'right' | 'top' | 'bottom'; at: number }): string {
+  return arrow.side === 'left' || arrow.side === 'right'
+    ? `${arrow.side} ${arrow.at}px`
+    : `${arrow.at}px ${arrow.side}`;
+}
 
 /** Home Assistant's strings, and the English each falls back to where a key is missing. */
 const T = {
@@ -87,6 +107,8 @@ const T = {
     'The duration of the event is not valid. Please check start and end date.',
   ],
   delete: ['ui.common.delete', 'Delete'],
+  save: ['ui.common.save', 'Save'],
+  add: ['ui.common.add', 'Add'],
   edit: ['ui.common.edit', 'Edit'],
   cancel: ['ui.common.cancel', 'Cancel'],
   close: ['ui.common.close', 'Close'],
@@ -130,7 +152,8 @@ export class EventPopover extends LitElement {
   @state() private _place?: {
     left: number;
     top: number;
-    arrow?: { side: 'left' | 'right'; top: number };
+    /** Which side of the popover the arrow is on, and how far along that side it points. */
+    arrow?: { side: 'left' | 'right' | 'top' | 'bottom'; at: number };
   };
   @state() private _map?: {
     tiles: EventMap.MapTile[];
@@ -270,16 +293,33 @@ export class EventPopover extends LitElement {
       return;
     }
 
-    // A press with a position, from a pointer, comes without a box, and the popover opens right
-    // at it: where the cursor and the eye already are, whatever it covers of the event, which
-    // the popover shows anyway. A press without one, from the keyboard, or on the add button,
-    // comes with the element's box, and the popover opens beside it.
+    // A press on an event comes with what can be seen of the event, and the popover opens
+    // beside it, as macOS opens one beside an event: the edge of its box, or the end of its text
+    // where it draws no box (`eventBox`). A press with no event under it, on a day or an empty
+    // slot, comes with its point alone, and the popover opens right there. A toolbar button asks
+    // for the popover below it instead.
     const rect = anchor.rect ?? {
       left: anchor.x,
       right: anchor.x,
       top: anchor.y,
       bottom: anchor.y,
     };
+    this._place = anchor.below
+      ? this._placeBelow(rect, panelHeight, width, height)
+      : this._placeBeside(rect, panelHeight, width, height);
+  }
+
+  /**
+   * Beside a box: to its right where the popover fits, else to its left, centered on it and
+   * kept on screen, the arrow at its middle. Where neither side has room it is centered on the
+   * screen, without an arrow.
+   */
+  private _placeBeside(
+    rect: Model.PopoverBox,
+    panelHeight: number,
+    width: number,
+    height: number,
+  ): NonNullable<EventPopover['_place']> {
     const centerY = (rect.top + rect.bottom) / 2;
     let side: 'left' | 'right' | undefined = 'left';
     let left = rect.right + GAP;
@@ -295,8 +335,38 @@ export class EventPopover extends LitElement {
       Math.max(MARGIN, centerY - panelHeight / 2),
       height - panelHeight - MARGIN,
     );
-    const arrowTop = Math.min(Math.max(24, centerY - top), panelHeight - 24);
-    this._place = { left, top, arrow: side ? { side, top: arrowTop } : undefined };
+    const at = Math.min(Math.max(24, centerY - top), panelHeight - 24);
+    return { left, top, arrow: side ? { side, at } : undefined };
+  }
+
+  /**
+   * Below a box, as macOS opens the popover of its toolbar's add button: the arrow on the top
+   * edge points up at the button's middle, a little in from the popover's left, so the popover
+   * hangs over the card rather than beside its corner. Above it instead where there is no room
+   * below and more above.
+   */
+  private _placeBelow(
+    rect: Model.PopoverBox,
+    panelHeight: number,
+    width: number,
+    height: number,
+  ): NonNullable<EventPopover['_place']> {
+    const centerX = (rect.left + rect.right) / 2;
+    const left = Math.min(
+      Math.max(MARGIN, centerX - EAR_INSET),
+      Math.max(MARGIN, width - POPOVER_WIDTH - MARGIN),
+    );
+    const at = Math.min(Math.max(20, centerX - left), POPOVER_WIDTH - 20);
+    const below = rect.bottom + BELOW_GAP;
+    const above = rect.top - BELOW_GAP - panelHeight;
+    if (below + panelHeight > height - MARGIN && above >= MARGIN) {
+      return { left, top: above, arrow: { side: 'bottom', at } };
+    }
+    return {
+      left,
+      top: Math.max(MARGIN, Math.min(below, height - panelHeight - MARGIN)),
+      arrow: { side: 'top', at },
+    };
   }
 
   //---------------------------------------------------------------------------
@@ -738,9 +808,7 @@ export class EventPopover extends LitElement {
       >
         <div
           class="panel"
-          style="--event-color:${color};${
-            place?.arrow ? `transform-origin:${place.arrow.side} ${place.arrow.top}px` : ''
-          }"
+          style="--event-color:${color};${place?.arrow ? `transform-origin:${arrowPoint(place.arrow)}` : ''}"
           ?inert=${this._busy}
         >
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
@@ -765,7 +833,10 @@ export class EventPopover extends LitElement {
         </div>
         ${
           place?.arrow
-            ? html`<span class="arrow ${place.arrow.side}" style="top:${place.arrow.top}px"></span>`
+            ? html`<span
+                class="arrow ${place.arrow.side}"
+                style="${place.arrow.side === 'left' || place.arrow.side === 'right' ? 'top' : 'left'}:${place.arrow.at}px"
+              ></span>`
             : nothing
         }
       </dialog>
@@ -813,6 +884,10 @@ export class EventPopover extends LitElement {
       @focus=${() => (this._editing = 'title')}
       @blur=${() => this._editing === 'title' && (this._editing = undefined)}
       @input=${(ev: Event) => this._update({ summary: (ev.target as HTMLInputElement).value })}
+      @keydown=${(ev: KeyboardEvent) => {
+        // Return confirms, as it does in a macOS popover; not while an input method composes.
+        if (ev.key === 'Enter' && !ev.isComposing) this._requestClose('save');
+      }}
     />`;
   }
 
@@ -1253,8 +1328,9 @@ export class EventPopover extends LitElement {
 
   /**
    * The row under the cells: Delete for a stored event, on the left, and once anything was
-   * changed Cancel on the right, which throws the changes away and closes, as Escape does where
-   * there is no Escape key. A new event has nothing to delete, so Cancel is its only button.
+   * changed Cancel and Save on the right, Add for a new event. Cancel throws the changes away
+   * and closes, as Escape does where there is no Escape key; Save does what closing does, so a
+   * change can be confirmed where a person looks for it. A new event has nothing to delete.
    */
   private _renderFoot(): TemplateResult | typeof nothing {
     const params = this._params!;
@@ -1263,8 +1339,8 @@ export class EventPopover extends LitElement {
     }
     if (this._phase !== 'edit') return nothing;
     const canDelete = params.mode === 'event' && params.canDelete;
-    const canCancel = this._editable && this._dirty;
-    if (!canDelete && !canCancel) return nothing;
+    const changed = this._editable && this._dirty;
+    if (!canDelete && !changed) return nothing;
     return html`<div class="foot">
       ${
         canDelete
@@ -1274,10 +1350,13 @@ export class EventPopover extends LitElement {
           : nothing
       }
       ${
-        canCancel
+        changed
           ? html`<button class="btn end" @click=${() => this._requestClose('discard')}>
-              ${this._t('cancel')}
-            </button>`
+                ${this._t('cancel')}
+              </button>
+              <button class="btn primary" @click=${() => this._requestClose('save')}>
+                ${this._t(params.mode === 'new' ? 'add' : 'save')}
+              </button>`
           : nothing
       }
     </div>`;
@@ -1410,10 +1489,29 @@ export class EventPopover extends LitElement {
       position: absolute;
       width: 16px;
       height: 16px;
-      margin-top: -8px;
       background: var(--pop-bg);
       border: 1px solid var(--pop-edge);
       transform: rotate(45deg);
+    }
+    .arrow.left,
+    .arrow.right {
+      margin-top: -8px;
+    }
+    .arrow.top,
+    .arrow.bottom {
+      margin-left: -8px;
+    }
+    .arrow.top {
+      top: -8px;
+      border-right: 0;
+      border-bottom: 0;
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+    .arrow.bottom {
+      bottom: -8px;
+      border-top: 0;
+      border-left: 0;
+      clip-path: polygon(100% 0, 100% 100%, 0 100%);
     }
     .arrow.left {
       left: -8px;

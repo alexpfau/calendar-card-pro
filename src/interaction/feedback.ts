@@ -77,10 +77,12 @@ export interface PressOrigin {
   readonly y: number;
   readonly pointerType?: string;
   /**
-   * The pressed element's box, for a press without a position of its own (`originOf`). A
-   * pointer's press has none: the popover opens at its point.
+   * What can be seen of the event or button pressed (`originOf`, `eventBox`). A press with no
+   * event under it, on a day or an empty slot, has none: the popover opens at its point.
    */
   readonly rect?: { left: number; top: number; right: number; bottom: number };
+  /** Open below the box rather than beside it, as for a toolbar button. */
+  readonly below?: boolean;
 }
 
 /**
@@ -115,19 +117,37 @@ export function textBlockRight(boxes: readonly Box[]): number | undefined {
 }
 
 /**
- * Where an event ends on screen, for the popover opened from the keyboard to open beside it. A
- * grid block is a tinted box and ends where its box does. A list row or a column event draws no
- * box of its own, so it ends where its text does; a list row's box stretches across the card,
- * far from its words.
+ * Whether a computed background color can be seen: any alpha above 0. A form this cannot read
+ * counts as seen, which keeps the event's box.
+ *
+ * @param color - A computed `background-color`
+ * @returns Whether it paints anything
+ */
+export function paints(color: string): boolean {
+  const value = color.trim().toLowerCase();
+  if (!value || value === 'transparent') return false;
+  const alpha =
+    /\/\s*([\d.]+%?)\s*\)$/.exec(value) ??
+    /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+%?)\s*\)$/.exec(value);
+  if (!alpha) return true;
+  const number = Number.parseFloat(alpha[1]);
+  return Number.isNaN(number) || number > 0;
+}
+
+/**
+ * What can be seen of an event, for the popover to open beside it, as macOS opens one beside an
+ * event. A tinted event, a grid block or any event under `event_background_opacity`, is a box,
+ * and ends where its box does. An untinted one draws no box of its own, so it ends where its
+ * text does; an untinted list row's box stretches across the card, far from its words.
  *
  * @param element - The event pressed, or an element inside it
- * @returns Its box, its right edge brought in to the end of its text where it has no box
+ * @returns Its box, its right edge brought in to the end of its text where it draws no box
  */
 export function eventBox(element: Element): NonNullable<PressOrigin['rect']> {
   const rect = element.getBoundingClientRect();
   const box = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
   const event = element.closest('.event');
-  if (!event || event.matches('.grid-event, .grid-banner')) return box;
+  if (!event || paints(getComputedStyle(event).backgroundColor)) return box;
   // Measured from the left only: a right-to-left row keeps its box rather than be anchored at
   // the start of its words, or at a part pinned to its far edge.
   if (getComputedStyle(event).direction === 'rtl') return box;

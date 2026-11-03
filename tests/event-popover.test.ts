@@ -462,7 +462,7 @@ describe('a new event', () => {
     await type('input.title', 'Piano');
     expect(
       Array.from(root.querySelectorAll('.foot button')).map((b) => b.textContent?.trim()),
-    ).toEqual(['Cancel']);
+    ).toEqual(['Cancel', 'Add']);
     await press(button('Cancel'));
     expect(writes()).toEqual([]);
     expect(closed).toHaveBeenCalledTimes(1);
@@ -784,14 +784,16 @@ describe('Cancel', () => {
       b.classList.contains('end'),
     ]);
 
-  it('appears beside Delete, at the end of the row, once anything was changed', async () => {
+  it('appears with Save at the end of the row, beside Delete, once anything was changed', async () => {
     const { root, type } = await open({});
     expect(foot(root)).toEqual([['Delete', false]]);
     await type('input.title', 'Swim lesson');
     expect(foot(root)).toEqual([
       ['Delete', false],
       ['Cancel', true],
+      ['Save', false],
     ]);
+    expect(root.querySelector('.foot .btn.primary')?.textContent?.trim()).toBe('Save');
     // Typed back to what it was, there is nothing to cancel.
     await type('input.title', '🏊 Swim');
     expect(foot(root)).toEqual([['Delete', false]]);
@@ -1064,5 +1066,113 @@ describe('moving to another calendar', () => {
     expect(el.closeDialog()).toBe(true);
     expect(writes().map((w) => w.type)).toEqual(['calendar/event/create', 'calendar/event/delete']);
     expect(closed).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Save and Add', () => {
+  it('saves a change and closes, as closing the popover does', async () => {
+    const { el, type, press, button, writes, closed, updated } = await open({});
+    await type('input.title', 'Swim lesson');
+    await press(button('Save'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([expect.objectContaining({ type: 'calendar/event/update' })]);
+    expect(writes()[0].event).toMatchObject({ summary: 'Swim lesson' });
+    expect(updated).toHaveBeenCalledWith('calendar.ben');
+    expect(el.isConnected).toBe(true);
+  });
+
+  it('adds a new event', async () => {
+    const { type, press, button, writes, closed } = await open({
+      mode: 'new',
+      entry: undefined,
+      display: undefined,
+      times: {
+        allDay: false,
+        start: new Date('2026-11-04T09:00:00Z'),
+        end: new Date('2026-11-04T10:00:00Z'),
+      },
+      canDelete: false,
+    });
+    await type('input.title', 'Piano');
+    await press(button('Add'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      expect.objectContaining({ type: 'calendar/event/create', entity_id: 'calendar.ben' }),
+    ]);
+  });
+
+  it('asks which occurrences first, for a repeating event', async () => {
+    const { root, type, press, button, writes } = await open({ entry: WEEKLY });
+    await type('input.title', 'Swim lesson');
+    await press(button('Save'));
+    expect(root.querySelector('.ask')).not.toBeNull();
+    expect(writes()).toEqual([]);
+  });
+
+  it('saves on Return in the title, but not while an input method composes', async () => {
+    const { root, type, writes, closed } = await open({});
+    await type('input.title', 'Swim lesson');
+    const title = root.querySelector('input.title')!;
+    title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true }));
+    await Promise.resolve();
+    expect(writes()).toEqual([]);
+    title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toHaveLength(1);
+  });
+
+  it("words both in Home Assistant's language", async () => {
+    const { root, type } = await open(
+      {},
+      { strings: { 'ui.common.save': 'Speichern', 'ui.common.cancel': 'Abbrechen' } },
+    );
+    await type('input.title', 'Schwimmen');
+    expect(
+      Array.from(root.querySelectorAll('.foot button')).map((b) => b.textContent?.trim()),
+    ).toEqual(['Delete', 'Abbrechen', 'Speichern']);
+  });
+});
+
+describe('below a toolbar button', () => {
+  const BUTTON = { left: 60, top: 100, right: 96, bottom: 136 };
+  const heightIs = (px: number) => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(px);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+  };
+
+  it('hangs below the button, its arrow on top pointing at the button', async () => {
+    heightIs(400);
+    const { root } = await open({ anchor: { x: 78, y: 118, rect: BUTTON, below: true } });
+    const dialog = root.querySelector('dialog')!;
+    // The arrow sits a little in from the left, under the button's middle.
+    expect(dialog.style.left).toBe(`${78 - 32}px`);
+    expect(dialog.style.top).toBe(`${136 + 10}px`);
+    const arrow = root.querySelector<HTMLElement>('.arrow.top')!;
+    expect(arrow.style.left).toBe('32px');
+    expect(root.querySelector<HTMLElement>('.panel')!.style.transformOrigin).toBe('32px top');
+  });
+
+  it('keeps on screen at the left edge, the arrow still under the button', async () => {
+    heightIs(400);
+    const { root } = await open({
+      anchor: { x: 20, y: 118, rect: { left: 4, top: 100, right: 36, bottom: 136 }, below: true },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe('12px');
+    expect(root.querySelector<HTMLElement>('.arrow.top')!.style.left).toBe('20px');
+  });
+
+  it('opens above the button where there is no room below', async () => {
+    heightIs(400);
+    const low = {
+      left: 60,
+      top: window.innerHeight - 60,
+      right: 96,
+      bottom: window.innerHeight - 24,
+    };
+    const { root } = await open({ anchor: { x: 78, y: low.top + 18, rect: low, below: true } });
+    expect(root.querySelector('dialog')!.style.top).toBe(`${low.top - 10 - 400}px`);
+    expect(root.querySelector('.arrow.bottom')).not.toBeNull();
   });
 });
