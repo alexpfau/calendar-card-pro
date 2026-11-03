@@ -76,7 +76,10 @@ export interface PressOrigin {
   readonly x: number;
   readonly y: number;
   readonly pointerType?: string;
-  /** The pressed event's or button's box. */
+  /**
+   * The pressed element's box, for a press without a position of its own (`originOf`). A
+   * pointer's press has none: the popover opens at its point.
+   */
   readonly rect?: { left: number; top: number; right: number; bottom: number };
 }
 
@@ -112,9 +115,10 @@ export function textBlockRight(boxes: readonly Box[]): number | undefined {
 }
 
 /**
- * Where an event ends on screen, for the popover to open beside it. A grid block is a tinted
- * box and ends where its box does. A list row or a column event draws no box of its own, so it
- * ends where its text does; a list row's box stretches across the card, far from its words.
+ * Where an event ends on screen, for the popover opened from the keyboard to open beside it. A
+ * grid block is a tinted box and ends where its box does. A list row or a column event draws no
+ * box of its own, so it ends where its text does; a list row's box stretches across the card,
+ * far from its words.
  *
  * @param element - The event pressed, or an element inside it
  * @returns Its box, its right edge brought in to the end of its text where it has no box

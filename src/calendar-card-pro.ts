@@ -3828,13 +3828,10 @@ class CalendarCardPro extends LitElement {
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
-    // held, so the cue belongs there rather than where it was let go.
+    // held, so the cue belongs there rather than where it was let go. It carries no box: a
+    // popover opened by a pointer opens at the press itself, where the eye and the cursor are.
     const pressedAt = this._pointerStart ?? { x: ev.clientX, y: ev.clientY };
-    const origin: Feedback.PressOrigin = {
-      ...pressedAt,
-      pointerType: ev.pointerType,
-      rect: tapTarget ? originOf(tapTarget.element)?.rect : undefined,
-    };
+    const origin: Feedback.PressOrigin = { ...pressedAt, pointerType: ev.pointerType };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
     if (this._holdTriggered) {

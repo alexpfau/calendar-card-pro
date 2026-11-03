@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import type * as Types from '../src/config/types';
 import { resetMapTilesToken } from '../src/interaction/event-map';
@@ -818,30 +818,37 @@ describe('Cancel', () => {
   });
 });
 
-describe('placing beside a wide event', () => {
-  it('opens beside the press on an event wider than the popover, centered on the event', async () => {
-    // A list row across the card, pressed on its title near the left.
-    const { root } = await open({
-      anchor: { x: 150, y: 210, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
-    });
-    const dialog = root.querySelector('dialog')!;
-    expect(dialog.style.left).toBe(`${150 + 14}px`);
-    expect(root.querySelector('.arrow.left')).not.toBeNull();
-  });
+describe('placing at the press', () => {
+  const arrowTop = (root: ShadowRoot) =>
+    Number.parseFloat((root.querySelector('.arrow') as HTMLElement).style.top);
+  const top = (root: ShadowRoot) => Number.parseFloat(root.querySelector('dialog')!.style.top);
 
-  it('opens beside the middle of a wide event pressed from the keyboard', async () => {
-    const { root } = await open({
-      anchor: { x: 590, y: 220, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
+  it('opens right at a pointer press, the arrow on it, whatever it was pressed on', async () => {
+    // happy-dom lays nothing out; the panel is given the height a browser would measure.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
     });
-    expect(root.querySelector('dialog')!.style.left).toBe(`${590 + 14}px`);
+    // A list row's title near the left of a row across the card: no box comes with the press.
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${150 + 14}px`);
+    expect(root.querySelector('.arrow.left')).not.toBeNull();
+    expect(top(root) + arrowTop(root)).toBe(300);
   });
 
   it('turns to the left of the press where the right has no room', async () => {
-    const { root } = await open({
-      anchor: { x: 900, y: 210, rect: { left: 80, right: 1100, top: 200, bottom: 240 } },
-    });
+    const { root } = await open({ anchor: { x: 900, y: 300 } });
     expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 14 - 340}px`);
     expect(root.querySelector('.arrow.right')).not.toBeNull();
+  });
+
+  it('opens beside the box a press without a position comes with, from the keyboard', async () => {
+    // A wide box with no room on either side opens in the middle, without an arrow.
+    const { root } = await open({
+      anchor: { x: 590, y: 220, rect: { left: 80, right: 1000, top: 200, bottom: 240 } },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${(window.innerWidth - 340) / 2}px`);
+    expect(root.querySelector('.arrow')).toBeNull();
   });
 });
 

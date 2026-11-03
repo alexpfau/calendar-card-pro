@@ -473,7 +473,7 @@ read-only calendars, a tap on a day stays a tap on the card.
 
 ## 💬 The Event Popover
 
-An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event or button you pressed, with an arrow pointing at it: beside the edge of a column event or a grid block, and beside the point you pressed on an event wider than the popover, such as a list row stretching across the card, so it opens where you were looking. On a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
+An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens right where you pressed, with its arrow on that point, to the right of it where there is room and to the left otherwise, so it is already under your eye and your cursor. It may cover part of the event you pressed, which it shows in full anyway. Opened from the keyboard, it opens beside the event instead: beside the end of a list row's or column event's text, or the edge of a grid block. The add button opens it beside the button. On a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;

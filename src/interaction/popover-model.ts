@@ -41,7 +41,10 @@ export interface StoredEvent {
 export interface PopoverAnchor {
   x: number;
   y: number;
-  /** The pressed event's or button's box, when the press was on one. */
+  /**
+   * The pressed element's box, for a press without a position of its own: a key, or the add
+   * button. A pointer's press has none, and the popover opens at its point.
+   */
   rect?: { left: number; top: number; right: number; bottom: number };
 }
 

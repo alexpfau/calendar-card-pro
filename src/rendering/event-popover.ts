@@ -270,22 +270,16 @@ export class EventPopover extends LitElement {
       return;
     }
 
-    // An event narrower than the popover, a column event or a grid block, is passed by its edge,
-    // so the popover covers none of it. A wider one, a list row across the card above all, says
-    // little about where on it the eye was, so the popover opens beside the press instead, still
-    // centered on the event. A press without a position, from the keyboard, is the event's
-    // center.
-    const box = anchor.rect;
-    const wide = box !== undefined && box.right - box.left > POPOVER_WIDTH;
-    const rect =
-      box && !wide
-        ? box
-        : {
-            left: anchor.x,
-            right: anchor.x,
-            top: box?.top ?? anchor.y,
-            bottom: box?.bottom ?? anchor.y,
-          };
+    // A press with a position, from a pointer, comes without a box, and the popover opens right
+    // at it: where the cursor and the eye already are, whatever it covers of the event, which
+    // the popover shows anyway. A press without one, from the keyboard, or on the add button,
+    // comes with the element's box, and the popover opens beside it.
+    const rect = anchor.rect ?? {
+      left: anchor.x,
+      right: anchor.x,
+      top: anchor.y,
+      bottom: anchor.y,
+    };
     const centerY = (rect.top + rect.bottom) / 2;
     let side: 'left' | 'right' | undefined = 'left';
     let left = rect.right + GAP;
