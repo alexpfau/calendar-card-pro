@@ -18,6 +18,7 @@ import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import * as Links from '../utils/links';
 
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
@@ -46,6 +47,34 @@ export function drawsEvent(
 ): boolean {
   if (view === 'grid') return gridDrawsEvent(days, config);
   return days.some((day) => day.events.some((event) => !event._isEmptyDay));
+}
+
+/**
+ * Whether a view draws at least one link in its events' rows (`open_links`).
+ *
+ * Asked before the content renders, as `drawsEvent` is: a card holding a link may not present
+ * itself as a button, because a button's content is no place for a link.
+ *
+ * @param view - The view that renders the days
+ * @param days - The days it renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for that view
+ * @returns True when at least one row draws a link
+ */
+export function drawsLink(
+  view: Types.EffectiveView,
+  days: Types.EventsByDay[],
+  config: Types.Config,
+): boolean {
+  if (!ViewConfig.VIEW_SCOPE.open_links.has(view) || !Presentation.rowLinksOn(config)) {
+    return false;
+  }
+  return days.some((day) =>
+    day.events.some((event) => {
+      if (event._isEmptyDay) return false;
+      const links = Links.rowLinks(Presentation.shownRowText(event, config), event._source);
+      return links.location !== undefined || links.description !== undefined;
+    }),
+  );
 }
 
 //-----------------------------------------------------------------------------
@@ -820,6 +849,7 @@ function renderEvent(
         ${renderEventButton(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
+            links: Presentation.rowLinksOn(config),
           }),
           tap,
           dayLabelId,

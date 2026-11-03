@@ -3607,6 +3607,12 @@ class CalendarCardPro extends LitElement {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
+    // A press on a link in an event's row is the link's: the browser follows it, and the card
+    // neither arms nor captures, so its click reaches the link and never runs the card's tap.
+    if (this._startsOnRowLink(ev)) {
+      (ev.currentTarget as Element | null)?.toggleAttribute?.('data-own-press', true);
+      return;
+    }
     const tapTarget = this._eventTapAt(ev);
     const dayHit = tapTarget ? undefined : this._dayHitAt(ev);
     // A press on an event or a day is theirs, so the card's ripple stays still for it from
@@ -3672,6 +3678,17 @@ class CalendarCardPro extends LitElement {
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
     }
+  }
+
+  /**
+   * Whether a press began on a link drawn in an event's row (`open_links`).
+   *
+   * @param ev - A pointer-down on `ha-card`
+   * @returns True when the press is the link's
+   */
+  private _startsOnRowLink(ev: PointerEvent): boolean {
+    if (typeof ev.composedPath !== 'function') return false;
+    return Activation.startsOnRowLink(ev.composedPath(), ev.currentTarget);
   }
 
   /**
@@ -4826,9 +4843,9 @@ class CalendarCardPro extends LitElement {
     };
 
     let content: TemplateResult;
-    // Whether the content holds at least one button of its own: an event that is a target, or
-    // a day's add button. Not while loading, and not for an error or, for events, for days
-    // holding nothing but empty-day placeholders.
+    // Whether the content holds at least one control of its own: an event that is a target, a
+    // day's add button, or a link in an event's row. Not while loading, and not for an error
+    // or, for events, for days holding nothing but empty-day placeholders.
     let drawsEventTarget = false;
     const dayAdd = this._dayAddButtons;
 
@@ -4911,7 +4928,8 @@ class CalendarCardPro extends LitElement {
       drawsEventTarget =
         (dayAdd !== undefined && days.length > 0) ||
         (this._eventsActivatable &&
-          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig));
+          Render.drawsEvent(this.effectiveView, days, this.effectiveConfig)) ||
+        Render.drawsLink(this.effectiveView, days, this.effectiveConfig);
     }
 
     const toolbar = this._headerToolbar();
@@ -5069,16 +5087,16 @@ class CalendarCardPro extends LitElement {
    * present itself as a button around them.
    *
    * The one place that answers it, so every control that makes the card a host joins here:
-   * the toolbar's controls, the events while they are targets, and the days while each is a
-   * button that adds an event. Answered from what
+   * the toolbar's controls, the events while they are targets, the days while each is a
+   * button that adds an event, and the links in event rows (`open_links`). Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
    * button. Either way the card keeps its tab stop while it has a tap action; only the
    * button role goes.
    *
    * @param toolbar - The header toolbar this render draws
-   * @param drawsEventTarget - Whether this render draws at least one event as a target, or a
-   *   day's add button
+   * @param drawsEventTarget - Whether this render draws at least one event as a target, a
+   *   day's add button, or a link in an event's row
    * @returns True while the card hosts at least one control
    */
   private _hostsControls(toolbar: Toolbar.HeaderToolbar, drawsEventTarget: boolean): boolean {

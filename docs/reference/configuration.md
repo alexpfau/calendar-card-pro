@@ -132,7 +132,7 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 `allday_badge` · `allday_badge_style` · `allday_badge_color` · `show_now_indicator` ·
 `show_single_allday_time` · `show_multiday_allday_time` · `show_location_allday` ·
 `show_description_allday` · `show_countdown_allday` · `event_spacing` · `event_gap` ·
-`time_max_lines`
+`time_max_lines` · `open_links`
 
 Compact caps empty later day columns rather than shortening the card, and the grid already
 segments multi-day events itself — all-day as one spanning banner, timed as one block per
@@ -153,7 +153,8 @@ with no time, location, description or countdown for them to switch. `event_spac
 its own padding and is placed by its own time. `time_max_lines` gives way to the grid's own
 fit for the time row, which gives up the clock, a single line, the end time and then the row
 as a block runs out of room. The editor hides
-all eight in Grid as well.
+all eight in Grid as well. `open_links` draws no links in grid blocks, whose words are drawn
+for the eye only, and is hidden in Grid too.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 
@@ -369,6 +370,7 @@ meaning no limit.
 | `day_tap_action`     | object  | `none`  | What tapping a day where it shows no event does. `add-event` opens a new event in the event popover on that day, or in grid view at the hour tapped, in place of `tap_action`; `none`, and any other action, leaves such a tap to `tap_action`                                                                        |
 | `event_tap_action`   | object  | `none`  | What tapping an event does, in place of `tap_action`. `details` opens the event in the card's [event popover](/features/actions#the-event-popover); Home Assistant's own actions run with the event's fields, such as `{title}`, filled in; `none` and the card's own actions leave a tap on an event to `tap_action` |
 | `event_hold_action`  | object  | `none`  | What holding an event does, in place of `hold_action`, with the same actions as `event_tap_action`: `details` opens the held event in its popover; `none` and the card's own actions leave a hold on an event to `hold_action`                                                                                        |
+| `open_links`         | boolean | `false` | Whether web addresses in an event row's location and description are links, opening in a new tab; `http` and `https` only. Only read while `event_tap_action` and `event_hold_action` are both `none`, in list and column view                                                                                        |
 | `allow_event_edit`   | boolean | `true`  | Whether an event can be changed in its popover, or moved to another calendar, which also needs Delete; `false` shows every part as plain text. Only narrows: an event whose calendar's integration cannot update events is never editable. Only read while `event_tap_action` or `event_hold_action` is `details`     |
 | `allow_event_delete` | boolean | `true`  | Whether the event popover offers Delete, and moving an event to another calendar. Only narrows: a calendar whose integration cannot delete events never offers it. Only read while `event_tap_action` or `event_hold_action` is `details`                                                                             |
 
@@ -396,6 +398,7 @@ braces, such as `{title}` or `{start}`; the title, location and description only
 **→ [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event)** — where a tap on a day counts, and the day, hour and calendar the new event starts with.
 **→ [Tapping an Event](/features/actions#tapping-an-event)** — what a tap or a hold on an event opens, and where on the card it counts.
 **→ [Using the Event's Fields in an Action](/features/actions#using-the-events-fields-in-an-action)** — every field an event action can fill in, and how each is encoded.
+**→ [Links in Events](/features/actions#links-in-events)** — which addresses become links in event rows, and what a press on one does.
 **→ [Editing & Deleting Events](/features/actions#editing-deleting-events)** — how the popover edits and deletes, which calendars allow it, and when the card leaves it out.
 
 ## ⚡ Cache & Refresh

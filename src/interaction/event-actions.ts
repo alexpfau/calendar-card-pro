@@ -15,7 +15,6 @@
  * leaves `.` alone, so a field can still name a host, or be `..` and climb out of a path.
  */
 
-import { CARD_ACTION_VALUES, EVENT_DETAILS_ACTION } from '../config/constants';
 import * as Types from '../config/types';
 import { stripHtmlTags } from '../utils/format';
 import * as TextReplace from '../utils/text-replace';
@@ -73,38 +72,9 @@ const SAFE_URL_SCHEMES: ReadonlySet<string> = new Set(['http', 'https']);
 /** `{title}` and the rest; any other name in braces is left as written. */
 const FIELD_PATTERN = new RegExp(`\\{(${EVENT_FIELDS.join('|')})\\}`, 'g');
 
-//-----------------------------------------------------------------------------
-// TYPES
-//-----------------------------------------------------------------------------
-
-/**
- * What an event action amounts to: open the event's dialog, hand an action to Home Assistant,
- * or nothing, which leaves the press to the card's own action.
- */
-export type EventActionKind = 'details' | 'forward' | 'none';
-
-//-----------------------------------------------------------------------------
-// CLASSIFYING
-//-----------------------------------------------------------------------------
-
-/**
- * What an event action amounts to.
- *
- * `details` opens the dialog. `none`, a missing or bare action, and the card's own actions
- * (`expand`, `refresh`, `add-event`, `reset`) are nothing on an event: they act on the whole
- * card, which a press on an event reaches anyway when the event has no action of its own.
- * Every other action is Home Assistant's, including ones it adds after this was written.
- *
- * @param action - `event_tap_action` or `event_hold_action`, as configured
- * @returns What the action amounts to
- */
-export function eventActionKind(action: Types.ActionConfig | null | undefined): EventActionKind {
-  const name = action?.action;
-  if (typeof name !== 'string' || name === '' || name === 'none') return 'none';
-  if (name === EVENT_DETAILS_ACTION) return 'details';
-  if ((CARD_ACTION_VALUES as ReadonlyArray<string>).includes(name)) return 'none';
-  return 'forward';
-}
+// What an event action amounts to lives in a module of its own, which the editor reads too
+// without taking this one's text handling with it.
+export { eventActionKind, type EventActionKind } from './event-action-kind';
 
 //-----------------------------------------------------------------------------
 // FIELDS

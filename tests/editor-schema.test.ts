@@ -937,6 +937,9 @@ describe('editor: applicability', () => {
       // Grid blockifies the plain time span and resets the properties the folded-countdown
       // span reads, so neither clamp path acts there.
       time_max_lines: ['column', 'list'],
+      // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
+      // so it draws no links in them.
+      open_links: ['column', 'list'],
     });
 
     expect(
@@ -2839,9 +2842,38 @@ describe('editor: the Actions & Refresh panel', () => {
       'day_tap_action_mode',
       'event_tap_action',
       'event_hold_action',
+      'open_links',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
+  });
+
+  /**
+   * Links in rows reach only events that do nothing of their own, so the switch shows exactly
+   * while both event actions read as nothing: `none`, a bare action, or one of the card's own.
+   */
+  it.each([
+    ['none', 'none', true],
+    [null, 'none', true],
+    ['expand', 'add-event', true],
+    ['details', 'none', false],
+    ['none', 'details', false],
+    ['url', 'none', false],
+    ['none', 'perform-action', false],
+    ['more-info', 'more-info', false],
+  ])('shows open_links for event tap %s and hold %s: %s', (tap, hold, shown) => {
+    const config = buildConfig({
+      event_tap_action: tap === null ? null : { action: tap },
+      event_hold_action: { action: hold },
+    } as unknown as Partial<Types.Config>);
+    expect(namesIn(config).includes('open_links')).toBe(shown);
+  });
+
+  it('keeps a stored open_links while its switch is out of the schema', () => {
+    const config = { ...withEventTap('details'), open_links: true } as Types.Config;
+
+    expect(namesIn(config)).not.toContain('open_links');
+    expect(toStoredConfig(config).open_links).toBe(true);
   });
 
   it('offers the two dialog switches under the event actions once the tap opens details', () => {

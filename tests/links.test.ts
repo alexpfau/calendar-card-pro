@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { linkPlainText, linkText, safeHref } from '../src/utils/links';
+import { stripHtmlTags } from '../src/utils/format';
+import {
+  hasLink,
+  linkPlainText,
+  linkShownText,
+  linkText,
+  rowLinks,
+  safeHref,
+} from '../src/utils/links';
 
 /**
  * Links in an event's description and location: what becomes a link, and that nothing a
@@ -90,5 +98,85 @@ describe('safeHref', () => {
     ['//example.com', undefined],
   ])('reads %j as %j', (href, expected) => {
     expect(safeHref(href)).toBe(expected);
+  });
+});
+
+/**
+ * Links in an event row (`open_links`): the row's own text, word for word, with the addresses in
+ * it linked, and a calendar's anchor kept only where the row shows its words unchanged.
+ */
+describe('linkShownText', () => {
+  const GOOGLE =
+    'Bring the plan. <a href="https://docs.example.com/plan?a=1&amp;b=2">Swim plan</a><br>' +
+    'Call https://meet.example.com/xyz.';
+
+  it("keeps a calendar's anchor where the row shows the description as written", () => {
+    const shown = stripHtmlTags(GOOGLE);
+    expect(linkShownText(shown, GOOGLE)).toEqual([
+      { text: 'Bring the plan. ' },
+      { text: 'Swim plan', href: 'https://docs.example.com/plan?a=1&b=2' },
+      { text: 'Call ' },
+      { text: 'https://meet.example.com/xyz', href: 'https://meet.example.com/xyz' },
+      { text: '.' },
+    ]);
+  });
+
+  it('links only the addresses written out once the row rewrote the text', () => {
+    // As a text replacement or a birthday marker leaves it: the anchor's words are no longer
+    // where the description put them, so they stay words.
+    const shown = 'Bring the plan. Swim planCall https://meet.example.com/xyz. (edited)';
+    expect(linkShownText(shown, GOOGLE)).toEqual([
+      { text: 'Bring the plan. Swim planCall ' },
+      { text: 'https://meet.example.com/xyz', href: 'https://meet.example.com/xyz' },
+      { text: '. (edited)' },
+    ]);
+  });
+
+  it.each([
+    ['a javascript anchor', '<a href="javascript:alert(1)">Open</a> now'],
+    ['an encoded scheme', '<a href="&#106;avascript:alert(1)">Open</a> now'],
+    ['a data anchor', '<a href="data:text/html,x">Open</a> now'],
+  ])('never links %s, and keeps its words', (_name, raw) => {
+    expect(linkShownText(stripHtmlTags(raw), raw)).toEqual([{ text: 'Open' }, { text: ' now' }]);
+  });
+
+  it.each([
+    ['plain text', 'Room 4', undefined],
+    ['a bare address', 'https://zoom.example/j/1', undefined],
+    ['an anchor', 'Agenda', '<a href="https://a.example">Agenda</a>'],
+    ['an anchor with spaced words', 'Go  there', 'Go <a href="https://a.example"> there</a>'],
+    ['entities', 'Fish & chips https://f.example', 'Fish &amp; chips https://f.example'],
+    ['an empty anchor', 'x', 'x<a href="https://a.example"></a>'],
+    ['a rewritten text', 'Busy', '<a href="https://a.example">Dentist</a>'],
+  ])('joins its pieces back to the shown text for %s', (_name, shown, raw) => {
+    expect(
+      linkShownText(shown, raw)
+        .map((piece) => piece.text)
+        .join(''),
+    ).toBe(shown);
+  });
+
+  it('gives nothing for nothing', () => {
+    expect(linkShownText('', '<a href="https://a.example">x</a>')).toEqual([]);
+  });
+});
+
+describe('rowLinks', () => {
+  it('hands back pieces only for a field that links somewhere', () => {
+    const links = rowLinks({ location: 'Pool', description: 'See https://swim.example' });
+    expect(links.location).toBeUndefined();
+    expect(links.description && hasLink(links.description)).toBe(true);
+  });
+
+  it("reads each field's anchors from its own source", () => {
+    const links = rowLinks(
+      { location: 'Club', description: 'Notes' },
+      {
+        location: '<a href="https://club.example">Club</a>',
+        description: '<a href="javascript:x">Notes</a>',
+      },
+    );
+    expect(links.location).toEqual([{ text: 'Club', href: 'https://club.example' }]);
+    expect(links.description).toBeUndefined();
   });
 });

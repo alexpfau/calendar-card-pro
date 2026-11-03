@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Pokaż szczegóły wydarzenia” otwiera szczegóły wydarzenia tuż obok niego, gdzie możesz je zmienić lub usunąć, jeśli kalendarz wydarzenia na to pozwala. Akcje Home Assistanta mogą używać tytułu, godzin, miejsca i opisu dotkniętego wydarzenia. Przy opcji „Nic” dotknięcie wydarzenia uruchamia akcję dotknięcia, tak jak w każdym innym miejscu karty.",
   "event_hold_action": "Akcja przytrzymania wydarzenia",
   "event_hold_action.helper": "„Pokaż szczegóły wydarzenia” otwiera szczegóły wydarzenia tuż obok niego, gdy przytrzymasz wydarzenie. Akcje Home Assistanta mogą używać tytułu, godzin, miejsca i opisu przytrzymanego wydarzenia. Przy opcji „Nic” przytrzymanie wydarzenia uruchamia akcję przytrzymania, tak jak w każdym innym miejscu karty.",
+  "open_links": "Otwieraj linki w wydarzeniach",
+  "open_links.helper": "Adresy internetowe w miejscu i opisie wydarzenia stają się linkami, z których każdy otwiera się w nowej karcie przeglądarki. Dotknięcie linku otwiera go zamiast uruchamiać akcję dotknięcia.",
   "allow_event_edit": "Zezwalaj na edycję wydarzeń",
   "allow_event_edit.helper": "Pozwala zmieniać wydarzenie w jego szczegółach, w kalendarzach, które to obsługują.",
   "allow_event_delete": "Zezwalaj na usuwanie wydarzeń",

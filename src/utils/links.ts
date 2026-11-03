@@ -108,3 +108,85 @@ export function linkText(raw: string | null | undefined): TextPiece[] {
   });
   return pieces.filter((piece) => piece.text !== '');
 }
+
+/**
+ * Whether any piece is a link.
+ *
+ * @param pieces - Pieces of text and links
+ * @returns True when at least one piece links somewhere
+ */
+export function hasLink(pieces: ReadonlyArray<TextPiece>): boolean {
+  return pieces.some((piece) => 'href' in piece);
+}
+
+/**
+ * The text an event row shows, as pieces of text and links, without changing a word of it.
+ *
+ * A row shows its description with the markup removed (`stripHtmlTags`), so an `<a href>` a
+ * calendar wrote there reaches the row as its words alone. Where those words are exactly what
+ * the row shows, they keep their link: the description is read again with each anchor held
+ * in place, and its link is used only if the text comes out the same as `shown`. Anything
+ * that rewrote the text on its way to the row, such as a text replacement or a birthday
+ * marker, makes the two differ, and then only the web addresses written in `shown` itself are
+ * linked. Either way the pieces join to `shown`, character for character.
+ *
+ * @param shown - The text the row shows
+ * @param raw - The text as the calendar delivered it, if it may hold markup
+ * @returns The pieces, in order
+ */
+export function linkShownText(shown: string, raw?: string | null): TextPiece[] {
+  if (!shown) return [];
+  if (raw && /<a\b/i.test(raw)) {
+    const anchors: Array<{ href: string; words: string }> = [];
+    const marked = raw.replace(
+      ANCHOR,
+      (_match, doubled: string, single: string, bare: string, words: string) => {
+        anchors.push({ href: doubled ?? single ?? bare ?? '', words });
+        return `\uE000${anchors.length - 1}\uE001`;
+      },
+    );
+    const pieces: TextPiece[] = [];
+    stripHtmlTags(marked)
+      .split(ANCHOR_MARK)
+      .forEach((part, index) => {
+        if (index % 2 === 0) {
+          pieces.push(...linkPlainText(part));
+          return;
+        }
+        const anchor = anchors[Number(part)];
+        if (!anchor) return;
+        const words = stripHtmlTags(anchor.words);
+        const href = safeHref(stripHtmlTags(anchor.href));
+        pieces.push(href && words ? { text: words, href } : { text: words });
+      });
+    const kept = pieces.filter((piece) => piece.text !== '');
+    if (kept.map((piece) => piece.text).join('') === shown) return kept;
+  }
+  return linkPlainText(shown);
+}
+
+/** An event row's location and description as pieces, each present only where it links. */
+export interface RowLinks {
+  readonly location?: TextPiece[];
+  readonly description?: TextPiece[];
+}
+
+/**
+ * The links in an event row: its location and its description as pieces, each only where it
+ * holds at least one link, so a row with none draws its text exactly as it always has.
+ *
+ * @param shown - The location and description the row shows
+ * @param source - The same fields as the calendar delivered them
+ * @returns The pieces to draw in place of each text
+ */
+export function rowLinks(
+  shown: { readonly location: string; readonly description: string },
+  source?: { readonly location?: string | null; readonly description?: string | null },
+): RowLinks {
+  const location = linkShownText(shown.location, source?.location);
+  const description = linkShownText(shown.description, source?.description);
+  return {
+    location: hasLink(location) ? location : undefined,
+    description: hasLink(description) ? description : undefined,
+  };
+}

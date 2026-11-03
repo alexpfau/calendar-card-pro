@@ -2696,6 +2696,32 @@ export const cardStyles = css`
     color: var(--calendar-card-color-description);
   }
 
+  /* A web address in an event row's location or description, drawn as a link while open_links
+     is on. It keeps the row's own color and size, so a location in the calendar's accent stays
+     in it, and is set apart by its underline alone. Its focus ring sits close around the words:
+     the row's text is a clamped box that hides what overflows it, and a ring further out
+     would be cut off at its edges. */
+  .event-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 0.15em;
+  }
+
+  .event-link:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 0;
+    border-radius: 2px;
+  }
+
+  /* A press on a link is the link's, so the card's ripple stays still over it, as it does over
+     an event that is a button of its own; the gesture recognizer marks the press itself with
+     data-own-press, as it marks a press on an event or a day. */
+  ha-card:has(.event-link:hover, .event-link:active, .event-link:focus-visible) > ha-ripple {
+    --ha-ripple-hover-opacity: 0;
+    --ha-ripple-pressed-opacity: 0;
+  }
+
   /* The all-day badge, drawn instead of the plain "all day" words when allday_badge is on.
    *
    * It is a flex child of .time-actual, never of .time-text. Inside .time-text it would

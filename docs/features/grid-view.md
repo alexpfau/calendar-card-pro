@@ -907,6 +907,13 @@ The other detail-row options still shape timed blocks but never reach the all-da
 `label_type`, `label_icon_color` and the title and weather line limits. `time_max_lines` is
 the exception, below.
 
+`open_links` does nothing here. A grid block draws its words for the eye only, behind a
+name of its own that screen readers announce, and shows or hides its rows as it grows and
+shrinks, so a link in it would be a stop for the keyboard that a screen reader cannot see, in a
+box often too small to aim at. Its location and description stay text, and the editor omits
+the switch in Grid. [Links in Events](/features/actions#links-in-events) has the list and
+column behavior.
+
 `event_spacing` and `event_gap` do nothing here either. They set the padding inside a list
 or column row and the space between one row and the next, while a grid block sets its own
 padding and is placed by its own time. The editor omits both in Grid; `day_spacing` still

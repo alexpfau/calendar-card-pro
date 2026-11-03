@@ -14,6 +14,7 @@ import * as Localize from '../translations/localize';
 import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import * as Links from '../utils/links';
 import { splitTitleWords } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
@@ -833,6 +834,30 @@ export interface EventContentOptions {
    * than wraps. See `splitTitleWords`.
    */
   titleWords?: boolean;
+  /**
+   * Draw the web addresses in the location and the description as links (`open_links`). List
+   * and column set it from `rowLinksOn`; grid never does, because its blocks draw their words
+   * for the eye only. Rows holding no link draw their text exactly as they do without it.
+   */
+  links?: boolean;
+}
+
+/**
+ * Text and links for a location or a description: each link a real `<a>` through Lit
+ * bindings, so no event text becomes markup, opening in a new tab with no opener and no
+ * referrer. The words stay exactly as the row shows them.
+ *
+ * @param pieces - The row's text as pieces
+ * @returns The pieces, drawn
+ */
+function renderLinkedText(pieces: ReadonlyArray<Links.TextPiece>): unknown[] {
+  return pieces.map((piece) =>
+    'href' in piece
+      ? html`<a class="event-link" href=${piece.href} target="_blank" rel="noopener noreferrer"
+          >${piece.text}</a
+        >`
+      : piece.text,
+  );
 }
 
 /**
@@ -858,6 +883,7 @@ export function renderEventContent(
     hass,
     splitTimeEnd = false,
     titleWords = false,
+    links = false,
   } = options;
   const {
     eventTime,
@@ -875,6 +901,15 @@ export function renderEventContent(
     mergedLabels,
     nowLabel,
   } = parts;
+
+  // Pieces only where a field holds a link, so every other row binds its plain string as before.
+  const linked = links
+    ? Links.rowLinks({ location: eventLocation, description: eventDescription }, event._source)
+    : undefined;
+  const locationText = linked?.location ? renderLinkedText(linked.location) : eventLocation;
+  const descriptionText = linked?.description
+    ? renderLinkedText(linked.description)
+    : eventDescription;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
   const showInlineProgress = hasProgressBar && progressPlacement === 'inline';
@@ -1030,7 +1065,7 @@ export function renderEventContent(
           ? html`
               <div class="location">
                 <ha-icon icon="${locationIcon}"></ha-icon>
-                <span>${eventLocation}</span>
+                <span>${locationText}</span>
               </div>
             `
           : ''}
@@ -1038,7 +1073,7 @@ export function renderEventContent(
           ? html`
               <div class="description">
                 <ha-icon icon="mdi:information-outline"></ha-icon>
-                <span>${eventDescription}</span>
+                <span>${descriptionText}</span>
               </div>
             `
           : ''}

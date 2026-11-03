@@ -6,6 +6,7 @@
 import * as Config from '../../config/config';
 import { EVENT_DETAILS_ACTION } from '../../config/constants';
 import * as Types from '../../config/types';
+import { eventActionKind } from '../../interaction/event-action-kind';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
@@ -194,6 +195,21 @@ export function eventOpensDetails(config: Readonly<Types.Config>): boolean {
   const tap: Types.ActionConfig | null | undefined = config.event_tap_action;
   const hold: Types.ActionConfig | null | undefined = config.event_hold_action;
   return tap?.action === EVENT_DETAILS_ACTION || hold?.action === EVENT_DETAILS_ACTION;
+}
+
+/**
+ * Whether a tap or a hold on an event runs something of its own, which is what keeps links out
+ * of event rows: `open_links` reaches only events with neither. Read as the card reads the two
+ * (`eventActionKind`), so `none`, a bare action and the card's own actions all count as none.
+ *
+ * @param config - Current configuration
+ * @returns Whether either event action runs something
+ */
+export function eventHasOwnAction(config: Readonly<Types.Config>): boolean {
+  return (
+    eventActionKind(config.event_tap_action) !== 'none' ||
+    eventActionKind(config.event_hold_action) !== 'none'
+  );
 }
 
 /**

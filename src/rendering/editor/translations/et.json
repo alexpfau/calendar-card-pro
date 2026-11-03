@@ -528,6 +528,8 @@
   "event_tap_action.helper": "„Näita sündmuse üksikasju“ avab sündmuse üksikasjad otse selle kõrval, kus saad seda muuta või kustutada, kui sündmuse kalender seda lubab. Home Assistanti enda tegevused saavad kasutada puudutatud sündmuse pealkirja, aegu, asukohta ja kirjeldust. Valikuga „Mitte midagi“ käivitab sündmuse puudutamine puudutuse tegevuse, nagu kõikjal mujal kaardil.",
   "event_hold_action": "Sündmuse hoidmise tegevus",
   "event_hold_action.helper": "„Näita sündmuse üksikasju“ avab sündmuse üksikasjad otse selle kõrval, kui sündmust hoida. Home Assistanti enda tegevused saavad kasutada hoitud sündmuse pealkirja, aegu, asukohta ja kirjeldust. Valikuga „Mitte midagi“ käivitab sündmuse hoidmine hoidmise tegevuse, nagu kõikjal mujal kaardil.",
+  "open_links": "Ava sündmuste lingid",
+  "open_links.helper": "Veebiaadressid sündmuse asukohas ja kirjelduses muutuvad linkideks, mis avanevad uuel brauseri vahelehel. Lingi puudutamine avab selle, mitte ei käivita puudutuse tegevust.",
   "allow_event_edit": "Luba sündmuste muutmine",
   "allow_event_edit.helper": "Lubab sündmust selle üksikasjades muuta nende kalendrite puhul, mis seda toetavad.",
   "allow_event_delete": "Luba sündmuste kustutamine",

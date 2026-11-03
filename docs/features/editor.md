@@ -281,7 +281,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 - **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults are not user edits.
 
 ::: tip Not Everything Is There To Be Found
-The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, and Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
+The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
 ## 📋 Per-Calendar Panels & Actions
