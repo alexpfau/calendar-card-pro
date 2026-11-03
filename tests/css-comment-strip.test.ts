@@ -279,8 +279,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(183_000);
-    // Column countdowns moved the ceiling last, from 178,000 to 183,000: the notes on why the
+    expect(saved).toBeLessThan(186_000);
+    // Links in rows and drawing a new event in the grid moved the ceiling last, from 183,000 to
+    // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and
+    // why a drawn event is the time area's ::after, set by attributes and custom properties, so
+    // the grid's structure observers never see an element come and go. The reading went to
+    // 183,027, taken with stripComments after the last comment in the change was written.
+    //
+    // Column countdowns moved the ceiling before that, from 178,000 to 183,000: the notes on why the
     // countdown is never hyphenated and its separator stops overflow-wrap, why a badge row
     // wraps with its countdown's boxes given up so the dot ends the pill's line, how far the
     // pill leaves room for the dot, and why the column body's clip moves out to the card's

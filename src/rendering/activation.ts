@@ -15,6 +15,7 @@
  * event that it covers the day beneath it.
  */
 
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 
 /** What a tap on one rendered event acts on. */
@@ -156,10 +157,11 @@ export function startsOnRowLink(
  *
  * - `day`: the element is one day's own, and its empty parts add on that day: a list day, a
  *   column-view day column, a grid day header.
- * - `time`: a grid day's time area, which adds at the hour under the pointer.
+ * - `time`: a grid day's time area, which adds at the quarter hour under the pointer.
  * - `columns`: space that belongs to no day element, under a short column-view column or in
  *   a grid's all-day band, whose day is the one whose column the pointer is in. `among`
- *   names where those columns are: the element's children, or its siblings.
+ *   names where those columns are: the element's children, or its siblings. `allDay` marks
+ *   the grid's all-day band, where a new event is all-day.
  * - `covered`: an event, or a grid `+N` block standing for several. It covers the day
  *   beneath it, so a press on it never adds there.
  *
@@ -175,7 +177,11 @@ export type DaySlot =
       /** Minute the area ends at, from midnight, exclusive. */
       readonly endMin: number;
     }
-  | { readonly kind: 'columns'; readonly among: 'children' | 'siblings' }
+  | {
+      readonly kind: 'columns';
+      readonly among: 'children' | 'siblings';
+      readonly allDay?: boolean;
+    }
   | { readonly kind: 'covered' };
 
 /** A rendered element that may carry a day slot. */
@@ -192,10 +198,14 @@ export const COLUMNS_AMONG_CHILDREN: DaySlot = Object.freeze({
   among: 'children',
 });
 
-/** The slot of a grid's all-day band, whose day headers and bodies are its siblings. */
+/**
+ * The slot of a grid's all-day band, whose day headers and bodies are its siblings. A new event
+ * begun there is all-day.
+ */
 export const COLUMNS_AMONG_SIBLINGS: DaySlot = Object.freeze({
   kind: 'columns',
   among: 'siblings',
+  allDay: true,
 });
 
 /**
@@ -239,10 +249,15 @@ export interface DayHit {
   readonly element: Element;
   /** The day's local midnight. */
   readonly timestamp: number;
-  /** The hour under the pointer, for a press in a grid's time area; otherwise undefined. */
-  readonly hour?: number;
+  /**
+   * The quarter hour under the pointer, in minutes from midnight, for a press in a grid's time
+   * area; otherwise undefined. See `minuteAt`.
+   */
+  readonly minute?: number;
   /** The minutes the time area spans, for a press in one. */
   readonly band?: { readonly startMin: number; readonly endMin: number };
+  /** Whether the press was in a grid's all-day band, which adds an all-day event. */
+  readonly allDay?: boolean;
 }
 
 /** A pointer position in viewport coordinates, as a pointer event carries it. */
@@ -252,31 +267,38 @@ export interface ViewportPoint {
 }
 
 /**
- * The hour a point in a grid's time area falls in.
+ * The slot a point in a grid's time area falls in: its first minute from midnight, rounded
+ * down to the quarter hour (`UI.ADD_SLOT_MINUTES`) on the clock, which is where a new event
+ * added there starts.
  *
  * The area's scale is linear in wall-clock minutes from `startMin` to `endMin`, as the
  * blocks in it are placed (`computeEventPlacement` in `utils/grid.ts`). A point on the
- * area's lower edge belongs to its last hour, so an area ending at `24:00` never answers 24.
+ * area's lower edge belongs to its last slot, so an area ending at `24:00` never answers
+ * midnight. A point above or below the area is held to it, which is what a drag that leaves
+ * the area while it draws an event wants.
  *
  * @param rect - The area's client rect
  * @param y - The pointer's viewport y
  * @param startMin - First minute the area shows
  * @param endMin - Minute it ends at, exclusive
- * @returns The hour, 0 to 23
+ * @returns The slot's first minute, 0 to 1425
  */
-export function hourAt(
+export function minuteAt(
   rect: { top: number; height: number },
   y: number,
   startMin: number,
   endMin: number,
 ): number {
+  const step = Constants.UI.ADD_SLOT_MINUTES;
   const span = endMin - startMin;
-  if (!(rect.height > 0) || !(span > 0))
-    return Math.min(23, Math.max(0, Math.floor(startMin / 60)));
-
-  const share = Math.min(1, Math.max(0, (y - rect.top) / rect.height));
-  const minute = Math.min(endMin - 1, startMin + share * span);
-  return Math.min(23, Math.max(0, Math.floor(minute / 60)));
+  const minute =
+    !(rect.height > 0) || !(span > 0)
+      ? startMin
+      : Math.min(
+          endMin - 1,
+          startMin + Math.min(1, Math.max(0, (y - rect.top) / rect.height)) * span,
+        );
+  return Math.min(24 * 60 - step, Math.max(0, Math.floor(minute / step) * step));
 }
 
 /**
@@ -350,40 +372,77 @@ export function findDayHit(
       return {
         element,
         timestamp: slot.timestamp,
-        hour: hourAt(rect, point.y, slot.startMin, slot.endMin),
+        minute: minuteAt(rect, point.y, slot.startMin, slot.endMin),
         band: { startMin: slot.startMin, endMin: slot.endMin },
       };
     }
 
     const container = slot.among === 'children' ? element : element.parentElement;
     if (!container) return undefined;
-    return dayInColumnAt(container.children, point, slot.among === 'children');
+    const found = dayInColumnAt(container.children, point, slot.among === 'children');
+    return found && slot.allDay ? { ...found, allDay: true } : found;
   }
   return undefined;
 }
 
 /**
- * Where an hour sits in a grid's time area, as percentages of its height, for the wash a
- * press there shows. Clipped to the area, so a band starting at 07:30 washes the half hour
- * of 07:00 it shows.
+ * Where a span of minutes sits in a grid's time area, as percentages of its height, for the
+ * wash a press there shows and the draft a drag draws. Clipped to the area, so an event from
+ * 06:45 in a band starting at 07:00 shows from the band's top.
  *
- * @param hour - The hour, 0 to 23
+ * @param fromMin - First minute of the span, from the day's midnight
+ * @param untilMin - Minute it ends at, exclusive, which may run past midnight
  * @param band - The minutes the area spans
  * @returns Top and height, in percent
  */
-export function hourBandPct(
-  hour: number,
+export function spanPct(
+  fromMin: number,
+  untilMin: number,
   band: { readonly startMin: number; readonly endMin: number },
 ): { topPct: number; heightPct: number } {
   const span = band.endMin - band.startMin;
   if (!(span > 0)) return { topPct: 0, heightPct: 0 };
 
-  const from = Math.max(band.startMin, hour * 60);
-  const until = Math.min(band.endMin, hour * 60 + 60);
+  const from = Math.min(band.endMin, Math.max(band.startMin, fromMin));
+  const until = Math.min(band.endMin, Math.max(band.startMin, untilMin));
   return {
     topPct: ((from - band.startMin) / span) * 100,
     heightPct: (Math.max(0, until - from) / span) * 100,
   };
+}
+
+/**
+ * The day whose column is nearest a point, among a grid's day elements of one kind, and the
+ * element: the one whose column holds it, else the nearest by its edges, so a drag past the
+ * first or last column, or into a gutter, keeps to the closest day.
+ *
+ * @param elements - One kind of day element: every time area, or every day header
+ * @param x - The pointer's viewport x
+ * @returns The element and its day, or undefined when there is none
+ */
+export function nearestDayAt(
+  elements: Iterable<Element>,
+  x: number,
+):
+  { element: Element; timestamp: number; band?: { startMin: number; endMin: number } } | undefined {
+  let best: { element: Element; distance: number; slot: DaySlot } | undefined;
+  for (const element of elements) {
+    const slot = daySlotOn(element);
+    if (!slot || (slot.kind !== 'day' && slot.kind !== 'time')) continue;
+    const rect = element.getBoundingClientRect();
+    const distance = x < rect.left ? rect.left - x : x >= rect.right ? x - rect.right + 1 : 0;
+    if (!best || distance < best.distance) best = { element, distance, slot };
+  }
+  if (!best) return undefined;
+  const { element, slot } = best;
+  if (slot.kind === 'time') {
+    return {
+      element,
+      timestamp: slot.timestamp,
+      band: { startMin: slot.startMin, endMin: slot.endMin },
+    };
+  }
+  return slot.kind === 'day' ? { element, timestamp: slot.timestamp } : undefined;
 }
 
 /**

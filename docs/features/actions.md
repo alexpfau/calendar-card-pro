@@ -153,7 +153,8 @@ hold_action:
 ```
 
 A hold on a day starts the event on that day, and one on an event starts it on the event's day; in
-[grid view](/features/grid-view) it starts at the hour under your finger. Anywhere without a day,
+[grid view](/features/grid-view) it starts at the quarter hour under your finger, and one in the
+all-day band adds an all-day event. Anywhere without a day,
 such as the title, it starts on the date the add button uses. The day, the hour and the calendar
 it opens with follow [the rules for tapping a day](#which-day-hour-calendar). It needs a calendar
 that [accepts new events](#what-each-integration-allows); on a card with none, and while you edit
@@ -482,7 +483,8 @@ Wherever a day shows no event, in all three layouts:
 - **List view:** the day's date, its "No events" line, and the space between its events.
 - **Column view:** the day's header, and the empty space under its events.
 - **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
-  hour; the day's header; and the empty part of the all-day band above it.
+  quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
+  all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
 
 A tap on an event never adds: an event covers the day beneath it, so the tap is the event's
 when it has an `event_tap_action`, and the card's otherwise. The same goes for a grid's `+N`
@@ -491,20 +493,43 @@ title and the [header toolbar](/features/layout-appearance#header-toolbar) are n
 a tap on the title still runs `tap_action`, and the toolbar's controls keep their own.
 
 A tap has to stay put. A press that moves is a scroll, or a [swipe](/features/layout-appearance#paging-through-dates),
-and adds nothing; a hold on a day runs `hold_action`. While you press, the day's date or header
-is washed in the card's accent, and in the grid the hour you are about to add at.
+and adds nothing; a hold on a day runs `hold_action`, except in a grid's time area and all-day
+band, where it [draws a new event](#drawing-an-event-in-grid-view). While you press, the day's
+date or header is washed in the card's accent, and in the grid the hour a tap there adds.
 
 ### Which Day, Hour & Calendar
 
 The new event starts on the day you tapped, at the hour it is now: a tap on today opens at the
 current hour, as the add button does, and a tap on another day at the same hour that day. In
-grid view a tap in the time grid starts at the hour you tapped instead, rounded down, so a grid
-with `slot_minutes: 30` still starts on the hour, and a tap in the all-day band starts at the
-current hour. Either way it lasts an hour. That is only a starting point: the popover lets you
-change the start, the end and All day before you close it.
+grid view a tap in the time grid starts at the quarter hour you tapped instead, rounded down,
+whatever `slot_minutes` the grid draws its lines at, and a tap in the all-day band adds an
+all-day event on that day. A timed one lasts an hour. That is only a starting point: the popover
+lets you change the start, the end and All day before you close it.
 
 The calendar is the one [the add button](#add-event-button) would preselect: the first in
 `entities` that accepts new events and that the calendar filter shows.
+
+### Drawing an Event in Grid View
+
+In [grid view](/features/grid-view), `day_tap_action: add-event` also lets you draw a new event
+with its start and end, as in a calendar app. There is no option of its own.
+
+- **On a phone or tablet,** hold an empty spot of the time grid for half a second, until a block
+  appears there, then drag. The page does not scroll while you do.
+- **With a mouse,** press and drag at once.
+
+The block starts as what a tap there adds, an hour from the quarter hour under your finger.
+Drag down and its end follows you; drag up and its start does; drag sideways into another day
+and it runs across days, in quarter hours either way. It is drawn in the color of the calendar
+the popover will offer, with its times on it. Let go, and the popover opens beside it on a new
+event with those times, ready for a title. Press Escape, or touch the card with a second finger,
+to throw the block away.
+
+In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
+over several days. The band is there whenever the days shown hold an all-day event.
+
+A hold on an empty spot of the grid draws even where the card has a `hold_action`; a hold
+anywhere else, on an event included, still runs it. Nothing is drawn while the card is edited.
 
 ### From the Keyboard
 

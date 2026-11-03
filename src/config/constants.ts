@@ -184,6 +184,13 @@ export const UI = {
   POINTER_MOVE_TOLERANCE: 8,
 
   /**
+   * The slot, in minutes, a new event added in a grid's time area starts on and a drawn one
+   * snaps to: a tap opens at the quarter hour under the finger, and a drag draws in quarters.
+   * On the clock, from midnight, whatever the band's own start.
+   */
+  ADD_SLOT_MINUTES: 15,
+
+  /**
    * Horizontal travel, in CSS pixels, from which a touch or pen gesture that lifts pages the
    * card. Far past the tap tolerance above and the 16dp Android gives a pager before it
    * starts to drag, so only a deliberate swipe pages.

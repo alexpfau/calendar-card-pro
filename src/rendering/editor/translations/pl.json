@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Akcja dotknięcia dnia",
   "day_tap_action_mode.option.none.label": "Nic",
   "day_tap_action_mode.option.add-event.label": "Dodaj wydarzenie",
-  "day_tap_action_mode.helper": "„Dodaj wydarzenie” otwiera nowe wydarzenie do wypełnienia, gdy dotkniesz dnia w miejscu, w którym nie ma żadnego wydarzenia: jego daty, obszaru pod jego wydarzeniami lub, w siatce czasu, godziny, której dotkniesz. Przy opcji „Nic” takie dotknięcie uruchamia akcję dotknięcia.",
+  "day_tap_action_mode.helper": "„Dodaj wydarzenie” otwiera nowe wydarzenie do wypełnienia, gdy dotkniesz dnia w miejscu, w którym nie ma żadnego wydarzenia: jego daty, obszaru pod jego wydarzeniami lub, w siatce czasu, kwadransa, którego dotkniesz. W siatce możesz też narysować wydarzenie: przytrzymaj wolne miejsce i przeciągnij albo przeciągnij myszą. Przy opcji „Nic” takie dotknięcie uruchamia akcję dotknięcia.",
   "event_tap_action": "Akcja dotknięcia wydarzenia",
   "card_action.option.details.label": "Pokaż szczegóły wydarzenia",
   "event_tap_action.helper": "„Pokaż szczegóły wydarzenia” otwiera szczegóły wydarzenia tuż obok niego, gdzie możesz je zmienić lub usunąć, jeśli kalendarz wydarzenia na to pozwala. Akcje Home Assistanta mogą używać tytułu, godzin, miejsca i opisu dotkniętego wydarzenia. Przy opcji „Nic” dotknięcie wydarzenia uruchamia akcję dotknięcia, tak jak w każdym innym miejscu karty.",

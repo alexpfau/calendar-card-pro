@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Tryckåtgärd för dagar",
   "day_tap_action_mode.option.none.label": "Ingenting",
   "day_tap_action_mode.option.add-event.label": "Lägg till händelse",
-  "day_tap_action_mode.helper": "”Lägg till händelse” öppnar en ny händelse att fylla i när du trycker på en dag där ingen händelse visas: datumet, ytan under händelserna eller, i tidsrutnätet, timmen du trycker på. Med ”Ingenting” kör ett sådant tryck tryckåtgärden.",
+  "day_tap_action_mode.helper": "”Lägg till händelse” öppnar en ny händelse att fylla i när du trycker på en dag där ingen händelse visas: datumet, ytan under händelserna eller, i tidsrutnätet, kvarten du trycker på. I rutnätet kan du också rita upp händelsen: håll kvar på en tom plats och dra, eller dra med musen. Med ”Ingenting” kör ett sådant tryck tryckåtgärden.",
   "event_tap_action": "Tryckåtgärd för händelser",
   "card_action.option.details.label": "Visa händelsedetaljer",
   "event_tap_action.helper": "”Visa händelsedetaljer” öppnar händelsens detaljer bredvid den, där du kan ändra eller radera den om dess kalender tillåter det. Home Assistants egna åtgärder kan använda titel, tider, plats och beskrivning från händelsen du tryckte på. Med ”Ingenting” kör ett tryck på en händelse tryckåtgärden, som var som helst annars på kortet.",

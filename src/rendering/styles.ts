@@ -3746,6 +3746,46 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* A new event being drawn in a grid: a hold, or a mouse drag, on an empty part of a day's
+     time area. Drawn as the body's ::after from the attribute and custom properties the
+     recognizer sets on each day it covers, never as an element, for the structure observers'
+     sake as with the wash above: its piece of the span, tinted in the color of the calendar
+     the popover will offer, with an accent bar and, on its first day, its times. Above the
+     blocks and the day rules, at the now dot's rung, and see-through, so the events it is
+     drawn across stay readable while it is placed. */
+  .grid-day-body[data-add-draft]::after {
+    content: attr(data-add-draft-label);
+    position: absolute;
+    inset-inline: 1px;
+    top: var(--calendar-card-add-draft-top, 0);
+    height: var(--calendar-card-add-draft-height, 0);
+    box-sizing: border-box;
+    padding: 2px 4px;
+    border-inline-start: 3px solid var(--calendar-card-add-draft-color, var(--primary-color));
+    border-radius: 4px;
+    background-color: color-mix(
+      in srgb,
+      var(--calendar-card-add-draft-color, var(--primary-color)) 28%,
+      transparent
+    );
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    color: var(--primary-text-color);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* While a tap on a day adds, a hold on a grid's empty slot draws a new event, so the
+     browser's own long press, selecting a word or a link's callout, is turned off there. */
+  ha-card:has(.day-add-button) .grid-day-body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   .day-add-button:focus {
     outline: none;
   }
@@ -3757,7 +3797,12 @@ export const cardStyles = css`
 
   /* A press on a day is the day's, as one on an event is the event's: the card's ripple is
      muted while one is down, and while a day's button is under the pointer or focused. */
-  ha-card:has([data-add-pressed], .day-add-button:hover, .day-add-button:focus-visible)
+  ha-card:has(
+      [data-add-pressed],
+      [data-add-draft],
+      .day-add-button:hover,
+      .day-add-button:focus-visible
+    )
     > ha-ripple {
     --ha-ripple-hover-opacity: 0;
     --ha-ripple-pressed-opacity: 0;

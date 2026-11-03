@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Trykkehandling for dager",
   "day_tap_action_mode.option.none.label": "Ingenting",
   "day_tap_action_mode.option.add-event.label": "Legg til hendelse",
-  "day_tap_action_mode.helper": "«Legg til hendelse» åpner en ny hendelse som du kan fylle ut, når du trykker på en dag der ingen hendelse vises: datoen, området under hendelsene eller, i tidsrutenettet, timen du trykker på. Med «Ingenting» kjører et slikt trykk trykkehandlingen.",
+  "day_tap_action_mode.helper": "«Legg til hendelse» åpner en ny hendelse som du kan fylle ut, når du trykker på en dag der ingen hendelse vises: datoen, området under hendelsene eller, i tidsrutenettet, kvarteret du trykker på. I rutenettet kan du også tegne hendelsen: hold inne på et ledig sted og dra, eller dra med musen. Med «Ingenting» kjører et slikt trykk trykkehandlingen.",
   "event_tap_action": "Trykkehandling for hendelser",
   "card_action.option.details.label": "Vis hendelsesdetaljer",
   "event_tap_action.helper": "«Vis hendelsesdetaljer» åpner detaljene for hendelsen rett ved siden av den, der du kan endre eller slette den hvis kalenderen tillater det. Home Assistants egne handlinger kan bruke tittel, tidspunkter, sted og beskrivelse fra hendelsen du trykket på. Med «Ingenting» kjører et trykk på en hendelse trykkehandlingen, som et trykk ellers på kortet.",

@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Verhalten bei Antippen von Tagen",
   "day_tap_action_mode.option.none.label": "Nichts",
   "day_tap_action_mode.option.add-event.label": "Termin hinzufügen",
-  "day_tap_action_mode.helper": "„Termin hinzufügen“ öffnet einen neuen Termin zum Ausfüllen, wenn du einen Tag an einer Stelle antippst, an der kein Termin steht: sein Datum, den Bereich unter seinen Terminen oder im Zeitraster die Stunde, die du antippst. Bei „Nichts“ löst ein solches Antippen das Verhalten bei Antippen aus.",
+  "day_tap_action_mode.helper": "„Termin hinzufügen“ öffnet einen neuen Termin zum Ausfüllen, wenn du einen Tag an einer Stelle antippst, an der kein Termin steht: sein Datum, den Bereich unter seinen Terminen oder im Zeitraster die Viertelstunde, die du antippst. Im Zeitraster kannst du einen Termin auch aufziehen: eine freie Stelle gedrückt halten und ziehen oder mit der Maus ziehen. Bei „Nichts“ löst ein solches Antippen das Verhalten bei Antippen aus.",
   "event_tap_action": "Verhalten bei Antippen von Terminen",
   "card_action.option.details.label": "Termindetails anzeigen",
   "event_tap_action.helper": "„Termindetails anzeigen“ öffnet den Termin direkt daneben, wo du ihn ändern oder löschen kannst, sofern sein Kalender das zulässt. Die Aktionen von Home Assistant können Titel, Zeiten, Ort und Beschreibung des angetippten Termins verwenden. Bei „Nichts“ löst das Antippen eines Termins das Verhalten bei Antippen aus, wie überall sonst auf der Karte.",

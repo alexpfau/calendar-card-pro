@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { newEventDateOn } from '../src/interaction/add-event';
+import { newEventTimesOn } from '../src/interaction/add-event';
+
+const newEventDateOn = (midnight: number, hour?: number, now?: Date) =>
+  newEventTimesOn(midnight, hour === undefined ? undefined : hour * 60, now).start;
 
 /**
  * The hour a tap on a day starts a new event at, on the days the clocks change.
  *
- * Runs under every DST project (Berlin, Sydney, New York). `newEventDateOn` sets a wall-clock
- * hour on the day's own date, and the obvious "simplification" of adding hours to midnight in
+ * Runs under every DST project (Berlin, Sydney, New York). `newEventTimesOn` sets a wall-clock
+ * time on the day's own date, and the obvious "simplification" of adding hours to midnight in
  * milliseconds lands an hour off on both change days. Its oracle is `Intl.DateTimeFormat` in
  * the zone under test, not the `Date` getters the code is built from.
  */
@@ -82,5 +85,23 @@ describe(`a new event's start on the days the clocks change, in ${ZONE}`, () => 
       day: wallClock(new Date(spring)).day,
       hour: skipped! + 1,
     });
+  });
+
+  it('starts at a quarter hour on both change days, as a wall-clock time', () => {
+    for (const midnight of changeDays()) {
+      const { start, end } = newEventTimesOn(midnight, 14 * 60 + 45);
+      expect(wallClock(start)).toEqual({ day: wallClock(new Date(midnight)).day, hour: 14 });
+      expect(start.getMinutes()).toBe(45);
+      expect(end.getTime() - start.getTime()).toBe(3_600_000);
+    }
+  });
+
+  it('adds an all-day event on the day itself, on both change days', () => {
+    for (const midnight of changeDays()) {
+      const times = newEventTimesOn(midnight, 'all-day');
+      expect(times.allDay).toBe(true);
+      expect(times.start.getTime()).toBe(midnight);
+      expect(times.end.getTime()).toBe(midnight);
+    }
   });
 });

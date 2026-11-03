@@ -522,7 +522,7 @@
   "day_tap_action_mode": "Dienos palietimo veiksmas",
   "day_tap_action_mode.option.none.label": "Nieko",
   "day_tap_action_mode.option.add-event.label": "Pridėti įvykį",
-  "day_tap_action_mode.helper": "„Pridėti įvykį“ atveria naują įvykį, kurį galite užpildyti, kai paliečiate dieną vietoje, kurioje nerodomas joks įvykis: jos datą, sritį po jos įvykiais arba laiko tinklelyje paliestą valandą. Pasirinkus „Nieko“, taip palietus vykdomas palietimo veiksmas.",
+  "day_tap_action_mode.helper": "„Pridėti įvykį“ atveria naują įvykį, kurį galite užpildyti, kai paliečiate dieną vietoje, kurioje nerodomas joks įvykis: jos datą, sritį po jos įvykiais arba laiko tinklelyje paliestą valandos ketvirtį. Tinklelyje įvykį galite ir nubrėžti: palaikykite laisvą vietą ir vilkite arba vilkite pele. Pasirinkus „Nieko“, taip palietus vykdomas palietimo veiksmas.",
   "event_tap_action": "Įvykio palietimo veiksmas",
   "card_action.option.details.label": "Rodyti įvykio informaciją",
   "event_tap_action.helper": "„Rodyti įvykio informaciją“ atveria įvykio informaciją šalia jo, kur galite jį pakeisti arba ištrinti, jei įvykio kalendorius tai leidžia. Home Assistant veiksmai gali naudoti paliesto įvykio pavadinimą, laiką, vietą ir aprašymą. Pasirinkus „Nieko“, palietus įvykį vykdomas palietimo veiksmas, kaip ir bet kurioje kitoje kortelės vietoje.",

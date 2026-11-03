@@ -34,7 +34,9 @@ import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
 import * as EventActions from './interaction/event-actions';
 import * as EventDetails from './interaction/event-details';
+import type * as Times from './interaction/event-times';
 import * as Feedback from './interaction/feedback';
+import * as GridDraft from './interaction/grid-draft';
 import type * as PopoverModel from './interaction/popover-model';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
@@ -605,6 +607,23 @@ class CalendarCardPro extends LitElement {
    * hold, so the browser follows the link wherever the finger stayed put.
    */
   private _pointerOnLink = false;
+  /**
+   * Where a new event may be drawn from, for the active press: a grid's time area or all-day
+   * band, while a tap on a day adds. Such a press has a hold of its own, which draws instead of
+   * running `hold_action` (`_startDraft`).
+   */
+  private _pointerDraftFrom: GridDraft.DraftAnchor | null = null;
+  /** The new event the active press is drawing, if any; see `_startDraft`. */
+  private _draft: {
+    readonly anchor: GridDraft.DraftAnchor;
+    /** Whether the pointer has left the slot the draft began in. */
+    moved: boolean;
+    times: Times.EventTimes;
+    /** The day element under the pointer, for the popover to open beside. */
+    under: Element | null;
+  } | null = null;
+  /** The day elements the draft is drawn on, so it can be taken off however it ends. */
+  private _draftDrawn: Element[] = [];
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
 
@@ -3610,6 +3629,11 @@ class CalendarCardPro extends LitElement {
    * else.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    // A second contact while a new event is being drawn throws the drawing away.
+    if (this._draft && ev.pointerId !== this._activePointerId) {
+      this._endGesture();
+      return;
+    }
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
@@ -3627,7 +3651,9 @@ class CalendarCardPro extends LitElement {
       Boolean(onLink || tapTarget || dayHit),
     );
     const swipeable = this._swipeStartsAt(ev);
-    const holds = !onLink && this._holdRunsFor(tapTarget);
+    const draftFrom = this._draftAnchorFor(dayHit);
+    // A press where a new event may be drawn has a hold of its own, which draws one.
+    const holds = !onLink && (draftFrom !== undefined || this._holdRunsFor(tapTarget));
     // A press arms only when it could end in something: the card's own tap or hold, the
     // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
     if (
@@ -3649,6 +3675,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = onLink ? null : (this._dayAddAt(ev)?.element ?? null);
     this._pointerSwipeable = swipeable;
     this._pointerOnLink = onLink;
+    this._pointerDraftFrom = draftFrom ?? null;
     // A new gesture: whatever click the last one owed has had its chance.
     this._derivedClick = null;
     // Not for a link: capture would retarget the click a tap derives to `ha-card`, and the
@@ -3680,6 +3707,12 @@ class CalendarCardPro extends LitElement {
           // The hold indicator is a hold's feedback; the day's wash promised a tap.
           this._washDay(undefined);
 
+          // The slot's own hold: the draft is its feedback, under the finger.
+          if (this._pointerDraftFrom) {
+            this._startDraft();
+            return;
+          }
+
           if (this._holdIndicator) {
             Feedback.removeHoldIndicator(this._holdIndicator);
             this._holdIndicator = null;
@@ -3689,6 +3722,224 @@ class CalendarCardPro extends LitElement {
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
     }
+  }
+
+  /**
+   * Where a press may draw a new event from: a grid's time area or its all-day band, while a
+   * tap on a day adds an event there (`_dayTapsActive`), so the same switch turns both on.
+   *
+   * @param hit - The day the press landed on, if any
+   * @returns The draft's anchor, or undefined where nothing may be drawn
+   */
+  private _draftAnchorFor(hit: Activation.DayHit | undefined): GridDraft.DraftAnchor | undefined {
+    if (!hit || this.effectiveView !== 'grid' || !this._dayTapsActive) return undefined;
+    if (hit.allDay) return { allDay: true, timestamp: hit.timestamp };
+    if (hit.minute === undefined) return undefined;
+    return { allDay: false, point: { timestamp: hit.timestamp, minute: hit.minute } };
+  }
+
+  /**
+   * Begins drawing a new event, from the slot or day the press is on: what a tap there would
+   * add, until the pointer moves (`_moveDraft`). Escape throws it away.
+   */
+  private _startDraft(): void {
+    const anchor = this._pointerDraftFrom;
+    if (!anchor || this._draft) return;
+    this._draft = {
+      anchor,
+      moved: false,
+      times: anchor.allDay
+        ? GridDraft.allDayDraft(anchor.timestamp, anchor.timestamp)
+        : GridDraft.timedDraft(anchor.point, anchor.point, false),
+      under: this._pointerDayHit?.element ?? null,
+    };
+    window.addEventListener('keydown', this._draftKeyDown, true);
+    this._drawDraft();
+  }
+
+  /**
+   * Follows the pointer while a new event is drawn: the slot under it in the time area of the
+   * day whose column is nearest, or that day in the all-day band, which may be another day
+   * than the one the press began on.
+   *
+   * @param x - The pointer's viewport x
+   * @param y - The pointer's viewport y
+   */
+  private _moveDraft(x: number, y: number): void {
+    const draft = this._draft;
+    if (!draft) return;
+    const anchor = draft.anchor;
+    if (anchor.allDay) {
+      const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-header'), x);
+      if (!day) return;
+      draft.times = GridDraft.allDayDraft(anchor.timestamp, day.timestamp);
+      draft.under = day.element;
+    } else {
+      const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-body'), x);
+      if (!day?.band) return;
+      const point = {
+        timestamp: day.timestamp,
+        minute: Activation.minuteAt(
+          day.element.getBoundingClientRect(),
+          y,
+          day.band.startMin,
+          day.band.endMin,
+        ),
+      };
+      if (!GridDraft.sameSlot(point, anchor.point)) draft.moved = true;
+      draft.times = GridDraft.timedDraft(anchor.point, point, draft.moved);
+      draft.under = day.element;
+    }
+    this._drawDraft();
+  }
+
+  /**
+   * Draws the new event being drawn onto the grid's own day elements, through attributes and
+   * custom properties alone: each day's time area it covers carries `data-add-draft` and where
+   * its piece sits, the first one its times as a label, and an all-day one washes each day's
+   * header. No element is added, so the grid's structure observers see nothing (see
+   * `changesGridStructure`), and a render in between leaves it to the next move to redraw.
+   */
+  private _drawDraft(): void {
+    this._clearDraftDrawing();
+    const draft = this._draft;
+    if (!draft) return;
+    const drawn: Element[] = [];
+    const { times } = draft;
+    if (times.allDay) {
+      for (const header of this.renderRoot.querySelectorAll('.grid-day-header')) {
+        const slot = Activation.daySlotOn(header);
+        if (slot?.kind !== 'day') continue;
+        const day = GridDraft.dayOf(slot.timestamp);
+        if (day < times.start.getTime() || day > times.end.getTime()) continue;
+        header.setAttribute('data-add-pressed', '');
+        drawn.push(header);
+      }
+    } else {
+      const color = this._draftColor();
+      let label: string | undefined = this._draftLabel(times);
+      for (const body of this.renderRoot.querySelectorAll<HTMLElement>('.grid-day-body')) {
+        const slot = Activation.daySlotOn(body);
+        if (slot?.kind !== 'time') continue;
+        const piece = GridDraft.pieceOnDay(times, slot.timestamp);
+        if (!piece) continue;
+        const { topPct, heightPct } = Activation.spanPct(piece.fromMin, piece.untilMin, slot);
+        if (!(heightPct > 0)) continue;
+        body.setAttribute('data-add-draft', '');
+        body.style.setProperty('--calendar-card-add-draft-top', `${topPct}%`);
+        body.style.setProperty('--calendar-card-add-draft-height', `${heightPct}%`);
+        if (color) body.style.setProperty('--calendar-card-add-draft-color', color);
+        if (label !== undefined) {
+          body.setAttribute('data-add-draft-label', label);
+          label = undefined;
+        }
+        drawn.push(body);
+      }
+    }
+    this._draftDrawn = drawn;
+  }
+
+  /** Takes the new event being drawn off the elements it is drawn on. */
+  private _clearDraftDrawing(): void {
+    for (const element of this._draftDrawn) {
+      element.removeAttribute('data-add-draft');
+      element.removeAttribute('data-add-draft-label');
+      element.removeAttribute('data-add-pressed');
+      if (element instanceof HTMLElement) {
+        element.style.removeProperty('--calendar-card-add-draft-top');
+        element.style.removeProperty('--calendar-card-add-draft-height');
+        element.style.removeProperty('--calendar-card-add-draft-color');
+      }
+    }
+    this._draftDrawn = [];
+  }
+
+  /** Stops drawing a new event, and takes it off the grid. */
+  private _endDraft(): void {
+    this._clearDraftDrawing();
+    if (!this._draft) return;
+    this._draft = null;
+    window.removeEventListener('keydown', this._draftKeyDown, true);
+  }
+
+  /**
+   * Escape while a new event is drawn throws it away, and the press with it. Heard on the
+   * window, since a pointer press leaves no focus in the card for a key to reach it by.
+   */
+  private readonly _draftKeyDown = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'Escape' || !this._draft) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this._endGesture();
+  };
+
+  /**
+   * While a new event is drawn, a finger's movement is the drawing's, not the page's, so its
+   * scroll is refused. Bound without `passive` on `ha-card`, and only on a grid card that adds
+   * (`_drawsNewEvents`), so no other card makes the browser wait on a touch to scroll.
+   */
+  private readonly _draftTouchMove = {
+    handleEvent: (ev: TouchEvent): void => {
+      if (this._draft && ev.cancelable) ev.preventDefault();
+    },
+    passive: false,
+  };
+
+  /** Whether a press on this card may draw a new event: a grid whose day taps add. */
+  private get _drawsNewEvents(): boolean {
+    return this.effectiveView === 'grid' && this._dayTapsActive;
+  }
+
+  /**
+   * The draft's color: that of the calendar a new event would be added to, as the popover will
+   * preselect it.
+   *
+   * @returns A CSS color, or undefined where no calendar takes one
+   */
+  private _draftColor(): string | undefined {
+    const id = AddEvent.preselectedCalendarId(this._writableCalendars, this._activeHiddenCalendars);
+    return id ? this._popoverCalendar(id).color : undefined;
+  }
+
+  /**
+   * The times the draft shows, as the card writes a time: `10:15 - 11:30`, with each end's
+   * weekday where it runs across days.
+   *
+   * @param times - The draft's span
+   * @returns The label
+   */
+  private _draftLabel(times: Times.EventTimes): string {
+    const use24h = FormatUtils.resolveTimeFormat24h(this.config, this.safeHass);
+    const sameDay = times.start.toDateString() === new Date(times.end.getTime() - 1).toDateString();
+    const weekday = new Intl.DateTimeFormat(this.effectiveLanguage, { weekday: 'short' });
+    const at = (date: Date) =>
+      (sameDay ? '' : `${weekday.format(date)} `) +
+      FormatUtils.formatTime(date, use24h, this.config.time_two_digit_hours);
+    return FormatUtils.isolateClockReadings(`${at(times.start)} - ${at(times.end)}`);
+  }
+
+  /**
+   * The box of the draft's piece on one day, for the popover to open beside.
+   *
+   * @param element - A day's time area, or its header for an all-day draft
+   * @returns The box, in viewport coordinates
+   */
+  private _draftBoxOn(element: Element): Feedback.PressOrigin['rect'] {
+    const rect = element.getBoundingClientRect();
+    const slot = Activation.daySlotOn(element);
+    const piece =
+      this._draft && !this._draft.times.allDay && slot?.kind === 'time'
+        ? GridDraft.pieceOnDay(this._draft.times, slot.timestamp)
+        : undefined;
+    if (!piece || slot?.kind !== 'time') return rect;
+    const { topPct, heightPct } = Activation.spanPct(piece.fromMin, piece.untilMin, slot);
+    const top = rect.top + (rect.height * topPct) / 100;
+    return {
+      left: rect.left,
+      right: rect.right,
+      top,
+      bottom: top + (rect.height * heightPct) / 100,
+    };
   }
 
   /**
@@ -3764,7 +4015,7 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Washes the day a press is on, where the new event would go: the date or header, and in a
-   * grid's time area the hour. Through an attribute and two custom properties on the day's own
+   * grid's time area the hour a tap there adds. Through an attribute and two custom properties on the day's own
    * element, so the grid's structure observers, which watch elements come and go, see nothing.
    * Undefined unwashes the day washed last.
    *
@@ -3783,8 +4034,8 @@ class CalendarCardPro extends LitElement {
     if (!hit) return;
 
     hit.element.setAttribute('data-add-pressed', '');
-    if (hit.hour !== undefined && hit.band && hit.element instanceof HTMLElement) {
-      const { topPct, heightPct } = Activation.hourBandPct(hit.hour, hit.band);
+    if (hit.minute !== undefined && hit.band && hit.element instanceof HTMLElement) {
+      const { topPct, heightPct } = Activation.spanPct(hit.minute, hit.minute + 60, hit.band);
       hit.element.style.setProperty('--calendar-card-add-hour-top', `${topPct}%`);
       hit.element.style.setProperty('--calendar-card-add-hour-height', `${heightPct}%`);
     }
@@ -3803,14 +4054,31 @@ class CalendarCardPro extends LitElement {
    * follow the finger (`_nudgeSwipe`).
    */
   private _handlePointerMove(ev: PointerEvent) {
-    if (ev.pointerId !== this._activePointerId || this._holdTriggered || !this._pointerStart) {
+    if (ev.pointerId !== this._activePointerId || !this._pointerStart) return;
+    if (this._draft) {
+      this._moveDraft(ev.clientX, ev.clientY);
       return;
     }
+    if (this._holdTriggered) return;
 
     const deltaX = ev.clientX - this._pointerStart.x;
     const deltaY = ev.clientY - this._pointerStart.y;
     if (!this._pointerMoved) {
       if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+        return;
+      }
+
+      // A mouse never swipes or scrolls the card, so where a hold would draw a new event, a
+      // drag draws it at once, as Calendar on macOS does. Touch and pen hold first.
+      if (this._pointerDraftFrom && ev.pointerType === 'mouse') {
+        if (this._holdTimer) {
+          clearTimeout(this._holdTimer);
+          this._holdTimer = null;
+        }
+        this._holdTriggered = true;
+        this._washDay(undefined);
+        this._startDraft();
+        this._moveDraft(ev.clientX, ev.clientY);
         return;
       }
 
@@ -3875,7 +4143,20 @@ class CalendarCardPro extends LitElement {
     };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
-    if (this._holdTriggered) {
+    const draft = this._draft;
+    if (draft) {
+      // The new event drawn: the popover opens on it, beside its piece under the pointer.
+      Logger.debug('Adding the event drawn');
+      const box = draft.under ? this._draftBoxOn(draft.under) : undefined;
+      this._releasePressFocus();
+      this._openCreateEventDialog(draft.times, {
+        x: ev.clientX,
+        y: ev.clientY,
+        pointerType: ev.pointerType,
+        rect: box,
+      });
+      ranOffEvents = true;
+    } else if (this._holdTriggered) {
       if (tapTarget && this._eventHoldRuns) {
         this._releasePressFocus();
         this._runEventAction(tapTarget.target, 'hold', origin);
@@ -3972,6 +4253,8 @@ class CalendarCardPro extends LitElement {
     this._pointerDayAdd = null;
     this._pointerSwipeable = false;
     this._pointerOnLink = false;
+    this._pointerDraftFrom = null;
+    this._endDraft();
     this._washDay(undefined);
     this._springBackSwipe();
 
@@ -4855,6 +5138,7 @@ class CalendarCardPro extends LitElement {
       pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
       lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
+      touchMove: this._drawsNewEvents ? this._draftTouchMove : undefined,
     };
 
     let content: TemplateResult;
@@ -5213,11 +5497,11 @@ class CalendarCardPro extends LitElement {
    * Opens the event popover on a new event, for a press: the add button, a tap on a day, or the
    * card's own `add-event` action.
    *
-   * The new event starts where the press landed: on a day, at the hour it is now, or in a
-   * grid's time area at the hour pressed (`newEventDateOn`); with no day under the press, on
-   * the date the add button uses (`_newEventDate`). It lasts an hour. The calendar is the first
-   * writable one the legend shows (`preselectedCalendarId`), read when pressed so it follows the
-   * legend.
+   * The new event starts where the press landed (`newEventTimesOn`): on a day, at the hour it
+   * is now; in a grid's time area, at the quarter hour pressed; in a grid's all-day band, as an
+   * all-day event. With no day under the press, it starts on the date the add button uses
+   * (`_newEventDate`). A timed one lasts an hour. The calendar is the first writable one the
+   * legend shows (`preselectedCalendarId`), read when pressed so it follows the legend.
    *
    * @param hit - The day the press landed on, if any
    * @param origin - Where the press was, for the popover to open beside
@@ -5229,11 +5513,11 @@ class CalendarCardPro extends LitElement {
     dayTimestamp?: number,
   ): void {
     const timestamp = hit?.timestamp ?? dayTimestamp;
-    const selectedDate =
+    const times =
       timestamp === undefined
-        ? this._newEventDate()
-        : AddEvent.newEventDateOn(timestamp, hit?.hour);
-    this._openCreateEventDialog(selectedDate, origin);
+        ? AddEvent.newEventTimes(this._newEventDate())
+        : AddEvent.newEventTimesOn(timestamp, hit?.allDay ? 'all-day' : hit?.minute);
+    this._openCreateEventDialog(times, origin);
   }
 
   /**
@@ -5242,10 +5526,10 @@ class CalendarCardPro extends LitElement {
    * Refuses while the card is being edited: the button is still drawn there, so the
    * preview shows the layout the dashboard will have, but a press on it opens nothing.
    *
-   * @param selectedDate - The date the new event starts on
+   * @param times - The span the new event starts with
    * @param origin - Where the press was, for the popover to open beside
    */
-  private _openCreateEventDialog(selectedDate: Date, origin?: Feedback.PressOrigin): void {
+  private _openCreateEventDialog(times: Times.EventTimes, origin?: Feedback.PressOrigin): void {
     if (this._isBeingEdited) {
       Logger.debug('Not opening a new event while the card is being edited');
       return;
@@ -5259,7 +5543,7 @@ class CalendarCardPro extends LitElement {
       mode: 'new',
       calendarId,
       calendars: writable.map((id) => this._popoverCalendar(id)),
-      times: AddEvent.newEventTimes(selectedDate),
+      times,
       canEdit: true,
       canDelete: false,
       anchor: origin,
