@@ -36,12 +36,55 @@ const SHEET_BELOW_PX = 600;
 /** The popover's width beside a press. */
 const POPOVER_WIDTH = 340;
 
-/** How far the popover keeps from the press and from the viewport's edges. */
-const GAP = 14;
+/**
+ * How far the popover keeps from the box it opens beside, which leaves its beak's tip a few
+ * pixels off it, and from the viewport's edges.
+ */
+const GAP = 10;
 const MARGIN = 12;
 
-/** The map preview's height. */
+/**
+ * The beak the popover points with, drawn as Calendar on macOS draws its own: a short, rounded
+ * point whose sides curve into the panel's edge, outlined by the same hairline as the panel.
+ * Drawn pointing up from the edge, which runs along y = 6.5, and turned for the other sides.
+ * The outline runs along the middle of the panel's half-pixel edge line, so the two join. The
+ * glass under it (`.glass` in the stylesheet) is cut to the same curve closed along that
+ * line's inner side, so no line shows across the beak's base.
+ */
+export const BEAK_EDGE = 'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75';
+
+/**
+ * Below a toolbar button: how far the popover's top keeps from the button, and how far in from
+ * the popover's left edge its arrow points up at the button.
+ */
+const BELOW_GAP = 10;
+const EAR_INSET = 32;
+
+/**
+ * How the popover leaves, the reverse of how it opens, as measured from a screen recording of
+ * Calendar on macOS: it shrinks toward its arrow to about a sixth of its size, slow at both
+ * ends, and fades out a little ahead of it, over 180 ms. The opening half is in the stylesheet.
+ */
+const LEAVE_MS = 180;
+const LEAVE_SCALE = 0.15;
+const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
+
+/** The map preview's size: the popover's width inside its padding, and a strip's height. */
+const MAP_WIDTH = POPOVER_WIDTH - 28;
 const MAP_HEIGHT = 120;
+
+/**
+ * Where the arrow points, as a CSS position on the panel: the point the popover grows out of
+ * as it opens.
+ *
+ * @param arrow - The arrow's side and its offset along it
+ * @returns A `transform-origin` value
+ */
+function arrowPoint(arrow: { side: 'left' | 'right' | 'top' | 'bottom'; at: number }): string {
+  return arrow.side === 'left' || arrow.side === 'right'
+    ? `${arrow.side} ${arrow.at}px`
+    : `${arrow.at}px ${arrow.side}`;
+}
 
 /** Home Assistant's strings, and the English each falls back to where a key is missing. */
 const T = {
@@ -87,6 +130,8 @@ const T = {
     'The duration of the event is not valid. Please check start and end date.',
   ],
   delete: ['ui.common.delete', 'Delete'],
+  save: ['ui.common.save', 'Save'],
+  add: ['ui.common.add', 'Add'],
   edit: ['ui.common.edit', 'Edit'],
   cancel: ['ui.common.cancel', 'Cancel'],
   close: ['ui.common.close', 'Close'],
@@ -130,14 +175,22 @@ export class EventPopover extends LitElement {
   @state() private _place?: {
     left: number;
     top: number;
-    arrow?: { side: 'left' | 'right'; top: number };
+    /** Which side of the popover the arrow is on, and how far along that side it points. */
+    arrow?: { side: 'left' | 'right' | 'top' | 'bottom'; at: number };
   };
   @state() private _map?: {
     tiles: EventMap.MapTile[];
     tileSize: number;
     href: string;
     label: string;
+    /** Who placed the marker, whose credit the map shows beside OpenStreetMap's. */
+    source: EventMap.MapPlace['source'];
   };
+
+  /** Closing: Home Assistant has been told, and the popover is playing its way out. */
+  @state() private _closing = false;
+  /** The animations it is leaving by, canceled once it has gone or is opened again. */
+  private _leaving?: Animation[];
 
   private _original?: Model.Draft;
   private _wantOpen = false;
@@ -158,6 +211,8 @@ export class EventPopover extends LitElement {
    * @param params - What the card handed over
    */
   public showDialog(params: Model.PopoverParams): void {
+    // Opened again while still playing its way out: gone at once, so it opens afresh.
+    if (this._closing) this._closeNow();
     const draft = Model.draftFromParams(params);
     if (!draft) {
       Logger.warn('Event popover: the event has no readable start');
@@ -270,13 +325,34 @@ export class EventPopover extends LitElement {
       return;
     }
 
+    // A press on an event comes with what can be seen of the event, and the popover opens
+    // beside it, as macOS opens one beside an event: the edge of its box, or the end of its text
+    // where it draws no box (`eventBox`). A press with no event under it, on a day or an empty
+    // slot, comes with its point alone, and the popover opens right there. A toolbar button asks
+    // for the popover below it instead.
     const rect = anchor.rect ?? {
       left: anchor.x,
       right: anchor.x,
       top: anchor.y,
       bottom: anchor.y,
     };
-    const centerY = anchor.rect ? (rect.top + rect.bottom) / 2 : anchor.y;
+    this._place = anchor.below
+      ? this._placeBelow(rect, panelHeight, width, height)
+      : this._placeBeside(rect, panelHeight, width, height);
+  }
+
+  /**
+   * Beside a box: to its right where the popover fits, else to its left, centered on it and
+   * kept on screen, the arrow at its middle. Where neither side has room it is centered on the
+   * screen, without an arrow.
+   */
+  private _placeBeside(
+    rect: Model.PopoverBox,
+    panelHeight: number,
+    width: number,
+    height: number,
+  ): NonNullable<EventPopover['_place']> {
+    const centerY = (rect.top + rect.bottom) / 2;
     let side: 'left' | 'right' | undefined = 'left';
     let left = rect.right + GAP;
     if (left + POPOVER_WIDTH > width - MARGIN) {
@@ -291,8 +367,39 @@ export class EventPopover extends LitElement {
       Math.max(MARGIN, centerY - panelHeight / 2),
       height - panelHeight - MARGIN,
     );
-    const arrowTop = Math.min(Math.max(24, centerY - top), panelHeight - 24);
-    this._place = { left, top, arrow: side ? { side, top: arrowTop } : undefined };
+    const at = Math.min(Math.max(24, centerY - top), panelHeight - 24);
+    return { left, top, arrow: side ? { side, at } : undefined };
+  }
+
+  /**
+   * Below a box, as macOS opens the popover of its toolbar's add button: the arrow on the top
+   * edge points up at the button's middle, a little in from the popover's left, so the popover
+   * hangs over the card rather than beside its corner. Above it instead where there is no room
+   * below and more above.
+   */
+  private _placeBelow(
+    rect: Model.PopoverBox,
+    panelHeight: number,
+    width: number,
+    height: number,
+  ): NonNullable<EventPopover['_place']> {
+    const centerX = (rect.left + rect.right) / 2;
+    const left = Math.min(
+      Math.max(MARGIN, centerX - EAR_INSET),
+      Math.max(MARGIN, width - POPOVER_WIDTH - MARGIN),
+    );
+    // Kept off the panel's rounded corners, so the beak meets a straight edge.
+    const at = Math.min(Math.max(24, centerX - left), POPOVER_WIDTH - 24);
+    const below = rect.bottom + BELOW_GAP;
+    const above = rect.top - BELOW_GAP - panelHeight;
+    if (below + panelHeight > height - MARGIN && above >= MARGIN) {
+      return { left, top: above, arrow: { side: 'bottom', at } };
+    }
+    return {
+      left,
+      top: Math.max(MARGIN, Math.min(below, height - panelHeight - MARGIN)),
+      arrow: { side: 'top', at },
+    };
   }
 
   //---------------------------------------------------------------------------
@@ -333,6 +440,7 @@ export class EventPopover extends LitElement {
    * @returns Whether the popover closed now
    */
   private _requestClose(mode: 'save' | 'discard', range?: Writes.RecurrenceRange): boolean {
+    if (this._closing) return true;
     if (this._busy) return false;
     const params = this._params;
     const draft = this._draft;
@@ -372,6 +480,10 @@ export class EventPopover extends LitElement {
     this._phase = 'saving';
     this._editing = undefined;
     this._error = undefined;
+    if (params.mode === 'event' && draft.calendarId !== params.calendarId) {
+      await this._move(hass, params, draft, original, range, openId);
+      return;
+    }
     try {
       if (params.mode === 'new') {
         await Writes.createEvent(hass, draft.calendarId, Model.eventWrite(draft, undefined));
@@ -393,6 +505,91 @@ export class EventPopover extends LitElement {
     }
     params.updated(draft.calendarId);
     if (openId === this._openId) this._finish();
+  }
+
+  /**
+   * Moves the event to the calendar picked: adds it there, then deletes it from its own. In that
+   * order, so a failure part way leaves it in both calendars rather than in neither.
+   *
+   * A repeating event moves as the occurrences chosen do: the one pressed alone, as a single
+   * event, or, where `_seriesMovable`, the series from it on. Occurrences deleted from that
+   * part, or changed on their own, come back as plain occurrences of the series: Home
+   * Assistant's commands cannot carry either to another calendar. Nor can they carry anything
+   * but the fields the popover shows, so a status, guests or reminders an integration keeps of
+   * its own stay behind.
+   *
+   * @param hass - Home Assistant
+   * @param params - What the popover opened with
+   * @param draft - The draft, naming the calendar to move to
+   * @param original - The draft the popover opened with
+   * @param range - For a repeating event, which occurrences
+   * @param openId - The open this move belongs to
+   */
+  private async _move(
+    hass: Types.Hass,
+    params: Model.PopoverParams,
+    draft: Model.Draft,
+    original: Model.Draft | undefined,
+    range: Writes.RecurrenceRange | undefined,
+    openId: number,
+  ): Promise<void> {
+    const entry = params.entry;
+    const from = params.calendarId;
+    let added = false;
+    try {
+      if (!entry?.uid) throw new Error('The event has no identifier to move it by');
+      const scoped = entry.recurrence_id ? (range ?? '') : undefined;
+      const event = Model.eventWrite(draft, original, scoped);
+      // Offered only where it is safe (`_seriesMovable`); checked again before anything is
+      // written, because the delete below would take the series' future with it.
+      if (scoped === 'THISANDFUTURE' && !Model.seriesMovable(event.rrule)) {
+        throw new Error('This series cannot be moved from here on');
+      }
+      await Writes.createEvent(hass, draft.calendarId, event);
+      added = true;
+      await Writes.deleteEvent(hass, {
+        entityId: from,
+        uid: entry.uid,
+        recurrenceId: entry.recurrence_id,
+        range: scoped,
+      });
+    } catch (error) {
+      Logger.warn('Event popover: moving failed', error);
+      if (added) params.updated(draft.calendarId);
+      if (openId !== this._openId) return;
+      this._phase = 'edit';
+      this._error = Writes.writeErrorMessage(error) ?? UNKNOWN_ERROR;
+      // Added but not deleted: the event is in both calendars, and the copy added cannot be
+      // reached from here, so nothing more is offered that would write it a third time.
+      if (added) this._settle(draft);
+      return;
+    }
+    params.updated(draft.calendarId, from);
+    if (openId === this._openId) this._finish();
+  }
+
+  /**
+   * Whether a move may take the series from the occurrence pressed on: the occurrence carries
+   * its series' rule, and the rule ends never or on a date (`Model.seriesMovable`). Anywhere
+   * else only the occurrence pressed moves.
+   */
+  private get _seriesMovable(): boolean {
+    const draft = this._draft;
+    if (!draft) return false;
+    return Model.seriesMovable(Model.eventWrite(draft, this._original, 'THISANDFUTURE').rrule);
+  }
+
+  /**
+   * Leaves the popover showing a draft that was written in part, with nothing more to save or
+   * delete: it closes as it is.
+   *
+   * @param draft - The draft as written
+   */
+  private _settle(draft: Model.Draft): void {
+    const params = this._params;
+    if (!params) return;
+    this._params = { ...params, display: undefined, canEdit: false, canDelete: false };
+    this._original = { ...draft, times: { ...draft.times } };
   }
 
   /**
@@ -428,19 +625,94 @@ export class EventPopover extends LitElement {
   }
 
   /**
-   * Closes the modal and tells Home Assistant's dialog manager the popover is gone.
+   * Tells Home Assistant's dialog manager the popover is gone, and closes the modal once it has
+   * played its way out (`_leave`), or at once where there is nothing to play.
    *
    * @returns Always true
    */
   private _finish(): boolean {
+    this._wantOpen = false;
+    const animations = this._leave();
+    if (animations.length) {
+      this._closing = true;
+      this._leaving = animations;
+      // A tab in the background may hold animations back, so the popover goes regardless soon.
+      void Promise.race([
+        Promise.all(animations.map((animation) => animation.finished)),
+        new Promise((resolve) => setTimeout(resolve, LEAVE_MS + 200)),
+      ])
+        .catch(() => undefined)
+        .then(() => {
+          if (this._leaving === animations) this._closeNow();
+        });
+    } else {
+      this._closeNow();
+    }
+    this._fireClosed();
+    return true;
+  }
+
+  /** Closes the modal, drops what it showed, and stops any way out it was playing. */
+  private _closeNow(): void {
     const dialog = this._dialog;
     if (dialog?.open) dialog.close();
-    this._wantOpen = false;
+    // Canceled after the close, so the panel never flashes back at full size.
+    this._leaving?.forEach((animation) => animation.cancel());
+    this._leaving = undefined;
+    this._closing = false;
     this._params = undefined;
     this._draft = undefined;
     this._original = undefined;
-    this._fireClosed();
-    return true;
+  }
+
+  /**
+   * Plays the popover's way out: shrinking toward its arrow and fading, or a sheet sinking away.
+   * Nothing where the system asks for less motion, or where the browser cannot animate.
+   *
+   * @returns The animations, or none
+   */
+  private _leave(): Animation[] {
+    const dialog = this._dialog;
+    const panel = dialog?.querySelector<HTMLElement>('.panel');
+    if (!dialog?.open || !panel || typeof panel.animate !== 'function') return [];
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [];
+
+    const timing = (easing: string): KeyframeAnimationOptions => ({
+      duration: LEAVE_MS,
+      easing,
+      fill: 'forwards',
+    });
+    if (this._sheet) {
+      return [
+        panel.animate(
+          [
+            { transform: 'none', opacity: 1 },
+            { transform: 'translateY(24px)', opacity: 0 },
+          ],
+          timing('ease-in'),
+        ),
+      ];
+    }
+    // The panel and its beak shrink about the same point, where the beak meets the panel's
+    // edge, which the panel's transform-origin names and the beak's box sits on.
+    const animations = [
+      panel.animate(
+        [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
+        timing(LEAVE_SHRINK),
+      ),
+      panel.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
+    ];
+    const arrow = dialog.querySelector<HTMLElement>('.arrow');
+    if (arrow) {
+      animations.push(
+        arrow.animate(
+          [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
+          timing(LEAVE_SHRINK),
+        ),
+        arrow.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
+      );
+    }
+    return animations;
   }
 
   private _fireClosed(): void {
@@ -573,21 +845,28 @@ export class EventPopover extends LitElement {
   private async _loadMap(): Promise<void> {
     const params = this._params;
     const location = (params?.display?.location ?? params?.entry?.location ?? '').trim();
-    if (!params || params.mode !== 'event' || !location) return;
+    if (!params || params.mode !== 'event' || !location || params.hidden?.location) return;
 
-    const point = await EventMap.resolveLocation(location, this.hass);
-    if (!point) return;
+    const place = await EventMap.resolveLocation(location, this.hass, MAP_WIDTH);
+    if (!place || this._params !== params) return;
     const token = await EventMap.mapTilesToken(this.hass);
     if (!token || this._params !== params) return;
 
     const density = (window.devicePixelRatio ?? 1) >= 1.5 ? 2 : 1;
     const { tiles, tileSize } = EventMap.mapTiles(
-      point,
-      { width: POPOVER_WIDTH - 28, height: MAP_HEIGHT },
+      place,
+      { width: MAP_WIDTH, height: MAP_HEIGHT },
       token,
       density,
+      place.zoom,
     );
-    this._map = { tiles, tileSize, href: EventMap.mapsSearchUrl(location), label: location };
+    this._map = {
+      tiles,
+      tileSize,
+      href: EventMap.mapsSearchUrl(location),
+      label: location,
+      source: place.source,
+    };
   }
 
   //---------------------------------------------------------------------------
@@ -637,13 +916,18 @@ export class EventPopover extends LitElement {
     return html`
       <dialog
         class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}"
+        ?data-placed=${this._sheet || !!place}
         style=${style}
         aria-labelledby="popover-title"
         @cancel=${this._onCancel}
         @pointerdown=${this._onPointerDown}
         @click=${this._onClick}
       >
-        <div class="panel" style="--event-color:${color}" ?inert=${this._busy}>
+        <div
+          class="panel"
+          style="--event-color:${color};${place?.arrow ? `transform-origin:${arrowPoint(place.arrow)}` : ''}"
+          ?inert=${this._busy || this._closing}
+        >
           ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
           <h2
             id="popover-title"
@@ -666,7 +950,14 @@ export class EventPopover extends LitElement {
         </div>
         ${
           place?.arrow
-            ? html`<span class="arrow ${place.arrow.side}" style="top:${place.arrow.top}px"></span>`
+            ? html`<span
+                class="arrow ${place.arrow.side}"
+                style="${place.arrow.side === 'left' || place.arrow.side === 'right' ? 'top' : 'left'}:${place.arrow.at}px"
+                ><span class="beak"
+                  ><span class="glass"></span
+                  ><svg viewBox="0 0 15 7" aria-hidden="true">
+                    <path d=${BEAK_EDGE}></path></svg></span
+              ></span>`
             : nothing
         }
       </dialog>
@@ -714,6 +1005,10 @@ export class EventPopover extends LitElement {
       @focus=${() => (this._editing = 'title')}
       @blur=${() => this._editing === 'title' && (this._editing = undefined)}
       @input=${(ev: Event) => this._update({ summary: (ev.target as HTMLInputElement).value })}
+      @keydown=${(ev: KeyboardEvent) => {
+        // Return confirms, as it does in a macOS popover; not while an input method composes.
+        if (ev.key === 'Enter' && !ev.isComposing) this._requestClose('save');
+      }}
     />`;
   }
 
@@ -968,6 +1263,7 @@ export class EventPopover extends LitElement {
   }
 
   private _renderLocation(): TemplateResult | typeof nothing {
+    if (this._params?.hidden?.location) return nothing;
     const text = this._displayed('location');
     const pin =
       text && !this._map
@@ -1007,7 +1303,7 @@ export class EventPopover extends LitElement {
     const draft = this._draft!;
     const current = this._calendar(draft.calendarId);
     const dot = (color: string) => html`<span class="dot" style="background:${color}"></span>`;
-    if (params.mode !== 'new' || params.calendars.length < 2) {
+    if (!this._editable || params.calendars.length < 2) {
       return html`<div class="cell calendar">
         ${dot(current?.color ?? params.color ?? 'var(--primary-color)')}
         <span>${current?.name ?? draft.calendarId}</span>
@@ -1030,6 +1326,7 @@ export class EventPopover extends LitElement {
   }
 
   private _renderDescription(): TemplateResult | typeof nothing {
+    if (this._params?.hidden?.description) return nothing;
     const text = this._displayed('description');
     if (!this._editable || this._editing !== 'description') {
       if (!text && !this._editable) return nothing;
@@ -1081,25 +1378,38 @@ export class EventPopover extends LitElement {
   private _renderMap(): TemplateResult | typeof nothing {
     const map = this._map;
     if (!map || this._editing === 'location') return nothing;
-    return html`<a
-      class="map"
-      href=${map.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label=${`${this._t('location')}: ${map.label}`}
-    >
-      ${map.tiles.map(
-        (tile) =>
-          html`<img
-            alt=""
-            src=${tile.url}
-            draggable="false"
-            style="left:${tile.left}px;top:${tile.top}px;width:${map.tileSize}px;height:${map.tileSize}px"
-          />`,
-      )}
-      <span class="marker" aria-hidden="true"></span>
-      <span class="attribution">© OpenStreetMap</span>
-    </a>`;
+    // The credit is a sibling of the map's link, not inside it: a link may not hold links, and
+    // both sources ask for one (OpenStreetMap's copyright page, Open-Meteo's site).
+    const credit = (href: string, text: string) =>
+      html`<a href=${href} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    return html`<div class="map">
+      <a
+        class="map-link"
+        href=${map.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label=${`${this._t('location')}: ${map.label}`}
+      >
+        ${map.tiles.map(
+          (tile) =>
+            html`<img
+              alt=""
+              src=${tile.url}
+              draggable="false"
+              style="left:${tile.left}px;top:${tile.top}px;width:${map.tileSize}px;height:${map.tileSize}px"
+            />`,
+        )}
+        <span class="marker" aria-hidden="true"></span>
+      </a>
+      <span class="attribution"
+        >©
+        ${credit('https://www.openstreetmap.org/copyright', 'OpenStreetMap')}${
+          map.source === 'open-meteo'
+            ? html` · ${credit('https://open-meteo.com/', 'Open-Meteo')}`
+            : nothing
+        }</span
+      >
+    </div>`;
   }
 
   private _renderError(): TemplateResult | typeof nothing {
@@ -1108,14 +1418,22 @@ export class EventPopover extends LitElement {
 
   private _renderQuestion(): TemplateResult | typeof nothing {
     if (this._phase === 'update') {
+      // A move takes the series' future along only where it can do so whole; elsewhere it
+      // moves the occurrence pressed alone, the one choice left.
+      const moving = this._draft?.calendarId !== this._params?.calendarId;
+      const future = !moving || this._seriesMovable;
       return html`<div class="ask" role="group" aria-label=${this._t('updateRecurring')}>
         <b>${this._t('updateRecurring')}</b>
-        <button
-          class="btn primary"
-          @click=${() => void this._requestClose('save', 'THISANDFUTURE')}
-        >
-          ${this._t('future')}
-        </button>
+        ${
+          future
+            ? html`<button
+                class="btn primary"
+                @click=${() => void this._requestClose('save', 'THISANDFUTURE')}
+              >
+                ${this._t('future')}
+              </button>`
+            : nothing
+        }
         <button class="btn" @click=${() => void this._requestClose('save', '')}>
           ${this._t('thisEvent')}
         </button>
@@ -1144,22 +1462,39 @@ export class EventPopover extends LitElement {
     </div>`;
   }
 
+  /**
+   * The row under the cells: Delete for a stored event, on the left, and once anything was
+   * changed Cancel and Save on the right, Add for a new event. Cancel throws the changes away
+   * and closes, as Escape does where there is no Escape key; Save does what closing does, so a
+   * change can be confirmed where a person looks for it. A new event has nothing to delete.
+   */
   private _renderFoot(): TemplateResult | typeof nothing {
     const params = this._params!;
-    const canDelete = params.mode === 'new' || params.canDelete;
-    if (!canDelete || this._phase !== 'edit') {
-      return this._phase === 'saving'
-        ? html`<div class="foot"><span class="spinner" role="progressbar"></span></div>`
-        : nothing;
+    if (this._phase === 'saving') {
+      return html`<div class="foot"><span class="spinner" role="progressbar"></span></div>`;
     }
+    if (this._phase !== 'edit') return nothing;
+    const canDelete = params.mode === 'event' && params.canDelete;
+    const changed = this._editable && this._dirty;
+    if (!canDelete && !changed) return nothing;
     return html`<div class="foot">
-      <button
-        class="btn"
-        @click=${() =>
-          params.mode === 'new' ? void this._requestClose('discard') : (this._phase = 'delete')}
-      >
-        ${this._t('delete')}
-      </button>
+      ${
+        canDelete
+          ? html`<button class="btn" @click=${() => (this._phase = 'delete')}>
+              ${this._t('delete')}
+            </button>`
+          : nothing
+      }
+      ${
+        changed
+          ? html`<button class="btn end" @click=${() => this._requestClose('discard')}>
+                ${this._t('cancel')}
+              </button>
+              <button class="btn primary" @click=${() => this._requestClose('save')}>
+                ${this._t(params.mode === 'new' ? 'add' : 'save')}
+              </button>`
+          : nothing
+      }
     </div>`;
   }
 
@@ -1187,12 +1522,56 @@ export class EventPopover extends LitElement {
       inset: auto 0 0 0;
       width: 100%;
     }
+    /* It opens as a popover in Calendar on macOS does, as measured from a screen recording of
+       it: growing out of its arrow from a tenth of its size, fast and then settling, over
+       230 ms, and fading in over 180 ms, with no overshoot. The beak grows with it about the
+       same point, where it meets the panel's edge, which the panel's inline transform-origin
+       names. A sheet rises from the bottom instead. Each starts once the popover is placed, so
+       none of it plays unseen. The way out is played from script (_leave). Without motion
+       where the system asks for less. */
+    dialog.popover[open][data-placed] > .panel {
+      animation:
+        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
+        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
+    }
+    dialog.popover[open][data-placed] > .arrow {
+      animation:
+        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
+        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
+    }
+    dialog.sheet[open][data-placed] > .panel {
+      animation: sheet-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    @keyframes pop-grow {
+      from {
+        transform: scale(0.1);
+      }
+    }
+    @keyframes pop-fade {
+      from {
+        opacity: 0;
+      }
+    }
+    @keyframes sheet-in {
+      from {
+        transform: translateY(24px);
+        opacity: 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      dialog.popover[open][data-placed] > .panel,
+      dialog.popover[open][data-placed] > .arrow,
+      dialog.sheet[open][data-placed] > .panel {
+        animation: none;
+      }
+    }
     dialog.sheet::backdrop {
       background: rgba(0, 0, 0, 0.25);
     }
     .light {
       --pop-bg: rgba(246, 246, 246, 0.82);
       --pop-edge: rgba(0, 0, 0, 0.12);
+      --pop-outline: rgba(0, 0, 0, 0.22);
       --cell: rgba(0, 0, 0, 0.045);
       --cell-hover: rgba(0, 0, 0, 0.07);
       --text: rgba(0, 0, 0, 0.86);
@@ -1205,6 +1584,7 @@ export class EventPopover extends LitElement {
     .dark {
       --pop-bg: rgba(44, 44, 46, 0.78);
       --pop-edge: rgba(255, 255, 255, 0.14);
+      --pop-outline: rgba(255, 255, 255, 0.2);
       --cell: rgba(255, 255, 255, 0.075);
       --cell-hover: rgba(255, 255, 255, 0.11);
       --text: rgba(255, 255, 255, 0.92);
@@ -1227,11 +1607,13 @@ export class EventPopover extends LitElement {
       background: var(--pop-bg);
       -webkit-backdrop-filter: blur(28px) saturate(170%);
       backdrop-filter: blur(28px) saturate(170%);
-      border: 1px solid var(--pop-edge);
+      /* One hairline, as on macOS, which the beak's outline continues. An inset shadow rather
+         than a border: browsers draw a half-pixel shadow as one, and some round a half-pixel
+         border up to a whole one, which would no longer match the beak's line. */
       border-radius: 16px;
       box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.35),
-        0 0 0 0.5px rgba(0, 0, 0, 0.3);
+        inset 0 0 0 0.5px var(--pop-outline),
+        0 18px 50px rgba(0, 0, 0, 0.35);
       font-size: 15px;
       line-height: 1.35;
     }
@@ -1248,28 +1630,65 @@ export class EventPopover extends LitElement {
       border-radius: 3px;
       background: var(--dim);
     }
-    /* The arrow hangs off the dialog, not the panel, whose scrolling would clip it. Only its
-       outer half is drawn, overlapping the panel's border by a pixel so the two read as one. */
+    /* The beak hangs off the dialog, not the panel, whose scrolling would clip it. Its box is a
+       point on the panel's outer edge, where it grows from and shrinks to; the beak is drawn
+       from there pointing up and turned to its side. Its glass blurs what is behind it as the
+       panel does, cut to the beak's shape, and the outline is drawn over it. */
     .arrow {
       position: absolute;
-      width: 16px;
-      height: 16px;
-      margin-top: -8px;
-      background: var(--pop-bg);
-      border: 1px solid var(--pop-edge);
-      transform: rotate(45deg);
+      width: 0;
+      height: 0;
+      transform-origin: 0 0;
+    }
+    .arrow.top {
+      top: 0;
+    }
+    .arrow.bottom {
+      top: 100%;
     }
     .arrow.left {
-      left: -8px;
-      border-top: 0;
-      border-right: 0;
-      clip-path: polygon(0 0, 0 100%, 100% 100%);
+      left: 0;
     }
     .arrow.right {
-      right: -8px;
-      border-bottom: 0;
-      border-left: 0;
-      clip-path: polygon(0 0, 100% 0, 100% 100%);
+      left: 100%;
+    }
+    .beak {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
+    }
+    .arrow.right .beak {
+      transform: rotate(90deg);
+    }
+    .arrow.bottom .beak {
+      transform: rotate(180deg);
+    }
+    .arrow.left .beak {
+      transform: rotate(-90deg);
+    }
+    .beak > * {
+      position: absolute;
+      left: -7.5px;
+      top: -6.5px;
+      width: 15px;
+      height: 7px;
+    }
+    .glass {
+      background: var(--pop-bg);
+      -webkit-backdrop-filter: blur(28px) saturate(170%);
+      backdrop-filter: blur(28px) saturate(170%);
+      clip-path: path(
+        'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75L15 7L0 7Z'
+      );
+    }
+    .beak svg {
+      overflow: visible;
+    }
+    .beak path {
+      fill: none;
+      stroke: var(--pop-outline);
+      stroke-width: 0.5;
     }
     /* Hidden until the keyboard reaches it, then a button like the others. */
     .reveal:not(:focus-visible),
@@ -1558,6 +1977,11 @@ export class EventPopover extends LitElement {
       border: 2px solid #fff;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     }
+    .map-link {
+      position: absolute;
+      inset: 0;
+      display: block;
+    }
     .attribution {
       position: absolute;
       right: 6px;
@@ -1567,6 +1991,9 @@ export class EventPopover extends LitElement {
       font-size: 9px;
       color: #333;
       background: rgba(255, 255, 255, 0.7);
+    }
+    .attribution a {
+      color: inherit;
     }
     .error {
       padding: 8px 12px;
@@ -1591,6 +2018,9 @@ export class EventPopover extends LitElement {
       align-items: center;
       gap: 8px;
       margin-top: 3px;
+    }
+    .foot .end {
+      margin-inline-start: auto;
     }
     .btn {
       height: 28px;

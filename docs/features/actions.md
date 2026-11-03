@@ -120,7 +120,7 @@ The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refres
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
-A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event shows a wash over that event instead, so you can see which one you pressed, and the ripple stays still. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset` and `details` have none.
+A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event, or on a day that adds one, shows a wash over what you pressed instead, and the ripple stays still for the whole press, including the moment the popover opens. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset` and `details` have none.
 
 ### Refreshing From a Tap or Hold
 
@@ -316,16 +316,31 @@ Where the event's calendar allows it, the popover is where you change the event,
 - **Title & location.** Tap either one to type.
 - **Date & time.** Tap the date line to open the start and the end, All day and Repeat. Moving the start moves the end with it, so the event keeps its length.
 - **Description.** Tap it to edit it. A tap on a link in it follows the link instead.
+- **Calendar.** Tap it to [move the event to another calendar](#moving-to-another-calendar).
 
 Repeat offers what Home Assistant's own event editor offers: daily, weekly on the weekdays you pick, monthly on a day of the month or on an nth or last weekday, and yearly, ending never, after a number of occurrences, or on a date. A repeat rule outside that set, which another calendar app may have written, is shown as written and kept unless you pick another.
 
 ### Saving & Discarding
 
-The popover saves once, when it closes: with a press outside it, or with Back. Escape closes it and throws the changes away instead. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
+The popover saves once, when it closes: with a press outside it, or with Back. Once you have changed something, **Cancel** and **Save** appear at the bottom right, so you can also confirm or throw away the change where you would look for it: **Save** does what closing does, Return in the title does the same, and **Cancel**, or Escape on a keyboard, throws every change away. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
 
 For one occurrence of a repeating event, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events.
 
 If Home Assistant refuses the change, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
+
+### Moving to Another Calendar
+
+Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own, which is why moving needs a calendar that allows deleting, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.
+
+A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on. It is offered only where the series can move whole: not for a series that ends after a number of occurrences, whose count would start again in the new calendar, so set its end to a date first, in the same popover; and not for an occurrence you changed on its own, which no longer carries its series' repeat.
+
+Only what the popover shows moves: the title, times, location, description and repeat. Anything else a calendar keeps about an event, such as a tentative status, guests or reminders, stays behind with the copy that is deleted.
+
+::: warning Moving a Series Brings Back What You Changed in It
+Home Assistant cannot carry an occurrence you deleted from a series, or one you changed on its own, over to another calendar. Moving the series brings each of them back in the new calendar as a plain occurrence, on its usual day and with the series' title and times. Delete or change them again there.
+:::
+
+The card adds before it deletes, so a failure between the two leaves the event in both calendars rather than in neither. The popover then says why, and offers nothing more to save.
 
 ### Deleting
 
@@ -357,6 +372,15 @@ allow_event_delete: false
 
 The visual editor shows the two switches only while Event Tap Action or Event Hold Action is Show Event Details, because with Nothing for both there is no popover for them to narrow.
 
+A calendar can keep its locations or descriptions out of the popover too. Set to `false` on the calendar itself, Never show in the visual editor, `show_location` and `show_description` hide them from that calendar's events everywhere: the rows leave them out, and so does the popover, which draws no map for them and looks nothing up. Saving a change to such an event keeps them as they are stored. Set on the card or a view instead, the two options only tidy the rows, and the popover still shows what they leave out, since it is where you go to read it. A new event shows every field, because you are the one writing it.
+
+```yaml
+entities:
+  - entity: calendar.work
+    show_location: false # no meeting rooms, in rows or in the popover
+    show_description: false
+```
+
 ### When the Card Leaves Them Out
 
 The details still open, but the card makes the event read-only and leaves out Delete where changing it would go wrong, whatever the two options say:
@@ -382,7 +406,7 @@ toolbar:
 
 The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
 
-Type a title and close the popover, with a press outside it or with Back, and the event is added. Close it untouched, press **Delete**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
+Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back, and the event is added. Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
 
 The popover's calendar is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is chosen anyway. On a card with only one such calendar, the popover names it.
 
@@ -460,7 +484,7 @@ read-only calendars, a tap on a day stays a tap on the card.
 
 ## 💬 The Event Popover
 
-An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event or button you pressed, with an arrow pointing at it; on a screen narrower than 600 pixels it rises from the bottom as a sheet. It is light or dark as your Home Assistant theme is, and it shows:
+An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event you pressed, as Calendar on macOS does, with its arrow pointing at it, to the right where there is room and to the left otherwise: beside the edge of an event drawn as a tinted box, such as a grid block or any event under `event_background_opacity`, and beside the end of the text of one drawn without, so a list row stretching across a wide card does not send it to the far edge. A tap on a day, or on an empty slot of the grid, opens it right where you tapped. The add button opens it below the button, with the arrow on top. On a screen narrower than 600 pixels it rises from the bottom as a sheet. As in Calendar on macOS, it grows out of its arrow while it fades in, and closes the same way in reverse, shrinking back toward the arrow as it fades out; a sheet rises as it opens and sinks as it closes. With reduced motion turned on in your system it simply appears and disappears. It is light or dark as your Home Assistant theme is, and it shows:
 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;
@@ -476,9 +500,18 @@ Every word in the popover is Home Assistant's own, from its calendar translation
 
 ### Maps & Locations
 
-When the location of an event you open is the name of one of your Home Assistant zones, the popover draws a small map under it, with a marker on the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Pressing the map opens a Google Maps search for the location. Any other location gets a small pin beside it, which opens the same search.
+When an event you open has a location the card can place, the popover draws a small map under it, with a marker on the spot. Every map is the same OpenStreetMap map; what differs is only how the card finds the spot. Pressing the map opens a Google Maps search for the location. A location the card cannot place gets a small pin beside it instead, which opens the same search. The card places a location in one of two ways.
 
-The map is drawn from Home Assistant's own map tile proxy, which fetches the OpenStreetMap tiles itself; the map credits them with © OpenStreetMap. That proxy arrived in Home Assistant 2026.10, so on an older version the popover shows the pin instead. The card sends nothing to any outside service to draw the map, and the location goes nowhere unless you press the map or the pin, which opens Google Maps in your browser. There is no option for the map; it is there whenever a location names a zone.
+- **A zone.** When the location is the name of one of your Home Assistant zones, the map shows the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Nothing leaves your home to find it. The map shows the whole zone: it zooms out until the zone's circle, its radius in Home Assistant, spans the map's width, so a zone drawn around a city shows the city and one drawn around a house shows its street.
+- **A town or a city.** A short place name, such as `Rosenheim`, `Paris` or `Springfield, Illinois`, is looked up in [Open-Meteo](https://open-meteo.com)'s free geocoding service, which needs no account or key.
+
+Only a name of two to 60 characters, with at most four words and one comma for its country or region, is looked up. Anything with a digit, `@`, `/` or `:` in it is never sent, so a street address, a house number, a postal code, an email address or a web address stays in your home and gets the pin.
+
+The lookup is strict, because a wrong map is worse than none, and many ordinary words are the names of tiny places somewhere: `School`, `Park` and `Beach` all are. So only a town or a city whose name is exactly the one written counts, accents aside, never a district, a park or a mountain. A town in your home's country, within 100 km of your home, or in the country or region the location names after its comma needs 5,000 people. One anywhere else needs a million, or 100,000 for a capital. Where several places pass, one within 100 km of home comes first, else the one Open-Meteo ranks first, usually the largest. Your home's country and position are the ones set in Home Assistant. `Paris` therefore finds the French capital unless you live near Paris, Texas, and a smaller town far away needs its country: `Salzburg, Austria`. Names are asked for in your Home Assistant language, then in your home country's, then in English, until one finds the place. A home in Germany therefore finds `Köln`, `Cologne` and `München` alike; a home elsewhere finds a place by its name in one of those languages, so `Cologne` from the United States or France, not `Köln`.
+
+Your browser sends the name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The lookup runs only when you open an event in the popover, and never for a calendar that keeps its locations out of it; event rows, the card editor and typing a location never send anything. If the lookup fails, the popover shows the pin, as it would without one.
+
+The map is drawn from Home Assistant's own map tile proxy, which fetches the OpenStreetMap tiles itself, so your browser asks no map server for them. That proxy arrived in Home Assistant 2026.10, so on an older version the popover shows the pin instead. The map credits © OpenStreetMap, and Open-Meteo when it found the place, each with a link, as their licenses ask. There is no option for the map; it is there whenever a location can be placed.
 
 ### Links
 

@@ -129,6 +129,27 @@ export function detailPermissions(
 }
 
 /**
+ * Which of an event's fields its calendar keeps out of the popover: the location or the
+ * description, where the calendar sets `show_location` or `show_description` to false. Only the
+ * calendar's own setting counts. A card or a view that leaves them out of its rows still shows
+ * them in the popover, which is where one goes to read what the rows leave out; a calendar set
+ * to Never show is kept private, as a calendar masked with `replace_with` is.
+ *
+ * @param event - A rendered event
+ * @returns Whether each field is kept out
+ */
+export function hiddenFields(event: Types.CalendarEventData): {
+  location: boolean;
+  description: boolean;
+} {
+  const matched = event._matchedConfig;
+  return {
+    location: matched?.show_location === false,
+    description: matched?.show_description === false,
+  };
+}
+
+/**
  * The event's title, location and description as the card shows them, its calendar's text
  * replacement applied, for the popover to show while a field is not being edited.
  *

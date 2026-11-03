@@ -2885,6 +2885,14 @@ describe('a tappable event', () => {
   // so on touch the pressed wash is the only thing a tap on an event shows. `declared` sees
   // top-level rules only, so finding these there also proves they are not inside that
   // media query.
+  // The popover opens over the event as the press ends, and the ripple finishes the press after
+  // that; muting by :hover and :active alone let it flash across the card then.
+  it("keeps the card's ripple still through a whole press marked as an event's or a day's", () => {
+    expect(
+      flat(declared('ha-card[data-own-press] > ha-ripple', '--ha-ripple-pressed-opacity')),
+    ).toBe('0');
+  });
+
   it('washes untinted in the card hover color, 8% on hover and 16% pressed', () => {
     expect(flat(declared('.event-interactive:active', 'box-shadow'))).toBe(
       'inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +

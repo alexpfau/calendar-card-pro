@@ -37,12 +37,25 @@ export interface StoredEvent {
   status?: string;
 }
 
+/** A box in viewport coordinates. */
+export interface PopoverBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 /** Where the press was that opened the popover, which it opens beside. */
 export interface PopoverAnchor {
   x: number;
   y: number;
-  /** The pressed event's or button's box, when the press was on one. */
-  rect?: { left: number; top: number; right: number; bottom: number };
+  /**
+   * What can be seen of the event pressed (`eventBox`), or the button pressed. A press with no
+   * event under it, on a day or an empty slot, has none, and the popover opens at its point.
+   */
+  rect?: PopoverBox;
+  /** Open below the box rather than beside it, as for a toolbar button. */
+  below?: boolean;
 }
 
 /** What the card hands the popover, through Home Assistant's `show-dialog`. */
@@ -58,12 +71,20 @@ export interface PopoverParams {
    * Shown while a field is not being edited; editing shows and saves what is stored.
    */
   display?: { title: string; location: string; description: string };
+  /**
+   * Fields the event's calendar keeps out of view (`hiddenFields`): not drawn, never looked up
+   * for a map, and saved as they are stored. Only for an existing event; a new one shows all.
+   */
+  hidden?: { location: boolean; description: boolean };
   /** Whether the event may be changed here, and deleted. */
   canEdit: boolean;
   canDelete: boolean;
   /** The event's color. */
   color?: string;
-  /** The calendars to name: the event's own, or every one a new event may go to. */
+  /**
+   * The calendars to name. For an event, its own first, then any it may be moved to; for a new
+   * event, every one it may go to.
+   */
   calendars: PopoverCalendar[];
   /** Where a new event starts and ends. */
   times?: Times.EventTimes;
@@ -75,10 +96,10 @@ export interface PopoverParams {
   dark: boolean;
   anchor?: PopoverAnchor;
   /**
-   * Called once Home Assistant has saved a change, naming the calendar written to. Returns
-   * nothing: the card refetches without the popover waiting on it.
+   * Called once Home Assistant has saved a change, naming the calendars written to: one, or
+   * for a move both. Returns nothing: the card refetches without the popover waiting on it.
    */
-  updated: (calendarId?: string) => undefined;
+  updated: (...calendarIds: string[]) => undefined;
 }
 
 /** The repeat rule as the popover edits it. */
@@ -210,6 +231,20 @@ export function isDirty(draft: Draft, original: Draft): boolean {
     draft.times.end.getTime() !== original.times.end.getTime() ||
     repeatKey(draft) !== repeatKey(original)
   );
+}
+
+/**
+ * Whether a series can be moved to another calendar from one of its occurrences on, written
+ * with this rule. It must have a rule: an occurrence changed on its own comes without its
+ * series' rule, and would arrive as a single event while the series' future left. And the rule
+ * must end never or on a date: one ending after a count would start counting again from the
+ * occurrence moved, and the card cannot tell how many are left without the series' start.
+ *
+ * @param rule - The rule the move would write
+ * @returns Whether the series' future may move
+ */
+export function seriesMovable(rule: string | undefined): boolean {
+  return Boolean(rule) && !/(?:^|;)COUNT=/i.test(rule ?? '');
 }
 
 /**

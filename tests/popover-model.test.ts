@@ -8,6 +8,7 @@ import {
   eventWrite,
   isDirty,
   rebaseRepeat,
+  seriesMovable,
   spanText,
   writtenRule,
 } from '../src/interaction/popover-model';
@@ -307,5 +308,18 @@ describe('spanText', () => {
     ],
   ])('words %s', (_name, times, hour24, text) => {
     expect(spanText(times, 'en', hour24).replace(/\u202f/g, ' ')).toBe(text);
+  });
+});
+
+describe('seriesMovable', () => {
+  it.each([
+    ['a rule ending never', 'FREQ=WEEKLY;BYDAY=TU', true],
+    ['a rule ending on a date', 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261231T160000Z', true],
+    ['a rule ending after a count', 'FREQ=WEEKLY;BYDAY=TU;COUNT=6', false],
+    ['a count in another case', 'freq=daily;count=3', false],
+    ['an occurrence without its rule', undefined, false],
+    ['an empty rule', '', false],
+  ])('moves the future of %s: %j', (_name, rule, movable) => {
+    expect(seriesMovable(rule)).toBe(movable);
   });
 });

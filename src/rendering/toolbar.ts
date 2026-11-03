@@ -48,15 +48,22 @@ import type { MonthHeadingText } from '../utils/paging';
 // TYPES
 //-----------------------------------------------------------------------------
 
+/** A pointer's press on a toolbar button: where it was, in viewport coordinates, and by what. */
+export interface ButtonPress {
+  x: number;
+  y: number;
+  pointerType: string;
+}
+
 /** What the card hands the wrapper when it should draw an add-event button. */
 export interface AddEventButton {
   /** Home Assistant's own words for the button, or undefined when it offers none. */
   label: string | undefined;
   /**
-   * Runs on activation, handed the button, so a cue can show where it was pressed, and the kind
-   * of pointer that pressed it (`mouse`, `touch`, `pen`), or undefined for a key.
+   * Runs on activation, handed the button, and for a pointer's press where it was and the kind
+   * of pointer (`mouse`, `touch`, `pen`); undefined for a key.
    */
-  onActivate: (button: HTMLElement, pressed: string | undefined) => void;
+  onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
 }
 
 /**
@@ -350,7 +357,10 @@ function renderAddEventButton(button: AddEventButton): TemplateResult {
     ev.stopPropagation();
     // A click a key made on a button has no detail; a pointer's counts its clicks.
     const pointerType = (ev as Partial<PointerEvent>).pointerType || 'mouse';
-    button.onActivate(ev.currentTarget as HTMLElement, ev.detail > 0 ? pointerType : undefined);
+    button.onActivate(
+      ev.currentTarget as HTMLElement,
+      ev.detail > 0 ? { x: ev.clientX, y: ev.clientY, pointerType } : undefined,
+    );
   };
 
   return html`<button

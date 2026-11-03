@@ -507,6 +507,29 @@ describe('pressing the add-event button', () => {
     return popovers.opened.mock.calls[0][0];
   }
 
+  it('opens the popover below the button, by pointer or by key', async () => {
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
+
+    button(card)!.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        composed: true,
+        detail: 1,
+        clientX: 42,
+        clientY: 17,
+      }),
+    );
+    const pressed = openedOnce().anchor;
+    expect(pressed).toMatchObject({ below: true, pointerType: 'mouse' });
+    expect(pressed?.rect).toBeDefined();
+
+    // A key's click has no detail and no pointer.
+    button(card)!.click();
+    const keyed = popovers.opened.mock.calls[1][0].anchor;
+    expect(keyed).toMatchObject({ below: true });
+    expect(keyed).not.toHaveProperty('pointerType');
+  });
+
   it('opens the popover on a new event for the first writable calendar and refreshes once saved', async () => {
     const card = await mount({ entities: [READ_ONLY, WRITABLE_2, WRITABLE], toolbar: ADD_ONLY });
     const refreshEvents = vi.spyOn(card, 'refreshEvents').mockResolvedValue();

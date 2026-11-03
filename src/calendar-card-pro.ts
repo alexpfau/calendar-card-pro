@@ -176,9 +176,10 @@ function changesGridStructure(record: MutationRecord): boolean {
 }
 
 /**
- * Where an element is on screen, for the popover to open beside: its center, and its box. For
- * a press made without a pointer, by the keyboard or assistive technology, whose events carry
- * no position, and for the box of an event pressed with one.
+ * Where an element is on screen, for the popover to open beside: its center, and its box, which
+ * for an event drawn without one of its own ends where its text does (`eventBox`). For a press
+ * made without a pointer, by the keyboard or assistive technology, whose events carry no
+ * position, and for the box of an event pressed with one.
  *
  * @param node - The element pressed
  * @returns Its center and box, or undefined for anything that is not an element
@@ -189,7 +190,7 @@ function originOf(node: EventTarget | null): Feedback.PressOrigin | undefined {
   return {
     x: rect.left + rect.width / 2,
     y: rect.top + rect.height / 2,
-    rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+    rect: Feedback.eventBox(node),
   };
 }
 
@@ -816,20 +817,28 @@ class CalendarCardPro extends LitElement {
     if (!calendarId || !entry) return;
 
     const calendar = this._popoverCalendar(calendarId, color);
+    const permissions = EventDetails.detailPermissions(this.safeHass, event, entry, {
+      allowEdit: this.config.allow_event_edit !== false,
+      allowDelete: this.config.allow_event_delete !== false,
+      failedEntities: this._failedEntities,
+    });
+    // Moving an event writes it to another calendar and deletes it from its own, so it is
+    // offered where both are allowed, to the card's other calendars that accept new events.
+    const moveTargets =
+      permissions.canEdit && permissions.canDelete
+        ? this._writableCalendars.filter((id) => id !== calendarId)
+        : [];
     this._openPopover({
       mode: 'event',
       calendarId,
       entry,
       display: EventDetails.displayText(event),
+      hidden: EventDetails.hiddenFields(event),
       color: calendar.color,
-      calendars: [calendar],
-      ...EventDetails.detailPermissions(this.safeHass, event, entry, {
-        allowEdit: this.config.allow_event_edit !== false,
-        allowDelete: this.config.allow_event_delete !== false,
-        failedEntities: this._failedEntities,
-      }),
+      calendars: [calendar, ...moveTargets.map((id) => this._popoverCalendar(id))],
+      ...permissions,
       anchor: origin,
-      updated: () => this._refreshAfterWrite({ ids: [calendarId] }),
+      updated: (...ids) => this._refreshAfterWrite({ ids: ids.length ? ids : [calendarId] }),
     });
   };
 
@@ -3600,6 +3609,12 @@ class CalendarCardPro extends LitElement {
     }
     const tapTarget = this._eventTapAt(ev);
     const dayHit = tapTarget ? undefined : this._dayHitAt(ev);
+    // A press on an event or a day is theirs, so the card's ripple stays still for it from
+    // start to end; the stylesheet reads the mark, and the next press anywhere else clears it.
+    (ev.currentTarget as Element | null)?.toggleAttribute?.(
+      'data-own-press',
+      Boolean(tapTarget || dayHit),
+    );
     const swipeable = this._swipeStartsAt(ev);
     const holds = this._holdRunsFor(tapTarget);
     // A press arms only when it could end in something: the card's own tap or hold, the
@@ -3820,7 +3835,9 @@ class CalendarCardPro extends LitElement {
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it
-    // held, so the cue belongs there rather than where it was let go.
+    // held, so the cue belongs there rather than where it was let go. On an event it carries
+    // what can be seen of the event, for the popover to open beside; on a day or an empty slot
+    // only the point, for it to open right there.
     const pressedAt = this._pointerStart ?? { x: ev.clientX, y: ev.clientY };
     const origin: Feedback.PressOrigin = {
       ...pressedAt,
@@ -5149,8 +5166,12 @@ class CalendarCardPro extends LitElement {
         // A press leaves no focus behind for Home Assistant to ring when the dialog closes;
         // see `_releasePressFocus`. A key keeps it.
         if (pressed) this._releasePressFocus();
+        // The popover opens below the button, as macOS opens its toolbar's, by pointer or key.
         const at = originOf(button);
-        this._addEventAt(undefined, at && pressed ? { ...at, pointerType: pressed } : at);
+        this._addEventAt(
+          undefined,
+          at && { ...at, ...(pressed && { pointerType: pressed.pointerType }), below: true },
+        );
       },
     };
   }
@@ -5211,8 +5232,8 @@ class CalendarCardPro extends LitElement {
       anchor: origin,
       // The popover names the calendar it wrote to; one that does not is any that accepts
       // new events.
-      updated: (id) =>
-        this._refreshAfterWrite(id ? { ids: [id] } : { feature: Writes.CREATE_EVENT_FEATURE }),
+      updated: (...ids) =>
+        this._refreshAfterWrite(ids.length ? { ids } : { feature: Writes.CREATE_EVENT_FEATURE }),
     });
   }
 

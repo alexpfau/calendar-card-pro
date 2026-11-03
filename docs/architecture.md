@@ -23,7 +23,7 @@ src/
 │   ├── calendar-writes.ts        # Feature bits; the create, update and delete commands
 │   ├── event-actions.ts          # Event actions: kind, the event's fields, filling them in
 │   ├── event-details.ts          # An event's popover entry, display text and permissions
-│   ├── event-map.ts              # Zone lookup and map tiles under an event's location
+│   ├── event-map.ts              # Zone and place lookup, map tiles under a location
 │   ├── event-times.ts            # An event's span, as the popover edits it and as stored
 │   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
 │   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
@@ -742,10 +742,20 @@ caller.
     package; the card does them by hand, for bundle size
 
 - **event-map.ts**:
-  - Turns a location into a point through one swappable seam, `resolveLocation`, which today
-    is `zoneCoordinates`: a Home Assistant zone matched by its name or its entity ID's object
-    ID, case and spacing ignored. Nothing is sent anywhere to find it; an address lookup, if
-    one is ever chosen, plugs in there
+  - Turns a location into a point through one seam, `resolveLocation`. A Home Assistant zone
+    comes first (`zoneCoordinates`, its name or its entity ID's object ID, case and spacing
+    ignored), and sends nothing; its map zooms out until the zone's radius spans the map's
+    width (`zoneZoom`), no closer than `MAP_ZOOM`. Otherwise a short place name with no digit, `@`, `/` or `:`
+    (`placeQuery`) is looked up in Open-Meteo's geocoding service (`placeCoordinates`), which
+    allows personal home automation without a key, in Home Assistant's language, the home
+    country's and English in turn (`lookupLanguages`). `pickPlace` is strict, because ordinary
+    words name hamlets somewhere: an exact name, a town or city feature code, and 5,000 people
+    near home (the home's country, within 100 km, or the region named after a comma) or a
+    million elsewhere (100,000 for a capital); a place within 100 km wins a tie, and its
+    population sets how close the map starts. Each name is kept in `localStorage` for 30
+    days, a miss for 7 and a failed request for an hour, at most 300 names, and two popovers
+    asking at once share one request. The popover asks only when an event with a location
+    opens
   - Draws the map from Home Assistant's own tile proxy: a token from `map_tiles/access_token`,
     reused for 20 minutes, and tiles from `/api/map_tiles/raster/{z}/{x}/{y}.png`. A Home
     Assistant without the command, before 2026.10, gets no map
@@ -767,10 +777,15 @@ caller.
 
 - **feedback.ts**:
   - Creates the hold indicator at the pointer, and fades it out and removes it
-  - Describes where a press was (`PressOrigin`), with the pressed event's or button's box,
-    for the popover to open beside
+  - Describes where a press was (`PressOrigin`): a pointer's point, or for a press without
+    one the element's box (`eventBox`), for the popover to open at or beside
   - Draws no ripple: that is an `<ha-ripple>` which `renderMainCardStructure` in
-    `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`
+    `rendering/render.ts` puts in the card while it has a `tap_action` or `hold_action`. A
+    press on an event or a day is theirs, and `:hover` and `:active` alone could not keep the
+    ripple still through it: the ripple finishes a press after it is let go, and the popover
+    opens over the event at that moment, so both leave it and the ripple flashed across the
+    card. `_handlePointerDown` therefore marks such a press on `ha-card` (`data-own-press`),
+    which mutes the ripple's press until the next press begins elsewhere
 
 ### Rendering (`rendering/`)
 
@@ -858,13 +873,38 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     reused for another event refreshes the calendar it wrote to but leaves the new event open
   - Keeps every change as a draft (`popover-model.ts`) and writes once, on close: a press that
     starts and ends on the backdrop saves, as Back does, and Escape, the dialog's `cancel`,
-    discards. A field that is focused but not changed writes nothing
+    discards. A field that is focused but not changed writes nothing. Once the draft differs,
+    Cancel and Save (Add for a new event) appear in the bottom row, both in Home Assistant's
+    words: closing alone was a way to save that nobody looked for. Save, and Return in the
+    title, take the same path as a close, so a refusal or the which-occurrences question
+    behave the same whichever way the change is confirmed
   - Shows the title, location and description as the card does until a field is edited, then
     as stored (`displayText` in `event-details.ts`), since the stored text is what a save writes
-  - Places itself beside the press, from the `PressOrigin` and the pressed element's box: to
-    the right where it fits, else to the left, with an arrow at the press. Below 600 pixels of
-    viewport width it is a sheet from the bottom instead. It is drawn dark while Home
+  - Places itself from the `PressOrigin`. A press on an event carries what can be seen of it
+    (`eventBox`), and the popover opens beside that, to the right where it fits, else to the
+    left, its arrow at the middle, as macOS opens one beside an event: an event drawn as a
+    tinted box, a grid block or any event under `event_background_opacity`, ends where its box
+    does, and one drawn without (its computed background paints nothing, `paints`) ends where
+    its text does, leaving out a part pinned to the far edge past a wide gap, such as a weather
+    badge; a right-to-left row keeps its box. The tint, not the view, decides, because an
+    untinted list row's box is the card's width and says nothing about where its words are. A
+    press on a day or an empty slot carries only its point, and the popover opens right there.
+    The add button asks for the popover below it (`below`), the arrow on its top edge under the
+    button, as macOS places its toolbar's; above it where there is no room below. Below 600
+    pixels of viewport width it is a sheet from the bottom instead. It is drawn dark while Home
     Assistant's `themes.darkMode` is on
+  - Moves an event to another calendar by adding it there and then deleting it from its own,
+    since Home Assistant has no move command; adding first means a failure between the two
+    leaves it in both calendars, never in neither. The card offers the move only where it may
+    both edit and delete, to its own calendars that accept new events. A series moves from an
+    occurrence on only where it can move whole (`seriesMovable`): the occurrence must carry its
+    series' rule, because one changed on its own does not and would arrive as a single event
+    while the series' future left, and the rule must not end by `COUNT`, which would start
+    again from the occurrence moved; the card cannot tell how many are left without the
+    series' start. Reading the rest from the calendar's REST API was tried and misjudged rules
+    that skip months, moved exceptions and DST changes. Elsewhere only the occurrence moves. Deleted
+    or individually changed occurrences of a moved series cannot be carried over by the
+    write commands and come back as plain occurrences, which the docs say
   - Takes every word from `hass.localize`, Home Assistant's own strings, almost all of them
     under `ui.components.calendar.*`, each with an English fallback for a key Home Assistant lacks, so the card carries
     no translations for it; dates through `Intl` in Home Assistant's language. Ships in the

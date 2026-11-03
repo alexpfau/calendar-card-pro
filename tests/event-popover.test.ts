@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import type * as Types from '../src/config/types';
-import { resetMapTilesToken } from '../src/interaction/event-map';
+import { PLACES_STORAGE_KEY, resetMapTilesToken } from '../src/interaction/event-map';
 import type { PopoverParams } from '../src/interaction/popover-model';
-import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
+import { BEAK_EDGE, EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
 
 /**
  * The event popover as Home Assistant's dialog manager drives it: `showDialog` before the
@@ -61,7 +61,7 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
     }
     return options.write ? options.write(message) : undefined;
   });
-  const updated = vi.fn((_calendarId?: string) => undefined);
+  const updated = vi.fn((..._calendarIds: string[]) => undefined);
   const closed = vi.fn();
 
   const el = document.createElement(EVENT_POPOVER_TAG) as Popover;
@@ -118,10 +118,23 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
   return { el, root, callWS, updated, closed, writes, buttons, button, type, press };
 }
 
+// A location that reads as a place name is looked up in Open-Meteo, and tests must never reach
+// the network: every test starts with a fetch that finds nothing, and one that wants a place
+// stubs its own. The places kept in local storage go with each test.
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ results: [] }) })),
+  );
+  localStorage.removeItem(PLACES_STORAGE_KEY);
+});
+
 afterEach(() => {
   document.body.innerHTML = '';
   resetMapTilesToken();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  localStorage.removeItem(PLACES_STORAGE_KEY);
 });
 
 describe('opening', () => {
@@ -194,6 +207,41 @@ describe('saving on close', () => {
     ]);
     expect(updated).toHaveBeenCalledWith('calendar.ben');
     expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps out what the event's calendar hides, and saves it as stored", async () => {
+    // The control: the same event, nothing hidden, shows both and asks for the zone's map.
+    const shown = await open({}, { states: POOL_ZONE });
+    expect(shown.root.querySelector('input.plain')).not.toBeNull();
+    expect(shown.root.querySelector('.notes')).not.toBeNull();
+    await vi.waitFor(() => expect(shown.root.querySelector('a.map-link')).not.toBeNull());
+    shown.el.remove();
+
+    const { el, root, callWS, type, writes, closed } = await open(
+      { hidden: { location: true, description: true } },
+      { states: POOL_ZONE },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(root.querySelector('input.plain')).toBeNull();
+    expect(root.querySelector('.notes')).toBeNull();
+    expect(root.querySelector('a.pin, a.map-link')).toBeNull();
+    expect(callWS.mock.calls.map(([message]) => message.type)).not.toContain(
+      'map_tiles/access_token',
+    );
+
+    await type('input.title', 'Swim lesson');
+    expect(el.closeDialog()).toBe(false);
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      expect.objectContaining({
+        event: expect.objectContaining({
+          summary: 'Swim lesson',
+          location: 'Riverside Pool',
+          description: 'Bring goggles',
+        }),
+      }),
+    ]);
   });
 
   it('throws the changes away on Escape', async () => {
@@ -456,10 +504,14 @@ describe('a new event', () => {
     expect(updated).toHaveBeenCalledWith('calendar.anna');
   });
 
-  it('throws it away on Delete', async () => {
-    const { type, button, press, writes, closed } = await open(fresh);
+  it('has nothing to delete, and throws it away on Cancel once anything was typed', async () => {
+    const { root, type, button, press, writes, closed } = await open(fresh);
+    expect(root.querySelector('.foot')).toBeNull();
     await type('input.title', 'Piano');
-    await press(button('Delete'));
+    expect(
+      Array.from(root.querySelectorAll('.foot button')).map((b) => b.textContent?.trim()),
+    ).toEqual(['Cancel', 'Add']);
+    await press(button('Cancel'));
     expect(writes()).toEqual([]);
     expect(closed).toHaveBeenCalledTimes(1);
   });
@@ -523,8 +575,8 @@ describe('links', () => {
 describe('the map', () => {
   it('draws a place Home Assistant knows from its own tiles, and links it to Google Maps', async () => {
     const { root, callWS } = await open({}, { states: POOL_ZONE });
-    await vi.waitFor(() => expect(root.querySelector('a.map')).not.toBeNull());
-    const map = root.querySelector<HTMLAnchorElement>('a.map')!;
+    await vi.waitFor(() => expect(root.querySelector('a.map-link')).not.toBeNull());
+    const map = root.querySelector<HTMLAnchorElement>('a.map-link')!;
     expect(map.getAttribute('href')).toBe(
       'https://www.google.com/maps/search/?api=1&query=Riverside%20Pool',
     );
@@ -535,19 +587,60 @@ describe('the map', () => {
         /^\/api\/map_tiles\/raster\/\d+\/\d+\/\d+\.png\?token=tok$/.test(img.getAttribute('src')!),
       ),
     ).toBe(true);
-    expect(map.textContent).toContain('© OpenStreetMap');
+    // The credit sits beside the map's link, not in it, linking to OpenStreetMap's terms; a
+    // zone owes Open-Meteo nothing.
+    const credit = root.querySelector('.map > .attribution')!;
+    expect(
+      Array.from(credit.querySelectorAll('a')).map((a) => [a.textContent, a.getAttribute('href')]),
+    ).toEqual([['OpenStreetMap', 'https://www.openstreetmap.org/copyright']]);
+    expect(map.contains(credit)).toBe(false);
     // The map is the location's link now; the pin beside the text would be a second one.
     expect(root.querySelector('a.pin')).toBeNull();
     expect(callWS).toHaveBeenCalledWith({ type: 'map_tiles/access_token' });
   });
 
-  it('draws no map, and asks nothing, for a place no zone is called', async () => {
+  it('shows a zone drawn around a city whole, and one around a spot up close', async () => {
+    const zoomOf = (root: ShadowRoot) =>
+      new Set(
+        Array.from(root.querySelectorAll('a.map-link img')).map(
+          (img) => Number(/raster\/(\d+)\//.exec(img.getAttribute('src')!)![1]) - dense,
+        ),
+      );
+    const dense = window.devicePixelRatio >= 1.5 ? 1 : 0;
+    const city = {
+      'zone.hannover': {
+        entity_id: 'zone.hannover',
+        state: '0',
+        attributes: { friendly_name: 'Hannover', latitude: 52.37, longitude: 9.73, radius: 13000 },
+      },
+    };
+    const wide = await open(
+      { display: { title: 'Swim', location: 'Hannover', description: '' } },
+      { states: city },
+    );
+    await vi.waitFor(() => expect(wide.root.querySelector('a.map-link')).not.toBeNull());
+    // 26 km across fits the 312-pixel map at zoom 10.
+    expect(zoomOf(wide.root)).toEqual(new Set([10]));
+    wide.el.remove();
+
+    const close = await open({}, { states: POOL_ZONE });
+    await vi.waitFor(() => expect(close.root.querySelector('a.map-link')).not.toBeNull());
+    expect(zoomOf(close.root)).toEqual(new Set([15]));
+  });
+
+  it('draws no map, and asks nothing, for a street address', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
     const { root, callWS } = await open(
       { display: { title: 'Swim', location: '12 Mill Road', description: '' } },
       { states: POOL_ZONE },
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(root.querySelector('a.map')).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(root.querySelector('.map')).toBeNull();
     expect(root.querySelector('a.pin')?.getAttribute('href')).toContain('query=12%20Mill%20Road');
     expect(callWS).not.toHaveBeenCalled();
   });
@@ -556,8 +649,49 @@ describe('the map', () => {
     const { root, callWS } = await open({}, { states: POOL_ZONE, tiles: false });
     await vi.waitFor(() => expect(callWS).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(root.querySelector('a.map')).toBeNull();
+    expect(root.querySelector('.map')).toBeNull();
     expect(root.querySelector('a.pin')).not.toBeNull();
+  });
+
+  it('places a town Open-Meteo knows, and credits it beside OpenStreetMap', async () => {
+    localStorage.removeItem('calendar-card-pro-places');
+    const fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [
+          {
+            name: 'Rosenheim',
+            latitude: 47.86,
+            longitude: 12.12,
+            country_code: 'DE',
+            feature_code: 'PPLA3',
+            population: 61844,
+          },
+        ],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetch);
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+      localStorage.removeItem('calendar-card-pro-places');
+    });
+    const { root } = await open({
+      // This Home Assistant names no home country, so the town needs its region beside it.
+      display: { title: 'Swim', location: 'Rosenheim, Bayern', description: '' },
+    });
+    await vi.waitFor(() => expect(root.querySelector('a.map-link')).not.toBeNull());
+    expect(fetch).toHaveBeenCalledTimes(1);
+    // A town is drawn closer than a city: zoom 13, one finer on a dense screen.
+    const zooms = Array.from(root.querySelectorAll('a.map-link img')).map((img) =>
+      Number(/raster\/(\d+)\//.exec(img.getAttribute('src')!)![1]),
+    );
+    expect(new Set(zooms)).toEqual(new Set([window.devicePixelRatio >= 1.5 ? 14 : 13]));
+    const credit = root.querySelector('.map > .attribution')!;
+    expect(Array.from(credit.querySelectorAll('a')).map((a) => a.getAttribute('href'))).toEqual([
+      'https://www.openstreetmap.org/copyright',
+      'https://open-meteo.com/',
+    ]);
   });
 
   it('looks nothing up for a new event, even one handed a place', async () => {
@@ -584,7 +718,7 @@ describe('placing', () => {
     });
     const dialog = root.querySelector('dialog')!;
     expect(dialog.classList.contains('popover')).toBe(true);
-    expect(dialog.style.left).toBe('314px');
+    expect(dialog.style.left).toBe('310px');
     expect(root.querySelector('.arrow.left')).not.toBeNull();
   });
 
@@ -592,7 +726,7 @@ describe('placing', () => {
     const { root } = await open({
       anchor: { x: 900, y: 215, rect: { left: 700, right: 980, top: 200, bottom: 230 } },
     });
-    expect(root.querySelector('dialog')!.style.left).toBe(`${700 - 14 - 340}px`);
+    expect(root.querySelector('dialog')!.style.left).toBe(`${700 - 10 - 340}px`);
     expect(root.querySelector('.arrow.right')).not.toBeNull();
   });
 
@@ -770,5 +904,596 @@ describe('the keyboard', () => {
     edit.click();
     await el.updateComplete;
     expect(root.querySelector('textarea')?.value).toBe('Bring goggles');
+  });
+});
+
+describe('Cancel', () => {
+  const foot = (root: ShadowRoot) =>
+    Array.from(root.querySelectorAll('.foot button')).map((b) => [
+      b.textContent?.trim(),
+      b.classList.contains('end'),
+    ]);
+
+  it('appears with Save at the end of the row, beside Delete, once anything was changed', async () => {
+    const { root, type } = await open({});
+    expect(foot(root)).toEqual([['Delete', false]]);
+    await type('input.title', 'Swim lesson');
+    expect(foot(root)).toEqual([
+      ['Delete', false],
+      ['Cancel', true],
+      ['Save', false],
+    ]);
+    expect(root.querySelector('.foot .btn.primary')?.textContent?.trim()).toBe('Save');
+    // Typed back to what it was, there is nothing to cancel.
+    await type('input.title', '🏊 Swim');
+    expect(foot(root)).toEqual([['Delete', false]]);
+  });
+
+  it('throws every change away and closes, writing nothing', async () => {
+    const { root, type, press, button, writes, closed, updated } = await open({});
+    await type('input.title', 'Swim lesson');
+    await type('input.plain', '12 Mill Road');
+    await press(button('Cancel'));
+    expect(writes()).toEqual([]);
+    expect(updated).not.toHaveBeenCalled();
+    expect(closed).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(root.querySelector('dialog')?.open).not.toBe(true));
+  });
+
+  it('is never offered on an event that may not be changed', async () => {
+    const { root } = await open({ canEdit: false, canDelete: false });
+    expect(root.querySelector('.foot')).toBeNull();
+  });
+});
+
+describe('opening and closing', () => {
+  // As measured from a screen recording of Calendar on macOS.
+  const css = () =>
+    (customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }).styles
+      .cssText;
+  const played = () => {
+    const animate = vi.spyOn(HTMLElement.prototype, 'animate');
+    onTestFinished(() => animate.mockRestore());
+    return () =>
+      animate.mock.calls.map(([keyframes, options]) => ({
+        keyframes,
+        options: options as KeyframeAnimationOptions,
+      }));
+  };
+
+  it('grows out of its arrow from a tenth of its size, and fades in a little faster', () => {
+    const rule = (selector: string) =>
+      new RegExp(`${selector.replace(/[[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
+    for (const part of ['.panel', '.arrow']) {
+      const animation = rule(`dialog.popover[open][data-placed] > ${part}`);
+      expect(animation).toContain('230ms cubic-bezier(0.33, 1, 0.68, 1)');
+      expect(animation).toContain('pop-fade 180ms cubic-bezier(0, 0, 0.58, 1)');
+    }
+    expect(css()).toMatch(/@keyframes pop-grow\s*\{\s*from\s*\{\s*transform:\s*scale\(0\.1\)/);
+    // None of it where the system asks for less motion, the sheet included.
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\}\s*\}/.exec(
+      css(),
+    )?.[1];
+    for (const selector of [
+      'dialog.popover[open][data-placed] > .panel',
+      'dialog.popover[open][data-placed] > .arrow',
+      'dialog.sheet[open][data-placed] > .panel',
+    ]) {
+      expect(reduced).toContain(selector);
+    }
+  });
+
+  it('starts growing only once it is placed, so none of it plays unseen', async () => {
+    const { root } = await open({});
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.hasAttribute('data-placed')).toBe(true);
+    expect(dialog.style.visibility).not.toBe('hidden');
+  });
+
+  it('tells Home Assistant at once, then shrinks toward its arrow and fades before it closes', async () => {
+    const calls = played();
+    const { el, root, closed } = await open({ anchor: { x: 150, y: 300 } });
+    expect(root.querySelector('.arrow')).not.toBeNull();
+    const dialog = root.querySelector('dialog')!;
+    expect(el.closeDialog()).toBe(true);
+    expect(closed).toHaveBeenCalledTimes(1);
+    // Still drawn while it plays out, and nothing in it can be pressed.
+    await el.updateComplete;
+    expect(dialog.open).toBe(true);
+    expect(root.querySelector('.panel')!.hasAttribute('inert')).toBe(true);
+    expect(calls()).toEqual([
+      {
+        keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(0.15)' }],
+        options: { duration: 180, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', fill: 'forwards' },
+      },
+      {
+        keyframes: [{ opacity: 1 }, { opacity: 0 }],
+        options: { duration: 180, easing: 'ease', fill: 'forwards' },
+      },
+      {
+        keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(0.15)' }],
+        options: { duration: 180, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', fill: 'forwards' },
+      },
+      {
+        keyframes: [{ opacity: 1 }, { opacity: 0 }],
+        options: { duration: 180, easing: 'ease', fill: 'forwards' },
+      },
+    ]);
+    // A second request while it plays out is already answered.
+    expect(el.closeDialog()).toBe(true);
+    expect(closed).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(dialog.open).toBe(false));
+    expect(root.querySelector('.panel')).toBeNull();
+  });
+
+  it('closes at once where the system asks for less motion', async () => {
+    const calls = played();
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(
+        (query: string) =>
+          ({ matches: query.includes('prefers-reduced-motion: reduce') }) as MediaQueryList,
+      );
+    onTestFinished(() => media.mockRestore());
+    const { el, root, closed } = await open({});
+    el.closeDialog();
+    expect(closed).toHaveBeenCalledTimes(1);
+    expect(root.querySelector('dialog')!.open).toBe(false);
+    expect(calls()).toEqual([]);
+  });
+
+  it('sinks away as a sheet on a narrow screen', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    onTestFinished(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    });
+    const calls = played();
+    const { el, root } = await open({});
+    expect(root.querySelector('dialog')!.classList.contains('sheet')).toBe(true);
+    el.closeDialog();
+    expect(calls()).toEqual([
+      {
+        keyframes: [
+          { transform: 'none', opacity: 1 },
+          { transform: 'translateY(24px)', opacity: 0 },
+        ],
+        options: { duration: 180, easing: 'ease-in', fill: 'forwards' },
+      },
+    ]);
+  });
+
+  it('opens afresh when opened again while it plays its way out', async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, 'animate');
+    onTestFinished(() => animate.mockRestore());
+    const { el, root, closed } = await open({});
+    el.closeDialog();
+    const leaving = animate.mock.results.map((result) => result.value as Animation);
+    expect(leaving.length).toBeGreaterThan(0);
+    el.showDialog({
+      mode: 'event',
+      calendarId: BEN.id,
+      entry: { ...SWIM, summary: 'Piano', uid: 'u-piano' },
+      display: { title: 'Piano', location: '', description: '' },
+      canEdit: true,
+      canDelete: true,
+      calendars: [BEN],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    await el.updateComplete;
+    // Well past the way out the first one was playing, the second is still open, unchanged.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    await el.updateComplete;
+    const dialog = root.querySelector('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('input.title')?.value).toBe('Piano');
+    expect(root.querySelector('.panel')!.hasAttribute('inert')).toBe(false);
+    // The way out is canceled, not left filling: the panel is drawn again, not held shrunk.
+    expect(leaving.map((animation) => animation.playState)).toEqual(leaving.map(() => 'idle'));
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the beak and the outline', () => {
+  const css = () =>
+    (customElements.get(EVENT_POPOVER_TAG) as unknown as { styles: { cssText: string } }).styles
+      .cssText;
+  // A rule's body by its exact selector, whitespace collapsed, so wrapping does not matter.
+  const rule = (selector: string) => {
+    const escaped = selector.replace(/[.[\]()]/g, '\\$&');
+    const body = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
+    return body.replace(/\s+/g, ' ').replace(/\(\s/g, '(').replace(/\s\)/g, ')');
+  };
+
+  it('outlines the panel with one hairline, and no second ring outside it', () => {
+    const panel = rule('.panel');
+    // A half-pixel line just inside the edge, the one the beak's outline continues, and the
+    // shadow below; no border and no ring outside.
+    expect(panel).toContain(
+      'box-shadow: inset 0 0 0 0.5px var(--pop-outline), 0 18px 50px rgba(0, 0, 0, 0.35);',
+    );
+    expect(panel.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/(^|;)\s*border:/);
+  });
+
+  it('points with a rounded beak whose outline continues the hairline', async () => {
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    const arrow = root.querySelector('.arrow.left')!;
+    expect(arrow.querySelector('.beak > .glass')).not.toBeNull();
+    expect(arrow.querySelector('.beak > svg path')!.getAttribute('d')).toBe(BEAK_EDGE);
+    // Its outline is the panel's own line, half a pixel wide.
+    expect(rule('.beak path')).toMatch(/stroke:\s*var\(--pop-outline\);\s*stroke-width:\s*0\.5;/);
+    // The glass is cut to the same curve, closed along the border's inner side.
+    expect(rule('.glass')).toContain(`clip-path: path('${BEAK_EDGE}L15 7L0 7Z')`);
+    // Drawn pointing up, and turned toward its side.
+    expect(rule('.arrow.left .beak')).toContain('rotate(-90deg)');
+    expect(rule('.arrow.right .beak')).toContain('rotate(90deg)');
+    expect(rule('.arrow.bottom .beak')).toContain('rotate(180deg)');
+  });
+});
+
+describe('placing at the press', () => {
+  const arrowTop = (root: ShadowRoot) =>
+    Number.parseFloat((root.querySelector('.arrow') as HTMLElement).style.top);
+  const top = (root: ShadowRoot) => Number.parseFloat(root.querySelector('dialog')!.style.top);
+
+  it('opens right at a pointer press, the arrow on it, whatever it was pressed on', async () => {
+    // happy-dom lays nothing out; the panel is given the height a browser would measure.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    // A list row's title near the left of a row across the card: no box comes with the press.
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${150 + 10}px`);
+    expect(root.querySelector('.arrow.left')).not.toBeNull();
+    expect(top(root) + arrowTop(root)).toBe(300);
+  });
+
+  it('grows out of its arrow as it opens', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const { root } = await open({ anchor: { x: 150, y: 300 } });
+    const panel = root.querySelector<HTMLElement>('.panel')!;
+    expect(panel.style.transformOrigin).toBe(`left ${arrowTop(root)}px`);
+  });
+
+  it('turns to the left of the press where the right has no room', async () => {
+    const { root } = await open({ anchor: { x: 900, y: 300 } });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${900 - 10 - 340}px`);
+    expect(root.querySelector('.arrow.right')).not.toBeNull();
+  });
+
+  it('opens beside the box a press without a position comes with, from the keyboard', async () => {
+    // A wide box with no room on either side opens in the middle, without an arrow.
+    const { root } = await open({
+      anchor: { x: 590, y: 220, rect: { left: 80, right: 1000, top: 200, bottom: 240 } },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe(`${(window.innerWidth - 340) / 2}px`);
+    expect(root.querySelector('.arrow')).toBeNull();
+  });
+});
+
+describe('moving to another calendar', () => {
+  const pick = async (root: ShadowRoot, el: Popover, id: string) => {
+    const picker = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    picker.value = id;
+    picker.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+  };
+
+  it("offers the calendars the card names, the event's own first", async () => {
+    const { root } = await open({ calendars: [BEN, ANNA] });
+    const picker = root.querySelector<HTMLSelectElement>('.cell.calendar select')!;
+    expect(Array.from(picker.options).map((o) => [o.value, o.selected])).toEqual([
+      ['calendar.ben', true],
+      ['calendar.anna', false],
+    ]);
+  });
+
+  it('offers no picker on an event that may not be changed', async () => {
+    const { root } = await open({ calendars: [BEN, ANNA], canEdit: false });
+    expect(root.querySelector('.cell.calendar select')).toBeNull();
+    expect(root.querySelector('.cell.calendar')?.textContent?.trim()).toBe('Ben');
+  });
+
+  it('adds the event to the new calendar, then deletes it from its own, and refreshes both', async () => {
+    const { el, root, writes, updated, closed } = await open({ calendars: [BEN, ANNA] });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      {
+        type: 'calendar/event/create',
+        entity_id: 'calendar.anna',
+        event: {
+          summary: '🏊 Swim',
+          dtstart: '2026-11-03T16:00:00Z',
+          dtend: '2026-11-03T17:00:00Z',
+          description: 'Bring goggles',
+          location: 'Riverside Pool',
+        },
+      },
+      { type: 'calendar/event/delete', entity_id: 'calendar.ben', uid: 'u-swim' },
+    ]);
+    expect(updated).toHaveBeenCalledWith('calendar.anna', 'calendar.ben');
+  });
+
+  it('moves one occurrence of a repeating event as a single event', async () => {
+    const { el, root, writes, closed, press, button } = await open({
+      entry: WEEKLY,
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('Only this event'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0]).toMatchObject({
+      type: 'calendar/event/create',
+      entity_id: 'calendar.anna',
+    });
+    expect(writes()[0].event).not.toHaveProperty('rrule');
+    expect(writes()[1]).toEqual({
+      type: 'calendar/event/delete',
+      entity_id: 'calendar.ben',
+      uid: 'u-swim',
+      recurrence_id: '20261103T160000Z',
+      recurrence_range: '',
+    });
+  });
+
+  it('moves a series from the occurrence pressed on, keeping a rule without a count', async () => {
+    const { el, root, writes, closed, press, button } = await open({
+      entry: WEEKLY,
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).toMatchObject({ rrule: 'FREQ=WEEKLY;BYDAY=TU' });
+    expect(writes()[1]).toMatchObject({
+      type: 'calendar/event/delete',
+      recurrence_range: 'THISANDFUTURE',
+    });
+  });
+
+  it.each([
+    ['ends after a count', { rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' }],
+    ['was changed on its own, and so has no rule', { rrule: undefined }],
+  ])('moves only the occurrence pressed of a series that %s', async (_name, change) => {
+    const { el, root, writes, closed, press, button, buttons } = await open({
+      entry: { ...WEEKLY, ...change },
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await el.updateComplete;
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
+      'Only this event',
+      'Cancel',
+    ]);
+    await press(button('Only this event'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).not.toHaveProperty('rrule');
+    expect(writes()[1]).toMatchObject({ type: 'calendar/event/delete', recurrence_range: '' });
+  });
+
+  it('writes nothing if the series of a counted rule is asked to move anyway', async () => {
+    // The question does not offer it; the move checks again before it deletes anything.
+    const { el, root, writes, closed } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    (el as unknown as { _requestClose(mode: string, range: string): boolean })._requestClose(
+      'save',
+      'THISANDFUTURE',
+    );
+    await vi.waitFor(() => expect(root.querySelector('[role="alert"]')).not.toBeNull());
+    expect(writes()).toEqual([]);
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('moves a counted series whole once its end is set to a date', async () => {
+    const { el, root, writes, closed, press, button, buttons } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    await press(root.querySelector('button.time')!);
+    const end = Array.from(root.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
+      Array.from(select.options).some((option) => option.value === 'on'),
+    )!;
+    end.value = 'on';
+    end.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    el.closeDialog();
+    await el.updateComplete;
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toContain(
+      'This and all future events',
+    );
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).toMatchObject({
+      rrule: expect.stringMatching(/^FREQ=WEEKLY;BYDAY=TU;UNTIL=\d{8}T\d{6}Z$/),
+    });
+    expect(writes()[1]).toMatchObject({ recurrence_range: 'THISANDFUTURE' });
+  });
+
+  it('still asks both for a change that stays in its calendar', async () => {
+    const { el, type, buttons } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await type('input.title', 'Swim lesson');
+    el.closeDialog();
+    await el.updateComplete;
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
+      'This and all future events',
+      'Only this event',
+      'Cancel',
+    ]);
+  });
+
+  it('changes nothing and says why when the new calendar refuses the event', async () => {
+    const { el, root, writes, closed } = await open(
+      { calendars: [BEN, ANNA] },
+      {
+        write: async (message) =>
+          message.type === 'calendar/event/create'
+            ? Promise.reject({ message: 'Calendar is read-only' })
+            : undefined,
+      },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Calendar is read-only'),
+    );
+    expect(writes().map((w) => w.type)).toEqual(['calendar/event/create']);
+    expect(closed).not.toHaveBeenCalled();
+    expect(root.querySelector('.cell.calendar select')).not.toBeNull();
+  });
+
+  it('offers nothing more to write once it is in both calendars, after the delete failed', async () => {
+    const { el, root, writes, updated, closed } = await open(
+      { calendars: [BEN, ANNA] },
+      {
+        write: async (message) =>
+          message.type === 'calendar/event/delete'
+            ? Promise.reject({ message: 'Not found' })
+            : undefined,
+      },
+    );
+    await pick(root, el, 'calendar.anna');
+    el.closeDialog();
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="alert"]')?.textContent).toBe('Not found'),
+    );
+    expect(updated.mock.calls).toEqual([['calendar.anna']]);
+    expect(root.querySelectorAll('input, textarea, select')).toHaveLength(0);
+    expect(root.querySelector('.foot')).toBeNull();
+
+    expect(el.closeDialog()).toBe(true);
+    expect(writes().map((w) => w.type)).toEqual(['calendar/event/create', 'calendar/event/delete']);
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Save and Add', () => {
+  it('saves a change and closes, as closing the popover does', async () => {
+    const { el, type, press, button, writes, closed, updated } = await open({});
+    await type('input.title', 'Swim lesson');
+    await press(button('Save'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([expect.objectContaining({ type: 'calendar/event/update' })]);
+    expect(writes()[0].event).toMatchObject({ summary: 'Swim lesson' });
+    expect(updated).toHaveBeenCalledWith('calendar.ben');
+    expect(el.isConnected).toBe(true);
+  });
+
+  it('adds a new event', async () => {
+    const { type, press, button, writes, closed } = await open({
+      mode: 'new',
+      entry: undefined,
+      display: undefined,
+      times: {
+        allDay: false,
+        start: new Date('2026-11-04T09:00:00Z'),
+        end: new Date('2026-11-04T10:00:00Z'),
+      },
+      canDelete: false,
+    });
+    await type('input.title', 'Piano');
+    await press(button('Add'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toEqual([
+      expect.objectContaining({ type: 'calendar/event/create', entity_id: 'calendar.ben' }),
+    ]);
+  });
+
+  it('asks which occurrences first, for a repeating event', async () => {
+    const { root, type, press, button, writes } = await open({ entry: WEEKLY });
+    await type('input.title', 'Swim lesson');
+    await press(button('Save'));
+    expect(root.querySelector('.ask')).not.toBeNull();
+    expect(writes()).toEqual([]);
+  });
+
+  it('saves on Return in the title, but not while an input method composes', async () => {
+    const { root, type, writes, closed } = await open({});
+    await type('input.title', 'Swim lesson');
+    const title = root.querySelector('input.title')!;
+    title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true }));
+    await Promise.resolve();
+    expect(writes()).toEqual([]);
+    title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()).toHaveLength(1);
+  });
+
+  it("words both in Home Assistant's language", async () => {
+    const { root, type } = await open(
+      {},
+      { strings: { 'ui.common.save': 'Speichern', 'ui.common.cancel': 'Abbrechen' } },
+    );
+    await type('input.title', 'Schwimmen');
+    expect(
+      Array.from(root.querySelectorAll('.foot button')).map((b) => b.textContent?.trim()),
+    ).toEqual(['Delete', 'Abbrechen', 'Speichern']);
+  });
+});
+
+describe('below a toolbar button', () => {
+  const BUTTON = { left: 60, top: 100, right: 96, bottom: 136 };
+  const heightIs = (px: number) => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(px);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+  };
+
+  it('hangs below the button, its arrow on top pointing at the button', async () => {
+    heightIs(400);
+    const { root } = await open({ anchor: { x: 78, y: 118, rect: BUTTON, below: true } });
+    const dialog = root.querySelector('dialog')!;
+    // The arrow sits a little in from the left, under the button's middle.
+    expect(dialog.style.left).toBe(`${78 - 32}px`);
+    expect(dialog.style.top).toBe(`${136 + 10}px`);
+    const arrow = root.querySelector<HTMLElement>('.arrow.top')!;
+    expect(arrow.style.left).toBe('32px');
+    expect(root.querySelector<HTMLElement>('.panel')!.style.transformOrigin).toBe('32px top');
+  });
+
+  it('keeps on screen at the left edge, the beak off its corner and still at the button', async () => {
+    heightIs(400);
+    const { root } = await open({
+      anchor: { x: 20, y: 118, rect: { left: 4, top: 100, right: 36, bottom: 136 }, below: true },
+    });
+    expect(root.querySelector('dialog')!.style.left).toBe('12px');
+    // 24 pixels in: the 16-pixel corner and half the beak's 15. Its near side, at 12 + 24 - 7.5,
+    // still lies under the button, which ends at 36.
+    expect(root.querySelector<HTMLElement>('.arrow.top')!.style.left).toBe('24px');
+  });
+
+  it('opens above the button where there is no room below', async () => {
+    heightIs(400);
+    const low = {
+      left: 60,
+      top: window.innerHeight - 60,
+      right: 96,
+      bottom: window.innerHeight - 24,
+    };
+    const { root } = await open({ anchor: { x: 78, y: low.top + 18, rect: low, below: true } });
+    expect(root.querySelector('dialog')!.style.top).toBe(`${low.top - 10 - 400}px`);
+    expect(root.querySelector('.arrow.bottom')).not.toBeNull();
   });
 });

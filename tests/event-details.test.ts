@@ -5,6 +5,7 @@ import { FROZEN_NOW } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
 import {
   type DetailContext,
   buildDetailEntry,
@@ -266,6 +267,41 @@ describe('event_tap_action details', () => {
       rrule: 'FREQ=MONTHLY',
     });
   });
+
+  it.each([
+    ['nothing hidden', {}, { location: false, description: false }],
+    // The card and its views leave a field out of their rows; the popover is where it is read.
+    ['the card hiding both', { show_location: false }, { location: false, description: false }],
+    [
+      'the calendar showing both',
+      { entities: [{ entity: 'calendar.anna', show_location: true, show_description: true }] },
+      { location: false, description: false },
+    ],
+    [
+      'the calendar set to Never show',
+      { entities: [{ entity: 'calendar.anna', show_location: false, show_description: false }] },
+      { location: true, description: true },
+    ],
+    [
+      'the calendar hiding its location alone',
+      { entities: [{ entity: 'calendar.anna', show_location: false }] },
+      { location: true, description: false },
+    ],
+  ])(
+    'keeps a field out of the popover only for its calendar: %s',
+    async (_name, config, hidden) => {
+      const { card, dialogs } = await mount({ ...DETAILS, ...config });
+
+      buttonsShowing(card, 'Dentist')[0].click();
+      await settle();
+      expect(dialogs[0].dialogParams.hidden).toEqual(hidden);
+      // What is hidden still goes to the popover, to be saved as it is stored.
+      expect(dialogs[0].dialogParams.entry).toMatchObject({
+        location: '12 High Street',
+        description: 'Bring the referral',
+      });
+    },
+  );
 
   it('opens a split segment as the whole event, with the text the calendar stores', async () => {
     const { card, dialogs } = await mount({
@@ -648,6 +684,27 @@ describe("the list view's event button", () => {
     for (const cell of emptyDays) {
       expect(cell.classList.contains('event-tappable')).toBe(false);
     }
+  });
+});
+
+describe("the card's ripple and a press on an event", () => {
+  it('marks a press on an event as its own, and a press elsewhere on the card clears it', async () => {
+    const { card } = await mount({ ...DETAILS, hold_action: { action: 'refresh' } });
+    const haCard = card.shadowRoot!.querySelector('ha-card')!;
+    expect(haCard.querySelector('ha-ripple')).not.toBeNull();
+
+    const event = leafShowing(eventsShowing(card, 'Dentist')[0], 'Dentist');
+    pointer(event, 'pointerdown', 40, 40);
+    pointer(event, 'pointerup', 40, 40);
+    click(event);
+    await settle();
+    // Still marked after the press ended: the ripple is finishing it while the popover opens.
+    expect(haCard.hasAttribute('data-own-press')).toBe(true);
+
+    const title = card.shadowRoot!.querySelector('.card-header') ?? haCard;
+    pointer(title, 'pointerdown', 5, 5);
+    expect(haCard.hasAttribute('data-own-press')).toBe(false);
+    pointer(title, 'pointerup', 5, 5);
   });
 });
 
@@ -1440,6 +1497,105 @@ describe('what the card lets the popover offer', () => {
     const { card, dialogs } = await mount({ ...DETAILS, ...options }, { states: calendarState(7) });
 
     expect(await permissionsFor(card, dialogs, 'Dentist')).toEqual(expected);
+  });
+
+  it.each([
+    ['may be changed and deleted', {}, 7, ['calendar.anna', 'calendar.ben']],
+    ['may not be deleted here', { allow_event_delete: false }, 7, ['calendar.anna']],
+    ['may not be changed here', { allow_event_edit: false }, 7, ['calendar.anna']],
+    // Ben's calendar can delete and change events, but takes no new ones.
+    ['has nowhere to go', {}, 6, ['calendar.anna']],
+  ])(
+    "offers to move an event that %s to the card's calendars that take new ones",
+    async (_name, options, benFeatures, calendars) => {
+      const states = {
+        ...calendarState(7),
+        'calendar.ben': {
+          entity_id: 'calendar.ben',
+          state: 'off',
+          attributes: { supported_features: benFeatures, friendly_name: 'Ben' },
+        },
+      };
+      const { card, dialogs } = await mount(
+        { ...DETAILS, ...options, entities: ['calendar.anna', 'calendar.ben'] },
+        { states, eventsFor: { 'calendar.ben': [] } },
+      );
+      buttonsShowing(card, 'Dentist')[0].click();
+      await settle();
+      const params = dialogs[dialogs.length - 1].dialogParams;
+      expect(params.calendarId).toBe('calendar.anna');
+      expect(params.calendars.map((calendar) => calendar.id)).toEqual(calendars);
+    },
+  );
+
+  it('refreshes both calendars an event was moved between, and tells the page', async () => {
+    const { card, dialogs, callApi } = await mount(
+      { ...DETAILS, entities: ['calendar.anna', 'calendar.ben'] },
+      { states: twoCalendars, eventsFor: { 'calendar.ben': [] } },
+    );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+    callApi.mockClear();
+    // Other cards on the page refresh by what is announced, so both calendars must be in it.
+    const announced: unknown[] = [];
+    const listen = (ev: Event) => announced.push((ev as CustomEvent).detail.changed);
+    window.addEventListener(CALENDARS_CHANGED_EVENT, listen);
+    onTestFinished(() => window.removeEventListener(CALENDARS_CHANGED_EVENT, listen));
+    dialogs[dialogs.length - 1].dialogParams.updated('calendar.ben', 'calendar.anna');
+    expect(announced).toEqual([{ ids: ['calendar.ben', 'calendar.anna'] }]);
+    await settle();
+    await vi.waitFor(() => {
+      const paths = callApi.mock.calls.map(([, path]) => path.split('?')[0]).sort();
+      expect(paths).toEqual(['calendars/calendar.anna', 'calendars/calendar.ben']);
+    });
+  });
+
+  it('opens the popover beside a pointer-pressed event, with what can be seen of it', async () => {
+    const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
+    const target = leafShowing(buttonsShowing(card, 'Dentist')[0], 'Dentist');
+    pointer(target, 'pointerdown', 150, 210);
+    pointer(target, 'pointerup', 150, 210);
+    click(target);
+    await settle();
+    const anchor = dialogs[dialogs.length - 1].dialogParams.anchor;
+    expect(anchor).toMatchObject({ x: 150, y: 210 });
+    expect(anchor?.rect).toBeDefined();
+  });
+
+  it("anchors a keyboard or assistive press at the end of a list row's text, not its far edge", async () => {
+    const { card, dialogs } = await mount(DETAILS, { states: calendarState(7) });
+    const target = buttonsShowing(card, 'Dentist')[0];
+    // happy-dom lays nothing out: the row spans the card, its words end at 180.
+    const box = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 200,
+      right: 1100,
+      bottom: 260,
+      width: 1000,
+      height: 60,
+    } as DOMRect);
+    let selected: Node | null = null;
+    const range = vi.spyOn(document, 'createRange').mockImplementation(
+      () =>
+        ({
+          selectNodeContents: (node: Node) => (selected = node),
+          getClientRects: () =>
+            selected?.nodeValue?.includes('Dentist') ? [{ left: 110, right: 180 }] : [],
+        }) as unknown as Range,
+    );
+    try {
+      target.click();
+      await settle();
+    } finally {
+      box.mockRestore();
+      range.mockRestore();
+    }
+    expect(dialogs[dialogs.length - 1].dialogParams.anchor?.rect).toEqual({
+      left: 100,
+      top: 200,
+      right: 180,
+      bottom: 260,
+    });
   });
 
   it('opens a duplicate merged from two calendars with neither Edit nor Delete', async () => {

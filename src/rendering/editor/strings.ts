@@ -212,6 +212,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_location.option.inherit.label': 'Follow the card',
   'entity.show_location.option.show.label': 'Always show',
   'entity.show_location.option.hide.label': 'Never show',
+  // The card's other two choices leave the popover showing the field, so only Never show is
+  // named: a calendar set to it is kept private, rows and popover alike.
+  'entity.show_location.helper':
+    'Never show also leaves them out when you open one of this calendar\u2019s events.',
   'entity.location_icon': 'Location Icon',
   'entity.location_icon.helper':
     'Icon shown beside this calendar\u2019s locations, in place of the map marker. Left ' +
@@ -220,6 +224,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.inherit.label': 'Follow the card',
   'entity.show_description.option.show.label': 'Always show',
   'entity.show_description.option.hide.label': 'Never show',
+  'entity.show_description.helper':
+    'Never show also leaves them out when you open one of this calendar\u2019s events.',
 
   'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
