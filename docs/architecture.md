@@ -20,6 +20,7 @@ src/
 │   ├── actions.ts                # Runs the card's tap and hold actions
 │   ├── add-event.ts              # Add button: writable calendars, label, start date
 │   ├── calendar-changes.ts       # Page-wide announcement after a dialog saves
+│   ├── event-actions.ts          # Event actions: kind, the event's fields, filling them in
 │   ├── event-details.ts          # Event dialog entry, Edit and Delete permissions
 │   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
 │   └── ha-calendar-dialogs.ts    # Loads and opens Home Assistant's calendar dialogs
@@ -637,9 +638,24 @@ validation, recurrence and service calls stay Home Assistant's. `add-event.ts` a
     `add-event` and `reset` through callbacks the card hands it per press, and forwards everything
     else to Home Assistant as a `hass-action` event naming the card's first calendar as the
     entity
-  - Not `event_tap_action`, which does one thing: with `details`, the card opens the tapped
-    event's details itself. It reads any other value as `none`, so it forwards nothing
-    for an event
+  - Not `event_tap_action` or `event_hold_action`, which the card runs itself (see
+    `event-actions.ts`), though it forwards their Home Assistant actions through the same
+    `fireHassAction`
+
+- **event-actions.ts**:
+  - Reads an event action as one of three kinds (`eventActionKind`): `details`, which opens the
+    event's dialog; one of Home Assistant's actions, which is forwarded; or nothing, which is
+    `none`, a bare key, and the card's own actions, since those act on the whole card
+  - Builds the tapped event's fields (`eventFields`) from `_source` rather than the row, which
+    carries only what the card shows: a location the grid hides, or a description while
+    `show_description` is off, would otherwise be empty. The calendar's text replacement is
+    applied from `_matchedConfig`, as the row applies it, so a masked calendar stays masked
+  - Fills `{title}`, `{start}` and the other fields into every string of the action, at any
+    depth, except its name (`fillEventAction`). In `url_path` and `navigation_path` each field
+    is percent-encoded, so an event can add text to a URL but never a scheme, a host or a
+    parameter; a `url` action whose filled URL would open anything but http or https is
+    refused. The card forwards the result under the event's own calendar as `entity`, so
+    `more-info` opens the pressed event's calendar unless the action names another
 
 - **ha-calendar-dialogs.ts**:
   - Gets Home Assistant's `dialog-calendar-event-editor` and `dialog-calendar-event-detail`
@@ -766,7 +782,7 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     `<td>`, which would stop being the row's cell; column and grid event roots carry it
     themselves
   - Empty-day rows and the grid `+N` block are never targets, and nothing is drawn while
-    `event_tap_action` is anything but `details`, so the default markup is unchanged
+    neither event action runs anything, so the default markup is unchanged
   - Each event button is described by its day's header through `aria-describedby`, so two
     events with the same title and time on different days are announced apart. The
     headers (list view's date cell, the shared day header in column and grid) get an id
@@ -1208,7 +1224,7 @@ the gesture began on.
      from the screen's edges
    - Pointer-up: a hold runs the event's `event_hold_action` where it has one, else
      `hold_action` wherever it landed; a tap that began on an event with a tap of its own
-     opens its details; one that began on a day adds an event there; any other tap runs
+     runs it; one that began on a day adds an event there; any other tap runs
      `tap_action`; a moved pointer
      runs nothing, unless it could swipe and went `UI.SWIPE_MIN_DISTANCE` sideways, mostly
      sideways: that pages through `_stepPage`, the arrows' own path, mirrored reading right to
@@ -1249,9 +1265,10 @@ the gesture began on.
      action or `none`, handles the card's own `expand`, `refresh`, `add-event` and `reset`, and forwards
      everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
-   - An event's own tap or hold never reaches `actions.ts`: `_runEventTapAction` in
+   - An event's own tap or hold never reaches `handleAction`: `_runEventAction` in
      `calendar-card-pro.ts` opens the event's details through `openEventDetailDialog` in
-     `ha-calendar-dialogs.ts`. Nor does a tap on a day: `_addEventAt` opens the new-event
+     `ha-calendar-dialogs.ts`, or hands one of Home Assistant's actions, with the event's
+     fields filled in, straight to `fireHassAction`. Nor does a tap on a day: `_addEventAt` opens the new-event
      dialog through `openCreateEventDialog`, as the add button and `add-event` do
 3. **After a Write**:
    - A dialog's `updated` callback advances the page's write generation once
