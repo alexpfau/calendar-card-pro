@@ -45,8 +45,6 @@ interface Options {
   states?: Record<string, unknown>;
   write?: (message: Record<string, unknown>) => Promise<unknown>;
   tiles?: boolean;
-  /** What Home Assistant's calendar REST API answers, for a series moved by its count. */
-  occurrences?: unknown;
 }
 
 /**
@@ -64,14 +62,12 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
     return options.write ? options.write(message) : undefined;
   });
   const updated = vi.fn((..._calendarIds: string[]) => undefined);
-  const callApi = vi.fn(async (_method: string, _path: string) => options.occurrences ?? []);
   const closed = vi.fn();
 
   const el = document.createElement(EVENT_POPOVER_TAG) as Popover;
   el.hass = {
     states: options.states ?? {},
     callWS,
-    callApi,
     localize: (key: string) => options.strings?.[key] ?? '',
   } as unknown as Types.Hass;
   el.addEventListener('dialog-closed', (ev) => closed((ev as CustomEvent).detail));
@@ -119,7 +115,7 @@ async function open(params: Partial<PopoverParams>, options: Options = {}) {
     (target as HTMLElement).click();
     await el.updateComplete;
   };
-  return { el, root, callWS, callApi, updated, closed, writes, buttons, button, type, press };
+  return { el, root, callWS, updated, closed, writes, buttons, button, type, press };
 }
 
 afterEach(() => {
@@ -932,7 +928,7 @@ describe('moving to another calendar', () => {
   });
 
   it('moves a series from the occurrence pressed on, keeping a rule without a count', async () => {
-    const { el, root, writes, closed, press, button, callApi } = await open({
+    const { el, root, writes, closed, press, button } = await open({
       entry: WEEKLY,
       calendars: [BEN, ANNA],
     });
@@ -946,55 +942,84 @@ describe('moving to another calendar', () => {
       type: 'calendar/event/delete',
       recurrence_range: 'THISANDFUTURE',
     });
-    expect(callApi).not.toHaveBeenCalled();
   });
 
-  it('ends a series counted in occurrences on its last one, read from the calendar', async () => {
-    const counted = { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' };
-    const occurrences = [
-      // Another event, and the occurrence before the one pressed, are both left out.
-      { uid: 'u-other', start: { dateTime: '2026-12-29T16:00:00+00:00' } },
-      { uid: 'u-swim', start: { dateTime: '2026-10-27T16:00:00+00:00' } },
-      { uid: 'u-swim', start: { dateTime: '2026-11-03T16:00:00+00:00' } },
-      { uid: 'u-swim', start: { dateTime: '2026-11-10T16:00:00+00:00' } },
-      { uid: 'u-swim', start: { dateTime: '2026-11-17T16:00:00+00:00' } },
-    ];
-    const { el, root, writes, closed, press, button, callApi } = await open(
-      { entry: counted, calendars: [BEN, ANNA] },
-      { occurrences },
-    );
-    await pick(root, el, 'calendar.anna');
-    el.closeDialog();
-    await el.updateComplete;
-    await press(button('This and all future events'));
-    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
-
-    const [method, path] = callApi.mock.calls[0];
-    expect(method).toBe('GET');
-    // From the occurrence pressed, as far as six weeks could reach.
-    expect(path).toBe(
-      `calendars/calendar.ben?start=${encodeURIComponent('2026-11-03T16:00:00.000Z')}&end=${encodeURIComponent('2026-12-16T16:00:00.000Z')}`,
-    );
-    expect(writes()[0].event).toMatchObject({
-      rrule: 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261117T160000Z',
+  it.each([
+    ['ends after a count', { rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' }],
+    ['was changed on its own, and so has no rule', { rrule: undefined }],
+  ])('moves only the occurrence pressed of a series that %s', async (_name, change) => {
+    const { el, root, writes, closed, press, button, buttons } = await open({
+      entry: { ...WEEKLY, ...change },
+      calendars: [BEN, ANNA],
     });
-  });
-
-  it('moves nothing when the occurrence pressed is not among those the calendar lists', async () => {
-    // Without it, the series would be written to end before it starts, and then deleted here.
-    const counted = { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' };
-    const occurrences = [{ uid: 'u-swim', start: { dateTime: '2026-10-27T16:00:00+00:00' } }];
-    const { el, root, writes, closed, press, button } = await open(
-      { entry: counted, calendars: [BEN, ANNA] },
-      { occurrences },
-    );
     await pick(root, el, 'calendar.anna');
     el.closeDialog();
     await el.updateComplete;
-    await press(button('This and all future events'));
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
+      'Only this event',
+      'Cancel',
+    ]);
+    await press(button('Only this event'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).not.toHaveProperty('rrule');
+    expect(writes()[1]).toMatchObject({ type: 'calendar/event/delete', recurrence_range: '' });
+  });
+
+  it('writes nothing if the series of a counted rule is asked to move anyway', async () => {
+    // The question does not offer it; the move checks again before it deletes anything.
+    const { el, root, writes, closed } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    (el as unknown as { _requestClose(mode: string, range: string): boolean })._requestClose(
+      'save',
+      'THISANDFUTURE',
+    );
     await vi.waitFor(() => expect(root.querySelector('[role="alert"]')).not.toBeNull());
     expect(writes()).toEqual([]);
     expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('moves a counted series whole once its end is set to a date', async () => {
+    const { el, root, writes, closed, press, button, buttons } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await pick(root, el, 'calendar.anna');
+    await press(root.querySelector('button.time')!);
+    const end = Array.from(root.querySelectorAll<HTMLSelectElement>('select')).find((select) =>
+      Array.from(select.options).some((option) => option.value === 'on'),
+    )!;
+    end.value = 'on';
+    end.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    el.closeDialog();
+    await el.updateComplete;
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toContain(
+      'This and all future events',
+    );
+    await press(button('This and all future events'));
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+    expect(writes()[0].event).toMatchObject({
+      rrule: expect.stringMatching(/^FREQ=WEEKLY;BYDAY=TU;UNTIL=\d{8}T\d{6}Z$/),
+    });
+    expect(writes()[1]).toMatchObject({ recurrence_range: 'THISANDFUTURE' });
+  });
+
+  it('still asks both for a change that stays in its calendar', async () => {
+    const { el, type, buttons } = await open({
+      entry: { ...WEEKLY, rrule: 'FREQ=WEEKLY;BYDAY=TU;COUNT=6' },
+      calendars: [BEN, ANNA],
+    });
+    await type('input.title', 'Swim lesson');
+    el.closeDialog();
+    await el.updateComplete;
+    expect(buttons('.ask button').map((b) => b.textContent?.trim())).toEqual([
+      'This and all future events',
+      'Only this event',
+      'Cancel',
+    ]);
   });
 
   it('changes nothing and says why when the new calendar refuses the event', async () => {

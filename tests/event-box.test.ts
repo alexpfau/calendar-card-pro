@@ -103,6 +103,13 @@ describe('eventBox', () => {
     },
   );
 
+  it('keeps the box of a right-to-left row, whose words it does not measure', () => {
+    stubLayout();
+    const rtl = row('event');
+    rtl.style.direction = 'rtl';
+    expect(eventBox(rtl).right).toBe(1100);
+  });
+
   it('keeps the box of anything that is not an event, such as a button', () => {
     stubLayout();
     const button = document.createElement('button');

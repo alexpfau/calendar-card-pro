@@ -151,40 +151,6 @@ export function deleteEvent(hass: Types.Hass, target: EventTarget): Promise<void
   });
 }
 
-/** An occurrence's start as the calendar REST API returns it. */
-interface ApiOccurrence {
-  uid?: string;
-  start?: { dateTime?: string; date?: string };
-}
-
-/**
- * The starts of a repeating event's occurrences in a span, as Home Assistant lists them:
- * occurrences deleted from the series are absent, and one changed on its own appears at its
- * new start.
- *
- * @param hass - Home Assistant
- * @param entityId - The calendar
- * @param uid - The event's identifier, which every occurrence shares
- * @param start - The span's start
- * @param end - The span's end
- * @returns Each occurrence's start: an ISO date-time, or a date for an all-day event
- */
-export async function occurrenceStarts(
-  hass: Types.Hass,
-  entityId: string,
-  uid: string,
-  start: Date,
-  end: Date,
-): Promise<string[]> {
-  const query = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
-  const events = (await hass.callApi('GET', `calendars/${entityId}?${query}`)) as unknown;
-  if (!Array.isArray(events)) throw new Error('The calendar sent no events');
-  return (events as ApiOccurrence[])
-    .filter((event) => event.uid === uid)
-    .map((event) => event.start?.dateTime ?? event.start?.date)
-    .filter((value): value is string => typeof value === 'string');
-}
-
 /**
  * The message an error from a write carries, for the popover to show as Home Assistant wrote
  * it.

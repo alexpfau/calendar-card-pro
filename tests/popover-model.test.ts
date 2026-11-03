@@ -3,15 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   type Draft,
   type PopoverParams,
-  countReachDays,
   draftFromParams,
   draftProblem,
   eventWrite,
   isDirty,
   rebaseRepeat,
-  repeatChanged,
+  seriesMovable,
   spanText,
-  untilRule,
   writtenRule,
 } from '../src/interaction/popover-model';
 import type * as RRule from '../src/interaction/rrule';
@@ -313,31 +311,15 @@ describe('spanText', () => {
   });
 });
 
-describe('moving a series', () => {
-  it('ends a rule on an occurrence instead of a count', () => {
-    expect(untilRule('FREQ=WEEKLY;BYDAY=TU;COUNT=6', new Date('2026-11-17T16:00:00Z'), false)).toBe(
-      'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261117T160000Z',
-    );
-    expect(untilRule('FREQ=DAILY;UNTIL=20270101;COUNT=3', new Date(2026, 10, 20), true)).toBe(
-      'FREQ=DAILY;UNTIL=20261120',
-    );
-  });
-
+describe('seriesMovable', () => {
   it.each([
-    ['FREQ=WEEKLY;COUNT=6', 43],
-    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=6', 85],
-    ['FREQ=MONTHLY;COUNT=12', 373],
-    ['FREQ=DAILY;COUNT=30', 31],
-    ['FREQ=HOURLY;COUNT=10', 11],
-    ['FREQ=WEEKLY;BYDAY=TU', undefined],
-    ['FREQ=WEEKLY;UNTIL=20270101T000000Z', undefined],
-  ])('bounds how far %s can reach: %j days', (rule, days) => {
-    expect(countReachDays(rule)).toBe(days);
-  });
-
-  it('tells a changed repeat from an untouched one', () => {
-    const draft = opened(WEEKLY);
-    expect(repeatChanged({ ...draft, summary: 'Swim lesson' }, draft)).toBe(false);
-    expect(repeatChanged({ ...draft, repeat: { kind: 'none' } }, draft)).toBe(true);
+    ['a rule ending never', 'FREQ=WEEKLY;BYDAY=TU', true],
+    ['a rule ending on a date', 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261231T160000Z', true],
+    ['a rule ending after a count', 'FREQ=WEEKLY;BYDAY=TU;COUNT=6', false],
+    ['a count in another case', 'freq=daily;count=3', false],
+    ['an occurrence without its rule', undefined, false],
+    ['an empty rule', '', false],
+  ])('moves the future of %s: %j', (_name, rule, movable) => {
+    expect(seriesMovable(rule)).toBe(movable);
   });
 });

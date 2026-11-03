@@ -872,17 +872,20 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     shows. A press without a position, a key or assistive technology, carries the element's box
     (`originOf`), and the popover opens beside it: a grid block's edge, and for a list row or
     column event, which draws no box of its own, the end of its text (`eventBox`), leaving out
-    a part pinned to the far edge past a wide gap, such as a weather badge. The add button opens
-    it beside the button. Below 600 pixels of viewport width it is a sheet from the bottom
+    a part pinned to the far edge past a wide gap, such as a weather badge; a right-to-left row
+    keeps its box. The add button passes its click's point too, and its box only for a key. Below 600 pixels of viewport width it is a sheet from the bottom
     instead. It is drawn dark while Home Assistant's `themes.darkMode` is on
   - Moves an event to another calendar by adding it there and then deleting it from its own,
     since Home Assistant has no move command; adding first means a failure between the two
     leaves it in both calendars, never in neither. The card offers the move only where it may
-    both edit and delete, to its own calendars that accept new events. A series moved from an
-    occurrence on is written with its stored rule, and a rule ending after a `COUNT` ends on
-    its last occurrence instead (`UNTIL`), read from the calendar's REST API within the furthest
-    the count can reach, because a count would start again from the occurrence moved.
-    Occurrences deleted from the series or changed on their own cannot be carried over by the
+    both edit and delete, to its own calendars that accept new events. A series moves from an
+    occurrence on only where it can move whole (`seriesMovable`): the occurrence must carry its
+    series' rule, because one changed on its own does not and would arrive as a single event
+    while the series' future left, and the rule must not end by `COUNT`, which would start
+    again from the occurrence moved; the card cannot tell how many are left without the
+    series' start. Reading the rest from the calendar's REST API was tried and misjudged rules
+    that skip months, moved exceptions and DST changes. Elsewhere only the occurrence moves. Deleted
+    or individually changed occurrences of a moved series cannot be carried over by the
     write commands and come back as plain occurrences, which the docs say
   - Takes every word from `hass.localize`, Home Assistant's own strings, almost all of them
     under `ui.components.calendar.*`, each with an English fallback for a key Home Assistant lacks, so the card carries

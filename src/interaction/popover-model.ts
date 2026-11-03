@@ -219,55 +219,17 @@ export function isDirty(draft: Draft, original: Draft): boolean {
 }
 
 /**
- * Whether the repeat was changed, as the rule a draft would write.
+ * Whether a series can be moved to another calendar from one of its occurrences on, written
+ * with this rule. It must have a rule: an occurrence changed on its own comes without its
+ * series' rule, and would arrive as a single event while the series' future left. And the rule
+ * must end never or on a date: one ending after a count would start counting again from the
+ * occurrence moved, and the card cannot tell how many are left without the series' start.
  *
- * @param draft - The draft now
- * @param original - The draft the popover opened with
- * @returns Whether the two would write different rules
+ * @param rule - The rule the move would write
+ * @returns Whether the series' future may move
  */
-export function repeatChanged(draft: Draft, original: Draft): boolean {
-  return repeatKey(draft) !== repeatKey(original);
-}
-
-/**
- * A rule ending at a given occurrence instead of after a count: `COUNT` and any `UNTIL` are
- * replaced by an `UNTIL` on that occurrence. A series moved from one of its occurrences on
- * keeps the end it had that way, where its count would start again from the occurrence moved.
- *
- * @param rule - The rule as written
- * @param last - The last occurrence's start
- * @param allDay - Whether the event is all day, which writes the `UNTIL` as a date
- * @returns The rule with its new end
- */
-export function untilRule(rule: string, last: Date, allDay: boolean): string {
-  const parts = rule.split(';').filter((part) => !/^(COUNT|UNTIL)=/i.test(part));
-  const until = allDay
-    ? Times.dateValue(last).replace(/-/g, '')
-    : `${last.toISOString().slice(0, 19).replace(/[-:]/g, '')}Z`;
-  return [...parts, `UNTIL=${until}`].join(';');
-}
-
-/** Days per period of each frequency, at most: what bounds the span a count can reach. */
-const PERIOD_DAYS: Readonly<Record<string, number>> = {
-  DAILY: 1,
-  WEEKLY: 7,
-  MONTHLY: 31,
-  YEARLY: 366,
-};
-
-/**
- * How far past an occurrence a rule that ends after a count can still reach: its count of
- * periods, each at its longest. Sub-daily rules count as daily, which they never exceed.
- *
- * @param rule - The rule as written
- * @returns The number of days, or undefined for a rule without a count
- */
-export function countReachDays(rule: string): number | undefined {
-  const value = (name: string) => new RegExp(`(?:^|;)${name}=([^;]+)`, 'i').exec(rule)?.[1];
-  const count = Number(value('COUNT'));
-  if (!Number.isInteger(count) || count < 1) return undefined;
-  const interval = Math.max(1, Number(value('INTERVAL')) || 1);
-  return count * interval * (PERIOD_DAYS[(value('FREQ') ?? '').toUpperCase()] ?? 1) + 1;
+export function seriesMovable(rule: string | undefined): boolean {
+  return Boolean(rule) && !/(?:^|;)COUNT=/i.test(rule ?? '');
 }
 
 /**

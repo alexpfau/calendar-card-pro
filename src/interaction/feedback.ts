@@ -128,6 +128,9 @@ export function eventBox(element: Element): NonNullable<PressOrigin['rect']> {
   const box = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
   const event = element.closest('.event');
   if (!event || event.matches('.grid-event, .grid-banner')) return box;
+  // Measured from the left only: a right-to-left row keeps its box rather than be anchored at
+  // the start of its words, or at a part pinned to its far edge.
+  if (getComputedStyle(event).direction === 'rtl') return box;
 
   const lines: Box[] = [];
   const range = document.createRange();

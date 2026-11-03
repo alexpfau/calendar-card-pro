@@ -408,9 +408,11 @@ export class EventPopover extends LitElement {
    * order, so a failure part way leaves it in both calendars rather than in neither.
    *
    * A repeating event moves as the occurrences chosen do: the one pressed alone, as a single
-   * event, or the series from it on. Occurrences deleted from that part, or changed on their
-   * own, come back as plain occurrences of the series: Home Assistant's commands cannot carry
-   * either to another calendar.
+   * event, or, where `_seriesMovable`, the series from it on. Occurrences deleted from that
+   * part, or changed on their own, come back as plain occurrences of the series: Home
+   * Assistant's commands cannot carry either to another calendar. Nor can they carry anything
+   * but the fields the popover shows, so a status, guests or reminders an integration keeps of
+   * its own stay behind.
    *
    * @param hass - Home Assistant
    * @param params - What the popover opened with
@@ -433,17 +435,11 @@ export class EventPopover extends LitElement {
     try {
       if (!entry?.uid) throw new Error('The event has no identifier to move it by');
       const scoped = entry.recurrence_id ? (range ?? '') : undefined;
-      let event = Model.eventWrite(draft, original, scoped);
-      if (
-        scoped === 'THISANDFUTURE' &&
-        event.rrule &&
-        original &&
-        !Model.repeatChanged(draft, original)
-      ) {
-        event = {
-          ...event,
-          rrule: await this._movedRule(hass, from, entry.uid, event.rrule, draft, original),
-        };
+      const event = Model.eventWrite(draft, original, scoped);
+      // Offered only where it is safe (`_seriesMovable`); checked again before anything is
+      // written, because the delete below would take the series' future with it.
+      if (scoped === 'THISANDFUTURE' && !Model.seriesMovable(event.rrule)) {
+        throw new Error('This series cannot be moved from here on');
       }
       await Writes.createEvent(hass, draft.calendarId, event);
       added = true;
@@ -469,49 +465,14 @@ export class EventPopover extends LitElement {
   }
 
   /**
-   * The rule a series moved from one of its occurrences on is written with. One that ends
-   * after a count ends on its last occurrence instead, since a count would start again from the
-   * occurrence moved; the occurrences left are read from the calendar, within the furthest the
-   * count could reach. They move by as much as the occurrence pressed did.
-   *
-   * @param hass - Home Assistant
-   * @param calendarId - The calendar the series is in
-   * @param uid - The series' identifier
-   * @param rule - The rule as written
-   * @param draft - The draft
-   * @param original - The draft the popover opened with
-   * @returns The rule to write
+   * Whether a move may take the series from the occurrence pressed on: the occurrence carries
+   * its series' rule, and the rule ends never or on a date (`Model.seriesMovable`). Anywhere
+   * else only the occurrence pressed moves.
    */
-  private async _movedRule(
-    hass: Types.Hass,
-    calendarId: string,
-    uid: string,
-    rule: string,
-    draft: Model.Draft,
-    original: Model.Draft,
-  ): Promise<string> {
-    const reach = Model.countReachDays(rule);
-    if (reach === undefined) return rule;
-    const from = original.times.start;
-    const starts = await Writes.occurrenceStarts(
-      hass,
-      calendarId,
-      uid,
-      from,
-      Times.addDays(from, reach),
-    );
-    const last = starts
-      .map((value) => (value.includes('T') ? new Date(value) : Times.parseDate(value)))
-      .filter((date): date is Date => !!date && !Number.isNaN(date.getTime()) && date >= from)
-      .reduce<Date | undefined>(
-        (latest, date) => (!latest || date > latest ? date : latest),
-        undefined,
-      );
-    if (!last) throw new Error('The series has no occurrence left to move');
-    const shifted = original.times.allDay
-      ? Times.addDays(last, Times.dayDifference(from, draft.times.start))
-      : new Date(last.getTime() + draft.times.start.getTime() - from.getTime());
-    return Model.untilRule(rule, shifted, draft.times.allDay);
+  private get _seriesMovable(): boolean {
+    const draft = this._draft;
+    if (!draft) return false;
+    return Model.seriesMovable(Model.eventWrite(draft, this._original, 'THISANDFUTURE').rrule);
   }
 
   /**
@@ -1246,14 +1207,22 @@ export class EventPopover extends LitElement {
 
   private _renderQuestion(): TemplateResult | typeof nothing {
     if (this._phase === 'update') {
+      // A move takes the series' future along only where it can do so whole; elsewhere it
+      // moves the occurrence pressed alone, the one choice left.
+      const moving = this._draft?.calendarId !== this._params?.calendarId;
+      const future = !moving || this._seriesMovable;
       return html`<div class="ask" role="group" aria-label=${this._t('updateRecurring')}>
         <b>${this._t('updateRecurring')}</b>
-        <button
-          class="btn primary"
-          @click=${() => void this._requestClose('save', 'THISANDFUTURE')}
-        >
-          ${this._t('future')}
-        </button>
+        ${
+          future
+            ? html`<button
+                class="btn primary"
+                @click=${() => void this._requestClose('save', 'THISANDFUTURE')}
+              >
+                ${this._t('future')}
+              </button>`
+            : nothing
+        }
         <button class="btn" @click=${() => void this._requestClose('save', '')}>
           ${this._t('thisEvent')}
         </button>

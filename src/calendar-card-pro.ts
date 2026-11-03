@@ -5160,8 +5160,9 @@ class CalendarCardPro extends LitElement {
         // A press leaves no focus behind for Home Assistant to ring when the dialog closes;
         // see `_releasePressFocus`. A key keeps it.
         if (pressed) this._releasePressFocus();
-        const at = originOf(button);
-        this._addEventAt(undefined, at && pressed ? { ...at, pointerType: pressed } : at);
+        // A pointer's press opens the popover where it was, as every press does; a key's,
+        // which has no position, beside the button.
+        this._addEventAt(undefined, pressed ?? originOf(button));
       },
     };
   }
