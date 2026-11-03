@@ -159,15 +159,16 @@ export interface Config {
    */
   day_tap_action: ActionConfig;
   /**
-   * What a tap on an event does. `details` opens Home Assistant's event dialog, instead of
-   * the card's `tap_action`; any other action is read as `none`, which leaves a tap on an
-   * event to `tap_action`.
+   * What a tap on an event does, instead of the card's `tap_action`. `details` opens Home
+   * Assistant's event dialog; any of Home Assistant's own actions runs with the tapped event's
+   * fields filled into it (`event-actions.ts`). `none` and the card's own actions leave a tap
+   * on an event to `tap_action`.
    */
   event_tap_action: ActionConfig;
   /**
-   * What a hold on an event does. `details` opens Home Assistant's event dialog, instead of
-   * the card's `hold_action`; any other action is read as `none`, which leaves a hold on an
-   * event to `hold_action`.
+   * What a hold on an event does, instead of the card's `hold_action`, with the same actions
+   * as `event_tap_action`. `none` and the card's own actions leave a hold on an event to
+   * `hold_action`.
    */
   event_hold_action: ActionConfig;
   /**

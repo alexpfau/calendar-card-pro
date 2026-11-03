@@ -77,7 +77,7 @@ interface GestureInternals {
   _holdIndicator: HTMLElement | null;
   _pageRequested: string | null;
   _pageShown: string | null;
-  _runEventTapAction: (target: unknown) => void;
+  _runEventAction: (target: unknown, gesture: string) => void;
 }
 
 /** Records what the card asks of `ResizeObserver`, and hands back its callback. */
@@ -525,7 +525,7 @@ describe('a swipe beside the taps and the hold', () => {
 
   it('pages from a swipe that began on an event, and never opens it; a tap still does', async () => {
     const card = await mount({ event_tap_action: { action: 'details' } });
-    const opened = vi.spyOn(internals(card), '_runEventTapAction').mockImplementation(() => {});
+    const opened = vi.spyOn(internals(card), '_runEventAction').mockImplementation(() => {});
     const event = root(card).querySelector('.event-interactive')!;
     expect(event).not.toBeNull();
 

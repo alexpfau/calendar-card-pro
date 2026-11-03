@@ -14,7 +14,8 @@ import type * as Activation from '../src/rendering/activation';
 
 /**
  * `event_tap_action`: with `details`, a tap on an event opens Home Assistant's event-detail
- * dialog instead of running the card's tap. Every other value reads as `none`.
+ * dialog instead of running the card's tap. Home Assistant's own actions run with the tapped
+ * event's fields filled in; `none` and the card's own actions read as nothing.
  *
  * Driven through the real card, from the fetch to the click, because the entry the dialog
  * receives is assembled across three stages — processing stamps `_source`, grouping copies
@@ -89,7 +90,14 @@ async function mount(
     states = {},
     events = RAW_EVENTS,
     eventsFor = {},
-  }: { states?: object; events?: object[]; eventsFor?: Record<string, object[]> } = {},
+    shows = 'Dentist',
+  }: {
+    states?: object;
+    events?: object[];
+    eventsFor?: Record<string, object[]>;
+    /** Text the card has drawn once it has loaded. */
+    shows?: string;
+  } = {},
 ) {
   const card = document.createElement('calendar-card-pro-dev') as Card;
   card.setConfig({ entities: ['calendar.anna'], days_to_show: 3, ...config });
@@ -118,7 +126,7 @@ async function mount(
   });
 
   document.body.appendChild(card);
-  await vi.waitFor(() => expect(eventsShowing(card, 'Dentist').length).toBeGreaterThan(0));
+  await vi.waitFor(() => expect(eventsShowing(card, shows).length).toBeGreaterThan(0));
   return { card, callApi, dialogs, actions, hassActions };
 }
 
@@ -767,24 +775,25 @@ describe('the card around events that are buttons', () => {
   });
 });
 
-describe('event_tap_action set to anything but details', () => {
+describe('event_tap_action set to nothing of its own', () => {
   const haCard = (card: Card) => card.shadowRoot!.querySelector('ha-card')!;
   const SWIMMING = { ...RAW_EVENTS[0], summary: 'Swimming', uid: 'uid-swimming' };
   const CARD_TAP = { action: 'navigate', navigation_path: '/lovelace/family' };
 
   /**
-   * Home Assistant's actions, which the editor offered until it was cut down to two choices,
-   * `expand`, which YAML could name, and a bare key. Each reads as `none`.
+   * `none`, the card's own actions, which act on the whole card and so are nothing on an
+   * event, and a bare key. Each reads as `none`.
    */
-  const OTHERS = [
-    ['more-info', { action: 'more-info' }],
-    ['navigate', { action: 'navigate', navigation_path: '/lovelace/0' }],
-    ['toggle', { action: 'toggle' }],
+  const NOTHING = [
+    ['none', { action: 'none' }],
     ['expand', { action: 'expand' }],
+    ['refresh', { action: 'refresh' }],
+    ['add-event', { action: 'add-event' }],
+    ['reset', { action: 'reset' }],
     ['a bare key', null],
   ] as const;
 
-  it.each(['list', 'column', 'grid'].flatMap((view) => OTHERS.map((other) => [view, ...other])))(
+  it.each(['list', 'column', 'grid'].flatMap((view) => NOTHING.map((other) => [view, ...other])))(
     "leaves %s events inert for %s, and runs the card's tap for a tap on one",
     async (view, _name, eventTapAction) => {
       // Swimming is Ben's and Ben is not the card's first calendar, so an action forwarded for
@@ -828,6 +837,265 @@ describe('event_tap_action set to anything but details', () => {
       expect(dialogs).toEqual([]);
     },
   );
+});
+
+/**
+ * `event_tap_action` and `event_hold_action` set to one of Home Assistant's actions: the event
+ * is a button, and a tap or a hold on it hands the action to Home Assistant with the tapped
+ * event's fields filled in, under the event's own calendar, instead of the card's tap.
+ *
+ * Driven through the real card for the reason the rest of this file is: the fields come from
+ * the display row (the title as replaced) and from `_source` (the whole event's interval),
+ * stamped at different stages, and a stage that drops either breaks only this.
+ */
+describe("event actions with Home Assistant's actions", () => {
+  const SWIMMING = {
+    ...RAW_EVENTS[0],
+    summary: 'Swimming',
+    location: 'Riverside Pool, 12 Mill Road',
+    description: '<b>Bring</b> the <a href="https://swim.example.com">goggles</a> &amp; towel',
+    uid: 'uid-swimming',
+  };
+  const TWO = { entities: ['calendar.anna', 'calendar.ben'] };
+  const BEN = { eventsFor: { 'calendar.ben': [SWIMMING] } };
+  const SEARCH = {
+    action: 'url',
+    url_path: 'https://example.com/search?q={title}&where={location}',
+  };
+  const SEARCH_FILLED = {
+    action: 'url',
+    url_path: 'https://example.com/search?q=Swimming&where=Riverside%20Pool%2C%2012%20Mill%20Road',
+  };
+
+  /** Press and keep still past the hold threshold, then let go. */
+  function hold(target: Element): void {
+    pointer(target, 'pointerdown');
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 1);
+    pointer(target, 'pointerup');
+    click(target);
+  }
+
+  it.each(['list', 'column', 'grid'])(
+    'runs a url action for a tap on a %s event, its fields encoded into the URL',
+    async (view) => {
+      const { card, dialogs, hassActions } = await mount(
+        { view, ...TWO, tap_action: { action: 'more-info' }, event_tap_action: SEARCH },
+        BEN,
+      );
+      expect(buttonsShowing(card, 'Swimming')).toHaveLength(1);
+
+      tap(leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming'));
+      await settle();
+      expect(hassActions).toEqual([
+        { action: 'tap', config: { entity: 'calendar.ben', tap_action: SEARCH_FILLED } },
+      ]);
+      expect(dialogs).toEqual([]);
+
+      // The control: a tap off the events is still the card's own.
+      tap(card.shadowRoot!.querySelector('ha-card')!);
+      await settle();
+      expect(hassActions).toHaveLength(2);
+      expect(hassActions[1].config.entity).toBe('calendar.anna');
+    },
+  );
+
+  it('fills every field into perform-action data as plain text, at any depth', async () => {
+    const action = {
+      action: 'perform-action',
+      perform_action: 'script.note_event',
+      data: {
+        title: '{title}',
+        when: '{start} to {end}',
+        all_day: '{all_day}',
+        calendar: '{calendar}',
+        description: '{description}',
+        places: ['{location}', 'fixed'],
+        untouched: '{unknown} {Title}',
+        count: 3,
+      },
+    };
+    const { card, hassActions } = await mount({ ...TWO, event_tap_action: action }, BEN);
+
+    tap(buttonsShowing(card, 'Swimming')[0]);
+    await settle();
+    expect(hassActions).toEqual([
+      {
+        action: 'tap',
+        config: {
+          entity: 'calendar.ben',
+          tap_action: {
+            action: 'perform-action',
+            perform_action: 'script.note_event',
+            data: {
+              title: 'Swimming',
+              when: '2026-06-17T14:00:00Z to 2026-06-17T15:00:00Z',
+              all_day: 'false',
+              calendar: 'calendar.ben',
+              description: 'Bring the goggles & towel',
+              places: ['Riverside Pool, 12 Mill Road', 'fixed'],
+              untouched: '{unknown} {Title}',
+              count: 3,
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it('gives a multi-day event its whole interval from any of its days, and an all-day one its dates', async () => {
+    const action = {
+      action: 'navigate',
+      navigation_path: '/lovelace/plan?from={start}&until={end}&day={all_day}',
+    };
+    const { card, hassActions } = await mount({
+      event_tap_action: action,
+      split_multiday_events: true,
+    });
+
+    // Trip runs from the 17th into the 19th, so the card draws it on three days.
+    const trips = buttonsShowing(card, 'Trip');
+    expect(trips.length).toBeGreaterThan(1);
+    tap(trips[trips.length - 1]);
+    tap(buttonsShowing(card, 'Public holiday')[0]);
+    await settle();
+    expect(hassActions.map((detail) => detail.config.tap_action)).toEqual([
+      {
+        action: 'navigate',
+        navigation_path:
+          '/lovelace/plan?from=2026-06-17T20%3A00%3A00Z&until=2026-06-19T09%3A00%3A00Z&day=false',
+      },
+      {
+        action: 'navigate',
+        navigation_path: '/lovelace/plan?from=2026-06-18&until=2026-06-19&day=true',
+      },
+    ]);
+  });
+
+  it('fills the title as the card shows it, a text replacement applied', async () => {
+    const { card, hassActions } = await mount(
+      {
+        entities: [{ entity: 'calendar.anna', replace_field: 'title', replace_with: 'Busy' }],
+        event_tap_action: { action: 'url', url_path: 'https://example.com/?q={title}' },
+      },
+      { shows: 'Busy' },
+    );
+
+    tap(buttonsShowing(card, 'Busy')[0]);
+    await settle();
+    expect(hassActions[0].config.tap_action).toEqual({
+      action: 'url',
+      url_path: 'https://example.com/?q=Busy',
+    });
+  });
+
+  it("opens more-info for the pressed event's calendar, unless the action names an entity", async () => {
+    const { card, hassActions } = await mount(
+      {
+        ...TWO,
+        event_tap_action: { action: 'more-info' },
+        event_hold_action: { action: 'more-info', entity: 'calendar.anna' },
+      },
+      BEN,
+    );
+    const swimming = buttonsShowing(card, 'Swimming')[0];
+
+    tap(swimming);
+    await settle();
+    hold(swimming);
+    await settle();
+    expect(hassActions).toEqual([
+      { action: 'tap', config: { entity: 'calendar.ben', tap_action: { action: 'more-info' } } },
+      {
+        action: 'hold',
+        config: {
+          entity: 'calendar.ben',
+          hold_action: { action: 'more-info', entity: 'calendar.anna' },
+        },
+      },
+    ]);
+  });
+
+  it("runs an event's hold for a hold, and the card's tap for a tap", async () => {
+    const { card, hassActions } = await mount(
+      { ...TWO, tap_action: { action: 'more-info' }, event_hold_action: SEARCH },
+      BEN,
+    );
+    const target = leafShowing(buttonsShowing(card, 'Swimming')[0], 'Swimming');
+
+    hold(target);
+    await settle();
+    expect(hassActions).toEqual([
+      { action: 'hold', config: { entity: 'calendar.ben', hold_action: SEARCH_FILLED } },
+    ]);
+
+    tap(target);
+    await settle();
+    expect(hassActions[1]).toEqual({
+      action: 'tap',
+      config: {
+        entity: 'calendar.anna',
+        tap_action: { action: 'more-info' },
+        hold_action: { action: 'none' },
+      },
+    });
+  });
+
+  it.each([
+    ['its tap', { event_tap_action: SEARCH }, 'tap'],
+    ['its hold, having no tap', { event_hold_action: SEARCH }, 'hold'],
+  ] as const)('runs %s from the keyboard', async (_name, config, gesture) => {
+    const { card, hassActions } = await mount({ ...TWO, ...config }, BEN);
+    const button = buttonsShowing(card, 'Swimming')[0];
+
+    key(button, 'keydown', 'Enter');
+    await settle();
+    expect(hassActions).toEqual([
+      {
+        action: gesture,
+        config: { entity: 'calendar.ben', [`${gesture}_action`]: SEARCH_FILLED },
+      },
+    ]);
+  });
+
+  it('refuses a url action whose own scheme is not http or https once a field is in it', async () => {
+    const { card, hassActions } = await mount({
+      event_tap_action: { action: 'url', url_path: 'javascript:alert("{title}")' },
+    });
+
+    tap(buttonsShowing(card, 'Dentist')[0]);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
+
+  it('keeps a field from forming a scheme, a host or a parameter of its own', async () => {
+    const sneaky = {
+      ...RAW_EVENTS[0],
+      summary: 'javascript:alert(1)//&next=https://evil.example',
+      uid: 'uid-sneaky',
+    };
+    const { card, hassActions } = await mount(
+      { event_tap_action: { action: 'url', url_path: '{title}' } },
+      { events: [sneaky], shows: 'javascript:alert(1)' },
+    );
+
+    tap(buttonsShowing(card, 'javascript:alert(1)')[0]);
+    await settle();
+    expect(hassActions[0].config.tap_action).toEqual({
+      action: 'url',
+      url_path: 'javascript%3Aalert(1)%2F%2F%26next%3Dhttps%3A%2F%2Fevil.example',
+    });
+  });
+
+  it('runs nothing and draws no buttons while the card is edited', async () => {
+    const { card, hassActions } = await mount({ event_tap_action: SEARCH });
+    (card as unknown as { editMode: boolean }).editMode = true;
+    await card.updateComplete;
+
+    expect(buttonsShowing(card, 'Dentist')).toHaveLength(0);
+    tap(eventsShowing(card, 'Dentist')[0]);
+    await settle();
+    expect(hassActions).toEqual([]);
+  });
 });
 
 describe('the click a pointer gesture owes', () => {

@@ -67,6 +67,16 @@ export const ADD_EVENT_ACTION = 'add-event';
  */
 export const RESET_ACTION = 'reset';
 
+/**
+ * The actions the card runs itself rather than handing to Home Assistant, in the order the
+ * editor offers them. Each acts on the whole card, so on an event they are nothing
+ * (`eventActionKind`).
+ */
+export const CARD_ACTION_VALUES = ['expand', 'refresh', ADD_EVENT_ACTION, RESET_ACTION] as const;
+
+/** The event action that opens the tapped event's dialog: a value of `event_tap_action` and `event_hold_action`. */
+export const EVENT_DETAILS_ACTION = 'details';
+
 export const TIMING = {
   HOLD_THRESHOLD: 500,
 
