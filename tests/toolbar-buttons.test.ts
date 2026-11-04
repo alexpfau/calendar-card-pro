@@ -239,14 +239,22 @@ function tapWithPointer(target: EventTarget): void {
  * What the stubbed layout reports, in CSS pixels. Zero for the card means "not laid out", which
  * is all happy-dom ever reports. `row` is the action row's border box and `rowPadding` its
  * padding on each side, so its content is `row - 2 * rowPadding`; the row grows with the card
- * one for one, as it does in a browser. `switcher` is the view switcher's width as drawn.
+ * one for one, as it does in a browser. `switcher` is the view switcher's width as drawn, and
+ * `switcherWords`, where set, its width while it draws its words rather than its pictograms.
  * `scrollbar` is what a page scrollbar takes from the card, and from its row, while the buttons
  * are drawn in it: what a row tall enough to make the page scroll does in a browser.
  *
  * The defaults are what Chromium measured for a list card 376px wide: a 342px row content box and
  * the switcher's pictograms 108px across.
  */
-const layout = { card: 0, rowInset: 26, rowPadding: 4, switcher: 108, scrollbar: 0 };
+const layout = {
+  card: 0,
+  rowInset: 26,
+  rowPadding: 4,
+  switcher: 108,
+  switcherWords: null as number | null,
+  scrollbar: 0,
+};
 const LAYOUT_DEFAULTS = { ...layout };
 
 function box(left: number, right: number): DOMRect {
@@ -273,7 +281,10 @@ function stubLayout(): void {
     if (this.classList.contains('toolbar-actions')) {
       return box(0, Math.max(0, card(this.getRootNode() as ShadowRoot) - layout.rowInset));
     }
-    if (this.classList.contains('view-switcher')) return box(0, layout.switcher);
+    if (this.classList.contains('view-switcher')) {
+      const words = layout.switcherWords !== null && this.querySelector('.toolbar-button-label');
+      return box(0, words ? layout.switcherWords! : layout.switcher);
+    }
     return realRect.call(this);
   });
   const realStyle = window.getComputedStyle.bind(window);
@@ -805,6 +816,20 @@ describe('buttons the row cannot hold', () => {
     expect(menuButton(card)).not.toBeNull();
     const fold = (card as unknown as { _buttonsFold: { unfoldAtPx: number } })._buttonsFold;
     expect(fold.unfoldAtPx).toBeGreaterThan(409);
+  });
+
+  it("wait for the switcher's words to give way, and then fit beside its pictograms", async () => {
+    // Words wider than the row: the pass that draws them gives them up for the pictograms, and
+    // in that pass the buttons conclude nothing from the words' width. Folding there would hold
+    // the menu until a card of 784 + (212 + 36 + 16 + 800 - 750) + 2 = 1,100px.
+    layout.switcherWords = 800;
+    const card = await mount(withButtons(THREE, ROW));
+    await measure(card, 784);
+    await nextFrame(card);
+
+    expect(card.shadowRoot!.querySelector('.view-switcher .toolbar-button-label')).toBeNull();
+    expect(customButtons(card)).toHaveLength(3);
+    expect(menuButton(card)).toBeNull();
   });
 
   it('conclude nothing from a card that is not laid out', async () => {
