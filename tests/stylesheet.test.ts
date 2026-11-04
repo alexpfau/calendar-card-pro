@@ -1528,10 +1528,21 @@ describe('card stylesheet', () => {
     it('drops the countdown lead-in when a badge precedes it', () => {
       expect(
         declared(
-          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          '.time .time-actual .allday-badge + .time-text > .time-countdown:first-child',
           'margin-inline-start',
         ),
       ).toBe('0');
+    });
+
+    it('keeps the lead-in where an end phrase stands between the badge and the countdown', () => {
+      // A multi-day row's time text is its end phrase, a span ahead of the countdown, so the
+      // reset is scoped to the countdown that follows the pill alone (backlog item 141).
+      expect(
+        declared(
+          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          'margin-inline-start',
+        ),
+      ).toBe('');
     });
 
     it('gives the badge the margin its own comment derives', () => {
@@ -1547,7 +1558,7 @@ describe('card stylesheet', () => {
       const classes = (selector: string) => (selector.match(/\.[a-z-]+/g) ?? []).length;
 
       expect(
-        classes('.time .time-actual .allday-badge + .time-text > .time-countdown'),
+        classes('.time .time-actual .allday-badge + .time-text > .time-countdown:first-child'),
       ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
     });
 

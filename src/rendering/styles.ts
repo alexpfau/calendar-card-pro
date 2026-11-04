@@ -2701,8 +2701,12 @@ export const cardStyles = css`
   }
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
-     badge there is no time text — the label became the badge — and the badge brings its own
-     margin, so keeping this one stacked the two into a visibly lopsided run-up to the dot.
+     single-day event's badge there is no time text — the label became the badge — and the
+     badge brings its own margin, so keeping this one stacked the two into a visibly lopsided
+     run-up to the dot. A multi-day event's time text is its end ("until Friday, Nov 6"), a span
+     of its own ahead of the countdown, and keeps the lead-in: without :first-child its dot sat
+     flush against the end. Where a countdown follows the pill alone, column view and the time
+     beside the title, it is display: contents and takes no margin, so this rule is a guard.
      No margin figures here on purpose: the same commit that first wrote them also changed
      the badge's own margin from 4px to 5px, so they were stale the moment they were
      committed. The badge's rule carries the live number and the reasoning for it; one copy
@@ -2710,12 +2714,12 @@ export const cardStyles = css`
      did when it was losing, which is a fact about a fixed bug rather than a live spacing
      that can drift out from under this comment.
      Adjacent-sibling rather than :has(), because the badge really is the element before.
-     The two-class prefix on the front of this selector is load-bearing: without it the
-     selector carries three classes against the four of the rule it has to beat, loses on
-     specificity and silently changes nothing. Measured at 8.62px before the dot against
-     5.62px after it while that was the case — a fix that typechecked, built, deployed and
-     did nothing. */
-  .time .time-actual .allday-badge + .time-text > .time-countdown {
+     The two-class prefix on the front of this selector keeps it ahead on specificity: without
+     it the selector carried three classes against the four of the rule it has to beat, lost
+     and silently changed nothing. With :first-child it would now tie, and win only on source
+     order. Measured at 8.62px before the dot against 5.62px after it while it lost — a fix
+     that typechecked, built, deployed and did nothing. */
+  .time .time-actual .allday-badge + .time-text > .time-countdown:first-child {
     margin-inline-start: 0;
   }
 
