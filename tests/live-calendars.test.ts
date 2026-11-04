@@ -551,6 +551,65 @@ describe('a calendar whose state changed', () => {
   });
 });
 
+describe('a state change a push answers', () => {
+  it('counts the push that came just before the card last saw the old state', async () => {
+    // The frontend shows the change a moment after its push, and the card saw the old state
+    // once more in between.
+    const c = connection();
+    await liveAnna(c);
+    await watch(c, 60_000, calendarState('off'));
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(500);
+    Live.observeStates(hassWith(c, calendarState('off')));
+    await vi.advanceTimersByTimeAsync(500);
+
+    await watch(c, Live.STATE_PUSH_TIMEOUT + 1000, calendarState('on'));
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('live');
+  });
+
+  it('leaves a calendar that went unavailable on its own alone', async () => {
+    // Its integration could not reach the calendar: the entity writes the state, and pushes.
+    const c = connection();
+    await liveAnna(c);
+    await watch(c, 60_000, calendarState('off'));
+    c.push('calendar.anna', null);
+
+    await watch(c, Live.STATE_PUSH_TIMEOUT + 1000, calendarState('unavailable'));
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('failed');
+  });
+
+  it('closes a subscription whose calendar has no state at all, as one with no registry entry', async () => {
+    // Its integration unloaded: the state is removed, with no push, a push just before it.
+    const c = connection();
+    await liveAnna(c);
+    await watch(c, 60_000, calendarState('off'));
+    c.push('calendar.anna', [SWIM]);
+
+    Live.observeStates({ ...c.hass, states: {} } as unknown as Types.Hass);
+    await vi.advanceTimersByTimeAsync(Live.STATE_PUSH_TIMEOUT);
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
+  });
+});
+
+describe('a subscription closed before Home Assistant answered it', () => {
+  it('is unsubscribed when the answer comes, and again at a later push', async () => {
+    const c = connection();
+    const release = Live.hold(c.hass, 'calendar.anna', WINDOW)!;
+    release(0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribes).toBe(1);
+
+    // The connection dropped before Home Assistant answered, and the library subscribed it again.
+    c.subs[0].unsubscribed = false;
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribes).toBe(2);
+  });
+});
+
 describe('the first state the card sees', () => {
   it('counts as no change, even one an unloaded integration left', async () => {
     const c = connection();

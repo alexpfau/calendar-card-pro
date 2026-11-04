@@ -315,8 +315,9 @@ describe('a change the card loaded once, drawn from before it again', () => {
     await settleFor(card, 100);
     expect(drawn(card)).toEqual(['Anna swim, lane 3', 'Ben piano']);
 
+    // Back within the linger, on the same subscriptions: the change it loaded once is the same.
     card.remove();
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(1000);
     document.body.appendChild(card);
     await settleFor(card, 100);
 
@@ -496,7 +497,7 @@ describe('a reconnect', () => {
 });
 
 describe('a card that leaves the page', () => {
-  it('keeps its subscriptions for a minute, for a card that comes back', async () => {
+  it('keeps its subscriptions a moment, for the card the editor builds next', async () => {
     const ha = homeAssistant({
       'calendar.anna': [at(DAY, 14, 'Anna swim')],
       'calendar.ben': [at(DAY, 15, 'Ben piano')],
@@ -505,7 +506,7 @@ describe('a card that leaves the page', () => {
     await settleFor(card, 100);
 
     card.remove();
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(1000);
     document.body.appendChild(card);
     await settleFor(card, 100);
     expect(ha.calendarSubscribes()).toBe(2);
@@ -514,6 +515,28 @@ describe('a card that leaves the page', () => {
     card.remove();
     await vi.advanceTimersByTimeAsync(Live.DISCONNECT_LINGER);
     expect(ha.open()).toHaveLength(0);
+  });
+
+  it('draws what changed while it was away, its integration reloaded included', async () => {
+    // Settings shown: the dashboard is off the page, so no card sees the calendar unloaded. Its
+    // subscription goes quiet, bound to the entity that went, and the calendar gains an event.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    card.remove();
+    for (const sub of ha.subs) {
+      if (sub.message.entity_id === 'calendar.anna') sub.callback = () => undefined;
+    }
+    ha.events['calendar.anna'] = [at(DAY, 14, 'Anna swim'), at(DAY, 17, 'Anna dentist')];
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    document.body.appendChild(card);
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Anna dentist']);
   });
 });
 

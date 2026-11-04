@@ -1050,7 +1050,9 @@ Provides core functionality across the card:
 - **live-calendars.ts**:
   - One `calendar/event/subscribe` subscription per calendar and window per connection,
     reference counted, shared by every card and request on the page; Home Assistant 2026.5
-    and later push a calendar's events on subscribing and at every state write
+    and later push a calendar's events on subscribing and at every state write. One no card
+    holds closes after `DISCONNECT_LINGER` (5 s, enough for the editor's next card): no card
+    watches its calendar's state then, so none could tell its integration was reloaded
   - Never writes the cache or draws: a load asks `load` before REST, and a card it tells of a
     change runs an ordinary load (`_syncLive`)
   - Probes support with the first subscription; `unknown_command` means polling for the
@@ -1070,8 +1072,8 @@ Provides core functionality across the card:
     (`observeStates`, from the card's `shouldUpdate`) is closed and made again: Home Assistant
     pushes after every state write, and a subscription stays bound to an entity its integration
     replaced on a reload. Unloading the integration marks the entity unavailable and
-    `restored`, which counts at once; any other change counts only while the card has been
-    seeing the state, so a push that came while another view was shown is not missed
+    `restored`, or removes its state, which counts at once; any other change counts unless a
+    push came since the card last saw the state
   - Unsubscribing waits for a push while the connection is down or the subscription has not
     pushed since a reconnect, and any push of a closed subscription unsubscribes it again, from
     a task of its own: the library Home Assistant shipped up to 2026.10 subscribes such a command

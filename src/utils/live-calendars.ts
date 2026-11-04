@@ -54,11 +54,8 @@ export const ANSWER_TIMEOUT = 5_000;
  */
 export const STATE_PUSH_TIMEOUT = 30_000;
 
-/**
- * How long before a state change a push may come and still count as the push for it, and how
- * recently the card must have seen the calendar's state for a change to be timed at all.
- */
-const STATE_PUSH_GRACE = 5_000;
+/** How long before the card last saw a calendar's state a push may come and still count. */
+const STATE_PUSH_GRACE = 2_000;
 
 /**
  * How long after Home Assistant answered `unknown_command` the next load asks again. The command
@@ -70,11 +67,12 @@ export const PROBE_AGAIN_AFTER = 30 * 60_000;
 export const REQUEST_LINGER = 5_000;
 
 /**
- * How long a subscription stays open after the card holding it left the page: a dashboard view
- * switched away and back, or the editor building a new card for each edit, costs nothing within
- * it.
+ * How long a subscription stays open after the card holding it left the page: the editor builds
+ * a new card for each edit, and the new one takes it over. No longer: a subscription no card
+ * holds is one no card watches the calendar's state for (`observeStates`), so it could not tell
+ * that the calendar's integration was reloaded meanwhile, as from Home Assistant's settings.
  */
-export const DISCONNECT_LINGER = 60_000;
+export const DISCONNECT_LINGER = 5_000;
 
 /**
  * How long, after the connection to Home Assistant came back, a subscription may stay silent
@@ -378,10 +376,8 @@ function open(
               .then(unsubscribe)
               .catch(() => undefined);
           };
-          if (subscription.closed) {
-            safe();
-            return null;
-          }
+          // Kept even when closed already, which `close` unsubscribes through once this answer is
+          // in, so a later push can unsubscribe it again (`receive`).
           return safe;
         },
         (error: { code?: unknown } | undefined) => {
@@ -666,16 +662,16 @@ export function observeStates(hass: Types.Hass): void {
     if (subscription.state !== 'live' && subscription.state !== 'failed') continue;
     const state = hass.states?.[subscription.entityId];
     const seen = subscription.seenState;
-    const watching = now - subscription.seenAt <= STATE_PUSH_GRACE;
+    const seenAt = subscription.seenAt;
     subscription.seenState = state;
     subscription.seenAt = now;
     if (seen === undefined || state === seen || subscription.stateTimer) continue;
-    // Unloading the integration marks the entity unavailable and restored, without a push: the
-    // new entity's subscriptions are elsewhere. Any other change counts only where the card has
-    // been watching, so its push cannot have come while it was not (another view shown).
+    // Unloading the integration marks the entity unavailable and restored, or removes its state
+    // where it has no registry entry, with no push: the new entity's subscriptions are elsewhere.
+    // Any other change is answered by a push since the card last saw the state, if one came.
     const replaced =
       !state || (state.state === 'unavailable' && state.attributes?.restored === true);
-    if (!replaced && (!watching || now - subscription.pushedAt <= STATE_PUSH_GRACE)) continue;
+    if (!replaced && subscription.pushedAt >= seenAt - STATE_PUSH_GRACE) continue;
     subscription.stateTimer = setTimeout(() => {
       subscription.stateTimer = undefined;
       Logger.warn(`No live update for ${subscription.entityId} after its state changed`);
