@@ -5125,6 +5125,15 @@ export const cardStyles = css`
     flex: 0 0 auto;
   }
 
+  /* The detail rows run to the block's own padding, as its title and time already do. The
+     12px end gutter list and column view keep broke words a block fits: "Bring" split as
+     "Brin" / "g" in blocks 58 to 69px wide. */
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    margin-inline-end: 0;
+  }
+
   .grid-event-disclosure .time,
   .grid-event-disclosure .time-actual,
   .grid-event-disclosure .time-text {

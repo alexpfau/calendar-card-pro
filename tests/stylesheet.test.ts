@@ -2028,6 +2028,18 @@ describe('card stylesheet', () => {
   });
 
   describe('the grid view box model', () => {
+    it("gives a block's detail rows its whole width, as its title and time already have", () => {
+      // The 12px end gutter list and column view keep on .location and .description took 12px
+      // of a narrow lane from the words and none from the title or the time above them, so
+      // "Bring" broke as "Brin" / "g" in a lane it fits, in Chromium, WebKit and Firefox.
+      for (const row of ['.location', '.description', '.event-weather']) {
+        expect(declared(`.grid-event-disclosure ${row}`, 'margin-inline-end')).toBe('0');
+      }
+      // List and column view keep the gutter.
+      expect(declared('.description', 'margin-inline-end')).toBe('12px');
+      expect(declared('.time-location .event-weather', 'margin-inline-end')).toBe('12px');
+    });
+
     it('composes a block from its placement and its per-edge clearance', () => {
       // The half `grid-dom.test.ts` structurally cannot see. The renderer writes four
       // custom properties at most and never `top` or `height`, so what a browser resolves
