@@ -60,6 +60,7 @@ src/
 │   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
+│   ├── popover-shell.ts          # The popover's shell: opening, placing, its look, closing
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
@@ -931,6 +932,19 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     from `dayLabelId` only while events are tap targets, unique within the shadow root
     because every view draws one header per day; a grid banner names the first day it
     covers on screen
+
+- **popover-shell.ts**:
+  - The shell the card's panels share (`PopoverShell`), so the event popover's opening, placing,
+    look and closing are written once: Home Assistant's dialog contract (`showDialog` before
+    the element is attached, `showModal()` in `updated()`, `closeDialog()` for Back,
+    `dialog-closed` once gone), placing beside a press or below a toolbar button (`placeAt`,
+    `placeBeside`, `placeBelow`, `hangBelow`), a sheet from the bottom below
+    `SHEET_BELOW_PX`, the beak, and the way out (`_leave`); and the stylesheets, the system
+    font, the glass, the light and dark palettes and the opening animation (`shellStyles`) and
+    the popover's cells (`cellStyles`). A panel extending it supplies its width, its anchor,
+    its name in the log and what it drops once closed (`_clear`)
+  - Moved out of `event-popover.ts` without changing it: the popover's tests and snapshots
+    passed over the move unchanged
 
 - **event-popover.ts**:
   - The event popover: an event's details, editable in place, and a new event. The card never
