@@ -2782,15 +2782,17 @@ export const cardStyles = css`
      its first line. Under the title it is a row as wide as the event that spaces off and wraps a
      trailing countdown or bar, 2px below the title, and in column view indented for its clock;
      none of that has anything to do here. It keeps its 12px end margin, so it ends where the
-     rows below it do. */
+     rows below it do. A time that wraps sets every line against the end, as the time sits on
+     the title's line, and so does an all-day pill wrapped above it. */
   .time-beside-title > .summary-row > .title-aside > .time {
     width: auto;
     margin-top: 0;
     padding-inline-start: 0;
     flex-wrap: nowrap;
-    justify-content: flex-start;
+    justify-content: flex-end;
     align-items: baseline;
     column-gap: 0;
+    text-align: end;
   }
 
   /* Column view's matching negative margin for the clock's indent goes with it. Nothing inside
@@ -2798,6 +2800,7 @@ export const cardStyles = css`
      wide, and a row let shrink further split the joiner from the countdown's dot. */
   .time-beside-title > .summary-row > .title-aside > .time > .time-actual {
     margin-inline-start: 0;
+    justify-content: flex-end;
   }
 
   /* A running event's "Now" stays one word. It may break anywhere below the title, where only a
@@ -2807,12 +2810,12 @@ export const cardStyles = css`
     overflow-wrap: normal;
   }
 
-  /* With times off, the countdown alone takes the time's place. It wraps like the time, from
-     its start, and brings neither the end margin the time already has nor column view's
+  /* With times off, the countdown alone takes the time's place. It wraps like the time, against
+     the end, and brings neither the end margin the time already has nor column view's
      leading dot: beside the title nothing comes before it but the badge's bullet. */
   .time-beside-title > .summary-row > .title-aside > .time > .time-countdown {
     margin-inline: 0;
-    text-align: start;
+    text-align: end;
     white-space: normal;
   }
 

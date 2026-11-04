@@ -3682,22 +3682,24 @@ describe('the time beside the title', () => {
     [`${ASIDE} > .event-weather`]: one({ 'margin-inline-end': '0' }),
     // The bullet, only after a badge, with the folded countdown's spacing.
     [`${ASIDE} > .event-weather + .time::before`]: one({ content: "'·'", 'margin-inline': '4px' }),
-    // The time as an item of the box, with none of the row it is below the title.
+    // The time as an item of the box, with none of the row it is below the title, and every line
+    // of a time that wraps, or a pill wrapped above it, set against the end as the box is.
     [TIME]: one({
       width: 'auto',
       'margin-top': '0',
       'padding-inline-start': '0',
       'flex-wrap': 'nowrap',
-      'justify-content': 'flex-start',
+      'justify-content': 'flex-end',
       'align-items': 'baseline',
       'column-gap': '0',
+      'text-align': 'end',
     }),
-    [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0' }),
+    [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
     [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
     // The countdown alone, with times off.
     [`${TIME} > .time-countdown`]: one({
       'margin-inline': '0',
-      'text-align': 'start',
+      'text-align': 'end',
       'white-space': 'normal',
     }),
     [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),

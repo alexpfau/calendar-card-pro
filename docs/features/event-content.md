@@ -353,7 +353,8 @@ Everything else stays below the title, in its order: the
 column view, column view's weather row, the location and the description.
 
 The time takes the room it needs, normally up to about 60% of the line, and a longer time wraps
-inside that room. List view's weather badge and its dot count toward the 60%. The time takes
+inside that room, every line aligned to the end of the line. List view's weather badge and its
+dot count toward the 60%. The time takes
 more than that rather than break a word of the time, the badge or the dot, and the title then
 keeps less than the remaining 40%; only a countdown word in a column too narrow for it breaks,
 as it does below the title. A title that shares its line with the time has the rest of
