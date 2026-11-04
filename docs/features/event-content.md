@@ -318,6 +318,59 @@ refers to.
 `time_font_size` and `location_font_size` take the same font sizes as
 [`event_font_size`](#calendar-events-display), and fall back to `12px` the same way.
 
+### Time Beside the Title
+
+`time_position: title` draws an event's time at the end of its title's line, wherever the row
+has room for both:
+
+```yaml
+time_position: title # below, the default, keeps the time under the title
+```
+
+The whole time row moves: the clock, the "Now" of an event under way, the all-day words or an
+[all-day badge on the time](#where-the-pill-goes), and in list view a countdown or progress bar
+that follows the time. Column view folds its countdown into the time text, so it moves with
+it. Everything else stays below the title, in its order: the location, the description, and in
+column view the progress bar's own row and the weather row. A
+[weather badge on the title](/features/weather#weather-display-positions) keeps its place, and
+the time follows it.
+
+There is no width to set. The time joins the title only while about 8em of title still fits
+beside it, which is 112px at the default `event_font_size`, plus the room an icon or emoji
+label takes. Where it does not, the time stays on a line of its own below the title, laid out
+as it is without the option. Each row decides for itself, so on one card a short time can move
+up while a long one, or one followed by a countdown, stays below. As one measured example, an
+unlabeled event with a 24-hour `10:00 - 12:00`, no countdown and the default sizes needs about
+235px of event width.
+
+A column is usually narrower than that, so a column card mostly keeps the time below even with
+the option on. Each layout can set it on its own:
+
+```yaml
+list:
+  time_position: title # beside the title in the list layout
+column:
+  time_position: below # the columns stay as they are
+```
+
+A few things differ once the option is on:
+
+- In column view, an event under way whose time stays below the title shows its progress bar
+  under the time rather than above it.
+- A time with nothing after it on its line stops 12px short of the row's end, where a countdown
+  would end, so a time long enough to fill a whole row wraps a little sooner.
+- A text label counts toward the title's 8em, so a long one leaves less of the title beside the
+  time.
+- An all-day badge with more text after it, such as a countdown, sits a few pixels high beside
+  the title.
+- With `event_icon_vertical_alignment` set to `middle` or `bottom` and a `time_icon_size` taller
+  than a line of the time, the time text sits level with the top of the clock instead, below the
+  title as well as beside it.
+- `title_max_lines` and `scroll_long_titles` work on the title in whatever width the time
+  leaves it.
+
+Grid view ignores the option: a grid block lays out its own rows.
+
 ### Removing Country Names
 
 The `remove_location_country` option offers three modes:

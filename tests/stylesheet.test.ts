@@ -359,6 +359,11 @@ describe('card stylesheet', () => {
       const contents = [
         'td.event > .event-content:has(> .time-location > *)',
         '.column-events > .event > .event-content:has(> .time-location > *)',
+        // time_position: title takes the time row out of .time-location, and a row whose only
+        // detail was its time keeps the shift through the placement class instead. Without it
+        // the title moved about 1.8px on every such row (tests/time-position.test.ts).
+        'td.event > .event-content.time-beside-title',
+        '.column-events > .event > .event-content.time-beside-title',
       ];
       for (const content of contents) {
         expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
@@ -378,7 +383,8 @@ describe('card stylesheet', () => {
       expect(declared('.summary', 'padding-block')).toBe('0.2em');
 
       // Grid view keeps its own summary padding and gets no spacer: its text sits at the top
-      // of a block as tall as the event. Pinned as the whole set of selectors that take part.
+      // of a block as tall as the event. Pinned as the whole set of selectors that take part,
+      // and the tappable list row's .event-button wrapper stays out of it in both shapes.
       const shiftRules = RULES.filter((r) =>
         r.selectors.some((s) => s.includes('.event-content:has(> .time-location > *)')),
       );
@@ -3560,5 +3566,119 @@ describe('the today tile', () => {
       .flatMap((rule) => rule.selectors.filter(couldBeTile));
     // The base rule's flex and the text-box branch's block: the tile's own two.
     expect(setters).toEqual(['.day.today-tile', '.day.today-tile']);
+  });
+});
+
+/**
+ * `time_position: title`: the time row as the title row's last item, wrapping to a line of its
+ * own where about 8em of title would not fit beside it.
+ *
+ * Every declaration is pinned by value, and the set of rules naming the placement class is
+ * pinned whole, because each one was found necessary by taking it out alone and comparing the
+ * dropped rows with today's, pixel for pixel: in the design's mock-ups, and again against the
+ * built card in Chromium, where each of the end margin, the gap, the ink shift, the first-row
+ * margin and the weather badge's rule left more dropped rows differing once removed. CSS is the
+ * one layer the DOM tests in tests/time-position.test.ts cannot see, so a rule dropped from
+ * here would pass every one of them and move a dropped row by a pixel or more. The baseline
+ * rule is the exception: it exists for the time on a shared line, and costs the dropped rows
+ * of a clock drawn taller than the time, which its comment in styles.ts names.
+ */
+describe('the time beside the title', () => {
+  const ROW = '.time-beside-title > .summary-row';
+  const TIME = `${ROW} > .time`;
+  const FIRST_ROWS = ['.location', '.description', '.event-weather'].flatMap((row) => [
+    `td.event .time-beside-title > .time-location > ${row}:first-child`,
+    `.column-events > .event .time-beside-title > .time-location > ${row}:first-child`,
+  ]);
+  const BASELINE = [
+    `${TIME} > .time-actual:not(:has(> .allday-badge)) > :not(ha-icon)`,
+    `${TIME} > .time-actual:has(> .allday-badge):not(:has(> span:not(.allday-badge))) > .allday-badge`,
+    `${TIME} > .time-actual:empty + .time-countdown`,
+  ];
+  const INK = [
+    'td.event > .event-content.time-beside-title',
+    '.column-events > .event > .event-content.time-beside-title',
+  ].flatMap((content) => [content, `${content} > .summary-row > .summary`, `${content}::after`]);
+
+  it('lets the title row wrap, sharing a line on the baseline and a gap only between items', () => {
+    expect(declared(ROW, 'flex-wrap')).toBe('wrap');
+    expect(declared(ROW, 'align-items')).toBe('baseline');
+    expect(declared(ROW, 'row-gap')).toBe('0');
+    // A gap, not the title's 12px end margin, which would stay when the time drops.
+    expect(declared(ROW, 'column-gap')).toBe('8px');
+    expect(declared(`${ROW} > .summary:has(+ .time)`, 'margin-inline-end')).toBe('0');
+    // The margin that rule takes away, so the pin above is about something.
+    expect(declared('.summary:not(:only-child)', 'margin-inline-end')).toBe('12px');
+  });
+
+  it('keeps about 8em for the title, its merged glyph labels on top', () => {
+    expect(declared(`${ROW} > .summary`, 'flex')).toBe(
+      '1000 1 calc(8em + var(--calendar-card-title-label-room, 0px))',
+    );
+    expect(declared(`${ROW} > .summary`, 'min-width')).toBe('0');
+  });
+
+  it('grows the time only on a line of its own, without the end margin it overflowed', () => {
+    expect(declared(TIME, 'flex')).toBe('1 1 auto');
+    expect(declared(TIME, 'min-width')).toBe('0');
+    expect(declared(TIME, 'width')).toBe('auto');
+    expect(declared(TIME, 'margin-top')).toBe('0');
+    // Only where something follows the time: a lone time keeps its 12px end gutter.
+    expect(declared(`${TIME}:has(> .time-actual + *)`, 'margin-inline-end')).toBe('0');
+    expect(declared(TIME, 'margin-inline-end')).toBe('');
+    // What the two rules above answer: below the title, .time is the event's full width.
+    expect(declared('.time', 'width')).toBe('100%');
+    expect(declared('.time', 'margin-inline-end')).toBe('12px');
+  });
+
+  it("keeps the list view's weather badge centered and 20px from the title", () => {
+    expect(declared(`${ROW} > .event-weather`, 'align-self')).toBe('center');
+    // The 8px gap stands in for the badge's own 8px start margin.
+    expect(declared(`${ROW} > .event-weather`, 'margin-inline-start')).toBe('0');
+    expect(declared('.event-weather', 'margin-inline-start')).toBe('8px');
+  });
+
+  it("takes the time row's baseline from its tallest text, not from its clock", () => {
+    // An opt-in rather than a reordering: a row run in reverse with the icon ordered last
+    // still took its baseline from the icon in all three engines, measured, which left every
+    // shared line's time about 3px high.
+    for (const selector of BASELINE)
+      expect(declared(selector, 'align-self'), selector).toBe('baseline');
+  });
+
+  it('keeps the 2px of a row that the move made the first under the title', () => {
+    for (const selector of FIRST_ROWS)
+      expect(declared(selector, 'margin-top'), selector).toBe('2px');
+  });
+
+  it('keeps the ink shift on a row whose only detail moved into the title row', () => {
+    expect(declared(INK[0], '--calendar-card-event-ink-shift')).toBe('0.13em');
+    expect(declared(INK[3], '--calendar-card-event-ink-shift')).toBe('0.13em');
+  });
+
+  it('names the placement in these rules and nowhere else, in logical properties only', () => {
+    const named = RULES.filter((rule) =>
+      rule.selectors.some((selector) => selector.includes('time-beside-title')),
+    );
+    const selectors = named.flatMap((rule) =>
+      rule.selectors.filter((selector) => selector.includes('time-beside-title')),
+    );
+    expect(selectors.sort()).toEqual(
+      [
+        ROW,
+        `${ROW} > .summary`,
+        `${ROW} > .summary:has(+ .time)`,
+        `${ROW} > .event-weather`,
+        TIME,
+        `${TIME}:has(> .time-actual + *)`,
+        ...BASELINE,
+        ...FIRST_ROWS,
+        ...INK,
+      ].sort(),
+    );
+    // Mirrored by the browser in a right-to-left card: nothing names a physical side.
+    for (const rule of named) {
+      expect(rule.body, rule.selectors.join(', ')).not.toMatch(/\b(left|right)\b/);
+    }
   });
 });

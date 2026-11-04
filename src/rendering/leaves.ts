@@ -379,8 +379,44 @@ export function renderLabel(
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
   return html`<span class="calendar-label${glyphClass}">${label}</span>`;
 }
+
+/**
+ * The room a merged row's glyph labels take from the title's line beyond what the summary's
+ * hanging indent already holds, as a CSS length, or `undefined` where that is nothing.
+ *
+ * `time_position: title` lets the time share the title's line only while about 8em of title
+ * still fits beside it, and that 8em is the summary's content box. One icon, picture or emoji
+ * label hangs in the summary's start padding instead, which is outside the content box, so a
+ * single label already adds its own width without help. A merged row draws one label per
+ * calendar that contributed a copy, and every glyph after the first sits inside the content
+ * box, where it would quietly come out of the title's 8em. This hands the stylesheet their
+ * width, each at the size its hanging indent is written for. Prose labels are left out: the
+ * width of a word is not knowable here, so they share the 8em, as a single prose label does.
+ *
+ * @param labels - The merged row's resolved labels, if it is one
+ * @returns Extra room for the title row's basis, or `undefined`
+ */
+function mergedLabelRoom(labels: Types.ResolvedLabel[] | undefined): string | undefined {
+  if (!labels) return undefined;
+
+  const glyphWidths = labels.flatMap((entry) => {
+    if (!entry.value) return [];
+    const type = Helpers.resolveLabelType(entry.value, entry.type);
+    if (type === 'icon' || type === 'image') return [1];
+    if (type === 'text' && isGlyphLabel(entry.value)) return [1.25];
+    return [];
+  });
+  if (glyphWidths.length < 2) return undefined;
+
+  const ems = glyphWidths.slice(1).reduce((sum, width) => sum + width, 0);
+  return `calc(${ems}em + ${(glyphWidths.length - 1) * 4}px)`;
+}
+
 /**
  * Render an event title with optional label and weather data
+ *
+ * `timeRow` is `time_position: title`'s time row, drawn as the title row's last item after the
+ * weather badge. Without one the row is the markup every view drew before the option existed.
  */
 function renderEventTitle(
   event: Types.CalendarEventData,
@@ -391,6 +427,7 @@ function renderEventTitle(
   mergedLabels?: Types.ResolvedLabel[],
   titleWords = false,
   entityLabelAlt = '',
+  timeRow?: TemplateResult,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -556,6 +593,26 @@ function renderEventTitle(
         >
           ${titleInner}
         </span>`;
+
+  // The title row with the time row as its last item. The summary holds its title the way
+  // the template below does, on a line of its own, so the title renders exactly as it does
+  // there; tests/time-position.test.ts compares the two. `--calendar-card-title-label-room`
+  // widens the room the stylesheet keeps for the title by the merged glyph labels it cannot
+  // see; see `mergedLabelRoom`.
+  if (timeRow) {
+    const labelRoom = mergedLabelRoom(mergedLabels);
+    return html`
+      <div class="summary-row">
+        <div
+          class="summary${scrollTitles ? ' summary-scroll' : ''}"
+          style=${labelRoom ? `--calendar-card-title-label-room: ${labelRoom}` : nothing}
+        >
+          ${title}
+        </div>
+        ${renderEventWeather(event, config, weatherForecasts)}${timeRow}
+      </div>
+    `;
+  }
 
   // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
   // snapshots record the whitespace that separates the summary from its title. The same
@@ -840,6 +897,14 @@ export interface EventContentOptions {
    * for the eye only. Rows holding no link draw their text exactly as they do without it.
    */
   links?: boolean;
+  /**
+   * Where the time row goes (`time_position`): `'below'` under the title, which is the markup
+   * every view drew before the option existed, or `'title'` as the last item of the title row,
+   * from which the stylesheet lets it drop to a line of its own where the title would keep less
+   * than about 8em. List and column pass their resolved value; grid never does, because its
+   * blocks fit their own rows, and this function never reads the option from `config`.
+   */
+  timePosition?: Helpers.TimePosition;
 }
 
 /**
@@ -884,6 +949,7 @@ export function renderEventContent(
     splitTimeEnd = false,
     titleWords = false,
     links = false,
+    timePosition = 'below',
   } = options;
   const {
     eventTime,
@@ -1011,6 +1077,42 @@ export function renderEventContent(
     ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
     : timeText;
 
+  // `time_position: title`, on a row that has a time row to move: one of the three shapes of
+  // `.time` the template below draws. Every other row, an empty day's included, keeps that
+  // template. The moved markup is a function of its own, after this one, so the template below
+  // stays the markup every view drew before the option existed.
+  if (timePosition === 'title' && (shouldShowTime || countdownStr || showInlineProgress)) {
+    return renderTimeBesideTitle({
+      title: (timeRow) =>
+        renderEventTitle(
+          event,
+          config,
+          entityLabel,
+          titleForecasts,
+          titlePill,
+          mergedLabels,
+          titleWords,
+          entityLabelAlt,
+          timeRow,
+        ),
+      shouldShowTime,
+      nowLabel,
+      allDayBadgeEl,
+      timeContent,
+      trailingCountdown,
+      countdownStr,
+      showInlineProgress,
+      progressPercentage,
+      progressRow,
+      weatherRow,
+      eventLocation,
+      locationIcon,
+      locationText,
+      eventDescription,
+      descriptionText,
+    });
+  }
+
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
   // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
   // extraction seams" in tests/list-dom.test.ts).
@@ -1077,6 +1179,116 @@ export function renderEventContent(
               </div>
             `
           : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * What `renderTimeBesideTitle` lays out, computed once by `renderEventContent` so that neither
+ * function derives a piece of the row the other already has.
+ */
+interface TimeBesideTitlePieces {
+  /** The title row, drawn with the given time row as its last item. */
+  title: (timeRow: TemplateResult) => TemplateResult;
+  shouldShowTime: boolean;
+  nowLabel: string | null | undefined;
+  allDayBadgeEl: TemplateResult | typeof nothing;
+  timeContent: TemplateResult | typeof nothing;
+  trailingCountdown: string | null;
+  countdownStr: string | null;
+  showInlineProgress: boolean;
+  progressPercentage: number | null;
+  progressRow: TemplateResult | typeof nothing;
+  weatherRow: TemplateResult | typeof nothing;
+  eventLocation: string;
+  locationIcon: string;
+  locationText: unknown;
+  eventDescription: string;
+  descriptionText: unknown;
+}
+
+/**
+ * An event body with its time row as the last item of the title row (`time_position: title`).
+ *
+ * The `.time` element is the one `renderEventContent` draws below the title, unchanged, so
+ * every rule written for it still applies: its clock, its "Now" run, an all-day badge, list
+ * view's trailing countdown or inline bar, and column view's countdown folded into the time
+ * text all travel with it. Only its place changes. Everything else stays where it was, in the
+ * order it was: column view's own progress row, its weather row, the location and the
+ * description. tests/time-position.test.ts holds both halves to `renderEventContent`'s own
+ * markup, so the two copies cannot drift apart.
+ *
+ * `time-beside-title` on `.event-content` is what the stylesheet keys on. It lets the time row
+ * share the title's line while about 8em of title still fits beside it, and otherwise drops it
+ * to a line of its own that reads as today's row; see the block of rules under that name.
+ *
+ * @param pieces - The row's parts, as `renderEventContent` computed them
+ * @returns Rendered event body
+ */
+function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
+  const {
+    shouldShowTime,
+    nowLabel,
+    allDayBadgeEl,
+    timeContent,
+    trailingCountdown,
+    countdownStr,
+    showInlineProgress,
+    progressPercentage,
+  } = pieces;
+
+  // The three shapes `renderEventContent` draws, in its order, and with nothing between its
+  // tags that the time row's own layout could see: `.time` and `.time-actual` are flex rows.
+  const timeRow = shouldShowTime
+    ? html`<div class="time">
+        <div class="time-actual">
+          <ha-icon icon=${nowLabel ? 'mdi:clock' : 'mdi:clock-outline'}></ha-icon>
+          ${allDayBadgeEl}${timeContent}
+        </div>
+        ${
+          trailingCountdown
+            ? html`<div class="time-countdown">${trailingCountdown}</div>`
+            : showInlineProgress
+              ? html`<div class="progress-bar">
+                  <div class="progress-bar-filled" style="width: ${progressPercentage}%"></div>
+                </div>`
+              : nothing
+        }
+      </div>`
+    : countdownStr
+      ? html`<div class="time">
+          <div class="time-actual"></div>
+          <div class="time-countdown">${countdownStr}</div>
+        </div>`
+      : html`<div class="time">
+          <div class="time-actual"></div>
+          <div class="progress-bar">
+            <div class="progress-bar-filled" style="width: ${progressPercentage}%"></div>
+          </div>
+        </div>`;
+
+  return html`
+    <div class="event-content time-beside-title">
+      ${pieces.title(timeRow)}
+      <div class="time-location">
+        ${pieces.progressRow} ${pieces.weatherRow}
+        ${
+          pieces.eventLocation
+            ? html`<div class="location">
+                <ha-icon icon="${pieces.locationIcon}"></ha-icon>
+                <span>${pieces.locationText}</span>
+              </div>`
+            : nothing
+        }
+        ${
+          pieces.eventDescription
+            ? html`<div class="description">
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+                <span>${pieces.descriptionText}</span>
+              </div>`
+            : nothing
+        }
       </div>
     </div>
   `;

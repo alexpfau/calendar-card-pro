@@ -719,6 +719,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   time: 'Time',
   show_time: 'Show Time',
+  time_position: 'Time Position',
+  'time_position.helper':
+    'Moves the time row, with whatever follows it on that row, up beside the event title. ' +
+    'On a narrow event the time stays below the title, as it does in most columns.',
+  'time_position.option.below.label': 'Below the title',
+  'time_position.option.title.label': 'Beside the title when there is room',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper':

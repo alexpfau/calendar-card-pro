@@ -927,6 +927,9 @@ describe('editor: applicability', () => {
       allday_badge: ['column', 'list'],
       allday_badge_style: ['column', 'list'],
       allday_badge_color: ['column', 'list'],
+      // A grid block fits its own rows and has no title row for the time to join; its
+      // renderer never passes the placement to the leaf.
+      time_position: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
@@ -2568,10 +2571,14 @@ describe('editor: the Events panel opening run', () => {
     // The content run leads, and its five switches are the reason the four groups below
     // can be emitted conditionally: what an event is made of is decided here, and each
     // group holds only the styling of a line that already exists. That run is why this
-    // pin is the panel's whole visible body rather than three styling runs.
+    // pin is the panel's whole visible body rather than three styling runs. Where the time
+    // row goes sits directly under its switch, inside the run rather than in the Time group,
+    // because that group is withheld while times are off and the choice still moves a
+    // countdown-only row then.
     expect(namesIn(buildConfig())).toEqual([
       'heading_details',
       'show_time',
+      'time_position',
       'show_location',
       'show_description',
       'show_countdown',
@@ -4979,6 +4986,9 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // title, a named field rather than an unfiltered one — so it too has no editor-only
     // value and its dropdown is exactly the union.
     replace_field: { field: 'entity.replace_field' },
+    // A shared view override with a card-level control of the same name, whose dropdown is
+    // exactly the union: `below` is the shipped layout rather than an absent value.
+    time_position: { field: 'time_position' },
   };
 
   /**

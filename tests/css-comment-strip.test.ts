@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(186_000);
-    // Links in rows and drawing a new event in the grid moved the ceiling last, from 183,000 to
+    expect(saved).toBeLessThan(191_000);
+    // The time beside the title moved the ceiling last, from 186,000 to 191,000: the notes on why
+    // each of its rules keeps a row whose time drops under the title as it was, why the weather
+    // badge stays centered, why the time row's baseline comes from its tallest text and which
+    // rows that bet loses, and why a row whose time moved keeps its ink shift and its first
+    // detail row's 2px. The reading went 183,042 to 188,100, taken with stripComments after the
+    // last comment in the change was written.
+    //
+    // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and
     // why a drawn event is the time area's ::after, set by attributes and custom properties, so
     // the grid's structure observers never see an element come and go. The reading went to

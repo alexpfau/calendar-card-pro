@@ -78,6 +78,9 @@ export const COLUMN_OVERRIDE_KEYS = [
   'progress_bar_width',
   'event_icon_vertical_alignment',
   'show_time',
+  // Each view sets it on its own: a list row is usually wide enough for the time beside the
+  // title, and a column near the default `min_day_width` almost never is.
+  'time_position',
   'show_single_allday_time',
   'show_multiday_allday_time',
   'allday_badge',
@@ -350,6 +353,11 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   allday_badge: new Set<Types.EffectiveView>(['list', 'column']),
   allday_badge_style: new Set<Types.EffectiveView>(['list', 'column']),
   allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // A grid block lays out its own rows and fits its time itself, so it has no title row for
+  // the time to join: `renderTimedEvent` never passes the placement down, and the leaf never
+  // reads the option for itself. tests/view-scope-inert.test.ts pins it.
+  time_position: new Set<Types.EffectiveView>(['list', 'column']),
 
   // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
   // the banner and on the "+N more" overflow chip — so a grep for the class finds it and

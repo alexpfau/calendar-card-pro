@@ -129,10 +129,10 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
 `compact_days_to_show` · `compact_events_complete_days` ·
 `split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color` ·
-`allday_badge` · `allday_badge_style` · `allday_badge_color` · `show_now_indicator` ·
-`show_single_allday_time` · `show_multiday_allday_time` · `show_location_allday` ·
-`show_description_allday` · `show_countdown_allday` · `event_spacing` · `event_gap` ·
-`time_max_lines` · `open_links`
+`allday_badge` · `allday_badge_style` · `allday_badge_color` · `time_position` ·
+`show_now_indicator` · `show_single_allday_time` · `show_multiday_allday_time` ·
+`show_location_allday` · `show_description_allday` · `show_countdown_allday` ·
+`event_spacing` · `event_gap` · `time_max_lines` · `open_links`
 
 Compact caps empty later day columns rather than shortening the card, and the grid already
 segments multi-day events itself — all-day as one spanning banner, timed as one block per
@@ -154,7 +154,8 @@ its own padding and is placed by its own time. `time_max_lines` gives way to the
 fit for the time row, which gives up the clock, a single line, the end time and then the row
 as a block runs out of room. The editor hides
 all eight in Grid as well. `open_links` draws no links in grid blocks, whose words are drawn
-for the eye only, and is hidden in Grid too.
+for the eye only, and is hidden in Grid too. `time_position` has no title row to move a time
+into, since a grid block lays out and fits its own rows, and it is hidden in Grid as well.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 
@@ -303,6 +304,7 @@ still hides past events in List and Column, but Grid requires its own override.
 | `scroll_long_titles`            | boolean           | `false`                       | Keep overflowing titles on one line, overriding `title_max_lines`. Where supported, visible titles share forward starts and return individually to wait at their beginnings. Reduced motion and Grid's short-title fallback stay static. See [Scrolling Long Titles](/features/event-content#scrolling-long-titles)                                                                                                                                                                                            |
 | `event_color`                   | string            | `--primary-text-color`        | Event title font color. Accepts `accent` for a readable shade of each event's own calendar color; grid view defaults this to `accent` inside `time_grid:`                                                                                                                                                                                                                                                                                                                                                      |
 | `show_time`                     | boolean           | `true`                        | Whether to show event times                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `time_position`                 | string            | `below`                       | Where the time row goes: `below` the title, or `title` to draw it beside the title wherever about 8em of title still fits next to it, taking list view's countdown or progress bar along. A row with less room keeps the time below. Settable per view in `list:` and `column:`. Ignored in grid view                                                                                                                                                                                                          |
 | `show_single_allday_time`       | boolean           | `true`                        | Whether to show time display for all-day single-day events                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `show_multiday_allday_time`     | boolean           | `true`                        | Whether to show the time row for all-day events spanning several days. That row carries the end date, so it is a separate option. Timed multi-day events are unaffected                                                                                                                                                                                                                                                                                                                                        |
 | `allday_badge`                  | string            | `off`                         | Where the all-day pill is drawn: `off` for plain text, `title` to wrap the event title, or `time` to replace the all-day label beside the clock. A title pill is kept to one line and shortened with an ellipsis                                                                                                                                                                                                                                                                                               |

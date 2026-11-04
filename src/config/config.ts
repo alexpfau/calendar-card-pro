@@ -112,6 +112,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',
   show_time: true,
+  time_position: 'below',
   show_single_allday_time: true,
   show_multiday_allday_time: true,
   allday_badge: 'off',
