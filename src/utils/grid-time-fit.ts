@@ -338,8 +338,9 @@ export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
  * The row is sized to `max-content`, and the wrapped shape puts the end time on a line of its
  * own, so the row's max-content width is the wider of the two lines -- which is precisely the
  * quantity the rung tests against. Confirmed against the browser's own line boxes on 55
- * live rows, in both clock modes. A folded countdown continues the second line, so its words
- * come off that line's width (`withoutCountdownWords`).
+ * live rows, in both clock modes. A folded countdown continues the second line, so that line
+ * is read off the countdown's box (`countdownLineReach`) and its words come off it
+ * (`withoutCountdownWords`).
  *
  * Zero where the row has no end time to move, so the rung collapses into the one above it.
  *
@@ -348,9 +349,31 @@ export function openGridTimeWrapMeasurement(target: GridTimeTarget): void {
  */
 export function measureGridTimeWrapped(target: GridTimeTarget): number {
   if (!target.end) return 0;
-  const width = target.time.getBoundingClientRect().width;
   const words = countdownWordsWidth(target);
-  return words > 0 ? withoutCountdownWords(width, words, startLineReach(target)) : width;
+  if (words <= 0) return target.time.getBoundingClientRect().width;
+  return withoutCountdownWords(countdownLineReach(target), words, startLineReach(target));
+}
+
+/**
+ * How far the line holding a folded countdown reaches from the row's inline start, in the
+ * wrapped shape, where the countdown is that line's last box and holds its separator.
+ *
+ * Read off the countdown's own box rather than the row's width. The break before the end time
+ * is generated, and Firefox sizes a row like that one space wider than any line it draws: the
+ * space the end time leads with, which the line itself drops. That priced the wrap 3px too
+ * high there and refused it in lanes it fits.
+ *
+ * @param target Nodes from `gridTimeTarget`
+ * @returns The countdown line's reach, the row's width where the countdown draws no box
+ */
+function countdownLineReach(target: GridTimeTarget): number {
+  const row = target.time.getBoundingClientRect();
+  const boxes = target.countdown?.getClientRects();
+  const last = boxes?.[boxes.length - 1];
+  if (!last) return row.width;
+  const rtl =
+    target.time.ownerDocument.defaultView?.getComputedStyle(target.time).direction === 'rtl';
+  return rtl ? row.right - last.left : last.right - row.left;
 }
 
 /**

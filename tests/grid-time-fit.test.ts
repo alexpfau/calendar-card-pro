@@ -931,10 +931,71 @@ describe('grid time row fit', () => {
       const costs = GridTimeFit.measureGridTimeCosts(target, 100);
       expect(costs.full).toBe(ROW);
       expect(costs.words).toBe('in 4 days'.length * 6);
+      // In the wrapped shape the countdown ends the second line, where the row ends.
+      target.countdown!.getClientRects = () =>
+        [{ left: ROW - 64, right: ROW, width: 64 }] as unknown as DOMRectList;
       // The wrapped row is the wider of "9:00" and the second line less the words.
       expect(GridTimeFit.measureGridTimeWrapped(target)).toBe(ROW - 'in 4 days'.length * 6);
       rangeRect.mockRestore();
     });
+
+    /**
+     * Firefox sizes a row whose end time follows a generated line break one space wider than any
+     * line it draws: the space the end time leads with, which the line itself drops (2.98px in
+     * Roboto at 12px). Read off the row, that space priced the wrapped rung out of lanes it fits.
+     * The second line is read off the countdown's own box instead, in either direction.
+     */
+    it.each(['ltr', 'rtl'])(
+      "reads the countdown's line off its box, not the row's width (%s)",
+      (dir) => {
+        const el = document.createElement('div');
+        el.className = 'grid-event';
+        el.innerHTML = `
+        <div class="grid-event-disclosure">
+          <div class="time"><div class="time-actual">
+            <span class="time-text"><span>9:00<span class="time-end"> - 13:00</span></span><span class="time-countdown">in 4 days</span></span>
+          </div></div>
+        </div>`;
+        const time = el.querySelector<HTMLElement>('.time')!;
+        const realStyle = window.getComputedStyle.bind(window);
+        const direction = vi
+          .spyOn(window, 'getComputedStyle')
+          .mockImplementation((element, pseudo) => {
+            const style = realStyle(element, pseudo);
+            return element === time ? ({ ...style, direction: dir } as CSSStyleDeclaration) : style;
+          });
+        const LINE = 160;
+        const PHANTOM = 3;
+        // The row, as Firefox sizes it at max-content: one space wider than its second line.
+        time.getBoundingClientRect = () =>
+          ({ left: 100, right: 100 + LINE + PHANTOM, width: LINE + PHANTOM }) as DOMRect;
+        const countdown = el.querySelector<HTMLElement>('.time-countdown')!;
+        countdown.getClientRects = () =>
+          (dir === 'rtl'
+            ? [{ left: 100 + PHANTOM, right: 100 + PHANTOM + 64, width: 64 }]
+            : [{ left: 100 + LINE - 64, right: 100 + LINE, width: 64 }]) as unknown as DOMRectList;
+        const rangeRect = vi
+          .spyOn(Range.prototype, 'getBoundingClientRect')
+          .mockImplementation(function (this: Range) {
+            const width = this.toString().length * 6;
+            return dir === 'rtl'
+              ? ({
+                  left: 100 + LINE + PHANTOM - width,
+                  right: 100 + LINE + PHANTOM,
+                  width,
+                } as DOMRect)
+              : ({ left: 100, right: 100 + width, width } as DOMRect);
+          });
+
+        try {
+          const target = GridTimeFit.gridTimeTarget(el)!;
+          expect(GridTimeFit.measureGridTimeWrapped(target)).toBe(LINE - 'in 4 days'.length * 6);
+        } finally {
+          rangeRect.mockRestore();
+          direction.mockRestore();
+        }
+      },
+    );
 
     /**
      * The separator is the countdown's box less its words, read while the row is one unbroken
