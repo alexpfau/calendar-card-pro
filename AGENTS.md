@@ -1347,10 +1347,10 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
    here is now a `check:i18n` error, because these files are imported statically for all
-   36 languages and land on every dashboard load.
+   38 languages and land on every dashboard load.
 
 2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
-   may be partial**. Eleven of the 36 languages translate the editor; the other 25 have no
+   may be partial**. Eleven of the 38 languages translate the editor; the other 27 have no
    file here at all and the editor renders in English. Both are supported — `lookup()` in
    `src/rendering/editor/localize.ts` resolves each key on its own, falling back
    **requested language → English**, where English is `strings.ts`.
@@ -1396,6 +1396,18 @@ Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language
 everywhere except relative times, which quietly fall back to English. Catalan and
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
+
+🚨 **A dayjs locale name is not a language tag, and Serbian is where they part.** Day.js
+names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, and ships no `sr-latn`;
+`Intl` and Home Assistant read `sr` as Cyrillic and write Latin as `sr-Latn`. `mapLocale()`
+returns the language tag, which `Intl` gets as it is, and `getRelativeTimeString()` alone
+renames it through `DAYJS_LOCALE_NAMES`. The contribution that added Serbian imported
+`dayjs/locale/sr-latn`. That file does not exist, so Rollup left it as an external import
+the browser cannot resolve, and the card would not have loaded for anyone. The obvious fix
+of passing `sr` through unchanged gives Cyrillic users Latin relative times. `check:i18n`
+now fails on an import that does not resolve. The wrong script is caught only by the script
+test in `tests/translations.test.ts`, which compares every language's relative times
+against the script of its own day names.
 
 `npm run check:i18n` catches every one of these wiring mistakes mechanically, including
 that one, and runs in CI. Run it before you claim a language is done — but note it

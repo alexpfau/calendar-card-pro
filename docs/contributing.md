@@ -123,6 +123,8 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Portuguese** (`pt`)
 - **Romanian** (`ro`)
 - **Russian** (`ru`)
+- **Serbian (Cyrillic)** (`sr`)
+- **Serbian (Latin)** (`sr-latn`)
 - **Slovak** (`sk`)
 - **Slovenian** (`sl`)
 - **Spanish** (`es`)
@@ -150,6 +152,10 @@ To add a new language:
    - _Note:_ regional variants normally need no dayjs entry, since `mapLocale()` reduces
      them to their base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct
      locale you actually need (as with `zh-cn` / `zh-tw`).
+   - _Note:_ check which script a dayjs locale is written in before you import it. Day.js
+     names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, the opposite of
+     what Home Assistant and the browser mean by `sr`. A language whose dayjs locale goes
+     by another name also needs an entry in `DAYJS_LOCALE_NAMES` in the same file.
 5. **Add your language to the supported list above** on this page, in alphabetical order.
 6. **Verify** with `npm run lint`, `npm run check:i18n` and `npm run build`
 7. **Submit a Pull Request** with your changes
@@ -166,9 +172,9 @@ To add a new language:
 
 The visual editor's strings are optional and live separately, in
 `src/rendering/editor/translations/[lang-code].json`. The editor is available in 12 of the
-36 languages: English, which lives in code, and the eleven with a file here — nine translated
+38 languages: English, which lives in code, and the eleven with a file here — nine translated
 in full, Korean in part, plus British English, which carries only the strings where it
-differs from US English. The other 24 render the editor in English, which is fully supported.
+differs from US English. The other 26 render the editor in English, which is fully supported.
 
 They are kept apart because they are the larger half of the translations by some margin,
 and the editor is loaded only when someone opens it — so a dashboard never downloads them
