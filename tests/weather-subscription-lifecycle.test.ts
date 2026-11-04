@@ -66,8 +66,10 @@ function makeConnection() {
     connection: {
       async subscribeMessage(
         callback: (message: { forecast: Array<Record<string, unknown>> }) => void,
-        payload: { forecast_type: string; entity_id: string },
+        payload: { type: string; forecast_type: string; entity_id: string },
       ) {
+        // Calendar subscriptions answered as Home Assistant before 2026.5 does.
+        if (payload.type === 'calendar/event/subscribe') throw { code: 'unknown_command' };
         if (gate) await gate;
         const record: SubRecord = {
           forecastType: payload.forecast_type,

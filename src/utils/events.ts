@@ -9,6 +9,7 @@ import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Grid from './grid';
 import * as Helpers from './helpers';
+import * as LiveCalendars from './live-calendars';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
@@ -33,9 +34,17 @@ import * as Localize from '../translations/localize';
  *   calendar changed, because it may already be carrying the old answer. Meant for the
  *   moment after a write. Named for one write (see `advanceWriteGeneration`), it joins a
  *   request started since that write, so every card refreshing for it shares one request
- *   per signature; named for none, it always starts its own.
+ *   per signature; named for none, it always starts its own. It asks REST for every calendar,
+ *   never a subscription that may still hold the answer from before (`LiveCalendars`).
+ * - `live` — as `network`, for a card a subscription told of a change: calendars without a live
+ *   subscription are asked for only once due, by their own last answer and backoff, and
+ *   otherwise kept as they are. A calendar that changes often must not retry a failing one
+ *   early.
+ *
+ * Every load but `reload` takes a calendar from its live subscription where it has one, in
+ * place of a REST request.
  */
-export type EventLoad = 'cache' | 'network' | 'reload';
+export type EventLoad = 'cache' | 'network' | 'reload' | 'live';
 
 /**
  * Where a window's cache entry lives.
@@ -231,6 +240,8 @@ interface InFlightRequest {
   settled: Map<string, Types.CalendarEventData[] | null>;
   /** Callers to tell each time a calendar answers (`fetchEventData`'s `onPartial`). */
   watchers: Set<() => void>;
+  /** The load that started it. */
+  load: EventLoad;
 }
 
 /**
@@ -429,7 +440,7 @@ export async function fetchEventData(
   if (rawFetch) {
     Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    rawFetch = startRawFetch(hass, config, request, failureCountHint);
+    rawFetch = startRawFetch(hass, config, request, failureCountHint, load);
   }
 
   const inFlight = rawFetch;
@@ -541,6 +552,7 @@ function oldestLoad(entry: Types.CacheEntry, rawEvents: Types.CalendarEventData[
  * @param config Calendar card configuration
  * @param request Resolved request identity
  * @param failureCountHint Consecutive failures the caller has seen for this query
+ * @param load The load that starts it
  * @returns The registered request
  */
 function startRawFetch(
@@ -548,6 +560,7 @@ function startRawFetch(
   config: Types.Config,
   request: ResolvedRequest,
   failureCountHint: number,
+  load: EventLoad,
 ): InFlightRequest {
   const seq = ++requestSeq;
   latestRequestSeq.set(`${request.store}|${request.cacheKey}`, seq);
@@ -559,6 +572,7 @@ function startRawFetch(
     expired: false,
     settled: new Map(),
     watchers: new Set(),
+    load,
   } as unknown as InFlightRequest;
   inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
     () => {
@@ -604,9 +618,14 @@ async function fetchRawEvents(
   inFlight: InFlightRequest,
 ): Promise<Types.CacheEntry> {
   Logger.info('Fetching events from API');
-  const entities = config.entities.map((e) =>
-    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-  );
+  const entityIds = uniqueEntityIds(config.entities);
+  const carried =
+    inFlight.load === 'live'
+      ? notYetDue(hass, config, request, entityIds, Date.now())
+      : new Set<string>();
+  const entities = config.entities
+    .map((e) => (typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e))
+    .filter((e) => !carried.has(e.entity));
 
   const { events: fetchedEvents, failedEntities } = await fetchEvents(
     hass,
@@ -616,18 +635,27 @@ async function fetchRawEvents(
       inFlight.settled.set(entityId, events);
       for (const watcher of [...inFlight.watchers]) watcher();
     },
+    inFlight.load !== 'reload',
   );
 
   const now = Date.now();
   const previous = readStoredEntry(request.store, request.cacheKey);
   const failed = new Set(failedEntities);
-  const entityIds = uniqueEntityIds(config.entities);
+  // Calendars kept as they were, without being asked: still failing counts, as no attempt.
+  const stillFailing = new Set([...carried].filter((id) => previous?.failedEntities?.includes(id)));
   const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
 
   const lastSuccess: Record<string, number> = {};
   const events = [...fetchedEvents];
 
   for (const entityId of entityIds) {
+    if (carried.has(entityId)) {
+      const lastLoaded = previous ? lastSuccessOf(previous, entityId) : undefined;
+      if (lastLoaded === undefined || now - lastLoaded >= maxStaleMs) continue;
+      lastSuccess[entityId] = lastLoaded;
+      events.push(...previous!.events.filter((event) => event._entityId === entityId));
+      continue;
+    }
     if (!failed.has(entityId)) {
       lastSuccess[entityId] = now;
       continue;
@@ -647,7 +675,13 @@ async function fetchRawEvents(
     lastSuccess,
   };
 
-  if (failed.size > 0) {
+  if (failed.size === 0 && stillFailing.size > 0) {
+    // Nothing failed that was asked: the failing calendars wait for their own deadline.
+    entry.failedEntities = entityIds.filter((id) => stillFailing.has(id));
+    entry.failureCount = previous?.failureCount ?? 1;
+    entry.retryAt = previous?.retryAt;
+  } else if (failed.size > 0) {
+    for (const id of stillFailing) failed.add(id);
     // The entry is the shared record. The caller's own count is only a stand-in for when
     // there is no entry at all, stored or held, and must never outvote one: a card
     // that saw an outage, then only ever drew another card's healthy entry, still carries
@@ -686,6 +720,98 @@ async function fetchRawEvents(
   }
 
   return entry;
+}
+
+/**
+ * The calendars a `live` load keeps as they are: those a live subscription does not answer that
+ * are not due by their own clock, a failing one before its retry, any other within the refresh
+ * interval of its last answer.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param request Resolved request identity
+ * @param entityIds The request's calendars
+ * @param now Current time in epoch milliseconds
+ * @returns Their entity ids
+ */
+function notYetDue(
+  hass: Types.Hass,
+  config: Types.Config,
+  request: ResolvedRequest,
+  entityIds: readonly string[],
+  now: number,
+): Set<string> {
+  const kept = new Set<string>();
+  const previous = readStoredEntry(request.store, request.cacheKey);
+  if (!previous || previous.expired) return kept;
+  for (const entityId of entityIds) {
+    const live = LiveCalendars.peek(hass, entityId, request.window);
+    if (live?.state === 'live' && !live.reconnecting) continue;
+    if (previous.failedEntities?.includes(entityId)) {
+      if (typeof previous.retryAt === 'number' && now < previous.retryAt) kept.add(entityId);
+      continue;
+    }
+    const lastLoaded = lastSuccessOf(previous, entityId);
+    if (lastLoaded !== undefined && now - lastLoaded < getCacheDuration(config)) kept.add(entityId);
+  }
+  return kept;
+}
+
+/**
+ * The window and calendars a configuration asks for now, for the subscriptions that follow
+ * them (`LiveCalendars`).
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @returns The request's window and its calendars, each once
+ */
+export function liveScope(
+  hass: Types.Hass,
+  config: Types.Config,
+): { window: { start: Date; end: Date }; entityIds: string[] } {
+  return {
+    window: resolveRequest(hass, config, '').window,
+    entityIds: uniqueEntityIds(config.entities),
+  };
+}
+
+/**
+ * The calendars whose live subscription holds other events than the cache entry a card draws
+ * from, or that the entry records as failed while their subscription answers: the card loads
+ * again, and the load takes them from the subscription.
+ *
+ * A subscription waiting for its push after a reconnect is skipped: its events may be older
+ * than the entry's.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @param store Where the window's cache entry lives
+ * @returns Each such calendar with the version of its subscription's events, and when the entry
+ *   was written, for a card to tell whether another card wrote it since it drew
+ */
+export function liveDrift(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+  store: CacheStore = 'persistent',
+): { drift: string[]; writtenAt: number | undefined } {
+  const request = resolveRequest(hass, config, instanceId, store);
+  const entry = readStoredEntry(store, request.cacheKey);
+  if (!entry) return { drift: [], writtenAt: undefined };
+  const drift: string[] = [];
+  for (const entityId of uniqueEntityIds(config.entities)) {
+    const live = LiveCalendars.peek(hass, entityId, request.window);
+    if (live?.state !== 'live' || live.reconnecting) continue;
+    const held = entry.events.filter((event) => event._entityId === entityId);
+    if (
+      entry.failedEntities?.includes(entityId) ||
+      LiveCalendars.fingerprintEvents(held) !== live.fingerprint
+    ) {
+      drift.push(`${entityId}@${live.version}`);
+    }
+  }
+  return { drift, writtenAt: entry.timestamp };
 }
 
 /**
@@ -2760,6 +2886,8 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
  * @param timeWindow Window to request
  * @param onSettled Told as each calendar answers, before the others have: its events, or
  *   null when it failed
+ * @param live Whether a calendar's live subscription may answer in place of a request; the
+ *   subscriptions are held until every calendar has answered (`LiveCalendars.lease`)
  * @returns The events of every calendar that answered, and the ids of those that did not
  */
 export async function fetchEvents(
@@ -2767,22 +2895,28 @@ export async function fetchEvents(
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
   onSettled?: (entityId: string, events: Types.CalendarEventData[] | null) => void,
+  live = false,
 ): Promise<Pick<Types.EventFetchResult, 'events' | 'failedEntities'>> {
   const entityIds = uniqueEntityIds(entities);
   const query = `start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
+  const release = live ? LiveCalendars.lease(hass, entityIds, timeWindow) : null;
 
   const outcomes = await Promise.all(
     entityIds
       .map(async (entityId) => {
         const path = `calendars/${entityId}?${query}`;
-        Logger.info(`Fetching calendar events with path: ${path}`);
 
         try {
-          const events = await withTimeout(
-            hass.callApi('GET', path),
-            Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
-            `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
-          );
+          const pushed = release ? await LiveCalendars.load(hass, entityId, timeWindow) : undefined;
+          if (pushed) Logger.info(`Using live events for ${entityId}`);
+          else Logger.info(`Fetching calendar events with path: ${path}`);
+          const events =
+            pushed ??
+            (await withTimeout(
+              hass.callApi('GET', path),
+              Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+              `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
+            ));
 
           if (!events || !Array.isArray(events)) {
             Logger.warn(`Invalid response for ${entityId}`);
@@ -2807,7 +2941,7 @@ export async function fetchEvents(
           return outcome;
         }),
       ),
-  );
+  ).finally(() => release?.(LiveCalendars.REQUEST_LINGER));
 
   const allEvents: Types.CalendarEventData[] = [];
   const failedEntities: string[] = [];

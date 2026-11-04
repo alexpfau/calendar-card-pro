@@ -1088,6 +1088,8 @@ export interface Hass {
      * popover's place lookup reads it too, with the home's position below.
      */
     country?: string | null;
+    /** Home Assistant's time zone, as an IANA name; pushed calendar events are written in it. */
+    time_zone?: string;
     /** Where the home is, which decides which of two towns of one name the popover maps. */
     latitude?: number;
     longitude?: number;
@@ -1100,6 +1102,8 @@ export interface Hass {
     ) => Promise<() => void>;
     /** One-shot WebSocket request; not every custom-card `hass` also has `callWS`. */
     sendMessagePromise?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
+    /** `ready` fires each time the connection comes back, once it has subscribed again. */
+    addEventListener?: (type: 'ready' | 'disconnected', listener: () => void) => void;
   };
   /** Sends a one-shot WebSocket command; optional so callers can degrade gracefully. */
   callWS?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
