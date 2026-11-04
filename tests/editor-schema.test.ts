@@ -2816,6 +2816,7 @@ describe('editor: the Card & Header panel', () => {
         'view_switcher',
         'reset',
         'refresh',
+        'search',
         'navigation',
       ]);
     }

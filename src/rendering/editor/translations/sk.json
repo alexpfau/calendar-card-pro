@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Pre zdieľanú obrazovku. Jedným stlačením zruší zmeny dní, rozloženia, kalendárov a rozšíreného pohľadu na tomto zariadení.",
   "toolbar.refresh": "Tlačidlo „Obnoviť“",
   "toolbar.refresh.helper": "Načíta udalosti znova hneď teraz, a nie až pri ďalšom plánovanom obnovení.",
+  "toolbar.search": "Tlačidlo „Hľadať“",
+  "toolbar.search.helper": "Vyhľadá udalosti karty podľa názvu, miesta alebo popisu, rok dozadu a rok dopredu. Výsledok otvorí svoj deň na karte, preto tlačidlo potrebuje navigáciu podľa dátumu.",
   "toolbar.add_event": "Tlačidlo „Pridať udalosť“",
   "toolbar.add_event.helper": "Otvorí novú udalosť na vyplnenie. Zobrazí sa, keď aspoň jeden z kalendárov karty prijíma nové udalosti.",
   "toolbar.legend": "Filter kalendárov",

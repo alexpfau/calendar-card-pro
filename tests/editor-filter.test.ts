@@ -909,6 +909,7 @@ describe('editor filter: section headings', () => {
       'view_switcher',
       'reset',
       'refresh',
+      'search',
       'navigation',
     ]);
     expect(headingNames(toolbar)).toEqual(['heading_toolbar']);

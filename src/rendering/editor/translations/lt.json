@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Bendram ekranui. Vienu paspaudimu atšaukia šiame įrenginyje atliktus dienų, išdėstymo, kalendorių ir išplėsto vaizdo pakeitimus.",
   "toolbar.refresh": "Mygtukas „Atnaujinti“",
   "toolbar.refresh.helper": "Iš karto iš naujo nuskaito įvykius, o ne laukia kito suplanuoto atnaujinimo.",
+  "toolbar.search": "Mygtukas „Paieška“",
+  "toolbar.search.helper": "Randa kortelės įvykius pagal pavadinimą, vietą ar aprašymą, metus atgal ir metus į priekį. Rezultatas atveria savo dieną kortelėje, todėl mygtukui reikia naršymo pagal datas.",
   "toolbar.add_event": "Mygtukas „Pridėti įvykį“",
   "toolbar.add_event.helper": "Atveria naują įvykį, kurį galite užpildyti. Rodomas, kai bent vienas kortelės kalendorius priima naujus įvykius.",
   "toolbar.legend": "Kalendorių filtras",
