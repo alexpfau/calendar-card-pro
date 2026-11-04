@@ -182,6 +182,49 @@ describe('timed Grid accessible information', () => {
     expect(blocks[0].querySelectorAll('.summary > :not(.event-title)')).toHaveLength(3);
   });
 
+  it.each([
+    ['an icon', 'mdi:calendar', 'Anna at work'],
+    ['a picture', '/fictional-avatar.svg', 'Anna at work'],
+    ["Home Assistant's icon", 'home-assistant', 'Anna at work'],
+    // A person's picture is named by the person, whatever the calendar is called.
+    ["a person's picture", 'person.anna', 'Anna'],
+    // Text is its own name, and the calendar's name never replaces it.
+    ['text', 'Work', 'Work'],
+  ])('names %s label by the name the calendar is given on the card', (_name, label, expected) => {
+    const { container } = fixture({
+      entities: [{ entity: 'calendar.anna', label, name: 'Anna at work' }],
+    });
+    const name = accessibleGroup(container.querySelector('.grid-event')!).getAttribute(
+      'aria-label',
+    )!;
+    expect(name.split(', ')[0]).toBe(`\u2068${expected}\u2069`);
+  });
+
+  it('names each contributor of a merged row by its own calendar name', () => {
+    const { container } = fixture(
+      {
+        filter_duplicates: true,
+        entities: [
+          { entity: 'calendar.anna', label: 'mdi:calendar', name: 'Anna at work' },
+          { entity: 'calendar.ben', label: 'mdi:school', name: 'Ben at school' },
+          // Unnamed on the card, so Home Assistant's name, as before.
+          { entity: 'calendar.family', label: 'mdi:home' },
+        ],
+      },
+      ['calendar.anna', 'calendar.ben', 'calendar.family'].map((entity) => ({
+        ...source,
+        _entityId: entity,
+      })),
+    );
+    const blocks = container.querySelectorAll('.grid-event');
+    expect(blocks).toHaveLength(1);
+    expect(accessibleGroup(blocks[0]).getAttribute('aria-label')!.split(', ').slice(0, 3)).toEqual([
+      '\u2068Anna at work\u2069',
+      '\u2068Ben at school\u2069',
+      '\u2068Family calendar\u2069',
+    ]);
+  });
+
   it('does not expose disabled details or labels even though the raw feed contains them', () => {
     const { container } = fixture({
       entities: [{ entity: 'calendar.anna', label: 'Anna', label_type: 'none' }],

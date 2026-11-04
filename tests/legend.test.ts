@@ -526,6 +526,28 @@ describe('the calendar legend', () => {
     ]);
   });
 
+  it('names a calendar by the name the configuration gives it, from whichever block holds it', async () => {
+    // Anna's name is on her second block only, and Ben's carries spaces: the calendar's name
+    // is read from the whole list and trimmed. Family has no name in Home Assistant at all.
+    const card = await mount({
+      title: 'Family',
+      entities: [
+        { entity: ANNA, accent_color: '#e53935' },
+        { entity: BEN, accent_color: '#1e88e5', name: '  Ben at school  ' },
+        { entity: ANNA, accent_color: '#000000', name: 'Anna at work' },
+        { entity: FAMILY, name: 'Home' },
+      ],
+    });
+
+    expect(describeChips(card).map(({ name }) => name)).toEqual([
+      'Anna at work',
+      'Ben at school',
+      'Home',
+    ]);
+    // Still one chip per calendar, keyed by its id, however it is named.
+    expect(chips(card).map((button) => button.dataset.calendar)).toEqual([ANNA, BEN, FAMILY]);
+  });
+
   it("is a group named by Home Assistant's own words, or in English for assistive technology", async () => {
     const named = await mount();
     const lane = root(named).querySelector('.toolbar-legend')!;
@@ -1235,6 +1257,27 @@ describe("the menu the legend's button opens", () => {
       ['Anna', true],
       ['Ben', true],
       [FAMILY, true],
+    ]);
+  });
+
+  it('lists each calendar by the name the configuration gives it, else by Home Assistant’s', async () => {
+    const card = await mountMenu({
+      entities: [
+        { entity: ANNA, accent_color: '#e53935', name: 'Anna at work' },
+        { entity: BEN, accent_color: '#1e88e5' },
+        { entity: FAMILY, name: 'Home' },
+      ],
+    });
+    await open(card);
+
+    const rows = Array.from(root(card).querySelectorAll('.legend-menu-row')).map((element) => [
+      (element as HTMLElement).dataset.calendar,
+      element.textContent!.trim(),
+    ]);
+    expect(rows).toEqual([
+      [ANNA, 'Anna at work'],
+      [BEN, 'Ben'],
+      [FAMILY, 'Home'],
     ]);
   });
 

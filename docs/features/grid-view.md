@@ -636,7 +636,9 @@ therefore not guaranteed to show text at every card height or font.
 
 Timed events retain their full, unellipsized configured information in the browser's
 accessibility tree even when their visual text is clipped or absent. Calendar and person
-names identify picture/icon labels, original event times describe continuations, and
+names identify picture/icon labels, a calendar by its
+[`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one and a person
+always by their own; original event times describe continuations, and
 intentionally disabled details stay omitted. This does not add an event action or another
 keyboard tab stop; [`event_tap_action`](/features/actions#tapping-an-event) is what adds
 both. All-day banners and overflow-count blocks are outside this fallback.

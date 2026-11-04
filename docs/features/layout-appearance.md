@@ -350,7 +350,9 @@ for a card that should not carry a button.
 
 The calendar filter hides or shows each calendar's events on this device. It is on whenever the
 toolbar is, as a button at the start of the top row that opens a menu with a checkbox for each
-calendar on the card, tinted in that calendar's color and named as Home Assistant names it. A
+calendar on the card, tinted in that calendar's color and named by its
+[`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one, and as Home
+Assistant names it otherwise. A
 calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
 first entry.
 

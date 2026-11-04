@@ -54,6 +54,7 @@ import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
+import * as CalendarNames from './utils/calendar-names';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
@@ -999,15 +1000,15 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * A calendar as the popover names it: its name in Home Assistant, and its accent resolved to
-   * a color that means something outside the card, where the popover is drawn.
+   * A calendar as the popover names it: by its name on this card (`CalendarNames`), and its
+   * accent resolved to a color that means something outside the card, where the popover is
+   * drawn.
    *
    * @param id - The calendar
    * @param color - Its accent where the caller has it already, else the card's for it
    * @returns The calendar
    */
   private _popoverCalendar(id: string, color?: string): PopoverModel.PopoverCalendar {
-    const name = this.safeHass?.states?.[id]?.attributes?.friendly_name;
     const accent =
       color ??
       EventUtils.getEntityAccentColorWithOpacity(
@@ -1019,7 +1020,7 @@ class CalendarCardPro extends LitElement {
       );
     return {
       id,
-      name: typeof name === 'string' && name ? name : id,
+      name: CalendarNames.calendarName(id, this.config, this.safeHass),
       color: this._resolvedColor(accent),
     };
   }
@@ -6302,9 +6303,11 @@ class CalendarCardPro extends LitElement {
   /**
    * The notice naming calendars that could not be loaded, or nothing.
    *
-   * Names come from Home Assistant's friendly names; an entity that does not exist — the
-   * usual cause of a calendar that never loads — has none, and is named by its id, which
-   * is exactly what someone fixing the config needs to see.
+   * Each is named as the card names it everywhere else, with one addition: an entity Home
+   * Assistant does not know — the usual cause of a calendar that never loads — keeps its id
+   * in view, after the name the configuration gives it or alone where it has none, because
+   * the id is exactly what someone fixing the config needs to see
+   * (`CalendarNames.failedCalendarName`).
    *
    * @returns The notice, or `nothing`
    */
@@ -6313,20 +6316,22 @@ class CalendarCardPro extends LitElement {
       return nothing;
     }
 
-    const names = this._failedEntities.map((entityId) => this._calendarName(entityId));
+    const names = this._failedEntities.map((entityId) =>
+      CalendarNames.failedCalendarName(entityId, this.config, this.hass),
+    );
 
     return Render.renderFetchErrorNotice(names, this.effectiveLanguage);
   }
 
   /**
-   * A calendar's name as Home Assistant holds it, or its entity id where it holds none.
+   * A calendar's name on this card: the name the configuration gives it, else Home
+   * Assistant's, else its entity id (`CalendarNames.calendarName`).
    *
    * @param entityId - The calendar
    * @returns Its name
    */
   private _calendarName(entityId: string): string {
-    const friendlyName = this.hass?.states?.[entityId]?.attributes?.friendly_name;
-    return typeof friendlyName === 'string' && friendlyName.trim() !== '' ? friendlyName : entityId;
+    return CalendarNames.calendarName(entityId, this.config, this.hass);
   }
 
   /**
@@ -6943,8 +6948,9 @@ class CalendarCardPro extends LitElement {
   /**
    * The calendar legend, when the configuration asks for it.
    *
-   * One entry per calendar, colored by its accent as its events are and named as Home
-   * Assistant names it. While the card is being edited every calendar is shown and nothing
+   * One entry per calendar, colored by its accent as its events are and named as the card
+   * names it: the name the configuration gives it, else Home Assistant's. While the card is
+   * being edited every calendar is shown and nothing
    * toggles. Folded into a button under `menu`, and under `chips` while they did not all fit
    * at this width (`_syncLegendFit`).
    *

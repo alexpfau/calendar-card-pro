@@ -3779,6 +3779,7 @@ describe('editor: per-calendar settings', () => {
         'label_image_source',
         'label_type',
         'location_icon',
+        'name',
         'replace_field',
         'replace_pattern',
         'replace_with',

@@ -14,6 +14,7 @@ import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -582,6 +583,9 @@ export function filterExtras(
 /**
  * Whether a calendar's own identity answers the query.
  *
+ * Its identity is its entity id, its label and its name. The name is the calendar's, so the
+ * one the configuration gives it anywhere in the list counts, not only this block's own.
+ *
  * @param entry - Entry as stored
  * @param ctx - Matching context
  * @returns `true` when the calendar matches, or when nothing was typed
@@ -592,8 +596,9 @@ function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx): bool
 
   const config = Entities.asEntityConfig(entry);
   const label = typeof config.label === 'string' ? config.label : undefined;
+  const name = configuredCalendarName([...(ctx.config?.entities ?? []), config], config.entity);
 
-  return anyMatches([config.entity, label], query);
+  return anyMatches([config.entity, label, name], query);
 }
 
 /**

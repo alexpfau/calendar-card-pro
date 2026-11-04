@@ -558,7 +558,7 @@ An event's details and a new event both open in the card's own popover, modeled 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;
 - the location, with a [map or a pin](#maps-locations);
-- the calendar's name, with its color;
+- the calendar's name, with its color: its [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card where it has one, else Home Assistant's, and the same for each calendar it can move to;
 - the description, with its web addresses as [links](#links).
 
 The popover is part of the card's own file, so nothing is loaded when it opens.

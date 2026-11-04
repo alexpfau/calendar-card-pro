@@ -1210,6 +1210,7 @@ export function normalizeEntities(
     | string
     | {
         entity: string;
+        name?: unknown;
         label?: string;
         label_type?: string;
         color?: string;
@@ -1251,6 +1252,10 @@ export function normalizeEntities(
       if (item && typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
+          // Trimmed, and blank or not a string at all is no name: a name that would draw as
+          // nothing must not stand in for the one Home Assistant holds.
+          name:
+            typeof item.name === 'string' && item.name.trim() !== '' ? item.name.trim() : undefined,
           label: item.label,
           // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,

@@ -88,6 +88,7 @@ src/
     ├── entity-colors.ts          # Calendar colors from HA's entity registry, over WebSocket
     ├── entity-icons.ts           # Calendar icons from entity state, for `label: home-assistant`
     ├── person-pictures.ts        # Person pictures from entity state, for `label: person.*`
+    ├── calendar-names.ts         # A calendar's name on the card: `name`, HA's, or its id
     ├── logger.ts                 # Logging system
     ├── templates.ts              # Jinja2 title templates over the HA websocket
     ├── title-motion.ts           # Pure per-title timing and cohort admission state
@@ -1131,6 +1132,13 @@ Provides core functionality across the card:
     changes, and only for a card that uses it. Icons, for `label: home-assistant`, and
     person pictures, for `label: person.*`, are read from entity state attributes on
     `hass`, with no fetch
+
+- **calendar-names.ts**:
+  - The one resolver for a calendar's name wherever the card itself names one: the legend,
+    the "Couldn't load" notice, the event popover and the grid's screen-reader names. The
+    first non-blank `name` across every entry for the calendar, else Home Assistant's
+    `friendly_name`, else the entity id. The editor's panel heading reads Home Assistant's
+    name instead, to match the picker above it
 
 - **paging.ts**:
   - The date navigation's rules, pure and over local calendar days: how many days a page

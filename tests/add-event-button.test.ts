@@ -553,6 +553,21 @@ describe('pressing the add-event button', () => {
     expect(refreshEvents).toHaveBeenCalledOnce();
   });
 
+  it('names the calendars a new event may go to as the card names them', async () => {
+    const card = await mount({
+      entities: [READ_ONLY, { entity: WRITABLE_2, name: 'Ben at school' }, WRITABLE],
+      toolbar: ADD_ONLY,
+    });
+
+    button(card)!.click();
+
+    // Neither has a name in Home Assistant here, so the unnamed one keeps its id.
+    expect(openedOnce().calendars.map(({ id, name }) => [id, name])).toEqual([
+      [WRITABLE_2, 'Ben at school'],
+      [WRITABLE, WRITABLE],
+    ]);
+  });
+
   it('preselects the first writable calendar that is not failing to load', async () => {
     const callApi = vi.fn((_method: string, path: string) =>
       path.startsWith(`calendars/${WRITABLE_2}`)

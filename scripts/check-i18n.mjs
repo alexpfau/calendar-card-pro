@@ -1049,6 +1049,9 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:entity.label',
   'de:view',
 
+  // `Name` is the ordinary German word for it, spelled as in English.
+  'de:entity.name',
+
   // `Layout` is the Italian term chosen by the glossary.
   'it:view',
 
