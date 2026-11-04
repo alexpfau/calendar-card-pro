@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { handleAction } from '../src/interaction/actions';
+import { handleAction, handleButtonAction } from '../src/interaction/actions';
 
 /** A config differing from the default only in the fields named. */
 function config(overrides: Partial<Types.Config>): Types.Config {
@@ -170,14 +170,24 @@ describe("handleAction keeps the card's own actions to itself", () => {
     refresh: 'refresh',
     'add-event': 'addEvent',
     reset: 'reset',
+    back: 'back',
   } as const;
+
+  /** A spy for every callback the card hands over. */
+  const spies = () => ({
+    expand: vi.fn(),
+    refresh: vi.fn(),
+    addEvent: vi.fn(),
+    reset: vi.fn(),
+    back: vi.fn(),
+  });
 
   it.each(Object.keys(OWN) as Array<keyof typeof OWN>)(
     'runs the %s callback, and only it, and dispatches nothing',
     (action) => {
       // The card's own actions have no Home Assistant equivalent, so delegating one would
       // reach a handler that does not know the name.
-      const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
+      const callbacks = spies();
       const { node, events } = listeningNode();
 
       handleAction(node, config({ hold_action: { action } }), 'hold', callbacks);
@@ -189,7 +199,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
-  it.each(['expand', 'refresh', 'add-event', 'reset'] as const)(
+  it.each(['expand', 'refresh', 'add-event', 'reset', 'back'] as const)(
     'does not delegate %s when no callback was supplied',
     (action) => {
       const { node, events } = listeningNode();
@@ -200,10 +210,28 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
+  it('hands back the action pressed, for the page it falls back to', () => {
+    // `back` goes to its own `navigation_path` where there is no page behind this one, so the
+    // callback has to be told which action was pressed: tap and hold may name different paths.
+    const callbacks = spies();
+    const { node } = listeningNode();
+    const hold = { action: 'back', navigation_path: '/lovelace/home' };
+
+    handleAction(
+      node,
+      config({ tap_action: { action: 'back' }, hold_action: hold }),
+      'hold',
+      callbacks,
+    );
+
+    expect(callbacks.back).toHaveBeenCalledTimes(1);
+    expect(callbacks.back).toHaveBeenCalledWith(hold);
+  });
+
   it('does not run a callback for any other action', () => {
     // The control for the pair above: the callbacks are passed on every real call site in
     // `calendar-card-pro.ts`, so it has to be the action that selects one, not its presence.
-    const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
+    const callbacks = spies();
     const { node, events } = listeningNode();
 
     handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', callbacks);
@@ -212,6 +240,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     expect(callbacks.refresh).not.toHaveBeenCalled();
     expect(callbacks.addEvent).not.toHaveBeenCalled();
     expect(callbacks.reset).not.toHaveBeenCalled();
+    expect(callbacks.back).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });
 });
@@ -256,5 +285,89 @@ describe('handleAction with nothing configured', () => {
     handleAction(node, missing as unknown as Types.Config, 'tap');
 
     expect(events).toHaveLength(1);
+  });
+});
+
+describe("handleButtonAction runs a toolbar button's action as the card runs its own", () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  const ENTITIES: Array<string | Types.EntityConfig> = [
+    { entity: 'calendar.family' },
+    'calendar.anna',
+  ];
+
+  it("hands Home Assistant's actions over with the button's own entity", () => {
+    const { node, events } = listeningNode();
+
+    handleButtonAction(
+      node,
+      { icon: 'mdi:lamp', entity: 'light.hall', tap_action: { action: 'toggle' } },
+      ENTITIES,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(detailOf(events[0])).toEqual({
+      config: { entity: 'light.hall', tap_action: { action: 'toggle' } },
+      action: 'tap',
+    });
+  });
+
+  it("acts on the card's first calendar where the button names no entity", () => {
+    const { node, events } = listeningNode();
+
+    handleButtonAction(
+      node,
+      { icon: 'mdi:information', tap_action: { action: 'more-info' } },
+      ENTITIES,
+    );
+
+    expect(detailOf(events[0]).config.entity).toBe('calendar.family');
+  });
+
+  it("runs the card's own actions through their callbacks, back with the action pressed", () => {
+    const callbacks = {
+      expand: vi.fn(),
+      refresh: vi.fn(),
+      addEvent: vi.fn(),
+      reset: vi.fn(),
+      back: vi.fn(),
+    };
+    const { node, events } = listeningNode();
+    const back = { action: 'back', navigation_path: '/lovelace/home' };
+
+    handleButtonAction(node, { icon: 'mdi:arrow-left', tap_action: back }, ENTITIES, callbacks);
+    handleButtonAction(
+      node,
+      { icon: 'mdi:refresh', tap_action: { action: 'refresh' } },
+      ENTITIES,
+      callbacks,
+    );
+
+    expect(callbacks.back).toHaveBeenCalledWith(back);
+    expect(callbacks.refresh).toHaveBeenCalledTimes(1);
+    expect(callbacks.expand).not.toHaveBeenCalled();
+    expect(events).toHaveLength(0);
+  });
+
+  it.each([
+    ['no action', undefined],
+    ['the action none', { action: 'none' }],
+    ['an action with no name', {} as Types.ActionConfig],
+  ])('does nothing for a button with %s', (_name, tap_action) => {
+    const callbacks = {
+      expand: vi.fn(),
+      refresh: vi.fn(),
+      addEvent: vi.fn(),
+      reset: vi.fn(),
+      back: vi.fn(),
+    };
+    const { node, events } = listeningNode();
+
+    handleButtonAction(node, { icon: 'mdi:star', tap_action }, ENTITIES, callbacks);
+
+    expect(events).toHaveLength(0);
+    for (const callback of Object.values(callbacks)) expect(callback).not.toHaveBeenCalled();
   });
 });

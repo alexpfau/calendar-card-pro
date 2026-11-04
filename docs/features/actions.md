@@ -79,24 +79,25 @@ hold_action:
 
 ### Available Actions
 
-Calendar Card Pro handles four actions itself — `expand`, `refresh`, `add-event` and `reset` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+Calendar Card Pro handles five actions itself — `expand`, `refresh`, `add-event`, `reset` and `back` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
 The commonly used ones:
 
-| Action Type                       | Description                                          | Additional Parameters                              |
-| --------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| `expand`                          | Toggle between compact and full calendar view        | None                                               |
-| `refresh`                         | Load the events again now                            | None                                               |
-| `add-event`                       | Add an event on the day you pressed                  | None                                               |
-| `reset`                           | Undo this device's choices, as the reset button does | None                                               |
-| `more-info`                       | Open the Home Assistant entity dialog                | `entity` (optional): which entity; see below       |
-| `navigate`                        | Go to another Lovelace view                          | `navigation_path: /lovelace/view`                  |
-| `url`                             | Open external URL or internal page                   | `url_path: https://example.com`                    |
-| `perform-action` / `call-service` | Call any Home Assistant action (service)             | `perform_action: domain.service`, `data`, `target` |
-| `toggle`                          | Toggle the target entity                             | None                                               |
-| `assist`                          | Open the Assist dialog                               | None                                               |
-| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others)    | Any additional keys are passed through             |
-| `none`                            | Disable the action                                   | None                                               |
+| Action Type                       | Description                                                                  | Additional Parameters                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `expand`                          | Toggle between compact and full calendar view                                | None                                                                                 |
+| `refresh`                         | Load the events again now                                                    | None                                                                                 |
+| `add-event`                       | Add an event on the day you pressed                                          | None                                                                                 |
+| `reset`                           | Undo this device's choices, as the reset button does                         | None                                                                                 |
+| `back`                            | Go back to the page before this one, as Home Assistant's own back arrow does | `navigation_path` (optional, YAML only): where to go when no page is behind this one |
+| `more-info`                       | Open the Home Assistant entity dialog                                        | `entity` (optional): which entity; see below                                         |
+| `navigate`                        | Go to another Lovelace view                                                  | `navigation_path: /lovelace/view`                                                    |
+| `url`                             | Open external URL or internal page                                           | `url_path: https://example.com`                                                      |
+| `perform-action` / `call-service` | Call any Home Assistant action (service)                                     | `perform_action: domain.service`, `data`, `target`                                   |
+| `toggle`                          | Toggle the target entity                                                     | None                                                                                 |
+| `assist`                          | Open the Assist dialog                                                       | None                                                                                 |
+| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others)                            | Any additional keys are passed through                                               |
+| `none`                            | Disable the action                                                           | None                                                                                 |
 
 ::: tip Both Action Names Work
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations. The same goes for its keys: the older `service` and `service_data` still work in place of `perform_action` and `data`.
@@ -115,12 +116,12 @@ To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-eve
 :::
 
 ::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event` and `reset` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
 :::
 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
-A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event, or on a day that adds one, shows a wash over what you pressed instead, and the ripple stays still for the whole press, including the moment the popover opens. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset` and `details` have none.
+A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event, or on a day that adds one, shows a wash over what you pressed instead, and the ripple stays still for the whole press, including the moment the popover opens. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset`, `back` and `details` have none.
 
 ### Refreshing From a Tap or Hold
 
@@ -182,6 +183,41 @@ calendar filter, or an `expand` action. On any other card, and while you edit th
 offers no tap or hold for it. On a card that has the reset button, the button shows its check
 after a reset, as after a press.
 
+### Going Back From a Tap or Hold
+
+`back` goes back to the page you came from, as the arrow in Home Assistant's own header does. On
+a view opened from another dashboard, a tap returns there:
+
+```yaml
+tap_action:
+  action: back
+```
+
+It goes back only to a page Home Assistant itself opened this one from. Where there is none, as
+in a new tab, a bookmark, the first page a wall tablet shows, or the Home Assistant app opened
+straight on this view, it shows the first view of this dashboard instead, in place of the page
+you are on. Give it a `navigation_path` to go somewhere else then:
+
+```yaml
+hold_action:
+  action: back
+  navigation_path: /lovelace/home
+```
+
+`back` never leaves Home Assistant and never goes back to its login page. The visual editor
+offers it as Go Back; `navigation_path` is YAML only, since Home Assistant's action editor shows
+no fields for an action it does not know. While you edit the card it does nothing, and the card
+offers no tap or hold for it. A [button of your own](/features/layout-appearance#your-own-buttons)
+in the toolbar can run it too.
+
+::: info How the Card Knows
+Home Assistant marks every page it opens from another of its own, and the card reads that mark to
+tell such a page from a new tab or a bookmark. The mark is Home Assistant's own rather than a
+documented interface, so a future release could change it. If it does, `back` always takes the
+second path above: it shows this dashboard rather than going back, and still never leaves Home
+Assistant.
+:::
+
 ## 🗒️ Tapping an Event
 
 A tap on an event can act on that event instead of on the whole card. Set `event_tap_action` to `details` and a tap opens the event in the card's [event popover](#the-event-popover), right beside it, with its times, its location, its full description and, for a repeating event, how it repeats:
@@ -195,7 +231,7 @@ event_tap_action:
   action: details
 ```
 
-`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event` and `reset`, act on the whole card, so on an event they read as `none` too. The visual editor's Event Tap Action dropdown offers Show Event Details and Home Assistant's actions.
+`event_tap_action` also takes Home Assistant's own actions, which can [use the tapped event's fields](#using-the-events-fields-in-an-action), such as a `url` built from its title. Left at `none`, the default, events are not tap targets, and a tap on one is a tap on the card that runs `tap_action`. The card's own actions, `expand`, `refresh`, `add-event`, `reset` and `back`, are about the whole card or the page, so on an event they read as `none` too. The visual editor's Event Tap Action dropdown offers Show Event Details and Home Assistant's actions.
 
 ### Event Details
 

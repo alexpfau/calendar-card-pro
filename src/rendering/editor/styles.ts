@@ -159,6 +159,7 @@ export default css`
     margin-top: 8px;
   }
 
+  ha-expansion-panel.button-panel,
   ha-expansion-panel.entity-panel {
     margin: 0;
   }
@@ -168,7 +169,9 @@ export default css`
      the user lands, so Remove is separated from the three that can be undone by simply
      doing them again: an auto start margin holds it against the far edge, and on a narrow
      panel — where the four buttons no longer fit on one line — it wraps onto a line of its
-     own rather than sitting next to Duplicate. */
+     own rather than sitting next to Duplicate. A toolbar button's panel lays out Move Up,
+     Move Down and Remove the same way. */
+  .button-actions,
   .entity-actions {
     border-bottom: 1px solid var(--divider-color);
     display: flex;
@@ -177,14 +180,26 @@ export default css`
     padding-bottom: 8px;
   }
 
+  .button-actions-safe,
   .entity-actions-safe {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
+  .button-actions .destructive,
   .entity-actions .destructive {
     margin-inline-start: auto;
+  }
+
+  /* The panel body spaces its children 16px apart, and a form spaces its fields 24px apart;
+     the buttons' sub-heading takes the form's spacing from the toolbar's last switch above it. */
+  .buttons-heading {
+    margin-top: 8px;
+  }
+
+  .add-button {
+    align-self: flex-start;
   }
 
   .text-button {

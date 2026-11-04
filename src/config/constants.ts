@@ -68,11 +68,25 @@ export const ADD_EVENT_ACTION = 'add-event';
 export const RESET_ACTION = 'reset';
 
 /**
- * The actions the card runs itself rather than handing to Home Assistant, in the order the
- * editor offers them. Each acts on the whole card, so on an event they are nothing
- * (`eventActionKind`).
+ * The card action that goes back to the page before this one, as Home Assistant's own back
+ * arrow does (`interaction/back.ts`): a value of `tap_action` and `hold_action`, and of a
+ * toolbar button's.
  */
-export const CARD_ACTION_VALUES = ['expand', 'refresh', ADD_EVENT_ACTION, RESET_ACTION] as const;
+export const BACK_ACTION = 'back';
+
+/**
+ * The actions the card runs itself rather than handing to Home Assistant, in the order the
+ * editor offers them. None is about one event, so on an event they are nothing
+ * (`eventActionKind`). `back` comes last: the four before it act on the card, and it acts on the
+ * page, as the Home Assistant actions after it in the dropdown do.
+ */
+export const CARD_ACTION_VALUES = [
+  'expand',
+  'refresh',
+  ADD_EVENT_ACTION,
+  RESET_ACTION,
+  BACK_ACTION,
+] as const;
 
 /** The event action that opens the tapped event's dialog: a value of `event_tap_action` and `event_hold_action`. */
 export const EVENT_DETAILS_ACTION = 'details';
@@ -250,6 +264,26 @@ export const UI = {
    */
   TOOLBAR_COMMAND_WIDTH: 36,
   TOOLBAR_COMMAND_GAP: 8,
+
+  /**
+   * The view switcher drawn as pictograms: each view a segment this wide, on a track padded this
+   * much all round. Both are the stylesheet's, so the room the switcher leaves the rest of the
+   * action row is worked out exactly (`utils/toolbar-fold.ts`).
+   */
+  TOOLBAR_SWITCHER_SEGMENT_WIDTH: 34,
+  TOOLBAR_SWITCHER_TRACK_PADDING: 3,
+
+  /**
+   * How far the action row's content stands in from the card's own edges, both sides together,
+   * in each view: Home Assistant's 1px card border on either side, the card's inline padding, and
+   * the row's own start padding, which stands for the title's margin. List pads the card 8px at
+   * its start and 16px at its end, and the row 8px more; column and grid pad the card 16px on
+   * both sides and drop the row's. The three come to the same width because each lines the
+   * toolbar up with the days, and are kept apart so a view that changes its padding changes one
+   * entry. A theme with another border width moves the row by the difference, which the card
+   * notices once it has drawn the row (`_syncStartFoldFit`).
+   */
+  TOOLBAR_ROW_INSET: { list: 34, column: 34, grid: 34 },
 
   /**
    * How much wider than its chips need the card must be before a folded legend draws them

@@ -42,6 +42,7 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
+import * as Toolbar from '../src/rendering/toolbar';
 import * as EventUtils from '../src/utils/events';
 import * as Paging from '../src/utils/paging';
 
@@ -562,6 +563,21 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['legend', { toolbar: { show: true, navigation: true, legend: 'chips' } }],
   // The legend folded into a button, with the menu it opens, beside refresh.
   ['folded legend', { toolbar: { show: true, legend: 'menu', refresh: true } }],
+  // The configuration's own buttons and add, folded into the start group's menu button, with the
+  // menu it opens: their names are words there.
+  [
+    'folded buttons',
+    {
+      toolbar: {
+        show: true,
+        legend: false,
+        buttons: [
+          { icon: 'mdi:arrow-left', name: 'Back' },
+          { icon: 'mdi:view-dashboard-outline', name: 'Main dashboard' },
+        ],
+      },
+    },
+  ],
 ];
 
 /**
@@ -648,6 +664,7 @@ function corpusConfig(view: (typeof VIEWS)[number], variant: Record<string, unkn
 /** Render one view of the card, title included, the way the host does. */
 function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLElement {
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
+  const toolbar = config.toolbar?.show ? headerToolbar(view, config) : undefined;
   const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
   const content =
     view === 'grid'
@@ -668,58 +685,81 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
       undefined,
       undefined,
       undefined,
-      config.toolbar?.show
-        ? {
-            labeled: true,
-            heading: {
-              text: Paging.monthHeadingParts(new Date(2026, 5, 1), 'en'),
-              reserve: [0, 8].map((month) =>
-                Paging.monthHeadingParts(new Date(2026, month, 1), 'en'),
-              ),
-              full: [0, 8].map((month) => Paging.monthHeadingParts(new Date(2026, month, 1), 'en')),
-              short: false,
-              range: 'Jun 17 – Jun 23',
-            },
-            navigation: config.toolbar.navigation
-              ? {
-                  homeName: 'Today',
-                  previousName: 'Previous',
-                  nextName: 'Next',
-                  pickerValue: '2026-06-17',
-                  inert: false,
-                  onPrevious: () => undefined,
-                  onHome: () => undefined,
-                  onNext: () => undefined,
-                  onPick: () => undefined,
-                }
-              : undefined,
-            viewSwitcher: {
-              views: VIEWS.map((option) => ({ view: option, label: option, available: true })),
-              selected: view,
-              onSelect: () => undefined,
-            },
-            refresh: config.toolbar.refresh
-              ? { label: 'Refresh', phase: 'idle', onActivate: () => undefined }
-              : undefined,
-            legend: config.toolbar.legend
-              ? {
-                  calendars: [
-                    { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
-                    { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
-                  ],
-                  name: 'My calendars',
-                  folded: config.toolbar.legend === 'menu',
-                  inert: false,
-                  onToggle: () => undefined,
-                }
-              : undefined,
-            addEvent: { label: 'Add event', onActivate: () => undefined },
-          }
-        : undefined,
+      toolbar,
     ),
     container,
   );
   return container;
+}
+
+/**
+ * The header toolbar a card with this configuration draws, every control in it. With buttons of
+ * the configuration's own, the start group keeps its first control and folds the rest, add among
+ * them, into its menu, so each row of the menu is drawn too.
+ */
+function headerToolbar(view: (typeof VIEWS)[number], config: Types.Config): Toolbar.HeaderToolbar {
+  const options = config.toolbar ?? {};
+  const toolbar: Toolbar.HeaderToolbar = {
+    labeled: true,
+    heading: {
+      text: Paging.monthHeadingParts(new Date(2026, 5, 1), 'en'),
+      reserve: [0, 8].map((month) => Paging.monthHeadingParts(new Date(2026, month, 1), 'en')),
+      full: [0, 8].map((month) => Paging.monthHeadingParts(new Date(2026, month, 1), 'en')),
+      short: false,
+      range: 'Jun 17 – Jun 23',
+    },
+    navigation: options.navigation
+      ? {
+          homeName: 'Today',
+          previousName: 'Previous',
+          nextName: 'Next',
+          pickerValue: '2026-06-17',
+          inert: false,
+          onPrevious: () => undefined,
+          onHome: () => undefined,
+          onNext: () => undefined,
+          onPick: () => undefined,
+        }
+      : undefined,
+    viewSwitcher: {
+      views: VIEWS.map((option) => ({ view: option, label: option, available: true })),
+      selected: view,
+      onSelect: () => undefined,
+    },
+    refresh: options.refresh
+      ? { label: 'Refresh', phase: 'idle', onActivate: () => undefined }
+      : undefined,
+    legend: options.legend
+      ? {
+          calendars: [
+            { id: 'calendar.anna', name: 'Anna', color: 'red', shown: true },
+            { id: 'calendar.ben', name: 'Ben', color: 'blue', shown: false },
+          ],
+          name: 'My calendars',
+          folded: options.legend === 'menu',
+          inert: false,
+          onToggle: () => undefined,
+        }
+      : undefined,
+    addEvent: { label: 'Add event', onActivate: () => undefined },
+    customButtons: options.buttons?.length
+      ? options.buttons.map((button) => ({
+          icon: button.icon!,
+          label: button.name!,
+          tooltip: button.name,
+          onActivate: () => undefined,
+        }))
+      : undefined,
+  };
+  const start = Toolbar.startControls(toolbar);
+  if (toolbar.customButtons) {
+    toolbar.startFold = {
+      plan: { visible: start.slice(0, 1), overflow: start.slice(1) },
+      menuName: 'Menu',
+      inert: false,
+    };
+  }
+  return toolbar;
 }
 
 interface Pass {
@@ -963,6 +1003,10 @@ describe('every piece of text is sized by its own option', () => {
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
       'calendar-label in summary': ['event_font_size'],
+      // A row of the menu the configuration's own buttons fold into, its name in words: a
+      // control, at Home Assistant's control size, which the menu sets for itself as the filter's
+      // menu does.
+      'custom-menu-label in custom-menu-row': ['--ha-font-size-m'],
       // The title is the card's headline without the toolbar. With it, the title is drawn in the
       // heading row as a label over the month, at Home Assistant's control size, and the month
       // takes the title's option.

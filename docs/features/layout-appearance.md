@@ -140,8 +140,9 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 ## 🧰 Header Toolbar
 
 The card can carry a toolbar of its own controls in its header: a
-[filter for the card's calendars](#showing-hiding-calendars), a button for adding events, a view
-switcher between the List, Columns and Grid layouts, a button that
+[filter for the card's calendars](#showing-hiding-calendars), a button for adding events,
+[buttons of your own](#your-own-buttons), a view switcher between the List, Columns and Grid
+layouts, a button that
 [resets the card](#resetting-the-card) to how it is set up, arrows to
 [page through the dates](#paging-through-dates), and a button that
 [loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
@@ -162,8 +163,8 @@ toolbar:
 The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. On the phone the switcher shows pictograms, and Reset appears once the layout has been switched; in the section the calendar chips fold into the filter button. On the wall, with room for them, they are chips.
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
-the calendar filter and the add button at its start, the view switcher in its middle, and
-refresh at its end, after reset when that is on. The row under it names the month
+the calendar filter and the add button at its start, then any buttons of your own, the view
+switcher in its middle, and refresh at its end, after reset when that is on. The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. Its month's name is bold and the year beside it
@@ -180,7 +181,8 @@ touch guidelines ask for. The month answers across its words and its arrow, and 
 them, but hardly above, so a press on the title over it still reaches the card.
 
 Each control is either an icon or words, never both. The top row's commands, the calendar
-filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip.
+filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip,
+and so are your own buttons, named by their `name`.
 The view switcher names its layouts in words, List, Columns and Grid, wherever the card is wide
 enough for them beside the commands, and shows a pictogram for each where it is not, with the
 name as its tooltip. In English the words fit from a 248px card with the switcher alone, plus 36px
@@ -477,6 +479,87 @@ English. Nothing else in the toolbar changes.
 In the card editor's preview, and on a dashboard in edit mode, the button is hidden and does
 nothing, like every other control in the toolbar there. What each device remembers is kept for
 when editing ends.
+:::
+
+### Your Own Buttons
+
+The toolbar can carry buttons of your own, each an icon and an action, at the start of the top
+row after the add button, in the order you write them. Here, a way back to the page you came
+from, and one to the main dashboard:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  buttons:
+    - icon: mdi:arrow-left
+      name: Back
+      tap_action:
+        action: back
+    - icon: mdi:view-dashboard-outline
+      name: Main dashboard
+      tap_action:
+        action: navigate
+        navigation_path: /lovelace/0
+```
+
+A press runs the button's `tap_action`, as a tap on the card runs the card's: any of
+[Home Assistant's actions](/features/actions#available-actions), or one of the card's own,
+`back`, `refresh`, `add-event`, `reset` or `expand`. `add-event` opens the
+[event popover](/features/actions#the-event-popover) right under the button. For `toggle` and
+`more-info`, `entity` names what the button acts on; without one it is the card's first
+calendar. A button with no action, or with `none`, is drawn and does nothing, so give each one
+an action. Buttons answer a tap only, not a hold.
+
+They look like the toolbar's other commands, a gray pill with the icon in the text color, and
+sit after the add button, toward the view switcher, so nothing that was there before them moves.
+An entry with no `icon`, or with a field of the wrong kind, is left out rather than drawn as an
+empty pill.
+
+Give each button a `name`. It is the button's tooltip and what screen readers announce. Without
+one, a button running `back`, `refresh`, `add-event` or `reset` takes Home Assistant's own word
+for it, as the toolbar's own buttons do; any other is named after its icon,
+"view dashboard outline", for screen readers alone.
+
+`back` goes back to the page you came from, as the arrow in Home Assistant's own header does.
+Where there is none, as in a new tab, a bookmark or the first page a wall tablet shows, it shows
+the page its `navigation_path` names instead, or else the first view of this dashboard; see
+[Going Back From a Tap or Hold](/features/actions#going-back-from-a-tap-or-hold). In a language
+read right to left the top row is mirrored, and an icon is drawn as you chose it, so pick
+`mdi:arrow-right` for a back button there.
+
+On a narrow card the top row gives way in a fixed order. The view switcher's words become
+pictograms first. Then the controls at the start of the row move into one menu button, three dots,
+from the end: your last button first, then the ones before it, then the add button. The first
+control there stays in the row at any width, the calendar filter's button wherever it is drawn,
+so the narrowest top row is that button and the menu button, the switcher, and the controls at the
+row's end. No control moves into the menu alone, since the menu button would take its room: two
+go when the menu first appears, and the last two come back together. The start of the row may
+take all the room the switcher and the end leave, so the switcher moves off center before a
+control moves. Reset and refresh never move into the menu: a card too narrow even for the
+narrowest top row puts them on a line of their own, which beside the filter's button, the
+switcher and refresh happens below 274px, and with reset as well below 318px.
+
+The menu lists what it holds in the order the row draws it, each with its icon and its name in
+words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
+scroll or a change in the card's width. The add button there opens the new event under the menu
+button. A control that has keyboard focus as it moves into the menu hands focus to the menu
+button. The controls come back into the row as the card widens again, as when a tablet is turned.
+
+In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
+toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with
+**Move Up**, **Move Down** and **Remove**, and **Add Button** after the last, which adds one with
+the `mdi:gesture-tap-button` icon for you to change. **Tap Action** offers the card's own actions
+first, **Go Back** among them. The editor has no field for `back`'s `navigation_path`; write that
+in YAML.
+
+::: tip Nothing Runs While You Edit
+In the card editor's preview, and on a dashboard in edit mode, your buttons are drawn, folded as
+they would be on the dashboard, and do nothing, like every other control in the toolbar there.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).

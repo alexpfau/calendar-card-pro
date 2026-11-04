@@ -37,6 +37,7 @@ import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
+import * as Back from './interaction/back';
 import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
 import * as EventActions from './interaction/event-actions';
@@ -50,6 +51,7 @@ import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
 import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
+import * as Menu from './rendering/menu';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
@@ -75,6 +77,7 @@ import {
   type TitleScrollMeasurement,
   supportsTitleMotion,
 } from './utils/title-motion-controller';
+import * as ToolbarFold from './utils/toolbar-fold';
 import * as ViewChoice from './utils/view-choice';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
@@ -366,6 +369,12 @@ type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
+
+/**
+ * Toolbar buttons already reported as having no name, by icon, so a card that renders again
+ * does not say so again.
+ */
+const unnamedButtonsReported = new Set<string>();
 
 /**
  * The real events in a grouping, leaving out the placeholders that stand for empty days.
@@ -723,9 +732,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
-   * `add-event` on a card that cannot add one now (`_canAddEvents`), nor `reset` on a card
-   * with nothing a reset could ever undo (`_canReset`). Such an action is no action at all: no
-   * tab stop, ripple or hold indicator promises what a press then refuses.
+   * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
+   * with nothing a reset could ever undo (`_canReset`), nor `back` while the card is being
+   * edited, when leaving the page would take the editor with it. Such an action is no action
+   * at all: no tab stop, ripple or hold indicator promises what a press then refuses.
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -735,6 +745,7 @@ class CalendarCardPro extends LitElement {
     if (!action || action.action === 'none') return false;
     if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
     if (action.action === Constants.RESET_ACTION) return this._canReset;
+    if (action.action === Constants.BACK_ACTION) return !this._isBeingEdited;
     return true;
   }
 
@@ -1155,8 +1166,8 @@ class CalendarCardPro extends LitElement {
    * waits for: the browser delivers that callback after layout and before paint, and the
    * update it requests runs in the microtask straight after, so the first frame painted
    * already has the right controls. The settle delay would paint the wrong ones first.
-   * Null until a width arrives, so a card that is never measured draws icons, which fit at
-   * any width.
+   * Null until a width arrives, so a card that is never measured draws icons, and the narrowest
+   * start group (`_startFold`): the smallest row it has.
    */
   private _toolbarWidthPx: number | null = null;
 
@@ -1264,6 +1275,25 @@ class CalendarCardPro extends LitElement {
   private _legendFitRaf: number | null = null;
 
   /**
+   * What the action row held when it was last drawn, as the start group's plan reckons with it,
+   * so a resize can tell whether the plan moves before anything is drawn again
+   * (`_syncToolbarLabels`).
+   */
+  private _toolbarRow: ToolbarFold.ActionRow | null = null;
+
+  /**
+   * The fewest of the start group's controls to fold at the width where the row the plan drew did
+   * not fit on one line, and what the row held then. See `_syncStartFoldFit`.
+   */
+  private _startFoldGuard: { widthPx: number; signature: string; atLeast: number } | null = null;
+
+  /**
+   * The start group's control that held focus as the coming render began, which the menu button
+   * takes over where that render folds it (`_handFocusToMenu`).
+   */
+  private _focusBeforeFold: ToolbarFold.StartControl | null = null;
+
+  /**
    * Counts fonts finishing loading while the toolbar is shown, since a chip or the month may
    * change width.
    */
@@ -1291,7 +1321,44 @@ class CalendarCardPro extends LitElement {
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
       reset: () => this._resetFromAction(),
+      back: (action) => this._goBack(action),
     };
+  }
+
+  /**
+   * The card's `back` action: back to the page before this one where Home Assistant navigated
+   * here from a page of its own, as its back arrow does, and otherwise this page replaced by the
+   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`).
+   *
+   * The fallback goes through Home Assistant's own `navigate` action, so the card writes no
+   * history of its own and Home Assistant routes the page as it routes any other. Nothing runs
+   * while the card is being edited: leaving the page would take the editor with it.
+   *
+   * @param action - The action pressed, for its `navigation_path`
+   */
+  private _goBack(action: Types.ActionConfig): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not going back while the card is being edited');
+      return;
+    }
+
+    const step = Back.backStep(
+      window.history.state,
+      window.location.pathname,
+      action.navigation_path,
+    );
+    if (step.kind === 'history') {
+      Logger.debug('Going back to the page before this one');
+      window.history.back();
+      return;
+    }
+
+    Logger.debug(`No page of Home Assistant's behind this one; going to ${step.path}`);
+    Actions.fireHassAction(
+      this,
+      { tap_action: { action: 'navigate', navigation_path: step.path, navigation_replace: true } },
+      'tap',
+    );
   }
 
   /**
@@ -1945,7 +2012,7 @@ class CalendarCardPro extends LitElement {
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
-    Legend.closeLegendMenus(this.renderRoot);
+    Menu.closeMenus(this.renderRoot);
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
     this._settleResetConfirmation();
@@ -2028,7 +2095,7 @@ class CalendarCardPro extends LitElement {
       if (typeof width === 'number' && width > 0) {
         // The card moved under an open menu, which is placed by where its button was.
         if (this._toolbarWidthPx !== null && Math.abs(width - this._toolbarWidthPx) > 0.5) {
-          Legend.closeLegendMenus(this.renderRoot);
+          Menu.closeMenus(this.renderRoot);
         }
         this._syncToolbarLabels(width);
         this._scheduleLegendFit();
@@ -2046,7 +2113,8 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Records the card's width for the toolbar, and re-renders at once if that moves it across the
-   * width the switcher's words need or the width the month fits in full from.
+   * width the switcher's words need, the width the month fits in full from, or a width at which
+   * the start group's plan folds a control more or fewer.
    *
    * No hysteresis: a dashboard sizes the card, not the card's content, so neither the switcher's
    * words nor the month's form can feed back into the width they were chosen from, and there is
@@ -2067,6 +2135,7 @@ class CalendarCardPro extends LitElement {
     const band = (width: number | null): string =>
       width === null ? '' : thresholds.map((threshold) => (width >= threshold ? 1 : 0)).join('');
     const crossed = band(widthPx) !== band(this._toolbarWidthPx);
+    const replanned = this._startHidden(widthPx) !== this._startHidden(this._toolbarWidthPx);
     // Words that overflowed at some width are tried again once the card grows past it.
     const overflowed = this._toolbarLabelsOverflowed;
     const outgrew =
@@ -2074,8 +2143,10 @@ class CalendarCardPro extends LitElement {
       widthPx > overflowed.widthPx &&
       (this._toolbarWidthPx ?? 0) <= overflowed.widthPx;
 
+    // The guard's fold holds at the width it was recorded at, and only there.
+    if (widthPx !== this._toolbarWidthPx) this._startFoldGuard = null;
     this._toolbarWidthPx = widthPx;
-    if ((crossed || outgrew) && Config.resolveToolbar(this.config).show) {
+    if ((crossed || replanned || outgrew) && Config.resolveToolbar(this.config).show) {
       this.requestUpdate();
     }
   }
@@ -3196,10 +3267,15 @@ class CalendarCardPro extends LitElement {
   /** Resolve language before rendering so the current update uses the new strings. */
   protected willUpdate(changedProps: PropertyValues): void {
     // A modal menu outliving its button would leave the page inert, so it closes before a
-    // render that takes the button away: the legend unfolding or going, or editing starting.
-    if (Legend.hasOpenLegendMenu(this.renderRoot) && !this._legendMenuMayStayOpen()) {
-      Legend.closeLegendMenus(this.renderRoot);
+    // render that takes the button away: the legend unfolding or going, every control of the
+    // start group coming back into the row, or editing starting.
+    if (Menu.hasOpenMenu(this.renderRoot, 'legend') && !this._legendMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'legend');
     }
+    if (Menu.hasOpenMenu(this.renderRoot, 'overflow') && !this._startMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'overflow');
+    }
+    this._focusBeforeFold = this._focusedStartControl();
 
     if (
       changedProps.has('hass') ||
@@ -3302,8 +3378,10 @@ class CalendarCardPro extends LitElement {
     this._syncMonthFit();
     this._syncHeadingMiddle();
     this._syncLegendFit(false);
+    this._handFocusToMenu();
+    this._syncStartFoldFit();
     Legend.markShortenedChips(this.renderRoot);
-    Legend.repositionLegendMenus(this.renderRoot);
+    Menu.repositionMenus(this.renderRoot);
     Toolbar.paintSelectedView(this.renderRoot);
   }
 
@@ -3381,7 +3459,7 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
 
     // A menu open over a card about to hide would keep the page inert under nothing visible.
-    if (shouldHide) Legend.closeLegendMenus(this.renderRoot);
+    if (shouldHide) Menu.closeMenus(this.renderRoot);
 
     this.hidden = shouldHide;
     this.style.display = shouldHide ? 'none' : '';
@@ -5399,6 +5477,13 @@ class CalendarCardPro extends LitElement {
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
+    // Reported once per configuration, rather than by every render that leaves them out.
+    for (const entry of Config.undrawableToolbarButtons(this.config)) {
+      Logger.warn(
+        `Toolbar button left out, as it cannot be drawn as written: ${JSON.stringify(entry)}. ` +
+          'Each needs an icon; a name and an entity are text, and a tap_action is an action.',
+      );
+    }
     if (this.config.time_grid) {
       const start = ViewConfig.resolveTimeGridOption(this.config, 'start_time');
       const end = ViewConfig.resolveTimeGridOption(this.config, 'end_time');
@@ -6158,7 +6243,11 @@ class CalendarCardPro extends LitElement {
       reset: this._resetButton(),
       refresh: this._refreshButton(),
       addEvent: this._addEventButton(),
+      customButtons: this._customButtons(),
     };
+    // Last, because which of the start group's controls fold depends on all the row holds.
+    this._toolbarRow = this._actionRow(controls);
+    controls.startFold = this._startFold(this._toolbarRow);
     this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
 
     return { labeled: this._toolbarLabeledFor(controls), ...controls };
@@ -6196,29 +6285,33 @@ class CalendarCardPro extends LitElement {
    * The card width from which the view switcher shows its words, or null without a switcher.
    *
    * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
-   * beside it add their two groups' widths exactly: the folded filter and add at the start, reset
-   * and refresh at the end, each an icon, with a gap between two in a group.
+   * beside it add their two groups' widths exactly: the folded filter, add and the
+   * configuration's own buttons at the start, one icon each and none in the menu, since the words
+   * give way before any control folds; and reset and refresh at the end, each an icon, with a gap
+   * between two in a group.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
    */
   private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
     if (!controls.viewSwitcher) return null;
-    const { TOOLBAR_COMMAND_WIDTH: icon, TOOLBAR_COMMAND_GAP: gap } = Constants.UI;
-    const group = (count: number): number => (count === 0 ? 0 : count * icon + (count - 1) * gap);
-    const start = [controls.legend?.folded ? controls.legend : undefined, controls.addEvent];
-    const end = [controls.reset, controls.refresh];
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    return Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + group(count(start)) + group(count(end));
+    const end = count([controls.reset, controls.refresh]);
+    return (
+      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
+      ToolbarFold.groupWidth(Toolbar.startControls(controls).length) +
+      ToolbarFold.groupWidth(end)
+    );
   }
 
   /**
    * What the fit of the switcher's words depends on, other than the width.
    *
    * Only what the row holds: the language, which sets the words, and which commands sit beside
-   * the switcher. The title and the dates sit in the heading row, so neither a templated title
-   * ticking over nor a page turned retries words that did not fit.
+   * the switcher, the configuration's own buttons by how many there are. The title and the
+   * dates sit in the heading row, so neither a templated title ticking over nor a page turned
+   * retries words that did not fit.
    *
    * @param controls - The controls this render draws
    * @returns A string that changes whenever the row would
@@ -6231,6 +6324,7 @@ class CalendarCardPro extends LitElement {
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
       controls.legend?.folded ? 'filter' : '',
+      `buttons:${controls.customButtons?.length ?? 0}`,
     ].join('\u0000');
   }
 
@@ -6297,6 +6391,7 @@ class CalendarCardPro extends LitElement {
       toolbar.reset !== undefined ||
       toolbar.refresh !== undefined ||
       toolbar.addEvent !== undefined ||
+      toolbar.customButtons !== undefined ||
       drawsEventTarget
     );
   }
@@ -7230,6 +7325,317 @@ class CalendarCardPro extends LitElement {
     };
     fonts.addEventListener('loadingdone', onLoaded);
     this._toolbarFontsCleanup = () => fonts.removeEventListener('loadingdone', onLoaded);
+  }
+
+  //-----------------------------------------------------------------------------
+  // THE CONFIGURATION'S OWN BUTTONS
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The buttons the configuration adds to the toolbar, when it adds any.
+   *
+   * Drawn after add, in the order written, each named by `_customButtonNames`. Where the action
+   * row runs out of room they fold into its menu from the last, before add does (`_startFold`).
+   * While the card is being edited everything is drawn, folded as on the dashboard, and nothing
+   * runs or opens.
+   *
+   * @returns Each button's description for the wrapper, or undefined for none
+   */
+  private _customButtons(): ReadonlyArray<Toolbar.CustomButton> | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || toolbar.buttons.length === 0) return undefined;
+
+    return toolbar.buttons.map((button): Toolbar.CustomButton => ({
+      icon: button.icon!.trim(),
+      ...this._customButtonNames(button),
+      onActivate: (element, pressed) => this._pressCustomButton(button, element, pressed),
+    }));
+  }
+
+  /**
+   * A toolbar button's names: its accessible name, which a folded menu also shows as the row's
+   * words, and its tooltip.
+   *
+   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event` or `reset`
+   * is named as the card's own button for it is, `back` as Home Assistant's own arrow: by Home
+   * Assistant's word, which is its tooltip too, or in English for assistive technology alone
+   * where Home Assistant has none (`_commandName`). Anything else is named by its icon's words
+   * (`iconWords`), for assistive technology alone, which is why the editor asks for a name.
+   *
+   * @param button - The button, as configured
+   * @returns Its accessible name, and its tooltip where it has one
+   */
+  private _customButtonNames(button: Types.ToolbarButtonConfig): {
+    label: string;
+    tooltip: string | undefined;
+  } {
+    const name = typeof button.name === 'string' ? button.name.trim() : '';
+    if (name !== '') return { label: name, tooltip: name };
+
+    const command = this._commandName(button.tap_action?.action);
+    if (command) return { label: command.word ?? command.fallback, tooltip: command.word };
+
+    const icon = button.icon!.trim();
+    const words = Helpers.iconWords(icon) || icon;
+    if (!unnamedButtonsReported.has(icon)) {
+      unnamedButtonsReported.add(icon);
+      Logger.debug(`Toolbar button ${icon} has no name; screen readers hear "${words}"`);
+    }
+    return { label: words, tooltip: undefined };
+  }
+
+  /**
+   * The name a command's own button goes by, for a button of the configuration's own that runs
+   * it: Home Assistant's word, resolved exactly as that button resolves it, and the English
+   * name the button falls back on.
+   *
+   * @param action - The action a button runs
+   * @returns The names, or undefined for an action no button of the card's own runs
+   */
+  private _commandName(
+    action: unknown,
+  ): { word: string | undefined; fallback: string } | undefined {
+    switch (action) {
+      case Constants.BACK_ACTION:
+        return { word: this._haString('ui.common.back'), fallback: Toolbar.UNLOCALIZED_BACK_NAME };
+      case 'refresh':
+        return {
+          word: this._haString('ui.common.refresh'),
+          fallback: Toolbar.UNLOCALIZED_REFRESH_NAME,
+        };
+      case Constants.ADD_EVENT_ACTION:
+        return {
+          word: AddEvent.addEventLabel(this.safeHass),
+          fallback: AddEvent.UNLOCALIZED_ADD_EVENT_NAME,
+        };
+      case Constants.RESET_ACTION:
+        return {
+          word: this._haString('ui.common.reset'),
+          fallback: Toolbar.UNLOCALIZED_RESET_NAME,
+        };
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Runs a toolbar button's action for a press, as the card runs its own `tap_action`: the
+   * card's own actions through their callbacks, every other one handed to Home Assistant with the
+   * button's `entity` (`Actions.handleButtonAction`).
+   *
+   * As for the add button, a pointer's press leaves no focus behind for Home Assistant to ring
+   * once a dialog the action opens closes, and the popover `add-event` opens points at the button
+   * pressed, below it. Nothing runs while the card is being edited, as for every toolbar control.
+   *
+   * @param button - The button, as configured
+   * @param element - The button pressed, or the menu button for a row of its menu
+   * @param pressed - Where a pointer pressed it, and with what; undefined for a key
+   */
+  private _pressCustomButton(
+    button: Types.ToolbarButtonConfig,
+    element: HTMLElement,
+    pressed: Toolbar.ButtonPress | undefined,
+  ): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not running a toolbar button while the card is being edited');
+      return;
+    }
+    if (pressed) this._releasePressFocus();
+    const at = originOf(element);
+    const origin = at && {
+      ...at,
+      ...(pressed && { pointerType: pressed.pointerType }),
+      below: true,
+    };
+    Actions.handleButtonAction(this, button, this.config.entities, this._cardActions(null, origin));
+  }
+
+  //-----------------------------------------------------------------------------
+  // THE START GROUP'S MENU
+  //-----------------------------------------------------------------------------
+
+  /**
+   * What the action row holds, as the start group's plan reckons with it: its start group's
+   * controls in order, its end group's, how many views the switcher draws, and how far the row
+   * stands in from the card's edges in this view.
+   *
+   * @param controls - The controls this render draws
+   * @returns The row
+   */
+  private _actionRow(controls: ToolbarControls): ToolbarFold.ActionRow {
+    const end: ToolbarFold.EndControl[] = [];
+    if (controls.reset) end.push('reset');
+    if (controls.refresh) end.push('refresh');
+    return {
+      start: Toolbar.startControls(controls),
+      end,
+      views: controls.viewSwitcher?.views.length ?? 0,
+      insetPx: Constants.UI.TOOLBAR_ROW_INSET[this.effectiveView],
+    };
+  }
+
+  /**
+   * Which of the start group's controls the action row draws at the card's width, and which fold
+   * into its menu (`ToolbarFold.planStartGroup`).
+   *
+   * Decided at render, from the width the resize observer last reported, by arithmetic alone:
+   * every control the plan reckons with is as wide as the stylesheet makes it, and every plan is
+   * one line tall, so none changes the card's height, and the observer's own callback may decide
+   * it before anything is painted. The switcher's words give way first, since they are drawn only
+   * where every control fits beside them (`_toolbarLabelMinWidth`).
+   *
+   * A card not measured yet draws the narrowest start group, its first control and the menu
+   * button, as the switcher draws its pictograms. Not every control: the observer's first report
+   * would then find a row too wide for a narrow card, wrapped onto a second line, and the plan
+   * drawn in its callback would change the card's height while the browser delivered that report,
+   * which it reports as an error. From the narrowest group the first report only gives controls
+   * back, and the row stays one line throughout.
+   *
+   * @param row - What the row holds
+   * @returns The fold, or undefined where every control fits
+   */
+  private _startFold(row: ToolbarFold.ActionRow): Toolbar.StartFold | undefined {
+    const widthPx = this._toolbarWidthPx ?? 0;
+    const plan = ToolbarFold.planStartGroup(row, widthPx, this._startFoldAtLeast(row, widthPx));
+    if (plan.overflow.length === 0) return undefined;
+    return { plan, menuName: this._haString('ui.common.menu'), inert: this._isBeingEdited };
+  }
+
+  /**
+   * How many of the start group's controls the plan folds at a card width, for the row drawn
+   * last; as many as can fold before the card has a width (`_startFold`).
+   *
+   * @param widthPx - A card width, or null for none yet
+   * @returns How many controls the menu holds there
+   */
+  private _startHidden(widthPx: number | null): number {
+    const row = this._toolbarRow;
+    if (row === null) return 0;
+    const width = widthPx ?? 0;
+    return ToolbarFold.planStartGroup(row, width, this._startFoldAtLeast(row, width)).overflow
+      .length;
+  }
+
+  /**
+   * The fewest controls the guard folds at a card width: what it recorded at exactly that width
+   * for exactly this row, and none anywhere else (`_syncStartFoldFit`).
+   *
+   * @param row - What the row holds
+   * @param widthPx - A card width
+   * @returns The fewest controls to fold
+   */
+  private _startFoldAtLeast(row: ToolbarFold.ActionRow, widthPx: number): number {
+    const guard = this._startFoldGuard;
+    if (guard === null || guard.widthPx !== widthPx) return 0;
+    return guard.signature === JSON.stringify(row) ? guard.atLeast : 0;
+  }
+
+  /**
+   * Folds one more of the start group's controls into the menu where the action row, drawn by
+   * the plan, still wraps or reaches past its edge: a theme's border, a card-mod rule or a zoom's
+   * rounding the arithmetic cannot see.
+   *
+   * One way only. It records, for the width the row was drawn at and what the row held, one more
+   * control to fold than the row drew there, and never fewer. So at one width the count only
+   * grows, up to every control that can fold, and the passes at a width end. Nothing but the
+   * width brings a control back, through the arithmetic alone, since a new width clears the record
+   * (`_syncToolbarLabels`). So it cannot oscillate, and needs no hysteresis. Neither can it move the width it was
+   * recorded at: every fold it adds leaves the row one line tall, never taller, and is drawn before
+   * the browser looks at the card's size again, so the row it corrected never reaches the resize
+   * observer, and every one-line row is as tall as every other.
+   *
+   * The switcher's words give way first: while it draws them, their own check decides
+   * (`_syncToolbarLabelFit`), and the row is judged again once it draws its pictograms. Only
+   * ever reads layout that exists. Without it, a card not laid out yet or a test environment with
+   * no layout engine, every box is empty, and nothing is concluded.
+   */
+  private _syncStartFoldFit(): void {
+    const widthPx = this._toolbarWidthPx;
+    const row = this._toolbarRow;
+    const actions = this.renderRoot.querySelector<HTMLElement>('.toolbar-actions');
+    if (widthPx === null || row === null || !actions) return;
+    if (actions.querySelector('.toolbar-button-label')) return;
+
+    const rowBox = actions.getBoundingClientRect();
+    if (rowBox.width === 0) return;
+    const boxes = [...actions.querySelectorAll<HTMLElement>('.toolbar-button, .view-switcher')]
+      .map((control) => control.getBoundingClientRect())
+      .filter((box) => box.width > 0 && box.height > 0);
+    if (boxes.length === 0) return;
+    const overflows = boxes.some(
+      (box) => box.right > rowBox.right + 0.5 || box.left < rowBox.left - 0.5,
+    );
+    const firstLineEnds = Math.min(...boxes.map((box) => box.bottom));
+    const wraps = boxes.some((box) => box.top > firstLineEnds - 0.5);
+    if (!overflows && !wraps) return;
+
+    // Everything that can fold has: the end group wraps, as it does with no menu at all.
+    const folded = this._startHidden(widthPx);
+    if (folded >= row.start.length - 1 || row.start.length < 3) return;
+
+    Logger.debug(`Toolbar row does not fit on one line at ${widthPx}px; folding one more control`);
+    this._startFoldGuard = { widthPx, signature: JSON.stringify(row), atLeast: folded + 1 };
+    this.requestUpdate();
+  }
+
+  /**
+   * Whether an open menu of the start group still has its button after the coming render.
+   *
+   * @returns False where every control comes back into the row, the card is being edited, or
+   *   hidden
+   */
+  private _startMenuMayStayOpen(): boolean {
+    if (this._isBeingEdited || this.hidden) return false;
+    return this._headerToolbar().startFold !== undefined;
+  }
+
+  /**
+   * The start group's control that holds focus, where one does: add, or a button of the
+   * configuration's own by its place in the list.
+   *
+   * @returns The control, or null
+   */
+  private _focusedStartControl(): ToolbarFold.StartControl | null {
+    const active = (this.renderRoot as ShadowRoot).activeElement;
+    if (
+      !(active instanceof HTMLElement) ||
+      active.parentElement?.classList.contains('toolbar-start') !== true
+    ) {
+      return null;
+    }
+    if (active.classList.contains('add-event-button')) return { kind: 'add' };
+    if (!active.classList.contains('custom-button')) return null;
+    const drawn = [...this.renderRoot.querySelectorAll('.toolbar-start > .custom-button')];
+    return { kind: 'button', index: drawn.indexOf(active) };
+  }
+
+  /**
+   * Hands focus to the menu button where the render just made folded the control that held it,
+   * so a keyboard is not dropped at the start of the page.
+   */
+  private _handFocusToMenu(): void {
+    const focused = this._focusBeforeFold;
+    this._focusBeforeFold = null;
+    const row = this._toolbarRow;
+    const widthPx = this._toolbarWidthPx;
+    if (focused === null || row === null || widthPx === null) return;
+
+    const { overflow } = ToolbarFold.planStartGroup(
+      row,
+      widthPx,
+      this._startFoldAtLeast(row, widthPx),
+    );
+    const folded = overflow.some(
+      (control) =>
+        control.kind === focused.kind &&
+        (control.kind !== 'button' ||
+          (focused.kind === 'button' && control.index === focused.index)),
+    );
+    if (folded) {
+      this.renderRoot
+        .querySelector<HTMLElement>('.custom-menu-button')
+        ?.focus({ preventScroll: true });
+    }
   }
 
   //-----------------------------------------------------------------------------

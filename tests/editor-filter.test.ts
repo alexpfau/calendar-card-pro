@@ -649,7 +649,9 @@ describe('editor filter: the chassis', () => {
     const panels = () =>
       [...element.shadowRoot!.querySelectorAll('ha-expansion-panel')].filter(
         (node) =>
-          !node.classList.contains('entity-panel') && !node.classList.contains('exceptions'),
+          !node.classList.contains('entity-panel') &&
+          !node.classList.contains('button-panel') &&
+          !node.classList.contains('exceptions'),
       );
 
     return { element, dispatched, filterBy, panels };

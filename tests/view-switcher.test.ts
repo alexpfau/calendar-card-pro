@@ -1064,6 +1064,7 @@ describe('the resolved toolbar the card reads', () => {
       reset: false,
       refresh: false,
       legend: false,
+      buttons: [],
     });
     // What it switches off: a shown toolbar draws every control but reset by default.
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
@@ -1074,6 +1075,7 @@ describe('the resolved toolbar the card reads', () => {
       reset: false,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
   });
 });

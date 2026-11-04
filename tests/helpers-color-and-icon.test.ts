@@ -189,3 +189,22 @@ describe('a themed accent color reaches the rendered event background', () => {
     expect(accent.join(' ')).toContain('var(--accent-color)');
   });
 });
+
+describe('iconWords names an icon in words, for a button with no name of its own', () => {
+  it.each([
+    ['mdi:view-dashboard-outline', 'view dashboard outline'],
+    ['mdi:arrow-left', 'arrow left'],
+    ['mdi:lamp', 'lamp'],
+    ['hass:calendar_today', 'calendar today'],
+    ['phu:octopus-energy', 'octopus energy'],
+    // No set prefix: the name is all there is.
+    ['arrow-left', 'arrow left'],
+  ])('reads %s as "%s"', (icon, words) => {
+    expect(Helpers.iconWords(icon)).toBe(words);
+  });
+
+  it('reads an icon that names nothing after its prefix as no words, for the caller to fall back', () => {
+    expect(Helpers.iconWords('mdi:')).toBe('');
+    expect(Helpers.iconWords('mdi:--')).toBe('');
+  });
+});

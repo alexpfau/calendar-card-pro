@@ -395,7 +395,7 @@ function filterNodes(
  * @param node - Schema node to test
  * @returns `true` for a `constant` node
  */
-function isHeading(node: HaFormSchema): boolean {
+export function isHeading(node: HaFormSchema): boolean {
   return 'type' in node && node.type === 'constant';
 }
 
@@ -646,6 +646,80 @@ export function filterEntitySchema(
         isHeading(node) ||
         ((named || matchesQuery(node, nodePath, entityCtx)) &&
           (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node))),
+      path,
+      [],
+    ),
+  );
+}
+
+/**
+ * Whether a toolbar button's own identity answers the query: its name, its icon, the words its
+ * icon is named by on the card, or its entity.
+ *
+ * @param entry - The button as written
+ * @param ctx - Matching context
+ * @returns `true` when the button matches, or when nothing was typed
+ */
+function matchesButton(entry: unknown, ctx: FilterCtx): boolean {
+  const query = queryOf(ctx);
+  if (query === '') return true;
+
+  const button = Helpers.isConfigBlock(entry) ? entry : {};
+  const text = (value: unknown): string | undefined =>
+    typeof value === 'string' ? value : undefined;
+  const icon = text(button.icon);
+  return anyMatches(
+    [
+      text(button.name),
+      icon,
+      icon === undefined ? undefined : Helpers.iconWords(icon),
+      text(button.entity),
+    ],
+    query,
+  );
+}
+
+/**
+ * Whether one toolbar button holds a value in one of its fields.
+ *
+ * @param entry - The button as written
+ * @param node - Schema node
+ * @returns `true` when this button sets this field
+ */
+function isButtonFieldCustomized(entry: unknown, node: HaFormSchema): boolean {
+  const value = Helpers.isConfigBlock(entry) ? entry[node.name] : undefined;
+  return value !== undefined && value !== null && value !== '';
+}
+
+/**
+ * Filters one toolbar button's fields, as `filterEntitySchema` does a calendar's: a field shows
+ * where it answers the query, or where the button's own name, icon or entity does, and, under
+ * "customized only", only where the button sets it.
+ *
+ * @param schema - A button's fields
+ * @param entry - The button as written
+ * @param path - Label path the fields are rendered under
+ * @param ctx - Matching context
+ * @returns The fields, reduced
+ */
+export function filterButtonSchema(
+  schema: ReadonlyArray<HaFormSchema>,
+  entry: unknown,
+  path: ReadonlyArray<string>,
+  ctx: FilterCtx,
+): HaFormSchema[] {
+  if (!isFiltering(ctx.criteria)) return [...schema];
+
+  const named = queryOf(ctx) !== '' && matchesButton(entry, ctx);
+
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      ctx,
+      (node, nodePath) =>
+        isHeading(node) ||
+        ((named || matchesQuery(node, nodePath, ctx)) &&
+          (!ctx.criteria.customizedOnly || isButtonFieldCustomized(entry, node))),
       path,
       [],
     ),

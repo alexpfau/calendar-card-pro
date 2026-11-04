@@ -3037,6 +3037,8 @@ describe("the card's ripple over the toolbar", () => {
     '.date-navigation',
     '.toolbar-legend',
     '.legend-menu',
+    // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
+    '.custom-menu',
   ];
 
   it('stays still while the pointer is on a control, as it does over an event', () => {
@@ -3121,7 +3123,7 @@ describe('the legend and refresh', () => {
 
   it("draws the menu on the theme's card surface, not this card's own background", () => {
     // `background_color` may make the card transparent; a menu over the events must not be.
-    // Where the theme's card surface is see-through, `paintMenu` in `legend.ts` hands the
+    // Where the theme's card surface is see-through, `paintMenu` in `menu.ts` hands the
     // background color an opaque one in its own property; everywhere else the property is unset
     // and the background color is the card surface again.
     expect(declared('.legend-menu', 'background')).toBe(
@@ -3134,7 +3136,7 @@ describe('the legend and refresh', () => {
 
   it("keeps the stand-ins the menu's colors are read off hidden, in those colors", () => {
     // Drawn inside the menu so nothing is added to the card for the read; see `paintMenu` in
-    // `legend.ts`. The surface's stand-in carries the menu's own background, so the color handed
+    // `menu.ts`. The surface's stand-in carries the menu's own background, so the color handed
     // over never feeds back into the next read.
     expect(declared('.legend-menu-surface', 'display')).toBe('none');
     expect(declared('.legend-menu-surface', 'background')).toBe(
@@ -3392,6 +3394,44 @@ describe('the toolbar layout', () => {
     ]) {
       expect(gap).toBe(`${Constants.UI.TOOLBAR_COMMAND_GAP}px`);
     }
+  });
+
+  it("works out the start group's room from the widths the stylesheet draws", () => {
+    // The plan of which start controls fold (`utils/toolbar-fold.ts`) adds the switcher's
+    // pictograms on their track, and the row's inset from the card's edges, to the commands.
+    const { UI } = Constants;
+    expect(declared('.view-switcher-segment.icon-only', 'width')).toBe(
+      `${UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH}px`,
+    );
+    expect(declared('.view-switcher', 'padding')).toBe(`${UI.TOOLBAR_SWITCHER_TRACK_PADDING}px`);
+
+    const px = (value: string): number => {
+      expect(value).toMatch(/^(\d+px|0)$/);
+      return Number.parseFloat(value);
+    };
+    // Home Assistant draws the card's border, 1px on either side by default; the rest is ours.
+    const border = 2 * 1;
+    // List: the card's padding shorthand, its block sides set aside, pads 16px at the inline end
+    // and 8px at the start, and the row adds its own start padding for the title's margin.
+    const sides = declared('ha-card', 'padding')
+      .replace(/calc\((?:[^()]|\([^()]*\))*\)/g, 'calc')
+      .split(/\s+/);
+    expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
+    const list =
+      border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
+    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    const column =
+      border +
+      2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.column-view .card-toolbar', 'padding-inline-start'));
+    expect(declared('.calendar-card-pro.grid-view', 'padding-inline')).toBe(
+      'var(--calendar-card-grid-inset)',
+    );
+    const grid =
+      border +
+      2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
+      px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
   });
 
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {

@@ -803,6 +803,21 @@ export const cardStyles = css`
     fill: currentColor;
   }
 
+  /* A button of the configuration's own, and its row in the start group's menu, draws its icon
+     with Home Assistant's ha-icon: 20px, the size every other command's icon is drawn at, set as
+     the icon's own font size and taken up in em, so the icon follows nothing an option sizes; in
+     the text color as theirs is, whatever icon color a theme gives Home Assistant's own icons;
+     and without the gap the card gives an icon that leads text. Add's row draws the add button's
+     own plus, which keeps its own size. */
+  .custom-button-icon,
+  .custom-menu-icon {
+    --mdc-icon-size: 1em;
+    --icon-primary-color: currentColor;
+    flex: none;
+    margin: 0;
+    font-size: 20px;
+  }
+
   /* The view switcher: segments on one track, the selected one raised out of it. The track
      is the same wash as a button, so the switcher and the add button beside it are the same
      height and the same gray. */
@@ -1090,18 +1105,19 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
-  /* The menu a folded legend opens: a list floating over the events, drawn by the browser on
-     its top layer, which is why the card's clipping does not reach it. Placed beside its
-     button by placeMenu in rendering/legend.ts, and given a height there when it is taller
-     than the room. Its font is set for itself, so nothing it sits inside can change it. Its
+  /* The menu a folded legend opens, and the one the configuration's own buttons fold into: a
+     list floating over the events, drawn by the browser on its top layer, which is why the
+     card's clipping does not reach it. Placed beside its button by placeMenu in
+     rendering/menu.ts, and given a height there when it is taller than the room. Its font is set for itself, so nothing it sits inside can change it. Its
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintMenu in rendering/legend.ts hands the background color an opaque one, that
+     it is, paintMenu in rendering/menu.ts hands the background color an opaque one, that
      background laid over the theme's page color, in its own custom property, beneath any image
      the card background draws. Everywhere else it hands the card background's own color back, so
      nothing changes; the fallback here is only what a closed menu holds before its first paint. */
-  .legend-menu {
+  .legend-menu,
+  .custom-menu {
     position: fixed;
     inset: auto;
     box-sizing: border-box;
@@ -1127,25 +1143,29 @@ export const cardStyles = css`
 
   /* Nothing dims behind it: it is a menu, not a dialog asking for an answer. A press out there
      closes it. */
-  .legend-menu::backdrop {
+  .legend-menu::backdrop,
+  .custom-menu::backdrop {
     background: transparent;
   }
 
-  /* The menu's own background and the theme's page color, as paintMenu in rendering/legend.ts
+  /* The menu's own background and the theme's page color, as paintMenu in rendering/menu.ts
      reads them. Never shown. The value is kept beside the background in
      --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
-  .legend-menu-surface {
+  .legend-menu-surface,
+  .custom-menu-surface {
     display: none;
     --calendar-card-surface-value: var(--ha-card-background, var(--card-background-color, #fff));
     background: var(--ha-card-background, var(--card-background-color, #fff));
   }
 
-  .legend-menu-page {
+  .legend-menu-page,
+  .custom-menu-page {
     display: none;
     background-color: var(--primary-background-color);
   }
 
-  .legend-menu-list {
+  .legend-menu-list,
+  .custom-menu-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1182,9 +1202,37 @@ export const cardStyles = css`
     cursor: pointer;
   }
 
-  .legend-menu-label {
+  .legend-menu-label,
+  .custom-menu-label {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  /* A row of the start group's menu: a folded control's icon and its name in words, across the
+     menu, on the menu's own surface rather than tinted as a calendar's row is, and washed under the
+     pointer and while pressed as every control is. Padded by inline side, so a right-to-left menu
+     mirrors it. */
+  .custom-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding-block: 4px;
+    padding-inline: 10px 12px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--primary-text-color);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: var(--ha-font-weight-medium, 500);
+    line-height: inherit;
+    text-align: start;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Hover only where there is a real pointer: on touch a hover state sticks after the
@@ -1193,6 +1241,7 @@ export const cardStyles = css`
     .toolbar-button:hover,
     .view-switcher-segment:not(.selected):not(.unavailable):hover,
     .date-navigation-segment:hover,
+    .custom-menu-row:hover,
     .toolbar-month-button:hover {
       background: var(--calendar-card-toolbar-fill-hover);
     }
@@ -1201,6 +1250,7 @@ export const cardStyles = css`
   .toolbar-button:active,
   .view-switcher-segment:not(.selected):not(.unavailable):active,
   .date-navigation-segment:active,
+  .custom-menu-row:active,
   .toolbar-month-button:active {
     background: var(--calendar-card-toolbar-fill-pressed);
   }
@@ -1231,9 +1281,9 @@ export const cardStyles = css`
 
   /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
      stays still while the pointer is on one: a button, the month's date picker, the switcher's
-     track, the arrows, the chips or the filter's menu. Each keeps its presses from the card,
-     near misses on a track's rim or between two arrows or chips included (stopCardGesture), and
-     left to it the card washed blue behind a control washing blue. The rest of both rows is the
+     track, the arrows, the chips, the filter's menu or the start group's menu. Each keeps its
+     presses from the card, near misses on a track's rim or between two arrows or chips included
+     (stopCardGesture), and left to it the card washed blue behind a control washing blue. The rest of both rows is the
      card's, the title and the space between the controls included, and ripples as the card
      does: when the rows kept that space too, the card's hover flickered on and off in stripes
      as the pointer crossed them. A press needs no rule here, because the ripple never sees one
@@ -1243,7 +1293,8 @@ export const cardStyles = css`
   ha-card:has(.view-switcher:hover) > ha-ripple,
   ha-card:has(.date-navigation:hover) > ha-ripple,
   ha-card:has(.toolbar-legend:hover) > ha-ripple,
-  ha-card:has(.legend-menu:hover) > ha-ripple {
+  ha-card:has(.legend-menu:hover) > ha-ripple,
+  ha-card:has(.custom-menu:hover) > ha-ripple {
     --ha-ripple-hover-opacity: 0;
   }
 
@@ -1252,7 +1303,9 @@ export const cardStyles = css`
   .date-navigation-segment:focus,
   .toolbar-month-button:focus,
   .legend-chip:focus,
-  .legend-menu:focus {
+  .legend-menu:focus,
+  .custom-menu:focus,
+  .custom-menu-row:focus {
     outline: none;
   }
 
@@ -1266,7 +1319,8 @@ export const cardStyles = css`
   }
 
   /* The row rings, not the box inside it, so the whole calendar reads as the focused one. */
-  .legend-menu-row:has(.legend-menu-check:focus-visible) {
+  .legend-menu-row:has(.legend-menu-check:focus-visible),
+  .custom-menu-row:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
   }

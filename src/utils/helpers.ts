@@ -115,6 +115,22 @@ export function isIconValue(value: string): boolean {
 }
 
 /**
+ * An icon's name as words: what follows its set's prefix, with its hyphens as spaces, so
+ * `mdi:view-dashboard-outline` reads "view dashboard outline". The name to fall back on where
+ * nothing else says what the icon stands for, such as a toolbar button with no `name`.
+ *
+ * @param icon - An icon name, such as `mdi:arrow-left`
+ * @returns Its words, or an empty string when it holds none
+ */
+export function iconWords(icon: string): string {
+  return icon
+    .slice(icon.indexOf(':') + 1)
+    .split(/[-_\s]+/)
+    .filter((word) => word !== '')
+    .join(' ');
+}
+
+/**
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config

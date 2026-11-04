@@ -54,6 +54,7 @@ const EXPECTED_ACTIONS = [
   'refresh',
   'add-event',
   'reset',
+  'back',
   'more-info',
   'toggle',
   'navigate',
@@ -103,8 +104,8 @@ describe('card action options', () => {
     expect([...ACTION_OPTIONS]).toEqual(EXPECTED_ACTIONS);
   });
 
-  it('names expand, refresh, add-event and reset as card actions rather than Home Assistant ones', () => {
-    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh', 'add-event', 'reset']);
+  it('names expand, refresh, add-event, reset and back as card actions rather than Home Assistant ones', () => {
+    expect([...CARD_ACTIONS]).toEqual(['expand', 'refresh', 'add-event', 'reset', 'back']);
   });
 
   it('puts the card actions ahead of Home Assistant’s, so they are not buried', () => {
@@ -112,6 +113,7 @@ describe('card action options', () => {
     expect(ACTION_OPTIONS.indexOf('refresh')).toBe(1);
     expect(ACTION_OPTIONS.indexOf('add-event')).toBe(2);
     expect(ACTION_OPTIONS.indexOf('reset')).toBe(3);
+    expect(ACTION_OPTIONS.indexOf('back')).toBe(4);
   });
 
   it('gives the card and event dropdowns their lists, through a ui_action selector', () => {
@@ -155,6 +157,7 @@ describe('card action options', () => {
     expect(EDITOR_STRINGS[cardActionLabelKey('expand')]).toBe('Toggle Compact/Expanded View');
     expect(EDITOR_STRINGS[cardActionLabelKey('refresh')]).toBe('Refresh Events');
     expect(EDITOR_STRINGS[cardActionLabelKey('reset')]).toBe('Reset Card');
+    expect(EDITOR_STRINGS[cardActionLabelKey('back')]).toBe('Go Back');
   });
 });
 
@@ -193,6 +196,15 @@ describe('withCardActionLabels', () => {
     expect(czech?.localize?.(`${HA_ACTION_LABEL_PREFIX}expand`)).toBe(
       'Toggle Compact/Expanded View',
     );
+  });
+
+  it('names back in the editor language, as the word its back buttons carry', () => {
+    expect(
+      withCardActionLabels(hassStub(), 'en')?.localize?.(`${HA_ACTION_LABEL_PREFIX}back`),
+    ).toBe('Go Back');
+    expect(
+      withCardActionLabels(hassStub(), 'de')?.localize?.(`${HA_ACTION_LABEL_PREFIX}back`),
+    ).toBe('Zurück');
   });
 
   it('returns a stable object for one hass and language', () => {
@@ -440,6 +452,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
 
     // Every control but reset arrives switched on, as the card reads them, the filter as a
@@ -465,6 +478,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
 
     // The one control off by default reads back on once it is switched on: one flip.

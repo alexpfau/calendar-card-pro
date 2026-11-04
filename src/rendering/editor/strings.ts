@@ -574,6 +574,32 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
+  // The toolbar's own buttons: a panel each under this sub-heading, after the toolbar's
+  // switches and only while the toolbar is shown. The words on the panels themselves, Add
+  // Button and the rest, are drawn by the editor rather than by a form.
+  'toolbar.buttons.heading': 'Your Own Buttons',
+  'toolbar.buttons.icon': 'Icon',
+  'toolbar.buttons.icon.helper':
+    'The button shows its icon and nothing else. A button without one is left out of the toolbar.',
+  'toolbar.buttons.name': 'Name',
+  'toolbar.buttons.name.helper':
+    'Shown when you point at the button, read out by screen readers, and written beside the ' +
+    'icon in the menu a narrow card folds its buttons into. Left empty, the button is named ' +
+    'after its action or its icon.',
+  'toolbar.buttons.entity': 'Entity',
+  'toolbar.buttons.entity.helper':
+    "The entity a toggle or a more-info action acts on. Left empty, they act on the card's " +
+    'first calendar.',
+  'toolbar.buttons.tap_action': 'Tap Action',
+  'toolbar.buttons.tap_action.helper':
+    'What a press does. Go Back returns to the page you came from, or to the first view of ' +
+    'this dashboard when there is none.',
+  // A panel's heading for a button with neither a name nor an icon the editor can put words to.
+  'toolbar.buttons.untitled': 'Button {number}',
+  'toolbar.buttons.add': 'Add Button',
+  'toolbar.buttons.move_up': 'Move Up',
+  'toolbar.buttons.move_down': 'Move Down',
+  'toolbar.buttons.remove': 'Remove',
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',
@@ -888,6 +914,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
+  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // translation takes the word its language's back buttons carry.
+  'card_action.option.back.label': 'Go Back',
   // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
   // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
   // takes Home Assistant's own word for it, so the panel says it one way in every language.
