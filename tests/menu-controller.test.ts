@@ -4,8 +4,9 @@
  *
  * A modal menu makes the rest of the page inert, so nobody can open a second menu while the
  * first is open, and no card test can hold two open at once. The kinds are still the contract
- * the card's `willUpdate` relies on, closing the legend's menu without reaching the buttons' and
- * the other way round, so they are pinned here, where two can be opened by hand.
+ * the card's `willUpdate` relies on, closing the legend's menu without reaching the one the
+ * action row folds its controls into and the other way round, so they are pinned here, where two
+ * can be opened by hand.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,8 +18,8 @@ const LEGEND: Menu.MenuParts = {
   surface: 'legend-menu-surface',
   page: 'legend-menu-page',
 };
-const BUTTONS: Menu.MenuParts = {
-  kind: 'buttons',
+const OVERFLOW: Menu.MenuParts = {
+  kind: 'overflow',
   surface: 'custom-menu-surface',
   page: 'custom-menu-page',
 };
@@ -52,12 +53,12 @@ describe('the menus a card holds', () => {
     const root = document.createElement('div');
     document.body.append(root);
     const legend = addMenu(root, LEGEND);
-    const buttons = addMenu(root, BUTTONS);
-    const open = () => [legend.dialog.open, buttons.dialog.open];
-    const held = () => [Menu.hasOpenMenu(root, 'legend'), Menu.hasOpenMenu(root, 'buttons')];
+    const overflow = addMenu(root, OVERFLOW);
+    const open = () => [legend.dialog.open, overflow.dialog.open];
+    const held = () => [Menu.hasOpenMenu(root, 'legend'), Menu.hasOpenMenu(root, 'overflow')];
 
     legend.opener.click();
-    buttons.opener.click();
+    overflow.opener.click();
     expect(open()).toEqual([true, true]);
     expect(held()).toEqual([true, true]);
 
@@ -67,12 +68,12 @@ describe('the menus a card holds', () => {
     expect(held()).toEqual([false, true]);
 
     legend.opener.click();
-    Menu.closeMenus(root, 'buttons');
+    Menu.closeMenus(root, 'overflow');
     await closeEvents();
     expect(open()).toEqual([true, false]);
     expect(held()).toEqual([true, false]);
 
-    buttons.opener.click();
+    overflow.opener.click();
     Menu.closeMenus(root);
     await closeEvents();
     expect(open()).toEqual([false, false]);
@@ -83,8 +84,8 @@ describe('the menus a card holds', () => {
     const mine = document.createElement('div');
     const theirs = document.createElement('div');
     document.body.append(mine, theirs);
-    const ours = addMenu(mine, BUTTONS);
-    const other = addMenu(theirs, BUTTONS);
+    const ours = addMenu(mine, OVERFLOW);
+    const other = addMenu(theirs, OVERFLOW);
 
     ours.opener.click();
     other.opener.click();

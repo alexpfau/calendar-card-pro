@@ -10,8 +10,9 @@
  * navigation (previous, home and next) at the row's end, and, where they fit, a chip per
  * calendar in its middle, under the switcher.
  * The month opens a date picker. Where the chips do not all fit, the filter folds into a button
- * at the start of the action row instead (`legend.ts`). Where two or more buttons of the
- * configuration's own do not fit, they fold into one menu button in their place.
+ * at the start of the action row instead (`legend.ts`). Where the start of the action row runs
+ * out of room, its last controls fold into one menu button after the ones it still draws
+ * (`utils/toolbar-fold.ts`).
  *
  * Every control shares one look: a neutral gray pill, the selected view raised out of its track,
  * so the bar never competes with the events for attention. Color shows only on the control in
@@ -48,6 +49,7 @@ import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
 import { UNLOCALIZED_ADD_EVENT_NAME } from '../interaction/add-event';
 import type { MonthHeadingText } from '../utils/paging';
+import type { StartControl, StartPlan } from '../utils/toolbar-fold';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -75,7 +77,7 @@ export interface AddEventButton {
 export interface CustomButton {
   /** The icon it draws, as configured, such as `mdi:arrow-left`. */
   icon: string;
-  /** Its accessible name, and its row's words in the menu it folds into. */
+  /** Its accessible name, and its row's words in the menu where it folds into one. */
   label: string;
   /**
    * Its tooltip: the configured name or Home Assistant's own word; undefined where `label` is
@@ -90,15 +92,16 @@ export interface CustomButton {
   onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
 }
 
-/** What the card hands the wrapper for the buttons the configuration adds. */
-export interface CustomButtons {
-  /** Every button, in the order written. */
-  buttons: ReadonlyArray<CustomButton>;
-  /** True when two or more are folded into one menu button, because they do not fit the row. */
-  folded: boolean;
+/**
+ * What the card hands the wrapper where the start of the action row cannot hold all its controls:
+ * which it draws, which fold into the menu button after them, and the menu's name.
+ */
+export interface StartFold {
+  /** The planner's answer (`planStartGroup`), two or more controls in its menu. */
+  plan: StartPlan;
   /** Home Assistant's own word for the menu button, or undefined when it offers none. */
   menuName: string | undefined;
-  /** True while the card is being edited: everything is drawn, and nothing runs or opens. */
+  /** True while the card is being edited: everything is drawn, and the menu opens nothing. */
   inert: boolean;
 }
 
@@ -234,11 +237,13 @@ export interface HeaderToolbar {
   refresh?: RefreshButton;
   /** The add-event button, at the start of the action row, after a folded filter. */
   addEvent?: AddEventButton;
+  /** The configuration's own buttons, after add, in the order written. */
+  customButtons?: ReadonlyArray<CustomButton>;
   /**
-   * The configuration's own buttons, after add, in the order written; or, folded, one menu
-   * button in their place.
+   * Where the start of the action row cannot hold all its controls, the ones it draws and the
+   * ones folded into its menu; undefined draws every one.
    */
-  customButtons?: CustomButtons;
+  startFold?: StartFold;
 }
 
 //-----------------------------------------------------------------------------
@@ -268,11 +273,11 @@ export const UNLOCALIZED_BACK_NAME = 'Back';
 const UNLOCALIZED_MENU_NAME = 'Menu';
 
 /**
- * The menu the configuration's own buttons fold into, to the controller every toolbar menu shares
- * (`menu.ts`): its kind, and the stand-ins its surface is read off.
+ * The menu the start of the action row folds its last controls into, to the controller every
+ * toolbar menu shares (`menu.ts`): its kind, and the stand-ins its surface is read off.
  */
-const BUTTONS_MENU: Menu.MenuParts = {
-  kind: 'buttons',
+const OVERFLOW_MENU: Menu.MenuParts = {
+  kind: 'overflow',
   surface: 'custom-menu-surface',
   page: 'custom-menu-page',
 };
@@ -474,39 +479,126 @@ function renderCustomButton(button: CustomButton): TemplateResult {
 }
 
 /**
- * Render the configuration's own buttons folded: one menu button where they were, and the menu
- * it opens, a row per button.
+ * The start group's controls in the order the action row draws them: the filter's button where
+ * the filter is folded, add, then the configuration's own buttons in the order written. The
+ * planner folds from the end of this list, and never its first control.
+ *
+ * @param toolbar - The controls the card wants
+ * @returns The start group's controls
+ */
+export function startControls(toolbar: Omit<HeaderToolbar, 'labeled'>): StartControl[] {
+  return [
+    ...(foldedLegend(toolbar) ? [{ kind: 'filter' as const }] : []),
+    ...(toolbar.addEvent ? [{ kind: 'add' as const }] : []),
+    ...(toolbar.customButtons ?? []).map((_button, index) => ({ kind: 'button' as const, index })),
+  ];
+}
+
+/**
+ * Render one control of the start group in the row.
+ *
+ * @param toolbar - The controls the card wants
+ * @param control - Which control
+ * @returns The control, or nothing for one the toolbar does not hold
+ */
+function renderStartControl(
+  toolbar: HeaderToolbar,
+  control: StartControl,
+): TemplateResult | typeof nothing {
+  switch (control.kind) {
+    case 'filter': {
+      const legend = foldedLegend(toolbar);
+      return legend ? renderLegendButton(legend) : nothing;
+    }
+    case 'add':
+      return toolbar.addEvent ? renderAddEventButton(toolbar.addEvent) : nothing;
+    case 'button': {
+      const button = toolbar.customButtons?.[control.index];
+      return button ? renderCustomButton(button) : nothing;
+    }
+  }
+}
+
+/**
+ * What a row of the menu shows and runs for one folded control: its icon, its name in words, and
+ * the action its button runs, handed the menu button to point at, since the row goes with the
+ * menu. Add folded in opens the event popover under the menu button, as a button of the
+ * configuration's own that adds an event does.
+ *
+ * @param toolbar - The controls the card wants
+ * @param control - Which control
+ * @returns The row, or undefined for one the toolbar does not hold
+ */
+function menuRowFor(
+  toolbar: HeaderToolbar,
+  control: StartControl,
+):
+  | {
+      icon: TemplateResult;
+      label: string;
+      onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
+    }
+  | undefined {
+  if (control.kind === 'add' && toolbar.addEvent) {
+    return {
+      icon: html`<svg
+        class="toolbar-button-icon custom-menu-icon"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d=${mdiPlus}></path>
+      </svg>`,
+      label: toolbar.addEvent.label ?? UNLOCALIZED_ADD_EVENT_NAME,
+      onActivate: toolbar.addEvent.onActivate,
+    };
+  }
+  const button = control.kind === 'button' ? toolbar.customButtons?.[control.index] : undefined;
+  if (!button) return undefined;
+  return {
+    icon: html`<ha-icon class="custom-menu-icon" icon=${button.icon} aria-hidden="true"></ha-icon>`,
+    label: button.label,
+    onActivate: button.onActivate,
+  };
+}
+
+/**
+ * Render the menu button the start group folds its last controls into, after the ones it still
+ * draws, and the menu it opens, a row per folded control in the order the row would draw them.
  *
  * The menu is the calendar filter's: a modal `<dialog>` in the top layer, placed, painted and
- * closed by the controller every toolbar menu shares (`menu.ts`). Each row is the button's icon
- * and its name in words, which a folded button has room for. A press on a row closes the menu
- * and then runs the button's action, handed the menu button to point at, since the row goes with
- * the menu. Focus follows the filter menu's rules: a key that opens it focuses the first row, a
- * press the menu itself, and Escape the menu button.
+ * closed by the controller every toolbar menu shares (`menu.ts`). Each row is the control's icon
+ * and its name in words, which a folded control has room for. A press on a row closes the menu
+ * and then runs the control's action, handed the menu button to point at. Focus follows the
+ * filter menu's rules: a key that opens it focuses the first row, a press the menu itself, and
+ * Escape the menu button.
  *
  * `aria-expanded` is written once by the template and then kept by the menu itself, so a
  * re-render while the menu is open does not reset it.
  *
- * @param buttons - The buttons, from the card
+ * @param toolbar - The controls the card wants
+ * @param fold - Which controls fold, and the menu's name
  * @returns The menu button and its menu
  */
-function renderCustomMenu(buttons: CustomButtons): TemplateResult {
-  const name = buttons.menuName ?? UNLOCALIZED_MENU_NAME;
+function renderStartMenu(toolbar: HeaderToolbar, fold: StartFold): TemplateResult {
+  const name = fold.menuName ?? UNLOCALIZED_MENU_NAME;
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.custom-menu') ?? null;
   const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
     const dialog = dialogOf(ev.currentTarget as HTMLElement);
-    if (dialog) Menu.pressMenuButton(ev, dialog, buttons.inert, BUTTONS_MENU);
+    if (dialog) Menu.pressMenuButton(ev, dialog, fold.inert, OVERFLOW_MENU);
   };
-  const pick = (button: CustomButton) => (ev: MouseEvent) => {
-    ev.stopPropagation();
-    const dialog = (ev.currentTarget as HTMLElement).closest('dialog');
-    const opener = dialog?.previousElementSibling;
-    if (!dialog || !(opener instanceof HTMLElement)) return;
-    Menu.closeMenu(dialog, 'picked');
-    button.onActivate(opener, pressOf(ev));
-  };
+  const pick =
+    (onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void) =>
+    (ev: MouseEvent) => {
+      ev.stopPropagation();
+      const dialog = (ev.currentTarget as HTMLElement).closest('dialog');
+      const opener = dialog?.previousElementSibling;
+      if (!dialog || !(opener instanceof HTMLElement)) return;
+      Menu.closeMenu(dialog, 'picked');
+      onActivate(opener, pressOf(ev));
+    };
 
   return html`<button
       type="button"
@@ -514,7 +606,7 @@ function renderCustomMenu(buttons: CustomButtons): TemplateResult {
       aria-haspopup="dialog"
       aria-expanded="false"
       aria-label=${name}
-      title=${buttons.menuName ?? nothing}
+      title=${fold.menuName ?? nothing}
       @pointerdown=${stopCardGesture}
       @click=${onClick}
     >
@@ -530,13 +622,15 @@ function renderCustomMenu(buttons: CustomButtons): TemplateResult {
       @click=${Menu.closeOnPressOutside}
     >
       <div class="custom-menu-list" role="group" aria-label=${name}>
-        ${buttons.buttons.map(
-          (button) =>
-            html`<button type="button" class="custom-menu-row" @click=${pick(button)}>
-              <ha-icon class="custom-menu-icon" icon=${button.icon} aria-hidden="true"></ha-icon>
-              <span class="custom-menu-label">${button.label}</span>
-            </button>`,
-        )}
+        ${fold.plan.overflow.map((control) => {
+          const row = menuRowFor(toolbar, control);
+          return row
+            ? html`<button type="button" class="custom-menu-row" @click=${pick(row.onActivate)}>
+                ${row.icon}
+                <span class="custom-menu-label">${row.label}</span>
+              </button>`
+            : nothing;
+        })}
       </div>
       <span class="custom-menu-surface" aria-hidden="true"></span>
       <span class="custom-menu-page" aria-hidden="true"></span>
@@ -544,39 +638,21 @@ function renderCustomMenu(buttons: CustomButtons): TemplateResult {
 }
 
 /**
- * Whether the configuration's own buttons are drawn folded, as one menu button. Only two or more
- * fold: one button folded into one menu button saves nothing.
+ * Render the start group's controls: every one, or, where the row cannot hold them all, the ones
+ * the plan draws and the menu button holding the rest.
  *
- * @param buttons - The buttons, from the card, if any
- * @returns True when the menu button is drawn in their place
+ * @param toolbar - The controls the card wants
+ * @returns The controls
  */
-export function drawsCustomMenu(buttons: CustomButtons | undefined): boolean {
-  return buttons !== undefined && buttons.folded && buttons.buttons.length > 1;
-}
-
-/**
- * How many icons the configuration's own buttons take in the action row: one each, or one for
- * their menu button where they fold.
- *
- * @param buttons - The buttons, from the card, if any
- * @returns The icons they take, none without buttons
- */
-export function customButtonIcons(buttons: CustomButtons | undefined): number {
-  if (buttons === undefined) return 0;
-  return drawsCustomMenu(buttons) ? 1 : buttons.buttons.length;
-}
-
-/**
- * Render the configuration's own buttons: each in the row, or, folded, one menu button for all
- * of them. Never some of each.
- *
- * @param buttons - The buttons, from the card
- * @returns The buttons, or the menu button and its menu
- */
-function renderCustomButtons(buttons: CustomButtons): TemplateResult | TemplateResult[] {
-  return drawsCustomMenu(buttons)
-    ? renderCustomMenu(buttons)
-    : buttons.buttons.map(renderCustomButton);
+function renderStartGroup(toolbar: HeaderToolbar): Array<TemplateResult | typeof nothing> {
+  const fold = toolbar.startFold;
+  if (!fold || fold.plan.overflow.length === 0) {
+    return startControls(toolbar).map((control) => renderStartControl(toolbar, control));
+  }
+  return [
+    ...fold.plan.visible.map((control) => renderStartControl(toolbar, control)),
+    renderStartMenu(toolbar, fold),
+  ];
 }
 
 /**
@@ -1064,12 +1140,7 @@ export function drawsLegendChips(toolbar: HeaderToolbar): boolean {
  */
 export function drawsActionRow(toolbar: HeaderToolbar): boolean {
   return Boolean(
-    foldedLegend(toolbar) ||
-    toolbar.addEvent ||
-    toolbar.customButtons ||
-    toolbar.viewSwitcher ||
-    toolbar.reset ||
-    toolbar.refresh,
+    startControls(toolbar).length > 0 || toolbar.viewSwitcher || toolbar.reset || toolbar.refresh,
   );
 }
 
@@ -1095,20 +1166,11 @@ function renderActionRow(
   labeled: boolean,
 ): TemplateResult | typeof nothing {
   if (!drawsActionRow(toolbar)) return nothing;
-  const legend = foldedLegend(toolbar);
   const resetAlone =
-    !legend &&
-    !toolbar.addEvent &&
-    !toolbar.customButtons &&
-    !toolbar.viewSwitcher &&
-    !toolbar.refresh;
+    startControls(toolbar).length === 0 && !toolbar.viewSwitcher && !toolbar.refresh;
 
   return html`<div class="card-toolbar toolbar-actions">
-    <div class="toolbar-start">
-      ${legend ? renderLegendButton(legend) : nothing}
-      ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent) : nothing}
-      ${toolbar.customButtons ? renderCustomButtons(toolbar.customButtons) : nothing}
-    </div>
+    <div class="toolbar-start">${renderStartGroup(toolbar)}</div>
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
     <div class="toolbar-end">
       ${toolbar.reset ? renderResetButton(toolbar.reset, resetAlone) : nothing}
@@ -1182,7 +1244,7 @@ export function renderHeaderToolbar(
 ): TemplateResult | undefined {
   if (
     !toolbar.addEvent &&
-    !toolbar.customButtons &&
+    !toolbar.customButtons?.length &&
     !toolbar.viewSwitcher &&
     !toolbar.navigation &&
     !toolbar.reset &&

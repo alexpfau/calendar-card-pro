@@ -3396,6 +3396,44 @@ describe('the toolbar layout', () => {
     }
   });
 
+  it("works out the start group's room from the widths the stylesheet draws", () => {
+    // The plan of which start controls fold (`utils/toolbar-fold.ts`) adds the switcher's
+    // pictograms on their track, and the row's inset from the card's edges, to the commands.
+    const { UI } = Constants;
+    expect(declared('.view-switcher-segment.icon-only', 'width')).toBe(
+      `${UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH}px`,
+    );
+    expect(declared('.view-switcher', 'padding')).toBe(`${UI.TOOLBAR_SWITCHER_TRACK_PADDING}px`);
+
+    const px = (value: string): number => {
+      expect(value).toMatch(/^(\d+px|0)$/);
+      return Number.parseFloat(value);
+    };
+    // Home Assistant draws the card's border, 1px on either side by default; the rest is ours.
+    const border = 2 * 1;
+    // List: the card's padding shorthand, its block sides set aside, pads 16px at the inline end
+    // and 8px at the start, and the row adds its own start padding for the title's margin.
+    const sides = declared('ha-card', 'padding')
+      .replace(/calc\((?:[^()]|\([^()]*\))*\)/g, 'calc')
+      .split(/\s+/);
+    expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
+    const list =
+      border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
+    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    const column =
+      border +
+      2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.column-view .card-toolbar', 'padding-inline-start'));
+    expect(declared('.calendar-card-pro.grid-view', 'padding-inline')).toBe(
+      'var(--calendar-card-grid-inset)',
+    );
+    const grid =
+      border +
+      2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
+      px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+  });
+
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {
     expect(declared('.date-navigation', 'background')).toBe('');
     expect(declared('.date-navigation', 'gap')).toBe('4px');

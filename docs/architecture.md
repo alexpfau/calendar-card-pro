@@ -98,7 +98,7 @@ src/
     ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
     ├── title-words.ts            # Splits grid titles so they wrap only at spaces
     ├── view-choice.ts            # The switcher's view and the legend's hidden calendars, per device
-    ├── toolbar-fold.ts           # When the toolbar's own buttons fold into one menu button
+    ├── toolbar-fold.ts           # Which of the action row's start controls fold into its menu
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── links.ts                  # Web addresses in an event's text, as link pieces
     ├── weather.ts                # Weather data fetching and processing
@@ -270,11 +270,12 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   from the chips. A templated title still pending keeps the `h1`, held one line tall, so the
   month does not move when its value arrives.
 - **The action row groups by purpose.** A start group (`.toolbar-start`: the folded filter, add,
-  then the configuration's own buttons), the view switcher, and an end group (`.toolbar-end`: reset, then refresh). Both groups are
-  always drawn and share the room beside the switcher equally (`flex: 1 1 0` with a
-  `max-content` minimum), so the switcher sits in the middle of the card while both fit in half of
-  it, and between them when one does not; only a card too narrow for every icon on one line wraps
-  the end group onto a line of its own. Both groups space their icons alike, 8px apart. The row
+  then the configuration's own buttons, and the menu button where some fold), the view switcher,
+  and an end group (`.toolbar-end`: reset, then refresh). Both groups are always drawn and share
+  the room beside the switcher equally (`flex: 1 1 0` with a `max-content` minimum), so the
+  switcher sits in the middle of the card while both fit in half of it, and between them when one
+  does not; only a card too narrow for the narrowest row wraps the end group onto a line of its
+  own. Both groups space their icons alike, 8px apart. The row
   is drawn only while it holds a control.
 - **The heading row names the month the page starts in.** `monthHeading` in `utils/paging.ts`
   writes the month and year of the page's first day through `Intl` in the card's language,
@@ -542,32 +543,45 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   other by its icon's words (`iconWords`), for assistive technology alone. The buttons read no
   `hass` state of their own, and an `entity` is already watched through `configEntityIds`. They
   count toward the width the switcher's words need (`_toolbarLabelMinWidth`) and in its signature,
-  one icon each, or one for their menu button once folded.
-- **What gives way, in order, as the card narrows.** The switcher's words become pictograms first
-  (`_syncToolbarLabelFit`). Then two or more of the configuration's buttons fold into one menu
-  button, three dots, in their place: all of them or none, decided by `judgeButtonsFold` in
-  `utils/toolbar-fold.ts`. Only a row that still does not fit wraps its end group onto a line of
-  its own. A single button never folds, since a menu button in its place would save nothing. The
-  decision is arithmetic on widths known exactly, not a probe drawn and read back: each command
-  is `UI.TOOLBAR_COMMAND_WIDTH` wide and stands `UI.TOOLBAR_COMMAND_GAP` from the next, as the
-  row's groups do, against the row's measured content width and the switcher's measured width as
-  pictograms. While the switcher still draws its words in a row that does not fit, nothing is
-  concluded, since that row draws its pictograms next; that is what keeps the words giving way
-  first. `_syncButtonsFit` follows `_syncLegendFit`: it records the card width the buttons fit
-  from, by `UI.LEGEND_UNFOLD_MARGIN`, decides a width change a frame later
-  (`_scheduleButtonsFit`), and folds an unfold the next measurement contradicts from wider than
-  the width it was tried at (`_buttonsUnfoldedAtPx`).
-- **One menu controller serves both menus.** The buttons' menu runs on the legend's machinery:
-  `rendering/menu.ts` places, paints, opens and closes either `<dialog>`, told apart by its
-  `MenuKind` and handed its `MenuParts`, the dialog's class and the stand-ins its surface is read
-  from. The legend's tests passed over it unchanged. Each menu closes on its own conditions:
-  `willUpdate` closes the legend's menu where the coming render takes the filter button away and
-  the buttons' menu where it takes the menu button away (`_buttonsMenuMayStayOpen`), and neither
-  closes the other. A row of the buttons' menu is a native button holding the icon and the name in
-  words. A press closes the menu with the reason `picked`, which asks nothing of focus beyond what
-  the browser does, since the action may move focus itself, as the dialog it opens does; then it
-  runs the button's action with the menu button as its anchor, so `add-event` opens its popover
-  under the menu button.
+  one icon each, folded or not, since the words give way before any control folds.
+- **What gives way, in order, as the card narrows.** The switcher's words become pictograms first:
+  they are drawn only where every control fits beside them (`_toolbarLabelMinWidth`), and a
+  measured check catches a language whose words are longer (`_syncToolbarLabelFit`). Then the
+  start group's controls move into one menu button, three dots, from its end: the last of the
+  configuration's buttons first, then the earlier ones, then add. The group's first control never
+  folds, the filter's button wherever it is drawn, so the narrowest start group is that control
+  and the menu button. A menu never holds one control, since the menu button takes the room it
+  did: two fold when the menu first appears, and the last two come back together. The start group
+  may take all the room the switcher and the end group leave, not half of it, so the switcher
+  moves off center first, as the row's flex layout already let it. The end group never folds: a
+  card too narrow for the narrowest row wraps it, as it always has, which in every view is below
+  274px beside refresh and below 318px beside reset and refresh.
+  `planStartGroup` in `utils/toolbar-fold.ts` decides it, pure, from the card's width alone.
+  Each command is `UI.TOOLBAR_COMMAND_WIDTH` wide and stands `UI.TOOLBAR_COMMAND_GAP` from the
+  next, the switcher's pictograms are `UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH` each on a track padded
+  `UI.TOOLBAR_SWITCHER_TRACK_PADDING`, and the row stands `UI.TOOLBAR_ROW_INSET` in from the
+  card's edges in each view; the stylesheet tests reconcile all of them. Every plan is one line
+  tall, so no plan changes the card's height, and the card plans at render, from the width its
+  resize observer reported in its own callback, with no frame's delay and no hysteresis
+  (`_startFold`, `_syncToolbarLabels`). The end group's input keeps a slot for a search
+  control, which the plan counts wherever the card draws one. One guard covers what arithmetic
+  cannot see, a theme's border, a card-mod rule or a zoom's rounding: where the row it drew still
+  wraps or overflows, `_syncStartFoldFit` folds one control more at that width for that row,
+  never fewer, and a new width clears it, so only the arithmetic brings controls back and the two
+  cannot alternate. It waits while the switcher draws its words, which give way first. A control
+  that held focus as it folded hands focus to the menu button (`_handFocusToMenu`).
+- **One menu controller serves both menus.** The start group's menu runs on the legend's
+  machinery: `rendering/menu.ts` places, paints, opens and closes either `<dialog>`, told apart
+  by its `MenuKind`, `legend` or `overflow`, and handed its `MenuParts`, the dialog's class
+  and the stand-ins its surface is read from. The legend's tests passed over it unchanged. Each
+  menu closes on its own conditions: `willUpdate` closes the legend's menu where the coming render
+  takes the filter button away, and the start group's where every control comes back into the row
+  (`_startMenuMayStayOpen`), and neither closes the other. A row is a native button holding the
+  control's icon and its name in words, in the order the row would draw the controls; add's row
+  draws the add button's plus. A press closes the menu with the reason `picked`, which asks
+  nothing of focus beyond what the browser does, since the action may move focus itself, as the
+  dialog it opens does; then it runs the control's action with the menu button as its anchor, so
+  add, and a button running `add-event`, open the popover under the menu button.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
   `_requestRefresh`, which does nothing while a load is under way or before the first has
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be

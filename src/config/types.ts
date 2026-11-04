@@ -792,8 +792,8 @@ export interface ToolbarConfig {
   legend?: false | ToolbarLegendMode;
   /**
    * Buttons the configuration defines itself, drawn after add in the order written: each an icon
-   * and an action, run as the card's own `tap_action` is. Two or more fold into one menu button
-   * where the action row runs out of room.
+   * and an action, run as the card's own `tap_action` is. Where the action row runs out of room
+   * they fold into its menu from the last, before add does.
    */
   buttons?: ToolbarButtonConfig[];
 }

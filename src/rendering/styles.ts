@@ -803,11 +803,12 @@ export const cardStyles = css`
     fill: currentColor;
   }
 
-  /* A button of the configuration's own, and its row in the menu they fold into, draws its icon
+  /* A button of the configuration's own, and its row in the start group's menu, draws its icon
      with Home Assistant's ha-icon: 20px, the size every other command's icon is drawn at, set as
      the icon's own font size and taken up in em, so the icon follows nothing an option sizes; in
      the text color as theirs is, whatever icon color a theme gives Home Assistant's own icons;
-     and without the gap the card gives an icon that leads text. */
+     and without the gap the card gives an icon that leads text. Add's row draws the add button's
+     own plus, which keeps its own size. */
   .custom-button-icon,
   .custom-menu-icon {
     --mdc-icon-size: 1em;
@@ -1207,10 +1208,10 @@ export const cardStyles = css`
     overflow-wrap: anywhere;
   }
 
-  /* A row of the menu the configuration's own buttons fold into: the button's icon and its name
-     in words, across the menu, on the menu's own surface rather than tinted as a calendar's row
-     is, and washed under the pointer and while pressed as every control is. Padded by inline
-     side, so a right-to-left menu mirrors it. */
+  /* A row of the start group's menu: a folded control's icon and its name in words, across the
+     menu, on the menu's own surface rather than tinted as a calendar's row is, and washed under the
+     pointer and while pressed as every control is. Padded by inline side, so a right-to-left menu
+     mirrors it. */
   .custom-menu-row {
     display: flex;
     align-items: center;
@@ -1280,7 +1281,7 @@ export const cardStyles = css`
 
   /* A toolbar control answers the pointer for itself, as an event does, so the card's ripple
      stays still while the pointer is on one: a button, the month's date picker, the switcher's
-     track, the arrows, the chips, the filter's menu or the buttons' menu. Each keeps its
+     track, the arrows, the chips, the filter's menu or the start group's menu. Each keeps its
      presses from the card, near misses on a track's rim or between two arrows or chips included
      (stopCardGesture), and left to it the card washed blue behind a control washing blue. The rest of both rows is the
      card's, the title and the space between the controls included, and ripples as the card

@@ -4,16 +4,19 @@
  * The toolbar defaults to hidden and `buttons` to an empty list, so every DOM gate built from
  * default config sees no button at all and would stay green if they did nothing; every case here
  * writes some. The pure halves have files of their own: which entries are drawn in
- * `toolbar-config.test.ts`, the fold's arithmetic in `toolbar-fold.test.ts`, the menu's placement
- * in `legend-menu.test.ts`. This file pins how the card joins them: where the buttons sit, what
- * they are named, what a press runs and when nothing does, what they cost the switcher's words,
- * when they fold into one menu button and back, and the menu's lifecycle.
+ * `toolbar-config.test.ts`, the plan of which start controls fold in `toolbar-fold.test.ts`, the
+ * menu's placement in `legend-menu.test.ts`. This file pins how the card joins them: where the
+ * buttons sit, what they are named, what a press runs and when nothing does, what they cost the
+ * switcher's words, which controls the start group folds into its menu at each width and back,
+ * the guard for a row that wraps all the same, and the menu's lifecycle.
  *
- * happy-dom lays nothing out, so the fold is driven by stubbed measurements: the policy is pinned
- * here, and the layout it rests on can only be checked in a browser.
+ * The plan is arithmetic on the width the resize observer reports, which these tests hand the
+ * card. happy-dom lays nothing out, so the guard, which reads the row as drawn, is driven by
+ * stubbed measurements: the policy is pinned here, and the layout it rests on can only be checked
+ * in a browser.
  */
 
-import { mdiDotsVertical } from '@mdi/js';
+import { mdiDotsVertical, mdiPlus } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
@@ -241,6 +244,8 @@ function tapWithPointer(target: EventTarget): void {
  * padding on each side, so its content is `row - 2 * rowPadding`; the row grows with the card
  * one for one, as it does in a browser. `switcher` is the view switcher's width as drawn, and
  * `switcherWords`, where set, its width while it draws its words rather than its pictograms.
+ * `startCapacity`, where set, is a theme the arithmetic cannot see: the most icons the start
+ * group holds on the row's first line, past which the end group's controls report a second line.
  * `scrollbar` is what a page scrollbar takes from the card, and from its row, while the buttons
  * are drawn in it: what a row tall enough to make the page scroll does in a browser.
  *
@@ -253,6 +258,7 @@ const layout = {
   rowPadding: 4,
   switcher: 108,
   switcherWords: null as number | null,
+  startCapacity: null as number | null,
   scrollbar: 0,
 };
 const LAYOUT_DEFAULTS = { ...layout };
@@ -285,6 +291,12 @@ function stubLayout(): void {
       const words = layout.switcherWords !== null && this.querySelector('.toolbar-button-label');
       return box(0, words ? layout.switcherWords! : layout.switcher);
     }
+    if (this.classList.contains('toolbar-button') && layout.startCapacity !== null) {
+      const row = this.closest('.toolbar-actions');
+      const icons = row?.querySelectorAll('.toolbar-start > .toolbar-button').length ?? 0;
+      const second = this.closest('.toolbar-end') !== null && icons > layout.startCapacity;
+      return { ...box(0, 36), y: second ? 44 : 0, top: second ? 44 : 0, bottom: second ? 80 : 36 };
+    }
     return realRect.call(this);
   });
   const realStyle = window.getComputedStyle.bind(window);
@@ -301,16 +313,18 @@ function stubLayout(): void {
   });
 }
 
-/** The action row's content width the stubs report for a card this wide. */
-const rowContent = (cardWidth: number): number =>
-  cardWidth - layout.rowInset - 2 * layout.rowPadding;
-
-/** Deliver a width the way the browser does, and let the frame and the settle delay run. */
-async function measure(card: CardUnderTest, width: number): Promise<void> {
+/** The resize observer the card asked to watch it. */
+function observerOf(card: CardUnderTest): RecordingResizeObserver {
   const observer = RecordingResizeObserver.instances.find(({ observed }) =>
     observed.includes(card),
   );
   if (!observer) throw new Error('the card never asked to be observed');
+  return observer;
+}
+
+/** Deliver a width the way the browser does, and let the frame and the settle delay run. */
+async function measure(card: CardUnderTest, width: number): Promise<void> {
+  const observer = observerOf(card);
   layout.card = width;
   observer.callback([{ contentRect: { width } }]);
   vi.advanceTimersByTime(Constants.TIMING.WIDTH_SETTLE_DELAY);
@@ -692,15 +706,27 @@ describe("what the buttons cost the switcher's words", () => {
     expect(words(card)).toBe(true);
   });
 
-  it('counts the menu button as one icon once they fold, all their room given back', async () => {
-    // Add, four buttons and refresh beside the pictograms need 5 × 36 + 4 × 8 + 36 + 2 × 8 + 108 =
-    // 372px of a 342px row, so they fold; the menu then leaves the words 248 + 80 + 36 = 364px.
-    stubLayout();
+  it('counts every button, so the words give way before any control folds', async () => {
+    // Add, four buttons and refresh: words from 248 + 5 × 36 + 4 × 8 + 36 = 496px. Below that the
+    // switcher draws pictograms, and the row holds every control down to 406px.
     const card = await mount(withButtons([BACK, DASHBOARD, LAMP, WEATHER], ROW));
-    await measure(card, 376);
-
+    await measure(card, 496);
+    expect([words(card), menuButton(card)]).toEqual([true, null]);
+    await measure(card, 495);
+    expect([words(card), menuButton(card)]).toEqual([false, null]);
+    await measure(card, 406);
+    expect([words(card), menuButton(card)]).toEqual([false, null]);
+    await measure(card, 405);
+    expect(words(card)).toBe(false);
     expect(menuButton(card)).not.toBeNull();
-    expect(words(card)).toBe(true);
+  });
+
+  it('never draws the words beside a menu, at any width', async () => {
+    const card = await mount(withButtons([BACK, DASHBOARD, LAMP, WEATHER], ROW));
+    for (let width = 260; width <= 560; width += 6) {
+      await measure(card, width);
+      expect(words(card) && menuButton(card) !== null, `at ${width}px`).toBe(false);
+    }
   });
 
   it('retries words that did not fit once the row holds another number of buttons', async () => {
@@ -724,31 +750,82 @@ describe("what the buttons cost the switcher's words", () => {
 // THE FOLD
 //-----------------------------------------------------------------------------
 
-describe('buttons the row cannot hold', () => {
-  /**
-   * The filter folded, add, the switcher and refresh, as a shown toolbar draws by default with
-   * the date navigation and reset off. With three buttons the start group is five icons: 5 × 36 +
-   * 4 × 8 = 212px, and with refresh, the pictograms and the two gaps the row needs 372px.
-   */
-  const ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false };
-  const THREE = [BACK, DASHBOARD, LAMP];
+/**
+ * The filter folded, add, the switcher and refresh, as a shown toolbar draws them by default with
+ * the date navigation and reset off. With three buttons the start group is five controls, which
+ * need 34 + 5 × 36 + 4 × 8 + 8 + 108 + 8 + 36 = 406px on one line; three and the menu button,
+ * 362px; two and the menu button, 318px; the filter and the menu button, 274px.
+ */
+const FOLD_ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false };
+const THREE = [BACK, DASHBOARD, LAMP];
 
-  beforeEach(() => {
-    stubLayout();
-  });
+/** The rows of the start group's menu, drawn whether or not it is open. */
+function menuRows(card: CardUnderTest): HTMLButtonElement[] {
+  const dialog = root(card).querySelector('dialog.custom-menu');
+  return dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('.custom-menu-row')) : [];
+}
 
-  it('fold into one menu button, all of them, where the row is too narrow for them', async () => {
-    const card = await mount(withButtons(THREE, ROW));
-    await measure(card, 376);
+/** What the start group draws: buttons in the row, whether add is there, the menu's rows. */
+function startShape(card: CardUnderTest): [number, boolean, number] {
+  return [
+    customButtons(card).length,
+    root(card).querySelector('.toolbar-start > .add-event-button') !== null,
+    menuRows(card).length,
+  ];
+}
 
-    expect(rowContent(376)).toBe(342);
-    expect(customButtons(card)).toEqual([]);
+describe('the start group where the row runs out of room', () => {
+  it('draws every control while the row holds them, and no menu', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 406);
+
     expect(controls(card, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
       'legend-menu',
       'toolbar-button add-event-button',
+      'toolbar-button custom-button',
+      'toolbar-button custom-button',
+      'toolbar-button custom-button',
+    ]);
+    expect(menuButton(card)).toBeNull();
+  });
+
+  it('folds the last buttons first, two at once, then one more a threshold, then add', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    const at = async (width: number) => {
+      await measure(card, width);
+      return startShape(card);
+    };
+
+    expect(await at(406)).toEqual([3, true, 0]);
+    expect(await at(405)).toEqual([1, true, 2]);
+    expect(await at(362)).toEqual([1, true, 2]);
+    expect(await at(361)).toEqual([0, true, 3]);
+    expect(await at(318)).toEqual([0, true, 3]);
+    expect(await at(317)).toEqual([0, false, 4]);
+    expect(await at(274)).toEqual([0, false, 4]);
+    // Back by the same thresholds, the last two together.
+    expect(await at(318)).toEqual([0, true, 3]);
+    expect(await at(362)).toEqual([1, true, 2]);
+    expect(await at(406)).toEqual([3, true, 0]);
+  });
+
+  it('draws the menu button where the folded controls were, after the ones it keeps', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 405);
+
+    expect(controls(card, '.toolbar-start')).toEqual([
+      'toolbar-button legend-button',
+      'legend-menu',
+      'toolbar-button add-event-button',
+      'toolbar-button custom-button',
       'toolbar-button custom-menu-button',
       'custom-menu',
+    ]);
+    expect(described(card).map(({ label }) => label)).toEqual(['Back']);
+    expect(menuRows(card).map((row) => row.textContent!.trim())).toEqual([
+      'Main dashboard',
+      'Hall lamp',
     ]);
     const button = menuButton(card)!;
     expect(button.getAttribute('aria-haspopup')).toBe('dialog');
@@ -758,91 +835,91 @@ describe('buttons the row cannot hold', () => {
     expect(button.querySelector('path')!.getAttribute('d')).toBe(mdiDotsVertical);
   });
 
-  it('stay in the row where it holds them, and wrap rather than fold when there is only one', async () => {
-    const wide = await mount(withButtons(THREE, ROW));
-    await measure(wide, 784);
-    expect(customButtons(wide)).toHaveLength(3);
-    expect(menuButton(wide)).toBeNull();
-
-    // One button folded into one menu button saves nothing.
-    const single = await mount(withButtons([BACK], ROW));
-    await measure(single, 200);
-    expect(customButtons(single)).toHaveLength(1);
-    expect(menuButton(single)).toBeNull();
-  });
-
-  it('are drawn again a frame after the card is wide enough for them by the margin, and not before', async () => {
-    const card = await mount(withButtons(THREE, ROW));
-    await measure(card, 376);
-    expect(menuButton(card)).not.toBeNull();
-
-    // They need 372px of the row: a card of 376 - 342 + 372 = 406px, and the 2px margin.
-    await measure(card, 407);
-    expect(menuButton(card)).not.toBeNull();
-    await measure(card, 408);
-    expect(menuButton(card)).toBeNull();
-    expect(customButtons(card)).toHaveLength(3);
-  });
-
-  it('are judged a frame after a resize, never inside it', async () => {
-    const card = await mount(withButtons(THREE, ROW));
+  it("decides inside the resize observer's callback, with no frame or timer in between", async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
     await measure(card, 784);
-    const observer = RecordingResizeObserver.instances.find(({ observed }) =>
-      observed.includes(card),
-    )!;
 
-    layout.card = 376;
-    observer.callback([{ contentRect: { width: 376 } }]);
-    await settle(card);
-    expect(customButtons(card)).toHaveLength(3);
+    layout.card = 361;
+    observerOf(card).callback([{ contentRect: { width: 361 } }]);
+    await card.updateComplete;
 
-    await nextFrame(card);
-    expect(menuButton(card)).not.toBeNull();
+    expect(startShape(card)).toEqual([0, true, 3]);
   });
 
-  it('fold again from a wider width when drawing them narrows the card', async () => {
-    const card = await mount(withButtons(THREE, ROW));
-    await measure(card, 376);
+  it('keeps the filter and the menu button however narrow the card, and never folds the end', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 200);
 
-    // A scrollbar the drawn buttons bring takes 30px: at 408 the row holds only 342 + 2 of 372.
-    layout.scrollbar = 30;
-    await measure(card, 408);
-    await nextFrame(card);
-    expect(menuButton(card)).not.toBeNull();
-
-    // The width it unfolded at, where it then did not fit, no longer unfolds it.
-    await measure(card, 409);
-    await nextFrame(card);
-    expect(menuButton(card)).not.toBeNull();
-    const fold = (card as unknown as { _buttonsFold: { unfoldAtPx: number } })._buttonsFold;
-    expect(fold.unfoldAtPx).toBeGreaterThan(409);
+    expect(controls(card, '.toolbar-start')).toEqual([
+      'toolbar-button legend-button',
+      'legend-menu',
+      'toolbar-button custom-menu-button',
+      'custom-menu',
+    ]);
+    expect(controls(card, '.toolbar-end')).toEqual(['toolbar-button refresh-button']);
   });
 
-  it("wait for the switcher's words to give way, and then fit beside its pictograms", async () => {
-    // Words wider than the row: the pass that draws them gives them up for the pictograms, and
-    // in that pass the buttons conclude nothing from the words' width. Folding there would hold
-    // the menu until a card of 784 + (212 + 36 + 16 + 800 - 750) + 2 = 1,100px.
-    layout.switcherWords = 800;
-    const card = await mount(withButtons(THREE, ROW));
-    await measure(card, 784);
-    await nextFrame(card);
+  it('keeps the first control there is with the filter off: add, or else the first button', async () => {
+    const noFilter = await mount(withButtons(THREE, { ...FOLD_ROW, legend: false }));
+    await measure(noFilter, 200);
+    expect(controls(noFilter, '.toolbar-start')).toEqual([
+      'toolbar-button add-event-button',
+      'toolbar-button custom-menu-button',
+      'custom-menu',
+    ]);
 
-    expect(card.shadowRoot!.querySelector('.view-switcher .toolbar-button-label')).toBeNull();
-    expect(customButtons(card)).toHaveLength(3);
-    expect(menuButton(card)).toBeNull();
+    const noAdd = await mount(withButtons(THREE, { ...FOLD_ROW, legend: false, add_event: false }));
+    await measure(noAdd, 200);
+    expect(controls(noAdd, '.toolbar-start')).toEqual([
+      'toolbar-button custom-button',
+      'toolbar-button custom-menu-button',
+      'custom-menu',
+    ]);
+    expect(described(noAdd).map(({ label }) => label)).toEqual(['Back']);
   });
 
-  it('conclude nothing from a card that is not laid out', async () => {
-    layout.card = 0;
-    const card = await mount(withButtons(THREE, ROW));
-    await settle(card);
+  it('never folds one control alone into a menu', async () => {
+    // The filter, add and one button need 318px; narrower, add and the button fold together.
+    const card = await mount(withButtons([BACK], FOLD_ROW));
+    await measure(card, 318);
+    expect(startShape(card)).toEqual([1, true, 0]);
+    await measure(card, 317);
+    expect(startShape(card)).toEqual([0, false, 2]);
+    expect(menuRows(card).map((row) => row.textContent!.trim())).toEqual(['Add event', 'Back']);
 
-    expect(customButtons(card)).toHaveLength(3);
+    // Two buttons alone: the first never folds, and the second would be alone in the menu.
+    const two = await mount(
+      withButtons([BACK, DASHBOARD], { ...FOLD_ROW, legend: false, add_event: false }),
+    );
+    await measure(two, 150);
+    expect(startShape(two)).toEqual([2, false, 0]);
+  });
+
+  it('gives the start group the room of a switcher that is off, and counts reset beside refresh', async () => {
+    // At 302px the switcher's row keeps only the filter; without the switcher all five fit
+    // (34 + 212 + 8 + 36 = 290px).
+    const noSwitcher = await mount(withButtons(THREE, { ...FOLD_ROW, view_switcher: false }));
+    await measure(noSwitcher, 302);
+    expect(startShape(noSwitcher)).toEqual([3, true, 0]);
+
+    // At 362px refresh alone leaves room for three and the menu, reset and refresh for two.
+    const withReset = await mount(withButtons(THREE, { ...FOLD_ROW, reset: true }));
+    await measure(withReset, 362);
+    expect(startShape(withReset)).toEqual([0, true, 3]);
+    const without = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(without, 362);
+    expect(startShape(without)).toEqual([1, true, 2]);
+  });
+
+  it('draws every control on a card not measured yet', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+
+    expect(startShape(card)).toEqual([3, true, 0]);
   });
 
   it('fold in the editor as on the dashboard, and the menu button opens nothing there', async () => {
-    const card = await mount(withButtons(THREE, ROW), { flag: 'preview' });
-    await measure(card, 376);
+    const card = await mount(withButtons(THREE, FOLD_ROW), { flag: 'preview' });
+    await measure(card, 344);
     expect(menuButton(card)).not.toBeNull();
 
     pointerClick(menuButton(card)!);
@@ -851,26 +928,139 @@ describe('buttons the row cannot hold', () => {
   });
 });
 
+describe('a control that holds focus as it folds', () => {
+  it('hands focus to the menu button', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 406);
+    customButtons(card)[2].focus();
+    expect(root(card).activeElement).toBe(customButtons(card)[2]);
+
+    await measure(card, 405);
+
+    expect(root(card).activeElement).toBe(menuButton(card));
+  });
+
+  it('hands it over from add as well, and leaves a control that stays where it is', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 405);
+    const add = root(card).querySelector<HTMLButtonElement>('.toolbar-start > .add-event-button')!;
+    add.focus();
+
+    await measure(card, 361);
+    expect(root(card).activeElement).toBe(add);
+
+    await measure(card, 317);
+    expect(root(card).activeElement).toBe(menuButton(card));
+  });
+});
+
+describe('a row that wraps where the arithmetic says it fits', () => {
+  beforeEach(() => {
+    stubLayout();
+  });
+
+  const debugged = () =>
+    vi
+      .mocked(Logger.debug)
+      .mock.calls.filter(([message]) => String(message).startsWith('Toolbar row does not fit'))
+      .length;
+
+  it('folds one control more at that width, and keeps it folded there', async () => {
+    // A theme fits three icons where the arithmetic counts four: the plan draws the filter, add,
+    // Back and the menu button, the row wraps, and Back follows the others into the menu.
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    layout.startCapacity = 3;
+    await measure(card, 405);
+    expect(startShape(card)).toEqual([0, true, 3]);
+
+    // Another render at the same width keeps it, even with the theme gone: never the other way.
+    layout.startCapacity = null;
+    card.isExpanded = !card.isExpanded;
+    await settle(card);
+    expect(startShape(card)).toEqual([0, true, 3]);
+  });
+
+  it('folds two at once where nothing was folded, and on until the row fits', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    layout.startCapacity = 3;
+    await measure(card, 406);
+
+    expect(startShape(card)).toEqual([0, true, 3]);
+    expect(debugged()).toBe(2);
+  });
+
+  it('stops once nothing more can fold, the end group wrapping', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    layout.startCapacity = 0;
+    await measure(card, 784);
+
+    expect(startShape(card)).toEqual([0, false, 4]);
+    expect(debugged()).toBe(3);
+  });
+
+  it('brings controls back through a new width alone', async () => {
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    layout.startCapacity = 3;
+    await measure(card, 405);
+    expect(startShape(card)).toEqual([0, true, 3]);
+
+    layout.startCapacity = null;
+    await measure(card, 406);
+    expect(startShape(card)).toEqual([3, true, 0]);
+    // The width it was recorded at plans afresh too: a new width cleared the record.
+    await measure(card, 405);
+    expect(startShape(card)).toEqual([1, true, 2]);
+  });
+
+  it("waits for the switcher's words to give way, and then fits beside its pictograms", async () => {
+    // Words wider than the row: the pass that draws them gives them up for the pictograms, and
+    // in that pass the start group concludes nothing from the words' width, or it would hold a
+    // menu at 784px for the rest of the card's time there.
+    layout.switcherWords = 800;
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    await measure(card, 784);
+    await nextFrame(card);
+
+    expect(root(card).querySelector('.view-switcher .toolbar-button-label')).toBeNull();
+    expect(startShape(card)).toEqual([3, true, 0]);
+  });
+
+  it('concludes nothing from a card that is not laid out', async () => {
+    // A width reported, and nothing laid out to read: every box the row draws is empty.
+    layout.startCapacity = 0;
+    const card = await mount(withButtons(THREE, FOLD_ROW));
+    observerOf(card).callback([{ contentRect: { width: 784 } }]);
+    await settle(card);
+
+    expect(startShape(card)).toEqual([3, true, 0]);
+  });
+});
+
 //-----------------------------------------------------------------------------
 // THE MENU
 //-----------------------------------------------------------------------------
 
-describe('the menu the buttons fold into', () => {
+describe("the start group's menu", () => {
   const ROW: Types.ToolbarConfig = { show: true, navigation: false, reset: false };
-  const THREE = [
+  const BUTTONS = [
     BACK,
     DASHBOARD,
     { icon: 'mdi:calendar-plus', tap_action: { action: 'add-event' } },
   ];
 
+  /**
+   * A card at 344px, where the filter and add keep their places and the three buttons fold: two
+   * and the menu button need 318px, three 362px.
+   */
   async function mountFolded(
-    buttons: unknown[] = THREE,
+    buttons: unknown[] = BUTTONS,
     toolbar: Types.ToolbarConfig = ROW,
     overrides: Partial<Types.Config> = {},
+    width = 344,
   ): Promise<CardUnderTest> {
     stubLayout();
     const card = await mount(withButtons(buttons, toolbar, overrides));
-    await measure(card, 376);
+    await measure(card, width);
     expect(menuButton(card)).not.toBeNull();
     return card;
   }
@@ -921,6 +1111,55 @@ describe('the menu the buttons fold into', () => {
     ]);
     expect(menu(card).open).toBe(false);
     expect(menuButton(card)!.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('holds add, last to fold, as its first row, which opens the popover under the menu button', async () => {
+    const popovers = spyOnPopovers();
+    try {
+      // At 300px only the filter stays: add and both buttons fold, add first, as drawn.
+      const card = await mountFolded([BACK, DASHBOARD], ROW, {}, 300);
+      expect(root(card).querySelector('.toolbar-start > .add-event-button')).toBeNull();
+      expect(
+        rows(card).map((row) => [
+          row.querySelector('ha-icon')?.getAttribute('icon') ??
+            row.querySelector('path')?.getAttribute('d'),
+          row.textContent!.trim(),
+        ]),
+      ).toEqual([
+        [mdiPlus, 'Add event'],
+        ['mdi:arrow-left', 'Back'],
+        ['mdi:view-dashboard-outline', 'Main dashboard'],
+      ]);
+
+      Object.defineProperty(menuButton(card)!, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({ left: 64, top: 8, right: 100, bottom: 44, width: 36, height: 36 }),
+      });
+      await open(card);
+      pointerClick(rows(card)[0]);
+      await settle(card);
+
+      expect(menu(card).open).toBe(false);
+      expect(popovers.opened).toHaveBeenCalledTimes(1);
+      expect(popovers.opened.mock.calls[0][0].anchor).toMatchObject({
+        x: 82,
+        y: 26,
+        below: true,
+        pointerType: 'mouse',
+      });
+    } finally {
+      popovers.stop();
+    }
+  });
+
+  it('names its add row in English where Home Assistant has no word for it', async () => {
+    stubLayout();
+    const card = await mount(withButtons([BACK, DASHBOARD], ROW), { localize: NO_WORDS });
+    await measure(card, 300);
+
+    expect(rows(card)[0].textContent!.trim()).toBe('Add event');
+    expect(menuButton(card)!.getAttribute('aria-label')).toBe('Menu');
+    expect(menuButton(card)!.hasAttribute('title')).toBe(false);
   });
 
   it('opens the event popover under the menu button for a row that adds an event', async () => {
@@ -991,7 +1230,7 @@ describe('the menu the buttons fold into', () => {
   });
 
   it('keeps a press on its button, or inside it, from becoming a press on the card', async () => {
-    const card = await mountFolded(THREE, ROW, { tap_action: { action: 'more-info' } });
+    const card = await mountFolded(BUTTONS, ROW, { tap_action: { action: 'more-info' } });
     const fired = listen(card);
 
     tapWithPointer(menuButton(card)!);
@@ -1023,9 +1262,9 @@ describe('the menu the buttons fold into', () => {
     await settle(card);
     expect(node.open).toBe(false);
 
-    card.setConfig(withButtons(THREE, ROW));
+    card.setConfig(withButtons(BUTTONS, ROW));
     await settle(card);
-    await measure(card, 376);
+    await measure(card, 344);
     await open(card);
     expect(menu(card).open).toBe(true);
     const again = menu(card);

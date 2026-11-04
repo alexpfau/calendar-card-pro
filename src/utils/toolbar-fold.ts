@@ -1,43 +1,63 @@
 /**
- * Whether the configuration's own toolbar buttons fold into one menu button.
+ * Which of the action row's start controls the row draws, and which fold into its menu.
  *
- * The action row holds, from its start, the folded calendar filter, add and the configuration's
- * own buttons; the view switcher in its middle; reset and refresh at its end. As a card narrows,
- * the row gives way in a fixed order: the switcher's words become pictograms first, then the
- * buttons fold into one menu button, and only a row that still does not fit wraps its end group
- * onto a line of its own.
+ * The action row holds, from its start, the calendar filter's button, add and the configuration's
+ * own buttons; the view switcher in its middle; reset, refresh and a search control at its end.
+ * As a card narrows, the row gives way in a fixed order: the switcher's words become pictograms
+ * first, then the start group's controls move into one menu button, from its end: the last of the
+ * configuration's buttons first, then the earlier ones, then add. The group's first control never
+ * moves, which is the filter wherever it is drawn, so the narrowest the group gets is that control
+ * and the menu button. The end group never folds: a row too narrow even for that wraps it onto a
+ * line of its own, as the row always has.
  *
- * The fold is all or none, as the legend's chips fold: never some buttons in the row and the rest
- * in the menu. And it takes two or more, since one button folded into one menu button saves
- * nothing, so a single button that does not fit wraps like any other control.
+ * Never exactly one control moves into the menu, since the menu button takes the room that
+ * control did: two move when the menu first appears, and the last two come back together when it
+ * goes. The start group may take all the room the switcher and the end group leave, not half of
+ * it, so the switcher moves off center before a control is hidden, as the row's flex layout lets
+ * it.
  *
- * Every width it rests on is known exactly. Each command is `UI.TOOLBAR_COMMAND_WIDTH` wide and
- * two in a group stand `UI.TOOLBAR_COMMAND_GAP` apart, as do the row's groups, which the
- * stylesheet tests reconcile; the switcher's width and the row's own content width are measured.
- * So the decision is arithmetic on those, pure, and judged with the switcher as pictograms, which
- * is what keeps the words giving way first.
+ * Every width the plan rests on is the stylesheet's, and the stylesheet tests reconcile each: a
+ * command is `UI.TOOLBAR_COMMAND_WIDTH` wide, two controls stand `UI.TOOLBAR_COMMAND_GAP` apart in
+ * a group and between the row's three parts, the switcher's pictograms are
+ * `UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH` each on a track padded `UI.TOOLBAR_SWITCHER_TRACK_PADDING`,
+ * and the row stands `UI.TOOLBAR_ROW_INSET` in from the card's edges. So the plan is arithmetic on
+ * the card's width, and pure. Every plan it makes is one line tall, which is what lets the card
+ * make it at render, inside its resize observer's callback, with no frame's delay and no
+ * hysteresis: no plan changes the card's height, so none can feed back into the width it was
+ * made for.
  */
 
 import * as Constants from '../config/constants';
 
-/** What the action row holds besides the buttons. */
+/** One control of the action row's start group. */
+export type StartControl =
+  | { readonly kind: 'filter' }
+  | { readonly kind: 'add' }
+  /** A button of the configuration's own, by its place in the list as resolved. */
+  | { readonly kind: 'button'; readonly index: number };
+
+/**
+ * One control of the action row's end group. `search` is the slot for a search control at its
+ * end, counted wherever the card draws one.
+ */
+export type EndControl = 'reset' | 'refresh' | 'search';
+
+/** What the action row holds, as the plan reckons with it. */
 export interface ActionRow {
-  /** How many buttons the configuration adds. */
-  buttons: number;
-  /** The other icons in the row's start group: the folded filter and add. */
-  start: number;
-  /** The icons in its end group: reset and refresh. */
-  end: number;
-  /** The view switcher's width drawn as pictograms, or null without a switcher. */
-  switcherPx: number | null;
+  /** The start group's controls in the order drawn: the folded filter, add, then the buttons. */
+  start: ReadonlyArray<StartControl>;
+  /** The end group's controls in the order drawn. */
+  end: ReadonlyArray<EndControl>;
+  /** How many views the switcher draws, or none without a switcher. */
+  views: number;
+  /** How far the row's content stands in from the card's edges, both together. */
+  insetPx: number;
 }
 
-/** The buttons folded, recorded with what the row held and from when they unfold. */
-export interface ButtonsFold {
-  /** What the fold depends on besides the width; a fold for another row does not hold. */
-  signature: string;
-  /** The card width from which the buttons are drawn in the row again. */
-  unfoldAtPx: number;
+/** The start group's controls the row draws, and those its menu holds, each in order. */
+export interface StartPlan {
+  visible: ReadonlyArray<StartControl>;
+  overflow: ReadonlyArray<StartControl>;
 }
 
 /**
@@ -52,62 +72,64 @@ export function groupWidth(icons: number): number {
 }
 
 /**
- * The width the action row needs to hold every button on one line, the switcher as pictograms.
- * The start and end groups are drawn even when empty, so the gaps between the row's groups are
- * there whatever they hold.
+ * The view switcher's width drawn as pictograms.
+ *
+ * @param views - How many views it draws
+ * @returns Its width in CSS pixels, nothing for no view
+ */
+export function switcherWidth(views: number): number {
+  const { TOOLBAR_SWITCHER_SEGMENT_WIDTH: segment, TOOLBAR_SWITCHER_TRACK_PADDING: padding } =
+    Constants.UI;
+  return views <= 0 ? 0 : views * segment + 2 * padding;
+}
+
+/**
+ * The card width the action row needs to stand on one line, the switcher as pictograms and the
+ * start group drawn as this many icons. The start and end groups are drawn even when empty, so
+ * the gaps between the row's parts are there whatever they hold.
  *
  * @param row - What the row holds
- * @returns The width, in CSS pixels
+ * @param startIcons - How many icons the start group draws, the menu button counted
+ * @returns The width in CSS pixels
  */
-export function rowWidthWithButtons(row: ActionRow): number {
+export function cardWidthFor(row: ActionRow, startIcons: number): number {
   const gap = Constants.UI.TOOLBAR_COMMAND_GAP;
-  const groups = groupWidth(row.start + row.buttons) + groupWidth(row.end);
-  return row.switcherPx === null ? groups + gap : groups + 2 * gap + row.switcherPx;
+  const switcher = row.views > 0 ? switcherWidth(row.views) + gap : 0;
+  return row.insetPx + groupWidth(startIcons) + gap + switcher + groupWidth(row.end.length);
 }
 
 /**
- * Judges the buttons' fold from one measurement of the row, drawn with its buttons in it.
+ * Plans the start group for a card this wide: the most controls that fit on the row's one line,
+ * the rest in the menu, never exactly one of them.
  *
- * Where they do not all fit beside everything else, they fold until the card is wide enough for
- * them by `UI.LEGEND_UNFOLD_MARGIN`: the row's content grows with the card one for one, so that
- * width follows from the two measured. An unfold the measurement then contradicts, which drawing
- * the buttons can do by making the page tall enough for a scrollbar, folds again from wider than
- * the width it was tried at, so the two cannot alternate.
+ * Where even the group's first control and the menu button do not fit, the plan is still those
+ * two, and the row wraps its end group, as it does without a menu.
  *
  * @param row - What the row holds
- * @param rowPx - The action row's content width
  * @param cardPx - The card's width
- * @param unfoldedAtPx - The card width the buttons last unfolded at, until a measurement there
- *   confirms they fit; null otherwise
- * @returns Null while the buttons stay in the row; otherwise the width from which they unfold
+ * @param atLeast - The fewest controls to fold, which the card asks for where the row it drew at
+ *   this width still did not fit on one line; the width alone decides with none
+ * @returns The controls drawn, and the controls in the menu
  */
-export function judgeButtonsFold(
-  row: ActionRow,
-  rowPx: number,
-  cardPx: number,
-  unfoldedAtPx: number | null,
-): { unfoldAtPx: number } | null {
-  if (row.buttons < 2) return null;
-  const needed = rowWidthWithButtons(row);
-  if (needed <= rowPx + 0.5) return null;
-  const fitsFrom = Math.ceil(cardPx + needed - rowPx) + Constants.UI.LEGEND_UNFOLD_MARGIN;
-  return { unfoldAtPx: Math.max(fitsFrom, (unfoldedAtPx ?? 0) + 1) };
-}
+export function planStartGroup(row: ActionRow, cardPx: number, atLeast = 0): StartPlan {
+  const { start } = row;
+  // The first control never folds, and a menu never holds one control alone.
+  const foldable = start.length - 1;
+  if (foldable < 2) return { visible: start, overflow: [] };
 
-/**
- * Whether the buttons are folded now: a fold recorded for this row, at a width short of the one
- * it unfolds from. Before the card has been judged at any width, a fold recorded holds.
- *
- * @param fold - The fold recorded, if any
- * @param signature - What the row holds now
- * @param widthPx - The card width the fold is judged at, or null before any
- * @returns True while the buttons are folded
- */
-export function buttonsFolded(
-  fold: ButtonsFold | null,
-  signature: string,
-  widthPx: number | null,
-): boolean {
-  if (!fold || fold.signature !== signature) return false;
-  return widthPx === null || widthPx < fold.unfoldAtPx;
+  const fits = (icons: number) => cardWidthFor(row, icons) <= cardPx;
+  let hidden = 0;
+  if (!fits(start.length)) {
+    hidden = 2;
+    // Each fold beyond the second frees one icon's room and its gap; the menu button stays.
+    while (hidden < foldable && !fits(start.length - hidden + 1)) hidden += 1;
+  }
+  hidden = Math.max(hidden, atLeast);
+  if (hidden === 1) hidden = 2;
+  hidden = Math.min(hidden, foldable);
+
+  return {
+    visible: start.slice(0, start.length - hidden),
+    overflow: start.slice(start.length - hidden),
+  };
 }

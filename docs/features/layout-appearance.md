@@ -533,13 +533,22 @@ read right to left the top row is mirrored, and an icon is drawn as you chose it
 `mdi:arrow-right` for a back button there.
 
 On a narrow card the top row gives way in a fixed order. The view switcher's words become
-pictograms first. Then, where two or more buttons of your own still do not fit, they fold into
-one menu button, three dots, in their place: all of them, never some in the row and the rest in
-the menu. Only a row that still does not fit puts reset and refresh on a line of their own. A
-single button never folds, since a menu button in its place would save nothing. The menu lists
-each button, its icon and its name in words; a press runs it and closes the menu, which also
-closes on a press outside it, Escape, a scroll or a change in the card's width. The buttons come
-back into the row once the card is wide enough for them again, as when a tablet is turned.
+pictograms first. Then the controls at the start of the row move into one menu button, three dots,
+from the end: your last button first, then the ones before it, then the add button. The first
+control there stays in the row at any width, the calendar filter's button wherever it is drawn,
+so the narrowest top row is that button and the menu button, the switcher, and the controls at the
+row's end. No control moves into the menu alone, since the menu button would take its room: two
+go when the menu first appears, and the last two come back together. The start of the row may
+take all the room the switcher and the end leave, so the switcher moves off center before a
+control moves. Reset and refresh never move into the menu: a card too narrow even for the
+narrowest top row puts them on a line of their own, which beside the filter's button, the
+switcher and refresh happens below 274px, and with reset as well below 318px.
+
+The menu lists what it holds in the order the row draws it, each with its icon and its name in
+words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
+scroll or a change in the card's width. The add button there opens the new event under the menu
+button. A control that has keyboard focus as it moves into the menu hands focus to the menu
+button. The controls come back into the row as the card widens again, as when a tablet is turned.
 
 In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
 toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with
