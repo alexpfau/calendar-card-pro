@@ -34,6 +34,8 @@ import roTranslations from './languages/ro.json';
 import ruTranslations from './languages/ru.json';
 import skTranslations from './languages/sk.json';
 import slTranslations from './languages/sl.json';
+import srTranslations from './languages/sr.json';           // Added for Serbian Cyrillic
+import srLatnTranslations from './languages/sr-Latn.json'; // Added for Serbian Latin
 import svTranslations from './languages/sv.json';
 import thTranslations from './languages/th.json';
 import trTranslations from './languages/tr.json';
@@ -75,6 +77,8 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   ru: ruTranslations,
   sl: slTranslations,
   sk: skTranslations,
+  sr: srTranslations,         // Added for Serbian Cyrillic
+  'sr-latn': srLatnTranslations, // Added for Serbian Latin
   sv: svTranslations,
   uk: ukTranslations,
   vi: viTranslations,
@@ -127,6 +131,13 @@ export function getEffectiveLanguage(
     const sysLang = hassLocale.language.toLowerCase();
     if (TRANSLATIONS[sysLang]) {
       effectiveLanguage = sysLang;
+      languageCache.set(cacheKey, effectiveLanguage);
+      return effectiveLanguage;
+    }
+
+    // Prevent splitting 'sr-latn' variants into 'sr' to keep Latin translation distinct
+    if (sysLang.startsWith('sr-latn') && TRANSLATIONS['sr-latn']) {
+      effectiveLanguage = 'sr-latn';
       languageCache.set(cacheKey, effectiveLanguage);
       return effectiveLanguage;
     }
@@ -202,8 +213,8 @@ export function translate(
 export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-day' | 'day-month' {
   const lang = language?.toLowerCase() || '';
 
-  // German and Croatian use day with dot, then month (e.g., "17. Mar")
-  if (lang === 'de' || lang === 'hr') {
+  // German, Croatian, and Serbian use day with dot, then month (e.g., "17. Mar")
+  if (lang === 'de' || lang === 'hr' || lang === 'sr' || lang === 'sr-latn') {
     return 'day-dot-month';
   }
 
@@ -215,3 +226,4 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
   // Default for most other languages: day then month without dot (e.g., "17 Mar")
   return 'day-month';
 }
+
