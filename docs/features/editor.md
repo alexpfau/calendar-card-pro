@@ -308,7 +308,7 @@ Each panel opens with four actions:
 
 They sit above the settings rather than below them, so they are visible the moment a panel opens. **Remove** is held apart from the other three because it is the only one that discards anything, and a card editor has no undo.
 
-A calendar's name says which calendar it is rather than how it is shown, so it stays with the calendar: **Copy Settings** is offered only once a calendar carries something besides its name, and a paste leaves the name of the calendar it lands on alone. A calendar with two blocks has one name, so changing it on either block changes it on both.
+A calendar's name says which calendar it is rather than how it is shown, so it stays with the calendar: **Copy Settings** is offered only once a calendar carries something besides its name, and a paste leaves the name of the calendar it lands on alone. A calendar with two blocks has one name, so changing it on either block changes it on both, and removing the block that held it leaves it on the block that remains.
 
 The clipboard behind **Copy Settings** outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
 

@@ -240,6 +240,36 @@ describe('writing a calendar name', () => {
       { entity: ANNA, name: 'Anna at work' },
     ]);
   });
+
+  it('moves the name to the block left when Remove takes the only block holding it', () => {
+    // Hand-written YAML naming the calendar on its second block only: both panels show the
+    // name, so removing that block must not quietly give the calendar Home Assistant's back.
+    expect(
+      Entities.removeEntity(
+        [
+          { entity: ANNA, event_type: 'timed' },
+          { entity: ANNA, event_type: 'all_day', name: 'Anna at work' },
+          'calendar.ben',
+        ],
+        1,
+      ),
+    ).toEqual([{ entity: ANNA, name: 'Anna at work', event_type: 'timed' }, 'calendar.ben']);
+
+    // The control: removing the calendar's last block leaves no block to carry a name, and
+    // removing a block whose name another block also holds changes nothing else.
+    expect(
+      Entities.removeEntity([{ entity: ANNA, name: 'Anna at work' }, 'calendar.ben'], 0),
+    ).toEqual(['calendar.ben']);
+    expect(
+      Entities.removeEntity(
+        [
+          { entity: ANNA, name: 'Anna at work', event_type: 'timed' },
+          { entity: ANNA, name: 'Anna at work', event_type: 'all_day' },
+        ],
+        0,
+      ),
+    ).toEqual([{ entity: ANNA, name: 'Anna at work', event_type: 'all_day' }]);
+  });
 });
 
 describe('searching the editor for a calendar by its name', () => {

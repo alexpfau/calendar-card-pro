@@ -172,6 +172,11 @@ export function duplicateEntity(
  * the only control that removes a single block, which is what makes it the inverse of
  * Duplicate rather than a shortcut for something the picker already does.
  *
+ * A calendar's name outlives the block that held it while another block of that calendar
+ * remains. Every panel of the calendar shows the name, even in hand-written YAML that holds
+ * it on one block only, so removing that block moves the name onto the first block left
+ * rather than silently handing the calendar back to Home Assistant's name.
+ *
  * @param entities - The list as stored
  * @param index - Position of the block being removed
  * @returns A new list, or the original when the index is not in it
@@ -184,7 +189,15 @@ export function removeEntity(
 
   if (index < 0 || index >= entities.length) return next;
 
+  const id = entityIdOf(entities[index]);
+  const name = configuredCalendarName(entities, id);
+
   next.splice(index, 1);
+
+  const heir = next.findIndex((entry) => entityIdOf(entry) === id);
+  if (name !== undefined && heir >= 0 && configuredCalendarName(next, id) === undefined) {
+    next[heir] = withName(next[heir], name);
+  }
 
   return next;
 }
