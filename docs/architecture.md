@@ -479,7 +479,7 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
 - **The legend's menu is a modal `<dialog>` with one controller.** `showModal()` reaches the
   top layer, past `ha-card`'s `overflow: hidden`, in every browser Home Assistant serves; the
   popover API would need iOS 17 and Chrome 114. Because a modal makes the rest of the page
-  inert, every way it ends goes through `closeMenu` in `rendering/legend.ts`, and the card
+  inert, every way it ends goes through `closeMenu` in `rendering/menu.ts`, and the card
   closes it before anything takes its button away: in `willUpdate` before a render that unfolds
   the legend, drops it or starts editing, in `_applyVisibility` before the card hides, and on
   disconnect; the resize observer closes it too when the card changes width under it. Each

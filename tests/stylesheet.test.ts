@@ -3121,7 +3121,7 @@ describe('the legend and refresh', () => {
 
   it("draws the menu on the theme's card surface, not this card's own background", () => {
     // `background_color` may make the card transparent; a menu over the events must not be.
-    // Where the theme's card surface is see-through, `paintMenu` in `legend.ts` hands the
+    // Where the theme's card surface is see-through, `paintMenu` in `menu.ts` hands the
     // background color an opaque one in its own property; everywhere else the property is unset
     // and the background color is the card surface again.
     expect(declared('.legend-menu', 'background')).toBe(
@@ -3134,7 +3134,7 @@ describe('the legend and refresh', () => {
 
   it("keeps the stand-ins the menu's colors are read off hidden, in those colors", () => {
     // Drawn inside the menu so nothing is added to the card for the read; see `paintMenu` in
-    // `legend.ts`. The surface's stand-in carries the menu's own background, so the color handed
+    // `menu.ts`. The surface's stand-in carries the menu's own background, so the color handed
     // over never feeds back into the next read.
     expect(declared('.legend-menu-surface', 'display')).toBe('none');
     expect(declared('.legend-menu-surface', 'background')).toBe(

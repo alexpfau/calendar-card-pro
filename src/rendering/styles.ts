@@ -1092,12 +1092,12 @@ export const cardStyles = css`
 
   /* The menu a folded legend opens: a list floating over the events, drawn by the browser on
      its top layer, which is why the card's clipping does not reach it. Placed beside its
-     button by placeMenu in rendering/legend.ts, and given a height there when it is taller
+     button by placeMenu in rendering/menu.ts, and given a height there when it is taller
      than the room. Its font is set for itself, so nothing it sits inside can change it. Its
      surface is the theme's card background rather than this card's own, which
      background_color may have made transparent. A menu has to be opaque to be read over the
      events, and a theme made for a wallpaper makes its card background see-through, so where
-     it is, paintMenu in rendering/legend.ts hands the background color an opaque one, that
+     it is, paintMenu in rendering/menu.ts hands the background color an opaque one, that
      background laid over the theme's page color, in its own custom property, beneath any image
      the card background draws. Everywhere else it hands the card background's own color back, so
      nothing changes; the fallback here is only what a closed menu holds before its first paint. */
@@ -1131,7 +1131,7 @@ export const cardStyles = css`
     background: transparent;
   }
 
-  /* The menu's own background and the theme's page color, as paintMenu in rendering/legend.ts
+  /* The menu's own background and the theme's page color, as paintMenu in rendering/menu.ts
      reads them. Never shown. The value is kept beside the background in
      --calendar-card-surface-value, as the view switcher's is, for the reader they share. */
   .legend-menu-surface {

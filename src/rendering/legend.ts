@@ -8,20 +8,17 @@
  * where they do not all fit beside the month and the arrows, the chips give way to exactly the
  * menu's layout. The card decides which; this module draws either, and runs the menu.
  *
- * The menu is a native `<dialog>` opened with `showModal()`. That reaches the browser's top
- * layer, so `ha-card`'s `overflow: hidden` cannot clip it, in every browser Home Assistant
- * still serves; the popover API would need a newer one. A modal dialog makes the rest of the
- * page inert while it is open, so every way it can end, a press outside, Escape, a scroll, a
- * resize, the card hiding or folding open again, closes it through one path. Floating over the
- * events, it has to be opaque even where a theme's card background is not, so its surface is
- * painted when it opens and after every update while it is open (`paintMenu`).
+ * The menu is a native `<dialog>` opened with `showModal()`, placed, painted opaque and closed
+ * by the controller every toolbar menu shares (`menu.ts`).
  */
 
 import { mdiCalendarFilter } from '@mdi/js';
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 
-import { setSurfaceColor, surfaceColor } from './surface';
+import * as Menu from './menu';
+
+export { placeMenu, type MenuPlacement, type Rect } from './menu';
 
 //-----------------------------------------------------------------------------
 // TYPES
@@ -73,25 +70,6 @@ export interface LegendChange {
   source: unknown;
 }
 
-/** Why the menu closed, which decides whether focus goes back to its button. */
-type CloseReason = 'escape' | 'backdrop' | 'button' | 'scroll' | 'resize' | 'gone';
-
-/** A rectangle, as `getBoundingClientRect` returns one. */
-export interface Rect {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/** Where the menu goes, in viewport pixels. */
-export interface MenuPlacement {
-  left: number;
-  top: number;
-  /** Set when the menu is taller than the room on either side of its button. */
-  maxHeight: number | undefined;
-}
-
 //-----------------------------------------------------------------------------
 // CONSTANTS
 //-----------------------------------------------------------------------------
@@ -105,272 +83,12 @@ const UNLOCALIZED_LEGEND_NAME = 'Calendars';
 /** The window event a {@link LegendChange} travels on. */
 export const LEGEND_CHANGED_EVENT = 'calendar-card-pro-legend-changed';
 
-/** Room kept between the menu and the viewport's edges, and between it and its button. */
-const MENU_VIEWPORT_INSET = 8;
-const MENU_GAP = 4;
-
-/**
- * The custom property the menu's opaque color is handed to the stylesheet in, which paints the
- * menu's background color in it, under any image the theme's card background draws.
- */
-const MENU_SURFACE = '--calendar-card-legend-menu-surface';
-
-//-----------------------------------------------------------------------------
-// PLACEMENT
-//-----------------------------------------------------------------------------
-
-/**
- * Where the menu goes beside its button.
- *
- * Its inline start lines up with the button's, because the button leads the action row: the
- * left edge in a left-to-right card, the right edge in a right-to-left one. It is then kept
- * inside the viewport. It opens below the button where it fits, else above where it
- * fits, else on the roomier side with a height that fits there, scrolling inside.
- *
- * @param anchor - The button's rectangle
- * @param menu - The menu's natural size
- * @param viewport - The viewport's size
- * @param rtl - Whether the card reads right to left
- * @returns The menu's position, and a maximum height when it needs one
- */
-export function placeMenu(
-  anchor: Rect,
-  menu: { width: number; height: number },
-  viewport: { width: number; height: number },
-  rtl: boolean,
-): MenuPlacement {
-  const inlineStart = rtl ? anchor.right - menu.width : anchor.left;
-  const maxLeft = Math.max(MENU_VIEWPORT_INSET, viewport.width - MENU_VIEWPORT_INSET - menu.width);
-  const left = Math.min(Math.max(inlineStart, MENU_VIEWPORT_INSET), maxLeft);
-
-  const below = viewport.height - anchor.bottom - MENU_GAP - MENU_VIEWPORT_INSET;
-  const above = anchor.top - MENU_GAP - MENU_VIEWPORT_INSET;
-  if (menu.height <= below) return { left, top: anchor.bottom + MENU_GAP, maxHeight: undefined };
-  if (menu.height <= above) {
-    return { left, top: anchor.top - MENU_GAP - menu.height, maxHeight: undefined };
-  }
-  if (below >= above) {
-    return { left, top: anchor.bottom + MENU_GAP, maxHeight: Math.max(0, below) };
-  }
-  const height = Math.max(0, above);
-  return { left, top: anchor.top - MENU_GAP - height, maxHeight: height };
-}
-
-//-----------------------------------------------------------------------------
-// MENU CONTROLLER
-//-----------------------------------------------------------------------------
-
-interface OpenMenu {
-  /** The button that opened it, which it is placed beside. */
-  opener: HTMLElement;
-  /** Whether a press opened it, which leaves focus on the menu itself. */
-  pressed: boolean;
-  /** Why it is closing, once something asked it to. */
-  reason: CloseReason | undefined;
-  /** Removes every listener the open menu holds. */
-  stop: () => void;
-}
-
-/** Menus open now, each with what it holds. */
-const openMenus = new Map<HTMLDialogElement, OpenMenu>();
-
-/**
- * Places an open menu beside its button.
- *
- * The maximum height is cleared before the menu is measured, so a menu once squeezed grows
- * back where there is room again. Clearing it leaves nothing to scroll, which resets the
- * menu's scroll position, so that is put back afterwards: this runs after every update of the
- * card, a tick in the menu included, and must not throw a long list back to its top.
- *
- * @param dialog - The open menu
- * @param opener - Its button
- */
-function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
-  const scrollTop = dialog.scrollTop;
-  dialog.style.maxHeight = '';
-  const menu = dialog.getBoundingClientRect();
-  const view = dialog.ownerDocument.defaultView;
-  const rtl = getComputedStyle(opener).direction === 'rtl';
-  const placement = placeMenu(
-    opener.getBoundingClientRect(),
-    { width: menu.width, height: menu.height },
-    { width: view?.innerWidth ?? menu.width, height: view?.innerHeight ?? menu.height },
-    rtl,
-  );
-  dialog.style.left = `${placement.left}px`;
-  dialog.style.top = `${placement.top}px`;
-  if (placement.maxHeight !== undefined) dialog.style.maxHeight = `${placement.maxHeight}px`;
-  dialog.scrollTop = scrollTop;
-}
-
-/**
- * Paints an open menu opaque where its theme's card background is see-through, by handing the
- * stylesheet an opaque color for the menu's background color in a custom property
- * (`surfaceColor` in `surface.ts`). The menu's own background is never written, so a card-mod
- * rule that sets it wins as it would against the stylesheet, a see-through one included, and a
- * transition on it cannot be read halfway. Its colors are read off the two hidden stand-ins
- * drawn inside it, which this runs after every update while the menu is open.
- *
- * Where nothing has to be laid under it, the menu is handed its own color back, read off the
- * stand-in, rather than nothing. The stylesheet's fallback is the theme's card background, which
- * a theme may write as a background shorthand, `#1c1c1c no-repeat` say, and a shorthand is no
- * background color: the fallback would leave the menu transparent.
- *
- * @param dialog - The open menu
- */
-function paintMenu(dialog: HTMLDialogElement): void {
-  const own = dialog.querySelector(':scope > .legend-menu-surface');
-  const page = dialog.querySelector(':scope > .legend-menu-page');
-  const color = own && page ? surfaceColor(own, page, dialog) : undefined;
-  setSurfaceColor(
-    dialog,
-    MENU_SURFACE,
-    own && page ? (color ?? getComputedStyle(own).backgroundColor) : undefined,
-  );
-}
-
-/**
- * Closes a menu, saying why. Nothing happens for one that is not open.
- *
- * @param dialog - The menu
- * @param reason - Why it closes
- */
-function closeMenu(dialog: HTMLDialogElement, reason: CloseReason): void {
-  const open = openMenus.get(dialog);
-  if (!open) return;
-  open.reason ??= reason;
-  if (dialog.open) {
-    dialog.close();
-  } else {
-    // Already closed, or removed from the page without closing: the close event will not
-    // come, so finish here.
-    finishClose(dialog);
-  }
-}
-
-/**
- * Everything closing a menu does, whichever way it closed: listeners go, and the button says
- * the menu is closed.
- *
- * Focus is the browser's to return. Closing a modal dialog puts focus back where it was before
- * the dialog opened, the button, without scrolling, however the dialog closed. Focusing the
- * button here as well, after a close someone asked for, covers a browser that does not; after
- * a scroll, a resize or the button going away, nothing is asked of focus beyond what the
- * browser does.
- *
- * A menu a press opened and a press closed is the exception, and is left to the browser too. It
- * held focus itself, and in WebKit that focus counts as the keyboard's, which carries over to
- * whatever a script focuses next, so focusing the button would ring it after nothing but
- * presses. There, where a press does not focus a button, focus goes back to where it was before
- * the menu opened. Escape still focuses the button.
- *
- * @param dialog - The menu that closed
- */
-function finishClose(dialog: HTMLDialogElement): void {
-  const open = openMenus.get(dialog);
-  if (!open) return;
-  openMenus.delete(dialog);
-  open.stop();
-  open.opener.setAttribute('aria-expanded', 'false');
-
-  // Escape is the dialog's own cancel and close, so it arrives with no reason recorded.
-  const reason = open.reason ?? 'escape';
-  const deliberate =
-    reason === 'escape' || (!open.pressed && (reason === 'backdrop' || reason === 'button'));
-  if (deliberate && open.opener.isConnected) open.opener.focus({ preventScroll: true });
-}
-
-/**
- * Opens a menu beside its button. Nothing happens for one already open or not on the page.
- *
- * The dialog gives focus to its first calendar, which is where a keyboard wants it. A press
- * moves it on to the menu itself, which draws no ring, before anything is painted: WebKit counts
- * the dialog's own choice as keyboard focus, and rang the first calendar after a press. Tab then
- * reaches the first calendar.
- *
- * @param dialog - The menu
- * @param opener - The button that opens it
- * @param pressed - Whether a press opened it, rather than a key
- */
-function openMenu(dialog: HTMLDialogElement, opener: HTMLElement, pressed: boolean): void {
-  if (dialog.open || openMenus.has(dialog) || !dialog.isConnected) return;
-
-  try {
-    dialog.showModal();
-  } catch {
-    return;
-  }
-  // In the same task as showModal, so the menu is never painted where the browser first puts
-  // it, in the middle of the viewport, nor see-through for a frame.
-  positionMenu(dialog, opener);
-  paintMenu(dialog);
-  if (pressed) dialog.focus({ preventScroll: true });
-  opener.setAttribute('aria-expanded', 'true');
-
-  const view = dialog.ownerDocument.defaultView ?? window;
-  // A scroll inside the menu is the menu's own; any other moves the button away from it.
-  const onScroll = (ev: Event) => {
-    if (ev.composedPath().includes(dialog)) return;
-    closeMenu(dialog, 'scroll');
-  };
-  const onResize = () => closeMenu(dialog, 'resize');
-  const onClose = () => finishClose(dialog);
-  view.addEventListener('scroll', onScroll, { capture: true, passive: true });
-  view.addEventListener('resize', onResize);
-  dialog.addEventListener('close', onClose);
-
-  openMenus.set(dialog, {
-    opener,
-    pressed,
-    reason: undefined,
-    stop: () => {
-      view.removeEventListener('scroll', onScroll, { capture: true });
-      view.removeEventListener('resize', onResize);
-      dialog.removeEventListener('close', onClose);
-    },
-  });
-}
-
-/**
- * Closes every legend menu open inside a card, without moving focus.
- *
- * For whatever is about to take the menu's place away: the card hiding, folding open, being
- * edited, losing its legend or leaving the page.
- *
- * @param root - The card's shadow root
- */
-export function closeLegendMenus(root: ParentNode): void {
-  for (const dialog of [...openMenus.keys()]) {
-    if (!dialog.isConnected || root.contains(dialog)) closeMenu(dialog, 'gone');
-  }
-}
-
-/**
- * Places every legend menu open inside a card beside its button again, and paints its surface
- * again, after the card has re-rendered. A menu whose button is gone closes.
- *
- * @param root - The card's shadow root
- */
-export function repositionLegendMenus(root: ParentNode): void {
-  for (const [dialog, open] of [...openMenus]) {
-    if (!dialog.isConnected || !open.opener.isConnected) {
-      closeMenu(dialog, 'gone');
-    } else if (root.contains(dialog)) {
-      positionMenu(dialog, open.opener);
-      paintMenu(dialog);
-    }
-  }
-}
-
-/**
- * Whether a legend menu is open inside a card.
- *
- * @param root - The card's shadow root
- * @returns True while one is open
- */
-export function hasOpenLegendMenu(root: ParentNode): boolean {
-  return [...openMenus.keys()].some((dialog) => root.contains(dialog));
-}
+/** The legend's menu, to the controller: its kind, and the stand-ins its surface is read off. */
+const LEGEND_MENU: Menu.MenuParts = {
+  kind: 'legend',
+  surface: 'legend-menu-surface',
+  page: 'legend-menu-page',
+};
 
 //-----------------------------------------------------------------------------
 // RENDERING
@@ -460,32 +178,10 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
 
   const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
     button.parentElement?.querySelector<HTMLDialogElement>('dialog.legend-menu') ?? null;
-  // A click from Enter or Space counts no presses; one from a mouse, a finger or a pen does.
   const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
-    const button = ev.currentTarget as HTMLElement;
-    const dialog = dialogOf(button);
-    if (!dialog) return;
-    if (openMenus.has(dialog)) {
-      closeMenu(dialog, 'button');
-      return;
-    }
-    if (legend.inert) return;
-    openMenu(dialog, button, ev.detail > 0);
-  };
-  // A press on the backdrop arrives at the dialog itself, outside its box. A press on the
-  // dialog's own padding arrives there too, inside it, and is ignored.
-  const onDialogClick = (ev: MouseEvent) => {
-    ev.stopPropagation();
-    const dialog = ev.currentTarget as HTMLDialogElement;
-    if (ev.target !== dialog) return;
-    const box = dialog.getBoundingClientRect();
-    const inside =
-      ev.clientX >= box.left &&
-      ev.clientX <= box.right &&
-      ev.clientY >= box.top &&
-      ev.clientY <= box.bottom;
-    if (!inside) closeMenu(dialog, 'backdrop');
+    const dialog = dialogOf(ev.currentTarget as HTMLElement);
+    if (dialog) Menu.pressMenuButton(ev, dialog, legend.inert, LEGEND_MENU);
   };
 
   return html`<button
@@ -507,7 +203,7 @@ export function renderLegendButton(legend: CalendarLegend): TemplateResult {
       tabindex="-1"
       aria-label=${name}
       @pointerdown=${stopCardGesture}
-      @click=${onDialogClick}
+      @click=${Menu.closeOnPressOutside}
     >
       <div class="legend-menu-list" role="group" aria-label=${name}>
         ${legend.calendars.map(

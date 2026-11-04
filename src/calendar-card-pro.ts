@@ -51,6 +51,7 @@ import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
 import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
+import * as Menu from './rendering/menu';
 import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
@@ -1985,7 +1986,7 @@ class CalendarCardPro extends LitElement {
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
-    Legend.closeLegendMenus(this.renderRoot);
+    Menu.closeMenus(this.renderRoot);
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
     this._settleResetConfirmation();
@@ -2068,7 +2069,7 @@ class CalendarCardPro extends LitElement {
       if (typeof width === 'number' && width > 0) {
         // The card moved under an open menu, which is placed by where its button was.
         if (this._toolbarWidthPx !== null && Math.abs(width - this._toolbarWidthPx) > 0.5) {
-          Legend.closeLegendMenus(this.renderRoot);
+          Menu.closeMenus(this.renderRoot);
         }
         this._syncToolbarLabels(width);
         this._scheduleLegendFit();
@@ -3237,8 +3238,8 @@ class CalendarCardPro extends LitElement {
   protected willUpdate(changedProps: PropertyValues): void {
     // A modal menu outliving its button would leave the page inert, so it closes before a
     // render that takes the button away: the legend unfolding or going, or editing starting.
-    if (Legend.hasOpenLegendMenu(this.renderRoot) && !this._legendMenuMayStayOpen()) {
-      Legend.closeLegendMenus(this.renderRoot);
+    if (Menu.hasOpenMenu(this.renderRoot, 'legend') && !this._legendMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'legend');
     }
 
     if (
@@ -3343,7 +3344,7 @@ class CalendarCardPro extends LitElement {
     this._syncHeadingMiddle();
     this._syncLegendFit(false);
     Legend.markShortenedChips(this.renderRoot);
-    Legend.repositionLegendMenus(this.renderRoot);
+    Menu.repositionMenus(this.renderRoot);
     Toolbar.paintSelectedView(this.renderRoot);
   }
 
@@ -3421,7 +3422,7 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
 
     // A menu open over a card about to hide would keep the page inert under nothing visible.
-    if (shouldHide) Legend.closeLegendMenus(this.renderRoot);
+    if (shouldHide) Menu.closeMenus(this.renderRoot);
 
     this.hidden = shouldHide;
     this.style.display = shouldHide ? 'none' : '';
