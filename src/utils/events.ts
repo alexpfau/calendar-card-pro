@@ -398,8 +398,9 @@ export function readEventSnapshot(
  *   `advanceWriteGeneration`. Ignored by every other load
  * @param store Where the window's cache entry lives
  * @param onPartial Told, while the request is still out, each time another calendar has
- *   answered with events: the events of every calendar that has, processed for this caller.
- *   Never told about a request that ends at the cache, and never with nothing to draw
+ *   answered: the events of every calendar that has, processed for this caller. Never told
+ *   about a request that ends at the cache, nor before some calendar has answered with events;
+ *   whether those events put anything on screen is the caller's to judge
  * @returns Promise resolving to calendar event data array
  */
 export async function fetchEventData(

@@ -5545,10 +5545,12 @@ class CalendarCardPro extends LitElement {
         return;
       }
 
-      // Nothing on screen for this window yet: draw each calendar as it answers, so one slow
-      // calendar no longer holds back the others. Where cached events for it are drawn, they
+      // No event drawn on any of these days yet: a first load, a page or a start date not shown
+      // before, or a retry after everything failed. Draw each calendar as it answers, so one
+      // slow calendar no longer holds back the others. Where an event is drawn on one of them,
+      // the day after midnight or a configuration changed in place included, the events drawn
       // stay until every calendar has answered, so none of them vanishes and comes back.
-      const cold = this.isInitialLoad || this._eventsInstanceId !== instanceId;
+      const cold = this.isInitialLoad || !this._drawsEventOn(page);
       let result: Types.EventFetchResult;
       try {
         result = await EventUtils.fetchEventData(
@@ -5665,8 +5667,10 @@ class CalendarCardPro extends LitElement {
    * Draw the calendars of a cold load that have answered so far, in the next task.
    *
    * Calendars still out are simply not drawn yet, and nothing is reported failed until every
-   * calendar has answered: the header keeps its loading spinner, and the full result replaces
-   * this one. Neither the cache nor the deadlines move.
+   * calendar has answered, a failure named for other dates included: the header keeps its
+   * loading spinner, and the full result replaces this one. Neither the cache nor the deadlines
+   * move. Nothing is drawn until a calendar has an event this view would show, so the loading
+   * state never gives way to a day that only looks empty.
    *
    * @param partial The events of every calendar that has answered
    * @param instanceId Query identity the events were loaded for
@@ -5679,6 +5683,8 @@ class CalendarCardPro extends LitElement {
     page: string | null,
     generation: number,
   ): void {
+    // A request a newer one replaced must not take the newer one's place in the queue.
+    if (generation !== this._eventRequestGeneration) return;
     this._partialCommit = { partial, instanceId, page, generation };
     if (this._partialTimer !== null) return;
 
@@ -5689,12 +5695,108 @@ class CalendarCardPro extends LitElement {
       if (!pending || pending.generation !== this._eventRequestGeneration || !this.isConnected) {
         return;
       }
+      if (!this._partialDrawsAnEvent(pending.partial.events, pending.page)) return;
       this.events = [...pending.partial.events];
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
       this._eventsFetchedAt = pending.partial.fetchedAt;
+      this._setFailures([]);
       this.isInitialLoad = false;
     }, 0);
+  }
+
+  /**
+   * Whether a load for a page would replace an event drawn on any of its days, by the render's
+   * own test over what it draws now (`_daysOnScreen`, `Render.drawsEvent`).
+   *
+   * Decided from what is drawn, not from the dates the events were loaded for: an all-day trip
+   * or a timed event still running past midnight is drawn beyond the window it was loaded for,
+   * and events loaded for a window can be drawn on none of its days after a view switch, a width
+   * change, a change to `start_date`, or a snapshot of yesterday drawn for today.
+   *
+   * The page on screen owns every day it draws. Only a load of another page is held to the days
+   * its range names, which are the days a page with the date navigation draws; without it, where
+   * the width sheds columns and empty days are not drawn, the days drawn need not be a run.
+   *
+   * @param page First day of the page loaded, or null for home
+   * @returns False when no event is drawn on any day of it, which makes the load cold
+   */
+  private _drawsEventOn(page: string | null): boolean {
+    if (this.events.length === 0) return false;
+    let days = this._daysOnScreen(this.groupedEvents, this._pageShown);
+    if (page !== this._pageShown) {
+      const span = this._daysSpan(page);
+      days = days.filter((day) => day.timestamp >= span.from && day.timestamp < span.until);
+    }
+    return Render.drawsEvent(this.effectiveView, days, this.effectiveConfig);
+  }
+
+  /**
+   * The days a page draws now, from its first to midnight after its last (`_pageRange`).
+   *
+   * @param page First day of the page, or null for home
+   * @returns Epoch milliseconds
+   */
+  private _daysSpan(page: string | null): { from: number; until: number } {
+    const range = this._pageRange(page);
+    return {
+      from: range.start.getTime(),
+      until: Paging.addDays(range.start, range.days).getTime(),
+    };
+  }
+
+  /**
+   * The days a view draws: column and grid shed days to fit the width, list never does.
+   *
+   * Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay. With
+   * the date navigation the days are the page's, by date: the page the range names and the
+   * arrows step by is a run of calendar days, and where empty days are not drawn, a slice by
+   * index would hold other days than those.
+   *
+   * @param days Days grouped for the view
+   * @param page The page they belong to, null for home
+   * @returns The days drawn
+   */
+  private _daysOnScreen(days: Types.EventsByDay[], page: string | null): Types.EventsByDay[] {
+    if (this.effectiveView === 'list') return days;
+
+    const count = this._shownColumnCount;
+    if (this._wantsNavigation && count > 0 && count < this._viewDays) {
+      const range = this._pageRange(page);
+      const from = range.start.getTime();
+      const until = Paging.addDays(range.start, range.days).getTime();
+      return days.filter((day) => day.timestamp >= from && day.timestamp < until);
+    }
+    if (count <= 0 || count >= days.length) {
+      return days;
+    }
+    const start = ViewConfig.visibleDayWindowStart(days, count, new Date());
+    return days.slice(start, start + count);
+  }
+
+  /**
+   * Whether events of a partial load would put at least one event on screen in the view shown,
+   * by the render's own test (`Render.drawsEvent`) over the days it draws: ones that ended, that
+   * a filter or the legend hides, that fall outside the grid's hours or on a day the width sheds
+   * do not.
+   *
+   * @param events Events of the calendars that have answered
+   * @param page The page they belong to, null for home
+   * @returns True when drawing them shows an event
+   */
+  private _partialDrawsAnEvent(events: Types.CalendarEventData[], page: string | null): boolean {
+    const hidden = this._activeHiddenCalendars;
+    const shown = hidden.size ? events.filter((e) => !hidden.has(e._entityId ?? '')) : events;
+    const config = ViewConfig.resolveEffectiveConfig(this._configForPage(page), this.effectiveView);
+    const days = EventUtils.groupEventsByDay(
+      shown,
+      config,
+      this.isExpanded,
+      this.effectiveLanguage,
+      this.effectiveView,
+      this.hass,
+    );
+    return Render.drawsEvent(this.effectiveView, this._daysOnScreen(days, page), config);
   }
 
   /**
@@ -5816,28 +5918,8 @@ class CalendarCardPro extends LitElement {
     let drawsEventTarget = false;
     const dayAdd = this._dayAddButtons;
 
-    // Only when the width sheds columns; see `visibleDayWindowStart` for which ones stay.
-    // With the date navigation the days are the page's, by date: the page the range names and
-    // the arrows step by is a run of calendar days, and where empty days are not drawn, a slice
-    // by index would hold other days than those.
-    const visibleDays = (days: Types.EventsByDay[]): Types.EventsByDay[] => {
-      const count = this._shownColumnCount;
-      if (this._wantsNavigation && count > 0 && count < this._viewDays) {
-        const page = this._pageRange(this._pageShown);
-        const from = page.start.getTime();
-        const until = Paging.addDays(page.start, page.days).getTime();
-        return days.filter((day) => day.timestamp >= from && day.timestamp < until);
-      }
-      if (count <= 0 || count >= days.length) {
-        return days;
-      }
-      const start = ViewConfig.visibleDayWindowStart(days, count, new Date());
-      return days.slice(start, start + count);
-    };
-
-    // The days a view draws: column and grid shed days to fit the width, list never does.
     const shownDays = (days: Types.EventsByDay[]): Types.EventsByDay[] =>
-      this.effectiveView === 'list' ? days : visibleDays(days);
+      this._daysOnScreen(days, this._pageShown);
 
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
