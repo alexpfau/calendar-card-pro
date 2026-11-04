@@ -187,9 +187,10 @@ describe('a link shows where it goes', () => {
  * The anchor pattern this replaced took 37 s on the first input here and 280 ms on the second;
  * each takes about a millisecond now, so a bound this loose still fails on the old one.
  *
- * Only inputs whose tags do close somewhere, or are short: a long run of tags that never close
- * at all (`<a ` twenty thousand times) is slow in `stripHtmlTags`, which every row has run on
- * its description since long before links, and is not what this pins.
+ * Only inputs whose tags do close somewhere, or are short. A long run of tags that never close
+ * at all (`<a ` twenty thousand times) was slow in `stripHtmlTags` as well, which every row runs
+ * on its description, until its pattern became a scanner; `tests/strip-html-tags.test.ts` pins
+ * that one, measured without happy-dom's own parser, which this file's textarea would put back.
  */
 describe('markup that never closes', () => {
   it.each([

@@ -1264,10 +1264,19 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
   API report it as protected, but default setup did not scan a push to it.
-- **One CodeQL alert is dismissed rather than fixed**: js/incomplete-multi-character-sanitization
-  on `HTML_MARKUP` in `src/utils/format.ts`. The function is not a sanitizer and its output
-  only ever reaches a Lit text binding; the docblock above the pattern says why, and why the
-  obvious fix would be a regression. Do not reopen it without reading that first.
+- **One CodeQL alert was dismissed rather than fixed**: js/incomplete-multi-character-sanitization
+  on the `HTML_MARKUP` regex in `src/utils/format.ts`. That regex is gone from `src/`: it took
+  quadratic time on markup that never closes, and the `removeMarkup` scanner replaced it,
+  removing exactly what it removed. **Whether the alert closes is not yet known** — confirm it
+  on the release PR's CodeQL scan, the first one to see the change. The reasoning behind the
+  dismissal still holds for the scanner, and the docblock on `removeMarkup` carries it: the
+  function is not a sanitizer; its output is plain text by contract, which the card draws only
+  through Lit bindings (as text, and in an `href` attribute only as an `http` or `https`
+  address: an anchor's once `safeHref`'s scheme allowlist accepts it, one in the text as
+  `BARE_URL` matches it) and never parses as HTML; and scanning until nothing changes would be
+  a regression. The regex survives verbatim as the oracle in
+  `tests/strip-html-tags.test.ts`, applied through `matchAll` rather than `replace`, and CodeQL
+  may flag it there; read that file's docblock on it before acting on an alert that names it.
 - **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 32
   (`minimatch`, moderate), both transitive and dev-only. Neither reaches `dist/`, and only
   this repository's own lint globs and Rollup options reach them. The lockfile refresh above
