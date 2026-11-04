@@ -19,6 +19,7 @@ interface CardUnderTest extends HTMLElement {
   readonly updateComplete: Promise<boolean>;
   updateEvents(mode?: string): Promise<void>;
   refreshEvents(afterWrite?: number): Promise<void>;
+  _refreshAfterWrite(changed: { ids: string[] }): void;
 }
 
 /** An event as Home Assistant pushes it (`CalendarEvent.as_dict`), in New York time. */
@@ -278,20 +279,34 @@ describe('a card on a Home Assistant that pushes', () => {
 });
 
 describe('a drift a load cannot settle', () => {
-  it('is loaded for once, not in a loop', async () => {
-    // Ben never loads. Anna's last event is deleted: her load answers with no events and Ben
-    // failed, which the card treats as a failed refresh and keeps what it drew, so what it draws
-    // never takes the change. (Keeping events through that is how the card has always read it.)
-    const ha = homeAssistant({ 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': null });
+  it('is loaded for once more at most, not in a loop', async () => {
+    // A load that fails outright commits nothing, so what the card draws never takes the
+    // change. No calendar does that by failing: each failure is caught as it answers, and the
+    // events the card commits then settle the drift. This stands for anything else that stops
+    // a load, and is let through after three, so a loop ends rather than hangs the worker.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
     const card = attach(ha.hass);
     await settleFor(card, 100);
-    expect(drawn(card)).toEqual(['Anna swim']);
+    const fetch = vi.spyOn(EventUtils, 'fetchEventData');
+    for (let i = 0; i < 3; i++) fetch.mockRejectedValueOnce(new Error('Unexpected'));
     const load = vi.spyOn(card, 'updateEvents');
 
-    ha.change('calendar.anna', []);
-    await settleFor(card, 1000);
+    try {
+      ha.change('calendar.ben', [at(DAY, 15, 'Ben piano lesson')]);
+      await settleFor(card, 1000);
 
-    expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
+      // Once for the change, and once more at most: the failure names every calendar, and
+      // a calendar drawn as failed while its subscription answers is a drift of its own.
+      const live = load.mock.calls.filter(([mode]) => mode === 'live').length;
+      expect(live).toBeGreaterThanOrEqual(1);
+      expect(live).toBeLessThanOrEqual(2);
+      expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    } finally {
+      fetch.mockRestore();
+    }
   });
 });
 
@@ -758,5 +773,510 @@ describe('a calendar whose integration was reloaded', () => {
 
     expect(ha.calendarSubscribes()).toBe(3);
     expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Anna dentist']);
+  });
+});
+
+/** The browser loses the stored entry, so only the card still holds what it drew. */
+const loseStoredEntry = (): void => {
+  localStorage.clear();
+  EventUtils.clearPageStore();
+};
+
+describe('a calendar that empties while another fails', () => {
+  /** The date navigation and nothing else in the header. */
+  const NAVIGATION = {
+    toolbar: {
+      show: true,
+      navigation: true,
+      view_switcher: false,
+      add_event: false,
+      reset: false,
+      refresh: false,
+    },
+  };
+  const TOMORROW = '2026-06-18';
+
+  it('is drawn empty when polled beside a calendar that never loaded', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': null, 'calendar.ben': [at(DAY, 15, 'Ben piano')] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Ben piano']);
+
+    ha.events['calendar.ben'] = [];
+    await settleFor(card, 30 * 60_000);
+
+    expect(drawn(card)).toEqual([]);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('is drawn empty when pushed beside a calendar that never loaded, in one load', async () => {
+    // Anna's integration cannot read her calendar: her push carries no events, and REST fails.
+    const ha = homeAssistant({ 'calendar.anna': null, 'calendar.ben': [at(DAY, 15, 'Ben piano')] });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    const load = vi.spyOn(card, 'updateEvents');
+
+    ha.change('calendar.ben', []);
+    await settleFor(card, 1000);
+
+    expect(drawn(card)).toEqual([]);
+    expect(failureNotice(card)).toContain('calendar.anna');
+    expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
+  });
+
+  it('is drawn empty on a page after a write, polled, beside the last events of one failing', async () => {
+    // A page lives in memory, and a write drops it there, so after one only the card still
+    // holds Anna's last events: her calendar fails on the refresh that follows Ben's deleted
+    // event.
+    const ha = homeAssistant(
+      {
+        'calendar.anna': [at(TOMORROW, 14, 'Anna swim')],
+        'calendar.ben': [at(TOMORROW, 15, 'Ben piano')],
+      },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, NAVIGATION);
+    await settleFor(card, 100);
+    card.shadowRoot!.querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    ha.restFails.add('calendar.anna');
+    ha.events['calendar.ben'] = [];
+    card._refreshAfterWrite({ ids: ['calendar.ben'] });
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Anna swim']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('is drawn empty when pushed, beside the last events of one failing that only the card holds', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    // Anna's integration can no longer read her calendar; her last events stay drawn.
+    ha.restFails.add('calendar.anna');
+    ha.change('calendar.anna', null);
+    await settleFor(card, 10);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    loseStoredEntry();
+
+    ha.change('calendar.ben', []);
+    await settleFor(card, 1000);
+
+    expect(drawn(card)).toEqual(['Anna swim']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('lets the last events of one failing that only the card holds go after 24 hours', async () => {
+    // Two days, so Anna's event, tomorrow afternoon, is still on the card a day later.
+    const ha = homeAssistant(
+      {
+        'calendar.anna': [at(TOMORROW, 14, 'Anna swim')],
+        'calendar.ben': [at(TOMORROW, 15, 'Ben piano')],
+      },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, { days_to_show: 2 });
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    loseStoredEntry();
+    ha.restFails.add('calendar.anna');
+    ha.events['calendar.ben'] = [];
+    await settleFor(card, 23 * 60 * 60_000);
+    expect(drawn(card)).toEqual(['Anna swim']);
+
+    // The bound is read by a load, and Anna is asked for every 30 minutes by now.
+    await settleFor(card, 90 * 60_000);
+    expect(drawn(card)).toEqual([]);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('keeps the last events of one failing beside a calendar that still has its own', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [at(DAY, 15, 'Ben piano')] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+
+    ha.restFails.add('calendar.anna');
+    await settleFor(card, 30 * 60_000);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('draws the last events of one failing once, where the cache holds them', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    ha.restFails.add('calendar.anna');
+    ha.change('calendar.anna', null);
+    // Polled at the entry's deadline, and failing: until then a push kept her as she was.
+    await settleFor(card, 30 * 60_000);
+    expect(failureNotice(card)).toContain('calendar.anna');
+
+    ha.change('calendar.ben', []);
+    await settleFor(card, 1000);
+
+    expect(drawn(card)).toEqual(['Anna swim']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('is drawn empty when nothing fails', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+
+    ha.change('calendar.ben', []);
+    await settleFor(card, 1000);
+
+    expect(drawn(card)).toEqual(['Anna swim']);
+    expect(failureNotice(card)).toBe('');
+  });
+});
+
+describe('a calendar that fails while another answers with events', () => {
+  const TOMORROW = '2026-06-18';
+
+  it('keeps the last events of one failing that only the card holds, polled', async () => {
+    // Both at two: drawn in the order the configuration lists them, as when both answered.
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [at(DAY, 14, 'Ben piano')] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    loseStoredEntry();
+    ha.restFails.add('calendar.anna');
+    ha.events['calendar.ben'] = [at(DAY, 14, 'Ben piano'), at(DAY, 16, 'Ben chess')];
+    await settleFor(card, 30 * 60_000);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Ben chess']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('keeps them when another pushes, in one load', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    // Anna's integration can no longer read her calendar; her last events stay drawn.
+    ha.restFails.add('calendar.anna');
+    ha.change('calendar.anna', null);
+    await settleFor(card, 10);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    loseStoredEntry();
+    const load = vi.spyOn(card, 'updateEvents');
+
+    ha.change('calendar.ben', [at(DAY, 15, 'Ben piano'), at(DAY, 16, 'Ben chess')]);
+    await settleFor(card, 1000);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Ben chess']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+    expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
+  });
+
+  it('draws each failing calendar once, from the cache where it holds it and the card where not', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [at(DAY, 15, 'Ben piano')] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+
+    // Ben fails once the stored entry is gone: only the card holds his last events, and the
+    // entry written then holds Anna's.
+    loseStoredEntry();
+    ha.restFails.add('calendar.ben');
+    await settleFor(card, 30 * 60_000);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    // Anna fails as well: the cache carries her, and the card keeps Ben.
+    ha.restFails.add('calendar.anna');
+    await settleFor(card, 30 * 60_000);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+    expect(failureNotice(card)).toContain('calendar.ben');
+  });
+
+  it('never refills one failing whose last answer, read by another card, held no events', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [at(DAY, 15, 'Ben piano')] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    // Another card on the same calendars and days, which shares this card's cache entry.
+    const other = attach(ha.hass);
+    await settleFor(other, 100);
+
+    // Both events are deleted, and the other card's refresh reads that: the shared entry now
+    // holds Anna's and Ben's last answers, both empty, while this card still draws both.
+    ha.events['calendar.anna'] = [];
+    ha.events['calendar.ben'] = [];
+    void other.refreshEvents();
+    await settleFor(other, 100);
+    expect(drawn(other)).not.toContain('Anna swim');
+    expect(drawn(other)).not.toContain('Ben piano');
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    ha.restFails.add('calendar.anna');
+    void card.refreshEvents();
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual([]);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+
+  it('lets the last events of one failing that only the card holds go after 24 hours', async () => {
+    // Two days, so Anna's event, tomorrow afternoon, is still on the card a day later.
+    const ha = homeAssistant(
+      {
+        'calendar.anna': [at(TOMORROW, 14, 'Anna swim')],
+        'calendar.ben': [at(TOMORROW, 15, 'Ben piano')],
+      },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, { days_to_show: 2 });
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    loseStoredEntry();
+    ha.restFails.add('calendar.anna');
+    ha.events['calendar.ben'] = [at(TOMORROW, 15, 'Ben piano'), at(TOMORROW, 16, 'Ben chess')];
+    await settleFor(card, 23 * 60 * 60_000);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Ben chess']);
+
+    // The bound is read by a load, and Anna is asked for every 30 minutes by now.
+    await settleFor(card, 90 * 60_000);
+    expect(drawn(card)).toEqual(['Ben piano', 'Ben chess']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+});
+
+describe('a calendar that fails on a refresh drawing the others as they answer', () => {
+  const TOMORROW = '2026-06-18';
+  /** The legend and nothing else in the header. */
+  const LEGEND = {
+    toolbar: {
+      show: true,
+      legend: true,
+      navigation: false,
+      view_switcher: false,
+      add_event: false,
+      reset: false,
+      refresh: false,
+    },
+  };
+
+  type LegendCard = CardUnderTest & { _toggleCalendar(id: string): void };
+
+  /**
+   * A card drawing Anna's event, with Anna then hidden in the legend: the card still holds her
+   * events and draws none, so the next refresh draws each calendar as it answers. By then the
+   * stored entry is lost, Ben has an event and answers first, and Anna fails after him.
+   */
+  async function annaHiddenBenFirst(): Promise<{
+    card: LegendCard;
+    ha: ReturnType<typeof homeAssistant>;
+  }> {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, LEGEND) as LegendCard;
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim']);
+    card._toggleCalendar('calendar.anna');
+    await card.updateComplete;
+    expect(drawn(card)).toEqual(['✓ No events']);
+
+    loseStoredEntry();
+    ha.events['calendar.ben'] = [at(DAY, 15, 'Ben piano')];
+    ha.readMs['calendar.ben'] = 5;
+    ha.readMs['calendar.anna'] = 50;
+    ha.restFails.add('calendar.anna');
+    return { card, ha };
+  }
+
+  it('keeps the last events of one failing that only the card holds, once another was drawn', async () => {
+    const { card } = await annaHiddenBenFirst();
+
+    void card.refreshEvents();
+    // Ben has answered and is drawn; Anna is still out.
+    await settleFor(card, 20);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    expect(card.isLoading).toBe(true);
+    await settleFor(card, 100);
+    expect(card.isLoading).toBe(false);
+    expect(failureNotice(card)).toContain('calendar.anna');
+
+    card._toggleCalendar('calendar.anna');
+    await card.updateComplete;
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+  });
+
+  it('keeps them when a second refresh replaces the first after another was drawn', async () => {
+    const { card } = await annaHiddenBenFirst();
+
+    void card.refreshEvents();
+    await settleFor(card, 20);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    // What is drawn now is only what answered the first refresh, which the second replaces.
+    void card.refreshEvents();
+    await settleFor(card, 100);
+    expect(card.isLoading).toBe(false);
+    expect(failureNotice(card)).toContain('calendar.anna');
+
+    card._toggleCalendar('calendar.anna');
+    await card.updateComplete;
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+  });
+
+  it('lets them go 24 hours after they loaded, though another was drawn since', async () => {
+    // Three days, so Anna's event, the day after tomorrow, is still on the card a day later.
+    const IN_TWO_DAYS = '2026-06-19';
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(IN_TWO_DAYS, 14, 'Anna swim')], 'calendar.ben': [] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, { ...LEGEND, days_to_show: 3 }) as LegendCard;
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim']);
+    card._toggleCalendar('calendar.anna');
+    await card.updateComplete;
+    expect(drawn(card)).not.toContain('Anna swim');
+
+    // The device sleeps for 25 hours: the clock moves on, and no timer fires meanwhile.
+    vi.setSystemTime(Date.now() + 25 * 60 * 60_000);
+    loseStoredEntry();
+    ha.events['calendar.ben'] = [at(IN_TWO_DAYS, 15, 'Ben piano')];
+    ha.readMs['calendar.ben'] = 5;
+    ha.readMs['calendar.anna'] = 50;
+    ha.restFails.add('calendar.anna');
+
+    void card.refreshEvents();
+    await settleFor(card, 20);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    await settleFor(card, 100);
+    expect(card.isLoading).toBe(false);
+    expect(failureNotice(card)).toContain('calendar.anna');
+
+    card._toggleCalendar('calendar.anna');
+    await card.updateComplete;
+    expect(drawn(card)).toEqual(['Ben piano']);
+  });
+
+  it('never keeps the events drawn for other dates', async () => {
+    // Home draws today; the page for tomorrow is another query, loaded as it answers since none
+    // of its days is on screen. Anna's event tomorrow came with home's load, and is not kept.
+    const ha = homeAssistant(
+      {
+        'calendar.anna': [at(DAY, 14, 'Anna swim'), at(TOMORROW, 14, 'Anna tennis')],
+        'calendar.ben': [],
+      },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, {
+      toolbar: { ...LEGEND.toolbar, legend: false, navigation: true },
+    });
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim']);
+
+    loseStoredEntry();
+    ha.events['calendar.ben'] = [at(TOMORROW, 15, 'Ben piano')];
+    ha.readMs['calendar.ben'] = 5;
+    ha.readMs['calendar.anna'] = 50;
+    ha.restFails.add('calendar.anna');
+    card.shadowRoot!.querySelectorAll<HTMLButtonElement>('.date-navigation-segment')[2].click();
+    await settleFor(card, 20);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    await settleFor(card, 100);
+
+    expect(card.isLoading).toBe(false);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+  });
+});
+
+describe('failing calendars whose last events loaded at different times', () => {
+  const TOMORROW = '2026-06-18';
+
+  /**
+   * A card drawing Anna's events as the cache carried them, nearly a day old, beside Ben's,
+   * loaded within the last 30 minutes, with the stored entry then lost and Ben failing as well.
+   */
+  async function annaOldBenNew(): Promise<{
+    card: CardUnderTest;
+    ha: ReturnType<typeof homeAssistant>;
+  }> {
+    // Two days, so their events, tomorrow afternoon, are still on the card a day later.
+    const ha = homeAssistant(
+      {
+        'calendar.anna': [at(TOMORROW, 14, 'Anna swim')],
+        'calendar.ben': [at(TOMORROW, 15, 'Ben piano')],
+      },
+      'unknown_command',
+    );
+    const card = attach(ha.hass, { days_to_show: 2 });
+    await settleFor(card, 100);
+    ha.restFails.add('calendar.anna');
+    await settleFor(card, 23 * 60 * 60_000);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    loseStoredEntry();
+    ha.restFails.add('calendar.ben');
+    return { card, ha };
+  }
+
+  it('lets each go 24 hours after its own events loaded, not after the oldest drawn', async () => {
+    const { card } = await annaOldBenNew();
+
+    // Both failing, and only the card holds either: both are kept while Anna's are young enough.
+    await settleFor(card, 30 * 60_000);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+
+    // Anna's are past 24 hours by the loads in this stretch; Ben's are about two hours old.
+    await settleFor(card, 90 * 60_000);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+    expect(failureNotice(card)).toContain('calendar.ben');
+  });
+
+  it('keeps the young ones when the card comes back after the old ones are past 24 hours', async () => {
+    const { card } = await annaOldBenNew();
+    card.remove();
+
+    await settleFor(card, 90 * 60_000);
+    document.body.appendChild(card);
+    // Before the load lands: Anna's are no longer drawn, Ben's still are.
+    await settleFor(card, 0);
+    expect(drawn(card)).toEqual(['Ben piano']);
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Ben piano']);
+    expect(failureNotice(card)).toContain('calendar.anna');
+    expect(failureNotice(card)).toContain('calendar.ben');
   });
 });
