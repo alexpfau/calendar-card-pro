@@ -525,6 +525,7 @@
   "card_action.option.refresh.label": "Atjaunot notikumus",
   "card_action.option.add-event.label": "Pievienot notikumu",
   "card_action.option.reset.label": "Atiestatīt karti",
+  "card_action.option.back.label": "Atpakaļ",
   "day_tap_action_mode": "Dienas pieskāriena darbība",
   "day_tap_action_mode.option.none.label": "Neko nedarīt",
   "day_tap_action_mode.option.add-event.label": "Pievienot notikumu",

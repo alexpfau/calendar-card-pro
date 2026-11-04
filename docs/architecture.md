@@ -1509,7 +1509,7 @@ the gesture began on.
      The add button is still drawn there, to show the layout
 2. **Action Execution**:
    - `actions.ts` runs `tap_action` and `hold_action`: `handleAction` does nothing for a missing
-     action or `none`, handles the card's own `expand`, `refresh`, `add-event` and `reset`, and forwards
+     action or `none`, handles the card's own `expand`, `refresh`, `add-event`, `reset` and `back`, and forwards
      everything else to Home Assistant through `fireHassAction`, so
      navigation, service calls and the rest run as they do for Home Assistant's own cards
    - An event's own tap or hold never reaches `handleAction`: `_runEventAction` in

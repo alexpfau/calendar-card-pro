@@ -888,6 +888,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.add-event.label': 'Add Event',
   // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
   'card_action.option.reset.label': 'Reset Card',
+  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // translation takes the word its language's back buttons carry.
+  'card_action.option.back.label': 'Go Back',
   // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
   // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
   // takes Home Assistant's own word for it, so the panel says it one way in every language.

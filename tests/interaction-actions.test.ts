@@ -170,14 +170,24 @@ describe("handleAction keeps the card's own actions to itself", () => {
     refresh: 'refresh',
     'add-event': 'addEvent',
     reset: 'reset',
+    back: 'back',
   } as const;
+
+  /** A spy for every callback the card hands over. */
+  const spies = () => ({
+    expand: vi.fn(),
+    refresh: vi.fn(),
+    addEvent: vi.fn(),
+    reset: vi.fn(),
+    back: vi.fn(),
+  });
 
   it.each(Object.keys(OWN) as Array<keyof typeof OWN>)(
     'runs the %s callback, and only it, and dispatches nothing',
     (action) => {
       // The card's own actions have no Home Assistant equivalent, so delegating one would
       // reach a handler that does not know the name.
-      const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
+      const callbacks = spies();
       const { node, events } = listeningNode();
 
       handleAction(node, config({ hold_action: { action } }), 'hold', callbacks);
@@ -189,7 +199,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
-  it.each(['expand', 'refresh', 'add-event', 'reset'] as const)(
+  it.each(['expand', 'refresh', 'add-event', 'reset', 'back'] as const)(
     'does not delegate %s when no callback was supplied',
     (action) => {
       const { node, events } = listeningNode();
@@ -200,10 +210,28 @@ describe("handleAction keeps the card's own actions to itself", () => {
     },
   );
 
+  it('hands back the action pressed, for the page it falls back to', () => {
+    // `back` goes to its own `navigation_path` where there is no page behind this one, so the
+    // callback has to be told which action was pressed: tap and hold may name different paths.
+    const callbacks = spies();
+    const { node } = listeningNode();
+    const hold = { action: 'back', navigation_path: '/lovelace/home' };
+
+    handleAction(
+      node,
+      config({ tap_action: { action: 'back' }, hold_action: hold }),
+      'hold',
+      callbacks,
+    );
+
+    expect(callbacks.back).toHaveBeenCalledTimes(1);
+    expect(callbacks.back).toHaveBeenCalledWith(hold);
+  });
+
   it('does not run a callback for any other action', () => {
     // The control for the pair above: the callbacks are passed on every real call site in
     // `calendar-card-pro.ts`, so it has to be the action that selects one, not its presence.
-    const callbacks = { expand: vi.fn(), refresh: vi.fn(), addEvent: vi.fn(), reset: vi.fn() };
+    const callbacks = spies();
     const { node, events } = listeningNode();
 
     handleAction(node, config({ tap_action: { action: 'more-info' } }), 'tap', callbacks);
@@ -212,6 +240,7 @@ describe("handleAction keeps the card's own actions to itself", () => {
     expect(callbacks.refresh).not.toHaveBeenCalled();
     expect(callbacks.addEvent).not.toHaveBeenCalled();
     expect(callbacks.reset).not.toHaveBeenCalled();
+    expect(callbacks.back).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
   });
 });

@@ -37,6 +37,7 @@ import * as Types from './config/types';
 import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
 import * as AddEvent from './interaction/add-event';
+import * as Back from './interaction/back';
 import * as CalendarChanges from './interaction/calendar-changes';
 import * as Writes from './interaction/calendar-writes';
 import * as EventActions from './interaction/event-actions';
@@ -723,9 +724,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
-   * `add-event` on a card that cannot add one now (`_canAddEvents`), nor `reset` on a card
-   * with nothing a reset could ever undo (`_canReset`). Such an action is no action at all: no
-   * tab stop, ripple or hold indicator promises what a press then refuses.
+   * `add-event` on a card that cannot add one now (`_canAddEvents`), `reset` on a card
+   * with nothing a reset could ever undo (`_canReset`), nor `back` while the card is being
+   * edited, when leaving the page would take the editor with it. Such an action is no action
+   * at all: no tab stop, ripple or hold indicator promises what a press then refuses.
    *
    * @param kind - Which of the card's actions
    * @returns Whether a press of that kind runs something
@@ -735,6 +737,7 @@ class CalendarCardPro extends LitElement {
     if (!action || action.action === 'none') return false;
     if (action.action === Constants.ADD_EVENT_ACTION) return this._canAddEvents;
     if (action.action === Constants.RESET_ACTION) return this._canReset;
+    if (action.action === Constants.BACK_ACTION) return !this._isBeingEdited;
     return true;
   }
 
@@ -1291,7 +1294,44 @@ class CalendarCardPro extends LitElement {
       refresh: () => this._requestRefresh(),
       addEvent: () => this._addEventAt(context ?? undefined, origin),
       reset: () => this._resetFromAction(),
+      back: (action) => this._goBack(action),
     };
+  }
+
+  /**
+   * The card's `back` action: back to the page before this one where Home Assistant navigated
+   * here from a page of its own, as its back arrow does, and otherwise this page replaced by the
+   * action's `navigation_path`, else by the root of this dashboard (`Back.backStep`).
+   *
+   * The fallback goes through Home Assistant's own `navigate` action, so the card writes no
+   * history of its own and Home Assistant routes the page as it routes any other. Nothing runs
+   * while the card is being edited: leaving the page would take the editor with it.
+   *
+   * @param action - The action pressed, for its `navigation_path`
+   */
+  private _goBack(action: Types.ActionConfig): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not going back while the card is being edited');
+      return;
+    }
+
+    const step = Back.backStep(
+      window.history.state,
+      window.location.pathname,
+      action.navigation_path,
+    );
+    if (step.kind === 'history') {
+      Logger.debug('Going back to the page before this one');
+      window.history.back();
+      return;
+    }
+
+    Logger.debug(`No page of Home Assistant's behind this one; going to ${step.path}`);
+    Actions.fireHassAction(
+      this,
+      { tap_action: { action: 'navigate', navigation_path: step.path, navigation_replace: true } },
+      'tap',
+    );
   }
 
   /**

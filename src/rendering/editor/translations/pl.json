@@ -525,6 +525,7 @@
   "card_action.option.refresh.label": "Odśwież wydarzenia",
   "card_action.option.add-event.label": "Dodaj wydarzenie",
   "card_action.option.reset.label": "Resetuj kartę",
+  "card_action.option.back.label": "Wstecz",
   "day_tap_action_mode": "Akcja dotknięcia dnia",
   "day_tap_action_mode.option.none.label": "Nic",
   "day_tap_action_mode.option.add-event.label": "Dodaj wydarzenie",

@@ -2,10 +2,10 @@
  * Action handling for Calendar Card Pro.
  *
  * Standard actions are delegated to Home Assistant via `hass-action`; only
- * card-specific actions (`expand`, `refresh`, `add-event`, `reset`) are handled locally.
+ * card-specific actions (`expand`, `refresh`, `add-event`, `reset`, `back`) are handled locally.
  */
 
-import { ADD_EVENT_ACTION, RESET_ACTION } from '../config/constants';
+import { ADD_EVENT_ACTION, BACK_ACTION, RESET_ACTION } from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
@@ -57,11 +57,48 @@ export interface CardActionCallbacks {
   addEvent?: () => void;
   /** `reset`: bring the card back to its configuration, as the toolbar's reset button does. */
   reset?: () => void;
+  /**
+   * `back`: go back to the page before this one, handed the action for its `navigation_path`,
+   * where it goes when there is no page behind this one.
+   */
+  back?: (action: Types.ActionConfig) => void;
 }
 
 /**
- * Handle an action: the card's own (`expand`, `refresh`, `add-event`, `reset`) here, every other one by
- * delegating to HA's native action handler.
+ * Run one of the card's own actions through its callback.
+ *
+ * @param actionConfig - The action pressed
+ * @param callbacks - How the card runs its own actions
+ * @returns True when the action is the card's own, run or not; false for one of Home
+ *   Assistant's
+ */
+function runCardAction(actionConfig: Types.ActionConfig, callbacks: CardActionCallbacks): boolean {
+  switch (actionConfig.action) {
+    case 'expand':
+      callbacks.expand?.();
+      break;
+    case 'refresh':
+      callbacks.refresh?.();
+      break;
+    case ADD_EVENT_ACTION:
+      callbacks.addEvent?.();
+      break;
+    case RESET_ACTION:
+      callbacks.reset?.();
+      break;
+    case BACK_ACTION:
+      callbacks.back?.(actionConfig);
+      break;
+    default:
+      return false;
+  }
+  Logger.debug(`Executed ${actionConfig.action} action`);
+  return true;
+}
+
+/**
+ * Handle an action: the card's own (`expand`, `refresh`, `add-event`, `reset`, `back`) here,
+ * every other one by delegating to HA's native action handler.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
@@ -79,29 +116,7 @@ export function handleAction(
   // guard every default-config tap still dispatched `hass-action` to Home Assistant.
   if (!actionConfig || actionConfig.action === 'none') return;
 
-  if (actionConfig.action === 'expand') {
-    callbacks.expand?.();
-    Logger.debug('Executed expand action');
-    return;
-  }
-
-  if (actionConfig.action === 'refresh') {
-    callbacks.refresh?.();
-    Logger.debug('Executed refresh action');
-    return;
-  }
-
-  if (actionConfig.action === ADD_EVENT_ACTION) {
-    callbacks.addEvent?.();
-    Logger.debug('Executed add-event action');
-    return;
-  }
-
-  if (actionConfig.action === RESET_ACTION) {
-    callbacks.reset?.();
-    Logger.debug('Executed reset action');
-    return;
-  }
+  if (runCardAction(actionConfig, callbacks)) return;
 
   const entityId = getPrimaryEntityId(config.entities);
   const hassActionConfig = {

@@ -525,6 +525,7 @@
   "card_action.option.refresh.label": "Värskenda sündmusi",
   "card_action.option.add-event.label": "Lisa sündmus",
   "card_action.option.reset.label": "Lähtesta kaart",
+  "card_action.option.back.label": "Tagasi",
   "day_tap_action_mode": "Päeva puudutuse tegevus",
   "day_tap_action_mode.option.none.label": "Mitte midagi",
   "day_tap_action_mode.option.add-event.label": "Lisa sündmus",

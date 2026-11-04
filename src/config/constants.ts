@@ -68,11 +68,25 @@ export const ADD_EVENT_ACTION = 'add-event';
 export const RESET_ACTION = 'reset';
 
 /**
- * The actions the card runs itself rather than handing to Home Assistant, in the order the
- * editor offers them. Each acts on the whole card, so on an event they are nothing
- * (`eventActionKind`).
+ * The card action that goes back to the page before this one, as Home Assistant's own back
+ * arrow does (`interaction/back.ts`): a value of `tap_action` and `hold_action`, and of a
+ * toolbar button's.
  */
-export const CARD_ACTION_VALUES = ['expand', 'refresh', ADD_EVENT_ACTION, RESET_ACTION] as const;
+export const BACK_ACTION = 'back';
+
+/**
+ * The actions the card runs itself rather than handing to Home Assistant, in the order the
+ * editor offers them. None is about one event, so on an event they are nothing
+ * (`eventActionKind`). `back` comes last: the four before it act on the card, and it acts on the
+ * page, as the Home Assistant actions after it in the dropdown do.
+ */
+export const CARD_ACTION_VALUES = [
+  'expand',
+  'refresh',
+  ADD_EVENT_ACTION,
+  RESET_ACTION,
+  BACK_ACTION,
+] as const;
 
 /** The event action that opens the tapped event's dialog: a value of `event_tap_action` and `event_hold_action`. */
 export const EVENT_DETAILS_ACTION = 'details';

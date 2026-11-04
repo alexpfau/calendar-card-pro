@@ -20,9 +20,10 @@ export type EventActionKind = 'details' | 'forward' | 'none';
  * What an event action amounts to.
  *
  * `details` opens the dialog. `none`, a missing or bare action, and the card's own actions
- * (`expand`, `refresh`, `add-event`, `reset`) are nothing on an event: they act on the whole
- * card, which a press on an event reaches anyway when the event has no action of its own.
- * Every other action is Home Assistant's, including ones it adds after this was written.
+ * (`expand`, `refresh`, `add-event`, `reset`, `back`) are nothing on an event: none of them is
+ * about the event, and a press on an event reaches the card's own anyway when the event has no
+ * action of its own. Every other action is Home Assistant's, including ones it adds after this
+ * was written.
  *
  * @param action - `event_tap_action` or `event_hold_action`, as configured
  * @returns What the action amounts to

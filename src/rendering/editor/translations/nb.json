@@ -525,6 +525,7 @@
   "card_action.option.refresh.label": "Oppdater hendelser",
   "card_action.option.add-event.label": "Legg til hendelse",
   "card_action.option.reset.label": "Tilbakestill kortet",
+  "card_action.option.back.label": "Tilbake",
   "day_tap_action_mode": "Trykkehandling for dager",
   "day_tap_action_mode.option.none.label": "Ingenting",
   "day_tap_action_mode.option.add-event.label": "Legg til hendelse",
