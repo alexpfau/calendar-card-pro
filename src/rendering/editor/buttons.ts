@@ -10,11 +10,15 @@
 
 import { NEW_TOOLBAR_BUTTON } from './schemas/card';
 import { interpolate } from './strings';
+import { deepEqual } from './value';
 import * as Types from '../../config/types';
 import * as Helpers from '../../utils/helpers';
 
 /** The fields a button's form edits, which an edit may empty. */
 const FIELDS = ['icon', 'name', 'entity', 'tap_action'] as const;
+
+/** Nothing, as Home Assistant's action editor writes it: what a button with no action runs. */
+const NO_ACTION = { action: 'none' } as const;
 
 /**
  * The toolbar's buttons as the configuration writes them, every entry included.
@@ -54,16 +58,28 @@ function isEmpty(value: unknown): boolean {
  * A button as stored after its form changed: every key the form handed back, in its order, with
  * an emptied field left out rather than stored blank, and text trimmed.
  *
+ * Nothing picked as the tap action arrives as `{ action: 'none' }`, which runs exactly what no
+ * tap action does, so it is left out too where the form changed the action to it. One the stored
+ * button already held stays, as the editor keeps every default the YAML already holds.
+ *
  * @param data - Form data as the form returned it
+ * @param previous - The entry as stored before the change
  * @returns The entry to store
  */
 export function fromButtonFormData(
   data: Readonly<Record<string, unknown>>,
+  previous?: unknown,
 ): Record<string, unknown> {
+  const before = toButtonFormData(previous);
   const entry: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     const edited = (FIELDS as ReadonlyArray<string>).includes(key);
     if (edited && isEmpty(value)) continue;
+    const nothingPicked =
+      key === 'tap_action' &&
+      deepEqual(value, NO_ACTION) &&
+      !deepEqual(before.tap_action, NO_ACTION);
+    if (nothingPicked) continue;
     entry[key] = edited && typeof value === 'string' ? value.trim() : value;
   }
   return entry;
@@ -84,7 +100,7 @@ export function writeButton(
 ): unknown[] {
   const next = [...buttons];
   if (index < 0 || index >= buttons.length) return next;
-  next[index] = fromButtonFormData(data);
+  next[index] = fromButtonFormData(data, buttons[index]);
   return next;
 }
 

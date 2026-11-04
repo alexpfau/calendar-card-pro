@@ -356,6 +356,27 @@ describe('the toolbar buttons in the editor', () => {
     expect(editor.headers()).toEqual(['Back', 'Lightbulb', 'Home']);
   });
 
+  it('stores no tap action where Nothing replaces another, as the button then runs the same', async () => {
+    const editor = await mount({ show: true, buttons: [BACK, LIGHTS] });
+
+    // Home Assistant's action editor writes Nothing as { action: 'none' }.
+    await editor.change(1, { tap_action: { action: 'none' } });
+
+    expect(editor.storedButtons()).toEqual([
+      BACK,
+      { icon: 'mdi:lightbulb', name: 'Lights', entity: 'light.kitchen' },
+    ]);
+  });
+
+  it('keeps a Nothing the YAML already holds through an edit to another field', async () => {
+    const quiet = { icon: 'mdi:bell-off', name: 'Quiet', tap_action: { action: 'none' } };
+    const editor = await mount({ show: true, buttons: [quiet] });
+
+    await editor.change(0, { name: 'Silent' });
+
+    expect(editor.storedButtons()).toEqual([{ ...quiet, name: 'Silent' }]);
+  });
+
   it('keeps what the form does not edit, such as a key written in YAML', async () => {
     const editor = await mount({
       show: true,
@@ -558,6 +579,20 @@ describe('the toolbar buttons’ write helpers', () => {
         style: '',
       }),
     ).toEqual({ icon: 'mdi:home', hold_action: { action: 'none' }, style: '' });
+  });
+
+  it('drops a Nothing the form picked, and keeps one the button already held', () => {
+    const nothing = { icon: 'mdi:home', tap_action: { action: 'none' } };
+    expect(
+      Buttons.fromButtonFormData(nothing, { icon: 'mdi:home', tap_action: { action: 'toggle' } }),
+    ).toEqual({
+      icon: 'mdi:home',
+    });
+    expect(Buttons.fromButtonFormData(nothing, { icon: 'mdi:home' })).toEqual({ icon: 'mdi:home' });
+    expect(Buttons.fromButtonFormData(nothing, nothing)).toEqual(nothing);
+    // Anything more than Nothing is an action of its own, kept as written.
+    const more = { icon: 'mdi:home', tap_action: { action: 'none', confirmation: true } };
+    expect(Buttons.fromButtonFormData(more, { icon: 'mdi:home' })).toEqual(more);
   });
 
   it('moves, removes and adds without touching the list it was given', () => {
