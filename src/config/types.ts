@@ -790,6 +790,27 @@ export interface ToolbarConfig {
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
    */
   legend?: false | ToolbarLegendMode;
+  /**
+   * Buttons the configuration defines itself, drawn after add in the order written: each an icon
+   * and an action, run as the card's own `tap_action` is. Two or more fold into one menu button
+   * where the action row runs out of room.
+   */
+  buttons?: ToolbarButtonConfig[];
+}
+
+/** One button the configuration adds to the toolbar. */
+export interface ToolbarButtonConfig {
+  /** An icon name, such as `mdi:arrow-left`; a button without one is not drawn. */
+  icon?: string;
+  /** Its name: the tooltip, the accessible name, and its row's words in a folded menu. */
+  name?: string;
+  /** The entity `toggle` and `more-info` act on; the card's first calendar without one. */
+  entity?: string;
+  /**
+   * What a press does: one of the card's own actions or one of Home Assistant's. Without one,
+   * or with `none`, the button is drawn and does nothing.
+   */
+  tap_action?: ActionConfig;
 }
 
 /** Weather configuration. */

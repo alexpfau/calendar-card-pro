@@ -3,13 +3,15 @@
  *
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. With one it is two rows. The action row holds what acts
- * on the card, each in a fixed place: the calendar filter and add at its start, the view
- * switcher in its middle, reset and refresh at its end. The heading row comes last, right
- * above the days: the month the page on screen starts in, under the card's title, which
- * shrinks to a small label over it, the date navigation (previous, home and next) at the row's
- * end, and, where they fit, a chip per calendar in its middle, under the switcher.
+ * on the card, each in a fixed place: the calendar filter and add at its start, then any
+ * buttons the configuration adds of its own, the view switcher in its middle, reset and refresh
+ * at its end. The heading row comes last, right above the days: the month the page on screen
+ * starts in, under the card's title, which shrinks to a small label over it, the date
+ * navigation (previous, home and next) at the row's end, and, where they fit, a chip per
+ * calendar in its middle, under the switcher.
  * The month opens a date picker. Where the chips do not all fit, the filter folds into a button
- * at the start of the action row instead (`legend.ts`).
+ * at the start of the action row instead (`legend.ts`). Where two or more buttons of the
+ * configuration's own do not fit, they fold into one menu button in their place.
  *
  * Every control shares one look: a neutral gray pill, the selected view raised out of its track,
  * so the bar never competes with the events for attention. Color shows only on the control in
@@ -17,8 +19,9 @@
  * pressed, and the theme's primary color as the keyboard focus ring.
  *
  * Each control is either an icon or words, never both, and which is fixed per control rather
- * than configured. The commands (the filter, add, reset, refresh and the arrows) are icons, named
- * by Home Assistant's own words in their tooltips and for assistive technology. The views are
+ * than configured. The commands (the filter, add, the configuration's own buttons, reset,
+ * refresh and the arrows) are icons, named by Home Assistant's own words in their tooltips and
+ * for assistive technology, or by the configuration's own for its buttons. The views are
  * words, which say what a pictogram cannot, until the card is too narrow for them; then they too
  * are pictograms. The month and the chips are words.
  */
@@ -28,6 +31,7 @@ import {
   mdiCheck,
   mdiChevronLeft,
   mdiChevronRight,
+  mdiDotsVertical,
   mdiHome,
   mdiHomeOutline,
   mdiMenuDown,
@@ -38,6 +42,7 @@ import {
 import { TemplateResult, html, nothing, svg } from 'lit';
 
 import { CalendarLegend, renderLegendButton, renderLegendChips } from './legend';
+import * as Menu from './menu';
 import { setSurfaceColor, surfaceColor } from './surface';
 import { VIEW_PICTOGRAMS, VIEW_PICTOGRAM_VIEWBOX } from './view-pictograms';
 import * as Types from '../config/types';
@@ -64,6 +69,37 @@ export interface AddEventButton {
    * of pointer (`mouse`, `touch`, `pen`); undefined for a key.
    */
   onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
+}
+
+/** One button the configuration adds to the toolbar, as the card hands it to the wrapper. */
+export interface CustomButton {
+  /** The icon it draws, as configured, such as `mdi:arrow-left`. */
+  icon: string;
+  /** Its accessible name, and its row's words in the menu it folds into. */
+  label: string;
+  /**
+   * Its tooltip: the configured name or Home Assistant's own word; undefined where `label` is
+   * English for assistive technology alone.
+   */
+  tooltip: string | undefined;
+  /**
+   * Runs on activation, handed the button to point at, and for a pointer's press where it was and
+   * the kind of pointer; undefined for a key. From the menu, the button handed over is the menu
+   * button, since the row pressed goes with the menu.
+   */
+  onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
+}
+
+/** What the card hands the wrapper for the buttons the configuration adds. */
+export interface CustomButtons {
+  /** Every button, in the order written. */
+  buttons: ReadonlyArray<CustomButton>;
+  /** True when two or more are folded into one menu button, because they do not fit the row. */
+  folded: boolean;
+  /** Home Assistant's own word for the menu button, or undefined when it offers none. */
+  menuName: string | undefined;
+  /** True while the card is being edited: everything is drawn, and nothing runs or opens. */
+  inert: boolean;
 }
 
 /**
@@ -198,6 +234,11 @@ export interface HeaderToolbar {
   refresh?: RefreshButton;
   /** The add-event button, at the start of the action row, after a folded filter. */
   addEvent?: AddEventButton;
+  /**
+   * The configuration's own buttons, after add, in the order written; or, folded, one menu
+   * button in their place.
+   */
+  customButtons?: CustomButtons;
 }
 
 //-----------------------------------------------------------------------------
@@ -212,10 +253,29 @@ const UNLOCALIZED_PREVIOUS_NAME = 'Previous';
 const UNLOCALIZED_NEXT_NAME = 'Next';
 
 /** The refresh button's accessible name when Home Assistant has none, under the same rule. */
-const UNLOCALIZED_REFRESH_NAME = 'Refresh';
+export const UNLOCALIZED_REFRESH_NAME = 'Refresh';
 
 /** The reset button's accessible name when Home Assistant has none, under the same rule. */
-const UNLOCALIZED_RESET_NAME = 'Reset';
+export const UNLOCALIZED_RESET_NAME = 'Reset';
+
+/**
+ * The accessible name of a button of the configuration's own that runs `back` and has no name,
+ * when Home Assistant has no word for it, under the same rule.
+ */
+export const UNLOCALIZED_BACK_NAME = 'Back';
+
+/** The menu button's accessible name when Home Assistant has none, under the same rule. */
+const UNLOCALIZED_MENU_NAME = 'Menu';
+
+/**
+ * The menu the configuration's own buttons fold into, to the controller every toolbar menu shares
+ * (`menu.ts`): its kind, and the stand-ins its surface is read off.
+ */
+const BUTTONS_MENU: Menu.MenuParts = {
+  kind: 'buttons',
+  surface: 'custom-menu-surface',
+  page: 'custom-menu-page',
+};
 
 /** The card string naming each view in the switcher. */
 export const VIEW_LABEL_KEYS = {
@@ -340,6 +400,18 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
 }
 
 /**
+ * Where a press on a button was and by what, or undefined for a key: a click a key made on a
+ * button has no detail, while a pointer's counts its clicks.
+ *
+ * @param ev - The button's click
+ * @returns The press, for a pointer's click
+ */
+function pressOf(ev: MouseEvent): ButtonPress | undefined {
+  const pointerType = (ev as Partial<PointerEvent>).pointerType || 'mouse';
+  return ev.detail > 0 ? { x: ev.clientX, y: ev.clientY, pointerType } : undefined;
+}
+
+/**
  * Render the add-event button.
  *
  * A native button rather than `ha-button`, styled from Home Assistant's theme variables:
@@ -355,12 +427,7 @@ function followDatePicker(input: HTMLInputElement, returnFocus: HTMLElement | nu
 function renderAddEventButton(button: AddEventButton): TemplateResult {
   const onClick = (ev: MouseEvent) => {
     ev.stopPropagation();
-    // A click a key made on a button has no detail; a pointer's counts its clicks.
-    const pointerType = (ev as Partial<PointerEvent>).pointerType || 'mouse';
-    button.onActivate(
-      ev.currentTarget as HTMLElement,
-      ev.detail > 0 ? { x: ev.clientX, y: ev.clientY, pointerType } : undefined,
-    );
+    button.onActivate(ev.currentTarget as HTMLElement, pressOf(ev));
   };
 
   return html`<button
@@ -375,6 +442,141 @@ function renderAddEventButton(button: AddEventButton): TemplateResult {
       <path d=${mdiPlus}></path>
     </svg>
   </button>`;
+}
+
+/**
+ * Render one of the configuration's own buttons.
+ *
+ * A command like every other: the same pill, the same 20px icon, the same hover, focus ring and
+ * touch target, through the same classes. The icon is the configuration's, drawn by Home
+ * Assistant's own `ha-icon`, as the card's labels are, so any icon Home Assistant can draw works
+ * here. Named by its configured name, which is also its tooltip.
+ *
+ * @param button - Button description from the card
+ * @returns The button
+ */
+function renderCustomButton(button: CustomButton): TemplateResult {
+  const onClick = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    button.onActivate(ev.currentTarget as HTMLElement, pressOf(ev));
+  };
+
+  return html`<button
+    type="button"
+    class="toolbar-button custom-button"
+    aria-label=${button.label}
+    title=${button.tooltip ?? nothing}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <ha-icon class="custom-button-icon" icon=${button.icon} aria-hidden="true"></ha-icon>
+  </button>`;
+}
+
+/**
+ * Render the configuration's own buttons folded: one menu button where they were, and the menu
+ * it opens, a row per button.
+ *
+ * The menu is the calendar filter's: a modal `<dialog>` in the top layer, placed, painted and
+ * closed by the controller every toolbar menu shares (`menu.ts`). Each row is the button's icon
+ * and its name in words, which a folded button has room for. A press on a row closes the menu
+ * and then runs the button's action, handed the menu button to point at, since the row goes with
+ * the menu. Focus follows the filter menu's rules: a key that opens it focuses the first row, a
+ * press the menu itself, and Escape the menu button.
+ *
+ * `aria-expanded` is written once by the template and then kept by the menu itself, so a
+ * re-render while the menu is open does not reset it.
+ *
+ * @param buttons - The buttons, from the card
+ * @returns The menu button and its menu
+ */
+function renderCustomMenu(buttons: CustomButtons): TemplateResult {
+  const name = buttons.menuName ?? UNLOCALIZED_MENU_NAME;
+  const dialogOf = (button: HTMLElement): HTMLDialogElement | null =>
+    button.parentElement?.querySelector<HTMLDialogElement>('dialog.custom-menu') ?? null;
+  const onClick = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const dialog = dialogOf(ev.currentTarget as HTMLElement);
+    if (dialog) Menu.pressMenuButton(ev, dialog, buttons.inert, BUTTONS_MENU);
+  };
+  const pick = (button: CustomButton) => (ev: MouseEvent) => {
+    ev.stopPropagation();
+    const dialog = (ev.currentTarget as HTMLElement).closest('dialog');
+    const opener = dialog?.previousElementSibling;
+    if (!dialog || !(opener instanceof HTMLElement)) return;
+    Menu.closeMenu(dialog, 'picked');
+    button.onActivate(opener, pressOf(ev));
+  };
+
+  return html`<button
+      type="button"
+      class="toolbar-button custom-menu-button"
+      aria-haspopup="dialog"
+      aria-expanded="false"
+      aria-label=${name}
+      title=${buttons.menuName ?? nothing}
+      @pointerdown=${stopCardGesture}
+      @click=${onClick}
+    >
+      <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d=${mdiDotsVertical}></path>
+      </svg>
+    </button>
+    <dialog
+      class="custom-menu"
+      tabindex="-1"
+      aria-label=${name}
+      @pointerdown=${stopCardGesture}
+      @click=${Menu.closeOnPressOutside}
+    >
+      <div class="custom-menu-list" role="group" aria-label=${name}>
+        ${buttons.buttons.map(
+          (button) =>
+            html`<button type="button" class="custom-menu-row" @click=${pick(button)}>
+              <ha-icon class="custom-menu-icon" icon=${button.icon} aria-hidden="true"></ha-icon>
+              <span class="custom-menu-label">${button.label}</span>
+            </button>`,
+        )}
+      </div>
+      <span class="custom-menu-surface" aria-hidden="true"></span>
+      <span class="custom-menu-page" aria-hidden="true"></span>
+    </dialog>`;
+}
+
+/**
+ * Whether the configuration's own buttons are drawn folded, as one menu button. Only two or more
+ * fold: one button folded into one menu button saves nothing.
+ *
+ * @param buttons - The buttons, from the card, if any
+ * @returns True when the menu button is drawn in their place
+ */
+export function drawsCustomMenu(buttons: CustomButtons | undefined): boolean {
+  return buttons !== undefined && buttons.folded && buttons.buttons.length > 1;
+}
+
+/**
+ * How many icons the configuration's own buttons take in the action row: one each, or one for
+ * their menu button where they fold.
+ *
+ * @param buttons - The buttons, from the card, if any
+ * @returns The icons they take, none without buttons
+ */
+export function customButtonIcons(buttons: CustomButtons | undefined): number {
+  if (buttons === undefined) return 0;
+  return drawsCustomMenu(buttons) ? 1 : buttons.buttons.length;
+}
+
+/**
+ * Render the configuration's own buttons: each in the row, or, folded, one menu button for all
+ * of them. Never some of each.
+ *
+ * @param buttons - The buttons, from the card
+ * @returns The buttons, or the menu button and its menu
+ */
+function renderCustomButtons(buttons: CustomButtons): TemplateResult | TemplateResult[] {
+  return drawsCustomMenu(buttons)
+    ? renderCustomMenu(buttons)
+    : buttons.buttons.map(renderCustomButton);
 }
 
 /**
@@ -864,6 +1066,7 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
   return Boolean(
     foldedLegend(toolbar) ||
     toolbar.addEvent ||
+    toolbar.customButtons ||
     toolbar.viewSwitcher ||
     toolbar.reset ||
     toolbar.refresh,
@@ -871,13 +1074,14 @@ export function drawsActionRow(toolbar: HeaderToolbar): boolean {
 }
 
 /**
- * Render the action row: a folded filter and add at its start, the view switcher in its
- * middle, reset and refresh at its end.
+ * Render the action row: a folded filter, add and the configuration's own buttons at its start,
+ * the view switcher in its middle, reset and refresh at its end.
  *
  * The start and the end are groups of their own, there even when empty, so the stylesheet
  * can share the room left beside the switcher out equally between them and the switcher sits
  * in the middle of the card while there is room for that. Both groups space their icons alike,
- * so the end reads as the start does.
+ * so the end reads as the start does. The configuration's own buttons sit at the start group's
+ * inner edge, toward the switcher, so they move nothing that was there before them.
  *
  * The row itself is the card's: a press between its controls runs the card's tap and hold, as
  * one beside an event does. Only the controls keep theirs (`stopCardGesture`).
@@ -892,12 +1096,18 @@ function renderActionRow(
 ): TemplateResult | typeof nothing {
   if (!drawsActionRow(toolbar)) return nothing;
   const legend = foldedLegend(toolbar);
-  const resetAlone = !legend && !toolbar.addEvent && !toolbar.viewSwitcher && !toolbar.refresh;
+  const resetAlone =
+    !legend &&
+    !toolbar.addEvent &&
+    !toolbar.customButtons &&
+    !toolbar.viewSwitcher &&
+    !toolbar.refresh;
 
   return html`<div class="card-toolbar toolbar-actions">
     <div class="toolbar-start">
       ${legend ? renderLegendButton(legend) : nothing}
       ${toolbar.addEvent ? renderAddEventButton(toolbar.addEvent) : nothing}
+      ${toolbar.customButtons ? renderCustomButtons(toolbar.customButtons) : nothing}
     </div>
     ${toolbar.viewSwitcher ? renderViewSwitcher(toolbar.viewSwitcher, labeled) : nothing}
     <div class="toolbar-end">
@@ -972,6 +1182,7 @@ export function renderHeaderToolbar(
 ): TemplateResult | undefined {
   if (
     !toolbar.addEvent &&
+    !toolbar.customButtons &&
     !toolbar.viewSwitcher &&
     !toolbar.navigation &&
     !toolbar.reset &&

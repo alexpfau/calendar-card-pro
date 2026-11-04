@@ -77,6 +77,7 @@ import {
   type TitleScrollMeasurement,
   supportsTitleMotion,
 } from './utils/title-motion-controller';
+import * as ToolbarFold from './utils/toolbar-fold';
 import * as ViewChoice from './utils/view-choice';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
@@ -368,6 +369,12 @@ type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
+
+/**
+ * Toolbar buttons already reported as having no name, by icon, so a card that renders again
+ * does not say so again.
+ */
+const unnamedButtonsReported = new Set<string>();
 
 /**
  * The real events in a grouping, leaving out the placeholders that stand for empty days.
@@ -1268,6 +1275,27 @@ class CalendarCardPro extends LitElement {
   private _legendFitRaf: number | null = null;
 
   /**
+   * Set once the configuration's own buttons did not all fit in the action row: what the row
+   * held, and the card width from which they fit again. See `_syncButtonsFit`.
+   */
+  private _buttonsFold: ToolbarFold.ButtonsFold | null = null;
+
+  /**
+   * The card width the buttons' fold is judged at, moved only by its own pass a frame after a
+   * resize, as `_legendWidthPx` is for the legend and for the same reason: folding can change
+   * the card's height.
+   */
+  private _buttonsWidthPx: number | null = null;
+
+  /**
+   * The card width at which the buttons last unfolded, until a measurement at that width
+   * confirms they fit, as `_legendUnfoldedAtPx` is for the legend's chips.
+   */
+  private _buttonsUnfoldedAtPx: number | null = null;
+
+  private _buttonsFitRaf: number | null = null;
+
+  /**
    * Counts fonts finishing loading while the toolbar is shown, since a chip or the month may
    * change width.
    */
@@ -1995,6 +2023,10 @@ class CalendarCardPro extends LitElement {
       cancelAnimationFrame(this._legendFitRaf);
       this._legendFitRaf = null;
     }
+    if (this._buttonsFitRaf !== null) {
+      cancelAnimationFrame(this._buttonsFitRaf);
+      this._buttonsFitRaf = null;
+    }
 
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
@@ -2073,6 +2105,7 @@ class CalendarCardPro extends LitElement {
         }
         this._syncToolbarLabels(width);
         this._scheduleLegendFit();
+        this._scheduleButtonsFit();
         this._scheduleWidthMeasurement(width);
       }
 
@@ -3237,9 +3270,13 @@ class CalendarCardPro extends LitElement {
   /** Resolve language before rendering so the current update uses the new strings. */
   protected willUpdate(changedProps: PropertyValues): void {
     // A modal menu outliving its button would leave the page inert, so it closes before a
-    // render that takes the button away: the legend unfolding or going, or editing starting.
+    // render that takes the button away: the legend unfolding or going, the configuration's own
+    // buttons unfolding or going, or editing starting.
     if (Menu.hasOpenMenu(this.renderRoot, 'legend') && !this._legendMenuMayStayOpen()) {
       Menu.closeMenus(this.renderRoot, 'legend');
+    }
+    if (Menu.hasOpenMenu(this.renderRoot, 'buttons') && !this._buttonsMenuMayStayOpen()) {
+      Menu.closeMenus(this.renderRoot, 'buttons');
     }
 
     if (
@@ -3343,6 +3380,7 @@ class CalendarCardPro extends LitElement {
     this._syncMonthFit();
     this._syncHeadingMiddle();
     this._syncLegendFit(false);
+    this._syncButtonsFit(false);
     Legend.markShortenedChips(this.renderRoot);
     Menu.repositionMenus(this.renderRoot);
     Toolbar.paintSelectedView(this.renderRoot);
@@ -5440,6 +5478,13 @@ class CalendarCardPro extends LitElement {
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
+    // Reported once per configuration, rather than by every render that leaves them out.
+    for (const entry of Config.undrawableToolbarButtons(this.config)) {
+      Logger.warn(
+        `Toolbar button left out, as it cannot be drawn as written: ${JSON.stringify(entry)}. ` +
+          'Each needs an icon; a name and an entity are text, and a tap_action is an action.',
+      );
+    }
     if (this.config.time_grid) {
       const start = ViewConfig.resolveTimeGridOption(this.config, 'start_time');
       const end = ViewConfig.resolveTimeGridOption(this.config, 'end_time');
@@ -6200,6 +6245,8 @@ class CalendarCardPro extends LitElement {
       refresh: this._refreshButton(),
       addEvent: this._addEventButton(),
     };
+    // Last, because whether they fold depends on everything else the action row holds.
+    controls.customButtons = this._customButtons(controls);
     this._toolbarLabelMinWidthPx = this._toolbarLabelMinWidth(controls);
 
     return { labeled: this._toolbarLabeledFor(controls), ...controls };
@@ -6237,29 +6284,35 @@ class CalendarCardPro extends LitElement {
    * The card width from which the view switcher shows its words, or null without a switcher.
    *
    * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
-   * beside it add their two groups' widths exactly: the folded filter and add at the start, reset
-   * and refresh at the end, each an icon, with a gap between two in a group.
+   * beside it add their two groups' widths exactly: the folded filter, add and the
+   * configuration's own buttons at the start, one icon each or one for their menu button where
+   * they fold, and reset and refresh at the end, each an icon, with a gap between two in a group.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
    */
   private _toolbarLabelMinWidth(controls: ToolbarControls): number | null {
     if (!controls.viewSwitcher) return null;
-    const { TOOLBAR_COMMAND_WIDTH: icon, TOOLBAR_COMMAND_GAP: gap } = Constants.UI;
-    const group = (count: number): number => (count === 0 ? 0 : count * icon + (count - 1) * gap);
-    const start = [controls.legend?.folded ? controls.legend : undefined, controls.addEvent];
-    const end = [controls.reset, controls.refresh];
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    return Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH + group(count(start)) + group(count(end));
+    const start =
+      count([controls.legend?.folded ? controls.legend : undefined, controls.addEvent]) +
+      Toolbar.customButtonIcons(controls.customButtons);
+    const end = count([controls.reset, controls.refresh]);
+    return (
+      Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
+      ToolbarFold.groupWidth(start) +
+      ToolbarFold.groupWidth(end)
+    );
   }
 
   /**
    * What the fit of the switcher's words depends on, other than the width.
    *
    * Only what the row holds: the language, which sets the words, and which commands sit beside
-   * the switcher. The title and the dates sit in the heading row, so neither a templated title
-   * ticking over nor a page turned retries words that did not fit.
+   * the switcher, the configuration's own buttons by how many icons they take. The title and the
+   * dates sit in the heading row, so neither a templated title ticking over nor a page turned
+   * retries words that did not fit.
    *
    * @param controls - The controls this render draws
    * @returns A string that changes whenever the row would
@@ -6272,6 +6325,7 @@ class CalendarCardPro extends LitElement {
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
       controls.legend?.folded ? 'filter' : '',
+      `buttons:${Toolbar.customButtonIcons(controls.customButtons)}`,
     ].join('\u0000');
   }
 
@@ -6338,6 +6392,7 @@ class CalendarCardPro extends LitElement {
       toolbar.reset !== undefined ||
       toolbar.refresh !== undefined ||
       toolbar.addEvent !== undefined ||
+      toolbar.customButtons !== undefined ||
       drawsEventTarget
     );
   }
@@ -7271,6 +7326,285 @@ class CalendarCardPro extends LitElement {
     };
     fonts.addEventListener('loadingdone', onLoaded);
     this._toolbarFontsCleanup = () => fonts.removeEventListener('loadingdone', onLoaded);
+  }
+
+  //-----------------------------------------------------------------------------
+  // THE CONFIGURATION'S OWN BUTTONS
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The buttons the configuration adds to the toolbar, when it adds any.
+   *
+   * Drawn after add, in the order written, each named by `_customButtonNames`. Two or more fold
+   * into one menu button where they do not fit the action row beside its other controls
+   * (`_syncButtonsFit`). While the card is being edited everything is drawn, folded as on the
+   * dashboard, and nothing runs or opens.
+   *
+   * @param controls - The toolbar's other controls, which the fold depends on
+   * @returns Buttons description for the wrapper, or undefined for none
+   */
+  private _customButtons(controls: ToolbarControls): Toolbar.CustomButtons | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || toolbar.buttons.length === 0) return undefined;
+
+    const buttons = toolbar.buttons.map((button): Toolbar.CustomButton => ({
+      icon: button.icon!.trim(),
+      ...this._customButtonNames(button),
+      onActivate: (element, pressed) => this._pressCustomButton(button, element, pressed),
+    }));
+    return {
+      buttons,
+      folded: ToolbarFold.buttonsFolded(
+        this._buttonsFold,
+        this._buttonsSignature(controls, buttons.length),
+        this._buttonsWidthPx,
+      ),
+      menuName: this._haString('ui.common.menu'),
+      inert: this._isBeingEdited,
+    };
+  }
+
+  /**
+   * A toolbar button's names: its accessible name, which a folded menu also shows as the row's
+   * words, and its tooltip.
+   *
+   * Its `name` is both. Without one, a button running `back`, `refresh`, `add-event` or `reset`
+   * is named as the card's own button for it is, `back` as Home Assistant's own arrow: by Home
+   * Assistant's word, which is its tooltip too, or in English for assistive technology alone
+   * where Home Assistant has none (`_commandName`). Anything else is named by its icon's words
+   * (`iconWords`), for assistive technology alone, which is why the editor asks for a name.
+   *
+   * @param button - The button, as configured
+   * @returns Its accessible name, and its tooltip where it has one
+   */
+  private _customButtonNames(button: Types.ToolbarButtonConfig): {
+    label: string;
+    tooltip: string | undefined;
+  } {
+    const name = typeof button.name === 'string' ? button.name.trim() : '';
+    if (name !== '') return { label: name, tooltip: name };
+
+    const command = this._commandName(button.tap_action?.action);
+    if (command) return { label: command.word ?? command.fallback, tooltip: command.word };
+
+    const icon = button.icon!.trim();
+    const words = Helpers.iconWords(icon) || icon;
+    if (!unnamedButtonsReported.has(icon)) {
+      unnamedButtonsReported.add(icon);
+      Logger.debug(`Toolbar button ${icon} has no name; screen readers hear "${words}"`);
+    }
+    return { label: words, tooltip: undefined };
+  }
+
+  /**
+   * The name a command's own button goes by, for a button of the configuration's own that runs
+   * it: Home Assistant's word, resolved exactly as that button resolves it, and the English
+   * name the button falls back on.
+   *
+   * @param action - The action a button runs
+   * @returns The names, or undefined for an action no button of the card's own runs
+   */
+  private _commandName(
+    action: unknown,
+  ): { word: string | undefined; fallback: string } | undefined {
+    switch (action) {
+      case Constants.BACK_ACTION:
+        return { word: this._haString('ui.common.back'), fallback: Toolbar.UNLOCALIZED_BACK_NAME };
+      case 'refresh':
+        return {
+          word: this._haString('ui.common.refresh'),
+          fallback: Toolbar.UNLOCALIZED_REFRESH_NAME,
+        };
+      case Constants.ADD_EVENT_ACTION:
+        return {
+          word: AddEvent.addEventLabel(this.safeHass),
+          fallback: AddEvent.UNLOCALIZED_ADD_EVENT_NAME,
+        };
+      case Constants.RESET_ACTION:
+        return {
+          word: this._haString('ui.common.reset'),
+          fallback: Toolbar.UNLOCALIZED_RESET_NAME,
+        };
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Runs a toolbar button's action for a press, as the card runs its own `tap_action`: the
+   * card's own actions through their callbacks, every other one handed to Home Assistant with the
+   * button's `entity` (`Actions.handleButtonAction`).
+   *
+   * As for the add button, a pointer's press leaves no focus behind for Home Assistant to ring
+   * once a dialog the action opens closes, and the popover `add-event` opens points at the button
+   * pressed, below it. Nothing runs while the card is being edited, as for every toolbar control.
+   *
+   * @param button - The button, as configured
+   * @param element - The button pressed, or the menu button for a row of its menu
+   * @param pressed - Where a pointer pressed it, and with what; undefined for a key
+   */
+  private _pressCustomButton(
+    button: Types.ToolbarButtonConfig,
+    element: HTMLElement,
+    pressed: Toolbar.ButtonPress | undefined,
+  ): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not running a toolbar button while the card is being edited');
+      return;
+    }
+    if (pressed) this._releasePressFocus();
+    const at = originOf(element);
+    const origin = at && {
+      ...at,
+      ...(pressed && { pointerType: pressed.pointerType }),
+      below: true,
+    };
+    Actions.handleButtonAction(this, button, this.config.entities, this._cardActions(null, origin));
+  }
+
+  /** Whether the configuration's own buttons can fold: the toolbar is shown with two or more. */
+  private get _mayFoldButtons(): boolean {
+    const toolbar = Config.resolveToolbar(this.config);
+    return toolbar.show && toolbar.buttons.length > 1;
+  }
+
+  /**
+   * What the fold of the configuration's own buttons depends on, other than the card's width:
+   * how many there are, what else the action row holds, and the view, whose insets the row's
+   * room follows. Neither the language nor the fonts play a part: every control the fold reckons
+   * with is an icon of a fixed width, and the switcher is reckoned as its pictograms.
+   *
+   * @param controls - The toolbar's other controls
+   * @param count - How many buttons the configuration adds
+   * @returns A string that changes whenever the row would
+   */
+  private _buttonsSignature(controls: ToolbarControls, count: number): string {
+    return [
+      this.effectiveView,
+      String(count),
+      controls.legend?.folded ? 'filter' : '',
+      controls.addEvent ? 'add' : '',
+      controls.viewSwitcher ? 'views' : '',
+      controls.reset ? 'reset' : '',
+      controls.refresh ? 'refresh' : '',
+    ].join('\u0000');
+  }
+
+  /**
+   * Whether an open menu of the configuration's own buttons still has its button after the
+   * coming render.
+   *
+   * @returns False when the buttons are going or unfolding, the card is being edited, or hidden
+   */
+  private _buttonsMenuMayStayOpen(): boolean {
+    if (this._isBeingEdited || this.hidden) return false;
+    return Toolbar.drawsCustomMenu(this._headerToolbar().customButtons);
+  }
+
+  /**
+   * Folds the configuration's own buttons into one menu button when the action row cannot hold
+   * them all beside its other controls, and, after a resize, draws them in the row again once it
+   * can.
+   *
+   * Judged by arithmetic on widths known exactly (`ToolbarFold.judgeButtonsFold`): every command
+   * is one width, and the row's room and the switcher's width are read from the render. The
+   * switcher is reckoned as its pictograms, so its words always give way first: while it draws
+   * them in a row they overflow, nothing is concluded, since that row draws its pictograms next
+   * (`_syncToolbarLabelFit`). Where the buttons do not fit, the card records what the row held and
+   * the card width from which they would fit by a margin, and draws the menu button until then,
+   * or until the row changes. An unfold that a measurement then contradicts folds again from
+   * wider, so the two cannot alternate.
+   *
+   * As for the legend's chips (`_syncLegendFit`), after a render this only folds, at the width the
+   * buttons were last judged at, before anything is painted; a width change is judged a frame
+   * later (`_scheduleButtonsFit`). Folding unwraps a row that wrapped, which changes the card's
+   * height, and a height changed while the browser delivers resize observations is reported as
+   * an error.
+   *
+   * Only ever reads layout that exists. Without it — a card not laid out yet, or a test
+   * environment with no layout engine — every box is empty, and nothing is concluded.
+   *
+   * @param mayUnfold - Whether the card width may move, which can draw the buttons again
+   */
+  private _syncButtonsFit(mayUnfold = true): void {
+    if (!this.isConnected || !this._mayFoldButtons) return;
+
+    const cardWidth = this.getBoundingClientRect().width;
+    if (cardWidth <= 0) return;
+    if (mayUnfold || this._buttonsWidthPx === null) {
+      this._buttonsWidthPx = cardWidth;
+    } else if (Math.abs(cardWidth - this._buttonsWidthPx) > 0.5) {
+      // A width the buttons have not been judged at is a resize, and this render may be running
+      // inside the browser's delivery of it: the pass a frame later decides.
+      this._scheduleButtonsFit();
+      return;
+    }
+
+    const toolbar = this._headerToolbar();
+    const buttons = toolbar.customButtons;
+    const row = this.renderRoot.querySelector<HTMLElement>('.toolbar-actions');
+    if (!buttons || !row) return;
+    const signature = this._buttonsSignature(toolbar, buttons.buttons.length);
+
+    if (row.querySelector('.custom-menu-button')) {
+      // Folded: draw the buttons again if the card is now wide enough for them.
+      if (
+        mayUnfold &&
+        !ToolbarFold.buttonsFolded(this._buttonsFold, signature, this._buttonsWidthPx)
+      ) {
+        this._buttonsUnfoldedAtPx = cardWidth;
+        this.requestUpdate();
+      }
+      return;
+    }
+    if (!row.querySelector('.custom-button')) return;
+
+    const style = getComputedStyle(row);
+    const rowPx =
+      row.getBoundingClientRect().width -
+      (parseFloat(style.paddingLeft) || 0) -
+      (parseFloat(style.paddingRight) || 0);
+    const switcher = row.querySelector<HTMLElement>('.view-switcher');
+    const switcherPx = switcher ? switcher.getBoundingClientRect().width : null;
+    if (rowPx <= 0 || switcherPx === 0) return;
+
+    const fold = ToolbarFold.judgeButtonsFold(
+      {
+        buttons: buttons.buttons.length,
+        start: (toolbar.legend?.folded ? 1 : 0) + (toolbar.addEvent ? 1 : 0),
+        end: (toolbar.reset ? 1 : 0) + (toolbar.refresh ? 1 : 0),
+        switcherPx,
+      },
+      rowPx,
+      cardWidth,
+      this._buttonsUnfoldedAtPx,
+    );
+    if (!fold) {
+      this._buttonsUnfoldedAtPx = null;
+      return;
+    }
+    // The switcher's words give way before the buttons fold.
+    if (switcher?.querySelector('.toolbar-button-label')) return;
+
+    this._buttonsWidthPx = cardWidth;
+    this._buttonsFold = { signature, unfoldAtPx: fold.unfoldAtPx };
+    this._buttonsUnfoldedAtPx = null;
+    Logger.debug(
+      `Toolbar buttons need more than the action row's ${Math.floor(rowPx)}px; folded until ` +
+        `${fold.unfoldAtPx}px`,
+    );
+    this.requestUpdate();
+  }
+
+  /**
+   * Runs `_syncButtonsFit` in the next frame, once per frame, for a card whose width moved.
+   */
+  private _scheduleButtonsFit(): void {
+    if (!this._mayFoldButtons || this._buttonsFitRaf !== null) return;
+    this._buttonsFitRaf = requestAnimationFrame(() => {
+      this._buttonsFitRaf = null;
+      this._syncButtonsFit();
+    });
   }
 
   //-----------------------------------------------------------------------------

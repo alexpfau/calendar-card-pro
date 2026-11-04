@@ -375,6 +375,23 @@ describe('reconciliation: the rule watches everything the card reads', () => {
       ['calendar.anna', 'weather.home'],
     ],
     ['a plain card', { entities: ['calendar.anna'] }, []],
+    [
+      // Named by Home Assistant's own words, which are top-level reads; a button's entity is
+      // named in the configuration and read by Home Assistant only when pressed.
+      'a toolbar of its own buttons',
+      {
+        entities: ['calendar.anna'],
+        toolbar: {
+          show: true,
+          buttons: [
+            { icon: 'mdi:arrow-left', tap_action: { action: 'back' } },
+            { icon: 'mdi:lamp', entity: 'sensor.noise', tap_action: { action: 'toggle' } },
+            { icon: 'mdi:weather-partly-cloudy', tap_action: { action: 'more-info' } },
+          ],
+        },
+      },
+      [],
+    ],
   ];
 
   it.each(MATRIX)('%s', async (_name, config, mustRead) => {

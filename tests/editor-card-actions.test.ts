@@ -452,6 +452,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
 
     // Every control but reset arrives switched on, as the card reads them, the filter as a
@@ -477,6 +478,7 @@ describe('the event tap action in the editor', () => {
       add_event: true,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
 
     // The one control off by default reads back on once it is switched on: one flip.

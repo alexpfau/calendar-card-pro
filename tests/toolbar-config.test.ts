@@ -5,12 +5,18 @@
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * and once shown, what anyone looking at a calendar needs on: the date navigation, the view
  * switcher, add, refresh and the calendar filter as a menu. Reset alone is off, since it is for
- * a screen several people share.
+ * a screen several people share. The configuration's own buttons are a list, empty unless it
+ * writes some, and read entry by entry: one that cannot be drawn as written is left out.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CONFIG, TOOLBAR_LEGEND_VALUES, resolveToolbar } from '../src/config/config';
+import {
+  DEFAULT_CONFIG,
+  TOOLBAR_LEGEND_VALUES,
+  resolveToolbar,
+  undrawableToolbarButtons,
+} from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { workspaceFormData } from '../src/rendering/editor/routing';
 import { toolbarFormBlock } from '../src/rendering/editor/value';
@@ -24,6 +30,7 @@ const DEFAULTS = {
   reset: false,
   refresh: true,
   legend: 'menu',
+  buttons: [],
 };
 
 describe('the toolbar configuration', () => {
@@ -36,6 +43,7 @@ describe('the toolbar configuration', () => {
       reset: false,
       refresh: true,
       legend: 'menu',
+      buttons: [],
     });
     expect(resolveToolbar(DEFAULT_CONFIG)).toEqual(DEFAULTS);
   });
@@ -132,14 +140,23 @@ describe('the toolbar block the editor shows', () => {
     const changed = Object.fromEntries(
       Object.entries(DEFAULT_CONFIG.toolbar as Record<string, unknown>).map(([key, value]) => [
         key,
-        key === 'legend' ? 'chips' : !value,
+        key === 'legend' ? 'chips' : key === 'buttons' ? [{ icon: 'mdi:arrow-left' }] : !value,
       ]),
     );
     const block = toolbarFormBlock({ ...DEFAULT_CONFIG, toolbar: changed } as Types.Config);
 
     expect(block).toEqual(changed);
     expect(Object.keys(block).sort()).toEqual(
-      ['add_event', 'legend', 'navigation', 'refresh', 'reset', 'show', 'view_switcher'].sort(),
+      [
+        'add_event',
+        'buttons',
+        'legend',
+        'navigation',
+        'refresh',
+        'reset',
+        'show',
+        'view_switcher',
+      ].sort(),
     );
   });
 
@@ -149,5 +166,77 @@ describe('the toolbar block the editor shows', () => {
     expect(toolbarFormBlock(config).legend).toBe('off');
     expect(toolbarFormBlock(DEFAULT_CONFIG as Types.Config).legend).toBe('menu');
     expect(workspaceFormData(config, 'shared').toolbar).toMatchObject({ legend: 'off' });
+  });
+});
+
+describe("the toolbar's own buttons", () => {
+  const BACK = { icon: 'mdi:arrow-left', name: 'Back', tap_action: { action: 'back' } };
+  const LAMP = {
+    icon: 'mdi:lamp',
+    name: 'Lamp',
+    entity: 'light.hall',
+    tap_action: { action: 'toggle' },
+  };
+  /** A button that is only an icon, still being set up: drawn, and a press does nothing. */
+  const BARE = { icon: 'mdi:gesture-tap-button' };
+
+  const read = (buttons: unknown) =>
+    resolveToolbar({ toolbar: { show: true, buttons } } as unknown as Pick<Types.Config, 'toolbar'>)
+      .buttons;
+
+  it('reads every entry that can be drawn, in the order written', () => {
+    expect(read([BACK, LAMP, BARE])).toEqual([BACK, LAMP, BARE]);
+  });
+
+  it('counts an empty value as no value, as YAML writes a key with nothing after it', () => {
+    const empty = { icon: 'mdi:lamp', name: null, entity: null, tap_action: null };
+
+    expect(read([empty])).toEqual([empty]);
+  });
+
+  it.each([
+    ['no icon', { name: 'Back', tap_action: { action: 'back' } }],
+    ['an empty icon', { icon: '', name: 'Back' }],
+    ['an icon of spaces', { icon: '   ' }],
+    ['an icon that is not text', { icon: 42 }],
+    ['a name that is not text', { icon: 'mdi:lamp', name: 2026 }],
+    ['an entity that is not text', { icon: 'mdi:lamp', entity: ['light.hall'] }],
+    ['an action that is not an object', { icon: 'mdi:lamp', tap_action: 'toggle' }],
+    ['an action that is a list', { icon: 'mdi:lamp', tap_action: [{ action: 'toggle' }] }],
+    ['a bare icon name', 'mdi:lamp'],
+    ['null', null],
+    ['a list', [BACK]],
+  ])('leaves out an entry with %s, whole, and keeps the rest', (_name, entry) => {
+    expect(read([BACK, entry, LAMP])).toEqual([BACK, LAMP]);
+    expect(
+      undrawableToolbarButtons({ toolbar: { buttons: [BACK, entry, LAMP] } } as never),
+    ).toEqual([entry]);
+  });
+
+  it.each([
+    ['nothing', undefined],
+    ['null', null],
+    ['one button rather than a list', BACK],
+    ['text', 'mdi:arrow-left'],
+  ])('reads a list of %s as no buttons', (_name, buttons) => {
+    expect(read(buttons)).toEqual([]);
+    expect(undrawableToolbarButtons({ toolbar: { buttons } } as never)).toEqual([]);
+  });
+
+  it("reads the list whether or not the toolbar is shown, as every member's choice is kept", () => {
+    expect(
+      resolveToolbar({ toolbar: { show: false, buttons: [BACK] } } as Pick<Types.Config, 'toolbar'>)
+        .buttons,
+    ).toEqual([BACK]);
+  });
+
+  it('shows the list in the editor as written, so an entry it cannot draw survives the next edit', () => {
+    // The editor edits the list in panels of its own; an entry with no icon yet is one being set
+    // up there, and must not vanish from it because the card cannot draw it.
+    const written = [BACK, { name: 'Lamp' }, 'stray'];
+    const config = { ...DEFAULT_CONFIG, toolbar: { show: true, buttons: written } } as Types.Config;
+
+    expect(toolbarFormBlock(config).buttons).toBe(written);
+    expect(toolbarFormBlock(DEFAULT_CONFIG as Types.Config).buttons).toEqual([]);
   });
 });

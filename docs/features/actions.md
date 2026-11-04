@@ -207,7 +207,8 @@ hold_action:
 `back` never leaves Home Assistant and never goes back to its login page. The visual editor
 offers it as Go Back; `navigation_path` is YAML only, since Home Assistant's action editor shows
 no fields for an action it does not know. While you edit the card it does nothing, and the card
-offers no tap or hold for it.
+offers no tap or hold for it. A [button of your own](/features/layout-appearance#your-own-buttons)
+in the toolbar can run it too.
 
 ::: info How the Card Knows
 Home Assistant marks every page it opens from another of its own, and the card reads that mark to

@@ -128,3 +128,38 @@ export function handleAction(
   fireHassAction(node, hassActionConfig, action);
   Logger.debug(`Delegated ${action} action (${actionConfig.action}) to HA native handler`);
 }
+
+/**
+ * Run a toolbar button's `tap_action`, as the card runs its own: the card's own actions through
+ * their callbacks, every other one handed to Home Assistant.
+ *
+ * Home Assistant reads the entity `toggle` acts on only from the configuration it is handed,
+ * never from the action, so the button's `entity` goes there; without one, the card's first
+ * calendar stands in, as it does for the card's own `tap_action`. A button with no action, or
+ * `none`, does nothing: it may be one still being set up.
+ *
+ * @param node - Element that triggered the action
+ * @param button - The button pressed, as configured
+ * @param entities - The card's calendars, the first of which stands in for a missing `entity`
+ * @param callbacks - How the card runs its own actions
+ */
+export function handleButtonAction(
+  node: HTMLElement,
+  button: Readonly<Types.ToolbarButtonConfig>,
+  entities: Array<string | Types.EntityConfig>,
+  callbacks: CardActionCallbacks = {},
+): void {
+  const actionConfig = button.tap_action;
+  if (!actionConfig || typeof actionConfig.action !== 'string' || actionConfig.action === 'none') {
+    return;
+  }
+
+  if (runCardAction(actionConfig, callbacks)) return;
+
+  fireHassAction(
+    node,
+    { entity: button.entity ?? getPrimaryEntityId(entities), tap_action: actionConfig },
+    'tap',
+  );
+  Logger.debug(`Delegated toolbar button action (${actionConfig.action}) to HA native handler`);
+}

@@ -3037,6 +3037,8 @@ describe("the card's ripple over the toolbar", () => {
     '.date-navigation',
     '.toolbar-legend',
     '.legend-menu',
+    // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
+    '.custom-menu',
   ];
 
   it('stays still while the pointer is on a control, as it does over an event', () => {

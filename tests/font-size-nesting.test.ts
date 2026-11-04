@@ -562,6 +562,21 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['legend', { toolbar: { show: true, navigation: true, legend: 'chips' } }],
   // The legend folded into a button, with the menu it opens, beside refresh.
   ['folded legend', { toolbar: { show: true, legend: 'menu', refresh: true } }],
+  // The configuration's own buttons, folded into one menu button, with the menu it opens: their
+  // names are words there.
+  [
+    'folded buttons',
+    {
+      toolbar: {
+        show: true,
+        legend: false,
+        buttons: [
+          { icon: 'mdi:arrow-left', name: 'Back' },
+          { icon: 'mdi:view-dashboard-outline', name: 'Main dashboard' },
+        ],
+      },
+    },
+  ],
 ];
 
 /**
@@ -714,6 +729,19 @@ function renderCard(view: (typeof VIEWS)[number], config: Types.Config): HTMLEle
                 }
               : undefined,
             addEvent: { label: 'Add event', onActivate: () => undefined },
+            customButtons: config.toolbar.buttons?.length
+              ? {
+                  buttons: config.toolbar.buttons.map((button) => ({
+                    icon: button.icon!,
+                    label: button.name!,
+                    tooltip: button.name,
+                    onActivate: () => undefined,
+                  })),
+                  folded: true,
+                  menuName: 'Menu',
+                  inert: false,
+                }
+              : undefined,
           }
         : undefined,
     ),
@@ -963,6 +991,10 @@ describe('every piece of text is sized by its own option', () => {
       'allday-badge in time-actual': ['time_font_size'],
       'allday-title-pill in event-title': ['event_font_size'],
       'calendar-label in summary': ['event_font_size'],
+      // A row of the menu the configuration's own buttons fold into, its name in words: a
+      // control, at Home Assistant's control size, which the menu sets for itself as the filter's
+      // menu does.
+      'custom-menu-label in custom-menu-row': ['--ha-font-size-m'],
       // The title is the card's headline without the toolbar. With it, the title is drawn in the
       // heading row as a label over the month, at Home Assistant's control size, and the month
       // takes the title's option.

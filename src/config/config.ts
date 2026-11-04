@@ -191,6 +191,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     reset: false,
     refresh: true,
     legend: 'menu',
+    buttons: [],
   },
 
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
@@ -354,6 +355,8 @@ export interface ResolvedToolbar {
   refresh: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
+  /** The buttons the configuration adds, in the order written; entries it cannot draw left out. */
+  buttons: ReadonlyArray<Types.ToolbarButtonConfig>;
 }
 
 /** Every value `toolbar.legend` accepts. */
@@ -370,7 +373,8 @@ export const TOOLBAR_LEGEND_VALUES: ReadonlyArray<false | Types.ToolbarLegendMod
  * replaces the default block, or a value of the wrong kind such as `show: "yes"`. Either reads
  * as the default for that member, so a typo never draws a control the user did not ask for and
  * never removes one they did. `legend: true` is one of those: the legend is a choice of mode,
- * and `true` names none, so it reads as the default, `menu`.
+ * and `true` names none, so it reads as the default, `menu`. `buttons` is read entry by entry,
+ * and an entry that cannot be drawn as written is left out (`isToolbarButton`).
  *
  * @param config - Configuration, merged or raw
  * @returns Every member of the toolbar, resolved
@@ -380,7 +384,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
   const block: Readonly<Types.ToolbarConfig> = Helpers.isConfigBlock(config.toolbar)
     ? config.toolbar
     : {};
-  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend'>): boolean =>
+  const read = (key: Exclude<keyof Types.ToolbarConfig, 'legend' | 'buttons'>): boolean =>
     typeof block[key] === 'boolean' ? (block[key] as boolean) : (defaults[key] as boolean);
   const legend = TOOLBAR_LEGEND_VALUES.includes(block.legend as false | Types.ToolbarLegendMode)
     ? (block.legend as false | Types.ToolbarLegendMode)
@@ -394,7 +398,45 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     reset: read('reset'),
     refresh: read('refresh'),
     legend,
+    buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };
+}
+
+/**
+ * Whether a `toolbar.buttons` entry can be drawn as written: an object naming an icon, whose
+ * name and entity, where it has them, are text and whose `tap_action` is an action object. An
+ * empty value, such as YAML's `name:` with nothing after it, counts as no value. Anything else
+ * is left out whole rather than repaired, so a button is drawn exactly as configured or not at
+ * all, never as an empty pill.
+ *
+ * @param entry - One entry as written
+ * @returns True when the entry can be drawn
+ */
+function isToolbarButton(entry: unknown): entry is Types.ToolbarButtonConfig {
+  if (!Helpers.isConfigBlock(entry)) return false;
+  const { icon, name, entity, tap_action: action } = entry;
+  const absent = (value: unknown): boolean => value === undefined || value === null;
+  return (
+    typeof icon === 'string' &&
+    icon.trim() !== '' &&
+    (absent(name) || typeof name === 'string') &&
+    (absent(entity) || typeof entity === 'string') &&
+    (absent(action) || Helpers.isConfigBlock(action))
+  );
+}
+
+/**
+ * The `toolbar.buttons` entries the card leaves out, as written: each one it cannot draw
+ * (`isToolbarButton`).
+ *
+ * @param config - Configuration, merged or raw
+ * @returns The entries left out, in the order written
+ */
+export function undrawableToolbarButtons(
+  config: Readonly<Pick<Types.Config, 'toolbar'>>,
+): unknown[] {
+  const list = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
+  return Array.isArray(list) ? list.filter((entry) => !isToolbarButton(entry)) : [];
 }
 
 /**

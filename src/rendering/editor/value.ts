@@ -862,6 +862,12 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
 
   return Object.fromEntries(
     Object.keys(Config.DEFAULT_CONFIG.toolbar ?? {}).map((key) => {
+      // The list as written, not as resolved: an entry the card cannot draw yet, such as one
+      // with no icon, must survive the next edit rather than vanish from the form.
+      if (key === 'buttons') {
+        const written = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
+        return [key, Array.isArray(written) ? written : []];
+      }
       const value = toolbar[resolvedName(key)];
       return [key, key === 'legend' && value === false ? LEGEND_OFF : value];
     }),
