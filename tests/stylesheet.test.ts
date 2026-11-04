@@ -3694,8 +3694,15 @@ describe('the time beside the title', () => {
     [`${TITLE_ROW} > .summary-scroll:has(> .label-emoji)`]: one({
       width: `calc(8em + ${ROOM} + 1.25em + 4px)`,
     }),
-    // A scrolling title is its summary's baseline, rather than its label's bottom edge.
-    [`${TITLE_ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // A scrolling title beside an icon or picture label is its summary's baseline, rather than
+    // the label's bottom edge. Only those two: a text label is text, and when it wraps it is the
+    // taller item, so an opted-in title beside it moved from its middle to its top.
+    [`${TITLE_ROW} > .summary-scroll:has(> .label-icon) > .event-title`]: one({
+      'align-self': 'baseline',
+    }),
+    [`${TITLE_ROW} > .summary-scroll:has(> .label-image) > .event-title`]: one({
+      'align-self': 'baseline',
+    }),
     // The time grows only on a line of its own, and drops the end margin it overflowed only
     // where something follows it: a lone time keeps its 12px end gutter.
     [TIME]: one({ flex: '1 1 auto', 'min-width': '0', width: 'auto', 'margin-top': '0' }),

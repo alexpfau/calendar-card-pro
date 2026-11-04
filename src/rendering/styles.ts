@@ -2803,11 +2803,26 @@ export const cardStyles = css`
 
   /* A scrolling title is a flex row of its label and its title, and, like the time row below,
      takes its baseline from its first item when none opts in: an icon or picture label's bottom
-     edge, which set a time beside it 2 to 3.5px off the title's text. The title opts in. It is
-     the tallest item in that row, a line of text beside a label 1em high, so it stays where
-     center put it, under the time or beside it, which the pixel comparison found on every
-     dropped row in three engines. */
-  .time-beside-title > .title-time-row > .summary-row > .summary-scroll > .event-title {
+     edge, which set a time beside it 2 to 3.5px off the title's text. Beside those two labels
+     the title opts in. It is the tallest item in that row, a line of text beside a label 1em
+     high, so it stays where center put it, under the time or beside it.
+
+     Only beside those two. An emoji or a text label is text, and on one line it already gives
+     the row the title's baseline, measured at no offset. A text label can also wrap to several
+     lines when the card cannot keep it on one, which makes it the taller item: the row then
+     takes the label's first line, so a time beside it sits level with that line, 8 to 34px above
+     a title centered on the label. That is accepted. An opted-in title closed the gap only by
+     jumping from the label's middle to its top, under the time as well as beside it. */
+  .time-beside-title
+    > .title-time-row
+    > .summary-row
+    > .summary-scroll:has(> .label-icon)
+    > .event-title,
+  .time-beside-title
+    > .title-time-row
+    > .summary-row
+    > .summary-scroll:has(> .label-image)
+    > .event-title {
     align-self: baseline;
   }
 

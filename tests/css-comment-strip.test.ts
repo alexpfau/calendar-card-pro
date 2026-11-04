@@ -287,7 +287,7 @@ describe('stripComments', () => {
     // a pixel off it, why a scrolling title gets its label's room and its own baseline, and why a
     // row whose time moved keeps its ink shift and its first detail row's 2px. The reading went
     // 183,042 to 188,100 with the option, to 189,078 once the title row kept its badge, and to
-    // 190,241 for scrolling titles, taken with stripComments after the last comment was written.
+    // 190,752 for scrolling titles, taken with stripComments after the last comment was written.
     //
     // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and

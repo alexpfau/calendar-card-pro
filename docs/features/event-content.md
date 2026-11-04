@@ -361,7 +361,8 @@ A few things differ once the option is on:
 - A time with nothing after it on its line stops 12px short of the row's end, where a countdown
   would end, so a time long enough to fill a whole row wraps a little sooner.
 - A text label counts toward the title's 8em, so a long one leaves less of the title beside the
-  time.
+  time. With `scroll_long_titles` on, a text label too long for its line wraps beside the title,
+  and a time beside it lines up with the label's first line rather than with the title.
 - An all-day badge with more text after it, such as a countdown, sits a few pixels high beside
   the title.
 - With `event_icon_vertical_alignment` set to `middle` or `bottom` and a `time_icon_size` taller
