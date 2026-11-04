@@ -405,7 +405,7 @@ braces, such as `{title}` or `{start}`; the title, location and description only
 
 | Option                | Type    | Default | Description                                                                                                                                                                   |
 | --------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `refresh_interval`    | number  | `30`    | Time in minutes between data refreshes                                                                                                                                        |
+| `refresh_interval`    | number  | `30`    | Minutes between refreshes where Home Assistant cannot push calendar changes: before 2026.5, or for a calendar failing to load, whose retries it also caps                     |
 | `refresh_on_navigate` | boolean | `true`  | Refetch in the background when the card appears, after drawing the events it has cached, once they are at least 5 seconds old. A failing calendar waits for its retry instead |
 
 **→ [Performance and caching](/features/performance)**

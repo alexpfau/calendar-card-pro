@@ -235,6 +235,16 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+🚨 **A fake `hass.connection.subscribeMessage` must refuse `calendar/event/subscribe`.** Since
+v5.1 the card subscribes to every calendar it shows (`src/utils/live-calendars.ts`). A fake that
+resolves any subscription and never pushes leaves each calendar waiting
+`FIRST_PUSH_TIMEOUT` for a first push before it falls back to REST, so the card sits in its
+loading state and the test fails for a reason it never names. Nineteen tests in three files
+failed that way at once, and a fourth fake passed only by accident, its weather payload read as
+a failed calendar. Unless the test is about live updates, answer it as Home Assistant before
+2026.5 does, with `Promise.reject({ code: 'unknown_command' })`; `tests/live-updates.test.ts`
+has a fake that pushes.
+
 🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
 `for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
 like coverage and is not: delete an entry and the loop runs one fewer time, so the suite

@@ -73,6 +73,7 @@ src/
 │       └── ...                   # Other language files
 └── utils/                        # Utility functions
     ├── events.ts                 # Calendar event fetching and processing
+    ├── live-calendars.ts         # Live calendar changes over `calendar/event/subscribe`
     ├── grid.ts                   # Pure time-grid geometry, overlap lanes, banner spans
     ├── grid-title-fit.ts         # Browser-measured label/title fitting, separate from geometry
     ├── grid-time-fit.ts          # Measures each grid time row and picks its degradation step
@@ -592,7 +593,13 @@ The main entry point serves as the orchestrator for the entire card:
   the configuration names anywhere (`src/utils/hass-relevance.ts`). A bare `requestUpdate()`
   in the same batch always renders. `tests/hass-relevance.test.ts` reconciles the rule with
   every `hass` read the card makes, so a new reader the rule misses fails there
-- **Timers**: Arms the refresh timer for the deadline of the data on screen, and reconciles
+- **Live updates**: Holds the live subscriptions of the window on screen (`_syncLive`, after
+  every load and on each change a subscription reports). A subscription holding other events
+  than the card drew (`EventFetchResult.raw`, so not the cache entry, which another card may
+  have written) starts a `live` load, which takes them from it and never joins a request
+  started before the change; every change reaches the screen through `updateEvents`
+- **Timers**: Arms the refresh timer for the deadline of the data on screen, unless every
+  calendar on screen is live, and reconciles
   four display timers in `updated()` against what the render draws — the grid now line,
   the midnight load, the next event boundary, and the clock repaint (see _Refresh
   Mechanisms_). `disconnectedCallback` stops all five
@@ -1040,6 +1047,38 @@ Provides core functionality across the card:
     lane ends in "…". Runs in scripts written without spaces are left to the browser, and a
     right-to-left title is not split
 
+- **live-calendars.ts**:
+  - One `calendar/event/subscribe` subscription per calendar and window per connection,
+    reference counted, shared by every card and request on the page; Home Assistant 2026.5
+    and later push a calendar's events on subscribing and at every state write. One no card
+    holds closes after `DISCONNECT_LINGER` (5 s, enough for the editor's next card): no card
+    watches its calendar's state then, so none could tell its integration was reloaded
+  - Never writes the cache or draws: a load asks `load` before REST, and a card it tells of a
+    change runs an ordinary load (`_syncLive`)
+  - Probes support with the first subscription; `unknown_command` means polling for the
+    connection until it comes back or 30 minutes pass, because Home Assistant also answers it
+    while the calendar integration is still loading; any other error refuses only that
+    calendar. A subscription is never opened while the connection is down, and one unanswered
+    for `ANSWER_TIMEOUT` counts as refused: the websocket library Home Assistant shipped up to
+    2026.10 never sends, nor settles, a command made then
+  - Drops a push identical to the last, and one saying the same as it (`fingerprintEvents`:
+    times as instants, absent and null alike, in any order) notifies no card
+  - Writes pushed times the way the REST API does, in Home Assistant's zone (`inZone`), so
+    `{start}` and the popover see the same strings from either source
+  - A push proves a subscription alive before anything is compared. After a reconnect, a
+    subscription silent for `RECONNECT_TIMEOUT` is closed, because the websocket library
+    drops a failed resubscription without a word
+  - A subscription silent for `STATE_PUSH_TIMEOUT` after its calendar's state changed in `hass`
+    (`observeStates`, from the card's `shouldUpdate`) is closed and made again: Home Assistant
+    pushes after every state write, and a subscription stays bound to an entity its integration
+    replaced on a reload. Unloading the integration marks the entity unavailable and
+    `restored`, or removes its state, which counts at once; any other change counts unless a
+    push came since the card last saw the state
+  - Unsubscribing waits for a push while the connection is down or the subscription has not
+    pushed since a reconnect, and any push of a closed subscription unsubscribes it again, from
+    a task of its own: the library Home Assistant shipped up to 2026.10 subscribes such a command
+    again on reconnecting, keeps one the connection dropped before it was answered, and sends an
+    old id, which by then names another subscription, until it has handled the new answer
 - **events.ts**:
   - Fetches calendar events from Home Assistant API
   - Implements caching system for calendar data
@@ -1222,6 +1261,13 @@ graph TD
    - Loading, error, and empty states are handled appropriately
 
 4. **Refresh Mechanisms**:
+   - On Home Assistant 2026.5 and later every calendar shown is subscribed to
+     (`live-calendars.ts`), and a load takes a calendar from its subscription in place of a
+     REST request; `reload` alone asks REST, after closing the calendars' subscriptions, so
+     nothing from before a write is drawn. A push that changes what the card drew runs a `live`
+     load, which asks REST for a calendar without a working subscription only once it is due
+     by its own last answer and backoff. While every calendar shown is live, the refresh timer
+     is not armed
    - The refresh timer is armed for the deadline of the data on screen: one
      `refresh_interval` after it was fetched, or the retry deadline while a calendar fails
    - A tab returning more than five minutes after the card last loaded every calendar
@@ -1265,7 +1311,7 @@ graph TD
      calendar changed. Given a write's generation, it joins a request started since that
      write; given none, it joins nothing
 
-Every load above names one of the six modes `updateEvents` takes (`LoadMode`); its
+Every load above names one of the seven modes `updateEvents` takes (`LoadMode`); its
 docblock holds the last two columns of this table. Every mode but `reload` joins a matching
 request already in flight rather than stopping at the cache.
 
@@ -1277,6 +1323,7 @@ request already in flight rather than stopping at the cache.
 | `reprocess` | a per-calendar edit                                                           | anything up to 24 h old        | nothing is cached at all                                                                  |
 | `network`   | a later configuration change, going home after a calendar changed while away  | no                             | always, joining a matching request under way                                              |
 | `reload`    | `refreshEvents()`: after a write, the refresh button and the `refresh` action | no                             | always, never joining a request from before the write                                     |
+| `live`      | a live subscription holding other events than those drawn (`_syncLive`)       | no                             | as `network`; a calendar without a live subscription only once it is due                  |
 
 ### Gesture Model
 

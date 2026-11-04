@@ -65,6 +65,7 @@ import * as GridTimeFit from './utils/grid-time-fit';
 import * as GridTitleFit from './utils/grid-title-fit';
 import * as HassRelevance from './utils/hass-relevance';
 import * as Helpers from './utils/helpers';
+import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
 import * as Paging from './utils/paging';
 import * as Templates from './utils/templates';
@@ -357,7 +358,7 @@ export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: s
 /**
  * How `updateEvents` uses the cache and the network; its docblock has the table.
  */
-type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload';
+type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reload' | 'live';
 
 /** The controls a render draws in the header toolbar, before it decides on the switcher's words. */
 type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
@@ -459,6 +460,28 @@ class CalendarCardPro extends LitElement {
    * The `_instanceId` the events currently held in `events` were fetched for.
    */
   private _eventsInstanceId = '';
+  /**
+   * The live subscriptions this card holds, for the window it shows (`_syncLive`), each with
+   * its release.
+   */
+  private _liveReleases: Array<(linger: number) => void> = [];
+  /** The calendars of the window it shows, whose live changes it listens for. */
+  private _liveCalendars: ReadonlySet<string> = new Set();
+  /** Stops listening, and the connection it listens on. */
+  private _liveUnlisten: (() => void) | null = null;
+  private _liveConnection: unknown = null;
+  /** The pending `_syncLive`, coalescing the changes of one task. */
+  private _liveSyncTimer: number | null = null;
+  /**
+   * The drift (`EventUtils.liveDrift`) the last `live` load was started for, until the card
+   * commits events: the same drift is not loaded for again before then, so a load that commits
+   * nothing (a failure, or events kept after one) never loads in a loop. A `live` load that
+   * commits takes its events from the subscriptions, so no drift it was for outlives it. Each
+   * change has its own page-wide number, so a new change never reads as one loaded already.
+   */
+  private _liveDriftLoaded = '';
+  /** The events drawn, as loaded (`EventFetchResult.raw`), to compare with live subscriptions. */
+  private _drawnRaw: readonly Types.CalendarEventData[] = [];
   /**
    * Monotonic ticket for in-flight event requests.
    *
@@ -1970,6 +1993,7 @@ class CalendarCardPro extends LitElement {
     this._stopNowBoundaryTimer();
     this._stopClockTimer();
     this._cancelPartialCommit();
+    this._releaseLive();
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
@@ -2494,6 +2518,7 @@ class CalendarCardPro extends LitElement {
   protected override shouldUpdate(changedProps: PropertyValues): boolean {
     const bare = this._bareUpdatePending;
     this._bareUpdatePending = false;
+    if (changedProps.has('hass') && this.hass) LiveCalendars.observeStates(this.hass);
     if (bare || changedProps.size !== 1 || !changedProps.has('hass')) return true;
 
     return HassRelevance.hassChangeIsVisible(
@@ -3727,6 +3752,105 @@ class CalendarCardPro extends LitElement {
     }, delay);
 
     Logger.debug(`Scheduled next refresh in ${Math.round(delay / 1000)}s`);
+  }
+
+  /**
+   * Follow the live subscriptions of the window on screen, after every load and whenever one of
+   * its calendars changes.
+   *
+   * Holds the window's subscriptions and releases the rest. Where a subscription holds other
+   * events than the card drew (`EventUtils.liveDrift`), a push or one that came while a load was
+   * out, a `live` load takes them from it: every change reaches the screen through
+   * `updateEvents`, with its ticket, its cache and its failures. Arms the refresh timer while a
+   * calendar is not live, at the entry's own deadline, and drops it once all are.
+   *
+   * Waits while a load is out: that load runs it when it ends.
+   */
+  private _syncLive(): void {
+    if (this._liveSyncTimer !== null) {
+      clearTimeout(this._liveSyncTimer);
+      this._liveSyncTimer = null;
+    }
+    const hass = this.safeHass;
+    if (!this.isConnected || !hass || !this.config.entities?.length || this.isLoading) return;
+
+    if (this._liveConnection !== hass.connection) {
+      this._liveUnlisten?.();
+      this._liveUnlisten = LiveCalendars.listen(hass, this._onLiveChange);
+      this._liveConnection = hass.connection;
+    }
+
+    const page = this._pageShown;
+    const config = this._loadConfigForPage(page);
+    const scope = EventUtils.liveScope(hass, config);
+    const releases = scope.entityIds.flatMap(
+      (entityId) => LiveCalendars.hold(hass, entityId, scope.window) ?? [],
+    );
+    for (const release of this._liveReleases) release(0);
+    this._liveReleases = releases;
+    this._liveCalendars = new Set(scope.entityIds);
+
+    const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
+    const live = releases.length > 0 && LiveCalendars.allLive(hass, scope.entityIds, scope.window);
+    if (releases.length === 0 || !live) {
+      // Some calendar is not live: poll, at the entry's own deadline, unless a timer is armed.
+      if (!this._refreshTimerId) {
+        const snapshot = EventUtils.readEventSnapshot(
+          hass,
+          config,
+          this._instanceIdForPage(page),
+          store,
+        );
+        this._scheduleRefresh(snapshot?.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
+      }
+      if (releases.length === 0) return;
+    }
+
+    const drift = EventUtils.liveDrift(hass, config, this._drawnRaw, this._failedEntities).join();
+    if (drift && drift !== this._liveDriftLoaded) {
+      Logger.info(`Live update: ${drift}`);
+      this._liveDriftLoaded = drift;
+      void this.updateEvents('live');
+      return;
+    }
+
+    if (live && this._refreshTimerId) {
+      // Every load arms the timer as it ends (`_scheduleRefresh`); with nothing to poll, this
+      // takes it down again.
+      Logger.debug('Every calendar shown is live; not polling');
+      clearTimeout(this._refreshTimerId);
+      this._refreshTimerId = undefined;
+    }
+  }
+
+  /**
+   * Run `_syncLive` in the next task when a calendar the card shows changed live.
+   *
+   * @param entityId The calendar
+   */
+  private readonly _onLiveChange = (entityId: string): void => {
+    if (entityId !== '*' && !this._liveCalendars.has(entityId)) return;
+    if (this._liveSyncTimer !== null) return;
+    this._liveSyncTimer = window.setTimeout(() => {
+      this._liveSyncTimer = null;
+      this._syncLive();
+    }, 0);
+  };
+
+  /**
+   * Let go of the live subscriptions, keeping them open a while in case the card comes back.
+   */
+  private _releaseLive(): void {
+    if (this._liveSyncTimer !== null) {
+      clearTimeout(this._liveSyncTimer);
+      this._liveSyncTimer = null;
+    }
+    for (const release of this._liveReleases) release(LiveCalendars.DISCONNECT_LINGER);
+    this._liveReleases = [];
+    this._liveCalendars = new Set();
+    this._liveUnlisten?.();
+    this._liveUnlisten = null;
+    this._liveConnection = null;
   }
 
   /**
@@ -5422,6 +5546,7 @@ class CalendarCardPro extends LitElement {
    * | `reprocess` | anything up to 24 h old        | nothing is cached at all                       |
    * | `network`   | no                             | always, joining a matching request under way   |
    * | `reload`    | no                             | always, never joining a request from before a write |
+   * | `live`      | no                             | as `network`, a calendar without a live subscription only once due |
    *
    * Every mode but `reload` joins a matching request already in flight rather than
    * stopping at the cache. A later call supersedes an earlier one, so a cache read that
@@ -5490,7 +5615,13 @@ class CalendarCardPro extends LitElement {
     const config = this._loadConfigForPage(page);
     const instanceId = this._instanceIdForPage(page);
     const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
-    const usesCache = load !== 'network' && load !== 'reload';
+    const usesCache = load !== 'network' && load !== 'reload' && load !== 'live';
+
+    // A reload asks REST for every calendar; their subscriptions, which may still hold the
+    // answer from before a write, are closed and opened again after it.
+    if (load === 'reload') {
+      LiveCalendars.invalidate(hass, EventUtils.liveScope(hass, config).entityIds);
+    }
 
     // Read synchronously, before any await, so a card attached with data on disk draws
     // it on its very first render.
@@ -5515,6 +5646,7 @@ class CalendarCardPro extends LitElement {
       // cached to replace them, they would be drawn under a config they were not fetched
       // for, or beyond the 24-hour bound, until the fetch lands.
       this.events = [];
+      this._drawnRaw = [];
       this._eventsInstanceId = '';
       this._setFailures([]);
       this.isInitialLoad = true;
@@ -5533,6 +5665,7 @@ class CalendarCardPro extends LitElement {
     if (!needsNetwork && snapshot) {
       this.isLoading = false;
       this._scheduleRefresh(snapshot.nextAttemptAt);
+      this._syncLive();
       return;
     }
 
@@ -5557,7 +5690,7 @@ class CalendarCardPro extends LitElement {
           hass,
           config,
           instanceId,
-          load === 'reload' ? 'reload' : 'network',
+          load === 'reload' || load === 'live' ? load : 'network',
           this._failureCountHint,
           afterWrite,
           store,
@@ -5602,6 +5735,7 @@ class CalendarCardPro extends LitElement {
 
       this.isLoading = false;
       this._scheduleRefresh(result.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
+      this._syncLive();
 
       if (failedEntities.length === 0) {
         Logger.info('Event update completed successfully');
@@ -5631,6 +5765,7 @@ class CalendarCardPro extends LitElement {
             this._refreshIntervalMs(),
           ),
       );
+      this._syncLive();
     }
   }
 
@@ -5652,6 +5787,9 @@ class CalendarCardPro extends LitElement {
     this._eventsInstanceId = instanceId;
     this._pageShown = page;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
+    this._drawnRaw = result.raw ?? [];
+    // What is drawn now settles every drift it can; one it cannot is loaded for again.
+    this._liveDriftLoaded = '';
     this._setFailures(failedEntities);
     this.isInitialLoad = false;
 
@@ -5697,6 +5835,7 @@ class CalendarCardPro extends LitElement {
       }
       if (!this._partialDrawsAnEvent(pending.partial.events, pending.page)) return;
       this.events = [...pending.partial.events];
+      this._drawnRaw = pending.partial.raw ?? [];
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
       this._eventsFetchedAt = pending.partial.fetchedAt;

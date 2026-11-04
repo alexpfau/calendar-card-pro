@@ -74,7 +74,12 @@ function baseHass(states = houseStates()): Types.Hass {
     themes: { darkMode: false },
     entities: {},
     connection: {
-      subscribeMessage: vi.fn().mockResolvedValue(() => {}),
+      // Answers calendar subscriptions as Home Assistant before 2026.5 does, so the card polls.
+      subscribeMessage: vi.fn((_callback: unknown, message: { type: string }) =>
+        message.type === 'calendar/event/subscribe'
+          ? Promise.reject({ code: 'unknown_command' })
+          : Promise.resolve(() => {}),
+      ),
       subscribeEvents: vi.fn().mockResolvedValue(() => {}),
     },
     callWS: vi.fn().mockResolvedValue({}),

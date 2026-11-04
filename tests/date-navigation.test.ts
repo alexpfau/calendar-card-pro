@@ -1538,7 +1538,11 @@ describe("the view switcher's words", () => {
     it('are not tried again for a templated title ticking over at the same width', async () => {
       const results: Array<(message: unknown) => void> = [];
       const connection = {
-        subscribeMessage: (handler: (message: unknown) => void) => {
+        subscribeMessage: (handler: (message: unknown) => void, message: { type: string }) => {
+          // Calendar subscriptions answered as Home Assistant before 2026.5 does.
+          if (message.type === 'calendar/event/subscribe') {
+            return Promise.reject({ code: 'unknown_command' });
+          }
           results.push(handler);
           return Promise.resolve(() => undefined);
         },

@@ -1,13 +1,52 @@
 # Performance & Caching
 
-Calendar Card Pro keeps the events it loads in your browser. It draws them the moment a
-dashboard opens, and asks Home Assistant again only when they are due for a refresh.
+Calendar Card Pro keeps the events it loads in your browser and draws them the moment a
+dashboard opens. On Home Assistant 2026.5 or later, Home Assistant then tells it of every change
+to its calendars, so it never polls; on older versions it asks again whenever its events are due
+for a refresh.
 
 ```yaml
 # Cache and refresh settings
 refresh_interval: 30 # Minutes between refreshes
 refresh_on_navigate: true # Refetch in the background whenever the card appears
 ```
+
+## 📡 Live Updates
+
+On Home Assistant 2026.5 or later, the card subscribes to each calendar it shows, and Home
+Assistant sends that calendar's events again whenever they change. An event added, moved or
+deleted anywhere, on the card, in Home Assistant, on a phone or in the calendar's own app,
+appears on every open dashboard as soon as Home Assistant knows of it, with no refresh in
+between.
+
+How soon Home Assistant knows depends on the calendar's integration:
+
+| Calendar                                               | A change appears                                 |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| Local calendars, and those an integration keeps itself | within seconds                                   |
+| Google Calendar, CalDAV                                | at the integration's next sync, every 15 minutes |
+| Remote calendars (an iCal address)                     | at the integration's next refresh, once a day    |
+
+- **No polling while live.** `refresh_interval` applies only where live updates are not
+  available: on Home Assistant before 2026.5, and for a calendar whose integration could not
+  read its events, until it can again. It is also the longest wait between retries of a
+  calendar that keeps failing. On Home Assistant before 2026.5 the card asks again at most every
+  30 minutes whether it can subscribe, in case Home Assistant was only starting up.
+- **Nothing redrawn for nothing.** Home Assistant also sends a calendar's events when one of
+  them starts or ends, and some integrations at every sync, every minute for some. The card
+  compares and redraws only when an event changed.
+- **A calendar's integration reloaded.** Reloading it, changing its options or signing in to
+  the calendar again replaces the calendar in Home Assistant, and its subscription goes quiet. A
+  card on screen notices and subscribes again within 30 seconds; one that was not on screen, as
+  while you were in Home Assistant's settings, subscribes again when it comes back.
+- **One subscription per calendar.** Cards showing the same calendar over the same dates share
+  one subscription per browser tab. A card that leaves the page lets go of its subscriptions a
+  few seconds later, and subscribes again when it comes back, which costs Home Assistant one
+  read of each calendar, as a refresh on appearing did.
+- **What it costs Home Assistant.** Each subscription reads the calendar's events once when it
+  starts and again at every change Home Assistant sends, so a card appearing costs what a
+  refresh did, and a calendar that changes often is read as often. Home Assistant's own
+  calendar card works the same way.
 
 ## ⚡ Loading & Refreshing
 
@@ -18,7 +57,8 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   default, the card then asks Home Assistant again and swaps in the answer, unless its data
   is less than 5 seconds old or a calendar is failing to load and waiting for its next
   retry. Turn it off to keep using the cached events until they are due.
-- **A refresh every `refresh_interval` minutes**, counted from when the data was loaded.
+- **Where live updates are not available, a refresh every `refresh_interval` minutes**,
+  counted from when the data was loaded.
   Cards showing the same calendars over the same dates share one cache, so one card's
   refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as

@@ -172,8 +172,10 @@ function connection(forecasts: StoryHass['forecasts']) {
   return {
     async subscribeMessage(
       callback: (message: { forecast: unknown[] }) => void,
-      message: { forecast_type: 'daily' | 'hourly' },
+      message: { type: string; forecast_type: 'daily' | 'hourly' },
     ) {
+      // Calendar subscriptions answered as Home Assistant before 2026.5 does.
+      if (message.type === 'calendar/event/subscribe') throw { code: 'unknown_command' };
       const forecast = forecasts?.[message.forecast_type] ?? [];
       // Delivered after the subscription resolves, as Home Assistant's first message is.
       void Promise.resolve().then(() => callback({ forecast }));
