@@ -34,6 +34,7 @@ interface Card extends HTMLElement {
   setConfig(config: Record<string, unknown>): void;
   hass: Types.Hass;
   preview: boolean;
+  editMode: boolean;
   events: unknown[];
   readonly updateComplete: Promise<boolean>;
 }
@@ -91,9 +92,8 @@ async function mount(config: Record<string, unknown>, preview = false, events = 
     hassActions.push((ev as Event & { detail: { action: string } }).detail.action),
   );
   document.body.appendChild(card);
-  await vi.waitFor(() =>
-    expect(card.shadowRoot?.textContent).toContain(events === EVENTS ? 'Dentist' : 'Sports day'),
-  );
+  const first = (events[0] as { summary: string }).summary;
+  await vi.waitFor(() => expect(card.shadowRoot?.textContent).toContain(first));
   for (const [index, header] of all(card, '.grid-day-header').entries()) {
     placeAt(header, { left: 50 + index * 100, top: 0, width: 100, height: 40 });
   }
@@ -195,15 +195,17 @@ const bar = (card: Card) => {
  * a save that has not come back yet. Answered at the latest as the test ends, so no request
  * is left waiting into the next one.
  *
+ * @param card - The card whose fetches to hold
+ * @param events - What the fetches answer with
  * @returns Answers the fetches under way with the events
  */
-function holdFetches(card: Card): () => Promise<void> {
+function holdFetches(card: Card, events: unknown[] = EVENTS): () => Promise<void> {
   const waiting: Array<(events: unknown) => void> = [];
   vi.mocked(card.hass.callApi).mockImplementation(
     () => new Promise((resolve) => waiting.push(resolve)),
   );
   const release = () => {
-    for (const resolve of waiting.splice(0)) resolve(EVENTS);
+    for (const resolve of waiting.splice(0)) resolve(events);
   };
   onTestFinished(release);
   return async () => {
@@ -922,5 +924,578 @@ describe('the new event while the popover adds it', () => {
     const ev = new Event('touchend', { bubbles: true, composed: true, cancelable: true });
     plane(card, 0).dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
+  });
+});
+
+/**
+ * A grid draws its all-day band only for the all-day events of the days it shows, and a new
+ * event is not one of them until it is saved and arrives (backlog item 144). So on days without
+ * one, the band opens, one row, while the grid draws a new all-day event, which would otherwise
+ * have nowhere to be drawn, and closes once it goes.
+ */
+describe('the all-day band while a new all-day event is drawn on days without one', () => {
+  /** Days whose only event is timed, so the grid draws no all-day band of its own. */
+  const TIMED = [EVENTS[0]];
+
+  /** The all-day band, or null where the grid draws none. */
+  const bandOf = (card: Card) => card.shadowRoot!.querySelector<HTMLElement>('.grid-allday-band');
+
+  /** Taps 10:00 on June 18, which opens the popover on a timed new event there. */
+  async function tapTen(card: Card, pointerType = 'touch') {
+    pointer(plane(card, 1), 'pointerdown', X(1), Y(10), pointerType);
+    pointer(plane(card, 1), 'pointerup', X(1), Y(10), pointerType);
+    await settle();
+  }
+
+  /** Answers the popover as its All day switch does, turned on or off again. */
+  async function switchAllDay(dialogs: PopoverRequest[], on: boolean) {
+    dialogs[0].dialogParams.changed?.({
+      calendarId: ANNA,
+      summary: '',
+      location: '',
+      description: '',
+      times: on
+        ? { allDay: true, start: JUNE(18), end: JUNE(18) }
+        : { allDay: false, start: AT(18, 10), end: AT(18, 11) },
+    } as never);
+    await settle();
+  }
+
+  /**
+   * Everything that sets the band's height and the rules around it, as the grid writes them:
+   * each inline style as written, but for the spaces happy-dom puts around its colons and
+   * semicolons once a later render has set it.
+   */
+  const bandShape = (card: Card) => {
+    const style = (element: Element) =>
+      element.getAttribute('style')!.replace(/\s*([:;])\s*/g, '$1');
+    const band = bandOf(card)!;
+    return {
+      band: style(band),
+      banners: band.querySelectorAll('.grid-banner').length,
+      rules: all(card, '.grid-boundary').map((rule) => [rule.className, style(rule)]),
+    };
+  };
+
+  it('draws no band at rest, while the days hold no all-day event', async () => {
+    const { card } = await mount(ADD, false, TIMED);
+    expect(bandOf(card)).toBeNull();
+    expect(all(card, '.grid-boundary-band-top')).toEqual([]);
+  });
+
+  it('opens the band for the new event switched to all day, and draws its banner there', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    await tapTen(card);
+    expect(drawn(card)).toEqual([bodies(card)[1]]);
+    expect(bandOf(card)).toBeNull();
+
+    await switchAllDay(dialogs, true);
+    const band = bandOf(card)!;
+    expect(band).not.toBeNull();
+    expect(band.style.gridTemplateRows).toBe('repeat(1, auto)');
+    // The new event's banner is all the band holds, and the timed block it was is gone.
+    expect(drawn(card)).toEqual([band]);
+    expect(bar(card)).toEqual(['3 / span 1', 'New event']);
+    expect(all(card, '.grid-allday-band > .grid-banner')).toEqual([]);
+    // Closed off above, as any band is.
+    expect(all(card, '.grid-boundary-band-top')).toHaveLength(1);
+  });
+
+  it('closes it once All day is switched back off, and the timed block returns', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    expect(bandOf(card)).not.toBeNull();
+
+    await switchAllDay(dialogs, false);
+    expect(bandOf(card)).toBeNull();
+    expect(all(card, '.grid-boundary-band-top')).toEqual([]);
+    expect(drawn(card)).toEqual([bodies(card)[1]]);
+    expect(label(bodies(card)[1])).toBe('New event\n10:00 - 11:00');
+  });
+
+  it('closes it while the new event lies on days the grid does not show', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    expect(bandOf(card)).not.toBeNull();
+
+    // Moved to the week after in the popover: nothing of it is drawn, so nothing holds the band.
+    dialogs[0].dialogParams.changed?.({
+      calendarId: ANNA,
+      summary: '',
+      location: '',
+      description: '',
+      times: { allDay: true, start: JUNE(22), end: JUNE(23) },
+    } as never);
+    await settle();
+    expect(drawn(card)).toEqual([]);
+    expect(bandOf(card)).toBeNull();
+
+    await switchAllDay(dialogs, true);
+    expect(bar(card)).toEqual(['3 / span 1', 'New event']);
+  });
+
+  it('closes it when the popover closes without saving, as Cancel does', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    expect(bandOf(card)).not.toBeNull();
+
+    dialogs[0].dialogParams.closed?.();
+    await settle();
+    expect(drawn(card)).toEqual([]);
+    expect(bandOf(card)).toBeNull();
+  });
+
+  it('opens it from the popover itself, and closes it when Escape throws the event away', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    // With a mouse: a finger's lifting would be refused by the popover it opened, as the
+    // ghost of that touch.
+    await tapTen(card, 'mouse');
+    const popover = document.createElement(EVENT_POPOVER_TAG) as HTMLElement & {
+      hass?: Types.Hass;
+      showDialog(params: PopoverRequest['dialogParams']): void;
+      readonly updateComplete: Promise<boolean>;
+    };
+    popover.hass = card.hass;
+    popover.showDialog(dialogs[0].dialogParams);
+    document.body.appendChild(popover);
+    await popover.updateComplete;
+    const root = popover.shadowRoot!;
+    root.querySelector<HTMLButtonElement>('button.cell.time')!.click();
+    await popover.updateComplete;
+    // The popover's title takes focus as it opens, and happy-dom cannot answer the card's own
+    // `activeElement` while focus is in another element's shadow root: it throws, and takes the
+    // card's next update with it. Nothing here is about focus, so it is let go.
+    (root.activeElement as HTMLElement | null)?.blur();
+    const allDay = root.querySelector<HTMLInputElement>('input.switch')!;
+    allDay.checked = true;
+    allDay.dispatchEvent(new Event('change'));
+    await settle();
+    expect(bar(card)).toEqual(['3 / span 1', 'New event']);
+
+    root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+    await settle();
+    expect(drawn(card)).toEqual([]);
+    expect(bandOf(card)).toBeNull();
+  });
+
+  it('keeps it once saved until the saved event arrives, whose own banner takes its place', async () => {
+    const swimCamp = {
+      summary: 'Swim camp',
+      start: { date: '2026-06-18' },
+      end: { date: '2026-06-19' },
+    };
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    const answer = holdFetches(card, [...TIMED, swimCamp]);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
+    await settle();
+    expect(bar(card)).toEqual(['3 / span 1', 'New event']);
+
+    await answer();
+    const band = bandOf(card)!;
+    expect(band).not.toBeNull();
+    expect(drawn(card)).toEqual([]);
+    expect(all(card, '.grid-allday-band > .grid-banner').map((b) => b.textContent!.trim())).toEqual(
+      ['Swim camp'],
+    );
+    expect(band.style.gridTemplateRows).toBe('repeat(1, auto)');
+  });
+
+  it('closes it a few seconds after the save if the refresh bringing the event is slow', async () => {
+    const { card, dialogs } = await mount(ADD, false, TIMED);
+    holdFetches(card);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    dialogs[0].dialogParams.updated(ANNA);
+    dialogs[0].dialogParams.closed?.();
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD - 1);
+    expect(bandOf(card)).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(drawn(card)).toEqual([]);
+    expect(bandOf(card)).toBeNull();
+  });
+
+  it('leaves a band the days draw anyway as it is', async () => {
+    const { card, dialogs } = await mount(ADD);
+    const band = bandOf(card)!;
+    const shape = bandShape(card);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    // The same band, drawn as before, with the new event beside Sports day.
+    expect(bandOf(card)).toBe(band);
+    expect(bandShape(card)).toEqual({ ...shape, banners: 2 });
+    expect(drawn(card)).toEqual([band]);
+
+    dialogs[0].dialogParams.closed?.();
+    await settle();
+    expect(bandOf(card)).toBe(band);
+    expect(bandShape(card)).toEqual(shape);
+  });
+
+  it('is one row high, as a band holding one all-day event is', async () => {
+    const adding = await mount(ADD, false, TIMED);
+    await tapTen(adding.card);
+    await switchAllDay(adding.dialogs, true);
+    const opened = bandShape(adding.card);
+    document.body.replaceChildren();
+    localStorage.clear();
+
+    // The same days, with an all-day event of their own on the same day.
+    const holding = await mount(ADD);
+    expect(opened).toEqual(bandShape(holding.card));
+    expect(opened.banners).toBe(1);
+  });
+
+  it('is no group, no name and no tab stop while it holds only the new event', async () => {
+    // A fixed height is what makes a band a scrolling group of its own.
+    const fixed = { ...ADD, height: '360px' };
+    const { card, dialogs } = await mount(fixed, false, TIMED);
+    await tapTen(card);
+    await switchAllDay(dialogs, true);
+    const band = bandOf(card)!;
+    expect(band).not.toBeNull();
+    expect(['role', 'aria-label', 'tabindex'].map((name) => band.getAttribute(name))).toEqual([
+      null,
+      null,
+      null,
+    ]);
+    document.body.replaceChildren();
+    localStorage.clear();
+
+    // One with an all-day event of its own is all three.
+    const holding = await mount(fixed);
+    expect(
+      ['role', 'aria-label', 'tabindex'].map((name) => bandOf(holding.card)!.getAttribute(name)),
+    ).toEqual(['group', 'All day', '0']);
+  });
+
+  it("opens no band for an event the toolbar's button or the card's own action adds", async () => {
+    const { card, dialogs } = await mount(
+      { tap_action: { action: 'add-event' }, toolbar: { show: true } },
+      false,
+      TIMED,
+    );
+    card
+      .shadowRoot!.querySelector('.add-event-button')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
+    await settle();
+    await tapTen(card);
+    // Neither draws its event, so neither follows the popover's All day switch.
+    expect(adds(dialogs)).toHaveLength(2);
+    expect(dialogs.map(({ dialogParams }) => dialogParams.changed)).toEqual([undefined, undefined]);
+    expect(drawn(card)).toEqual([]);
+    expect(bandOf(card)).toBeNull();
+  });
+
+  /**
+   * Every way the new all-day event can go, on days whose only event is timed, so that a band
+   * left open by any of them shows: each opens the band, takes one way out, lets every timer
+   * run out, and expects no band but where the days shown hold a real all-day event by then.
+   * The ways that redraw the grid or begin another add are taken twice: while the popover is
+   * open, and once it has saved and closed, while the drawing waits on the real event.
+   */
+  describe('on every way the new event goes', () => {
+    const CONFIG = { ...ADD, toolbar: { show: true, navigation: true, view_switcher: true } };
+    const SWIM_CAMP = {
+      summary: 'Swim camp',
+      start: { date: '2026-06-18' },
+      end: { date: '2026-06-19' },
+    };
+
+    type Phase = 'popover open' | 'saved, waiting';
+    interface Exit {
+      card: Card;
+      dialogs: PopoverRequest[];
+      phase: Phase;
+    }
+
+    /** Lets a render, the fetch it starts and the render after it land. */
+    async function land(card: Card) {
+      await settle();
+      await card.updateComplete;
+      await settle();
+    }
+
+    /** Presses the toolbar's previous or next segment, and lets that page's events land. */
+    async function page(card: Card, which: 'previous' | 'next') {
+      const [previous, , next] = all<HTMLButtonElement>(card, '.date-navigation-segment');
+      (which === 'previous' ? previous : next).click();
+      await land(card);
+    }
+
+    /** Sets the configuration the card was mounted with, and more. */
+    async function reconfigure(card: Card, changes: Record<string, unknown>) {
+      card.setConfig({
+        entities: [ANNA],
+        days_to_show: 3,
+        show_empty_days: true,
+        view: 'grid',
+        ...CONFIG,
+        ...changes,
+      });
+      await land(card);
+    }
+
+    /**
+     * Saves the new event and closes the popover, the refresh after the save not answered yet.
+     *
+     * @returns Answers that refresh, with the days' timed event only, as at the latest the test
+     *   ending does
+     */
+    async function saveUnanswered(card: Card, dialogs: PopoverRequest[]) {
+      const waiting: Array<(events: unknown) => void> = [];
+      vi.mocked(card.hass.callApi).mockImplementationOnce(
+        () => new Promise((resolve) => waiting.push(resolve)),
+      );
+      const release = () => {
+        for (const resolve of waiting.splice(0)) resolve(TIMED);
+      };
+      onTestFinished(release);
+      dialogs[0].dialogParams.updated(ANNA);
+      dialogs[0].dialogParams.closed?.();
+      await settle();
+      expect(waiting).toHaveLength(1);
+      return release;
+    }
+
+    /** The real popover on the first add, its title let go of focus as the Escape test explains. */
+    async function realPopover(card: Card, dialogs: PopoverRequest[]) {
+      const popover = document.createElement(EVENT_POPOVER_TAG) as HTMLElement & {
+        hass?: Types.Hass;
+        showDialog(params: PopoverRequest['dialogParams']): void;
+        readonly updateComplete: Promise<boolean>;
+      };
+      popover.hass = card.hass;
+      popover.showDialog(dialogs[0].dialogParams);
+      document.body.appendChild(popover);
+      // It focuses its title once drawn in place, an update after it opens.
+      await popover.updateComplete;
+      await settle();
+      const root = popover.shadowRoot!;
+      (root.activeElement as HTMLElement | null)?.blur();
+      return root;
+    }
+
+    /** The banners of the days' own all-day events in the band, by title. */
+    const realBanners = (card: Card) =>
+      all(card, '.grid-allday-band > .grid-banner').map((banner) => banner.textContent!.trim());
+    /** The days the grid shows, as their headers read. */
+    const days = (card: Card) =>
+      all(card, '.grid-day-header').map((header) =>
+        header.textContent!.replace(/\s+/g, ' ').trim(),
+      );
+
+    const BOTH: Phase[] = ['popover open', 'saved, waiting'];
+    const EXITS: Array<[string, Phase[], (exit: Exit) => Promise<void>]> = [
+      [
+        'paging to the next week and back',
+        BOTH,
+        async ({ card }) => {
+          const home = days(card);
+          await page(card, 'next');
+          expect(days(card)).not.toEqual(home);
+          expect(bandOf(card)).toBeNull();
+          await page(card, 'previous');
+          expect(days(card)).toEqual(home);
+        },
+      ],
+      [
+        'switching to the list view and back',
+        BOTH,
+        async ({ card }) => {
+          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="list"]')[0].click();
+          await land(card);
+          expect(card.shadowRoot!.querySelector('.grid-container')).toBeNull();
+          all<HTMLButtonElement>(card, '.view-switcher-segment[data-view="grid"]')[0].click();
+          await land(card);
+        },
+      ],
+      [
+        'the dashboard going into edit mode and out',
+        BOTH,
+        async ({ card }) => {
+          card.editMode = true;
+          await land(card);
+          expect(bandOf(card)).toBeNull();
+          card.editMode = false;
+          await land(card);
+        },
+      ],
+      [
+        "the card becoming the editor's preview and back",
+        BOTH,
+        async ({ card }) => {
+          card.preview = true;
+          await land(card);
+          expect(bandOf(card)).toBeNull();
+          card.preview = false;
+          await land(card);
+        },
+      ],
+      [
+        'a configuration showing other days',
+        BOTH,
+        async ({ card }) => {
+          await reconfigure(card, { days_to_show: 5 });
+        },
+      ],
+      [
+        'a configuration showing the same days, and then the popover closing or the wait ending',
+        BOTH,
+        async ({ card, dialogs, phase }) => {
+          await reconfigure(card, { title: 'Family' });
+          // The same days, and the new event still drawn on them, in the band opened for it.
+          expect(drawn(card)).toEqual([bandOf(card)]);
+          if (phase === 'popover open') dialogs[0].dialogParams.closed?.();
+          else await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD);
+          await land(card);
+        },
+      ],
+      [
+        'a second add, tapped in the time grid',
+        BOTH,
+        async ({ card, dialogs }) => {
+          pointer(plane(card, 2), 'pointerdown', X(2), Y(9));
+          pointer(plane(card, 2), 'pointerup', X(2), Y(9));
+          await settle();
+          expect(drawn(card)).toEqual([bodies(card)[2]]);
+          expect(bandOf(card)).toBeNull();
+          dialogs[dialogs.length - 1].dialogParams.closed?.();
+          await settle();
+        },
+      ],
+      [
+        "a second add, from the toolbar's button",
+        BOTH,
+        async ({ card, dialogs }) => {
+          card
+            .shadowRoot!.querySelector('.add-event-button')!
+            .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, detail: 1 }));
+          await settle();
+          expect(adds(dialogs)).toHaveLength(2);
+        },
+      ],
+      [
+        'a second add, drawn in the band opened for the first and thrown away with Escape',
+        BOTH,
+        async ({ card }) => {
+          const band = bandOf(card)!;
+          pointer(band, 'pointerdown', X(0), 60);
+          hold();
+          // The band stays open for the event drawn now, beside nothing of the first one.
+          expect(bar(card)).toEqual(['2 / span 1', 'New event']);
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          pointer(band, 'pointerup', X(0), 60);
+          await settle();
+        },
+      ],
+      [
+        'Cancel',
+        ['popover open'],
+        async ({ dialogs }) => {
+          dialogs[0].dialogParams.closed?.();
+          await settle();
+        },
+      ],
+      [
+        'Escape in the popover',
+        ['popover open'],
+        async ({ card, dialogs }) => {
+          const root = await realPopover(card, dialogs);
+          root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+          await settle();
+        },
+      ],
+    ];
+
+    it.each(
+      EXITS.flatMap(([name, phases, exit]) =>
+        phases.map((phase) => [`${name} (${phase})`, phase, exit] as const),
+      ),
+    )('%s', async (_name, phase, exit) => {
+      const { card, dialogs } = await mount(CONFIG, false, TIMED);
+      await tapTen(card);
+      await switchAllDay(dialogs, true);
+      expect(drawn(card)).toEqual([bandOf(card)]);
+      if (phase === 'saved, waiting') {
+        await saveUnanswered(card, dialogs);
+        expect(drawn(card)).toEqual([bandOf(card)]);
+      }
+
+      await exit({ card, dialogs, phase });
+      expect(drawn(card)).toEqual([]);
+      expect(bandOf(card)).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD);
+      await land(card);
+      expect(drawn(card)).toEqual([]);
+      expect(bandOf(card)).toBeNull();
+    });
+
+    it("a save whose refresh brings the event: the band is then the event's own", async () => {
+      const { card, dialogs } = await mount(CONFIG, false, TIMED);
+      const answer = holdFetches(card, [...TIMED, SWIM_CAMP]);
+      await tapTen(card);
+      await switchAllDay(dialogs, true);
+      dialogs[0].dialogParams.updated(ANNA);
+      dialogs[0].dialogParams.closed?.();
+      await answer();
+      expect(drawn(card)).toEqual([]);
+      expect(realBanners(card)).toEqual(['Swim camp']);
+
+      // Present only while the days shown hold a real all-day event: not on the next week.
+      vi.mocked(card.hass.callApi).mockImplementation(async () => [...TIMED, SWIM_CAMP]);
+      await page(card, 'next');
+      expect(bandOf(card)).toBeNull();
+      await page(card, 'previous');
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD);
+      await land(card);
+      expect(drawn(card)).toEqual([]);
+      expect(realBanners(card)).toEqual(['Swim camp']);
+      expect(bandOf(card)!.style.gridTemplateRows).toBe('repeat(1, auto)');
+    });
+
+    it('a save whose refresh does not bring the event yet: the band goes as it commits', async () => {
+      const { card, dialogs } = await mount(CONFIG, false, TIMED);
+      const answer = holdFetches(card, TIMED);
+      await tapTen(card);
+      await switchAllDay(dialogs, true);
+      dialogs[0].dialogParams.updated(ANNA);
+      dialogs[0].dialogParams.closed?.();
+      await settle();
+      expect(drawn(card)).toEqual([bandOf(card)]);
+
+      // The refresh after the save is the one that counts, whatever it holds (`_newArrived`).
+      await answer();
+      expect(drawn(card)).toEqual([]);
+      expect(bandOf(card)).toBeNull();
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD);
+      await land(card);
+      expect(bandOf(card)).toBeNull();
+    });
+
+    it('a save whose refresh is slow: the band goes as the wait ends, and stays gone', async () => {
+      const { card, dialogs } = await mount(CONFIG, false, TIMED);
+      await tapTen(card);
+      await switchAllDay(dialogs, true);
+      const answer = await saveUnanswered(card, dialogs);
+      await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD - 1);
+      expect(drawn(card)).toEqual([bandOf(card)]);
+      await vi.advanceTimersByTimeAsync(1);
+      await land(card);
+      expect(drawn(card)).toEqual([]);
+      expect(bandOf(card)).toBeNull();
+
+      // The refresh landing at last, without the event, opens nothing again.
+      answer();
+      await land(card);
+      expect(drawn(card)).toEqual([]);
+      expect(bandOf(card)).toBeNull();
+    });
   });
 });

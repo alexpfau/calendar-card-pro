@@ -1499,8 +1499,13 @@ calendar entry the saved event will match, its text replaced and split into days
 events are; where the card would not show it at all, it is split as it stands with its calendar's
 first entry, so a press still sees where it goes. The card renders that with Lit into an element of
 its own (`NEW_EVENT_HOST_CLASS`, laid out as `display: contents`) in each day's plane or in the
-all-day band, where a banner with no row of its own takes the first row free across its days. The
-structure observer skips that element and what happens inside it, so its coming and going refits
+all-day band, where a banner with no row of its own takes the first row free across its days. Days
+holding no all-day event have no band, so while the card draws a banner on them it opens one, one
+row, and closes it once the banner goes (`_openBandForNew`, read by `renderGridGroupedEvents`). The
+render that opens it paints the banner into it in the same update, and the row is sized by that
+banner as every row of the band is by its banners, so it costs exactly the height one all-day event
+does and restates none of a banner's metrics. The
+structure observer skips the element the event is drawn into and what happens inside it, so its coming and going refits
 nothing else, and its block is observed and fitted on its own (`_fitNewBlocks`). Where it lies over
 an event the day draws, it is drawn raised, as a block over another is, and a pointer moving within
 one quarter hour draws nothing again. The block outlives the press while the popover adds the event

@@ -269,8 +269,9 @@ of the first day column to the right edge of the last. It crosses the gutters be
 columns but not the hour gutter, which macOS Calendar leaves clear too, and it begins and
 ends exactly where the hour rules do. This option exists in column view as well, where it
 draws a separate short rule inside each day's own header — the grid spends it on the one
-line that boundary needs. It is only drawn when there are all-day events to close off; with
-none, the band collapses and the heavier rule below takes its place.
+line that boundary needs. It is only drawn when there is a band to close off: when the days
+shown hold an all-day event, or while you [add one by tapping the grid](/features/actions#drawing-an-event-in-grid-view).
+With none, the band collapses and the heavier rule below takes its place.
 
 **Under the all-day band**, `allday_band_line_*` defaults to a heavier `2px` boundary,
 independently of the day rule's width. It is drawn inside the band, growing upward, so it never bleeds

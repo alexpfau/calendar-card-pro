@@ -4595,7 +4595,9 @@ export const cardStyles = css`
 
   /* Its own nested grid so banners can span day columns while the band as a whole
      spans the outer grid's full width. The row template is set inline from the number
-     of rows the packing actually needed, so an empty band costs no height. */
+     of rows the packing actually needed, or one for a new all-day event the card is
+     adding on days without one (renderGridGroupedEvents), so an empty band costs no
+     height. */
   .grid-allday-band {
     display: grid;
     row-gap: 2px;

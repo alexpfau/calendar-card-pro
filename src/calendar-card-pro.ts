@@ -790,6 +790,11 @@ class CalendarCardPro extends LitElement {
   private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
+  /**
+   * Whether the grid draws the new event as a banner (`_paintNew`), which opens its all-day
+   * band, one row, on days that hold no all-day event of their own (`_openBandForNew`).
+   */
+  private _bandOpenForNew = false;
 
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
@@ -4393,6 +4398,8 @@ class CalendarCardPro extends LitElement {
    * `NEW_EVENT_HOST_CLASS`, put into the day's plane or the all-day band, which the grid's
    * structure observer leaves alone: that it comes and goes changes nothing else the grid
    * draws, and its block is fitted on its own (`_fitNewBlocks`). Every render paints it again.
+   * A banner on days with no all-day event of their own opens the band it is drawn into
+   * (`_openBandForNew`).
    */
   private _paintNew(): void {
     const shown = this._newShown;
@@ -4413,13 +4420,12 @@ class CalendarCardPro extends LitElement {
       const headers = daysOn('.grid-day-header', 'day');
       const dayStarts = headers.map(({ day }) => day);
       const byDay = this._newEventByDay(shown, dayStarts);
-      const band = this.renderRoot.querySelector('.grid-allday-band');
       const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
       const shownAs = byDay.values().next().value;
-      if (band && shownAs && columns.length) {
+      const banners: unknown[] = [];
+      if (shownAs && columns.length) {
         // As the grid lays out a banner: the event's whole span, over each run of its days.
         const event = { ...shownAs, ...(shownAs._gridSource ?? {}) };
-        const banners: unknown[] = [];
         let runStart = 0;
         for (let index = 1; index <= columns.length; index++) {
           if (index < columns.length && columns[index] === columns[index - 1] + 1) continue;
@@ -4439,9 +4445,14 @@ class CalendarCardPro extends LitElement {
           }
           runStart = index;
         }
-        wanted.set(band, banners);
       }
+      // Where the days shown hold no all-day event there is no band yet: the render this asks
+      // for opens one, and paints the banner into it.
+      this._openBandForNew(banners.length > 0);
+      const band = this.renderRoot.querySelector('.grid-allday-band');
+      if (band && banners.length) wanted.set(band, banners);
     } else {
+      this._openBandForNew(false);
       const bodies = daysOn('.grid-day-body', 'time');
       const byDay = this._newEventByDay(
         shown,
@@ -4598,10 +4609,28 @@ class CalendarCardPro extends LitElement {
   private _dropNew(): void {
     this._clearNewDrawing();
     this._newShown = null;
+    this._openBandForNew(false);
     if (this._newTimer !== undefined) {
       clearTimeout(this._newTimer);
       this._newTimer = undefined;
     }
+  }
+
+  /**
+   * Opens the grid's all-day band for the new event's banner, or closes it once the banner goes.
+   * A grid draws its band for the all-day events of the days it shows, and a new one is not
+   * among them until it is saved and the card's events bring it, so on days without one the
+   * band opens, one row, while the banner is drawn: switched to all-day in the popover, the new
+   * event would otherwise have nowhere to be drawn. That row is the banner's own, as every row
+   * of the band is, so it costs the height one all-day event does. A grid whose days hold an
+   * all-day event draws its band anyway, and is unchanged by this. Renders only where it changes.
+   *
+   * @param open - Whether the new event is drawn as a banner
+   */
+  private _openBandForNew(open: boolean): void {
+    if (open === this._bandOpenForNew) return;
+    this._bandOpenForNew = open;
+    this.requestUpdate();
   }
 
   /**
@@ -6306,6 +6335,7 @@ class CalendarCardPro extends LitElement {
           this._overflowStripPct,
           this._eventsActivatable,
           dayAdd,
+          this._bandOpenForNew,
         );
       }
 

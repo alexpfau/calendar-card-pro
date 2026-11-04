@@ -1329,6 +1329,11 @@ export function gridDrawsEvent(gridDays: Types.EventsByDay[], config: Types.Conf
  *   as wide as its bounds allow. See `grid-overflow-strip.ts`
  * @param eventsTappable - Whether each timed block and banner is a tap target of its own; the
  *   `+N` strip stays inert, since it stands for several events rather than one
+ * @param dayAdd - How to draw each day's header as its add button, or undefined while a tap
+ *   on a day adds nothing
+ * @param bandOpenForNew - Whether the card draws a new all-day event it is adding into the
+ *   band (`renderNewBanner`), which opens the band, one row, on days with no all-day event of
+ *   their own
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
@@ -1342,6 +1347,7 @@ export function renderGridGroupedEvents(
   overflowStripPct = Infinity,
   eventsTappable = false,
   dayAdd?: Activation.DayAddButtons,
+  bandOpenForNew = false,
 ): TemplateResult {
   if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
@@ -1389,7 +1395,13 @@ export function renderGridGroupedEvents(
   // engine that does not know `subgrid` drops the declaration, leaving a grid with no column
   // template at all, and each banner's `grid-column` then invents an implicit track. Keep
   // one source for the columns in anything that replaces it.
-  const bandRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
+  const bannerRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
+  // The card draws a new all-day event it is adding into the band after this render, in the
+  // same update and so before anything is laid out (`renderNewBanner`). On days with no all-day
+  // event of their own the band opens one row for it, sized by that banner as every row here is
+  // by its banners. A height written for the row instead would restate the banner's padding and
+  // line height, a second copy of both for the band to drift from.
+  const bandRows = Math.max(bannerRows, bandOpenForNew ? 1 : 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
     .filter(({ separator, index }) => separator !== null && index > 0)
@@ -1410,8 +1422,8 @@ export function renderGridGroupedEvents(
   // rule at the same boundary the frame rule was already drawn at. After this there is one
   // rule there and one key controlling it.
   //
-  // The upper rule is only drawn when there is a band to close: with no all-day events
-  // row 3 collapses to nothing and the two rules would land on the same line, a hairline
+  // The upper rule is only drawn when there is a band to close: with no band, row 3
+  // collapses to nothing and the two rules would land on the same line, a hairline
   // stacked under a heavier one. The lower rule is the boundary either way.
   //
   // Which row the lower rule sits in is the band's presence, not a constant. With a band
@@ -1481,6 +1493,11 @@ export function renderGridGroupedEvents(
   // The container is deliberately left unnamed — naming it needs a new string in all 35
   // card languages, and axe's scrollable-region-focusable is satisfied by the tab stop
   // alone; a name there is APG best practice, not a conformance requirement.
+  //
+  // A band open only for a new event the card is adding holds nothing to reach: that banner
+  // is hidden from assistive technology and answers no press. So it is a group with a name and
+  // a tab stop only while it holds banners of its own.
+  const bandReachable = fixedHeight && bannerRows > 0;
 
   return html`
     <div
@@ -1543,13 +1560,13 @@ export function renderGridGroupedEvents(
           ? html`
               <div
                 class="grid-allday-band"
-                role=${fixedHeight ? 'group' : nothing}
+                role=${bandReachable ? 'group' : nothing}
                 aria-label=${
-                  fixedHeight
+                  bandReachable
                     ? FormatUtils.capitalizeFirstLetter(Localize.getTranslations(language).allDay)
                     : nothing
                 }
-                tabindex=${fixedHeight ? '0' : nothing}
+                tabindex=${bandReachable ? '0' : nothing}
                 style=${styleMap({
                   gridColumn: `1 / span ${gridDays.length + 1}`,
                   gridRow: '3',
