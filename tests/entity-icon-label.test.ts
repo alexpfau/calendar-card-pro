@@ -308,8 +308,10 @@ describe('the editor’s icon source control', () => {
    */
   it('sits between the shape dropdown and the picker', () => {
     const fields = fieldsFor({ entity: ENTITY, label: 'mdi:home' });
+    // From the shape dropdown on: the calendar's name opens the section, above the label.
+    const start = fields.indexOf('label_type');
 
-    expect(fields.slice(0, 4)).toEqual([
+    expect(fields.slice(start, start + 4)).toEqual([
       'label_type',
       LABEL_ICON_SOURCE,
       'label',

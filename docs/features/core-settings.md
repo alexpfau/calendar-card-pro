@@ -23,6 +23,7 @@ entities:
 | Option                   | Type    | Default                  | Description                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                                                                                                                                                                     |
+| `name`                   | string  | Home Assistant's name    | The calendar's name on this card: in the calendar filter, the event popover, the "Couldn't load" line and the names grid view gives labels for screen readers. Never drawn on event rows. One per calendar, shared by every entry for it; see [Naming a Calendar in the Card](#naming-a-calendar-in-the-card)                                                            |
 | `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images — any address, whether a file you saved (`/local/image.jpg`) or one Home Assistant serves (`/api/image/serve/…`). Accepts a person entity ID (`person.anna`) to show that person's picture, and `home-assistant` to follow this calendar's Home Assistant icon |
 | `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                                                                                          |
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
@@ -47,6 +48,53 @@ entities:
 This structure gives you granular control over how information from different calendars is displayed.
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
+
+### Naming a Calendar in the Card
+
+The card names each calendar as Home Assistant does, which is often a name its integration
+chose rather than one you would. `name` gives a calendar a name of its own on this card, and
+leaves it as it is everywhere else:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.anna_personal
+    name: Anna
+  - entity: calendar.family_shared
+    name: Family
+toolbar:
+  show: true
+  legend: chips
+```
+
+The name is used wherever the card itself names a calendar:
+
+- the chips and the menu of the [calendar filter](/features/layout-appearance#showing-hiding-calendars);
+- the [event popover](/features/actions#the-event-popover), for the event's own calendar and
+  for the calendars it can move to or a new event can be added to;
+- the "Couldn't load: …" line at the foot of the card when a calendar
+  [fails to load](/features/performance#when-a-calendar-fails-to-load);
+- the names [grid view](/features/grid-view) gives icon and picture labels for screen readers.
+
+Left unset, each of these keeps Home Assistant's name for the calendar, or its entity ID where
+Home Assistant has none. Home Assistant's own controls keep Home Assistant's name either way:
+the calendar picker in the visual editor, the heading of each calendar's panel beneath it, and
+Home Assistant's more-info dialog.
+
+A name never draws on an event row. That is what [`label`](#choosing-how-a-label-is-read) is
+for, and the two are independent: a calendar can have either, both or neither.
+
+The name belongs to the calendar, not to one entry in `entities`. A calendar listed twice, as
+[splitting it by event type](#separating-all-day-from-timed-events) does, has one name: the
+[visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for that
+calendar, and in YAML the first entry that sets one wins.
+
+A calendar whose entity ID Home Assistant does not know, usually because of a typo, keeps its ID
+beside its name in the "Couldn't load" line, as in "Couldn't load: Anna
+(calendar.ana_personal)", so the entry to fix is still easy to find.
+
+Like any change to the configuration, renaming a calendar shows every hidden calendar again on
+every device; see [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 
 ### Using the Colors From Home Assistant
 

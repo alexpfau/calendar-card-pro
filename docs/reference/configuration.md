@@ -163,13 +163,14 @@ for the eye only, and is hidden in Grid too.
 Each item in `entities` may be a plain entity ID string, or an object that overrides
 the card-wide options for that one calendar:
 
-`entity` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
+`entity` · `name` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `show_time` · `show_location` · `location_icon` · `show_description` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
 `replace_field` · `replace_pattern` · `replace_with` ·
 `split_multiday_events` · `event_type` · `allday_expires_at` · `days_of_week`
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
+**→ [Naming a calendar in the card](/features/core-settings#naming-a-calendar-in-the-card)** — `name`, where it shows, and what keeps Home Assistant's name.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
 **→ [Using a picture Home Assistant already serves](/features/core-settings#using-a-picture-home-assistant-already-serves)** — a person's photo or a camera frame as a label, and where to find its address.

@@ -603,7 +603,7 @@ export class CalendarCardProEditor extends LitElement {
                   <button
                     type="button"
                     class="text-button"
-                    ?disabled=${!Entities.hasSettings(entry)}
+                    ?disabled=${!Entities.hasTransferableSettings(entry)}
                     @click=${() => this._copyEntitySettings(entry)}
                   >
                     ${this._string(ctx, 'entity.copy')}
@@ -635,7 +635,7 @@ export class CalendarCardProEditor extends LitElement {
               <ha-form
                 class="entity-form"
                 .hass=${this._formHass}
-                .data=${Entities.toEntityFormData(entry)}
+                .data=${Entities.toEntityFormData(entry, entries)}
                 .schema=${schema}
                 .computeLabel=${computeLabel}
                 .computeHelper=${computeHelper}

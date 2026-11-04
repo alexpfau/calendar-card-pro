@@ -960,6 +960,7 @@ describe('editor: the order of the two panels', () => {
   it('pins the per-calendar panel', () => {
     expect(sequence(entitySchema())).toEqual([
       '# heading_appearance',
+      'name',
       'label_type',
       'label_icon_source',
       'label_image_source',

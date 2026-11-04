@@ -19,6 +19,7 @@ import { entityIdOf, isSet } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import { configuredCalendarName } from '../../utils/calendar-names';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
@@ -26,7 +27,15 @@ import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictur
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
 
-const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity']);
+/**
+ * Keys that say which calendar an entry is rather than how it is shown, and so never travel
+ * through Copy and Paste.
+ *
+ * `name` is identity as much as `entity` is: it names one calendar, and pasting it onto
+ * another would give two calendars one name in the legend. Duplicate is different, and keeps
+ * it, because a duplicate is the same calendar.
+ */
+const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity', 'name']);
 
 /**
  * Settings copied from one calendar, awaiting a paste.
@@ -70,6 +79,11 @@ export interface EntityOccurrence {
  * The entity id is the fallback for both ways a name can come up empty — a calendar
  * removed from Home Assistant but still listed in the card, and a state carrying no
  * `friendly_name` — and it is the picker's own last resort too.
+ *
+ * 🚨 It deliberately ignores the calendar's `name` option, which every surface of the card
+ * itself reads. The heading matches the picker row directly above it, and that row is Home
+ * Assistant's control, which the card cannot rename; the Name field inside the panel shows
+ * the card's own name instead.
  *
  * @param entityId - The calendar's entity id
  * @param hass - Home Assistant state, absent before the editor is handed one
@@ -158,6 +172,11 @@ export function duplicateEntity(
  * the only control that removes a single block, which is what makes it the inverse of
  * Duplicate rather than a shortcut for something the picker already does.
  *
+ * A calendar's name outlives the block that held it while another block of that calendar
+ * remains. Every panel of the calendar shows the name, even in hand-written YAML that holds
+ * it on one block only, so removing that block moves the name onto the first block left
+ * rather than silently handing the calendar back to Home Assistant's name.
+ *
  * @param entities - The list as stored
  * @param index - Position of the block being removed
  * @returns A new list, or the original when the index is not in it
@@ -170,7 +189,15 @@ export function removeEntity(
 
   if (index < 0 || index >= entities.length) return next;
 
+  const id = entityIdOf(entities[index]);
+  const name = configuredCalendarName(entities, id);
+
   next.splice(index, 1);
+
+  const heir = next.findIndex((entry) => entityIdOf(entry) === id);
+  if (name !== undefined && heir >= 0 && configuredCalendarName(next, id) === undefined) {
+    next[heir] = withName(next[heir], name);
+  }
 
   return next;
 }
@@ -267,10 +294,19 @@ function fitsShape(type: string, value: unknown): boolean {
 /**
  * Projects one calendar's stored settings into the shape its form binds.
  *
+ * Given the whole list, the Name field shows the calendar's name rather than this block's
+ * own: the name belongs to the calendar, so a second block must not show an empty field
+ * while the first one names it. {@link writeEntity} expects data built this way.
+ *
  * @param entry - Entry as stored
+ * @param entities - The list as stored, for the calendar's name; without it the field shows
+ *   this block's own
  * @returns Form data for that calendar
  */
-export function toEntityFormData(entry: string | Types.EntityConfig): Record<string, unknown> {
+export function toEntityFormData(
+  entry: string | Types.EntityConfig,
+  entities?: ReadonlyArray<string | Types.EntityConfig>,
+): Record<string, unknown> {
   const config = asEntityConfig(entry) as unknown as Record<string, unknown>;
   const data: Record<string, unknown> = {
     ...config,
@@ -279,6 +315,12 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
     [LABEL_ICON_SOURCE]: labelIconSourceOf(config.label),
     [LABEL_IMAGE_SOURCE]: labelImageSourceOf(config.label),
   };
+
+  if (entities !== undefined) {
+    const name = configuredCalendarName(entities, entityIdOf(entry));
+    if (name === undefined) delete data.name;
+    else data.name = name;
+  }
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
     const stored = config[name];
@@ -339,8 +381,16 @@ export function fromEntityFormData(
 
   const namesPerson = chosenType === 'image' && imageSource === 'person';
 
+  // Written first, beside the id it names, and trimmed here rather than left to the card:
+  // `isSet` counts "   " as set, so a name of spaces would otherwise reach the YAML and name
+  // the calendar nothing at all.
+  const name = nameOf(data.name);
+  if (name !== undefined) entry.name = name;
+
   for (const [key, value] of Object.entries(data)) {
-    if (key === 'entity' || key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
+    if (key === 'entity' || key === 'name') continue;
+
+    if (key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
 
     if (key === LABEL_ICON_SOURCE || key === LABEL_IMAGE_SOURCE) continue;
 
@@ -479,11 +529,59 @@ function accentColorFor(mode: string, value: unknown, inherited: unknown): strin
 }
 
 /**
+ * A name as the form holds it, in the form it is stored.
+ *
+ * @param value - The Name field's value
+ * @returns The name trimmed, or `undefined` for a blank one or anything that is not text
+ */
+function nameOf(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+}
+
+/**
+ * One entry holding the given name, or none, and otherwise as it was.
+ *
+ * The name goes beside the id it names, where {@link fromEntityFormData} writes it, and an
+ * entry left holding nothing but its id goes back to a bare id, as that function returns it.
+ *
+ * @param entry - Entry as stored
+ * @param name - The name to hold, or `undefined` for none
+ * @returns The entry, the same one when it already holds that name
+ */
+function withName(entry: string | Types.EntityConfig, name: unknown): string | Types.EntityConfig {
+  const config = asEntityConfig(entry) as unknown as Record<string, unknown>;
+  if (config.name === name) return entry;
+
+  const next: Record<string, unknown> = { entity: config.entity };
+  if (name !== undefined) next.name = name;
+  for (const [key, value] of Object.entries(config)) {
+    if (key !== 'entity' && key !== 'name') next[key] = value;
+  }
+
+  return Object.keys(next).length === 1
+    ? String(config.entity)
+    : (next as unknown as Types.EntityConfig);
+}
+
+/**
  * Replaces one calendar's settings within the list.
+ *
+ * 🚨 **The name is the calendar's, not this block's**, so it is the one option written past
+ * `index`: a changed name is written to every block of the calendar, and a cleared one is
+ * cleared from all of them. That keeps a calendar listed twice from holding two names, one
+ * of which would silently lose (`CalendarNames.calendarName` takes the first).
+ *
+ * "Changed" is measured against what the form showed, which {@link toEntityFormData} makes
+ * the calendar's name when handed the list — so `data` must be built that way. An edit to
+ * anything else hands that name back unchanged, and then every block keeps exactly the name
+ * it holds, this one included. The alternative, writing the shown name into each block a
+ * write passes through, would put a key into the YAML of a block the user never named, and
+ * would quietly rewrite hand-written YAML that names one calendar two ways; a change to the
+ * name itself is the user's own answer, and only that settles the calendar's name everywhere.
  *
  * @param entities - The list as stored
  * @param index - Position of the calendar being edited
- * @param data - Form data as the form returned it
+ * @param data - Form data as the form returned it, built by `toEntityFormData(entry, entities)`
  * @param inheritedAccent - The card-wide `accent_color`, so a calendar moving to a custom
  *   color starts from the one it was already showing
  * @param hass - Home Assistant state, so a calendar moving off its icon starts from the one
@@ -503,9 +601,19 @@ export function writeEntity(
 
   const entityId = entityIdOf(entities[index]);
   const next = [...entities];
-  next[index] = fromEntityFormData(entityId, data, entities[index], inheritedAccent, hass);
+  const written = fromEntityFormData(entityId, data, entities[index], inheritedAccent, hass);
+  const name = nameOf(data.name);
 
-  return next;
+  if (name === configuredCalendarName(entities, entityId) || entityId === '') {
+    next[index] = withName(written, asEntityConfig(entities[index]).name);
+    return next;
+  }
+
+  next[index] = written;
+
+  return next.map((entry, at) =>
+    at !== index && entityIdOf(entry) === entityId ? withName(entry, name) : entry,
+  );
 }
 
 /**
@@ -525,9 +633,15 @@ function transferableSettings(entry: string | Types.EntityConfig): Types.EntityC
 /**
  * Copies one calendar's settings to the clipboard.
  *
+ * A calendar with nothing to transfer — none of its own settings, or only its name — leaves
+ * the clipboard as it was: an empty copy would arm every Paste button with a paste that
+ * clears the calendar it lands on.
+ *
  * @param entry - Entry as stored
  */
 export function copySettings(entry: string | Types.EntityConfig): void {
+  if (!hasTransferableSettings(entry)) return;
+
   clipboard = transferableSettings(entry);
 }
 
@@ -550,6 +664,9 @@ export function clearCopiedSettings(): void {
 /**
  * Applies the copied settings to one calendar.
  *
+ * The target keeps its own name, which says which calendar it is rather than how it is
+ * shown; everything else is replaced by what was copied.
+ *
  * @param entities - The list as stored
  * @param index - Position of the calendar being pasted into
  * @returns A new list, or the original when nothing has been copied
@@ -565,7 +682,8 @@ export function pasteSettings(
   }
 
   const entityId = entityIdOf(entities[index]);
-  const pasted = { ...clipboard, entity: entityId };
+  const name = asEntityConfig(entities[index]).name;
+  const pasted = { ...clipboard, entity: entityId, ...(name === undefined ? {} : { name }) };
 
   next[index] = Object.keys(pasted).length === 1 ? entityId : pasted;
 
@@ -580,4 +698,17 @@ export function pasteSettings(
  */
 export function hasSettings(entry: string | Types.EntityConfig): boolean {
   return Object.keys(asEntityConfig(entry)).some((key) => key !== 'entity');
+}
+
+/**
+ * Whether a calendar carries any settings Copy would take, which is what offers Copy.
+ *
+ * Narrower than {@link hasSettings}: a calendar holding only its name has settings of its
+ * own and nothing to copy, because the name stays with the calendar it names.
+ *
+ * @param entry - Entry as stored
+ * @returns `true` when anything other than the calendar's identity is configured
+ */
+export function hasTransferableSettings(entry: string | Types.EntityConfig): boolean {
+  return Object.keys(asEntityConfig(entry)).some((key) => !NON_TRANSFERABLE_KEYS.has(key));
 }

@@ -108,8 +108,11 @@ Some of what the card shows changes with time alone, and it redraws for that on 
 A calendar can fail to load because its integration returns an error, because Home
 Assistant is restarting, or because it does not answer within 30 seconds. The card then:
 
-- names it in a line at the bottom of the card, such as "Couldn't load: Ben", using the
-  calendar's name in Home Assistant, or its entity id when Home Assistant does not know it;
+- names it in a line at the bottom of the card, such as "Couldn't load: Ben", by its
+  [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card, else its name
+  in Home Assistant, else its entity id. Where Home Assistant does not know the calendar at
+  all, the entity id stays in the line, after the name if it has one, as in "Couldn't load:
+  Ben (calendar.bne)", because the id is what needs fixing;
 - keeps showing that calendar's last loaded events, for up to 24 hours;
 - lets no one change or delete those events, which may be a day out of date, and never
   preselects that calendar for a [new event](/features/actions#add-event-button) (see

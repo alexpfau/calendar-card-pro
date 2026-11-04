@@ -1528,6 +1528,42 @@ describe('what the card lets the popover offer', () => {
     },
   );
 
+  it('names each calendar it offers as the card names it', async () => {
+    // Anna's calendar is named on its second block only, and Home Assistant's name for it is
+    // set aside; Ben's has no name on the card and keeps Home Assistant's.
+    const states = {
+      'calendar.anna': {
+        entity_id: 'calendar.anna',
+        state: 'off',
+        attributes: { supported_features: 7, friendly_name: 'Anna calendar' },
+      },
+      'calendar.ben': {
+        entity_id: 'calendar.ben',
+        state: 'off',
+        attributes: { supported_features: 7, friendly_name: 'Ben' },
+      },
+    };
+    const { card, dialogs } = await mount(
+      {
+        ...DETAILS,
+        entities: [
+          'calendar.anna',
+          'calendar.ben',
+          { entity: 'calendar.anna', event_type: 'all_day', name: 'Anna at work' },
+        ],
+      },
+      { states, eventsFor: { 'calendar.ben': [] } },
+    );
+    buttonsShowing(card, 'Dentist')[0].click();
+    await settle();
+
+    const params = dialogs[dialogs.length - 1].dialogParams;
+    expect(params.calendars.map(({ id, name }) => [id, name])).toEqual([
+      ['calendar.anna', 'Anna at work'],
+      ['calendar.ben', 'Ben'],
+    ]);
+  });
+
   it('refreshes both calendars an event was moved between, and tells the page', async () => {
     const { card, dialogs, callApi } = await mount(
       { ...DETAILS, entities: ['calendar.anna', 'calendar.ben'] },

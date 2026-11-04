@@ -28,7 +28,7 @@ Each panel opens and closes on its own, so several can be open at once, and whil
 
 **Card & Header** closes with a **Toolbar** sub-heading over everything the [header toolbar](/features/layout-appearance#header-toolbar) offers. Its first switch, **Show Toolbar**, turns the whole toolbar on or off. While it is on, the panel offers each of the toolbar's controls in the order the toolbar is read: **Calendar Filter**, **Add Event Button**, **View Switcher**, **Reset Button** and **Refresh Button** for the top row, then **Date Navigation** for the row under it. **Calendar Filter** is a dropdown of **Off**, **Menu** and **Chips**, with **Menu** the default. Turning the toolbar off again hides them and keeps what they were set to.
 
-The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Time Range & Content** opens with **Time Range**, the days the card covers. After that, **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below. The card-level panel follows the spine with **Empty Days**, then two collapsible groups, **Compact Mode** (List only) and **Language & Time Format**. Grid arranges multi-day events itself, so in the Grid workspace both panels drop **Multi-Day Events**. Reading either panel therefore answers the same questions in the same order.
+The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Time Range & Content** opens with **Time Range**, the days the card covers. After that, **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Name, Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below. The card-level panel follows the spine with **Empty Days**, then two collapsible groups, **Compact Mode** (List only) and **Language & Time Format**. Grid arranges multi-day events itself, so in the Grid workspace both panels drop **Multi-Day Events**. Reading either panel therefore answers the same questions in the same order.
 
 **Layout** opens with spacing, ordered from the outside in: between days (**Day Spacing**), between a day's events (**Event Gap**), then inside each event (**Event Spacing**), followed by **Additional Card Spacing** and **Card Height**. In the Columns workspace the fields end with a collapsible **Column Density** group, which decides how narrow a column may get before the card gives one up. Grid has far more to say here and captions it — **Time Axis**, **Hour Labels**, **On the Grid**, then **Card Size & Spacing** — before its own **Grid Density** group; its **Day Spacing** sits in the **Rules** panel instead, beside the rules drawn inside it. In Columns and Grid a table under the fields shows which layout the card renders at each width.
 
@@ -272,6 +272,11 @@ Search matches what is on screen: the name of a setting, the sentence explaining
 Searching a panel's displayed title or helper shows its relevant controls, including a
 workspace-specific title such as Grid's **Rules** in your editor language.
 
+Searching a calendar's entity id or its
+[name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every setting
+of that calendar, on each of its blocks; searching a label shows every setting of the block
+that carries it.
+
 **Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. It reads values the way the card does, so a number written as `"3"` in YAML counts as untouched when `3` is the default, and a value the card rejects counts as untouched too — because that is what the card is using.
 
 Three things follow their own rule under it, for reasons worth knowing:
@@ -288,20 +293,22 @@ The editor only offers the settings your current configuration calls for: a fixe
 
 The Calendars picker lists each calendar **once**, however many times the card uses it. It answers one question — which calendars this card shows — and the panels beneath it answer the other: how many blocks each calendar has, and what is set on each.
 
-Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by.
+Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading either, so the heading always matches the picker row above it; the **Name** field at the top of the panel shows your own.
 
 The line under the heading says what the panel holds: your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not.
 
 Each panel opens with four actions:
 
-| Action             | What it does                                                          |
-| ------------------ | --------------------------------------------------------------------- |
-| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself    |
-| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to  |
-| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings |
-| **Remove**         | Drops this block                                                      |
+| Action             | What it does                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself or its name     |
+| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to and its name  |
+| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings and its name |
+| **Remove**         | Drops this block                                                                   |
 
 They sit above the settings rather than below them, so they are visible the moment a panel opens. **Remove** is held apart from the other three because it is the only one that discards anything, and a card editor has no undo.
+
+A calendar's name says which calendar it is rather than how it is shown, so it stays with the calendar: **Copy Settings** is offered only once a calendar carries something besides its name, and a paste leaves the name of the calendar it lands on alone. A calendar with two blocks has one name, so changing it on either block changes it on both, and removing the block that held it leaves it on the block that remains.
 
 The clipboard behind **Copy Settings** outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
 
@@ -317,9 +324,10 @@ Clearing a calendar's row in the **picker** removes that calendar from the card 
 
 ## 🏷️ Per-Calendar Labels
 
-Each calendar under the picker gets its own collapsible form, and the first control in it
-is **Label Type**. A label is the mark shown before every event from that calendar, and it
-can be four things — nothing, text or an emoji, an icon, or an image.
+Each calendar under the picker gets its own collapsible form. It opens with **Name**, the
+calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), and
+the control after it is **Label Type**. A label is the mark shown before every event from
+that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
 
 Most of the time the type is not stored at all. It is read back from the value, because
 the value is usually enough to decide how the card draws it: `mdi:home` is an icon,

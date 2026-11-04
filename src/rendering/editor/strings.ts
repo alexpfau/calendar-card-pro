@@ -166,6 +166,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.duplicate': 'Duplicate',
   'entity.remove': 'Remove',
 
+  'entity.name': 'Name',
+  'entity.name.helper':
+    'Names this calendar in the calendar filter, when you open one of its events, and in ' +
+    'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
+    'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
+    'keep either way.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
     'Shown before every event from this calendar. An image label is a path the browser ' +
@@ -264,7 +270,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
-  heading_appearance: 'Label & Colors',
+  heading_appearance: 'Name, Label & Colors',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',

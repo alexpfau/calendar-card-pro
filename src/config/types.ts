@@ -609,6 +609,17 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 /** Calendar entity configuration. */
 export interface EntityConfig {
   entity: string;
+  /**
+   * The calendar's name wherever the card itself names it: the legend, the event popover,
+   * the "Couldn't load" notice and the grid's screen-reader names. Unset, it is Home
+   * Assistant's name for the calendar, and the entity id where Home Assistant has none.
+   *
+   * 🚨 It belongs to the calendar, not to this block. A calendar listed twice has one name,
+   * the first non-blank one in the list (`calendarName` in `utils/calendar-names.ts`), and the
+   * editor writes an edit to every block of the calendar. It never draws on an event row,
+   * which is what `label` is for, and Home Assistant's own controls keep Home Assistant's name.
+   */
+  name?: string;
   label?: string;
   label_type?: LabelType;
   color?: string;

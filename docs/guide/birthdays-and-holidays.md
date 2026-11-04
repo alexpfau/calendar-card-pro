@@ -38,13 +38,13 @@ For the ages, write the birth year into each birthday's description as `YEAR=199
 
 ## 🧭 What It Adds
 
-| Editor                     | YAML                                                                           | What it adds                                                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Time Range & Content       | `days_to_show: 60`                                                             | Two months ahead; days with nothing on them stay hidden                                                                                                   |
-| Events                     | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
-| Separators · Layout        | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
-| Calendars › Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
-| Actions & Refresh          | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
+| Editor                           | YAML                                                                           | What it adds                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time Range & Content             | `days_to_show: 60`                                                             | Two months ahead; days with nothing on them stay hidden                                                                                                   |
+| Events                           | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
+| Separators · Layout              | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
+| Calendars › Name, Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
+| Actions & Refresh                | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
 
 ## 🔀 Adapt It
 
