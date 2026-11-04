@@ -563,13 +563,20 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   card's edges in each view; the stylesheet tests reconcile all of them. Every plan is one line
   tall, so no plan changes the card's height, and the card plans at render, from the width its
   resize observer reported in its own callback, with no frame's delay and no hysteresis
-  (`_startFold`, `_syncToolbarLabels`). The end group's input keeps a slot for a search
-  control, which the plan counts wherever the card draws one. One guard covers what arithmetic
-  cannot see, a theme's border, a card-mod rule or a zoom's rounding: where the row it drew still
-  wraps or overflows, `_syncStartFoldFit` folds one control more at that width for that row,
-  never fewer, and a new width clears it, so only the arithmetic brings controls back and the two
-  cannot alternate. It waits while the switcher draws its words, which give way first. A control
-  that held focus as it folded hands focus to the menu button (`_handFocusToMenu`).
+  (`_startFold`, `_syncToolbarLabels`). A card not measured yet draws the narrowest start group,
+  so its first report only gives controls back. A card that narrows across a threshold is laid
+  out once more with the row it had, which wraps at the new width, and the render its callback
+  requests takes that line back before the frame is painted. Browsers report a height change
+  inside that delivery as a resize-observer loop error, as they already did when the switcher's
+  words gave way. Home Assistant's frontend discards that error, so only a page outside Home
+  Assistant, a test harness for one, ever shows it. The end group's input keeps a slot for a
+  search control, which the plan counts wherever the card draws one. One guard covers what
+  arithmetic cannot see, a theme's border, a card-mod rule or a zoom's rounding: where the row it
+  drew still wraps or overflows, `_syncStartFoldFit` folds one control more at that width for
+  that row, never fewer, and a new width clears it, so only the arithmetic brings controls back
+  and the two cannot alternate. It waits while the switcher draws its words, which give way
+  first. A control that held focus as it folded hands focus to the menu button
+  (`_handFocusToMenu`).
 - **One menu controller serves both menus.** The start group's menu runs on the legend's
   machinery: `rendering/menu.ts` places, paints, opens and closes either `<dialog>`, told apart
   by its `MenuKind`, `legend` or `overflow`, and handed its `MenuParts`, the dialog's class

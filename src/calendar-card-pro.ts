@@ -1166,8 +1166,8 @@ class CalendarCardPro extends LitElement {
    * waits for: the browser delivers that callback after layout and before paint, and the
    * update it requests runs in the microtask straight after, so the first frame painted
    * already has the right controls. The settle delay would paint the wrong ones first.
-   * Null until a width arrives, so a card that is never measured draws icons, which fit at
-   * any width.
+   * Null until a width arrives, so a card that is never measured draws icons, and the narrowest
+   * start group (`_startFold`): the smallest row it has.
    */
   private _toolbarWidthPx: number | null = null;
 
@@ -7482,16 +7482,20 @@ class CalendarCardPro extends LitElement {
    * every control the plan reckons with is as wide as the stylesheet makes it, and every plan is
    * one line tall, so none changes the card's height, and the observer's own callback may decide
    * it before anything is painted. The switcher's words give way first, since they are drawn only
-   * where every control fits beside them (`_toolbarLabelMinWidth`). A card not measured yet
-   * draws every control, as its first render does before the observer reports.
+   * where every control fits beside them (`_toolbarLabelMinWidth`).
+   *
+   * A card not measured yet draws the narrowest start group, its first control and the menu
+   * button, as the switcher draws its pictograms. Not every control: the observer's first report
+   * would then find a row too wide for a narrow card, wrapped onto a second line, and the plan
+   * drawn in its callback would change the card's height while the browser delivered that report,
+   * which it reports as an error. From the narrowest group the first report only gives controls
+   * back, and the row stays one line throughout.
    *
    * @param row - What the row holds
    * @returns The fold, or undefined where every control fits
    */
   private _startFold(row: ToolbarFold.ActionRow): Toolbar.StartFold | undefined {
-    const widthPx = this._toolbarWidthPx;
-    if (widthPx === null) return undefined;
-
+    const widthPx = this._toolbarWidthPx ?? 0;
     const plan = ToolbarFold.planStartGroup(row, widthPx, this._startFoldAtLeast(row, widthPx));
     if (plan.overflow.length === 0) return undefined;
     return { plan, menuName: this._haString('ui.common.menu'), inert: this._isBeingEdited };
@@ -7499,15 +7503,16 @@ class CalendarCardPro extends LitElement {
 
   /**
    * How many of the start group's controls the plan folds at a card width, for the row drawn
-   * last.
+   * last; as many as can fold before the card has a width (`_startFold`).
    *
    * @param widthPx - A card width, or null for none yet
    * @returns How many controls the menu holds there
    */
   private _startHidden(widthPx: number | null): number {
     const row = this._toolbarRow;
-    if (row === null || widthPx === null) return 0;
-    return ToolbarFold.planStartGroup(row, widthPx, this._startFoldAtLeast(row, widthPx)).overflow
+    if (row === null) return 0;
+    const width = widthPx ?? 0;
+    return ToolbarFold.planStartGroup(row, width, this._startFoldAtLeast(row, width)).overflow
       .length;
   }
 

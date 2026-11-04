@@ -155,9 +155,17 @@ async function settle(card: CardUnderTest): Promise<void> {
   }
 }
 
+/**
+ * Mounts a card, and hands it a width as a browser's resize observer does before the first paint:
+ * 784px unless asked otherwise, or none at all for a card not measured yet.
+ */
 async function mount(
   config: Types.Config,
-  options: { flag?: 'preview' | 'editMode'; localize?: (key: string) => string } = {},
+  options: {
+    flag?: 'preview' | 'editMode';
+    localize?: (key: string) => string;
+    width?: number | null;
+  } = {},
 ): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(config);
@@ -165,6 +173,8 @@ async function mount(
   card.hass = hass(options.localize);
   document.body.appendChild(card);
   await settle(card);
+  const width = options.width === undefined ? 784 : options.width;
+  if (width !== null) await measure(card, width);
   return card;
 }
 
@@ -911,9 +921,12 @@ describe('the start group where the row runs out of room', () => {
     expect(startShape(without)).toEqual([1, true, 2]);
   });
 
-  it('draws every control on a card not measured yet', async () => {
-    const card = await mount(withButtons(THREE, FOLD_ROW));
+  it('draws the narrowest start group on a card not measured yet, and the rest once it is', async () => {
+    // A narrow card's first report would otherwise find every control wrapped onto two lines.
+    const card = await mount(withButtons(THREE, FOLD_ROW), { width: null });
+    expect(startShape(card)).toEqual([0, false, 4]);
 
+    await measure(card, 784);
     expect(startShape(card)).toEqual([3, true, 0]);
   });
 
@@ -990,7 +1003,7 @@ describe('a row that wraps where the arithmetic says it fits', () => {
   });
 
   it('stops once nothing more can fold, the end group wrapping', async () => {
-    const card = await mount(withButtons(THREE, FOLD_ROW));
+    const card = await mount(withButtons(THREE, FOLD_ROW), { width: null });
     layout.startCapacity = 0;
     await measure(card, 784);
 
@@ -1028,7 +1041,7 @@ describe('a row that wraps where the arithmetic says it fits', () => {
   it('concludes nothing from a card that is not laid out', async () => {
     // A width reported, and nothing laid out to read: every box the row draws is empty.
     layout.startCapacity = 0;
-    const card = await mount(withButtons(THREE, FOLD_ROW));
+    const card = await mount(withButtons(THREE, FOLD_ROW), { width: null });
     observerOf(card).callback([{ contentRect: { width: 784 } }]);
     await settle(card);
 
