@@ -848,6 +848,11 @@ function directionBefore(text: string): 'ltr' | 'rtl' | null {
  * For the time row and the grid axis only. The formatter's own strings stay plain, so every
  * caller that compares or announces them is unaffected.
  *
+ * The space inside each reading also becomes a NO-BREAK SPACE, so a reading never wraps between
+ * its digits and its meridiem ("12:30 / PM") in either direction. Here rather than in
+ * `formatTime` for the same reason: only drawn text can wrap. Roboto draws it at the space's
+ * own width, so a line that did not break there is laid out as it was.
+ *
  * @param text Time text as the formatter wrote it
  * @param before Text drawn before `text` in the same line, for a droppable end time drawn as an
  *   element of its own
@@ -855,9 +860,10 @@ function directionBefore(text: string): 'ltr' | 'rtl' | null {
  */
 export function isolateClockReadings(text: string, before = ''): string {
   return text.replace(CLOCK_READING_12H, (reading: string, index: number) => {
+    const whole = reading.replace(' ', '\u00a0');
     const context = directionBefore(before + text.slice(0, index));
-    if (context === 'ltr') return reading;
-    return `\u2068${reading}\u2069${context === 'rtl' ? '\u200f' : ''}`;
+    if (context === 'ltr') return whole;
+    return `\u2068${whole}\u2069${context === 'rtl' ? '\u200f' : ''}`;
   });
 }
 

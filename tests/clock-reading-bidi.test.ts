@@ -28,8 +28,12 @@ import { formatTime, isolateClockReadings } from '../src/utils/format';
 const FSI = '\u2068';
 const PDI = '\u2069';
 const RLM = '\u200f';
-const isolated = (reading: string) => `${FSI}${reading}${PDI}`;
-const withoutMarks = (text: string) => text.replace(/[\u2068\u2069\u200f]/g, '');
+const NBSP = '\u00a0';
+/** A reading kept on one line: the space between its digits and its meridiem cannot break. */
+const whole = (text: string) => text.replace(/(\d) ([AP]M)/g, `$1${NBSP}$2`);
+const isolated = (reading: string) => `${FSI}${whole(reading)}${PDI}`;
+const withoutMarks = (text: string) =>
+  text.replace(/[\u2068\u2069\u200f]/g, '').replace(/\u00a0/g, ' ');
 
 describe('isolateClockReadings', () => {
   it('isolates both readings of a range, and a start time on its own', () => {
@@ -48,12 +52,14 @@ describe('isolateClockReadings', () => {
   it('leaves a reading after a left-to-right word as it is, as a number there joins the word', () => {
     // Isolated, the reading would be a neutral at the end of the line, and a right-to-left line
     // puts that at its far end: "12:30 AM Ends tomorrow at", where the tip already drew this right.
-    expect(isolateClockReadings('Ends tomorrow at 12:30 AM')).toBe('Ends tomorrow at 12:30 AM');
+    expect(isolateClockReadings('Ends tomorrow at 12:30 AM')).toBe(
+      whole('Ends tomorrow at 12:30 AM'),
+    );
     expect(isolateClockReadings('10:30 PM, ends tomorrow at 12:30 AM')).toBe(
-      `${isolated('10:30 PM')}, ends tomorrow at 12:30 AM`,
+      `${isolated('10:30 PM')}, ends tomorrow at ${whole('12:30 AM')}`,
     );
     expect(isolateClockReadings('11:30 AM until Saturday, Oct 31 at 12:30 PM')).toBe(
-      `${isolated('11:30 AM')} until Saturday, Oct 31 at 12:30 PM`,
+      `${isolated('11:30 AM')} until Saturday, Oct 31 at ${whole('12:30 PM')}`,
     );
   });
 
@@ -69,7 +75,7 @@ describe('isolateClockReadings', () => {
     // Grid draws the droppable end as an element of its own. The AM before it is not a word: a
     // 24-hour range has nothing there, so the end is laid out as the start of a range is.
     expect(isolateClockReadings(' - 12:30 PM', '11:30 AM')).toBe(` - ${isolated('12:30 PM')}`);
-    expect(isolateClockReadings(' 12:30 PM', 'until Saturday at')).toBe(' 12:30 PM');
+    expect(isolateClockReadings(' 12:30 PM', 'until Saturday at')).toBe(whole(' 12:30 PM'));
   });
 
   it('changes no 24-hour text', () => {
@@ -102,6 +108,25 @@ describe('isolateClockReadings', () => {
     expect(missed).toEqual([]);
   });
 
+  it('keeps every 12-hour reading formatTime writes on one line, in either direction', () => {
+    // Reconciled against the producer, as above: a breakable space left in any reading lets a
+    // narrow row wrap between its digits and its meridiem, "12:30 / PM" (backlog item 138). The
+    // pattern is UAX #14's own: a SPACE breaks after it, a NO-BREAK SPACE does not.
+    const breakable: string[] = [];
+    for (const twoDigitHours of [false, true]) {
+      for (let minute = 0; minute < 24 * 60; minute++) {
+        const date = new Date(2026, 5, 17, Math.floor(minute / 60), minute % 60);
+        const twelve = formatTime(date, false, twoDigitHours);
+        for (const before of ['', 'Ends tomorrow at ', 'מסתיים מחר בשעה ']) {
+          const drawn = isolateClockReadings(twelve, before);
+          if (/\d [AP]M/.test(drawn) || withoutMarks(drawn) !== twelve) breakable.push(drawn);
+        }
+      }
+    }
+    expect(breakable).toEqual([]);
+    expect(isolateClockReadings('11:30 - 12:30')).not.toContain(NBSP);
+  });
+
   it('reads each card language the way it is written', () => {
     // The direction is judged by a letter class, not a bidi lookup, so it is reconciled against
     // CLDR's own answer for every language the card ships, through the end-time phrase each one
@@ -120,7 +145,9 @@ describe('isolateClockReadings', () => {
       if (direction === 'rtl') rtl.push(language);
       const phrase = `${t.endsTomorrow} ${t.at} 12:30 AM`;
       const expected =
-        direction === 'rtl' ? `${t.endsTomorrow} ${t.at} ${isolated('12:30 AM')}${RLM}` : phrase;
+        direction === 'rtl'
+          ? `${t.endsTomorrow} ${t.at} ${isolated('12:30 AM')}${RLM}`
+          : whole(phrase);
       expect(isolateClockReadings(phrase), language).toBe(expected);
       expect(withoutMarks(isolateClockReadings(phrase)), language).toBe(phrase);
     }
@@ -163,9 +190,10 @@ describe.each(['list', 'column', 'grid'] as const)('the %s time row', (view) => 
     return row!;
   }
 
-  it('isolates each 12-hour reading and adds nothing a reader sees', () => {
+  it('isolates each 12-hour reading, keeps it on one line, and adds nothing a reader sees', () => {
     const row = timeRow({ time_24h: false });
-    const text = row.textContent!.replace(/\s+/g, ' ').trim();
+    // ASCII whitespace only: \s would also fold the NO-BREAK SPACE this pins.
+    const text = row.textContent!.replace(/[ \t\n]+/g, ' ').trim();
 
     expect(text).toBe(`${isolated('2:00 PM')} - ${isolated('3:00 PM')}`);
     expect(withoutMarks(text)).toBe('2:00 PM - 3:00 PM');
