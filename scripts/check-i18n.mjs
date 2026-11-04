@@ -124,9 +124,9 @@ function readDayjsWiring() {
   const supported = new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
   assertFound([...supported], 'entries in supportedLocales', DAYJS_TS);
 
-  // mapLocale() special-cases locales that keep their region (zh-cn, zh-tw). Read them from
-  // the source rather than hardcoding, so this script tracks mapLocale instead of drifting
-  // into a second, stale source of truth.
+  // mapLocale() special-cases locales that keep their second subtag (zh-cn, zh-tw, sr-latn).
+  // Read them from the source rather than hardcoding, so this script tracks mapLocale
+  // instead of drifting into a second, stale source of truth.
   const fn = src.match(/function mapLocale\([\s\S]*?\n\}/);
   assertFound(fn, 'the mapLocale function', DAYJS_TS);
   const specialCased = new Set(

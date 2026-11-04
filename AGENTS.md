@@ -1397,18 +1397,6 @@ everywhere except relative times, which quietly fall back to English. Catalan an
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
 
-🚨 **A dayjs locale name is not a language tag, and Serbian is where they part.** Day.js
-names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, and ships no `sr-latn`;
-`Intl` and Home Assistant read `sr` as Cyrillic and write Latin as `sr-Latn`. `mapLocale()`
-returns the language tag, which `Intl` gets as it is, and `getRelativeTimeString()` alone
-renames it through `DAYJS_LOCALE_NAMES`. The contribution that added Serbian imported
-`dayjs/locale/sr-latn`. That file does not exist, so Rollup left it as an external import
-the browser cannot resolve, and the card would not have loaded for anyone. The obvious fix
-of passing `sr` through unchanged gives Cyrillic users Latin relative times. `check:i18n`
-now fails on an import that does not resolve. The wrong script is caught only by the script
-test in `tests/translations.test.ts`, which compares every language's relative times
-against the script of its own day names.
-
 `npm run check:i18n` catches every one of these wiring mistakes mechanically, including
 that one, and runs in CI. Run it before you claim a language is done — but note it
 verifies **wiring**, not translation quality, and it cannot tell you whether
@@ -1433,8 +1421,20 @@ Edit that file when a decision changes; it is data the checker imports, so a sha
 is a load error rather than a check that silently enforces nothing.
 
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
-reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are
-special-cased.
+reduces them to their base code (`en-gb` → `en`). Only `zh-cn`, `zh-tw` and `sr-latn` are
+special-cased, because their second subtag changes the script rather than only the region.
+
+🚨 **A dayjs locale name is not a language tag, and Serbian is where they part.** Day.js
+names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, and ships no `sr-latn`;
+`Intl` and Home Assistant read `sr` as Cyrillic and write Latin as `sr-Latn`. `mapLocale()`
+returns the language tag, which `Intl` gets as it is, and `getRelativeTimeString()` alone
+renames it through `DAYJS_LOCALE_NAMES`. The contribution that added Serbian imported
+`dayjs/locale/sr-latn`. That file does not exist, so Rollup left it as an external import
+the browser cannot resolve, and the card would not have loaded for anyone. The obvious fix
+of passing `sr` through unchanged gives Cyrillic users Latin relative times. `check:i18n`
+now fails on an import that does not resolve, but it cannot see a wrong script: that is
+caught only by the script test in `tests/translations.test.ts`, which compares every
+language's relative times against the script of its own day names.
 
 Verify a language change by actually resolving it, not by reading the diff:
 

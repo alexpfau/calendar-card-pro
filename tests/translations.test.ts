@@ -143,7 +143,7 @@ describe('locale mapping', () => {
   });
 
   it('keeps the Chinese variants distinct from each other', () => {
-    // zh-cn and zh-tw are the two special cases that survive reduction.
+    // zh-cn and zh-tw survive reduction, as does sr-latn, which the script test below covers.
     const simplified = getRelativeTimeString(future, 'zh-cn', reference);
     const traditional = getRelativeTimeString(future, 'zh-tw', reference);
     expect(simplified).not.toBe(getRelativeTimeString(future, 'en', reference));
