@@ -141,6 +141,13 @@ function homeAssistant(
     reconnect: () => {
       for (const listener of ready) listener();
     },
+    /**
+     * The websocket library subscribes again everything it still holds once the connection is
+     * back, and Home Assistant answers each with a push.
+     */
+    resubscribeAll: () => {
+      for (const sub of subs) send(sub);
+    },
   };
 }
 
@@ -332,7 +339,7 @@ describe('a card that loses its subscriptions to a Home Assistant starting up', 
     ha.reconnect();
     attach(ha.hass, { days_to_show: 2 });
     await settleFor(card, Live.RECONNECT_TIMEOUT + 1000);
-    expect(ha.open()).toHaveLength(0);
+    expect(Live.allLive(ha.hass, ['calendar.anna', 'calendar.ben'], dayWindow(DAY))).toBe(false);
 
     // Only this card's window, one day: the other card, on two, polls in any case.
     const ownWindow = (): number =>
@@ -682,10 +689,43 @@ describe('a tab whose connection is down', () => {
 
     ha.connection.connected = true;
     ha.reconnect();
+    ha.resubscribeAll();
     await settleFor(card, 100);
+    // Yesterday's, let go while the connection was down, are unsubscribed once they push again.
     expect(ha.open().map((sub) => sub.message.start)).toEqual([
       '2026-06-18T00:00:00.000Z',
       '2026-06-18T00:00:00.000Z',
     ]);
+  });
+});
+
+/** The window of one day from local midnight, as a one-day card asks for it under UTC. */
+function dayWindow(day: string): { start: Date; end: Date } {
+  const start = new Date(`${day}T00:00:00Z`);
+  return { start, end: new Date(start.getTime() + 86_400_000) };
+}
+
+describe('a calendar whose integration was reloaded', () => {
+  it('is subscribed to again once its state changes with no push', async () => {
+    // The subscription stays bound to the entity the reload removed, and never pushes again.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    for (const sub of ha.subs) {
+      if (sub.message.entity_id === 'calendar.anna') sub.callback = () => undefined;
+    }
+    const state = (s: string) => ({ entity_id: 'calendar.anna', state: s, attributes: {} });
+    card.hass = { ...ha.hass, states: { 'calendar.anna': state('off') } } as Types.Hass;
+    await settleFor(card, 60_000);
+
+    ha.events['calendar.anna'] = [at(DAY, 14, 'Anna swim'), at(DAY, 17, 'Anna dentist')];
+    card.hass = { ...ha.hass, states: { 'calendar.anna': state('unavailable') } } as Types.Hass;
+    await settleFor(card, Live.STATE_PUSH_TIMEOUT + 1000);
+
+    expect(ha.calendarSubscribes()).toBe(3);
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano', 'Anna dentist']);
   });
 });

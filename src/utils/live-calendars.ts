@@ -47,6 +47,17 @@ export const FIRST_PUSH_TIMEOUT = Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
 export const ANSWER_TIMEOUT = 5_000;
 
 /**
+ * How long a subscription may stay silent after its calendar's state changed before it counts as
+ * lost. Home Assistant pushes after every state write, but a subscription stays bound to the
+ * entity it was made for, and reloading the calendar's integration (its Reload button, an options
+ * change, signing in to the calendar again) replaces that entity without a word.
+ */
+export const STATE_PUSH_TIMEOUT = 30_000;
+
+/** How long before a state change a push may come and still count as the push for it. */
+const STATE_PUSH_GRACE = 5_000;
+
+/**
  * How long after Home Assistant answered `unknown_command` the next load asks again. The command
  * is also unknown while the calendar integration is still loading, at a restart.
  */
@@ -86,8 +97,16 @@ interface Subscription {
   raw: string | undefined;
   refs: number;
   closed: boolean;
-  /** Whether Home Assistant answered the subscription. */
-  answered: boolean;
+  /**
+   * Closed while its command id may be stale (the connection down, or not pushed since it came
+   * back), so unsubscribing then is put off until it pushes again; see `close`.
+   */
+  unsubscribeOnPush: boolean;
+  /** When it last pushed, and its calendar's state as last seen (`observeStates`). */
+  pushedAt: number;
+  seenState: unknown;
+  /** Set while a state change waits for its push. */
+  stateTimer: ReturnType<typeof setTimeout> | undefined;
   /**
    * Set when the connection came back, until it pushes again: its events may be from before the
    * connection dropped, so a load waits for its next push rather than using them.
@@ -102,6 +121,7 @@ interface Subscription {
 }
 
 interface Registry {
+  connection: Connection;
   /** Whether Home Assistant knows the command: `unknown` until the first answer. */
   support: 'unknown' | 'yes' | 'no';
   /** When it last answered `unknown_command`. */
@@ -153,6 +173,7 @@ function registryOf(connection: Connection): Registry {
   if (registry) return registry;
 
   const created: Registry = {
+    connection,
     support: 'unknown',
     unsupportedAt: 0,
     probe: null,
@@ -230,10 +251,20 @@ function close(registry: Registry, subscription: Subscription): void {
   subscription.closed = true;
   clearTimeout(subscription.closeTimer);
   clearTimeout(subscription.silenceTimer);
+  clearTimeout(subscription.stateTimer);
   if (registry.subscriptions.get(subscription.key) === subscription) {
     registry.subscriptions.delete(subscription.key);
   }
-  void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.());
+  // The websocket library Home Assistant shipped up to 2026.10 sends an unsubscribe made while
+  // the connection is down nowhere, and subscribes it again once it is back; and one made after a
+  // reconnect, before the subscription pushed, goes out with the id it had on the old connection,
+  // which by then names some other subscription. Both wait for its next push, which proves the
+  // library holds its current id; one that never pushes again holds nothing on the server.
+  if (registry.connection.connected === false || subscription.reconnecting) {
+    subscription.unsubscribeOnPush = true;
+  } else {
+    void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.());
+  }
   wake(subscription);
 }
 
@@ -264,10 +295,19 @@ function receive(
   message: LivePush | undefined,
   timeZone: string | undefined,
 ): void {
-  if (subscription.closed) return;
+  if (subscription.closed) {
+    if (subscription.unsubscribeOnPush) {
+      subscription.unsubscribeOnPush = false;
+      void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.());
+    }
+    return;
+  }
   clearTimeout(subscription.silenceTimer);
   subscription.silenceTimer = undefined;
   subscription.reconnecting = false;
+  clearTimeout(subscription.stateTimer);
+  subscription.stateTimer = undefined;
+  subscription.pushedAt = Date.now();
 
   const events = message?.events;
   let changed = false;
@@ -320,7 +360,7 @@ function open(
       return Promise.resolve(null);
     }
     const unanswered = setTimeout(() => {
-      if (subscription.state === 'pending' && !subscription.answered) {
+      if (subscription.state === 'pending') {
         Logger.warn(`No answer to the live subscription for ${subscription.entityId}`);
         refuse(registry, subscription);
       }
@@ -336,7 +376,6 @@ function open(
       .then(
         (unsubscribe) => {
           registry.support = 'yes';
-          subscription.answered = true;
           const safe = (): void => {
             void Promise.resolve()
               .then(unsubscribe)
@@ -422,7 +461,10 @@ function acquire(
       raw: undefined,
       refs: 0,
       closed: false,
-      answered: false,
+      unsubscribeOnPush: false,
+      pushedAt: 0,
+      seenState: undefined,
+      stateTimer: undefined,
       reconnecting: false,
       closeTimer: undefined,
       silenceTimer: undefined,
@@ -608,6 +650,34 @@ export function allLive(
     entityIds.length > 0 &&
     entityIds.every((entityId) => peek(hass, entityId, window)?.state === 'live')
   );
+}
+
+/**
+ * Note the calendars' states in a new `hass`. A calendar whose state changed has written it, and
+ * Home Assistant pushes after every write; a subscription silent for `STATE_PUSH_TIMEOUT` after
+ * one is bound to an entity its integration replaced, and is closed so the cards holding it
+ * subscribe again.
+ *
+ * @param hass Home Assistant instance
+ */
+export function observeStates(hass: Types.Hass): void {
+  const connection = connectionOf(hass);
+  const registry = connection ? registries.get(connection) : undefined;
+  if (!registry) return;
+  for (const subscription of registry.subscriptions.values()) {
+    if (subscription.state !== 'live' && subscription.state !== 'failed') continue;
+    const state = hass.states?.[subscription.entityId];
+    const seen = subscription.seenState;
+    subscription.seenState = state;
+    if (seen === undefined || state === seen || subscription.stateTimer) continue;
+    if (Date.now() - subscription.pushedAt <= STATE_PUSH_GRACE) continue;
+    subscription.stateTimer = setTimeout(() => {
+      subscription.stateTimer = undefined;
+      Logger.warn(`No live update for ${subscription.entityId} after its state changed`);
+      close(registry, subscription);
+      notify(registry, subscription.entityId);
+    }, STATE_PUSH_TIMEOUT);
+  }
 }
 
 /**

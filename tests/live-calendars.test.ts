@@ -333,9 +333,14 @@ describe('a reconnect', () => {
 
     // Its events may be from before the connection dropped: not used.
     expect(await load).toBeUndefined();
-    expect(c.subs[0].unsubscribed).toBe(true);
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
     expect(told).toHaveBeenLastCalledWith('calendar.anna');
+    // Not unsubscribed: the websocket library may still hold its id from the old connection,
+    // which now names another subscription. It is, if it ever pushes again.
+    expect(c.subs[0].unsubscribed).toBe(false);
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribed).toBe(true);
   });
 });
 
@@ -409,5 +414,86 @@ describe('a first push with no events', () => {
     c.push('calendar.anna', []);
 
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)!.version).toBeGreaterThan(first);
+  });
+});
+
+describe('a subscription closed while the connection is down', () => {
+  it('is unsubscribed only once it pushes after the connection came back', async () => {
+    // The websocket library sends nothing while the connection is down, and subscribes the
+    // command again once it is back.
+    const c = connection();
+    const release = Live.hold(c.hass, 'calendar.anna', WINDOW)!;
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+
+    c.conn.connected = false;
+    release(0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribed).toBe(false);
+
+    c.conn.connected = true;
+    c.reconnect();
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribed).toBe(true);
+  });
+
+  it('is not sent when the probe it waited for ended with the connection down', async () => {
+    const c = connection('never');
+    void Live.load(c.hass, 'calendar.anna', WINDOW);
+    const waiting = Live.load(c.hass, 'calendar.ben', WINDOW);
+    c.conn.connected = false;
+    await vi.advanceTimersByTimeAsync(Live.ANSWER_TIMEOUT);
+
+    expect(await waiting).toBeUndefined();
+    expect(c.calendarSubscribes()).toBe(1);
+  });
+});
+
+describe('a calendar whose state changed', () => {
+  const state = (s: string) => ({ entity_id: 'calendar.anna', state: s, attributes: {} });
+
+  it('keeps its subscription when it pushes, before or after the change', async () => {
+    const c = connection();
+    const hassWith = (s: string) =>
+      ({ ...c.hass, states: { 'calendar.anna': state(s) } }) as unknown as Types.Hass;
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+    Live.observeStates(hassWith('off'));
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    Live.observeStates(hassWith('on'));
+    await vi.advanceTimersByTimeAsync(1_000);
+    c.push('calendar.anna', [SWIM]);
+    // The push came first this time.
+    await vi.advanceTimersByTimeAsync(60_000);
+    c.push('calendar.anna', [SWIM]);
+    Live.observeStates(hassWith('off'));
+    await vi.advanceTimersByTimeAsync(Live.STATE_PUSH_TIMEOUT);
+
+    expect(c.subs[0].unsubscribed).toBe(false);
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('live');
+  });
+
+  it('closes a subscription that stays silent after it, so it is made again', async () => {
+    // Its integration was reloaded: the subscription is bound to the entity that went.
+    const c = connection();
+    const told = vi.fn();
+    Live.listen(c.hass, told);
+    const hassWith = (s: string) =>
+      ({ ...c.hass, states: { 'calendar.anna': state(s) } }) as unknown as Types.Hass;
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+    Live.observeStates(hassWith('off'));
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    Live.observeStates(hassWith('unavailable'));
+    await vi.advanceTimersByTimeAsync(Live.STATE_PUSH_TIMEOUT);
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
+    expect(c.subs[0].unsubscribed).toBe(true);
+    expect(told).toHaveBeenLastCalledWith('calendar.anna');
   });
 });

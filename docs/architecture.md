@@ -1066,6 +1066,14 @@ Provides core functionality across the card:
   - A push proves a subscription alive before anything is compared. After a reconnect, a
     subscription silent for `RECONNECT_TIMEOUT` is closed, because the websocket library
     drops a failed resubscription without a word
+  - A subscription silent for `STATE_PUSH_TIMEOUT` after its calendar's state changed in `hass`
+    (`observeStates`, from the card's `shouldUpdate`) is closed and made again: Home Assistant
+    pushes after every state write, and a subscription stays bound to an entity its integration
+    replaced on a reload
+  - Unsubscribing waits for the subscription's next push while the connection is down or it has
+    not pushed since a reconnect: the library Home Assistant shipped up to 2026.10 subscribes
+    such a command again on reconnecting, or sends its old id, which by then names another
+    subscription
 - **events.ts**:
   - Fetches calendar events from Home Assistant API
   - Implements caching system for calendar data

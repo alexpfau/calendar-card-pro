@@ -2518,6 +2518,7 @@ class CalendarCardPro extends LitElement {
   protected override shouldUpdate(changedProps: PropertyValues): boolean {
     const bare = this._bareUpdatePending;
     this._bareUpdatePending = false;
+    if (changedProps.has('hass') && this.hass) LiveCalendars.observeStates(this.hass);
     if (bare || changedProps.size !== 1 || !changedProps.has('hass')) return true;
 
     return HassRelevance.hassChangeIsVisible(

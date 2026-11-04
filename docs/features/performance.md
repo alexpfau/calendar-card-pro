@@ -35,6 +35,9 @@ How soon Home Assistant knows depends on the calendar's integration:
 - **Nothing redrawn for nothing.** Home Assistant also sends a calendar's events when one of
   them starts or ends, and some integrations at every sync, every minute for some. The card
   compares and redraws only when an event changed.
+- **A calendar's integration reloaded.** Reloading it, changing its options or signing in to
+  the calendar again replaces the calendar in Home Assistant, and its subscription goes quiet.
+  The card notices at the calendar's next state change and subscribes again within 30 seconds.
 - **One subscription per calendar.** Cards showing the same calendar over the same dates share
   one subscription per browser tab. A card that leaves the page keeps its subscriptions for a
   minute, so switching dashboard views back and forth asks Home Assistant for nothing.
