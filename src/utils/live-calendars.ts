@@ -39,6 +39,14 @@ export type LiveState = 'pending' | 'live' | 'failed' | 'refused';
 export const FIRST_PUSH_TIMEOUT = Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
 
 /**
+ * How long Home Assistant may take to answer a subscription before it counts as refused. The
+ * websocket library Home Assistant shipped up to 2026.10 never sends a command made while the
+ * connection is down, nor reports an error to one it sends again after, so an unanswered
+ * subscription could otherwise hold every load for `FIRST_PUSH_TIMEOUT`.
+ */
+export const ANSWER_TIMEOUT = 5_000;
+
+/**
  * How long after Home Assistant answered `unknown_command` the next load asks again. The command
  * is also unknown while the calendar integration is still loading, at a restart.
  */
@@ -78,6 +86,8 @@ interface Subscription {
   raw: string | undefined;
   refs: number;
   closed: boolean;
+  /** Whether Home Assistant answered the subscription. */
+  answered: boolean;
   /**
    * Set when the connection came back, until it pushes again: its events may be from before the
    * connection dropped, so a load waits for its next push rather than using them.
@@ -153,8 +163,10 @@ function registryOf(connection: Connection): Registry {
   registries.set(connection, created);
   connection.addEventListener?.('ready', () => {
     // Home Assistant may have been upgraded, or restarted with the integration loaded since:
-    // what it refused is asked again, by the cards holding it.
+    // what it refused is asked again, by the cards holding it. Every card is told, so one that
+    // could not subscribe while the connection was down subscribes now.
     if (created.support === 'no') created.support = 'unknown';
+    notify(created, '*');
     for (const subscription of [...created.subscriptions.values()]) {
       if (subscription.state === 'refused') {
         close(created, subscription);
@@ -269,7 +281,9 @@ function receive(
       const normalized = events.flatMap((event) => normalizeEvent(event, timeZone) ?? []);
       const fingerprint = fingerprintEvents(normalized);
       changed = subscription.state !== 'live' || fingerprint !== subscription.fingerprint;
-      if (fingerprint !== subscription.fingerprint) subscription.version = ++sequence;
+      // Numbered whenever it becomes live, too: a new subscription's first push, empty or not,
+      // never shares a number with any other's.
+      if (changed) subscription.version = ++sequence;
       subscription.state = 'live';
       subscription.raw = raw;
       subscription.events = normalized;
@@ -297,12 +311,21 @@ function open(
   window: { start: Date; end: Date },
   timeZone: string | undefined,
 ): void {
+  let probed: (() => void) | undefined;
   const send = (): Promise<(() => void) | null> => {
     if (subscription.closed) return Promise.resolve(null);
-    if (registry.support === 'no') {
+    if (registry.support === 'no' || connection.connected === false) {
       refuse(registry, subscription);
+      probed?.();
       return Promise.resolve(null);
     }
+    const unanswered = setTimeout(() => {
+      if (subscription.state === 'pending' && !subscription.answered) {
+        Logger.warn(`No answer to the live subscription for ${subscription.entityId}`);
+        refuse(registry, subscription);
+      }
+      probed?.();
+    }, ANSWER_TIMEOUT);
     return connection
       .subscribeMessage<LivePush>((message) => receive(registry, subscription, message, timeZone), {
         type: 'calendar/event/subscribe',
@@ -313,6 +336,7 @@ function open(
       .then(
         (unsubscribe) => {
           registry.support = 'yes';
+          subscription.answered = true;
           const safe = (): void => {
             void Promise.resolve()
               .then(unsubscribe)
@@ -337,7 +361,12 @@ function open(
           refuse(registry, subscription);
           return null;
         },
-      );
+      )
+      .finally(() => {
+        // After the answer is recorded, so what waits on the probe reads it.
+        clearTimeout(unanswered);
+        probed?.();
+      });
   };
 
   if (registry.support !== 'unknown') {
@@ -345,11 +374,15 @@ function open(
   } else if (registry.probe) {
     subscription.unsubscribe = registry.probe.then(send);
   } else {
-    const probe = send();
-    registry.probe = probe.then(() => {
-      registry.probe = null;
+    // The probe: every other subscription waits until it is answered, or counts as unanswered.
+    const gate = new Promise<void>((resolve) => {
+      probed = () => {
+        if (registry.probe === gate) registry.probe = null;
+        resolve();
+      };
     });
-    subscription.unsubscribe = probe;
+    registry.probe = gate;
+    subscription.unsubscribe = send();
   }
 }
 
@@ -377,6 +410,8 @@ function acquire(
   const key = keyOf(entityId, window);
   let subscription = registry.subscriptions.get(key);
   if (!subscription) {
+    // Never sent while the connection is down: it would not be sent once it is back either.
+    if (connection.connected === false) return null;
     subscription = {
       key,
       entityId,
@@ -387,6 +422,7 @@ function acquire(
       raw: undefined,
       refs: 0,
       closed: false,
+      answered: false,
       reconnecting: false,
       closeTimer: undefined,
       silenceTimer: undefined,
@@ -469,8 +505,10 @@ export async function load(
         subscription.waiters.add(done);
       });
     }
-    // A reconnected subscription still silent is closed first (`RECONNECT_TIMEOUT`).
-    return subscription.state === 'live' && !subscription.closed ? subscription.events : undefined;
+    // Still silent after a reconnect, its events may be from before the connection dropped.
+    return subscription.state === 'live' && !subscription.closed && !subscription.reconnecting
+      ? subscription.events
+      : undefined;
   } finally {
     release(REQUEST_LINGER);
   }
@@ -576,7 +614,7 @@ export function allLive(
  * Be told whenever a calendar's live state or events change on this connection.
  *
  * @param hass Home Assistant instance
- * @param listener Told the calendar's entity id
+ * @param listener Told the calendar's entity id, or `*` when the connection came back
  * @returns Stops telling it; a no-op where Home Assistant cannot push
  */
 export function listen(hass: Types.Hass, listener: (entityId: string) => void): () => void {

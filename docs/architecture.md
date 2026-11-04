@@ -1056,7 +1056,9 @@ Provides core functionality across the card:
   - Probes support with the first subscription; `unknown_command` means polling for the
     connection until it comes back or 30 minutes pass, because Home Assistant also answers it
     while the calendar integration is still loading; any other error refuses only that
-    calendar
+    calendar. A subscription is never opened while the connection is down, and one unanswered
+    for `ANSWER_TIMEOUT` counts as refused: the websocket library Home Assistant shipped up to
+    2026.10 never sends, nor settles, a command made then
   - Drops a push identical to the last, and one saying the same as it (`fingerprintEvents`:
     times as instants, absent and null alike, in any order) notifies no card
   - Writes pushed times the way the REST API does, in Home Assistant's zone (`inZone`), so

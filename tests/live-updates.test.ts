@@ -94,23 +94,26 @@ function homeAssistant(
       }, readMs[id] ?? 20),
     );
   });
+  const connection = {
+    connected: true,
+    subscribeMessage,
+    subscribeEvents: vi.fn(),
+    addEventListener: (type: string, listener: () => void) => {
+      if (type === 'ready') ready.add(listener);
+    },
+  };
   const hass = {
     states: {},
     locale: { language: 'en', first_weekday: 'monday', time_format: '24' },
     config: { time_zone: 'Europe/Berlin' },
-    connection: {
-      subscribeMessage,
-      subscribeEvents: vi.fn(),
-      addEventListener: (type: string, listener: () => void) => {
-        if (type === 'ready') ready.add(listener);
-      },
-    },
+    connection,
     callApi,
     callService: vi.fn(),
   } as unknown as Types.Hass;
 
   return {
     hass,
+    connection,
     /** What Home Assistant holds, to change without pushing. */
     events,
     callApi,
@@ -282,6 +285,35 @@ describe('a drift a load cannot settle', () => {
     await settleFor(card, 1000);
 
     expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
+  });
+});
+
+describe('a change the card loaded once, drawn from before it again', () => {
+  it('is loaded for again', async () => {
+    // Storage drops every write after the first without a word, so the entry keeps the events
+    // from before the change. The card comes back with refresh_on_navigate off and draws them.
+    const storage = memoryStorage();
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (key: string, value: string) => {
+      if (storage.getItem(key) === null) setItem(key, value);
+    };
+    vi.stubGlobal('localStorage', storage);
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass, { refresh_on_navigate: false });
+    await settleFor(card, 100);
+    ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim, lane 3', 'Ben piano']);
+
+    card.remove();
+    await vi.advanceTimersByTimeAsync(10_000);
+    document.body.appendChild(card);
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Anna swim, lane 3', 'Ben piano']);
   });
 });
 
@@ -597,11 +629,14 @@ describe('a change while another load is out', () => {
     ha.readMs['calendar.ben'] = 3000;
     await settleFor(second, 10);
 
+    const loads = vi.spyOn(second, 'updateEvents');
     void first.updateEvents('network');
     await settleFor(first, 100);
     ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
     await settleFor(second, 5000);
 
+    // One load, its own: joining the refresh would draw the old events first, and load again.
+    expect(loads.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
     expect(drawn(second)).toEqual(['Anna swim, lane 3', 'Ben piano']);
     expect(drawn(first)).toEqual(['Anna swim, lane 3', 'Ben piano']);
   });
@@ -626,3 +661,31 @@ describe('a calendar Home Assistant reads slowly', () => {
 function eventsOf(ha: ReturnType<typeof homeAssistant>): Record<string, Pushed[] | null> {
   return ha.events;
 }
+
+describe('a tab whose connection is down', () => {
+  it('loads by REST at once, and subscribes when the connection comes back', async () => {
+    // A tab hidden for five minutes: Home Assistant's frontend closes its connection. Midnight
+    // passes, and the card loads the new day.
+    vi.setSystemTime(new Date(`${DAY}T23:59:00Z`));
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim'), at('2026-06-18', 9, 'Anna school')],
+      'calendar.ben': [],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    ha.connection.connected = false;
+
+    await settleFor(card, 60_000 + 1000);
+
+    expect(drawn(card)).toEqual(['Anna school']);
+    expect(ha.restCalls()).toBe(2);
+
+    ha.connection.connected = true;
+    ha.reconnect();
+    await settleFor(card, 100);
+    expect(ha.open().map((sub) => sub.message.start)).toEqual([
+      '2026-06-18T00:00:00.000Z',
+      '2026-06-18T00:00:00.000Z',
+    ]);
+  });
+});

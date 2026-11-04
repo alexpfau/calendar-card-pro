@@ -1107,6 +1107,8 @@ export interface Hass {
     ) => Promise<() => void>;
     /** One-shot WebSocket request; not every custom-card `hass` also has `callWS`. */
     sendMessagePromise?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
+    /** Whether the websocket is open now. */
+    connected?: boolean;
     /** `ready` fires each time the connection comes back, once it has subscribed again. */
     addEventListener?: (type: 'ready' | 'disconnected', listener: () => void) => void;
   };

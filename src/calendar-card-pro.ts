@@ -473,10 +473,11 @@ class CalendarCardPro extends LitElement {
   /** The pending `_syncLive`, coalescing the changes of one task. */
   private _liveSyncTimer: number | null = null;
   /**
-   * The drift (`EventUtils.liveDrift`) the last `live` load was started for, until a load of any
-   * other kind commits: the same drift after it is not loaded for again, so a calendar its load
-   * cannot settle, or a load that commits nothing, never loads in a loop. Each change has its own
-   * page-wide number, so a new change never reads as one loaded already.
+   * The drift (`EventUtils.liveDrift`) the last `live` load was started for, until the card
+   * commits events: the same drift is not loaded for again before then, so a load that commits
+   * nothing (a failure, or events kept after one) never loads in a loop. A `live` load that
+   * commits takes its events from the subscriptions, so no drift it was for outlives it. Each
+   * change has its own page-wide number, so a new change never reads as one loaded already.
    */
   private _liveDriftLoaded = '';
   /** The events drawn, as loaded (`EventFetchResult.raw`), to compare with live subscriptions. */
@@ -3827,7 +3828,8 @@ class CalendarCardPro extends LitElement {
    * @param entityId The calendar
    */
   private readonly _onLiveChange = (entityId: string): void => {
-    if (!this._liveCalendars.has(entityId) || this._liveSyncTimer !== null) return;
+    if (entityId !== '*' && !this._liveCalendars.has(entityId)) return;
+    if (this._liveSyncTimer !== null) return;
     this._liveSyncTimer = window.setTimeout(() => {
       this._liveSyncTimer = null;
       this._syncLive();
@@ -5728,7 +5730,6 @@ class CalendarCardPro extends LitElement {
         this.isInitialLoad = false;
       } else {
         this._commitEvents(result, instanceId, page);
-        if (load !== 'live') this._liveDriftLoaded = '';
       }
 
       this.isLoading = false;
@@ -5786,6 +5787,8 @@ class CalendarCardPro extends LitElement {
     this._pageShown = page;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._drawnRaw = result.raw ?? [];
+    // What is drawn now settles every drift it can; one it cannot is loaded for again.
+    this._liveDriftLoaded = '';
     this._setFailures(failedEntities);
     this.isInitialLoad = false;
 

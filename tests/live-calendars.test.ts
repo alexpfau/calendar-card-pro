@@ -16,12 +16,17 @@ interface FakeSub {
   unsubscribed: boolean;
 }
 
-/** A connection that answers `calendar/event/subscribe` the way `answer` says. */
-function connection(answer: 'accept' | 'unknown_command' | 'not_found' = 'accept') {
+/**
+ * A connection that answers `calendar/event/subscribe` the way `answer` says; `never` models the
+ * websocket library that never sends, nor settles, a command made while the socket was down.
+ */
+function connection(answer: 'accept' | 'unknown_command' | 'not_found' | 'never' = 'accept') {
   const subs: FakeSub[] = [];
   const ready = new Set<() => void>();
   const conn = {
+    connected: true,
     subscribeMessage: vi.fn((callback: (message: unknown) => void, message: FakeSub['message']) => {
+      if (answer === 'never') return new Promise<() => void>(() => undefined);
       if (answer !== 'accept') return Promise.reject({ code: answer, message: answer });
       const sub: FakeSub = { message, callback, unsubscribed: false };
       subs.push(sub);
@@ -41,6 +46,7 @@ function connection(answer: 'accept' | 'unknown_command' | 'not_found' = 'accept
   } as unknown as Types.Hass;
   return {
     hass,
+    conn,
     subs,
     calendarSubscribes: () =>
       conn.subscribeMessage.mock.calls.filter(([, m]) => m.type === 'calendar/event/subscribe')
@@ -309,7 +315,8 @@ describe('a reconnect', () => {
 
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.reconnecting).toBe(false);
     expect(c.subs[0].unsubscribed).toBe(false);
-    expect(told).toHaveBeenCalledTimes(1);
+    // Told of the reconnect, not of the same events again.
+    expect(told.mock.calls).toEqual([['calendar.anna'], ['*']]);
   });
 
   it('closes a subscription that stays silent after it, and tells its listeners', async () => {
@@ -329,5 +336,78 @@ describe('a reconnect', () => {
     expect(c.subs[0].unsubscribed).toBe(true);
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
     expect(told).toHaveBeenLastCalledWith('calendar.anna');
+  });
+});
+
+describe('a subscription Home Assistant does not answer', () => {
+  it('counts as refused after a short while, and does not hold back the next', async () => {
+    const c = connection('never');
+    const first = Live.load(c.hass, 'calendar.anna', WINDOW);
+    const second = Live.load(c.hass, 'calendar.ben', WINDOW);
+    await vi.advanceTimersByTimeAsync(Live.ANSWER_TIMEOUT);
+    expect(await first).toBeUndefined();
+    // The probe went unanswered, so the other is sent once it timed out, and times out itself.
+    expect(c.calendarSubscribes()).toBe(2);
+
+    await vi.advanceTimersByTimeAsync(Live.ANSWER_TIMEOUT);
+    expect(await second).toBeUndefined();
+  });
+});
+
+describe('a connection that is down', () => {
+  it('opens no subscription, and keeps those it has', async () => {
+    const c = connection();
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+
+    c.conn.connected = false;
+    expect(Live.hold(c.hass, 'calendar.ben', WINDOW)).toBeNull();
+    expect(await Live.load(c.hass, 'calendar.ben', WINDOW)).toBeUndefined();
+    expect(Live.hold(c.hass, 'calendar.anna', WINDOW)).not.toBeNull();
+    expect(c.calendarSubscribes()).toBe(1);
+
+    // Back: its listeners are told, to subscribe what they could not.
+    const told = vi.fn();
+    Live.listen(c.hass, told);
+    c.conn.connected = true;
+    c.reconnect();
+    expect(told).toHaveBeenCalledWith('*');
+  });
+});
+
+describe('a load during a second reconnect', () => {
+  it('does not take events from before the connection dropped', async () => {
+    // The second reconnect moves the close later than the load waits.
+    const c = connection();
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+
+    c.reconnect();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const load = Live.load(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(15_000);
+    c.reconnect();
+    await vi.advanceTimersByTimeAsync(Live.FIRST_PUSH_TIMEOUT);
+
+    expect(await load).toBeUndefined();
+  });
+});
+
+describe('a first push with no events', () => {
+  it('has a number no other subscription of the calendar had', async () => {
+    const c = connection();
+    const release = Live.hold(c.hass, 'calendar.anna', WINDOW)!;
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', []);
+    const first = Live.peek(c.hass, 'calendar.anna', WINDOW)!.version;
+    release(0);
+
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', []);
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)!.version).toBeGreaterThan(first);
   });
 });
