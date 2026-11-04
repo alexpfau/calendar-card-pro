@@ -1,7 +1,7 @@
 {
   "daysOfWeek": ["Ned", "Pon", "Uto", "Sre", "Čet", "Pet", "Sub"],
-  "fullDaysOfWeek": ["Nedelja", "Ponedeljak", "Utorak", "Sreda", "Četvrtak", "Petak", "Subota"],
-  "months": ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Avg", "Sep", "Okt", "Nov", "Dec"],
+  "fullDaysOfWeek": ["nedelje", "ponedeljka", "utorka", "srede", "četvrtka", "petka", "subote"],
+  "months": ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "avg", "sep", "okt", "nov", "dec"],
   "allDay": "ceo dan",
   "multiDay": "do",
   "at": "u",

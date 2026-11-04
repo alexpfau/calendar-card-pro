@@ -235,7 +235,7 @@ function nearestNewYear(now: Date): number {
  * tooltip, and what assistive technology hears.
  *
  * `Intl` rather than the card's own month names, because it knows each language's order and
- * range punctuation ("27. Okt. – 2. Nov.", "27 באוק׳–2 בנוב׳"), and it costs the card's 36
+ * range punctuation ("27. Okt. – 2. Nov.", "27 באוק׳–2 בנוב׳"), and it costs the card's
  * translation files nothing. A page across a turn of the year is joined by hand, from each day
  * and the language's own separator, because `formatRange` names both years of such a range
  * whatever its options say.

@@ -12,6 +12,7 @@
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -110,7 +111,7 @@ function readLocalizeWiring() {
   return { imports, entries };
 }
 
-/** dayjs locale imports, the supportedLocales array, and mapLocale's special cases. */
+/** dayjs locale imports, the supportedLocales array, mapLocale's special cases and DAYJS_LOCALE_NAMES. */
 function readDayjsWiring() {
   const src = read(DAYJS_TS);
 
@@ -133,13 +134,31 @@ function readDayjsWiring() {
   );
   assertFound([...specialCased], "mapLocale's special-cased locales", DAYJS_TS);
 
-  return { imports, supported, specialCased };
+  // Day.js knows some language tags by another name: its `sr` is Latin and its Cyrillic is
+  // `sr-cyrl`. Read the table from the source for the same reason as the special cases. It
+  // may legitimately be absent, so a missing table is an empty one; a table that is present
+  // but yields no entries is an extraction failure.
+  const dayjsNames = new Map();
+  const table = src.match(/const DAYJS_LOCALE_NAMES[^=]*=\s*\{([\s\S]*?)\};/);
+  if (table) {
+    for (const m of table[1].matchAll(/'?([a-z][a-z-]*)'?\s*:\s*'([^']+)'/g)) {
+      dayjsNames.set(m[1], m[2]);
+    }
+    assertFound([...dayjsNames.keys()], 'entries in DAYJS_LOCALE_NAMES', DAYJS_TS);
+  }
+
+  return { imports, supported, specialCased, dayjsNames };
 }
 
 /** Replicates mapLocale() from dayjs.ts: keep special cases whole, else take the base code. */
 function mapLocale(locale, specialCased) {
   const lower = locale.toLowerCase();
   return specialCased.has(lower) ? lower : lower.split('-')[0];
+}
+
+/** Replicates getRelativeTimeString()'s lookup: the name Day.js knows a mapped tag by. */
+function dayjsName(tag, dayjsNames) {
+  return dayjsNames.get(tag) ?? tag;
 }
 
 /**
@@ -623,47 +642,84 @@ function checkLocalizeWiring(languages, { imports, entries }) {
  * Every registered language must resolve to a dayjs locale that is both imported and listed
  * in supportedLocales. Missing either one is silent: relative times fall back to English while
  * everything else keeps working.
+ *
+ * `supportedLocales` holds language tags and the imports hold Day.js's names for them, so
+ * the two are compared through DAYJS_LOCALE_NAMES, exactly as getRelativeTimeString() does.
  */
-function checkDayjsWiring(entries, { imports, supported, specialCased }) {
+function checkDayjsWiring(entries, { imports, supported, specialCased, dayjsNames }) {
   for (const code of entries.keys()) {
     const mapped = mapLocale(code, specialCased);
+    const name = dayjsName(mapped, dayjsNames);
 
-    if (!imports.has(mapped)) {
+    if (!imports.has(name)) {
       error(
         'dayjs.ts',
-        `'${code}' maps to dayjs locale '${mapped}', which is not imported — ` +
+        `'${code}' maps to dayjs locale '${name}', which is not imported — ` +
           `dayjs will fall back to English relative times`,
       );
     }
     if (!supported.has(mapped)) {
       error(
         'dayjs.ts',
-        `'${code}' maps to dayjs locale '${mapped}', which is missing from supportedLocales — ` +
+        `'${code}' maps to '${mapped}', which is missing from supportedLocales — ` +
           `mapLocale() returns 'en' and relative times silently fall back to English`,
       );
     }
   }
 
-  // The two lists must agree with each other, independently of the translations.
-  for (const locale of imports) {
-    if (!supported.has(locale)) {
+  for (const tag of dayjsNames.keys()) {
+    if (!supported.has(tag)) {
       error(
         'dayjs.ts',
-        `'${locale}' is imported but missing from supportedLocales — the import is dead weight`,
+        `DAYJS_LOCALE_NAMES renames '${tag}', which is not in supportedLocales — ` +
+          `mapLocale() never returns it, so the entry is dead`,
       );
     }
   }
-  for (const locale of supported) {
-    if (!imports.has(locale)) {
+
+  // The two lists must agree with each other, independently of the translations.
+  const supportedNames = new Set([...supported].map((tag) => dayjsName(tag, dayjsNames)));
+  for (const locale of imports) {
+    if (!supportedNames.has(locale)) {
       error(
         'dayjs.ts',
-        `'${locale}' is in supportedLocales but never imported — dayjs cannot load it`,
+        `'${locale}' is imported but no supportedLocales entry maps to it — ` +
+          `the import is dead weight`,
+      );
+    }
+  }
+  for (const tag of supported) {
+    const name = dayjsName(tag, dayjsNames);
+    if (!imports.has(name)) {
+      error(
+        'dayjs.ts',
+        `'${tag}' is in supportedLocales but its dayjs locale '${name}' is never imported — ` +
+          `dayjs cannot load it`,
+      );
+    }
+  }
+
+  // An import Day.js does not ship is not caught by anything above, because the import's
+  // text is all those checks read. Rollup then treats it as external and leaves a bare
+  // `import "dayjs/locale/…"` in the bundle, which a browser cannot resolve, so the card
+  // fails to load at all.
+  const require = createRequire(import.meta.url);
+  for (const locale of imports) {
+    try {
+      require.resolve(`dayjs/locale/${locale}`);
+    } catch {
+      error(
+        'dayjs.ts',
+        `'dayjs/locale/${locale}' does not exist — dayjs ships no such locale, and the ` +
+          `build would leave the import in the bundle, where the browser cannot resolve it`,
       );
     }
   }
 
   // Bundle hygiene: every dayjs locale is bytes in a single-file bundle.
-  const needed = new Set([...entries.keys()].map((c) => mapLocale(c, specialCased)));
+  const needed = new Set(
+    [...entries.keys()].map((c) => dayjsName(mapLocale(c, specialCased), dayjsNames)),
+  );
   for (const locale of imports) {
     if (!needed.has(locale)) {
       warn('dayjs.ts', `dayjs locale '${locale}' is imported but no translation maps to it`);
@@ -1487,8 +1543,7 @@ function report(languageCount, fieldCount, optionCount) {
  * A warning rather than an error: these are native-contributed files in the eager path,
  * so the fix wants the contributor, not CI.
  */
-async function checkRunningTextWeekdayCase(languages) {
-  const { createRequire } = await import('node:module');
+async function checkRunningTextWeekdayCase(languages, { specialCased, dayjsNames }) {
   const require = createRequire(import.meta.url);
   const upper = (v) =>
     typeof v === 'string' &&
@@ -1501,7 +1556,10 @@ async function checkRunningTextWeekdayCase(languages) {
 
   for (const [code, { file, data }] of languages) {
     let locale;
-    for (const candidate of [code, code.split('-')[0]]) {
+    // The locale the card actually formats with comes first: for `sr` the code itself names
+    // Day.js's Latin locale, which says nothing about the Cyrillic strings in sr.json.
+    const runtime = dayjsName(mapLocale(code, specialCased), dayjsNames);
+    for (const candidate of new Set([runtime, code, code.split('-')[0]])) {
       try {
         locale = require(`dayjs/locale/${candidate}`);
         break;
@@ -1516,9 +1574,12 @@ async function checkRunningTextWeekdayCase(languages) {
     if (!Array.isArray(data.fullDaysOfWeek) || data.fullDaysOfWeek.length !== 7) continue;
 
     compared += 1;
+    // One direction only: a capitalized card value against a lower-case dayjs one. The
+    // reverse is dayjs capitalizing its own weekdays — it does for Serbian — and says
+    // nothing about a lower-case running-text form in the card.
     const differing = data.fullDaysOfWeek
       .map((value, i) => [value, oracle[i]])
-      .filter(([value, want]) => upper(value) !== upper(want));
+      .filter(([value, want]) => upper(value) && !upper(want));
     if (differing.length) mismatched.push([file, differing[0]]);
   }
 
@@ -1627,7 +1688,7 @@ async function main() {
   const glossary = readGlossary();
   await checkTranslationQuality(languages, glossary);
   reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
-  await checkRunningTextWeekdayCase(languages);
+  await checkRunningTextWeekdayCase(languages, dayjsWiring);
 
   process.exit(report(languages.size, fieldCount, optionCount));
 }

@@ -206,7 +206,7 @@ describe('the month heading', () => {
         }
       }
     }
-    expect(CARD_LANGUAGES).toHaveLength(36);
+    expect(CARD_LANGUAGES).toHaveLength(38);
     expect(wrong).toEqual([]);
   });
 
