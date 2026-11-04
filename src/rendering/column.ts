@@ -179,6 +179,7 @@ function renderColumnEvent(
     'past-event': presentation.isPastEvent,
     'event-interactive': tap !== undefined,
     'event-now': presentation.isNow,
+    'search-ring': event._searchRing === true,
   };
 
   // Column view places two of these differently from list view: the countdown rides the

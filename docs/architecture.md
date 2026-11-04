@@ -29,7 +29,8 @@ src/
 │   ├── event-times.ts            # An event's span, as the popover edits it and as stored
 │   ├── feedback.ts               # Hold indicator (the ripple is drawn by render.ts)
 │   ├── popover-model.ts          # The popover's draft: built, compared, checked, written
-│   └── rrule.ts                  # Home Assistant's repeat rules: read, written, worded
+│   ├── rrule.ts                  # Home Assistant's repeat rules: read, written, worded
+│   └── search-session.ts         # A search's year-wide load and the rows it finds among
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
@@ -61,6 +62,7 @@ src/
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
 │   ├── popover-shell.ts          # The popover's shell: opening, placing, its look, closing
+│   ├── search-panel.ts           # The search panel: its field, its results, the keyboard
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
 │   ├── grid-accessibility.ts     # Full configured names for timed Grid events
@@ -100,6 +102,7 @@ src/
     ├── title-words.ts            # Splits grid titles so they wrap only at spaces
     ├── view-choice.ts            # The switcher's view and the legend's hidden calendars, per device
     ├── toolbar-fold.ts           # Which of the action row's start controls fold into its menu
+    ├── search.ts                 # Searching events: the window, folding, matching, order
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── links.ts                  # Web addresses in an event's text, as link pieces
     ├── weather.ts                # Weather data fetching and processing
@@ -202,7 +205,9 @@ result after every build.
 The event popover (`rendering/event-popover.ts`) is the opposite case: it ships inside the
 card's file rather than as a third file fetched when first opened. Every asset attached to a
 release is downloaded by every HACS user, so a third file would spare no installation its
-bytes, and with the popover already in the card's file nothing has to load when one opens.
+bytes, and with the popover already in the card's file nothing has to load when one opens. The
+search panel (`rendering/search-panel.ts`) ships there for the same reason, on the shell it
+shares with the popover.
 
 ### Compact Payloads, Readable Sources
 
@@ -233,7 +238,7 @@ checks remain independent of compaction.
 
 The card's own controls live in a header of one or two rows above the events. The first row,
 drawn only while it holds a control, carries the calendar filter's button, the add-event button,
-the configuration's own buttons, the view switcher, reset and refresh; the month's row under it carries the title as a small label
+the configuration's own buttons, the view switcher, reset, refresh and search; the month's row under it carries the title as a small label
 over the month, the filter's chips in its middle where they all fit, and the date navigation at
 its end. The layout rule is fixed, so a control still to come slots in without moving the ones
 already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
@@ -248,7 +253,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   with a toolbar and these are its first defaults. Reset is for a shared screen: elsewhere a
   layout picked on the switcher is a preference, remembered until the card is edited, and a lit
   reset button kept presenting it as something to undo. A control added in a later release defaults
-  off, so a release never adds a control to a toolbar someone already set up. Every control
+  off, so a release never adds a control to a toolbar someone already set up; `search` is the
+  first. Every control
   needs a `toolbar → key` row in the reference:
   `check:docs` reconciles the block's defaults against those rows in both directions.
 - **It is conditional.** With no control enabled or available there is no toolbar and no new DOM:
@@ -556,7 +562,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   may take all the room the switcher and the end group leave, not half of it, so the switcher
   moves off center first, as the row's flex layout already let it. The end group never folds: a
   card too narrow for the narrowest row wraps it, as it always has, which in every view is below
-  274px beside refresh and below 318px beside reset and refresh.
+  274px beside refresh, below 318px beside refresh and reset or search, and below 362px beside
+  all three.
   `planStartGroup` in `utils/toolbar-fold.ts` decides it, pure, from the card's width alone.
   Each command is `UI.TOOLBAR_COMMAND_WIDTH` wide and stands `UI.TOOLBAR_COMMAND_GAP` from the
   next, the switcher's pictograms are `UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH` each on a track padded
@@ -570,8 +577,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   requests takes that line back before the frame is painted. Browsers report a height change
   inside that delivery as a resize-observer loop error, as they already did when the switcher's
   words gave way. Home Assistant's frontend discards that error, so only a page outside Home
-  Assistant, a test harness for one, ever shows it. The end group's input keeps a slot for a
-  search control, which the plan counts wherever the card draws one. One guard covers what
+  Assistant, a test harness for one, ever shows it. The end group's input counts reset, refresh
+  and search wherever the card draws them. One guard covers what
   arithmetic cannot see, a theme's border, a card-mod rule or a zoom's rounding: where the row it
   drew still wraps or overflows, `_syncStartFoldFit` folds one control more at that width for
   that row, never fewer, and a new width clears it, so only the arithmetic brings controls back
@@ -634,6 +641,40 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   well inside that, and turned the icon for a few milliseconds, which read as a reload nobody
   asked for. A ticket bumped on disconnect retires a sequence in
   flight, so a card put back is never stuck on a check.
+- **Search is a panel of the popover's kind over a load of its own.** The magnifier
+  (`renderSearchButton`) ends the end group, after refresh, named by Home Assistant's
+  `ui.common.search`, and is drawn only with the date navigation, since a pick pages the card. A
+  press (`_openSearch`) focuses it first, so Home Assistant's dialog manager and the modal both
+  give focus back to it, then fires `show-dialog` with `SEARCH_PANEL_TAG`, which the production
+  build renames as it does the popover's. The panel (`rendering/search-panel.ts`) extends the
+  popover's shell (`rendering/popover-shell.ts`), so it opens, places itself, looks and closes as
+  the popover does: below the magnifier, hanging back across the card, its beak pointing up, or
+  above it where there is no room below, and a sheet below `SHEET_BELOW_PX`. What it finds comes
+  from the card's `SearchSession` (`interaction/search-session.ts`), handed over as its
+  `SearchSource`. Opening readies a load of a year back and a year ahead (`searchWindow` in
+  `utils/search.ts`, local midnights from the card's date helpers): `fetchEvents` without `live`,
+  plain REST and one request per calendar, each heard as it answers, so no live subscription is
+  leased or disturbed. It is kept in memory on the session, never in `localStorage` or the page
+  store, and later openings reuse it while the window's first day, the calendars asked, the write
+  generation (`currentWriteGeneration`), `LiveCalendars.changeCount()` and the card's refresh
+  interval all still hold; a calendar that failed is asked again alone at the next opening.
+  Typing asks nothing. The rows are built from the card's own pipeline, the held events for a
+  calendar still to answer and `processEvents` over the loaded ones, the hidden calendars left
+  out, then `groupEventsByDay` with the configuration of the view on screen spread over the whole
+  window (`searchGroupingConfig`), so filters, duplicates, replacements and what a row shows are
+  the card's, and a split multi-day event is found once (`occurrencesIn`). Matching is pure
+  (`findRows`): text folded case- and accent-insensitively in the card's language, upcoming then
+  past, grouped by month, at most `SEARCH_RESULT_LIMIT` drawn and the true total announced. A
+  pick (`_pickSearchResult`) pages through the date picker's path (`_pickDate`), then rings the
+  event while that page shows it: render stamps the display copies that are the pick
+  (`ringIn`, by uid and recurrence id, else start and title) with `_searchRing`, which each view's
+  template binds as a class, so nothing is added to the card from `updated()`, where the grid's
+  mutation observers would take it for a change of structure. `_syncSearchRing` starts the ring's
+  `SEARCH_RING` once it is drawn, and moves focus to the ringed event where it is a target only
+  once the panel has gone and Home Assistant has given focus back, two frames after the panel
+  detaches (`_searchGone`). The panel closes before anything takes its magnifier or its anchor
+  away: in `willUpdate` while editing, hiding or without the magnifier, in `_applyVisibility`, on
+  a change of width and on disconnect.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card
   does. A current-weather readout is content, and if it is built it belongs beside today's
   own date.
@@ -870,6 +911,14 @@ caller.
     card. `_handlePointerDown` therefore marks such a press on `ha-card` (`data-own-press`),
     which mutes the ripple's press until the next press begins elsewhere
 
+- **search-session.ts**:
+  - One card's search (`SearchSession`): the year-wide load behind the panel, when it is kept
+    and when it is asked again, and the rows the panel finds among, built by the card's own
+    `processEvents` and `groupEventsByDay` and kept until what they are built from changes
+  - Is the panel's `SearchSource`, and tells the card about a pick and the panel going
+    (`SearchEvents`); reads the card afresh each time through `SearchHost` (see
+    _Header Toolbar_)
+
 ### Rendering (`rendering/`)
 
 Generates the HTML and CSS for the card. Three view containers share `leaves.ts` and
@@ -1006,6 +1055,16 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     no translations for it; dates through `Intl` in Home Assistant's language. Ships in the
     card's own file (see _Two Files, One Card_)
   - Draws links through `utils/links.ts` and the map through `interaction/event-map.ts`
+
+- **search-panel.ts**:
+  - The search panel, on the popover's shell: the field as its first cell, a combobox, and the
+    results as a listbox under it, grouped by month, upcoming then the past after a rule, each
+    a cell with its calendar's color bar and the term marked
+  - Down and Up move through the results while focus stays in the field, Enter picks, Escape
+    closes; a pick closes the panel, then asks the card to page and ring. The count is
+    announced in a status region once typing pauses, as Home Assistant's own search does
+  - Takes every word from `hass.localize`, with English for assistive technology alone where
+    Home Assistant has none, so it needs no card string
 
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
@@ -1226,6 +1285,12 @@ Provides core functionality across the card:
     covers, where home is, where the arrows and the date picker lead
   - Names a page's month, its dates and its home button through `Intl`, so the toolbar needs
     no card string
+
+- **search.ts**:
+  - Searching the card's events, pure: the window a search covers (`searchWindow`), the
+    configuration its rows are grouped with, each event of a grouping once, folding and
+    matching text, the order and month groups of what a term finds and the row cap, and how a
+    picked event is found again on the card (`ringTargetOf`, `isRingTarget`, `ringIn`)
 
 - **helpers.ts**:
   - Provides color manipulation utilities

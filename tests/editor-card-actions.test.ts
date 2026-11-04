@@ -451,12 +451,13 @@ describe('the event tap action in the editor', () => {
       reset: false,
       add_event: true,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });
 
-    // Every control but reset arrives switched on, as the card reads them, the filter as a
-    // menu, and nothing but the switch is written.
+    // Every control but reset and search arrives switched on, as the card reads them, the
+    // filter as a menu, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
@@ -477,6 +478,7 @@ describe('the event tap action in the editor', () => {
       reset: false,
       add_event: true,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });

@@ -163,6 +163,12 @@ export const TIMING = {
   HOME_CONFIRMATION: 1000,
 
   /**
+   * How long an event a search result paged the card to is ringed in the theme's primary color,
+   * long enough to find it among the others; the stylesheet fades the ring out over its end.
+   */
+  SEARCH_RING: 2000,
+
+  /**
    * How long the reset button takes to fade out after its check, still showing the check. The
    * stylesheet's fade lasts as long; only then does the button take its U-turn back, unseen.
    */

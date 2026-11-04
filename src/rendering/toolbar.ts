@@ -4,8 +4,8 @@
  * The toolbar exists only while it holds a control, so a card with none renders exactly as
  * it did before there was a toolbar. With one it is two rows. The action row holds what acts
  * on the card, each in a fixed place: the calendar filter and add at its start, then any
- * buttons the configuration adds of its own, the view switcher in its middle, reset and refresh
- * at its end. The heading row comes last, right above the days: the month the page on screen
+ * buttons the configuration adds of its own, the view switcher in its middle, reset, refresh
+ * and search at its end. The heading row comes last, right above the days: the month the page on screen
  * starts in, under the card's title, which shrinks to a small label over it, the date
  * navigation (previous, home and next) at the row's end, and, where they fit, a chip per
  * calendar in its middle, under the switcher.
@@ -21,7 +21,7 @@
  *
  * Each control is either an icon or words, never both, and which is fixed per control rather
  * than configured. The commands (the filter, add, the configuration's own buttons, reset,
- * refresh and the arrows) are icons, named by Home Assistant's own words in their tooltips and
+ * refresh, search and the arrows) are icons, named by Home Assistant's own words in their tooltips and
  * for assistive technology, or by the configuration's own for its buttons. The views are
  * words, which say what a pictogram cannot, until the card is too narrow for them; then they too
  * are pictograms. The month and the chips are words.
@@ -35,6 +35,7 @@ import {
   mdiDotsVertical,
   mdiHome,
   mdiHomeOutline,
+  mdiMagnify,
   mdiMenuDown,
   mdiPlus,
   mdiRefresh,
@@ -125,6 +126,17 @@ export interface RefreshButton {
    */
   unasked?: boolean;
   onActivate: () => void;
+}
+
+/** What the card hands the wrapper when it should draw the search button. */
+export interface SearchButton {
+  /** Home Assistant's own word for it, or undefined when it offers none. */
+  label: string | undefined;
+  /**
+   * Runs on activation, handed the button, and for a pointer's press where it was and the kind
+   * of pointer (`mouse`, `touch`, `pen`); undefined for a key.
+   */
+  onActivate: (button: HTMLElement, pressed: ButtonPress | undefined) => void;
 }
 
 /** What the card hands the wrapper when it should draw the reset button. */
@@ -233,8 +245,10 @@ export interface HeaderToolbar {
   viewSwitcher?: ViewSwitcher;
   /** The reset button, at the end of the action row, before refresh. */
   reset?: ResetButton;
-  /** The refresh button, last in the action row. */
+  /** The refresh button, at the end of the action row, before search. */
   refresh?: RefreshButton;
+  /** The search button, last in the action row, after refresh. */
+  search?: SearchButton;
   /** The add-event button, at the start of the action row, after a folded filter. */
   addEvent?: AddEventButton;
   /** The configuration's own buttons, after add, in the order written. */
@@ -262,6 +276,9 @@ export const UNLOCALIZED_REFRESH_NAME = 'Refresh';
 
 /** The reset button's accessible name when Home Assistant has none, under the same rule. */
 export const UNLOCALIZED_RESET_NAME = 'Reset';
+
+/** The search button's accessible name when Home Assistant has none, under the same rule. */
+export const UNLOCALIZED_SEARCH_NAME = 'Search';
 
 /**
  * The accessible name of a button of the configuration's own that runs `back` and has no name,
@@ -761,6 +778,37 @@ function renderRefreshButton(button: RefreshButton): TemplateResult {
 }
 
 /**
+ * Render the search button: a magnifier, last in the action row, right of refresh.
+ *
+ * A press opens the search panel below it, its beak pointing up at the button, as the add
+ * button opens the event popover, by pointer or key. Named as the add button is: by Home
+ * Assistant's own word, which is its tooltip, or in English for assistive technology alone.
+ *
+ * @param button - Button description from the card
+ * @returns The button
+ */
+function renderSearchButton(button: SearchButton): TemplateResult {
+  const onClick = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    button.onActivate(ev.currentTarget as HTMLElement, pressOf(ev));
+  };
+
+  return html`<button
+    type="button"
+    class="toolbar-button search-button"
+    aria-haspopup="dialog"
+    aria-label=${button.label ?? UNLOCALIZED_SEARCH_NAME}
+    title=${button.label ?? nothing}
+    @pointerdown=${stopCardGesture}
+    @click=${onClick}
+  >
+    <svg class="toolbar-button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d=${mdiMagnify}></path>
+    </svg>
+  </button>`;
+}
+
+/**
  * Render a view's pictogram, in the current text color.
  *
  * @param view - The view to draw
@@ -1140,13 +1188,17 @@ export function drawsLegendChips(toolbar: HeaderToolbar): boolean {
  */
 export function drawsActionRow(toolbar: HeaderToolbar): boolean {
   return Boolean(
-    startControls(toolbar).length > 0 || toolbar.viewSwitcher || toolbar.reset || toolbar.refresh,
+    startControls(toolbar).length > 0 ||
+    toolbar.viewSwitcher ||
+    toolbar.reset ||
+    toolbar.refresh ||
+    toolbar.search,
   );
 }
 
 /**
  * Render the action row: a folded filter, add and the configuration's own buttons at its start,
- * the view switcher in its middle, reset and refresh at its end.
+ * the view switcher in its middle, reset, refresh and search at its end.
  *
  * The start and the end are groups of their own, there even when empty, so the stylesheet
  * can share the room left beside the switcher out equally between them and the switcher sits
@@ -1167,7 +1219,10 @@ function renderActionRow(
 ): TemplateResult | typeof nothing {
   if (!drawsActionRow(toolbar)) return nothing;
   const resetAlone =
-    startControls(toolbar).length === 0 && !toolbar.viewSwitcher && !toolbar.refresh;
+    startControls(toolbar).length === 0 &&
+    !toolbar.viewSwitcher &&
+    !toolbar.refresh &&
+    !toolbar.search;
 
   return html`<div class="card-toolbar toolbar-actions">
     <div class="toolbar-start">${renderStartGroup(toolbar)}</div>
@@ -1175,6 +1230,7 @@ function renderActionRow(
     <div class="toolbar-end">
       ${toolbar.reset ? renderResetButton(toolbar.reset, resetAlone) : nothing}
       ${toolbar.refresh ? renderRefreshButton(toolbar.refresh) : nothing}
+      ${toolbar.search ? renderSearchButton(toolbar.search) : nothing}
     </div>
   </div>`;
 }
@@ -1249,6 +1305,7 @@ export function renderHeaderToolbar(
     !toolbar.navigation &&
     !toolbar.reset &&
     !toolbar.refresh &&
+    !toolbar.search &&
     !toolbar.legend
   ) {
     return undefined;

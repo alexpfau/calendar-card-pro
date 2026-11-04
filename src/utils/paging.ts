@@ -464,6 +464,18 @@ export function monthHeadings(
   return headings;
 }
 
+/**
+ * Name a day in the card's language by its weekday and date, without its year: "Tue, Dec 8".
+ * For a list that names each day's month and year above it, as the search panel's does.
+ *
+ * @param date - The day
+ * @param language - Card language
+ * @returns The day's name
+ */
+export function dayName(date: Date, language: string): string {
+  return dateFormat(language, false, true).format(date);
+}
+
 const todayWords = new Map<string, string>();
 
 /**

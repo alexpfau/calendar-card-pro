@@ -871,6 +871,7 @@ function renderTimedEvent(
         'grid-event-content-limited': horizontal.contentLimited,
         'grid-event-now': underWay,
         'event-interactive': tap !== undefined,
+        'search-ring': event._searchRing === true,
       })}
       style=${styleMap({
         ...verticalGeometry(placement, edges),
@@ -1066,6 +1067,7 @@ function renderBanner(
         'continues-before': placement.continuesBefore,
         'continues-after': placement.continuesAfter,
         'event-interactive': tap !== undefined,
+        'search-ring': event._searchRing === true,
       })}
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
