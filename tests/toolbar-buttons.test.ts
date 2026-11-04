@@ -930,6 +930,18 @@ describe('the start group where the row runs out of room', () => {
     expect(startShape(card)).toEqual([3, true, 0]);
   });
 
+  it('gives the controls back on the first width even where it crosses no threshold', async () => {
+    // With no switcher, filter, add and one button fit on one line from 202px, so 230px crosses
+    // no threshold of the words' or the month's: only the first width's own render brings the
+    // row back from the narrowest group (`_syncToolbarLabels`).
+    const row = { ...FOLD_ROW, view_switcher: false };
+    const card = await mount(withButtons([BACK], row), { width: null });
+    expect(startShape(card)).toEqual([0, false, 2]);
+
+    await measure(card, 230);
+    expect(startShape(card)).toEqual([1, true, 0]);
+  });
+
   it('fold in the editor as on the dashboard, and the menu button opens nothing there', async () => {
     const card = await mount(withButtons(THREE, FOLD_ROW), { flag: 'preview' });
     await measure(card, 344);
