@@ -427,8 +427,9 @@ describe('theming.md card-mod selectors', () => {
         collect(container);
       }
     }
-    // `time_position: title` marks each event body whose time row it moves, the same way in
-    // both agenda views, so one list render is enough to draw the class.
+    // `time_position: title` marks each event body whose time it puts on the title's line, and
+    // draws the box that holds it, the same way in both agenda views, so one list render is
+    // enough to draw the classes.
     {
       const config = buildConfig({ ...base, time_position: 'title' });
       const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');

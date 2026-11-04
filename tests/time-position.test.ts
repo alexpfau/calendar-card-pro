@@ -12,20 +12,24 @@ import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
 /**
- * `time_position`: the time row below the title, as every release drew it, or as the title
- * row's last item.
+ * `time_position`: the time row below the title, as every release drew it, or at the end of the
+ * title's line.
  *
- * The placement is a DOM move and a block of CSS. The CSS is pinned in
- * tests/stylesheet.test.ts; this file holds the move to three claims:
+ * The placement is a second shape of the event body and a block of CSS. The CSS is pinned in
+ * tests/stylesheet.test.ts; this file holds the markup to four claims:
  *
  * - **Off, nothing changes.** The default, `below`, and every value the resolver does not
- *   recognize, render the markup the card always drew. The list and column DOM snapshots
- *   are the strong form of that for the default; this checks the fallbacks against it.
- * - **On, only the time row moves**, and only on a row that has one. The moved `.time` is
- *   the element `renderEventContent` draws below the title, unchanged, and everything else
- *   in the row is unchanged too. That is checked by reconciling the two renders of every
- *   row in a corpus, rather than by listing what each row should hold, because the opt-in
- *   markup is a second copy of the default's and the way two copies fail is by drifting.
+ *   recognize, render the markup the card always drew. The list and column DOM snapshots are
+ *   the strong form of that for the default; this checks the fallbacks against it.
+ * - **On, the time sits on the title's line**, on every row that has a time or a countdown,
+ *   without its clock, after list view's weather badge, and the title scrolls whatever
+ *   `scroll_long_titles` says. Nothing trails the time: list view folds its countdown into
+ *   the time text and draws its bar as a row of its own, as column view always has.
+ * - **Nothing else changes.** Checked by reconciling renders rather than by listing what each
+ *   row should hold, because the title-line markup is a second copy of the default's and the
+ *   way two copies fail is by drifting: column view's rows against the scrolling default with
+ *   the clock taken out, and list view's against column view's, which its leaf now draws the
+ *   same way.
  * - **Each view decides for itself**, through `list:` and `column:`, and grid never moves
  *   anything (tests/view-scope-inert.test.ts).
  */
@@ -67,7 +71,7 @@ function bodies(container: HTMLElement): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>('.event-content')];
 }
 
-/** The bodies whose time row moved up beside the title. */
+/** The bodies whose time sits on the title's line. */
 function moved(container: HTMLElement): HTMLElement[] {
   return bodies(container).filter((body) => body.classList.contains('time-beside-title'));
 }
@@ -143,7 +147,7 @@ describe('time_position', () => {
       expect(names[names.indexOf('show_time') + 1]).toBe('time_position');
     });
 
-    it('names both places, the shipped one first, and says narrow rows keep the time below', () => {
+    it('names both places, the shipped one first, and says what the title line costs', () => {
       const field = eventsPanel().find(
         (node) => (node as { name?: string }).name === 'time_position',
       ) as unknown as {
@@ -152,10 +156,18 @@ describe('time_position', () => {
 
       expect(field.selector.select.options).toEqual([
         { value: 'below', label: 'Below the title' },
-        { value: 'title', label: 'Beside the title when there is room' },
+        { value: 'title', label: 'Beside the title' },
       ]);
       expect(lookup('en', 'time_position')).toBe('Time Position');
-      expect(lookup('en', 'time_position.helper')).toMatch(/stays below the title/);
+      const helper = lookup('en', 'time_position.helper');
+      expect(helper).toMatch(/without its clock/);
+      expect(helper).toMatch(/always scroll, whatever Scroll Long Titles says/);
+      expect(helper).toMatch(/Title Line Limit does not apply/);
+      expect(helper).toMatch(/about 60% of the line/);
+      // And the option it overrides says so where a reader looks for why a title scrolls.
+      expect(lookup('en', 'scroll_long_titles.helper')).toMatch(
+        /With the time beside the title, long titles always scroll\.$/,
+      );
     });
   });
 
@@ -164,8 +176,8 @@ describe('time_position', () => {
       const container = render(view, { show_countdown: true, show_progress_bar: true });
       expect(bodies(container).length).toBeGreaterThan(4);
       expect(moved(container)).toEqual([]);
-      expect(container.querySelector('.title-time-row')).toBeNull();
-      expect(container.querySelector('.summary-row > .time')).toBeNull();
+      expect(container.querySelector('.title-aside')).toBeNull();
+      expect(container.querySelector('.summary-row .time')).toBeNull();
     });
 
     it.each([
@@ -215,98 +227,167 @@ describe('time_position', () => {
       weather: { entity: 'weather.home', position: 'event' },
     };
 
-    it('puts the time row after the whole title row, the weather badge kept inside it', () => {
-      const container = render('list', DETAILS);
-      const rows = moved(container);
-      expect(rows.length).toBeGreaterThan(4);
+    it.each(['list', 'column'] as const)(
+      "draws the title line in %s view: the title, then the time's box",
+      (view) => {
+        const rows = moved(render(view, DETAILS));
+        expect(rows.length).toBeGreaterThan(4);
+        for (const body of rows) {
+          const line = body.querySelector(':scope > .summary-row')!;
+          expect(
+            [...line.children].map((child) => child.className),
+            titleOf(body),
+          ).toEqual(['summary summary-scroll', 'title-aside']);
+          // The time is the box's last item, and the only time in the row.
+          const aside = line.querySelector(':scope > .title-aside')!;
+          expect(aside.lastElementChild!.className, titleOf(body)).toBe('time');
+          expect(body.querySelectorAll('.time'), titleOf(body)).toHaveLength(1);
+        }
+      },
+    );
 
-      for (const body of rows) {
-        // The title row and the time are the only two items of the row that wraps, so the
-        // time is the one thing that can move to a line of its own.
-        const outer = body.querySelector(':scope > .title-time-row')!;
-        expect(
-          [...outer.children].map((child) => child.className),
-          titleOf(body),
-        ).toEqual(['summary-row', 'time']);
-        expect(body.querySelector(':scope > .time-location > .time'), titleOf(body)).toBeNull();
-      }
-
-      // A row that carries the badge: it stays in the title row, after the title, as it is
-      // drawn below the time, so nothing can wrap it away from the title.
-      const withWeather = rows.filter((body) =>
-        body.querySelector('.summary-row > .event-weather'),
-      );
-      expect(withWeather.length).toBeGreaterThan(0);
-      for (const body of withWeather) {
-        expect(
-          [...body.querySelector('.title-time-row > .summary-row')!.children].map(
-            (child) => child.className,
-          ),
-        ).toEqual(['summary', 'event-weather']);
-      }
-    });
-
-    it('takes the countdown and the inline bar along in list view, and nothing else', () => {
+    it("puts list view's weather badge first in the box, where it draws one, and nowhere else", () => {
       const rows = moved(render('list', DETAILS));
-      const running = rows.find((body) => titleOf(body) === 'Currently running review')!;
-      const upcoming = rows.find((body) => titleOf(body) === 'Upcoming one-to-one')!;
-      const dentist = rows.find((body) => titleOf(body) === 'Dentist')!;
-
-      expect(running.querySelector('.title-time-row > .time > .progress-bar')).not.toBeNull();
-      expect(upcoming.querySelector('.title-time-row > .time > .time-countdown')).not.toBeNull();
-      // Location and description stay below, in their order.
-      expect(
-        [...dentist.querySelector(':scope > .time-location')!.children].map((c) => c.className),
-      ).toEqual(['location', 'description']);
+      const boxes = rows.map((body) =>
+        [...body.querySelector('.title-aside')!.children].map((child) => child.className),
+      );
+      // The bullet between the two is the stylesheet's, on .event-weather + .time, so a row
+      // without a forecast has no badge and no bullet.
+      expect(boxes).toContainEqual(['event-weather', 'time']);
+      for (const box of boxes) expect([['event-weather', 'time'], ['time']]).toContainEqual(box);
+      // The badge is the one the title row draws below the title, unchanged.
+      const below = bodies(render('list', { ...DETAILS, time_position: 'below' }));
+      const badges = (list: HTMLElement[]) =>
+        list.map((body) => normalize(body.querySelector('.event-weather')?.outerHTML ?? ''));
+      expect(badges(rows)).toEqual(
+        badges(below.filter((body) => body.querySelector('.time-location > .time'))),
+      );
+      // Without weather, no box holds a badge.
+      for (const body of moved(render('list', { ...DETAILS, weather: undefined }))) {
+        expect(body.querySelector('.title-aside > .event-weather'), titleOf(body)).toBeNull();
+      }
+      // Column view draws its weather as a row below, as it always has.
+      for (const body of moved(render('column', DETAILS))) {
+        expect(body.querySelector('.title-aside > .event-weather'), titleOf(body)).toBeNull();
+      }
     });
 
-    it('keeps the folded countdown in the time, and the bar and weather rows below, in column view', () => {
-      const rows = moved(
-        render('column', { ...DETAILS, weather: { entity: 'weather.home', position: 'both' } }),
-      );
-      const running = rows.find((body) => titleOf(body) === 'Currently running review')!;
-      const upcoming = rows.find((body) => titleOf(body) === 'Upcoming one-to-one')!;
+    it.each([
+      ['by default', {}],
+      ['with scroll_long_titles off', { scroll_long_titles: false }],
+      ['under a title line limit', { title_max_lines: 2 }],
+    ])('scrolls every title beside a time %s', (_name, overrides) => {
+      for (const view of ['list', 'column'] as const) {
+        const rows = moved(render(view, { ...DETAILS, ...overrides }));
+        expect(rows.length, view).toBeGreaterThan(4);
+        for (const body of rows) {
+          const title = body.querySelector('.summary-row > .summary.summary-scroll > .event-title');
+          expect(title?.classList.contains('title-scrollable'), titleOf(body)).toBe(true);
+          expect(
+            title!.querySelector(':scope > .event-title-scroll'),
+            titleOf(body),
+          ).not.toBeNull();
+        }
+        // The same options below the title leave titles wrapping.
+        const below = render(view, { ...DETAILS, ...overrides, time_position: 'below' });
+        expect(below.querySelector('.title-scrollable'), view).toBeNull();
+      }
+    });
 
+    it('draws no clock beside the title, and keeps the running event\'s "Now"', () => {
+      for (const view of ['list', 'column'] as const) {
+        const container = render(view, DETAILS);
+        expect(container.querySelector('.title-aside > .time ha-icon'), view).toBeNull();
+        const running = moved(container).find(
+          (body) => titleOf(body) === 'Currently running review',
+        )!;
+        expect(
+          running.querySelector('.title-aside .now-time > .now-indicator'),
+          view,
+        ).not.toBeNull();
+        // Below the title every time has its clock, so the check above can fail.
+        const below = render(view, { ...DETAILS, time_position: 'below' });
+        expect(below.querySelectorAll('.time-actual > ha-icon').length, view).toBeGreaterThan(4);
+      }
+    });
+
+    it('folds the countdown into the time text in list view, as column view does', () => {
+      const rows = moved(render('list', DETAILS));
+      const upcoming = rows.find((body) => titleOf(body) === 'Upcoming one-to-one')!;
       expect(
-        upcoming.querySelector(
-          '.title-time-row > .time > .time-actual > .time-text > .time-countdown',
-        ),
-      ).not.toBeNull();
-      expect(running.querySelector('.title-time-row .progress-bar')).toBeNull();
-      // The bar's own row and the weather row stay in .time-location, in their order.
+        upcoming.querySelector('.title-aside > .time > .time-actual > .time-text > .time-countdown')
+          ?.textContent,
+      ).toBe('in 4 hours');
+      // Nothing trails the time in any row.
+      for (const body of rows) {
+        expect(body.querySelector('.time > .time-actual + *'), titleOf(body)).toBeNull();
+      }
+      // Below the title, list view trails it.
+      const below = bodies(render('list', { ...DETAILS, time_position: 'below' }));
+      expect(
+        below.some((body) => body.querySelector('.time > .time-actual + .time-countdown')),
+      ).toBe(true);
+    });
+
+    it('draws the progress bar on a row of its own in list view, as column view does', () => {
+      const running = moved(render('list', DETAILS)).find(
+        (body) => titleOf(body) === 'Currently running review',
+      )!;
+      expect(running.querySelector('.time .progress-bar')).toBeNull();
       expect(
         [...running.querySelector(':scope > .time-location')!.children].map((c) => c.className),
-      ).toEqual(['progress-bar progress-bar-row', 'event-weather']);
+      ).toEqual(['progress-bar progress-bar-row']);
+      // Below the title, list view draws it inline.
+      const below = bodies(render('list', { ...DETAILS, time_position: 'below' })).find(
+        (body) => titleOf(body) === 'Currently running review',
+      )!;
+      expect(below.querySelector('.time > .progress-bar')).not.toBeNull();
+    });
+
+    it('keeps the location and description below, in their order', () => {
+      for (const view of ['list', 'column'] as const) {
+        const dentist = moved(render(view, { ...DETAILS, weather: undefined })).find(
+          (body) => titleOf(body) === 'Dentist',
+        )!;
+        expect(
+          [...dentist.querySelector(':scope > .time-location')!.children].map((c) => c.className),
+          view,
+        ).toEqual(['location', 'description']);
+      }
     });
 
     it.each(['list', 'column'] as const)(
-      'moves a countdown-only time row with times off, in %s view',
+      'puts the countdown alone beside the title with times off, in %s view',
       (view) => {
         const rows = moved(
           render(view, { time_position: 'title', show_time: false, show_countdown: true }),
         );
         expect(rows.length).toBeGreaterThan(0);
         for (const body of rows) {
-          const time = body.querySelector('.title-time-row > .time')!;
-          expect(time.querySelector(':scope > .time-actual')!.children, titleOf(body)).toHaveLength(
-            0,
-          );
-          expect(time.querySelector(':scope > .time-countdown'), titleOf(body)).not.toBeNull();
+          const time = body.querySelector('.title-aside > .time')!;
+          expect(
+            [...time.children].map((child) => child.className),
+            titleOf(body),
+          ).toEqual(['time-countdown']);
         }
       },
     );
 
-    it("moves list view's bar-only row with times off, and leaves column view's bar row alone", () => {
+    it('leaves a row with nothing beside the title in the shape below, its bar on a row', () => {
+      // Times off and no countdown: the running event's bar is all its time row held.
       const config = { time_position: 'title', show_time: false, show_progress_bar: true };
-
-      const list = moved(render('list', config));
-      expect(list.map(titleOf)).toEqual(['Currently running review']);
-      expect(list[0].querySelector('.title-time-row > .time > .progress-bar')).not.toBeNull();
-
-      // Column's bar has a row of its own, so with times off there is no time row to move.
-      const column = render('column', config);
-      expect(moved(column)).toEqual([]);
-      expect(column.innerHTML).toBe(
+      for (const view of ['list', 'column'] as const) {
+        const container = render(view, config);
+        expect(moved(container), view).toEqual([]);
+        expect(container.querySelector('.title-scrollable'), view).toBeNull();
+        const running = bodies(container).find(
+          (body) => titleOf(body) === 'Currently running review',
+        )!;
+        expect(running.querySelector('.time'), view).toBeNull();
+        expect(running.querySelector('.time-location > .progress-bar-row'), view).not.toBeNull();
+      }
+      // Column view draws it so below the title too, so its rows are the default's exactly.
+      expect(render('column', config).innerHTML).toBe(
         render('column', { ...config, time_position: 'below' }).innerHTML,
       );
     });
@@ -323,13 +404,42 @@ describe('time_position', () => {
       expect(on.length).toBeGreaterThan(0);
       expect(on.map((body) => body.outerHTML)).toEqual(off.map((body) => body.outerHTML));
     });
+
+    it("keeps a merged row's labels before the title, as the scrolling title draws them", () => {
+      const shared = (entityId: string): Types.CalendarEventData => ({
+        summary: 'Team lunch',
+        start: { dateTime: '2026-06-17T11:00:00.000Z' },
+        end: { dateTime: '2026-06-17T12:00:00.000Z' },
+        _entityId: entityId,
+      });
+      const entities = [
+        { entity: 'calendar.c0', label: 'mdi:star' },
+        { entity: 'calendar.c1', label: '🎾' },
+      ];
+      const config = { filter_duplicates: true, entities };
+      const events = [shared('calendar.c0'), shared('calendar.c1')];
+      const lunch = (container: HTMLElement) =>
+        bodies(container).find((body) => titleOf(body) === 'Team lunch')!;
+      const summary = lunch(
+        render('list', { ...config, time_position: 'title' }, events),
+      ).querySelector('.summary-row > .summary')!;
+      expect([...summary.children].map((child) => child.className)).toEqual([
+        'label-icon',
+        'calendar-label label-emoji',
+        'event-title  title-scrollable',
+      ]);
+      const scrolling = lunch(
+        render('list', { ...config, scroll_long_titles: true }, events),
+      ).querySelector('.summary-row > .summary')!;
+      expect(withoutFlexWhitespace(summary)).toBe(withoutFlexWhitespace(scrolling));
+    });
   });
 
   /**
-   * Both renders of every row, held against each other. Each configuration is chosen to
-   * draw a different shape of time row, or a different neighbor for it.
+   * Both renders of every row, held against each other. Each configuration is chosen to draw a
+   * different shape of time row, or a different neighbor for it.
    */
-  describe('moves the time row and nothing else', () => {
+  describe('changes nothing else', () => {
     const LABELED: Record<string, unknown> = {
       entities: [{ entity: 'calendar.personal', label: 'mdi:star' }],
     };
@@ -342,7 +452,7 @@ describe('time_position', () => {
       ['all-day badge on the title', { allday_badge: 'title' }],
       ['no now indicator', { show_now_indicator: false }],
       ['descriptions', { show_description: true }],
-      ['title weather', { weather: { entity: 'weather.home', position: 'event' } }],
+      ['weather', { weather: { entity: 'weather.home', position: 'both' } }],
       ['scrolling titles', { scroll_long_titles: true }],
       ['a title line limit', { title_max_lines: 1, time_max_lines: 1 }],
       ['an icon label', LABELED],
@@ -350,117 +460,136 @@ describe('time_position', () => {
       ['empty days', { show_empty_days: true, days_to_show: 5 }],
       ['links', { open_links: true }],
     ];
+    const CASES = CORPUS.flatMap(([name, overrides]) =>
+      [false, true].map((tappable) => [name, tappable, overrides] as const),
+    );
 
-    it.each(
-      CORPUS.flatMap(([name, overrides]) =>
-        (['list', 'column'] as const).flatMap((view) =>
-          [false, true].map((tappable) => [name, view, tappable, overrides] as const),
-        ),
-      ),
-    )('%s, %s view, tappable %s', (_name, view, tappable, overrides) => {
-      const below = bodies(render(view, overrides, WITH_DESCRIPTION, tappable));
-      const title = bodies(
-        render(view, { ...overrides, time_position: 'title' }, WITH_DESCRIPTION, tappable),
-      );
-      expect(title).toHaveLength(below.length);
+    it.each(CASES)(
+      'column view, %s, tappable %s: the time on the title line without its clock',
+      (_name, tappable, overrides) => {
+        const below = bodies(render('column', overrides, WITH_DESCRIPTION, tappable));
+        // The title beside a time scrolls, so its row is held against the scrolling default.
+        const scrolling = bodies(
+          render('column', { ...overrides, scroll_long_titles: true }, WITH_DESCRIPTION, tappable),
+        );
+        const title = bodies(
+          render('column', { ...overrides, time_position: 'title' }, WITH_DESCRIPTION, tappable),
+        );
+        expect(title).toHaveLength(below.length);
+        expect(scrolling).toHaveLength(below.length);
 
-      const withTime = below.filter((body) =>
-        body.querySelector(':scope > .time-location > .time'),
-      );
-      let movedRows = 0;
-      below.forEach((before, index) => {
-        const after = title[index];
-        const label = `${titleOf(before)} (${index})`;
+        let movedRows = 0;
+        title.forEach((after, index) => {
+          const label = `${titleOf(after)} (${index})`;
+          if (!after.classList.contains('time-beside-title')) {
+            // Nothing beside the title: the row is the default's, byte for byte.
+            expect(below[index].querySelector('.time'), label).toBeNull();
+            expect(after.outerHTML, label).toBe(below[index].outerHTML);
+            return;
+          }
+          movedRows += 1;
+          const before = scrolling[index].cloneNode(true) as HTMLElement;
+          const rest = after.cloneNode(true) as HTMLElement;
 
-        if (!after.classList.contains('time-beside-title')) {
-          // Nothing to move: the row is the default's, byte for byte.
-          expect(before.querySelector('.time'), label).toBeNull();
-          expect(after.outerHTML, label).toBe(before.outerHTML);
-          return;
+          // The time is the one below the title, less its clock, and less the empty time a
+          // countdown alone leaves.
+          const original = before.querySelector(':scope > .time-location > .time')!;
+          expect(original, label).not.toBeNull();
+          const expected = original.cloneNode(true) as HTMLElement;
+          expected.querySelector(':scope > .time-actual > ha-icon')?.remove();
+          expected.querySelector(':scope > .time-actual:empty')?.remove();
+          const time = rest.querySelector(':scope > .summary-row > .title-aside > .time')!;
+          expect(withoutFlexWhitespace(time), label).toBe(withoutFlexWhitespace(expected));
+
+          // The rest of the row, with the time taken out of both and its box gone, is the
+          // scrolling default's.
+          original.remove();
+          const aside = rest.querySelector(':scope > .summary-row > .title-aside')!;
+          aside.querySelector(':scope > .time')!.remove();
+          expect(aside.children, label).toHaveLength(0);
+          aside.remove();
+          rest.classList.remove('time-beside-title');
+          expect(withoutFlexWhitespace(rest), label).toBe(withoutFlexWhitespace(before));
+        });
+
+        // Every row with a time or a countdown moved, and only those.
+        const withTime = below.filter((body) =>
+          body.querySelector('.time-location > .time > .time-actual:not(:empty), .time-countdown'),
+        );
+        expect(movedRows).toBe(withTime.length);
+        // Every configuration here draws a time somewhere, bar one: column view's bar has a
+        // row of its own, so with times off and no countdown nothing is left to move.
+        if (overrides.show_time === false && !overrides.show_countdown) {
+          expect(withTime).toEqual([]);
+        } else {
+          expect(withTime.length).toBeGreaterThan(0);
         }
-        movedRows += 1;
+      },
+    );
 
-        // The row that moved is the one that was below, unchanged.
-        const time = after.querySelector(':scope > .title-time-row > .time')!;
-        const original = before.querySelector(':scope > .time-location > .time')!;
-        expect(original, label).not.toBeNull();
-        expect(time.nextElementSibling, label).toBeNull();
-        expect(normalize(time.outerHTML), label).toBe(normalize(original.outerHTML));
+    it.each(CASES)(
+      "list view, %s, tappable %s: every body column view's",
+      (_name, tappable, overrides) => {
+        // Column view draws its weather as a row of its own, list view as a badge on the title
+        // line, so the badge's case is held to list view's own badge above instead.
+        const config = { ...overrides, time_position: 'title' };
+        delete (config as { weather?: unknown }).weather;
+        const list = bodies(render('list', config, WITH_DESCRIPTION, tappable));
+        const column = bodies(render('column', config, WITH_DESCRIPTION, tappable));
+        expect(list.length).toBeGreaterThan(4);
 
-        // And with it taken out of both, and the row that held it unwrapped, the rest of the
-        // row is the default's: the title row included, weather badge and all.
-        const rest = after.cloneNode(true) as HTMLElement;
-        const restBefore = before.cloneNode(true) as HTMLElement;
-        const outer = rest.querySelector(':scope > .title-time-row')!;
-        outer.querySelector(':scope > .time')!.remove();
-        outer.replaceWith(...outer.childNodes);
-        restBefore.querySelector(':scope > .time-location > .time')!.remove();
-        rest.classList.remove('time-beside-title');
-        expect(normalize(rest.outerHTML), label).toBe(normalize(restBefore.outerHTML));
-      });
-
-      // Every row with a time row moved it, and only those.
-      expect(movedRows).toBe(withTime.length);
-      // Every configuration here draws a time row somewhere, so a zero is a broken render,
-      // bar one: column view's bar has a row of its own, so with times off nothing is left
-      // to move, which the first branch above has just checked row by row.
-      if (view === 'column' && overrides.show_time === false && !overrides.show_countdown) {
-        expect(withTime).toEqual([]);
-      } else {
-        expect(withTime.length).toBeGreaterThan(0);
-      }
-    });
-  });
-
-  describe('a merged row with several glyph labels', () => {
-    /** The same event from each calendar, so `filter_duplicates` merges them into one row. */
-    function shared(entityId: string): Types.CalendarEventData {
-      return {
-        summary: 'Team lunch',
-        start: { dateTime: '2026-06-17T11:00:00.000Z' },
-        end: { dateTime: '2026-06-17T12:00:00.000Z' },
-        _entityId: entityId,
-      };
-    }
-
-    function roomFor(labels: string[], view: AgendaView = 'list'): string | null {
-      const entities = labels.map((label, index) => ({ entity: `calendar.c${index}`, label }));
-      const container = render(
-        view,
-        { time_position: 'title', filter_duplicates: true, entities },
-        entities.map(({ entity }) => shared(entity)),
-      );
-      // One merged row; column view draws its empty days beside it.
-      const lunch = bodies(container).filter((body) => titleOf(body) === 'Team lunch');
-      expect(lunch).toHaveLength(1);
-      return lunch[0].querySelector('.title-time-row')!.getAttribute('style');
-    }
-
-    it('widens the title room by every glyph after the first', () => {
-      expect(roomFor(['mdi:star', 'mdi:heart'])).toBe(
-        '--calendar-card-title-label-room: calc(1em + 4px)',
-      );
-      expect(roomFor(['🎾', 'mdi:star', '🎉'], 'column')).toBe(
-        '--calendar-card-title-label-room: calc(2.25em + 8px)',
-      );
-    });
-
-    it('adds nothing for one glyph, which hangs in the indent, or for prose', () => {
-      expect(roomFor(['mdi:star', 'Work'])).toBeNull();
-      expect(roomFor(['Anna', 'Ben'])).toBeNull();
-    });
-
-    it('is drawn only beside a moved time', () => {
-      const entities = [
-        { entity: 'calendar.c0', label: 'mdi:star' },
-        { entity: 'calendar.c1', label: 'mdi:heart' },
-      ];
-      const container = render('list', { filter_duplicates: true, entities }, [
-        shared('calendar.c0'),
-        shared('calendar.c1'),
-      ]);
-      expect(container.querySelector('.title-time-row')).toBeNull();
-      expect(container.querySelector('.summary')!.hasAttribute('style')).toBe(false);
-    });
+        // Keyed by title: the two views order their days differently. A title column view
+        // draws more than once is a multi-day event split into a segment per day, whose time
+        // reads differently in each view, or an empty day, which column view draws in every
+        // empty column; that is the views' doing, not this option's.
+        const count = new Map<string, number>();
+        for (const body of column) count.set(titleOf(body), (count.get(titleOf(body)) ?? 0) + 1);
+        const byTitle = new Map(column.map((body) => [titleOf(body), body]));
+        const skipped = new Set<string>();
+        for (const body of list) {
+          const key = titleOf(body);
+          if (count.get(key) !== 1) {
+            skipped.add(key);
+            continue;
+          }
+          const twin = byTitle.get(key)!;
+          expect(normalize(body.outerHTML), key).toBe(normalize(twin.outerHTML));
+        }
+        // Only the fixtures' multi-day event, which column view always splits, and an empty
+        // day, so a broken key cannot skip the whole comparison.
+        expect([...skipped].sort()).toEqual(
+          overrides.show_empty_days ? ['Conference', '✓ No events'] : ['Conference'],
+        );
+      },
+    );
   });
 });
+
+/**
+ * Markup with every whitespace-only text node directly inside a flex container removed, then
+ * normalized. A flex container draws no whitespace between its items, so those nodes are not
+ * on screen, and the title-line templates are written without the line breaks the default
+ * templates keep between their tags. Whitespace anywhere else, inline text above all, is left as
+ * it is. The classes are the flex containers of an event body in list and column view.
+ */
+function withoutFlexWhitespace(element: Element): string {
+  const FLEX = [
+    '.event-content',
+    '.summary-row',
+    '.summary-scroll',
+    '.title-aside',
+    '.time',
+    '.time-actual',
+    '.time-location',
+  ].join(', ');
+  const clone = element.cloneNode(true) as Element;
+  for (const container of [
+    ...(clone.matches(FLEX) ? [clone] : []),
+    ...clone.querySelectorAll(FLEX),
+  ]) {
+    for (const node of [...container.childNodes]) {
+      if (node.nodeType === Node.TEXT_NODE && !node.textContent!.trim()) node.remove();
+    }
+  }
+  return normalize(clone.outerHTML);
+}

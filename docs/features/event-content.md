@@ -320,32 +320,35 @@ refers to.
 
 ### Time Beside the Title
 
-`time_position: title` draws an event's time at the end of its title's line, wherever the row
-has room for both:
+`time_position: title` puts an event's time at the end of its title's line, on every row and
+at any width:
 
 ```yaml
 time_position: title # below, the default, keeps the time under the title
 ```
 
-The whole time row moves: the clock, the "Now" of an event under way, the all-day words or an
-[all-day badge on the time](#where-the-pill-goes), and in list view a countdown or progress bar
-that follows the time. Column view folds its countdown into the time text, so it moves with
-it. Everything else stays below the title, in its order: the location, the description, and in
-column view the progress bar's own row and the weather row. A
-[weather badge on the title](/features/weather#weather-display-positions) stays beside the title
-at any width, as it does without the option: on a narrow card the title narrows rather than the
-badge moving away from it. The time comes after the badge.
+The time comes without its clock: the time or the all-day words, an
+[all-day badge on the time](#where-the-pill-goes), and the green "Now" of an event under way. A
+[countdown](#countdown-display) follows it after a dot, "14:00 - 16:00 · in 4 hours", in list
+view as column view always draws it, and with [`show_time: false`](#hiding-the-time-row) the
+countdown alone sits beside the title. In list view a
+[weather badge on the title](/features/weather#weather-display-positions) comes before the
+time, set off from it by the same dot: "14° · 14:00 - 16:00".
 
-There is no width to set. The time joins the title only while about 8em of title still fits
-beside it, which is 112px at the default `event_font_size`, plus the room an icon or emoji
-label and a weather badge take. Where it does not, the time stays on a line of its own below
-the title, laid out as it is without the option. Each row decides for itself, so on one card a
-short time can move up while a long one, or one followed by a countdown, stays below. As one measured example, an
-unlabeled event with a 24-hour `10:00 - 12:00`, no countdown and the default sizes needs about
-235px of event width.
+Everything else stays below the title, in its order: the
+[progress bar](#progress-bar-display), which takes a row of its own in list view as it does in
+column view, column view's weather row, the location and the description. A row with no time
+and no countdown to show, such as an empty day, keeps its usual layout.
 
-A column is usually narrower than that, so a column card mostly keeps the time below even with
-the option on. Each layout can set it on its own:
+The time takes the room it needs, up to about 60% of the line. A longer time wraps inside that
+room, at the end of the line, so the title keeps about 40% of it, apart from the cases below.
+The title has the rest
+and stays on one line: it [scrolls](#scrolling-long-titles) whenever it is too long for its
+room, whatever `scroll_long_titles` says, and with the operating system's reduce-motion setting
+on it ends in "…" instead. [`title_max_lines`](#limiting-lines-per-field) does not apply to a
+title beside a time, as it does not to a scrolling one.
+
+Each layout can set it on its own:
 
 ```yaml
 list:
@@ -354,27 +357,26 @@ column:
   time_position: below # the columns stay as they are
 ```
 
-A few things differ once the option is on:
+A few things to know before turning it on:
 
-- In column view, an event under way whose time stays below the title shows its progress bar
-  under the time rather than above it.
-- A time with nothing after it on its line stops 12px short of the row's end, where a countdown
-  would end, so a time long enough to fill a whole row wraps a little sooner.
-- A text label counts toward the title's 8em, so a long one leaves less of the title beside the
-  time. With `scroll_long_titles` on, a text label too long for its line wraps beside the title,
-  and a time beside it lines up with the label's first line rather than with the title.
-- An all-day badge with more text after it, such as a countdown, sits a few pixels high beside
-  the title.
-- With `event_icon_vertical_alignment` set to `middle` or `bottom` and a `time_icon_size` taller
-  than a line of the time, the time text sits level with the top of the clock instead, below the
-  title as well as beside it.
-- Unless `scroll_long_titles` is on, a title with an icon or picture label sits about a pixel
-  above or below the time beside it, depending on the browser, because the title is centered on
-  its label.
-- `title_max_lines` and `scroll_long_titles` work on the title in whatever width the time
-  leaves it.
-
-Grid view ignores the option: a grid block lays out its own rows.
+- Narrow events give both sides little room. In a column at the default `min_day_width`, about
+  145px wide, the title keeps about 50px, a word or so at a time, and a time with a countdown
+  wraps over three or four lines.
+- The time wraps between its words, and list view's weather badge counts toward its 60%. Where
+  the badge, the dot and the time's longest word need more than that, they take it and the
+  title gets less: on a 240px list card with the badge on, some titles keep only a letter or
+  two.
+- An [all-day badge on the time](#where-the-pill-goes) with a countdown after it wraps as it
+  does in column view, the countdown under the pill, and on a narrow row the pill is shortened
+  with "…".
+- A text label sits in the title's room, so a long one wraps beside the title and leaves less
+  of it to read, in a narrow column only a letter. An icon, an emoji or a picture takes the
+  least room.
+- Beside a text label that wraps, the title sits on the label's first line, level with the
+  time, rather than centered on the label.
+- Beside a title drawn in an [all-day pill](#where-the-pill-goes), the time sits up to about a
+  pixel and a half above the pill's text, depending on the browser, because the pill lines up
+  with the row by its box rather than by its text.
 
 ### Removing Country Names
 
@@ -578,6 +580,8 @@ scroll_long_titles: true
 Off by default, because it changes titles from wrapping to a single line and because motion
 on an always-on dashboard is a matter of taste. Only titles that genuinely overflow move;
 one that already fits stays still. Empty-day messages and Grid all-day banners stay static.
+With [`time_position: title`](#time-beside-the-title) a title with the time beside it scrolls
+this way whatever `scroll_long_titles` says.
 
 Calendar labels stay stationary. A short label keeps its natural single-line width when
 the complete label run leaves room for useful title text. Longer or combined labels keep
@@ -899,7 +903,7 @@ progress_bar_height: '10px'
 progress_bar_width: '80px'
 ```
 
-`progress_bar_width` has no shipped default in list and column view. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to the two views — and a [column exception](/features/column-view#overriding-options-in-column-view) gives them different widths. Grid view is the exception: it draws the bar at `100%` of the block, in the block's accent color, whatever the top-level `progress_bar_width` and `progress_bar_color` say, until a `time_grid:` block sets its own. See [Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
+`progress_bar_width` has no shipped default in list and column view. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. With [`time_position: title`](#time-beside-the-title) list view draws it on a row of its own too, at 80% of the event's width. Setting a width replaces both, so a single value applies to the two views — and a [column exception](/features/column-view#overriding-options-in-column-view) gives them different widths. Grid view is the exception: it draws the bar at `100%` of the block, in the block's accent color, whatever the top-level `progress_bar_width` and `progress_bar_color` say, until a `time_grid:` block sets its own. See [Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
 
 `progress_bar_height` ships as `0.75em`, three quarters of the time text, so the bar follows
 `time_font_size` whichever form that takes. A height you set in `em` is measured against the

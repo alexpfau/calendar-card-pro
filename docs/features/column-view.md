@@ -137,7 +137,7 @@ What decides the outcome is whether the block mentions an option at all, not wha
 
 The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
 
-[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view. It moves an event's time up beside its title only where about 8em of title still fits next to it, and a column near the default `min_day_width` is narrower than that, so narrow columns keep the time below the title even with the option on. Wide columns take it like list rows do. To leave the columns exactly as they are, set it in `list:` alone.
+[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view. It puts an event's time on the title's line in every row, in up to about 60% of it, and a column near the default `min_day_width` has little of either to give: the time wraps over two or three lines and the title scrolls through a few words at a time. To leave the columns exactly as they are, set it in `list:` alone.
 
 ## 🔀 Options That Start From a Different Default
 
@@ -248,7 +248,7 @@ column:
 
 Left unset entirely, each layout keeps the width that suits it — which is usually the right answer, since a width tuned for the column's own row is often too wide for the list view's time row.
 
-With [`time_position: title`](/features/event-content#time-beside-the-title) the time sits in the title's row, so the bar's row comes after it: under the title and the time where they share a line, and under the time where the time stays below the title.
+With [`time_position: title`](/features/event-content#time-beside-the-title) the time sits on the title's line, so the bar's row comes directly under both.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
 

@@ -619,6 +619,26 @@ export function resolveTimePosition(value: unknown): TimePosition {
   return DEFAULT_TIME_POSITION;
 }
 
+/**
+ * Whether titles on the card can scroll: in every view with `scroll_long_titles`, and in list and
+ * column view with `time_position: title`, which scrolls each title it puts a time beside
+ * whatever `scroll_long_titles` says. The card measures and animates titles only when this is
+ * true; the leaf decides which titles take part.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when a title on the card can scroll
+ */
+export function titlesScroll(
+  config: { scroll_long_titles?: unknown; time_position?: unknown },
+  view: string,
+): boolean {
+  return (
+    Boolean(config.scroll_long_titles) ||
+    (view !== 'grid' && resolveTimePosition(config.time_position) === 'title')
+  );
+}
+
 /** Where `allday_badge` can put the pill. */
 export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
 
