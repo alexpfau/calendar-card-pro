@@ -1507,6 +1507,16 @@ the gesture began on.
      window still share one request rather than each refetching at their own times
    - Deterministic cache keys based on configuration
    - Calendars requested in parallel, each bounded by a timeout
+   - On a cold load, with no event drawn yet on any of its days, each calendar is drawn as it
+     answers: `fetchEvents` reports each one as it settles, the shared in-flight request keeps
+     those answers for any caller that joins it late, and the card commits them in the next
+     task (`_schedulePartialCommit`), once the render's own test (`Render.drawsEvent`) finds an
+     event among the days it draws. Cold is judged by the same test over what the card draws now
+     on the load's days (`_drawsEventOn`), not by the dates the events were loaded for, since an
+     all-day trip or a timed event running past midnight is drawn beyond them. A load with an
+     event drawn on one of its days, the next day at midnight or a configuration changed in place
+     on the same dates, keeps the events drawn until every calendar has answered.
+     Failures, the cache and the deadlines move only with the full result
 
 2. **Efficient Rendering**:
    - Pure rendering functions to improve performance

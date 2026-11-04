@@ -224,6 +224,13 @@ interface InFlightRequest {
    * is stored already due; see `expireStoredCalendars`.
    */
   expired: boolean;
+  /**
+   * Each calendar's answer as it arrives, before the request settles: its raw events, or null
+   * for a calendar that failed. Kept so a caller joining late sees what came before it.
+   */
+  settled: Map<string, Types.CalendarEventData[] | null>;
+  /** Callers to tell each time a calendar answers (`fetchEventData`'s `onPartial`). */
+  watchers: Set<() => void>;
 }
 
 /**
@@ -390,6 +397,10 @@ export function readEventSnapshot(
  * @param afterWrite For a `reload`, the generation of the write it refreshes for; see
  *   `advanceWriteGeneration`. Ignored by every other load
  * @param store Where the window's cache entry lives
+ * @param onPartial Told, while the request is still out, each time another calendar has
+ *   answered: the events of every calendar that has, processed for this caller. Never told
+ *   about a request that ends at the cache, nor before some calendar has answered with events;
+ *   whether those events put anything on screen is the caller's to judge
  * @returns Promise resolving to calendar event data array
  */
 export async function fetchEventData(
@@ -400,6 +411,7 @@ export async function fetchEventData(
   failureCountHint = 0,
   afterWrite?: number,
   store: CacheStore = 'persistent',
+  onPartial?: (partial: Types.EventFetchResult) => void,
 ): Promise<Types.EventFetchResult> {
   const request = resolveRequest(hass, config, instanceId, store);
 
@@ -420,9 +432,32 @@ export async function fetchEventData(
     rawFetch = startRawFetch(hass, config, request, failureCountHint);
   }
 
-  const entry = await rawFetch.promise;
+  const inFlight = rawFetch;
+  const watcher = onPartial
+    ? () => {
+        const raw = [...inFlight.settled.values()].flatMap((events) => events ?? []);
+        if (raw.length === 0) return;
+        const now = Date.now();
+        onPartial({
+          events: processRawEvents(raw, config, request.firstDayOfWeek),
+          failedEntities: [],
+          fetchedAt: now,
+          loadedAt: now,
+          nextAttemptAt: now + getCacheDuration(config),
+        });
+      }
+    : undefined;
+  if (watcher) {
+    inFlight.watchers.add(watcher);
+    if (inFlight.settled.size > 0) watcher();
+  }
 
-  return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+  try {
+    const entry = await inFlight.promise;
+    return resultFromEntry(entry, entry.events, config, request.firstDayOfWeek);
+  } finally {
+    if (watcher) inFlight.watchers.delete(watcher);
+  }
 }
 
 /**
@@ -522,7 +557,9 @@ function startRawFetch(
     store: request.store,
     calendars: uniqueEntityIds(config.entities) as ReadonlyArray<string>,
     expired: false,
-  } as InFlightRequest;
+    settled: new Map(),
+    watchers: new Set(),
+  } as unknown as InFlightRequest;
   inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
     () => {
       if (inFlightRawFetches.get(request.signature) === inFlight) {
@@ -575,6 +612,10 @@ async function fetchRawEvents(
     hass,
     entities,
     request.window,
+    (entityId, events) => {
+      inFlight.settled.set(entityId, events);
+      for (const watcher of [...inFlight.watchers]) watcher();
+    },
   );
 
   const now = Date.now();
@@ -2717,45 +2758,55 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
  * @param hass Home Assistant instance
  * @param entities Configured calendars; a calendar listed more than once is fetched once
  * @param timeWindow Window to request
+ * @param onSettled Told as each calendar answers, before the others have: its events, or
+ *   null when it failed
  * @returns The events of every calendar that answered, and the ids of those that did not
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
+  onSettled?: (entityId: string, events: Types.CalendarEventData[] | null) => void,
 ): Promise<Pick<Types.EventFetchResult, 'events' | 'failedEntities'>> {
   const entityIds = uniqueEntityIds(entities);
   const query = `start=${timeWindow.start.toISOString()}&end=${timeWindow.end.toISOString()}`;
 
   const outcomes = await Promise.all(
-    entityIds.map(async (entityId) => {
-      const path = `calendars/${entityId}?${query}`;
-      Logger.info(`Fetching calendar events with path: ${path}`);
+    entityIds
+      .map(async (entityId) => {
+        const path = `calendars/${entityId}?${query}`;
+        Logger.info(`Fetching calendar events with path: ${path}`);
 
-      try {
-        const events = await withTimeout(
-          hass.callApi('GET', path),
-          Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
-          `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
-        );
+        try {
+          const events = await withTimeout(
+            hass.callApi('GET', path),
+            Constants.TIMING.CALENDAR_FETCH_TIMEOUT,
+            `${entityId} did not answer within ${Constants.TIMING.CALENDAR_FETCH_TIMEOUT / 1000}s`,
+          );
 
-        if (!events || !Array.isArray(events)) {
-          Logger.warn(`Invalid response for ${entityId}`);
+          if (!events || !Array.isArray(events)) {
+            Logger.warn(`Invalid response for ${entityId}`);
+            return { entityId, events: null };
+          }
+
+          return {
+            entityId,
+            events: (events as Types.CalendarEventData[]).map((event) => ({
+              ...event,
+              _entityId: entityId,
+            })),
+          };
+        } catch (error) {
+          Logger.error(`Failed to fetch events for ${entityId}:`, error);
           return { entityId, events: null };
         }
-
-        return {
-          entityId,
-          events: (events as Types.CalendarEventData[]).map((event) => ({
-            ...event,
-            _entityId: entityId,
-          })),
-        };
-      } catch (error) {
-        Logger.error(`Failed to fetch events for ${entityId}:`, error);
-        return { entityId, events: null };
-      }
-    }),
+      })
+      .map((pending) =>
+        pending.then((outcome) => {
+          onSettled?.(outcome.entityId, outcome.events);
+          return outcome;
+        }),
+      ),
   );
 
   const allEvents: Types.CalendarEventData[] = [];
