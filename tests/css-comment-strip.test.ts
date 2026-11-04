@@ -281,11 +281,12 @@ describe('stripComments', () => {
     expect(saved).toBeGreaterThan(26_000);
     expect(saved).toBeLessThan(191_000);
     // The time beside the title moved the ceiling last, from 186,000 to 191,000: the notes on why
-    // each of its rules keeps a row whose time drops under the title as it was, why the weather
-    // badge stays centered, why the time row's baseline comes from its tallest text and which
-    // rows that bet loses, and why a row whose time moved keeps its ink shift and its first
-    // detail row's 2px. The reading went 183,042 to 188,100, taken with stripComments after the
-    // last comment in the change was written.
+    // each of its rules keeps a row whose time drops under the title as it was, why the title row
+    // is left whole so its weather badge never leaves the title, why the time row's baseline
+    // comes from its tallest text and which rows that bet loses, why an icon-labeled title stays
+    // a pixel off it, and why a row whose time moved keeps its ink shift and its first detail
+    // row's 2px. The reading went 183,042 to 188,100 with the option, and to 189,078 once the
+    // title row kept its badge, taken with stripComments after the last comment was written.
     //
     // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and

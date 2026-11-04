@@ -546,7 +546,7 @@ const VARIANTS: Array<[string, Record<string, unknown>]> = [
   ['scrolling titles', { scroll_long_titles: true }],
   ['all-day badge', { allday_badge: 'time' }],
   ['all-day pill', { allday_badge: 'title' }],
-  // The time row moved into the title row: its own size has to stay its own there, beside a
+  // The time row moved beside the title row: its own size has to stay its own there, beside a
   // title sized by another option, and the ink-shift spacer that keys on the placement has to
   // be drawn. Grid ignores the option, so its passes repeat the base.
   ['time beside the title', { time_position: 'title' }],

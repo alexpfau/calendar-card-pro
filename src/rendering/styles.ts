@@ -2090,7 +2090,7 @@ export const cardStyles = css`
      List and column view only. A grid block's text sits at the top of a block as tall as
      the event, which no padding can center.
 
-     With time_position: title the time row sits in the title row instead, so a row whose
+     With time_position: title the time row sits beside the title row instead, so a row whose
      only detail was its time leaves .time-location empty. It still has a time row, and keeps
      the shift through the time-beside-title class: without it the title moved about 1.8px on
      every such row. The tappable list row's .event-button wrapper is left out here as it is
@@ -2103,9 +2103,14 @@ export const cardStyles = css`
   }
 
   td.event > .event-content:has(> .time-location > *) > .summary-row > .summary,
-  td.event > .event-content.time-beside-title > .summary-row > .summary,
+  td.event > .event-content.time-beside-title > .title-time-row > .summary-row > .summary,
   .column-events > .event > .event-content:has(> .time-location > *) > .summary-row > .summary,
-  .column-events > .event > .event-content.time-beside-title > .summary-row > .summary {
+  .column-events
+    > .event
+    > .event-content.time-beside-title
+    > .title-time-row
+    > .summary-row
+    > .summary {
     padding-top: calc(0.2em - var(--calendar-card-event-ink-shift));
   }
 
@@ -2725,57 +2730,65 @@ export const cardStyles = css`
 
   /* ===== TIME BESIDE THE TITLE =====
 
-     time_position: title moves the whole .time row, unchanged, to the end of .summary-row,
-     after the title and after a title-placement weather badge, and marks .event-content with
-     time-beside-title. Only a row that has a time row to move carries the class, so an empty
-     day or a row with no time keeps every rule above and nothing here reaches it. Off, the
-     option leaves the markup as it was and none of these selectors match.
+     time_position: title moves the whole .time row, unchanged, from under the title to beside
+     it: .summary-row and the time become the two items of .title-time-row, and .event-content
+     is marked time-beside-title. Only a row that has a time row to move takes either, so an
+     empty day or a row with no time keeps every rule above and nothing here reaches it. Off,
+     the option leaves the markup as it was and none of these selectors match.
 
-     The title row wraps. The time shares the title's line while about 8em of title still fits
-     beside it, and otherwise drops to a line of its own. Nothing in CSS tells those two states
-     apart, so each rule serves both, and most of them exist so that a dropped row reads as
-     today's row under the title. Each of those was found necessary by taking it out alone and
-     comparing dropped rows with today's pixel for pixel; tests/stylesheet.test.ts pins every
-     declaration here. Logical properties throughout, so a right-to-left card puts the time at
-     the left with nothing of its own. */
-  .time-beside-title > .summary-row {
+     .summary-row is the title row every event draws, unchanged, with list view's weather badge
+     in it, and it keeps every rule it has, so it never wraps: the badge stays beside the title
+     at any width, and on a narrow event the title narrows beside it, as it always has. Only the
+     outer row wraps. The time shares the title's line while the title row's own width, about
+     8em of title plus its labels and its badge, still fits beside it, and otherwise drops to a
+     line of its own. Nothing in CSS tells those two states apart, so each rule serves both,
+     and most of them exist so that a dropped row reads as today's row under the title. Each of
+     those was found necessary by taking it out alone and comparing dropped rows with today's
+     pixel for pixel; tests/stylesheet.test.ts pins every declaration here. Logical properties
+     throughout, so a right-to-left card puts the time at the left with nothing of its own. */
+  .time-beside-title > .title-time-row {
+    display: flex;
     flex-wrap: wrap;
-    /* The time's text on the title's first baseline when they share a line. A line the time
-       holds alone has nothing to align with, so baseline places it where center did. */
+    /* The time's text on the title's first baseline when they share a line: the title row
+       reports its title's, the first item in it. A line the time holds alone has nothing to
+       align with, so baseline places it where center did.
+
+       A title led by an icon or picture label is middle-aligned with the label, which sets its
+       text about a pixel off its line's baseline, up or down by engine, and a time beside it
+       sits that far from the text. That is accepted: aligning such a title on the baseline in
+       this mode moved every one of them in the pixel comparison, under the time as well as
+       beside it. */
     align-items: baseline;
     row-gap: 0;
-    /* The space between the title and the time, as a gap rather than as the title's 12px end
-       margin: a gap falls only between two items on one line, and a margin stays when the time
-       drops, which wrapped the title 12px early. */
+    /* The space between the title row and the time. A gap falls only between two items on one
+       line, so a time on a line of its own takes nothing from the title's width. */
     column-gap: 8px;
   }
 
-  /* The title and its labels keep at least 8em at the event font size before the time gives
-     way. The basis is the content box, so a single label hanging in the start padding adds its
-     own width on top; the further glyph labels of a merged row arrive as
-     --calendar-card-title-label-room, set where they are drawn. A grow of 1000 against the
-     time's 1 hands a shared line's free space to the title. */
-  .time-beside-title > .summary-row > .summary {
-    flex: 1000 1 calc(8em + var(--calendar-card-title-label-room, 0px));
+  /* The title row asks for the room its content takes, which the rule below holds to about 8em
+     of title, so the time joins only where the title keeps that beside its labels and badge. A
+     grow of 1000 against the time's 1 hands a shared line's free space to the title, and on a
+     line of its own the row fills the event as width: 100% did. min-width: 0 lets it shrink
+     with a narrow event as it always has instead of pushing past it. */
+  .time-beside-title > .title-time-row > .summary-row {
+    flex: 1000 1 auto;
     min-width: 0;
+    width: auto;
   }
 
-  .time-beside-title > .summary-row > .summary:has(+ .time) {
-    margin-inline-end: 0;
-  }
-
-  /* The list view's weather badge stays where it was. Centered, as the row's center alignment
-     put it: in baseline alignment it rose 2 to 4px, its leading icon being what names its
-     baseline. Its start margin gives way to the gap above, while the title keeps its 12px end
-     margin in front of it, so the two stay 20px apart and the title wraps where it did. */
-  .time-beside-title > .summary-row > .event-weather {
-    align-self: center;
-    margin-inline-start: 0;
+  /* The width the title asks for: 8em at the event font size, which is the summary's own, so the
+     em is measured where it is declared. It is the content box, so a single label hanging in
+     the start padding adds its own width on top; the further glyph labels of a merged row arrive
+     as --calendar-card-title-label-room, set where they are drawn. Asked for, not taken: the
+     summary is a flex item with a basis of 0, so inside its row it grows and shrinks exactly as
+     it did, and the width only decides the size the row reports for itself. */
+  .time-beside-title > .title-time-row > .summary-row > .summary {
+    width: calc(8em + var(--calendar-card-title-label-room, 0px));
   }
 
   /* The time row grows only when it is alone on its line, through its grow of 1 against the
-     title's 1000, and then fills the line as width: 100% did. */
-  .time-beside-title > .summary-row > .time {
+     title row's 1000, and then fills the line as width: 100% did. */
+  .time-beside-title > .title-time-row > .time {
     flex: 1 1 auto;
     min-width: 0;
     width: auto;
@@ -2789,7 +2802,7 @@ export const cardStyles = css`
      after it keeps the margin: on a shared line it ends where a countdown would, and on a line
      of its own it wraps 12px sooner than below the title, which only a time as wide as the row
      can show. */
-  .time-beside-title > .summary-row > .time:has(> .time-actual + *) {
+  .time-beside-title > .title-time-row > .time:has(> .time-actual + *) {
     margin-inline-end: 0;
   }
 
@@ -2807,16 +2820,16 @@ export const cardStyles = css`
      under middle or bottom icon alignment: the time text then sits at the clock's top, below
      the title as well as beside it. */
   .time-beside-title
-    > .summary-row
+    > .title-time-row
     > .time
     > .time-actual:not(:has(> .allday-badge))
     > :not(ha-icon),
   .time-beside-title
-    > .summary-row
+    > .title-time-row
     > .time
     > .time-actual:has(> .allday-badge):not(:has(> span:not(.allday-badge)))
     > .allday-badge,
-  .time-beside-title > .summary-row > .time > .time-actual:empty + .time-countdown {
+  .time-beside-title > .title-time-row > .time > .time-actual:empty + .time-countdown {
     align-self: baseline;
   }
 

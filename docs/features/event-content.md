@@ -332,14 +332,15 @@ The whole time row moves: the clock, the "Now" of an event under way, the all-da
 that follows the time. Column view folds its countdown into the time text, so it moves with
 it. Everything else stays below the title, in its order: the location, the description, and in
 column view the progress bar's own row and the weather row. A
-[weather badge on the title](/features/weather#weather-display-positions) keeps its place, and
-the time follows it.
+[weather badge on the title](/features/weather#weather-display-positions) stays beside the title
+at any width, as it does without the option: on a narrow card the title narrows rather than the
+badge moving away from it. The time comes after the badge.
 
 There is no width to set. The time joins the title only while about 8em of title still fits
 beside it, which is 112px at the default `event_font_size`, plus the room an icon or emoji
-label takes. Where it does not, the time stays on a line of its own below the title, laid out
-as it is without the option. Each row decides for itself, so on one card a short time can move
-up while a long one, or one followed by a countdown, stays below. As one measured example, an
+label and a weather badge take. Where it does not, the time stays on a line of its own below
+the title, laid out as it is without the option. Each row decides for itself, so on one card a
+short time can move up while a long one, or one followed by a countdown, stays below. As one measured example, an
 unlabeled event with a 24-hour `10:00 - 12:00`, no countdown and the default sizes needs about
 235px of event width.
 
@@ -366,6 +367,8 @@ A few things differ once the option is on:
 - With `event_icon_vertical_alignment` set to `middle` or `bottom` and a `time_icon_size` taller
   than a line of the time, the time text sits level with the top of the clock instead, below the
   title as well as beside it.
+- A title with an icon or picture label sits about a pixel above or below the time beside it,
+  depending on the browser, because the title is centered on its label.
 - `title_max_lines` and `scroll_long_titles` work on the title in whatever width the time
   leaves it.
 

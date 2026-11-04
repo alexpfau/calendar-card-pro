@@ -67,7 +67,7 @@ function bodies(container: HTMLElement): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>('.event-content')];
 }
 
-/** The bodies whose time row moved into the title row. */
+/** The bodies whose time row moved up beside the title. */
 function moved(container: HTMLElement): HTMLElement[] {
   return bodies(container).filter((body) => body.classList.contains('time-beside-title'));
 }
@@ -164,6 +164,7 @@ describe('time_position', () => {
       const container = render(view, { show_countdown: true, show_progress_bar: true });
       expect(bodies(container).length).toBeGreaterThan(4);
       expect(moved(container)).toEqual([]);
+      expect(container.querySelector('.title-time-row')).toBeNull();
       expect(container.querySelector('.summary-row > .time')).toBeNull();
     });
 
@@ -214,28 +215,34 @@ describe('time_position', () => {
       weather: { entity: 'weather.home', position: 'event' },
     };
 
-    it('puts the time row last in the list title row, after the weather badge', () => {
+    it('puts the time row after the whole title row, the weather badge kept inside it', () => {
       const container = render('list', DETAILS);
       const rows = moved(container);
       expect(rows.length).toBeGreaterThan(4);
 
       for (const body of rows) {
-        const titleRow = body.querySelector(':scope > .summary-row')!;
-        const children = [...titleRow.children].map((child) => child.className);
-        expect(children[0], titleOf(body)).toBe('summary');
-        expect(children[children.length - 1], titleOf(body)).toBe('time');
+        // The title row and the time are the only two items of the row that wraps, so the
+        // time is the one thing that can move to a line of its own.
+        const outer = body.querySelector(':scope > .title-time-row')!;
+        expect(
+          [...outer.children].map((child) => child.className),
+          titleOf(body),
+        ).toEqual(['summary-row', 'time']);
         expect(body.querySelector(':scope > .time-location > .time'), titleOf(body)).toBeNull();
       }
 
-      // A row that carries the badge, so the order above was checked against it.
+      // A row that carries the badge: it stays in the title row, after the title, as it is
+      // drawn below the time, so nothing can wrap it away from the title.
       const withWeather = rows.filter((body) =>
         body.querySelector('.summary-row > .event-weather'),
       );
       expect(withWeather.length).toBeGreaterThan(0);
       for (const body of withWeather) {
         expect(
-          [...body.querySelector('.summary-row')!.children].map((child) => child.className),
-        ).toEqual(['summary', 'event-weather', 'time']);
+          [...body.querySelector('.title-time-row > .summary-row')!.children].map(
+            (child) => child.className,
+          ),
+        ).toEqual(['summary', 'event-weather']);
       }
     });
 
@@ -245,8 +252,8 @@ describe('time_position', () => {
       const upcoming = rows.find((body) => titleOf(body) === 'Upcoming one-to-one')!;
       const dentist = rows.find((body) => titleOf(body) === 'Dentist')!;
 
-      expect(running.querySelector('.summary-row > .time > .progress-bar')).not.toBeNull();
-      expect(upcoming.querySelector('.summary-row > .time > .time-countdown')).not.toBeNull();
+      expect(running.querySelector('.title-time-row > .time > .progress-bar')).not.toBeNull();
+      expect(upcoming.querySelector('.title-time-row > .time > .time-countdown')).not.toBeNull();
       // Location and description stay below, in their order.
       expect(
         [...dentist.querySelector(':scope > .time-location')!.children].map((c) => c.className),
@@ -262,10 +269,10 @@ describe('time_position', () => {
 
       expect(
         upcoming.querySelector(
-          '.summary-row > .time > .time-actual > .time-text > .time-countdown',
+          '.title-time-row > .time > .time-actual > .time-text > .time-countdown',
         ),
       ).not.toBeNull();
-      expect(running.querySelector('.summary-row .progress-bar')).toBeNull();
+      expect(running.querySelector('.title-time-row .progress-bar')).toBeNull();
       // The bar's own row and the weather row stay in .time-location, in their order.
       expect(
         [...running.querySelector(':scope > .time-location')!.children].map((c) => c.className),
@@ -280,7 +287,7 @@ describe('time_position', () => {
         );
         expect(rows.length).toBeGreaterThan(0);
         for (const body of rows) {
-          const time = body.querySelector('.summary-row > .time')!;
+          const time = body.querySelector('.title-time-row > .time')!;
           expect(time.querySelector(':scope > .time-actual')!.children, titleOf(body)).toHaveLength(
             0,
           );
@@ -294,7 +301,7 @@ describe('time_position', () => {
 
       const list = moved(render('list', config));
       expect(list.map(titleOf)).toEqual(['Currently running review']);
-      expect(list[0].querySelector('.summary-row > .time > .progress-bar')).not.toBeNull();
+      expect(list[0].querySelector('.title-time-row > .time > .progress-bar')).not.toBeNull();
 
       // Column's bar has a row of its own, so with times off there is no time row to move.
       const column = render('column', config);
@@ -374,16 +381,19 @@ describe('time_position', () => {
         movedRows += 1;
 
         // The row that moved is the one that was below, unchanged.
-        const time = after.querySelector(':scope > .summary-row > .time')!;
+        const time = after.querySelector(':scope > .title-time-row > .time')!;
         const original = before.querySelector(':scope > .time-location > .time')!;
         expect(original, label).not.toBeNull();
         expect(time.nextElementSibling, label).toBeNull();
         expect(normalize(time.outerHTML), label).toBe(normalize(original.outerHTML));
 
-        // And with it taken out of both, the rest of the row is the default's.
+        // And with it taken out of both, and the row that held it unwrapped, the rest of the
+        // row is the default's: the title row included, weather badge and all.
         const rest = after.cloneNode(true) as HTMLElement;
         const restBefore = before.cloneNode(true) as HTMLElement;
-        rest.querySelector(':scope > .summary-row > .time')!.remove();
+        const outer = rest.querySelector(':scope > .title-time-row')!;
+        outer.querySelector(':scope > .time')!.remove();
+        outer.replaceWith(...outer.childNodes);
         restBefore.querySelector(':scope > .time-location > .time')!.remove();
         rest.classList.remove('time-beside-title');
         expect(normalize(rest.outerHTML), label).toBe(normalize(restBefore.outerHTML));
@@ -423,7 +433,7 @@ describe('time_position', () => {
       // One merged row; column view draws its empty days beside it.
       const lunch = bodies(container).filter((body) => titleOf(body) === 'Team lunch');
       expect(lunch).toHaveLength(1);
-      return lunch[0].querySelector('.summary')!.getAttribute('style');
+      return lunch[0].querySelector('.title-time-row')!.getAttribute('style');
     }
 
     it('widens the title room by every glyph after the first', () => {
@@ -449,6 +459,7 @@ describe('time_position', () => {
         shared('calendar.c0'),
         shared('calendar.c1'),
       ]);
+      expect(container.querySelector('.title-time-row')).toBeNull();
       expect(container.querySelector('.summary')!.hasAttribute('style')).toBe(false);
     });
   });

@@ -356,18 +356,23 @@ describe('card stylesheet', () => {
       // content, sized in the title's font, so the event keeps its height. Measured in
       // Chromium and WebKit: the ink's center now sits within about a quarter pixel of the
       // bar's at the default sizes, where it was 1.7px and 2.1px low.
+      // Each content selector with the path to its title. time_position: title takes the time
+      // row out of .time-location, and a row whose only detail was its time keeps the shift
+      // through the placement class instead; without it the title moved about 1.8px on every
+      // such row. Its title row sits one level down there, in .title-time-row.
+      const titlePath = (content: string) =>
+        content.endsWith('.time-beside-title')
+          ? `${content} > .title-time-row > .summary-row > .summary`
+          : `${content} > .summary-row > .summary`;
       const contents = [
         'td.event > .event-content:has(> .time-location > *)',
         '.column-events > .event > .event-content:has(> .time-location > *)',
-        // time_position: title takes the time row out of .time-location, and a row whose only
-        // detail was its time keeps the shift through the placement class instead. Without it
-        // the title moved about 1.8px on every such row (tests/time-position.test.ts).
         'td.event > .event-content.time-beside-title',
         '.column-events > .event > .event-content.time-beside-title',
       ];
       for (const content of contents) {
         expect(declared(content, '--calendar-card-event-ink-shift'), content).toBe('0.13em');
-        expect(declared(`${content} > .summary-row > .summary`, 'padding-top'), content).toBe(
+        expect(declared(titlePath(content), 'padding-top'), content).toBe(
           'calc(0.2em - var(--calendar-card-event-ink-shift))',
         );
         expect(declared(`${content}::after`, 'content'), content).toBe("''");
@@ -389,7 +394,7 @@ describe('card stylesheet', () => {
         r.selectors.some((s) => s.includes('.event-content:has(> .time-location > *)')),
       );
       expect(shiftRules.flatMap((r) => r.selectors).sort()).toEqual(
-        contents.flatMap((c) => [c, `${c} > .summary-row > .summary`, `${c}::after`]).sort(),
+        contents.flatMap((c) => [c, titlePath(c), `${c}::after`]).sort(),
       );
     });
 
@@ -3570,22 +3575,24 @@ describe('the today tile', () => {
 });
 
 /**
- * `time_position: title`: the time row as the title row's last item, wrapping to a line of its
- * own where about 8em of title would not fit beside it.
+ * `time_position: title`: the title row and the time as the two items of a row that wraps, so
+ * the time shares the title's line where about 8em of title and the title row's badge still fit
+ * beside it, and otherwise drops to a line of its own.
  *
  * Every declaration is pinned by value, and the set of rules naming the placement class is
  * pinned whole, because each one was found necessary by taking it out alone and comparing the
  * dropped rows with today's, pixel for pixel: in the design's mock-ups, and again against the
- * built card in Chromium, where each of the end margin, the gap, the ink shift, the first-row
- * margin and the weather badge's rule left more dropped rows differing once removed. CSS is the
- * one layer the DOM tests in tests/time-position.test.ts cannot see, so a rule dropped from
- * here would pass every one of them and move a dropped row by a pixel or more. The baseline
- * rule is the exception: it exists for the time on a shared line, and costs the dropped rows
- * of a clock drawn taller than the time, which its comment in styles.ts names.
+ * built card in Chromium, where each of the end margin, the ink shift and the first-row margin
+ * left more dropped rows differing once removed. CSS is the one layer the DOM tests in
+ * tests/time-position.test.ts cannot see, so a rule dropped from here would pass every one of
+ * them and move a dropped row by a pixel or more. The baseline rule is the exception: it exists
+ * for the time on a shared line, and costs the dropped rows of a clock drawn taller than the
+ * time, which its comment in styles.ts names.
  */
 describe('the time beside the title', () => {
-  const ROW = '.time-beside-title > .summary-row';
-  const TIME = `${ROW} > .time`;
+  const OUTER = '.time-beside-title > .title-time-row';
+  const TITLE_ROW = `${OUTER} > .summary-row`;
+  const TIME = `${OUTER} > .time`;
   const FIRST_ROWS = ['.location', '.description', '.event-weather'].flatMap((row) => [
     `td.event .time-beside-title > .time-location > ${row}:first-child`,
     `.column-events > .event .time-beside-title > .time-location > ${row}:first-child`,
@@ -3598,24 +3605,37 @@ describe('the time beside the title', () => {
   const INK = [
     'td.event > .event-content.time-beside-title',
     '.column-events > .event > .event-content.time-beside-title',
-  ].flatMap((content) => [content, `${content} > .summary-row > .summary`, `${content}::after`]);
+  ].flatMap((content) => [
+    content,
+    `${content} > .title-time-row > .summary-row > .summary`,
+    `${content}::after`,
+  ]);
 
-  it('lets the title row wrap, sharing a line on the baseline and a gap only between items', () => {
-    expect(declared(ROW, 'flex-wrap')).toBe('wrap');
-    expect(declared(ROW, 'align-items')).toBe('baseline');
-    expect(declared(ROW, 'row-gap')).toBe('0');
-    // A gap, not the title's 12px end margin, which would stay when the time drops.
-    expect(declared(ROW, 'column-gap')).toBe('8px');
-    expect(declared(`${ROW} > .summary:has(+ .time)`, 'margin-inline-end')).toBe('0');
-    // The margin that rule takes away, so the pin above is about something.
-    expect(declared('.summary:not(:only-child)', 'margin-inline-end')).toBe('12px');
+  it('wraps the outer row only, on the baseline, with a gap only between its two items', () => {
+    expect(declared(OUTER, 'display')).toBe('flex');
+    expect(declared(OUTER, 'flex-wrap')).toBe('wrap');
+    expect(declared(OUTER, 'align-items')).toBe('baseline');
+    expect(declared(OUTER, 'row-gap')).toBe('0');
+    expect(declared(OUTER, 'column-gap')).toBe('8px');
   });
 
-  it('keeps about 8em for the title, its merged glyph labels on top', () => {
-    expect(declared(`${ROW} > .summary`, 'flex')).toBe(
-      '1000 1 calc(8em + var(--calendar-card-title-label-room, 0px))',
+  it('keeps the title row as it is, so its weather badge never leaves the title', () => {
+    // Nothing here may wrap the title row or touch what is in it: it is today's row, laid out
+    // by its own rules, which never wrap, with the badge beside the title at any width.
+    expect(declared('.summary-row', 'display')).toBe('flex');
+    expect(declared('.summary-row', 'flex-wrap')).toBe('');
+    expect(declared(TITLE_ROW, 'flex-wrap')).toBe('');
+    expect(declared(TITLE_ROW, 'flex')).toBe('1000 1 auto');
+    expect(declared(TITLE_ROW, 'min-width')).toBe('0');
+    expect(declared(TITLE_ROW, 'width')).toBe('auto');
+    expect(rulesFor(`${TITLE_ROW} > .event-weather`)).toEqual([]);
+    // The size the title row reports: 8em of title at the summary's own font size, plus any
+    // merged glyph labels. Inside its row the summary still grows from a basis of 0.
+    expect(declared(`${TITLE_ROW} > .summary`, 'width')).toBe(
+      'calc(8em + var(--calendar-card-title-label-room, 0px))',
     );
-    expect(declared(`${ROW} > .summary`, 'min-width')).toBe('0');
+    expect(declared(`${TITLE_ROW} > .summary`, 'flex')).toBe('');
+    expect(declared('.summary', 'flex')).toBe('1');
   });
 
   it('grows the time only on a line of its own, without the end margin it overflowed', () => {
@@ -3631,13 +3651,6 @@ describe('the time beside the title', () => {
     expect(declared('.time', 'margin-inline-end')).toBe('12px');
   });
 
-  it("keeps the list view's weather badge centered and 20px from the title", () => {
-    expect(declared(`${ROW} > .event-weather`, 'align-self')).toBe('center');
-    // The 8px gap stands in for the badge's own 8px start margin.
-    expect(declared(`${ROW} > .event-weather`, 'margin-inline-start')).toBe('0');
-    expect(declared('.event-weather', 'margin-inline-start')).toBe('8px');
-  });
-
   it("takes the time row's baseline from its tallest text, not from its clock", () => {
     // An opt-in rather than a reordering: a row run in reverse with the icon ordered last
     // still took its baseline from the icon in all three engines, measured, which left every
@@ -3646,12 +3659,25 @@ describe('the time beside the title', () => {
       expect(declared(selector, 'align-self'), selector).toBe('baseline');
   });
 
+  it("leaves an icon-labeled title's alignment as it is", () => {
+    // Its text sits about a pixel off the time's baseline on a shared line, from this middle
+    // alignment. Setting it to baseline in this mode moved every icon-labeled title row,
+    // dropped ones included, in the pixel comparison, so the offset is the accepted cost.
+    expect(declared('.summary:has(> .label-icon) > .event-title', 'vertical-align')).toBe('middle');
+    const named = RULES.filter((rule) =>
+      rule.selectors.some((selector) => selector.includes('time-beside-title')),
+    );
+    for (const rule of named) {
+      expect(rule.body, rule.selectors.join(', ')).not.toMatch(/vertical-align/);
+    }
+  });
+
   it('keeps the 2px of a row that the move made the first under the title', () => {
     for (const selector of FIRST_ROWS)
       expect(declared(selector, 'margin-top'), selector).toBe('2px');
   });
 
-  it('keeps the ink shift on a row whose only detail moved into the title row', () => {
+  it('keeps the ink shift on a row whose only detail moved beside the title', () => {
     expect(declared(INK[0], '--calendar-card-event-ink-shift')).toBe('0.13em');
     expect(declared(INK[3], '--calendar-card-event-ink-shift')).toBe('0.13em');
   });
@@ -3665,10 +3691,9 @@ describe('the time beside the title', () => {
     );
     expect(selectors.sort()).toEqual(
       [
-        ROW,
-        `${ROW} > .summary`,
-        `${ROW} > .summary:has(+ .time)`,
-        `${ROW} > .event-weather`,
+        OUTER,
+        TITLE_ROW,
+        `${TITLE_ROW} > .summary`,
         TIME,
         `${TIME}:has(> .time-actual + *)`,
         ...BASELINE,
