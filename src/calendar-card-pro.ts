@@ -475,15 +475,12 @@ class CalendarCardPro extends LitElement {
   /**
    * The drift (`EventUtils.liveDrift`) the last `live` load was started for, until a load of any
    * other kind commits: the same drift after it is not loaded for again, so a calendar its load
-   * cannot settle never loads in a loop.
+   * cannot settle, or a load that commits nothing, never loads in a loop. Each change has its own
+   * page-wide number, so a new change never reads as one loaded already.
    */
   private _liveDriftLoaded = '';
-  /**
-   * When the cache entry the card last drew from, or chose not to draw, was written: another
-   * card sharing the entry can write a newer one since, and the card then draws it
-   * (`_syncLive`).
-   */
-  private _drawnEntryAt: number | undefined;
+  /** The events drawn, as loaded (`EventFetchResult.raw`), to compare with live subscriptions. */
+  private _drawnRaw: readonly Types.CalendarEventData[] = [];
   /**
    * Monotonic ticket for in-flight event requests.
    *
@@ -3760,10 +3757,10 @@ class CalendarCardPro extends LitElement {
    * its calendars changes.
    *
    * Holds the window's subscriptions and releases the rest. Where a subscription holds other
-   * events than the cache entry drawn (`EventUtils.liveDrift`), a push or one that came while a
-   * load was out, a `live` load takes them from it: every change reaches the screen through
-   * `updateEvents`, with its ticket, its cache and its failures. Arms the refresh timer once a
-   * calendar stops being live, at the entry's own deadline, and drops it once all are.
+   * events than the card drew (`EventUtils.liveDrift`), a push or one that came while a load was
+   * out, a `live` load takes them from it: every change reaches the screen through
+   * `updateEvents`, with its ticket, its cache and its failures. Arms the refresh timer while a
+   * calendar is not live, at the entry's own deadline, and drops it once all are.
    *
    * Waits while a load is out: that load runs it when it ends.
    */
@@ -3790,46 +3787,37 @@ class CalendarCardPro extends LitElement {
     for (const release of this._liveReleases) release(0);
     this._liveReleases = releases;
     this._liveCalendars = new Set(scope.entityIds);
-    if (releases.length === 0) return;
 
     const store: EventUtils.CacheStore = page === null ? 'persistent' : 'page';
-    const { drift: drifted, writtenAt } = EventUtils.liveDrift(
-      hass,
-      config,
-      this._instanceIdForPage(page),
-      store,
-    );
-    const drift = drifted.join();
+    const live = releases.length > 0 && LiveCalendars.allLive(hass, scope.entityIds, scope.window);
+    if (releases.length === 0 || !live) {
+      // Some calendar is not live: poll, at the entry's own deadline, unless a timer is armed.
+      if (!this._refreshTimerId) {
+        const snapshot = EventUtils.readEventSnapshot(
+          hass,
+          config,
+          this._instanceIdForPage(page),
+          store,
+        );
+        this._scheduleRefresh(snapshot?.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
+      }
+      if (releases.length === 0) return;
+    }
+
+    const drift = EventUtils.liveDrift(hass, config, this._drawnRaw, this._failedEntities).join();
     if (drift && drift !== this._liveDriftLoaded) {
       Logger.info(`Live update: ${drift}`);
       this._liveDriftLoaded = drift;
       void this.updateEvents('live');
       return;
     }
-    if (writtenAt !== undefined && writtenAt > (this._drawnEntryAt ?? Infinity)) {
-      // Another card sharing the entry loaded it since: draw what it holds, without a request.
-      // Only a newer entry, never an older one a refused write left behind.
-      Logger.info('Live update: drawing the events another card loaded');
-      void this.updateEvents('reprocess');
-      return;
-    }
 
-    if (LiveCalendars.allLive(hass, scope.entityIds, scope.window)) {
+    if (live && this._refreshTimerId) {
       // Every load arms the timer as it ends (`_scheduleRefresh`); with nothing to poll, this
       // takes it down again.
-      if (this._refreshTimerId) {
-        Logger.debug('Every calendar shown is live; not polling');
-        clearTimeout(this._refreshTimerId);
-        this._refreshTimerId = undefined;
-      }
-    } else if (!this._refreshTimerId) {
-      const snapshot = EventUtils.readEventSnapshot(
-        hass,
-        config,
-        this._instanceIdForPage(page),
-        store,
-      );
-      this._scheduleRefresh(snapshot?.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
+      Logger.debug('Every calendar shown is live; not polling');
+      clearTimeout(this._refreshTimerId);
+      this._refreshTimerId = undefined;
     }
   }
 
@@ -5655,6 +5643,7 @@ class CalendarCardPro extends LitElement {
       // cached to replace them, they would be drawn under a config they were not fetched
       // for, or beyond the 24-hour bound, until the fetch lands.
       this.events = [];
+      this._drawnRaw = [];
       this._eventsInstanceId = '';
       this._setFailures([]);
       this.isInitialLoad = true;
@@ -5735,7 +5724,6 @@ class CalendarCardPro extends LitElement {
 
       if (keepPreviousEvents) {
         Logger.warn('Refresh failed and returned nothing — keeping previously loaded events');
-        this._drawnEntryAt = result.fetchedAt;
         this._setFailures(failedEntities);
         this.isInitialLoad = false;
       } else {
@@ -5797,7 +5785,7 @@ class CalendarCardPro extends LitElement {
     this._eventsInstanceId = instanceId;
     this._pageShown = page;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
-    this._drawnEntryAt = result.fetchedAt;
+    this._drawnRaw = result.raw ?? [];
     this._setFailures(failedEntities);
     this.isInitialLoad = false;
 
@@ -5843,6 +5831,7 @@ class CalendarCardPro extends LitElement {
       }
       if (!this._partialDrawsAnEvent(pending.partial.events, pending.page)) return;
       this.events = [...pending.partial.events];
+      this._drawnRaw = pending.partial.raw ?? [];
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
       this._eventsFetchedAt = pending.partial.fetchedAt;

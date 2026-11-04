@@ -17,6 +17,7 @@
  */
 
 import * as Logger from './logger';
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 
 /**
@@ -30,8 +31,18 @@ import * as Types from '../config/types';
  */
 export type LiveState = 'pending' | 'live' | 'failed' | 'refused';
 
-/** What a load waits for a new subscription's first push before asking REST instead. */
-export const FIRST_PUSH_TIMEOUT = 10_000;
+/**
+ * What a load waits for a new subscription's first push before asking REST instead: as long as
+ * it would wait for REST. Home Assistant reads the calendar for the push as it would for REST, so
+ * a slow calendar is no faster by REST, and giving up sooner would read it twice.
+ */
+export const FIRST_PUSH_TIMEOUT = Constants.TIMING.CALENDAR_FETCH_TIMEOUT;
+
+/**
+ * How long after Home Assistant answered `unknown_command` the next load asks again. The command
+ * is also unknown while the calendar integration is still loading, at a restart.
+ */
+export const PROBE_AGAIN_AFTER = 30 * 60_000;
 
 /** How long a subscription a request opened stays open after it, for the card to take over. */
 export const REQUEST_LINGER = 5_000;
@@ -61,7 +72,7 @@ interface Subscription {
   events: Types.CalendarEventData[];
   /** `fingerprintEvents` of `events`. */
   fingerprint: string;
-  /** Bumped whenever `events` changes. */
+  /** The page-wide `sequence` of its events' last change (`changeCount`). */
   version: number;
   /** The last push as sent, to drop an identical one before any work. */
   raw: string | undefined;
@@ -83,6 +94,8 @@ interface Subscription {
 interface Registry {
   /** Whether Home Assistant knows the command: `unknown` until the first answer. */
   support: 'unknown' | 'yes' | 'no';
+  /** When it last answered `unknown_command`. */
+  unsupportedAt: number;
   /** The first subscription while support is unknown; every other waits for it. */
   probe: Promise<void> | null;
   subscriptions: Map<string, Subscription>;
@@ -90,6 +103,19 @@ interface Registry {
 }
 
 const registries = new WeakMap<Connection, Registry>();
+
+/** Counts changes to any subscription's events on the page, so every change has its own number. */
+let sequence = 0;
+
+/**
+ * The number of the latest change to any subscription's events on the page. A request started
+ * before a change may have read the events from before it.
+ *
+ * @returns Changes so far
+ */
+export function changeCount(): number {
+  return sequence;
+}
 
 interface LivePush {
   events?: unknown;
@@ -118,6 +144,7 @@ function registryOf(connection: Connection): Registry {
 
   const created: Registry = {
     support: 'unknown',
+    unsupportedAt: 0,
     probe: null,
     subscriptions: new Map(),
     listeners: new Set(),
@@ -125,8 +152,15 @@ function registryOf(connection: Connection): Registry {
   registry = created;
   registries.set(connection, created);
   connection.addEventListener?.('ready', () => {
-    for (const subscription of created.subscriptions.values()) {
-      if (subscription.state === 'refused') continue;
+    // Home Assistant may have been upgraded, or restarted with the integration loaded since:
+    // what it refused is asked again, by the cards holding it.
+    if (created.support === 'no') created.support = 'unknown';
+    for (const subscription of [...created.subscriptions.values()]) {
+      if (subscription.state === 'refused') {
+        close(created, subscription);
+        notify(created, subscription.entityId);
+        continue;
+      }
       subscription.reconnecting = true;
       // One timer per subscription, cleared by its next push, so an earlier reconnect's
       // timer can never close it.
@@ -235,7 +269,7 @@ function receive(
       const normalized = events.flatMap((event) => normalizeEvent(event, timeZone) ?? []);
       const fingerprint = fingerprintEvents(normalized);
       changed = subscription.state !== 'live' || fingerprint !== subscription.fingerprint;
-      if (fingerprint !== subscription.fingerprint) subscription.version += 1;
+      if (fingerprint !== subscription.fingerprint) subscription.version = ++sequence;
       subscription.state = 'live';
       subscription.raw = raw;
       subscription.events = normalized;
@@ -294,6 +328,7 @@ function open(
           const code = typeof error?.code === 'string' ? error.code : undefined;
           if (code === 'unknown_command') {
             registry.support = 'no';
+            registry.unsupportedAt = Date.now();
             Logger.info('Home Assistant cannot push calendar changes; polling instead');
           } else if (code) {
             registry.support = 'yes';
@@ -334,6 +369,9 @@ function acquire(
   const connection = connectionOf(hass);
   if (!connection) return null;
   const registry = registryOf(connection);
+  if (registry.support === 'no' && Date.now() - registry.unsupportedAt >= PROBE_AGAIN_AFTER) {
+    registry.support = 'unknown';
+  }
   if (registry.support === 'no') return null;
 
   const key = keyOf(entityId, window);
@@ -431,9 +469,8 @@ export async function load(
         subscription.waiters.add(done);
       });
     }
-    return subscription.state === 'live' && !subscription.closed && !subscription.reconnecting
-      ? subscription.events
-      : undefined;
+    // A reconnected subscription still silent is closed first (`RECONNECT_TIMEOUT`).
+    return subscription.state === 'live' && !subscription.closed ? subscription.events : undefined;
   } finally {
     release(REQUEST_LINGER);
   }

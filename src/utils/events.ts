@@ -242,6 +242,8 @@ interface InFlightRequest {
   watchers: Set<() => void>;
   /** The load that started it. */
   load: EventLoad;
+  /** `LiveCalendars.changeCount()` when it started: it may hold events from before any later. */
+  liveChanges: number;
 }
 
 /**
@@ -450,6 +452,7 @@ export async function fetchEventData(
         if (raw.length === 0) return;
         const now = Date.now();
         onPartial({
+          raw,
           events: processRawEvents(raw, config, request.firstDayOfWeek),
           failedEntities: [],
           fetchedAt: now,
@@ -474,6 +477,8 @@ export async function fetchEventData(
 /**
  * Whether a load may join a request already in flight rather than start its own.
  *
+ * Nor, for a `live` load, one started before the latest pushed change.
+ *
  * Never one a write may have overtaken, whatever the load: a persistent request a write
  * expired (`expireStoredCalendars`), or a paged one started before the latest write, whose
  * entry the page store would drop on read anyway. Joining either would hand the caller the
@@ -491,6 +496,8 @@ function isJoinable(request: InFlightRequest, load: EventLoad, afterWrite?: numb
     return false;
   }
   if (load === 'reload') return afterWrite !== undefined && request.writeGeneration >= afterWrite;
+  // A load for a pushed change must not take an answer that may have read the events before it.
+  if (load === 'live') return request.liveChanges >= LiveCalendars.changeCount();
   return true;
 }
 
@@ -513,6 +520,7 @@ function resultFromEntry(
   firstDayOfWeek: number,
 ): Types.EventFetchResult {
   return {
+    raw: rawEvents,
     events: processRawEvents(rawEvents, config, firstDayOfWeek),
     failedEntities: [...(entry.failedEntities ?? [])],
     fetchedAt: entry.timestamp,
@@ -573,6 +581,7 @@ function startRawFetch(
     settled: new Map(),
     watchers: new Set(),
     load,
+    liveChanges: LiveCalendars.changeCount(),
   } as unknown as InFlightRequest;
   inFlight.promise = fetchRawEvents(hass, config, request, seq, failureCountHint, inFlight).finally(
     () => {
@@ -776,42 +785,42 @@ export function liveScope(
 }
 
 /**
- * The calendars whose live subscription holds other events than the cache entry a card draws
- * from, or that the entry records as failed while their subscription answers: the card loads
- * again, and the load takes them from the subscription.
+ * The calendars whose live subscription holds other events than a card drew, or that the card
+ * drew as failed while their subscription answers: the card loads again, and the load takes them
+ * from the subscription.
  *
- * A subscription waiting for its push after a reconnect is skipped: its events may be older
- * than the entry's.
+ * Judged against what the card drew, not the cache entry: another card can write the entry with
+ * a subscription's events while this card commits a load that read them before they changed, and
+ * the entry can be gone, after 24 hours, a write, or from a full store. A refresh on another card
+ * sharing the calendars closes their subscriptions (`LiveCalendars.invalidate`), and the first
+ * push of the new ones shows this card any difference.
+ *
+ * A subscription waiting for its push after a reconnect is skipped: its events may be older than
+ * those drawn.
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
- * @param instanceId Component instance ID for caching
- * @param store Where the window's cache entry lives
- * @returns Each such calendar with the version of its subscription's events, and when the entry
- *   was written, for a card to tell whether another card wrote it since it drew
+ * @param drawn The events the card drew, as loaded (`EventFetchResult.raw`)
+ * @param failed The calendars the card drew as failed
+ * @returns Each such calendar with the page-wide number of its subscription's last change
  */
 export function liveDrift(
   hass: Types.Hass,
   config: Types.Config,
-  instanceId: string,
-  store: CacheStore = 'persistent',
-): { drift: string[]; writtenAt: number | undefined } {
-  const request = resolveRequest(hass, config, instanceId, store);
-  const entry = readStoredEntry(store, request.cacheKey);
-  if (!entry) return { drift: [], writtenAt: undefined };
+  drawn: readonly Types.CalendarEventData[],
+  failed: readonly string[],
+): string[] {
+  const { window } = resolveRequest(hass, config, '');
   const drift: string[] = [];
   for (const entityId of uniqueEntityIds(config.entities)) {
-    const live = LiveCalendars.peek(hass, entityId, request.window);
+    const live = LiveCalendars.peek(hass, entityId, window);
     if (live?.state !== 'live' || live.reconnecting) continue;
-    const held = entry.events.filter((event) => event._entityId === entityId);
-    if (
-      entry.failedEntities?.includes(entityId) ||
-      LiveCalendars.fingerprintEvents(held) !== live.fingerprint
-    ) {
+    const held = drawn.filter((event) => event._entityId === entityId);
+    if (failed.includes(entityId) || LiveCalendars.fingerprintEvents(held) !== live.fingerprint) {
       drift.push(`${entityId}@${live.version}`);
     }
   }
-  return { drift, writtenAt: entry.timestamp };
+  return drift;
 }
 
 /**

@@ -991,6 +991,11 @@ export interface EventFetchResult {
    * calendar is failing.
    */
   nextAttemptAt: number;
+  /**
+   * The events as loaded, before any processing: what a card drew is compared with its live
+   * subscriptions through these (`EventUtils.liveDrift`).
+   */
+  raw?: readonly CalendarEventData[];
 }
 
 /**

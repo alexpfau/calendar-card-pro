@@ -176,6 +176,7 @@ describe('a subscription', () => {
 
     c.push('calendar.anna', [SWIM]);
     expect(told).toHaveBeenCalledTimes(1);
+    const first = Live.peek(c.hass, 'calendar.anna', WINDOW)!.version;
     c.push('calendar.anna', [SWIM]);
     // Sent differently, the same events: nothing new.
     c.push('calendar.anna', [{ ...SWIM, start: '2026-06-17T15:00:00+00:00' }]);
@@ -183,7 +184,9 @@ describe('a subscription', () => {
 
     c.push('calendar.anna', [{ ...SWIM, summary: 'Anna swim, lane 3' }]);
     expect(told).toHaveBeenCalledTimes(2);
-    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.version).toBe(2);
+    // Numbered page-wide, so no later subscription's change can reuse it.
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)!.version).toBe(first + 1);
+    expect(Live.changeCount()).toBe(first + 1);
   });
 
   it('sends nothing to a load once Home Assistant could not read the calendar', async () => {
@@ -253,6 +256,21 @@ describe('Home Assistant before 2026.5', () => {
 
     expect(Live.hold(c.hass, 'calendar.anna', WINDOW)).toBeNull();
     expect(c.calendarSubscribes()).toBe(1);
+  });
+
+  it('is asked again after a while, and after the connection comes back', async () => {
+    const c = connection('unknown_command');
+    await Live.load(c.hass, 'calendar.anna', WINDOW);
+    expect(Live.hold(c.hass, 'calendar.anna', WINDOW)).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(Live.PROBE_AGAIN_AFTER);
+    await Live.load(c.hass, 'calendar.anna', WINDOW);
+    expect(c.calendarSubscribes()).toBe(2);
+
+    // Upgraded, or restarted with the integration loaded: asked at once.
+    c.reconnect();
+    expect(Live.hold(c.hass, 'calendar.anna', WINDOW)).not.toBeNull();
+    expect(c.calendarSubscribes()).toBe(3);
   });
 });
 

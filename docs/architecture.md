@@ -595,8 +595,9 @@ The main entry point serves as the orchestrator for the entire card:
   every `hass` read the card makes, so a new reader the rule misses fails there
 - **Live updates**: Holds the live subscriptions of the window on screen (`_syncLive`, after
   every load and on each change a subscription reports). A subscription holding other events
-  than the cache entry drawn starts a `live` load, which takes them from it; every change
-  reaches the screen through `updateEvents`
+  than the card drew (`EventFetchResult.raw`, so not the cache entry, which another card may
+  have written) starts a `live` load, which takes them from it and never joins a request
+  started before the change; every change reaches the screen through `updateEvents`
 - **Timers**: Arms the refresh timer for the deadline of the data on screen, unless every
   calendar on screen is live, and reconciles
   four display timers in `updated()` against what the render draws — the grid now line,
@@ -1053,7 +1054,9 @@ Provides core functionality across the card:
   - Never writes the cache or draws: a load asks `load` before REST, and a card it tells of a
     change runs an ordinary load (`_syncLive`)
   - Probes support with the first subscription; `unknown_command` means polling for the
-    connection, any other error refuses only that calendar
+    connection until it comes back or 30 minutes pass, because Home Assistant also answers it
+    while the calendar integration is still loading; any other error refuses only that
+    calendar
   - Drops a push identical to the last, and one saying the same as it (`fingerprintEvents`:
     times as instants, absent and null alike, in any order) notifies no card
   - Writes pushed times the way the REST API does, in Home Assistant's zone (`inZone`), so

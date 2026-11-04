@@ -30,7 +30,8 @@ How soon Home Assistant knows depends on the calendar's integration:
 - **No polling while live.** `refresh_interval` applies only where live updates are not
   available: on Home Assistant before 2026.5, and for a calendar whose integration could not
   read its events, until it can again. It is also the longest wait between retries of a
-  calendar that keeps failing.
+  calendar that keeps failing. On Home Assistant before 2026.5 the card asks again at most every
+  30 minutes whether it can subscribe, in case Home Assistant was only starting up.
 - **Nothing redrawn for nothing.** Home Assistant also sends a calendar's events when one of
   them starts or ends, and some integrations at every sync, every minute for some. The card
   compares and redraws only when an event changed.

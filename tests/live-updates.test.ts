@@ -50,8 +50,11 @@ interface FakeSub {
  */
 function homeAssistant(
   events: Record<string, Pushed[] | null>,
-  answer: 'accept' | 'unknown_command' = 'accept',
+  initialAnswer: 'accept' | 'unknown_command' = 'accept',
 ) {
+  let answer = initialAnswer;
+  /** How long Home Assistant takes to read a calendar, for its pushes and for REST. */
+  const readMs: Record<string, number> = {};
   const subs: FakeSub[] = [];
   const ready = new Set<() => void>();
   const restFails = new Set<string>();
@@ -65,7 +68,7 @@ function homeAssistant(
       if (answer !== 'accept') return Promise.reject({ code: answer, message: 'Unknown command.' });
       const sub: FakeSub = { message, callback, unsubscribed: false };
       subs.push(sub);
-      setTimeout(() => send(sub), 5);
+      setTimeout(() => send(sub), readMs[message.entity_id] ?? 5);
       return Promise.resolve(() => {
         sub.unsubscribed = true;
       });
@@ -88,7 +91,7 @@ function homeAssistant(
             end: { dateTime: Live.inZone(end, 'Europe/Berlin') },
           })),
         );
-      }, 20),
+      }, readMs[id] ?? 20),
     );
   });
   const hass = {
@@ -112,7 +115,12 @@ function homeAssistant(
     events,
     callApi,
     restFails,
+    readMs,
     subs,
+    /** How Home Assistant takes a subscription from now on. */
+    answerWith: (next: 'accept' | 'unknown_command') => {
+      answer = next;
+    },
     open: () => subs.filter((sub) => !sub.unsubscribed),
     calendarSubscribes: () =>
       subscribeMessage.mock.calls.filter(([, m]) => m.type === 'calendar/event/subscribe').length,
@@ -209,9 +217,14 @@ describe('a card on a Home Assistant that pushes', () => {
     const load = vi.spyOn(card, 'updateEvents');
 
     ha.touch('calendar.anna');
-    // The same events again, written in another zone.
+    // The same events again, written in another zone and to the microsecond, which the card
+    // keeps as sent: only comparing the times as instants tells them apart from a change.
     ha.change('calendar.ben', [
-      { ...at(DAY, 15, 'Ben piano'), start: `${DAY}T19:00:00Z`, end: `${DAY}T20:00:00Z` },
+      {
+        ...at(DAY, 15, 'Ben piano'),
+        start: `${DAY}T19:00:00.000000+00:00`,
+        end: `${DAY}T20:00:00.000000+00:00`,
+      },
     ]);
     await settleFor(card, 10);
 
@@ -256,27 +269,46 @@ describe('a card on a Home Assistant that pushes', () => {
 
 describe('a drift a load cannot settle', () => {
   it('is loaded for once, not in a loop', async () => {
-    // A storage that keeps the first entry and drops every later write without a word: the
-    // entry never takes the pushed events, so they always differ from it.
-    const storage = memoryStorage();
-    const setItem = storage.setItem.bind(storage);
-    storage.setItem = (key: string, value: string) => {
-      if (storage.getItem(key) === null) setItem(key, value);
-    };
-    vi.stubGlobal('localStorage', storage);
+    // Ben never loads. Anna's last event is deleted: her load answers with no events and Ben
+    // failed, which the card treats as a failed refresh and keeps what it drew, so what it draws
+    // never takes the change. (Keeping events through that is how the card has always read it.)
+    const ha = homeAssistant({ 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': null });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim']);
+    const load = vi.spyOn(card, 'updateEvents');
+
+    ha.change('calendar.anna', []);
+    await settleFor(card, 1000);
+
+    expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
+  });
+});
+
+describe('a card that loses its subscriptions to a Home Assistant starting up', () => {
+  it('polls', async () => {
+    // Home Assistant restarts: the card's subscriptions stay silent after the reconnect, and a
+    // card opened meanwhile is told the command is unknown, as it is until the calendar
+    // integration has loaded.
     const ha = homeAssistant({
       'calendar.anna': [at(DAY, 14, 'Anna swim')],
       'calendar.ben': [at(DAY, 15, 'Ben piano')],
     });
     const card = attach(ha.hass);
     await settleFor(card, 100);
-    const load = vi.spyOn(card, 'updateEvents');
+    ha.answerWith('unknown_command');
+    ha.reconnect();
+    attach(ha.hass, { days_to_show: 2 });
+    await settleFor(card, Live.RECONNECT_TIMEOUT + 1000);
+    expect(ha.open()).toHaveLength(0);
 
-    ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
-    await settleFor(card, 1000);
+    // Only this card's window, one day: the other card, on two, polls in any case.
+    const ownWindow = (): number =>
+      ha.callApi.mock.calls.filter(([, path]) => path.includes('end=2026-06-18T00:00:00')).length;
+    const calls = ownWindow();
+    await settleFor(card, 30 * 60_000);
 
-    expect(load.mock.calls.filter(([mode]) => mode === 'live')).toHaveLength(1);
-    expect(drawn(card)).toEqual(['Anna swim, lane 3', 'Ben piano']);
+    expect(ownWindow()).toBeGreaterThan(calls);
   });
 });
 
@@ -447,7 +479,7 @@ describe('a card that leaves the page', () => {
 });
 
 describe('a Home Assistant before 2026.5', () => {
-  it('is asked once, then polled exactly as before', async () => {
+  it('is asked once per refresh, and polled exactly as before', async () => {
     const live = homeAssistant(
       { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [] },
       'unknown_command',
@@ -458,8 +490,139 @@ describe('a Home Assistant before 2026.5', () => {
 
     await settleFor(card, 2 * 60 * 60_000);
 
-    expect(live.calendarSubscribes()).toBe(1);
+    // Asked again at each refresh, in case it was only starting up: one refused command each.
+    expect(live.calendarSubscribes()).toBe(5);
     // The first load and four refreshes at the default 30 minutes, two calendars each.
     expect(live.restCalls()).toBe(10);
   });
 });
+
+describe('a change after a subscription was replaced', () => {
+  it('is drawn, though an earlier change was loaded already', async () => {
+    // Ben changes; then his subscription is silent after a reconnect and opened again; then he
+    // changes again. Each change has its own number, so the second is not taken for the first.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    ha.change('calendar.ben', [at(DAY, 15, 'Ben piano lesson')]);
+    await settleFor(card, 100);
+
+    ha.reconnect();
+    ha.touch('calendar.anna');
+    await settleFor(card, Live.RECONNECT_TIMEOUT + 1000);
+    expect(ha.calendarSubscribes()).toBe(3);
+
+    ha.change('calendar.ben', [at(DAY, 15, 'Ben piano exam')]);
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano exam']);
+  });
+});
+
+describe('a card whose cache entry is gone', () => {
+  it('draws a change all the same', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    localStorage.clear();
+    EventUtils.clearPageStore();
+
+    ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
+    await settleFor(card, 100);
+
+    expect(drawn(card)).toEqual(['Anna swim, lane 3', 'Ben piano']);
+    expect(ha.restCalls()).toBe(0);
+  });
+});
+
+describe('a Home Assistant still starting', () => {
+  it('is subscribed to at the next refresh once it knows the command', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+    expect(ha.restCalls()).toBe(2);
+
+    ha.answerWith('accept');
+    await settleFor(card, 30 * 60_000);
+    expect(ha.open()).toHaveLength(2);
+
+    const calls = ha.restCalls();
+    ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
+    await settleFor(card, 100);
+    expect(drawn(card)).toEqual(['Anna swim, lane 3']);
+    await settleFor(card, 2 * 60 * 60_000);
+    expect(ha.restCalls()).toBe(calls);
+  });
+
+  it('is subscribed to at once when the connection comes back', async () => {
+    const ha = homeAssistant(
+      { 'calendar.anna': [at(DAY, 14, 'Anna swim')], 'calendar.ben': [] },
+      'unknown_command',
+    );
+    const card = attach(ha.hass);
+    await settleFor(card, 100);
+
+    ha.answerWith('accept');
+    ha.reconnect();
+    // The next load after it subscribes: here, a return to the tab.
+    void card.updateEvents('network');
+    await settleFor(card, 100);
+
+    expect(ha.open()).toHaveLength(2);
+  });
+});
+
+describe('a change while another load is out', () => {
+  it('is not taken from that load, which may have read the events before it', async () => {
+    // Ben cannot be read by subscription, and slowly by REST. A refresh takes Anna from her
+    // subscription and waits on Ben; Anna changes meanwhile.
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    const first = attach(ha.hass);
+    const second = attach(ha.hass);
+    await settleFor(second, 100);
+    ha.change('calendar.ben', null);
+    eventsOf(ha)['calendar.ben'] = [at(DAY, 15, 'Ben piano')];
+    ha.readMs['calendar.ben'] = 3000;
+    await settleFor(second, 10);
+
+    void first.updateEvents('network');
+    await settleFor(first, 100);
+    ha.change('calendar.anna', [at(DAY, 14, 'Anna swim, lane 3')]);
+    await settleFor(second, 5000);
+
+    expect(drawn(second)).toEqual(['Anna swim, lane 3', 'Ben piano']);
+    expect(drawn(first)).toEqual(['Anna swim, lane 3', 'Ben piano']);
+  });
+});
+
+describe('a calendar Home Assistant reads slowly', () => {
+  it('is drawn from its first push, read once', async () => {
+    const ha = homeAssistant({
+      'calendar.anna': [at(DAY, 14, 'Anna swim')],
+      'calendar.ben': [at(DAY, 15, 'Ben piano')],
+    });
+    ha.readMs['calendar.ben'] = 12_000;
+    const card = attach(ha.hass);
+    await settleFor(card, 12_100);
+
+    expect(drawn(card)).toEqual(['Anna swim', 'Ben piano']);
+    expect(ha.restCalls()).toBe(0);
+  });
+});
+
+/** What a fake Home Assistant holds. */
+function eventsOf(ha: ReturnType<typeof homeAssistant>): Record<string, Pushed[] | null> {
+  return ha.events;
+}
