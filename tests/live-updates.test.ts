@@ -717,12 +717,20 @@ describe('a calendar whose integration was reloaded', () => {
     for (const sub of ha.subs) {
       if (sub.message.entity_id === 'calendar.anna') sub.callback = () => undefined;
     }
-    const state = (s: string) => ({ entity_id: 'calendar.anna', state: s, attributes: {} });
+    const state = (s: string, attributes: Record<string, unknown> = {}) => ({
+      entity_id: 'calendar.anna',
+      state: s,
+      attributes,
+    });
     card.hass = { ...ha.hass, states: { 'calendar.anna': state('off') } } as Types.Hass;
     await settleFor(card, 60_000);
 
+    // Unloading it marks the entity unavailable and restored; the new one has the new event.
     ha.events['calendar.anna'] = [at(DAY, 14, 'Anna swim'), at(DAY, 17, 'Anna dentist')];
-    card.hass = { ...ha.hass, states: { 'calendar.anna': state('unavailable') } } as Types.Hass;
+    card.hass = {
+      ...ha.hass,
+      states: { 'calendar.anna': state('unavailable', { restored: true }) },
+    } as Types.Hass;
     await settleFor(card, Live.STATE_PUSH_TIMEOUT + 1000);
 
     expect(ha.calendarSubscribes()).toBe(3);

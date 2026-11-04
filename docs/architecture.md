@@ -1069,11 +1069,14 @@ Provides core functionality across the card:
   - A subscription silent for `STATE_PUSH_TIMEOUT` after its calendar's state changed in `hass`
     (`observeStates`, from the card's `shouldUpdate`) is closed and made again: Home Assistant
     pushes after every state write, and a subscription stays bound to an entity its integration
-    replaced on a reload
-  - Unsubscribing waits for the subscription's next push while the connection is down or it has
-    not pushed since a reconnect: the library Home Assistant shipped up to 2026.10 subscribes
-    such a command again on reconnecting, or sends its old id, which by then names another
-    subscription
+    replaced on a reload. Unloading the integration marks the entity unavailable and
+    `restored`, which counts at once; any other change counts only while the card has been
+    seeing the state, so a push that came while another view was shown is not missed
+  - Unsubscribing waits for a push while the connection is down or the subscription has not
+    pushed since a reconnect, and any push of a closed subscription unsubscribes it again, from
+    a task of its own: the library Home Assistant shipped up to 2026.10 subscribes such a command
+    again on reconnecting, keeps one the connection dropped before it was answered, and sends an
+    old id, which by then names another subscription, until it has handled the new answer
 - **events.ts**:
   - Fetches calendar events from Home Assistant API
   - Implements caching system for calendar data

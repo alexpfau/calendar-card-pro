@@ -14,6 +14,8 @@ interface FakeSub {
   message: { type: string; entity_id: string; start: string; end: string };
   callback: (message: unknown) => void;
   unsubscribed: boolean;
+  /** How often the card unsubscribed it. */
+  unsubscribes: number;
 }
 
 /**
@@ -28,10 +30,11 @@ function connection(answer: 'accept' | 'unknown_command' | 'not_found' | 'never'
     subscribeMessage: vi.fn((callback: (message: unknown) => void, message: FakeSub['message']) => {
       if (answer === 'never') return new Promise<() => void>(() => undefined);
       if (answer !== 'accept') return Promise.reject({ code: answer, message: answer });
-      const sub: FakeSub = { message, callback, unsubscribed: false };
+      const sub: FakeSub = { message, callback, unsubscribed: false, unsubscribes: 0 };
       subs.push(sub);
       return Promise.resolve(() => {
         sub.unsubscribed = true;
+        sub.unsubscribes += 1;
       });
     }),
     subscribeEvents: vi.fn(),
@@ -450,50 +453,140 @@ describe('a subscription closed while the connection is down', () => {
   });
 });
 
-describe('a calendar whose state changed', () => {
-  const state = (s: string) => ({ entity_id: 'calendar.anna', state: s, attributes: {} });
+/** A calendar's state as `hass` carries it. */
+const calendarState = (s: string, attributes: Record<string, unknown> = {}) => ({
+  entity_id: 'calendar.anna',
+  state: s,
+  attributes,
+});
 
+/** The connection's `hass` with the calendar in a state. */
+const hassWith = (c: ReturnType<typeof connection>, state: ReturnType<typeof calendarState>) =>
+  ({ ...c.hass, states: { 'calendar.anna': state } }) as unknown as Types.Hass;
+
+/** The state seen for a while, every second, as a busy dashboard sees it. */
+async function watch(
+  c: ReturnType<typeof connection>,
+  ms: number,
+  state: ReturnType<typeof calendarState>,
+): Promise<void> {
+  for (let t = 0; t < ms; t += 1000) {
+    Live.observeStates(hassWith(c, state));
+    await vi.advanceTimersByTimeAsync(1000);
+  }
+}
+
+/** A subscription held, live after its first push. */
+async function liveAnna(c: ReturnType<typeof connection>): Promise<(linger: number) => void> {
+  const release = Live.hold(c.hass, 'calendar.anna', WINDOW)!;
+  await vi.advanceTimersByTimeAsync(0);
+  c.push('calendar.anna', [SWIM]);
+  return release;
+}
+
+describe('a calendar whose state changed', () => {
   it('keeps its subscription when it pushes, before or after the change', async () => {
     const c = connection();
-    const hassWith = (s: string) =>
-      ({ ...c.hass, states: { 'calendar.anna': state(s) } }) as unknown as Types.Hass;
-    Live.hold(c.hass, 'calendar.anna', WINDOW);
-    await vi.advanceTimersByTimeAsync(0);
-    c.push('calendar.anna', [SWIM]);
-    Live.observeStates(hassWith('off'));
+    await liveAnna(c);
+    const off = calendarState('off');
+    const on = calendarState('on');
+    await watch(c, 60_000, off);
 
-    await vi.advanceTimersByTimeAsync(60_000);
-    Live.observeStates(hassWith('on'));
-    await vi.advanceTimersByTimeAsync(1_000);
+    // The push after the change.
+    Live.observeStates(hassWith(c, on));
+    await vi.advanceTimersByTimeAsync(1000);
     c.push('calendar.anna', [SWIM]);
-    // The push came first this time.
-    await vi.advanceTimersByTimeAsync(60_000);
+    await watch(c, 60_000, on);
+    // The push before it.
     c.push('calendar.anna', [SWIM]);
-    Live.observeStates(hassWith('off'));
-    await vi.advanceTimersByTimeAsync(Live.STATE_PUSH_TIMEOUT);
+    await watch(c, Live.STATE_PUSH_TIMEOUT + 1000, off);
 
     expect(c.subs[0].unsubscribed).toBe(false);
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('live');
   });
 
-  it('closes a subscription that stays silent after it, so it is made again', async () => {
-    // Its integration was reloaded: the subscription is bound to the entity that went.
+  it('closes a subscription silent after a change seen while watching', async () => {
+    const c = connection();
+    await liveAnna(c);
+    await watch(c, 60_000, calendarState('off'));
+
+    await watch(c, Live.STATE_PUSH_TIMEOUT + 1000, calendarState('on'));
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
+  });
+
+  it('closes it after its integration was unloaded, so it is made again', async () => {
+    // Unloading the integration marks the entity unavailable and restored, with no push: it
+    // counts though a push had just come and the card had not seen the state for a while.
     const c = connection();
     const told = vi.fn();
     Live.listen(c.hass, told);
-    const hassWith = (s: string) =>
-      ({ ...c.hass, states: { 'calendar.anna': state(s) } }) as unknown as Types.Hass;
-    Live.hold(c.hass, 'calendar.anna', WINDOW);
-    await vi.advanceTimersByTimeAsync(0);
-    c.push('calendar.anna', [SWIM]);
-    Live.observeStates(hassWith('off'));
-
+    await liveAnna(c);
+    Live.observeStates(hassWith(c, calendarState('off')));
     await vi.advanceTimersByTimeAsync(60_000);
-    Live.observeStates(hassWith('unavailable'));
+    c.push('calendar.anna', [SWIM]);
+
+    Live.observeStates(hassWith(c, calendarState('unavailable', { restored: true })));
     await vi.advanceTimersByTimeAsync(Live.STATE_PUSH_TIMEOUT);
 
     expect(Live.peek(c.hass, 'calendar.anna', WINDOW)).toBeUndefined();
     expect(c.subs[0].unsubscribed).toBe(true);
     expect(told).toHaveBeenLastCalledWith('calendar.anna');
+  });
+
+  it('counts no change first seen after a while away, nor a state seen for the first time', async () => {
+    // Another dashboard view was shown: the push came while the card did not see the state.
+    const c = connection();
+    await liveAnna(c);
+    await vi.advanceTimersByTimeAsync(60_000);
+    Live.observeStates(hassWith(c, calendarState('off')));
+    await vi.advanceTimersByTimeAsync(30_000);
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await watch(c, 2 * Live.STATE_PUSH_TIMEOUT, calendarState('on'));
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('live');
+    expect(c.subs[0].unsubscribed).toBe(false);
+  });
+});
+
+describe('the first state the card sees', () => {
+  it('counts as no change, even one an unloaded integration left', async () => {
+    const c = connection();
+    await liveAnna(c);
+
+    await watch(
+      c,
+      Live.STATE_PUSH_TIMEOUT + 1000,
+      calendarState('unavailable', { restored: true }),
+    );
+
+    expect(Live.peek(c.hass, 'calendar.anna', WINDOW)?.state).toBe('live');
+  });
+});
+
+describe('a closed subscription that pushes', () => {
+  it('is unsubscribed in a task of its own, and again at every push', async () => {
+    // The library may still be taking its new id when the push is handled, and it subscribes
+    // again an unsubscribe the connection dropped.
+    const c = connection();
+    const release = await liveAnna(c);
+    c.conn.connected = false;
+    release(0);
+    c.conn.connected = true;
+    c.reconnect();
+
+    c.push('calendar.anna', [SWIM]);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(c.subs[0].unsubscribes).toBe(0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribes).toBe(1);
+
+    // The connection dropped before Home Assistant answered, and the library subscribed it again.
+    c.subs[0].unsubscribed = false;
+    c.push('calendar.anna', [SWIM]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(c.subs[0].unsubscribes).toBe(2);
   });
 });

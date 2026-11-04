@@ -54,7 +54,10 @@ export const ANSWER_TIMEOUT = 5_000;
  */
 export const STATE_PUSH_TIMEOUT = 30_000;
 
-/** How long before a state change a push may come and still count as the push for it. */
+/**
+ * How long before a state change a push may come and still count as the push for it, and how
+ * recently the card must have seen the calendar's state for a change to be timed at all.
+ */
 const STATE_PUSH_GRACE = 5_000;
 
 /**
@@ -97,14 +100,10 @@ interface Subscription {
   raw: string | undefined;
   refs: number;
   closed: boolean;
-  /**
-   * Closed while its command id may be stale (the connection down, or not pushed since it came
-   * back), so unsubscribing then is put off until it pushes again; see `close`.
-   */
-  unsubscribeOnPush: boolean;
-  /** When it last pushed, and its calendar's state as last seen (`observeStates`). */
+  /** When it last pushed, and its calendar's state as last seen, and when (`observeStates`). */
   pushedAt: number;
   seenState: unknown;
+  seenAt: number;
   /** Set while a state change waits for its push. */
   stateTimer: ReturnType<typeof setTimeout> | undefined;
   /**
@@ -256,13 +255,12 @@ function close(registry: Registry, subscription: Subscription): void {
     registry.subscriptions.delete(subscription.key);
   }
   // The websocket library Home Assistant shipped up to 2026.10 sends an unsubscribe made while
-  // the connection is down nowhere, and subscribes it again once it is back; and one made after a
-  // reconnect, before the subscription pushed, goes out with the id it had on the old connection,
-  // which by then names some other subscription. Both wait for its next push, which proves the
-  // library holds its current id; one that never pushes again holds nothing on the server.
-  if (registry.connection.connected === false || subscription.reconnecting) {
-    subscription.unsubscribeOnPush = true;
-  } else {
+  // the connection is down nowhere, keeps one the connection dropped before it was answered, and
+  // subscribes both again once it is back; and one made after a reconnect, before the
+  // subscription pushed, goes out with the id it had on the old connection, which by then names
+  // some other subscription. So it waits for a push, which shows the library holds its current
+  // id, and any push of a closed subscription unsubscribes it again (`receive`).
+  if (registry.connection.connected !== false && !subscription.reconnecting) {
     void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.());
   }
   wake(subscription);
@@ -296,10 +294,9 @@ function receive(
   timeZone: string | undefined,
 ): void {
   if (subscription.closed) {
-    if (subscription.unsubscribeOnPush) {
-      subscription.unsubscribeOnPush = false;
-      void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.());
-    }
+    // In a task of its own: after a reconnect the library takes the new id only once the answer
+    // it is still processing has been handled.
+    setTimeout(() => void subscription.unsubscribe.then((unsubscribe) => unsubscribe?.()), 0);
     return;
   }
   clearTimeout(subscription.silenceTimer);
@@ -461,9 +458,9 @@ function acquire(
       raw: undefined,
       refs: 0,
       closed: false,
-      unsubscribeOnPush: false,
       pushedAt: 0,
       seenState: undefined,
+      seenAt: 0,
       stateTimer: undefined,
       reconnecting: false,
       closeTimer: undefined,
@@ -664,13 +661,21 @@ export function observeStates(hass: Types.Hass): void {
   const connection = connectionOf(hass);
   const registry = connection ? registries.get(connection) : undefined;
   if (!registry) return;
+  const now = Date.now();
   for (const subscription of registry.subscriptions.values()) {
     if (subscription.state !== 'live' && subscription.state !== 'failed') continue;
     const state = hass.states?.[subscription.entityId];
     const seen = subscription.seenState;
+    const watching = now - subscription.seenAt <= STATE_PUSH_GRACE;
     subscription.seenState = state;
+    subscription.seenAt = now;
     if (seen === undefined || state === seen || subscription.stateTimer) continue;
-    if (Date.now() - subscription.pushedAt <= STATE_PUSH_GRACE) continue;
+    // Unloading the integration marks the entity unavailable and restored, without a push: the
+    // new entity's subscriptions are elsewhere. Any other change counts only where the card has
+    // been watching, so its push cannot have come while it was not (another view shown).
+    const replaced =
+      !state || (state.state === 'unavailable' && state.attributes?.restored === true);
+    if (!replaced && (!watching || now - subscription.pushedAt <= STATE_PUSH_GRACE)) continue;
     subscription.stateTimer = setTimeout(() => {
       subscription.stateTimer = undefined;
       Logger.warn(`No live update for ${subscription.entityId} after its state changed`);
