@@ -35,6 +35,8 @@ import 'dayjs/locale/ro';
 import 'dayjs/locale/ru';
 import 'dayjs/locale/sk';
 import 'dayjs/locale/sl';
+import 'dayjs/locale/sr';
+import 'dayjs/locale/sr-latn';
 import 'dayjs/locale/sv';
 import 'dayjs/locale/th';
 import 'dayjs/locale/tr';
@@ -109,7 +111,9 @@ export function getRelativeTimeString(date: Date, locale: string, reference?: Da
  */
 function mapLocale(locale: string): string {
   const lowerLocale = locale.toLowerCase();
-  if (lowerLocale === 'zh-cn' || lowerLocale === 'zh-tw') {
+  
+  // Keep full locale codes for Chinese and Serbian Latin to prevent splitting
+  if (lowerLocale === 'zh-cn' || lowerLocale === 'zh-tw' || lowerLocale === 'sr-latn') {
     return lowerLocale;
   }
 
@@ -145,6 +149,8 @@ function mapLocale(locale: string): string {
     'ru',
     'sk',
     'sl',
+    'sr',        // Added for Serbian Cyrillic
+    'sr-latn',   // Added for Serbian Latin
     'sv',
     'th',
     'tr',
