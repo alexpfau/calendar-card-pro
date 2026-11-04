@@ -580,7 +580,7 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
 
 /**
  * Where `time_position` can put an event's time row: under the title, as every release before
- * it drew it, or beside the title where the row has room.
+ * it drew it, or at the end of the title's line, on a row with a time or a countdown to put there.
  */
 export const TIME_POSITIONS = ['below', 'title'] as const;
 

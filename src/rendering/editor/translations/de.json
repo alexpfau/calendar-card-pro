@@ -420,7 +420,7 @@
   "time": "Uhrzeit",
   "show_time": "Uhrzeit anzeigen",
   "time_position": "Uhrzeit-Position",
-  "time_position.helper": "Setzt die Uhrzeit ohne Uhrsymbol in die Zeile des Titels. Lange Titel scrollen dann immer, auch wenn das Scrollen langer Titel aus ist, und das Titel-Zeilenlimit gilt nicht. Eine lange Uhrzeit bricht innerhalb von etwa 60 % der Zeile um.",
+  "time_position.helper": "Setzt die Uhrzeit ohne Uhrsymbol in die Zeile des Titels und nie darunter. Braucht eine breite Terminzeile: in schmalen Karten oder Spalten und mit Extras wie Countdowns, Wetter am Termin, 12-Stunden- oder mehrtägigen Uhrzeiten, Ganztägig-Badges, größerer Schrift oder langen Text-Labels kann der Titel auf wenige Zeichen schrumpfen und die Uhrzeit mehrere Zeilen einnehmen. Nur dort verwenden, wo die Breite reicht, mit wenigen solchen Extras. Titel in dieser Zeile scrollen immer, auch wenn das Scrollen langer Titel aus ist, und das Titel-Zeilenlimit gilt nicht.",
   "time_position.option.below.label": "Unter dem Titel",
   "time_position.option.title.label": "Neben dem Titel",
   "show_end_time": "Endzeit anzeigen",

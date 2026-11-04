@@ -320,8 +320,21 @@ refers to.
 
 ### Time Beside the Title
 
-`time_position: title` puts an event's time at the end of its title's line, on every row and
-at any width:
+::: warning Needs a Wide Event Row
+This mode gives the title's width to the time and never moves the time below to win it back,
+so it needs room, and every extra on the row raises how much. With the default fonts, English
+text, 24-hour times and countdowns, and no event weather in list view, about 250px of event row
+was a practical lower bound: a 360px list card or a 280px day column. That left the title about
+100px and still put some times on two or three lines. On 240 to 300px list cards or in 145 to
+200px columns, and with event weather, 12-hour or multi-day times, all-day badges, larger fonts
+or long text labels, the title can shrink to a few characters and the time can take many lines:
+up to six in a 145px column, and up to eight on a narrow list card with event weather, where
+some titles kept less than a character. Use it where the width allows, with few such extras,
+and keep `below` where that trade is not acceptable.
+:::
+
+`time_position: title` puts an event's time at the end of its title's line, at any width, on
+every row that has a time or a countdown to show:
 
 ```yaml
 time_position: title # below, the default, keeps the time under the title
@@ -337,16 +350,23 @@ time, set off from it by the same dot: "14° · 14:00 - 16:00".
 
 Everything else stays below the title, in its order: the
 [progress bar](#progress-bar-display), which takes a row of its own in list view as it does in
-column view, column view's weather row, the location and the description. A row with no time
-and no countdown to show, such as an empty day, keeps its usual layout.
+column view, column view's weather row, the location and the description.
 
-The time takes the room it needs, up to about 60% of the line. A longer time wraps inside that
-room, at the end of the line, so the title keeps about 40% of it, apart from the cases below.
-The title has the rest
-and stays on one line: it [scrolls](#scrolling-long-titles) whenever it is too long for its
+The time takes the room it needs, normally up to about 60% of the line, and a longer time wraps
+inside that room. List view's weather badge and its dot count toward the 60%. The time takes
+more than that rather than break a word of the time, the badge or the dot, and the title then
+keeps less than the remaining 40%; only a countdown word in a column too narrow for it breaks,
+as it does below the title. A title that shares its line with the time has the rest of
+the line and stays on it: it [scrolls](#scrolling-long-titles) whenever it is too long for its
 room, whatever `scroll_long_titles` says, and with the operating system's reduce-motion setting
-on it ends in "…" instead. [`title_max_lines`](#limiting-lines-per-field) does not apply to a
-title beside a time, as it does not to a scrolling one.
+on it ends in "…" instead. [`title_max_lines`](#limiting-lines-per-field) does not apply to it,
+as it does not to a scrolling one.
+
+A row with neither a time nor a countdown to show, such as an empty day or a running event
+with `show_time: false` and no countdown, keeps the layout it has below the title, and its title
+wraps unless `scroll_long_titles` is on. The one difference is list view's progress bar on such
+a running event, which moves to a row of its own, 80% of the event's width unless
+`progress_bar_width` says otherwise.
 
 Each layout can set it on its own:
 
@@ -357,15 +377,8 @@ column:
   time_position: below # the columns stay as they are
 ```
 
-A few things to know before turning it on:
+A few more things to know before turning it on:
 
-- Narrow events give both sides little room. In a column at the default `min_day_width`, about
-  145px wide, the title keeps about 50px, a word or so at a time, and a time with a countdown
-  wraps over three or four lines.
-- The time wraps between its words, and list view's weather badge counts toward its 60%. Where
-  the badge, the dot and the time's longest word need more than that, they take it and the
-  title gets less: on a 240px list card with the badge on, some titles keep only a letter or
-  two.
 - An [all-day badge on the time](#where-the-pill-goes) with a countdown after it wraps as it
   does in column view, the countdown under the pill, and on a narrow row the pill is shortened
   with "…".
@@ -742,6 +755,9 @@ time, and its time line turns green, in list and column view. The clock stays wh
 other row has its icons, so the column of icons stays straight. It is on by default, needs no
 configuration, and takes nothing away: the event keeps its color and its accent bar, and its
 title, location and description keep theirs.
+
+With [`time_position: title`](#time-beside-the-title) the time has no clock, so "Now ·" and
+the green alone mark the event, and `now_color` still sets that green.
 
 ```yaml
 show_now_indicator: false # Turn it off

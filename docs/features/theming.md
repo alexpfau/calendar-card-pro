@@ -466,8 +466,10 @@ card_mod:
 ### Move Time Into the Same Row as the Event Title
 
 This no longer needs card-mod. The [`time_position`](/features/event-content#time-beside-the-title)
-option draws the time at the end of the title's line on every row, and keeps the title to the
-rest of the line, scrolling it when it is too long:
+option draws the time at the end of the title's line on every row with a time or a countdown,
+and keeps the title to the rest of the line, scrolling it when it is too long. It needs a wide
+event row, more so with countdowns, event weather and similar extras, as
+[Time Beside the Title](/features/event-content#time-beside-the-title) explains:
 
 ```yaml
 type: custom:calendar-card-pro

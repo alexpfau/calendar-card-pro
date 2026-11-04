@@ -420,7 +420,7 @@
   "time": "Kellaaeg",
   "show_time": "Näita kellaaega",
   "time_position": "Kellaaja asend",
-  "time_position.helper": "Paneb kellaaja ilma kellaikoonita pealkirja reale. Pikad pealkirjad kerivad siis alati, olenemata valikust Keri pikad pealkirjad, ja pealkirja reapiirang ei kehti. Pikk kellaaeg murdub umbes 60% piires rea laiusest.",
+  "time_position.helper": "Paneb kellaaja ilma kellaikoonita pealkirja reale ega vii seda kunagi selle alla. Vajab laia sündmuse rida: kitsastel kaartidel või veergudes ning lisadega, nagu loendurid, sündmuse ilm, 12-tunnised või mitmepäevased kellaajad, terve päeva märgid, suurem font või pikad tekstisildid, võib pealkiri kahaneda mõne tähemärgini ja kellaaeg võtta mitu rida. Kasuta seda seal, kus laius lubab, ja vähese lisaga. Sama rida jagavad pealkirjad kerivad alati, olenemata valikust Keri pikad pealkirjad, ja pealkirja reapiirang ei kehti.",
   "time_position.option.below.label": "Pealkirja all",
   "time_position.option.title.label": "Pealkirja kõrval",
   "show_end_time": "Näita lõppaega",

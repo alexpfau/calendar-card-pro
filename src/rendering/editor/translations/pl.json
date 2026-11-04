@@ -420,7 +420,7 @@
   "time": "Czas",
   "show_time": "Pokaż czas",
   "time_position": "Pozycja czasu",
-  "time_position.helper": "Umieszcza czas w wierszu tytułu, bez ikony zegara. Długie tytuły są wtedy zawsze przewijane, niezależnie od opcji Przewijaj długie tytuły, a limit wierszy tytułu nie obowiązuje. Długi czas zawija się w obrębie około 60% wiersza.",
+  "time_position.helper": "Umieszcza czas w wierszu tytułu, bez ikony zegara, i nigdy nie przenosi go niżej. Wymaga szerokiego wiersza wydarzenia: w wąskich kartach lub kolumnach oraz z dodatkami, takimi jak odliczanie, pogoda wydarzenia, czas 12-godzinny lub wielodniowy, odznaki całego dnia, większa czcionka czy długie etykiety tekstowe, tytuł może skurczyć się do kilku znaków, a czas zająć kilka wierszy. Używaj go tam, gdzie pozwala szerokość, z niewieloma takimi dodatkami. Tytuły dzielące wiersz z czasem są zawsze przewijane, niezależnie od opcji Przewijaj długie tytuły, a limit wierszy tytułu nie obowiązuje.",
   "time_position.option.below.label": "Pod tytułem",
   "time_position.option.title.label": "Obok tytułu",
   "show_end_time": "Pokaż czas zakończenia",

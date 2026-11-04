@@ -137,7 +137,7 @@ What decides the outcome is whether the block mentions an option at all, not wha
 
 The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
 
-[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view. It puts an event's time on the title's line in every row, in up to about 60% of it, and a column near the default `min_day_width` has little of either to give: the time wraps over two or three lines and the title scrolls through a few words at a time. To leave the columns exactly as they are, set it in `list:` alone.
+[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view, because it needs a wide event row and the default column width of about 140px is not a good fit for it. It puts the time on the title's line on every row with a time or a countdown, and in about 145px columns that left the title about 50px, a word or so at a time, while a time with a countdown took two to six lines. About 280px columns left the title about 100px. [Time Beside the Title](/features/event-content#time-beside-the-title) has the details. To leave the columns exactly as they are, set it in `list:` alone.
 
 ## 🔀 Options That Start From a Different Default
 

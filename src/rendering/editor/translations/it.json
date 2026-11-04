@@ -420,7 +420,7 @@
   "time": "Orario",
   "show_time": "Mostra orario",
   "time_position": "Posizione dell'orario",
-  "time_position.helper": "Mette l'orario sulla riga del titolo, senza l'icona dell'orologio. I titoli lunghi allora scorrono sempre, qualunque cosa dica Scorri i titoli lunghi, e il limite di righe del titolo non si applica. Un orario lungo va a capo entro circa il 60% della riga.",
+  "time_position.helper": "Mette l'orario sulla riga del titolo, senza l'icona dell'orologio, e non lo sposta mai sotto. Richiede una riga dell'evento larga: in schede o colonne strette, e con extra come conti alla rovescia, meteo dell'evento, orari a 12 ore o su più giorni, badge tutto il giorno, font più grandi o etichette di testo lunghe, il titolo può ridursi a pochi caratteri e l'orario occupare più righe. Usalo dove la larghezza lo consente, con pochi extra di questo tipo. I titoli che condividono la riga scorrono sempre, qualunque cosa dica Scorri i titoli lunghi, e il limite di righe del titolo non si applica.",
   "time_position.option.below.label": "Sotto il titolo",
   "time_position.option.title.label": "Accanto al titolo",
   "show_end_time": "Mostra orario fine",

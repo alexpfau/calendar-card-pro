@@ -420,7 +420,7 @@
   "time": "Laiks",
   "show_time": "Rādīt laiku",
   "time_position": "Laika pozīcija",
-  "time_position.helper": "Novieto laiku virsraksta rindā bez pulksteņa ikonas. Gari virsraksti tad vienmēr ritinās neatkarīgi no iestatījuma Ritināt garus virsrakstus, un virsraksta rindu ierobežojums netiek piemērots. Garš laiks pāriet jaunā rindā aptuveni 60 % no rindas platuma.",
+  "time_position.helper": "Novieto laiku virsraksta rindā bez pulksteņa ikonas un nekad nepārvieto to zemāk. Vajag platu notikuma rindu: šaurās kartītēs vai kolonnās un ar papildinājumiem, piemēram, atpakaļskaitīšanu, notikuma laikapstākļiem, 12 stundu vai vairāku dienu laikiem, visas dienas nozīmītēm, lielāku fontu vai garām teksta etiķetēm, virsraksts var sarukt līdz dažām rakstzīmēm un laiks aizņemt vairākas rindas. Izmanto to tur, kur platums atļauj, ar nedaudziem šādiem papildinājumiem. Virsraksti, kas dala rindu ar laiku, vienmēr ritinās neatkarīgi no iestatījuma Ritināt garus virsrakstus, un virsraksta rindu ierobežojums netiek piemērots.",
   "time_position.option.below.label": "Zem virsraksta",
   "time_position.option.title.label": "Blakus virsrakstam",
   "show_end_time": "Rādīt beigu laiku",

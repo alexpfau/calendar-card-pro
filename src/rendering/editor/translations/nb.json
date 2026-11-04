@@ -420,7 +420,7 @@
   "time": "Tid",
   "show_time": "Vis tid",
   "time_position": "Tidsposisjon",
-  "time_position.helper": "Setter tiden på tittelens linje, uten klokkeikonet. Lange titler ruller da alltid, uansett hva Rull lange titler sier, og linjegrensen for tittel gjelder ikke. En lang tid brytes innenfor omtrent 60 % av linjen.",
+  "time_position.helper": "Setter tiden på tittelens linje, uten klokkeikonet, og flytter den aldri under. Krever en bred hendelsesrad: i smale kort eller kolonner, og med tillegg som nedtellinger, vær for hendelser, 12-timers eller flerdags tider, heldagsmerker, større skrift eller lange tekstetiketter, kan tittelen krympe til noen få tegn og tiden ta flere linjer. Bruk den der bredden tillater det, med få slike tillegg. Titler som deler linjen med tiden ruller alltid, uansett hva Rull lange titler sier, og linjegrensen for tittel gjelder ikke.",
   "time_position.option.below.label": "Under tittelen",
   "time_position.option.title.label": "Ved siden av tittelen",
   "show_end_time": "Vis sluttid",

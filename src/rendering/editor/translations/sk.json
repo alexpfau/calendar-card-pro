@@ -420,7 +420,7 @@
   "time": "Čas",
   "show_time": "Zobraziť čas",
   "time_position": "Poloha času",
-  "time_position.helper": "Umiestni čas na riadok názvu, bez ikony hodín. Dlhé názvy sa potom vždy posúvajú bez ohľadu na nastavenie Posúvať dlhé názvy a limit riadkov názvu sa neuplatňuje. Dlhý čas sa zalomí v rámci približne 60 % riadka.",
+  "time_position.helper": "Umiestni čas na riadok názvu, bez ikony hodín, a nikdy ho nepresunie nižšie. Vyžaduje široký riadok udalosti: v úzkych kartách alebo stĺpcoch a s doplnkami, ako sú odpočítavanie, počasie udalosti, 12-hodinové alebo viacdňové časy, odznaky celého dňa, väčšie písmo či dlhé textové štítky, sa názov môže zmenšiť na pár znakov a čas zabrať niekoľko riadkov. Používajte ho tam, kde to šírka dovolí, s malým počtom takých doplnkov. Názvy, ktoré zdieľajú riadok s časom, sa vždy posúvajú bez ohľadu na nastavenie Posúvať dlhé názvy a limit riadkov názvu sa neuplatňuje.",
   "time_position.option.below.label": "Pod názvom",
   "time_position.option.title.label": "Vedľa názvu",
   "show_end_time": "Zobraziť čas skončenia",

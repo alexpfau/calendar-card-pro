@@ -420,7 +420,7 @@
   "time": "Laikas",
   "show_time": "Rodyti laiką",
   "time_position": "Laiko padėtis",
-  "time_position.helper": "Rodo laiką pavadinimo eilutėje, be laikrodžio piktogramos. Ilgi pavadinimai tada visada slenka, nepaisant nustatymo Slinkti ilgus pavadinimus, o pavadinimo eilučių riba netaikoma. Ilgas laikas laužomas maždaug 60 % eilutės pločio ribose.",
+  "time_position.helper": "Rodo laiką pavadinimo eilutėje, be laikrodžio piktogramos, ir niekada jo nenukelia žemyn. Reikia plačios įvykio eilutės: siaurose kortelėse ar stulpeliuose ir su priedais, tokiais kaip atgalinis skaičiavimas, įvykio orai, 12 valandų ar kelių dienų laikai, visos dienos ženkleliai, didesnis šriftas ar ilgos teksto etiketės, pavadinimas gali susitraukti iki kelių simbolių, o laikas užimti kelias eilutes. Naudokite ten, kur leidžia plotis, ir su nedaug tokių priedų. Eilutę su laiku dalijantys pavadinimai visada slenka, nepaisant nustatymo Slinkti ilgus pavadinimus, o pavadinimo eilučių riba netaikoma.",
   "time_position.option.below.label": "Po pavadinimu",
   "time_position.option.title.label": "Šalia pavadinimo",
   "show_end_time": "Rodyti pabaigos laiką",

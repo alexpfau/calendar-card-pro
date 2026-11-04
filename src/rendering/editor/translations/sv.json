@@ -420,7 +420,7 @@
   "time": "Tid",
   "show_time": "Visa tid",
   "time_position": "Tidsposition",
-  "time_position.helper": "Placerar tiden på titelns rad, utan klockikonen. Långa titlar rullar då alltid, oavsett vad Rulla långa titlar säger, och radgränsen för titel gäller inte. En lång tid radbryts inom ungefär 60 % av raden.",
+  "time_position.helper": "Placerar tiden på titelns rad, utan klockikonen, och flyttar den aldrig nedanför. Kräver en bred händelserad: i smala kort eller kolumner, och med tillägg som nedräkningar, väder för händelser, 12-timmars- eller flerdagstider, heldagsmärken, större font eller långa textetiketter, kan titeln krympa till några få tecken och tiden ta flera rader. Använd den där bredden räcker, med få sådana tillägg. Titlar som delar raden med tiden rullar alltid, oavsett vad Rulla långa titlar säger, och radgränsen för titel gäller inte.",
   "time_position.option.below.label": "Under titeln",
   "time_position.option.title.label": "Bredvid titeln",
   "show_end_time": "Visa sluttid",

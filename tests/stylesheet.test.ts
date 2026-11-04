@@ -3579,10 +3579,13 @@ describe('the today tile', () => {
  * own that list view's weather badge shares, after the title, which always scrolls.
  *
  * Every declaration is pinned by value, and the set of rules naming the placement is pinned
- * whole, at any depth. CSS is the one layer the DOM tests in tests/time-position.test.ts cannot
- * see, so a rule dropped from here would pass every one of them and let the time wrap without
- * a cap, overflow the event, stack "Now" a letter to a line or sit off the title's baseline,
- * each of which the harness measured before the rule existed. A rule left over from the earlier
+ * whole, at any depth. That pins what the stylesheet says, not what a browser draws from it:
+ * nothing here lays anything out. CSS is the one layer the DOM tests in
+ * tests/time-position.test.ts cannot see, so a rule dropped from here would pass every one of
+ * them. What the rules do on screen was measured in browsers with the harness, and two of them
+ * exist because it caught a fault: "Now" stacked a letter to a line before the rule that keeps
+ * it whole, and an all-day pill with a folded countdown left the title a few pixels before list
+ * view's badge rows took column view's rules. A rule left over from the earlier
  * design, which let the time drop to a line of its own, names `.title-time-row` and fails here
  * as well.
  */

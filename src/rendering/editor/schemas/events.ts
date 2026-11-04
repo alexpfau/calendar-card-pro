@@ -293,9 +293,9 @@ const eventsSchema = Helpers.memoizeLast(
     bool('show_time'),
     // Where the time row goes is the same question as whether there is one: together they
     // decide which lines an event is made of. Not gated on `show_time`, and not in the Time
-    // group, which is emitted only while times are on: with times off the countdown, or list
-    // view's progress bar, is the time row, and this still moves it. Grid hides it through
-    // `VIEW_SCOPE`, where it has no title row to join.
+    // group, which is emitted only while times are on: with times off a countdown still sits
+    // beside the title when this asks for it, and list view's progress bar still takes a row of
+    // its own. Grid hides it through `VIEW_SCOPE`, where it has no title line to join.
     select(language, 'time_position', TIME_POSITION_OPTIONS),
     bool('show_location'),
     bool('show_description'),

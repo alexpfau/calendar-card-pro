@@ -285,8 +285,8 @@ describe('stripComments', () => {
     // time's box stops at 60% of the line but never below what it cannot wrap, why list view's
     // weather badge keeps its size and lines up by its text there, why the bullet after it is
     // spaced as the folded countdown's dot, why "Now" stays one word, and why list view's badge
-    // rows share column view's rules. The reading went from 183,042 to 188,594, taken with
-    // stripComments after the last comment was written.
+    // rows share column view's rules, and why the box may grow past its cap. The reading went
+    // from 183,042 to 188,921, taken with stripComments after the last comment was written.
     //
     // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and

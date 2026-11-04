@@ -865,11 +865,11 @@ export interface EventContentOptions {
   links?: boolean;
   /**
    * Where the time row goes (`time_position`): `'below'` under the title, which is the markup
-   * every view drew before the option existed, or `'title'` at the end of the title's line, where
-   * it stays at any width. In that mode the countdown folds into the time text and the progress
-   * bar takes a row of its own, whatever the two placements above ask for. List and column pass
-   * their resolved value; grid never does, because its blocks fit their own rows, and this
-   * function never reads the option from `config`.
+   * every view drew before the option existed, or `'title'` at the end of the title's line, on a
+   * row with a time or a countdown, where it stays at any width. In that mode the countdown folds
+   * into the time text and the progress bar takes a row of its own, whatever the two placements
+   * above ask for. List and column pass their resolved value; grid never does, because its blocks
+   * fit their own rows, and this function never reads the option from `config`.
    */
   timePosition?: Helpers.TimePosition;
 }
@@ -1181,8 +1181,8 @@ interface TimeBesideTitlePieces {
  * the time text and the progress bar is the row of its own `renderEventContent` passes here,
  * in list view as in column view. With times off, the countdown alone takes the time's place.
  *
- * The title always scrolls, so every row lays out the same way: the time takes what it needs,
- * up to a cap the stylesheet sets, and the title has the rest of the line. Everything else
+ * The title always scrolls, so every row drawn here lays out the same way: the time takes what
+ * it needs, normally up to a cap the stylesheet sets, and the title has the rest of the line. Everything else
  * stays below in its usual order: the progress row, column view's weather row, the location
  * and the description. tests/time-position.test.ts holds those, and the title, to the markup
  * the card draws without the option.

@@ -2707,12 +2707,13 @@ export const cardStyles = css`
 
      The time comes without its clock and with nothing trailing it: the leaf folds a countdown
      into the time text and draws the progress bar as a row of its own, in list view as in
-     column view. The title always scrolls: the leaf gives it the scroll_long_titles markup
-     whatever that option says, so the rules for that mode keep it to one line with its labels
-     beside it, the card moves it only where it overflows, and under reduced motion it ends in
-     an ellipsis instead. The rules here only share the line between the two.
-     tests/stylesheet.test.ts pins every declaration in them. Logical properties throughout, so
-     a right-to-left card puts the time at the left with nothing of its own. */
+     column view. A title that shares its line always scrolls: the leaf gives it the
+     scroll_long_titles markup whatever that option says, so the rules for that mode keep it to
+     one line with its labels beside it, the card moves it only where it overflows, and under
+     reduced motion it ends in an ellipsis instead. The rules here only share the line between
+     the two. tests/stylesheet.test.ts pins every declaration in them; what they draw was
+     measured in browsers. Logical properties throughout, so a right-to-left card puts the time
+     at the left with nothing of its own. */
 
   /* The time's text on the title's baseline. Centered, a line of the title beside a line at the
      time's smaller size sets the two a pixel or two apart; on one baseline they read as one
@@ -2732,13 +2733,16 @@ export const cardStyles = css`
     align-self: baseline;
   }
 
-  /* The time and its badge take what they need, up to the cap, at the end of the line, and the
-     title has the rest: .summary grows from nothing and scrolls where that is too little. The
-     cap is 60% of the line less the title's 12px gutter, so the title's own box keeps at least
-     40% of it; past the cap the time wraps inside this box. The floor is what the box cannot
-     wrap any narrower: the badge, the bullet and the time's longest word. A floor wins over a
-     cap, so the box never overflows itself; where it is the wider of the two the title keeps
-     less than 40%, which takes a badge on a narrow card or a long word in a narrow column. */
+  /* The time and its badge take what they need, normally up to the cap, at the end of the line,
+     and the title has the rest: .summary grows from nothing and scrolls where that is too little.
+     The cap is 60% of the line less the title's 12px gutter, so the title's own box keeps 40% of
+     it, and past the cap the time wraps inside this box. The floor is what the box cannot wrap
+     any narrower: the badge, the bullet and the time's longest word. A floor wins over a cap, so
+     the box grows past 60% rather than break a word, and the title keeps less: beside a weather
+     badge on a 240px list card it kept a few pixels. The box's content never overflows the box;
+     the row would overflow the event only where the floor is wider than the whole line, which
+     none of the widths measured reached (list cards from 240px, columns from 145px). The option's
+     docs say plainly that it needs a wide row. */
   .time-beside-title > .summary-row > .title-aside {
     display: flex;
     align-items: baseline;

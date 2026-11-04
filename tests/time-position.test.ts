@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,14 +19,16 @@ import * as Helpers from '../src/utils/helpers';
  * title's line.
  *
  * The placement is a second shape of the event body and a block of CSS. The CSS is pinned in
- * tests/stylesheet.test.ts; this file holds the markup to four claims:
+ * tests/stylesheet.test.ts; this file holds the markup to four claims. Both files are about
+ * markup and declarations only: happy-dom lays nothing out, so where the time lands on screen,
+ * how many lines it takes and how much title is left were measured in browsers, not here.
  *
  * - **Off, nothing changes.** The default, `below`, and every value the resolver does not
  *   recognize, render the markup the card always drew. The list and column DOM snapshots are
  *   the strong form of that for the default; this checks the fallbacks against it.
- * - **On, the time sits on the title's line**, on every row that has a time or a countdown,
- *   without its clock, after list view's weather badge, and the title scrolls whatever
- *   `scroll_long_titles` says. Nothing trails the time: list view folds its countdown into
+ * - **On, the time is drawn in the title's row**, on every row that has a time or a countdown,
+ *   without its clock, after list view's weather badge, and the title gets the scrolling markup
+ *   whatever `scroll_long_titles` says. Nothing trails the time: list view folds its countdown into
  *   the time text and draws its bar as a row of its own, as column view always has.
  * - **Nothing else changes.** Checked by reconciling renders rather than by listing what each
  *   row should hold, because the title-line markup is a second copy of the default's and the
@@ -140,14 +145,14 @@ describe('time_position', () => {
 
     it.each([true, false])('sits directly under show_time, with times on: %s', (showTime) => {
       // Times off is the case that decides the placement: the Time group is withheld then,
-      // and the choice still moves a countdown-only row.
+      // and the choice still puts a countdown beside the title.
       const names = eventsPanel({ show_time: showTime }).map(
         (node) => (node as { name?: string }).name,
       );
       expect(names[names.indexOf('show_time') + 1]).toBe('time_position');
     });
 
-    it('names both places, the shipped one first, and says what the title line costs', () => {
+    it('names both places, the shipped one first, and warns what the title line needs', () => {
       const field = eventsPanel().find(
         (node) => (node as { name?: string }).name === 'time_position',
       ) as unknown as {
@@ -160,15 +165,39 @@ describe('time_position', () => {
       ]);
       expect(lookup('en', 'time_position')).toBe('Time Position');
       const helper = lookup('en', 'time_position.helper');
-      expect(helper).toMatch(/without its clock/);
-      expect(helper).toMatch(/always scroll, whatever Scroll Long Titles says/);
+      expect(helper).toMatch(/without its clock, and never moves it below/);
+      // The warning: the mode needs width, and the extras that raise how much.
+      expect(helper).toMatch(/Needs a wide event row: in narrow cards or columns/);
+      expect(helper).toMatch(
+        /countdowns, event weather, 12-hour or multi-day times, all-day badges, larger fonts/,
+      );
+      expect(helper).toMatch(/the title can shrink to a few characters/);
+      expect(helper).toMatch(/Use it where the width allows, with few such extras/);
+      expect(helper).toMatch(/Titles that share the line always scroll, whatever Scroll Long/);
       expect(helper).toMatch(/Title Line Limit does not apply/);
-      expect(helper).toMatch(/about 60% of the line/);
       // And the option it overrides says so where a reader looks for why a title scrolls.
       expect(lookup('en', 'scroll_long_titles.helper')).toMatch(
         /With the time beside the title, long titles always scroll\.$/,
       );
     });
+  });
+
+  it('carries the warning into every translated helper, not a weaker one', () => {
+    // `lookup` falls back to English, which would hide a file still holding the earlier helper,
+    // so the files are read as they are. The earlier text named the 60% cap and no extras; the
+    // warning names 12-hour times among them. A shape check, not a translation review.
+    const dir = join(process.cwd(), 'src/rendering/editor/translations');
+    const files = readdirSync(dir).filter(
+      (file) => file.endsWith('.json') && file !== 'en-GB.json',
+    );
+    expect(files).toHaveLength(10);
+    for (const file of files) {
+      const strings = JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<string, string>;
+      const helper = strings['time_position.helper'];
+      expect(helper, file).toBeDefined();
+      expect(helper, file).toMatch(/12/);
+      expect(helper, file).not.toMatch(/60/);
+    }
   });
 
   describe('off', () => {

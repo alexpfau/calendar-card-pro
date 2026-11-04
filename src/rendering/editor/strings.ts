@@ -722,9 +722,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   time_position: 'Time Position',
   'time_position.helper':
-    "Puts the time on the title's line, without its clock. Long titles then always scroll, " +
-    'whatever Scroll Long Titles says, and Title Line Limit does not apply. A long time wraps ' +
-    'within about 60% of the line.',
+    "Puts the time on the title's line, without its clock, and never moves it below. Needs a " +
+    'wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
+    'weather, 12-hour or multi-day times, all-day badges, larger fonts or long text labels, the ' +
+    'title can shrink to a few characters and the time can take several lines. Use it where the ' +
+    'width allows, with few such extras. Titles that share the line always scroll, whatever ' +
+    'Scroll Long Titles says, and Title Line Limit does not apply.',
   'time_position.option.below.label': 'Below the title',
   'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',
