@@ -82,8 +82,8 @@ export interface EntityOccurrence {
  *
  * 🚨 It deliberately ignores the calendar's `name` option, which every surface of the card
  * itself reads. The heading matches the picker row directly above it, and that row is Home
- * Assistant's control, which the card cannot rename; the Name field inside the panel shows
- * the card's own name instead.
+ * Assistant's control, which the card cannot rename; the line under the heading leads with
+ * the card's own name instead (`_entitySummary`), and the Name field inside the panel holds it.
  *
  * @param entityId - The calendar's entity id
  * @param hass - Home Assistant state, absent before the editor is handed one

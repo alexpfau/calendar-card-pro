@@ -35,6 +35,7 @@ import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
+import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
 
@@ -668,11 +669,21 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The line under a calendar's heading.
    *
-   * The heading is the calendar's name, so two blocks over one calendar carry the same
-   * one. This is where they are told apart, and the order is the useful one: a label the
-   * user wrote wins, because it is their own answer to this exact question, and the
-   * position is prefixed to it either way so that "the same calendar, twice" is never
-   * mistaken for the card having listed something twice by accident.
+   * The heading is Home Assistant's name for the calendar, matching the picker row above it,
+   * so a name this card gives the calendar shows on no closed panel, and two blocks over one
+   * calendar carry the same heading. This line answers both, in the order that is useful:
+   *
+   * - the calendar's own name on this card, wherever it differs from the heading by more than
+   *   the spaces around either. It is read from the whole list, because a name belongs to the
+   *   calendar rather than to one block (`configuredCalendarName`), so a block that does not
+   *   hold it still shows it, and a blank one is no name;
+   * - its position among the calendar's blocks, when there is more than one, so that "the same
+   *   calendar, twice" is never mistaken for the card having listed something twice by
+   *   accident;
+   * - what the block holds: a label the user wrote wins, because it is their own answer to
+   *   this exact question, else whether it configures anything. A block whose only setting is
+   *   the name the line already leads with says nothing more, where "Configured" would only
+   *   point at that name a second time.
    *
    * It deliberately does not report *which setting* differs between two blocks. Any of the
    * thirty-odd per-calendar options can be the one, several can differ at once, and a diff
@@ -681,7 +692,7 @@ export class CalendarCardProEditor extends LitElement {
    * question the duplicate actually raises, which is "which of these two am I editing",
    * and answers it in every case rather than in the neat ones.
    *
-   * @param entities - The list as stored, for finding this calendar's duplicates
+   * @param entities - The list as stored, for finding this calendar's name and duplicates
    * @param index - Position of the calendar being described
    * @param ctx - Schema context
    * @returns Secondary text
@@ -693,20 +704,35 @@ export class CalendarCardProEditor extends LitElement {
   ): string {
     const entry = entities[index];
     const config = Entities.asEntityConfig(entry);
+    const entityId = Synthetic.entityIdOf(entry);
+
+    // Both trimmed, as the heading reads: a name differing from Home Assistant's only in the
+    // spaces around either is the same name, and is not repeated under it.
+    const configured = configuredCalendarName(entities, entityId);
+    const name =
+      configured !== undefined &&
+      configured !== Entities.entityDisplayName(entityId, this.hass).trim()
+        ? configured
+        : undefined;
+    const holdsOnlyName =
+      name !== undefined && Entities.hasSettings(entry) && !Entities.hasTransferableSettings(entry);
 
     const described =
       typeof config.label === 'string' && config.label !== ''
         ? config.label
-        : Entities.hasSettings(entry)
-          ? this._string(ctx, 'entity.customised')
-          : this._string(ctx, 'entity.unconfigured');
+        : holdsOnlyName
+          ? undefined
+          : Entities.hasSettings(entry)
+            ? this._string(ctx, 'entity.customised')
+            : this._string(ctx, 'entity.unconfigured');
 
     const { position, total } = Entities.occurrenceOf(entities, index);
-    if (total < 2) return described;
+    const occurrence =
+      total < 2
+        ? undefined
+        : interpolate(this._string(ctx, 'entity.occurrence'), { position, total });
 
-    const occurrence = interpolate(this._string(ctx, 'entity.occurrence'), { position, total });
-
-    return `${occurrence} · ${described}`;
+    return [name, occurrence, described].filter((part) => part !== undefined).join(' · ');
   }
 
   /**
