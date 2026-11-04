@@ -656,7 +656,7 @@ Show how much time remains until an event starts with the countdown display feat
 show_countdown: true
 ```
 
-When enabled, a subtle countdown string appears next to each upcoming event, in every view; in grid view it trails the time on a timed block tall enough to show one, and all-day banners carry none. It follows the same local calendar dates as the day headers:
+When enabled, a subtle countdown string appears next to each upcoming event, in every view; in grid view it trails the time on a timed block tall enough to show one, and all-day banners carry none. In list view it ends the time row, on a line of its own where the time leaves it no room, and a phrase wider than the whole row, as a long Finnish one can be on a narrow card, wraps between its words rather than run past the card's edge. It follows the same local calendar dates as the day headers:
 
 | When the Event Starts | Countdown                                                     |
 | --------------------- | ------------------------------------------------------------- |

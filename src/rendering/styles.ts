@@ -2734,7 +2734,7 @@ export const cardStyles = css`
    * Never hyphenated, in any placement; grid's folded countdown already was not. Column
    * view split "tomorrow" as "to-" / "morrow" in all three engines rather than move it whole
    * to the next line. A word too wide for any line breaks without a hyphen instead, through
-   * .column-events .time-countdown. Inert in list view, where the countdown is one line. */
+   * .column-events .time-countdown, and in list view through the rule below. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
@@ -2742,6 +2742,17 @@ export const cardStyles = css`
     margin-inline-end: 12px;
     white-space: nowrap;
     hyphens: manual;
+  }
+
+  /* List view's countdown stays one line while it fits the row, end gutter included, and
+     wraps only past that, where the card's edge cut it: "kahden päivän päästä" lost 22px at
+     200px. Not let shrink, so every countdown that fitted stays where it was. */
+  td.event .time-location > .time > .time-countdown {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-align: end;
   }
 
   .location {
