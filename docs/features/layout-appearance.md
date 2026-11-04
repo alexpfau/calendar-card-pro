@@ -541,6 +541,13 @@ each button, its icon and its name in words; a press runs it and closes the menu
 closes on a press outside it, Escape, a scroll or a change in the card's width. The buttons come
 back into the row once the card is wide enough for them again, as when a tablet is turned.
 
+In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
+toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with
+**Move Up**, **Move Down** and **Remove**, and **Add Button** after the last, which adds one with
+the `mdi:gesture-tap-button` icon for you to change. **Tap Action** offers the card's own actions
+first, **Go Back** among them. The editor has no field for `back`'s `navigation_path`; write that
+in YAML.
+
 ::: tip Nothing Runs While You Edit
 In the card editor's preview, and on a dashboard in edit mode, your buttons are drawn, folded as
 they would be on the dashboard, and do nothing, like every other control in the toolbar there.

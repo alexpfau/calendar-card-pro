@@ -7,7 +7,7 @@ import { mdiViewDashboardOutline } from '@mdi/js';
 import type { HaFormSchema } from './ha-form';
 import { ACTIONS_ICON, buildActionsSchema } from './schemas/actions';
 import { CALENDARS_ICON, buildCalendarsSchema, calendarsSubforms } from './schemas/calendars';
-import { CARD_ICON, buildCardSchema } from './schemas/card';
+import { CARD_ICON, buildCardSchema, cardSubforms } from './schemas/card';
 import { CONTENT_ICON, buildContentSchema } from './schemas/content';
 import { DAY_HEADER_ICON, buildDayHeaderSchema } from './schemas/day-header';
 import { EVENTS_ICON, buildEventsSchema } from './schemas/events';
@@ -142,7 +142,10 @@ export const PANELS: ReadonlyArray<PanelDef> = [
     id: 'card',
     titleKey: 'panel.card',
     iconPath: CARD_ICON,
+    // The words on the toolbar buttons' own panels: Add Button, Move Up and the rest.
+    strings: ['toolbar.buttons'],
     build: buildCardSchema,
+    subforms: cardSubforms,
   },
   {
     id: 'day_header',

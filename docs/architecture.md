@@ -19,6 +19,7 @@ src/
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Runs the card's tap and hold actions
 │   ├── add-event.ts              # Add button: writable calendars, label, new-event times
+│   ├── back.ts                   # Where `back` goes: the page before, or a page of this dashboard
 │   ├── calendar-changes.ts       # Page-wide announcement after the popover saves
 │   ├── calendar-writes.ts        # Feature bits; the create, update and delete commands
 │   ├── event-action-kind.ts      # What an event tap or hold amounts to, for card and editor
@@ -38,6 +39,7 @@ src/
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
 │   │   ├── value.ts              # Serialization, legacy migration, authored-value retention
 │   │   ├── entities.ts           # Write path for the per-calendar list
+│   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
@@ -54,6 +56,7 @@ src/
 │   ├── render.ts                 # Card shell and the list view
 │   ├── toolbar.ts                # Header toolbar and its controls
 │   ├── legend.ts                 # The calendar filter: its chips, its button and menu
+│   ├── menu.ts                   # The toolbar's menus: placed, painted, opened and closed
 │   ├── view-pictograms.ts        # The picture of each view, for editor and toolbar
 │   ├── activation.ts             # Marks rendered events as tap targets
 │   ├── event-popover.ts          # The event popover: details, editing in place, new events
@@ -95,6 +98,7 @@ src/
     ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
     ├── title-words.ts            # Splits grid titles so they wrap only at spaces
     ├── view-choice.ts            # The switcher's view and the legend's hidden calendars, per device
+    ├── toolbar-fold.ts           # When the toolbar's own buttons fold into one menu button
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── links.ts                  # Web addresses in an event's text, as link pieces
     ├── weather.ts                # Weather data fetching and processing
@@ -228,14 +232,15 @@ checks remain independent of compaction.
 
 The card's own controls live in a header of one or two rows above the events. The first row,
 drawn only while it holds a control, carries the calendar filter's button, the add-event button,
-the view switcher, reset and refresh; the month's row under it carries the title as a small label
+the configuration's own buttons, the view switcher, reset and refresh; the month's row under it carries the title as a small label
 over the month, the filter's chips in its middle where they all fit, and the date navigation at
 its end. The layout rule is fixed, so a control still to come slots in without moving the ones
 already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
 `renderMainCardStructure` places it.
 
 - **One block configures it.** `toolbar:` holds `show`, the one switch for the bar, a boolean per
-  control, and `legend`, which is `false`, `menu` or `chips`. `resolveToolbar` in
+  control, `legend`, which is `false`, `menu` or `chips`, and `buttons`, a list of the
+  configuration's own. `resolveToolbar` in
   `config/config.ts` reads it member by member and is the only reader, so a malformed value reads
   as that member's default; `legend: true` names no form and reads as `menu`. `show` defaults off;
   inside a shown bar every control defaults on except `reset`, because v5 is the first release
@@ -264,8 +269,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   within the block and adds nothing to its width (`contain: inline-size`), so it never takes room
   from the chips. A templated title still pending keeps the `h1`, held one line tall, so the
   month does not move when its value arrives.
-- **The action row groups by purpose.** A start group (`.toolbar-start`: the folded filter, then
-  add), the view switcher, and an end group (`.toolbar-end`: reset, then refresh). Both groups are
+- **The action row groups by purpose.** A start group (`.toolbar-start`: the folded filter, add,
+  then the configuration's own buttons), the view switcher, and an end group (`.toolbar-end`: reset, then refresh). Both groups are
   always drawn and share the room beside the switcher equally (`flex: 1 1 0` with a
   `max-content` minimum), so the switcher sits in the middle of the card while both fit in half of
   it, and between them when one does not; only a card too narrow for every icon on one line wraps
@@ -522,6 +527,47 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   press closed: WebKit carries the menu's own focus over to the button as the keyboard's and
   would ring it, so there focus is left to the browser, which in WebKit, where a press does not
   focus a button, returns it to where it was. Escape still focuses the button.
+- **The configuration's own buttons are commands like the rest.** `toolbar → buttons` is a list of
+  `{ icon, name, entity, tap_action }`, drawn in the start group after add, in the order written,
+  each a `.toolbar-button.custom-button` holding an `ha-icon` the size of the other commands'
+  icons. `resolveToolbar` keeps an entry only where `isToolbarButton` accepts it, an object with
+  an icon whose other fields are each of their own kind or absent, and the card warns once per
+  configuration about each entry it leaves out (`undrawableToolbarButtons`). The editor reads the
+  list as written instead, so an entry somebody is still filling in survives the next edit. A
+  press runs `handleButtonAction` in `interaction/actions.ts`: the card's own actions through the
+  callbacks its `tap_action` uses, Home Assistant's through `hass-action` with the button's
+  `entity`, else the card's first calendar. Like every control, a button starts no card gesture
+  and is inert while the card is being edited. A button is named by its `name`; without one, a
+  `back`, `refresh`, `add-event` or `reset` button by Home Assistant's own word for it, and any
+  other by its icon's words (`iconWords`), for assistive technology alone. The buttons read no
+  `hass` state of their own, and an `entity` is already watched through `configEntityIds`. They
+  count toward the width the switcher's words need (`_toolbarLabelMinWidth`) and in its signature,
+  one icon each, or one for their menu button once folded.
+- **What gives way, in order, as the card narrows.** The switcher's words become pictograms first
+  (`_syncToolbarLabelFit`). Then two or more of the configuration's buttons fold into one menu
+  button, three dots, in their place: all of them or none, decided by `judgeButtonsFold` in
+  `utils/toolbar-fold.ts`. Only a row that still does not fit wraps its end group onto a line of
+  its own. A single button never folds, since a menu button in its place would save nothing. The
+  decision is arithmetic on widths known exactly, not a probe drawn and read back: each command
+  is `UI.TOOLBAR_COMMAND_WIDTH` wide and stands `UI.TOOLBAR_COMMAND_GAP` from the next, as the
+  row's groups do, against the row's measured content width and the switcher's measured width as
+  pictograms. While the switcher still draws its words in a row that does not fit, nothing is
+  concluded, since that row draws its pictograms next; that is what keeps the words giving way
+  first. `_syncButtonsFit` follows `_syncLegendFit`: it records the card width the buttons fit
+  from, by `UI.LEGEND_UNFOLD_MARGIN`, decides a width change a frame later
+  (`_scheduleButtonsFit`), and folds an unfold the next measurement contradicts from wider than
+  the width it was tried at (`_buttonsUnfoldedAtPx`).
+- **One menu controller serves both menus.** The buttons' menu runs on the legend's machinery:
+  `rendering/menu.ts` places, paints, opens and closes either `<dialog>`, told apart by its
+  `MenuKind` and handed its `MenuParts`, the dialog's class and the stand-ins its surface is read
+  from. The legend's tests passed over it unchanged. Each menu closes on its own conditions:
+  `willUpdate` closes the legend's menu where the coming render takes the filter button away and
+  the buttons' menu where it takes the menu button away (`_buttonsMenuMayStayOpen`), and neither
+  closes the other. A row of the buttons' menu is a native button holding the icon and the name in
+  words. A press closes the menu with the reason `picked`, which asks nothing of focus beyond what
+  the browser does, since the action may move focus itself, as the dialog it opens does; then it
+  runs the button's action with the menu button as its anchor, so `add-event` opens its popover
+  under the menu button.
 - **Refresh has one guarded entry point.** The button and the `refresh` card action both call
   `_requestRefresh`, which does nothing while a load is under way or before the first has
   finished, and otherwise calls `refreshEvents`. The guard is not inside `refreshEvents`, which a calendar write must still be

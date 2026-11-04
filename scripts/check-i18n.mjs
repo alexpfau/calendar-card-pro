@@ -1051,6 +1051,7 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
 
   // `Name` is the ordinary German word for it, spelled as in English.
   'de:entity.name',
+  'de:toolbar.buttons.name',
 
   // `Layout` is the Italian term chosen by the glossary.
   'it:view',
@@ -1075,6 +1076,13 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'et:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
+
+  // A toolbar button's icon, qualified as the button's own for the same collision.
+  'et:toolbar.buttons.icon',
+  'lt:toolbar.buttons.icon',
+  'lv:toolbar.buttons.icon',
+  'pl:toolbar.buttons.icon',
+  'sk:toolbar.buttons.icon',
 ]);
 
 /**

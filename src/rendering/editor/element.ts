@@ -6,7 +6,9 @@
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { repeat } from 'lit/directives/repeat.js';
 
+import * as Buttons from './buttons';
 import * as Entities from './entities';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
@@ -16,6 +18,7 @@ import * as EditorLocalize from './localize';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
+import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH } from './schemas/card';
 import {
   accentColorModeOf,
   entitySchemaFor,
@@ -68,6 +71,17 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _migration: MigrationState = { kind: 'current' };
 
   private _authoredRootKeys = new Set<string>();
+
+  /**
+   * A key per toolbar button, in the list's order, so each button keeps its own panel, open or
+   * closed, through a move and through the removal of another.
+   */
+  private _buttonKeys: number[] = [];
+
+  private _nextButtonKey = 0;
+
+  /** The keys of the buttons Add Button created, whose panels open as they arrive. */
+  private _addedButtons = new Set<number>();
 
   private _rawConfig: Record<string, unknown> = {};
 
@@ -432,13 +446,15 @@ export class CalendarCardProEditor extends LitElement {
 
     const resets = this._renderResetControls(schema, ctx);
     const entities = this._renderEntities(panel, ctx);
+    const buttons = this._renderToolbarButtons(panel, ctx);
     const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
 
     const empty =
       !Filter.hasFields(schema) &&
       extras.length === 0 &&
       resets === nothing &&
-      entities === nothing;
+      entities === nothing &&
+      buttons === nothing;
 
     if (empty) {
       return nothing;
@@ -469,7 +485,7 @@ export class CalendarCardProEditor extends LitElement {
               ></ha-form>
             `,
           )}
-          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${resets}
+          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${buttons} ${resets}
         </div>
       </ha-expansion-panel>
     `;
@@ -783,6 +799,252 @@ export class CalendarCardProEditor extends LitElement {
 
     this._report(this._config);
   }
+
+  /**
+   * Renders the toolbar's own buttons: the sub-heading, a collapsible form per button headed by
+   * its name, and Add Button after the last.
+   *
+   * Only while the toolbar is shown, as the card draws the buttons only then. The list is read
+   * as written, so an entry the card cannot draw yet, such as one whose icon was just cleared,
+   * stays here to be finished. Add Button is withheld while the editor is filtered, where the
+   * button it adds could arrive hidden.
+   *
+   * @param panel - Panel being rendered
+   * @param ctx - Schema context
+   * @returns The buttons, or nothing for every other panel and while the toolbar is hidden
+   */
+  private _renderToolbarButtons(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const subform = panel
+      .subforms?.(ctx)
+      ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
+    if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
+
+    const filterCtx = this._filterCtx;
+    const filtering = Filter.isFiltering(this._filter);
+    const written = Buttons.writtenButtons(this._config!);
+    const keys = this._buttonKeysFor(written.length);
+    const headings = subform.schema.filter((node) => Filter.isHeading(node));
+    const fields = subform.schema.filter((node) => !Filter.isHeading(node));
+
+    const shown = written
+      .map((entry, index) => ({
+        entry,
+        index,
+        key: keys[index],
+        schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
+      }))
+      .filter((candidate) => Filter.hasFields(candidate.schema));
+
+    if (filtering && shown.length === 0) return nothing;
+
+    const computeLabel = (schema: HaFormSchema): string =>
+      EditorLocalize.computeLabel(ctx.language, schema, subform.path);
+
+    const computeHelper = (schema: HaFormSchema): string | undefined =>
+      EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schema, subform.path);
+
+    const untitled = this._string(ctx, 'toolbar.buttons.untitled');
+
+    return html`
+      <ha-form
+        class="buttons-heading"
+        .hass=${this._formHass}
+        .data=${{}}
+        .schema=${headings}
+        .computeLabel=${computeLabel}
+      ></ha-form>
+      ${repeat(
+        shown,
+        ({ key }) => key,
+        ({ entry, index, key, schema }) => html`
+          <ha-expansion-panel
+            outlined
+            class="button-panel"
+            data-button-key=${key}
+            .header=${Buttons.buttonTitle(entry, index, untitled)}
+            .leftChevron=${false}
+            .expanded=${filtering || this._addedButtons.has(key)}
+          >
+            <ha-svg-icon slot="leading-icon" .path=${TOOLBAR_BUTTON_ICON}></ha-svg-icon>
+            <div class="panel-body">
+              <div class="button-actions">
+                <div class="button-actions-safe">
+                  <button
+                    type="button"
+                    class="text-button"
+                    data-move="up"
+                    ?disabled=${index === 0}
+                    @click=${() => this._moveButton(index, -1)}
+                  >
+                    ${this._string(ctx, 'toolbar.buttons.move_up')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    data-move="down"
+                    ?disabled=${index === written.length - 1}
+                    @click=${() => this._moveButton(index, 1)}
+                  >
+                    ${this._string(ctx, 'toolbar.buttons.move_down')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="text-button destructive"
+                  @click=${() => this._removeButton(index)}
+                >
+                  ${this._string(ctx, 'toolbar.buttons.remove')}
+                </button>
+              </div>
+              <ha-form
+                class="button-form"
+                .hass=${this._formHass}
+                .data=${Buttons.toButtonFormData(entry)}
+                .schema=${schema}
+                .computeLabel=${computeLabel}
+                .computeHelper=${computeHelper}
+                .localizeValue=${this._localizeValue}
+                @value-changed=${(event: CustomEvent) => this._buttonChanged(index, event)}
+              ></ha-form>
+            </div>
+          </ha-expansion-panel>
+        `,
+      )}
+      ${
+        filtering
+          ? nothing
+          : html`
+              <button type="button" class="text-button add-button" @click=${this._addButton}>
+                ${this._string(ctx, 'toolbar.buttons.add')}
+              </button>
+            `
+      }
+    `;
+  }
+
+  /**
+   * The buttons' keys, made afresh for a list whose length the editor did not change itself,
+   * such as one edited in YAML.
+   *
+   * @param length - How many buttons the list holds
+   * @returns A key per button, in order
+   */
+  private _buttonKeysFor(length: number): number[] {
+    if (this._buttonKeys.length !== length) {
+      this._buttonKeys = Array.from({ length }, () => this._nextButtonKey++);
+      this._addedButtons.clear();
+    }
+    return this._buttonKeys;
+  }
+
+  /**
+   * Stores a new list of toolbar buttons, and nothing else.
+   *
+   * @param buttons - The list as it should be written
+   * @returns Whether it was written, which a blocked migration prevents
+   */
+  private _writeButtons(buttons: ReadonlyArray<unknown>): boolean {
+    if (!this._config || !this._prepareForWrite()) return false;
+    const toolbar = Helpers.isConfigBlock(this._config.toolbar) ? this._config.toolbar : {};
+    this._config = {
+      ...this._config,
+      toolbar: { ...toolbar, buttons: [...buttons] as Types.ToolbarButtonConfig[] },
+    };
+
+    this._report(this._config);
+    return true;
+  }
+
+  /**
+   * Folds one button's form change into the list.
+   *
+   * @param index - Position of the button in the list
+   * @param event - The form's `value-changed`
+   */
+  private _buttonChanged(index: number, event: CustomEvent): void {
+    event.stopPropagation();
+
+    const next = event.detail?.value as Record<string, unknown> | undefined;
+    if (!next || !this._config) return;
+
+    const written = Buttons.writtenButtons(this._config);
+    const buttons = Buttons.writeButton(written, index, next);
+    if (Value.deepEqual(buttons, written)) return;
+    this._writeButtons(buttons);
+  }
+
+  /**
+   * Moves one button a place toward the start or the end, its panel with it.
+   *
+   * Focus stays on the control that moved it, or passes to its other move control once the
+   * button reaches an end, so a keyboard can keep moving it.
+   *
+   * @param index - Position of the button in the list
+   * @param by - `-1` toward the start, `1` toward the end
+   */
+  private _moveButton(index: number, by: -1 | 1): void {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const to = index + by;
+    if (to < 0 || to >= written.length) return;
+
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.moveButton(written, index, by))) return;
+    [keys[index], keys[to]] = [keys[to], keys[index]];
+
+    const moved = keys[to];
+    void this.updateComplete.then(() => this._focusMoveControl(moved, by));
+  }
+
+  /**
+   * Returns focus to a moved button's move controls, where the move took it away.
+   *
+   * @param key - The moved button's key
+   * @param by - The way it moved
+   */
+  private _focusMoveControl(key: number, by: -1 | 1): void {
+    const active = (this.renderRoot as ShadowRoot).activeElement as HTMLButtonElement | null;
+    if (active !== null && !active.disabled) return;
+
+    const panel = this.renderRoot.querySelector(`.button-panel[data-button-key="${key}"]`);
+    const same = panel?.querySelector<HTMLButtonElement>(`[data-move="${by < 0 ? 'up' : 'down'}"]`);
+    const other = panel?.querySelector<HTMLButtonElement>(
+      `[data-move="${by < 0 ? 'down' : 'up'}"]`,
+    );
+    (same && !same.disabled ? same : other)?.focus();
+  }
+
+  /**
+   * Drops one button from the list. Focus passes to Add Button, as the removed panel held it.
+   *
+   * @param index - Position of the button in the list
+   */
+  private _removeButton(index: number): void {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.removeButton(written, index))) return;
+
+    const [removed] = keys.splice(index, 1);
+    this._addedButtons.delete(removed);
+    void this.updateComplete.then(() =>
+      this.renderRoot.querySelector<HTMLButtonElement>('.add-button')?.focus(),
+    );
+  }
+
+  /**
+   * Adds a button after the last, and opens its panel to be filled in.
+   */
+  private _addButton = (): void => {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.addButton(written))) return;
+
+    const key = this._nextButtonKey++;
+    keys.push(key);
+    this._addedButtons.add(key);
+  };
 
   /**
    * The view whose layer this context writes into, or `undefined` for the shared base.
