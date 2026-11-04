@@ -387,11 +387,12 @@ export function renderLabel(
  * `time_position: title` lets the time share the title's line only while about 8em of title
  * still fits beside it, and that 8em is the summary's content box. One icon, picture or emoji
  * label hangs in the summary's start padding instead, which is outside the content box, so a
- * single label already adds its own width without help. A merged row draws one label per
- * calendar that contributed a copy, and every glyph after the first sits inside the content
- * box, where it would quietly come out of the title's 8em. This hands the stylesheet their
- * width, each at the size its hanging indent is written for. Prose labels are left out: the
- * width of a word is not knowable here, so they share the 8em, as a single prose label does.
+ * single label already adds its own width without help; a scrolling title, whose label does not
+ * hang, gets the same room from the stylesheet. A merged row draws one label per calendar that
+ * contributed a copy, and every glyph after the first sits inside the content box, where it
+ * would quietly come out of the title's 8em. This hands the stylesheet their width, each at the
+ * size its hanging indent is written for. Prose labels are left out: the width of a word is not
+ * knowable here, so they share the 8em, as a single prose label does.
  *
  * @param labels - The merged row's resolved labels, if it is one
  * @returns Extra room for the title's 8em, or `undefined`

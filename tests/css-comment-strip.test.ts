@@ -284,9 +284,10 @@ describe('stripComments', () => {
     // each of its rules keeps a row whose time drops under the title as it was, why the title row
     // is left whole so its weather badge never leaves the title, why the time row's baseline
     // comes from its tallest text and which rows that bet loses, why an icon-labeled title stays
-    // a pixel off it, and why a row whose time moved keeps its ink shift and its first detail
-    // row's 2px. The reading went 183,042 to 188,100 with the option, and to 189,078 once the
-    // title row kept its badge, taken with stripComments after the last comment was written.
+    // a pixel off it, why a scrolling title gets its label's room and its own baseline, and why a
+    // row whose time moved keeps its ink shift and its first detail row's 2px. The reading went
+    // 183,042 to 188,100 with the option, to 189,078 once the title row kept its badge, and to
+    // 190,241 for scrolling titles, taken with stripComments after the last comment was written.
     //
     // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and

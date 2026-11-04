@@ -3593,6 +3593,7 @@ describe('the time beside the title', () => {
   const OUTER = '.time-beside-title > .title-time-row';
   const TITLE_ROW = `${OUTER} > .summary-row`;
   const TIME = `${OUTER} > .time`;
+  const ROOM = 'var(--calendar-card-title-label-room, 0px)';
   const FIRST_ROWS = ['.location', '.description', '.event-weather'].flatMap((row) => [
     `td.event .time-beside-title > .time-location > ${row}:first-child`,
     `.column-events > .event .time-beside-title > .time-location > ${row}:first-child`,
@@ -3602,108 +3603,184 @@ describe('the time beside the title', () => {
     `${TIME} > .time-actual:has(> .allday-badge):not(:has(> span:not(.allday-badge))) > .allday-badge`,
     `${TIME} > .time-actual:empty + .time-countdown`,
   ];
-  const INK = [
+  const INK_CONTENTS = [
     'td.event > .event-content.time-beside-title',
     '.column-events > .event > .event-content.time-beside-title',
-  ].flatMap((content) => [
-    content,
-    `${content} > .title-time-row > .summary-row > .summary`,
-    `${content}::after`,
-  ]);
+  ];
 
-  it('wraps the outer row only, on the baseline, with a gap only between its two items', () => {
-    expect(declared(OUTER, 'display')).toBe('flex');
-    expect(declared(OUTER, 'flex-wrap')).toBe('wrap');
-    expect(declared(OUTER, 'align-items')).toBe('baseline');
-    expect(declared(OUTER, 'row-gap')).toBe('0');
-    expect(declared(OUTER, 'column-gap')).toBe('8px');
+  /** Split a selector list at its top-level commas, so `:is(a, b)` stays one selector. */
+  function splitSelectors(list: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      if (list[i] === '(') depth += 1;
+      else if (list[i] === ')') depth -= 1;
+      else if (list[i] === ',' && depth === 0) {
+        parts.push(list.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(list.slice(start));
+    return parts.map((part) => part.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  }
+
+  /** A rule body as property to value, whitespace normalized as Prettier may break a value. */
+  function declarationsOf(body: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const declaration of body.split(';')) {
+      const colon = declaration.indexOf(':');
+      if (colon === -1) continue;
+      out[declaration.slice(0, colon).trim()] = declaration
+        .slice(colon + 1)
+        .replace(/\s+/g, ' ')
+        .replace(/\(\s/g, '(')
+        .replace(/\s\)/g, ')')
+        .trim();
+    }
+    return out;
+  }
+
+  /**
+   * Every innermost rule in the stylesheet, so a rule inside `@media` or `@supports` counts as
+   * much as a top-level one; an at-rule's own prelude never reaches here as a selector.
+   */
+  const INNERMOST = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, prelude, body]) => ({
+    selectors: splitSelectors(prelude),
+    declarations: declarationsOf(body),
+  }));
+
+  /**
+   * Every selector that names the placement or its outer row, with the whole declaration set of
+   * each rule it appears in, in source order. A rule added for the placement, a declaration added
+   * to one of its rules, or a second rule repeating one of its selectors all change this.
+   */
+  function placementRules(): Record<string, Array<Record<string, string>>> {
+    const out: Record<string, Array<Record<string, string>>> = {};
+    for (const rule of INNERMOST) {
+      for (const selector of rule.selectors) {
+        if (/time-beside-title|title-time-row/.test(selector)) {
+          (out[selector] ??= []).push(rule.declarations);
+        }
+      }
+    }
+    return out;
+  }
+
+  const one = (declarations: Record<string, string>) => [declarations];
+
+  /** The whole of the placement's stylesheet, by value. */
+  const EXPECTED: Record<string, Array<Record<string, string>>> = {
+    // Only the outer row wraps, on the baseline, with a gap only between its two items.
+    [OUTER]: one({
+      display: 'flex',
+      'flex-wrap': 'wrap',
+      'align-items': 'baseline',
+      'row-gap': '0',
+      'column-gap': '8px',
+    }),
+    // The title row is today's row, sized by its content and allowed to shrink: no display, no
+    // wrap, nothing that would make its title and badge items of the outer row.
+    [TITLE_ROW]: one({ flex: '1000 1 auto', 'min-width': '0', width: 'auto' }),
+    // The size the title row reports: 8em of title at the summary's own font size, plus any
+    // merged glyph labels, and a scrolling title's label at its hanging indent's size.
+    [`${TITLE_ROW} > .summary`]: one({ width: `calc(8em + ${ROOM})` }),
+    [`${TITLE_ROW} > .summary-scroll:has(> .label-icon)`]: one({
+      width: `calc(8em + ${ROOM} + 1em + 4px)`,
+    }),
+    [`${TITLE_ROW} > .summary-scroll:has(> .label-image)`]: one({
+      width: `calc(8em + ${ROOM} + 1em + 4px)`,
+    }),
+    [`${TITLE_ROW} > .summary-scroll:has(> .label-emoji)`]: one({
+      width: `calc(8em + ${ROOM} + 1.25em + 4px)`,
+    }),
+    // A scrolling title is its summary's baseline, rather than its label's bottom edge.
+    [`${TITLE_ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // The time grows only on a line of its own, and drops the end margin it overflowed only
+    // where something follows it: a lone time keeps its 12px end gutter.
+    [TIME]: one({ flex: '1 1 auto', 'min-width': '0', width: 'auto', 'margin-top': '0' }),
+    [`${TIME}:has(> .time-actual + *)`]: one({ 'margin-inline-end': '0' }),
+    ...Object.fromEntries(
+      BASELINE.map((selector) => [selector, one({ 'align-self': 'baseline' })]),
+    ),
+    ...Object.fromEntries(FIRST_ROWS.map((selector) => [selector, one({ 'margin-top': '2px' })])),
+    ...Object.fromEntries(
+      INK_CONTENTS.flatMap((content) => [
+        [content, one({ '--calendar-card-event-ink-shift': '0.13em' })],
+        [
+          `${content} > .title-time-row > .summary-row > .summary`,
+          one({ 'padding-top': 'calc(0.2em - var(--calendar-card-event-ink-shift))' }),
+        ],
+        [
+          `${content}::after`,
+          one({
+            content: "''",
+            flex: 'none',
+            height: 'var(--calendar-card-event-ink-shift)',
+            'font-size': 'var(--calendar-card-font-size-event)',
+          }),
+        ],
+      ]),
+    ),
+  };
+
+  it('pins every rule naming the placement or its outer row, whole, at any depth', () => {
+    expect(INNERMOST.length).toBeGreaterThan(RULES.length);
+    expect(placementRules()).toEqual(EXPECTED);
   });
 
   it('keeps the title row as it is, so its weather badge never leaves the title', () => {
-    // Nothing here may wrap the title row or touch what is in it: it is today's row, laid out
-    // by its own rules, which never wrap, with the badge beside the title at any width.
+    // The title row is today's: a flex row that never wraps, with the badge beside the title at
+    // any width. No rule outside the grid, whatever else it names, may give it another display
+    // or let it wrap, or the badge could part from the title again.
     expect(declared('.summary-row', 'display')).toBe('flex');
-    expect(declared('.summary-row', 'flex-wrap')).toBe('');
-    expect(declared(TITLE_ROW, 'flex-wrap')).toBe('');
-    expect(declared(TITLE_ROW, 'flex')).toBe('1000 1 auto');
-    expect(declared(TITLE_ROW, 'min-width')).toBe('0');
-    expect(declared(TITLE_ROW, 'width')).toBe('auto');
-    expect(rulesFor(`${TITLE_ROW} > .event-weather`)).toEqual([]);
-    // The size the title row reports: 8em of title at the summary's own font size, plus any
-    // merged glyph labels. Inside its row the summary still grows from a basis of 0.
-    expect(declared(`${TITLE_ROW} > .summary`, 'width')).toBe(
-      'calc(8em + var(--calendar-card-title-label-room, 0px))',
+    const subjectIsTitleRow = (selector: string) =>
+      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) && !selector.includes('grid');
+    const settings = INNERMOST.flatMap((rule) =>
+      rule.selectors
+        .filter(subjectIsTitleRow)
+        .flatMap((selector) =>
+          ['display', 'flex-wrap']
+            .filter((property) => property in rule.declarations)
+            .map((property) => `${selector} { ${property}: ${rule.declarations[property]} }`),
+        ),
     );
-    expect(declared(`${TITLE_ROW} > .summary`, 'flex')).toBe('');
+    expect(settings).toEqual(['.summary-row { display: flex }']);
+    // Inside its row the summary still grows from a basis of 0, so its width is only the size
+    // the row reports.
     expect(declared('.summary', 'flex')).toBe('1');
   });
 
-  it('grows the time only on a line of its own, without the end margin it overflowed', () => {
-    expect(declared(TIME, 'flex')).toBe('1 1 auto');
-    expect(declared(TIME, 'min-width')).toBe('0');
-    expect(declared(TIME, 'width')).toBe('auto');
-    expect(declared(TIME, 'margin-top')).toBe('0');
-    // Only where something follows the time: a lone time keeps its 12px end gutter.
-    expect(declared(`${TIME}:has(> .time-actual + *)`, 'margin-inline-end')).toBe('0');
-    expect(declared(TIME, 'margin-inline-end')).toBe('');
-    // What the two rules above answer: below the title, .time is the event's full width.
+  it('answers what the pinned values counter in the rules below the title', () => {
+    // Below the title, .time is the event's full width and its end margin overflows it.
     expect(declared('.time', 'width')).toBe('100%');
     expect(declared('.time', 'margin-inline-end')).toBe('12px');
-  });
-
-  it("takes the time row's baseline from its tallest text, not from its clock", () => {
-    // An opt-in rather than a reordering: a row run in reverse with the icon ordered last
-    // still took its baseline from the icon in all three engines, measured, which left every
-    // shared line's time about 3px high.
-    for (const selector of BASELINE)
-      expect(declared(selector, 'align-self'), selector).toBe('baseline');
+    // A scrolling title's label does not hang, which is why it gets its room back above.
+    expect(declared('.summary.summary-scroll:has(> .label-icon)', 'padding-inline-start')).toBe(
+      '0',
+    );
+    expect(declared('.summary:has(> .label-icon)', 'padding-inline-start')).toBe('calc(1em + 4px)');
+    expect(declared('.summary:has(> .label-emoji)', 'padding-inline-start')).toBe(
+      'calc(1.25em + 4px)',
+    );
   });
 
   it("leaves an icon-labeled title's alignment as it is", () => {
     // Its text sits about a pixel off the time's baseline on a shared line, from this middle
     // alignment. Setting it to baseline in this mode moved every icon-labeled title row,
-    // dropped ones included, in the pixel comparison, so the offset is the accepted cost.
+    // dropped ones included, in the pixel comparison, so the offset is the accepted cost; the
+    // pin above admits no vertical-align among the placement's rules.
     expect(declared('.summary:has(> .label-icon) > .event-title', 'vertical-align')).toBe('middle');
-    const named = RULES.filter((rule) =>
-      rule.selectors.some((selector) => selector.includes('time-beside-title')),
-    );
-    for (const rule of named) {
-      expect(rule.body, rule.selectors.join(', ')).not.toMatch(/vertical-align/);
-    }
+    // A scrolling title is a flex row instead, centered, so its own alignment is the lever.
+    expect(declared('.summary-scroll', 'display')).toBe('flex');
+    expect(declared('.summary-scroll', 'align-items')).toBe('center');
   });
 
-  it('keeps the 2px of a row that the move made the first under the title', () => {
-    for (const selector of FIRST_ROWS)
-      expect(declared(selector, 'margin-top'), selector).toBe('2px');
-  });
-
-  it('keeps the ink shift on a row whose only detail moved beside the title', () => {
-    expect(declared(INK[0], '--calendar-card-event-ink-shift')).toBe('0.13em');
-    expect(declared(INK[3], '--calendar-card-event-ink-shift')).toBe('0.13em');
-  });
-
-  it('names the placement in these rules and nowhere else, in logical properties only', () => {
-    const named = RULES.filter((rule) =>
-      rule.selectors.some((selector) => selector.includes('time-beside-title')),
-    );
-    const selectors = named.flatMap((rule) =>
-      rule.selectors.filter((selector) => selector.includes('time-beside-title')),
-    );
-    expect(selectors.sort()).toEqual(
-      [
-        OUTER,
-        TITLE_ROW,
-        `${TITLE_ROW} > .summary`,
-        TIME,
-        `${TIME}:has(> .time-actual + *)`,
-        ...BASELINE,
-        ...FIRST_ROWS,
-        ...INK,
-      ].sort(),
-    );
-    // Mirrored by the browser in a right-to-left card: nothing names a physical side.
-    for (const rule of named) {
-      expect(rule.body, rule.selectors.join(', ')).not.toMatch(/\b(left|right)\b/);
+  it('mirrors in a right-to-left card: no placement rule names a physical side', () => {
+    for (const declarations of Object.values(placementRules()).flat()) {
+      for (const [property, value] of Object.entries(declarations)) {
+        expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+      }
     }
   });
 });

@@ -2757,7 +2757,7 @@ export const cardStyles = css`
        text about a pixel off its line's baseline, up or down by engine, and a time beside it
        sits that far from the text. That is accepted: aligning such a title on the baseline in
        this mode moved every one of them in the pixel comparison, under the time as well as
-       beside it. */
+       beside it. A scrolling title has no such alignment, and is lined up below. */
     align-items: baseline;
     row-gap: 0;
     /* The space between the title row and the time. A gap falls only between two items on one
@@ -2778,12 +2778,37 @@ export const cardStyles = css`
 
   /* The width the title asks for: 8em at the event font size, which is the summary's own, so the
      em is measured where it is declared. It is the content box, so a single label hanging in
-     the start padding adds its own width on top; the further glyph labels of a merged row arrive
-     as --calendar-card-title-label-room, set where they are drawn. Asked for, not taken: the
-     summary is a flex item with a basis of 0, so inside its row it grows and shrinks exactly as
-     it did, and the width only decides the size the row reports for itself. */
+     the start padding adds its own width on top, and a scrolling title's label, which does not
+     hang, is given the same room by the rules below; the further glyph labels of a merged row
+     arrive as --calendar-card-title-label-room, set where they are drawn. Asked for, not taken:
+     the summary is a flex item with a basis of 0, so inside its row it grows and shrinks exactly
+     as it did, and the width only decides the size the row reports for itself. */
   .time-beside-title > .title-time-row > .summary-row > .summary {
     width: calc(8em + var(--calendar-card-title-label-room, 0px));
+  }
+
+  /* A scrolling title has no hanging indent: scroll_long_titles lays the summary out as a flex
+     row with the label inside the content box, so the label would come out of the 8em and the
+     time join with about 6.8em of title beside an icon. The label's room goes back on top at the
+     sizes the hanging indent uses, so a scrolling title row joins where a wrapping one does. The
+     emoji rule comes last, as the hanging indent's does, and wins where a merged row has both. */
+  .time-beside-title > .title-time-row > .summary-row > .summary-scroll:has(> .label-icon),
+  .time-beside-title > .title-time-row > .summary-row > .summary-scroll:has(> .label-image) {
+    width: calc(8em + var(--calendar-card-title-label-room, 0px) + 1em + 4px);
+  }
+
+  .time-beside-title > .title-time-row > .summary-row > .summary-scroll:has(> .label-emoji) {
+    width: calc(8em + var(--calendar-card-title-label-room, 0px) + 1.25em + 4px);
+  }
+
+  /* A scrolling title is a flex row of its label and its title, and, like the time row below,
+     takes its baseline from its first item when none opts in: an icon or picture label's bottom
+     edge, which set a time beside it 2 to 3.5px off the title's text. The title opts in. It is
+     the tallest item in that row, a line of text beside a label 1em high, so it stays where
+     center put it, under the time or beside it, which the pixel comparison found on every
+     dropped row in three engines. */
+  .time-beside-title > .title-time-row > .summary-row > .summary-scroll > .event-title {
+    align-self: baseline;
   }
 
   /* The time row grows only when it is alone on its line, through its grow of 1 against the

@@ -367,8 +367,9 @@ A few things differ once the option is on:
 - With `event_icon_vertical_alignment` set to `middle` or `bottom` and a `time_icon_size` taller
   than a line of the time, the time text sits level with the top of the clock instead, below the
   title as well as beside it.
-- A title with an icon or picture label sits about a pixel above or below the time beside it,
-  depending on the browser, because the title is centered on its label.
+- Unless `scroll_long_titles` is on, a title with an icon or picture label sits about a pixel
+  above or below the time beside it, depending on the browser, because the title is centered on
+  its label.
 - `title_max_lines` and `scroll_long_titles` work on the title in whatever width the time
   leaves it.
 
