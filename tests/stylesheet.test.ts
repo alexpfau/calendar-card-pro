@@ -1074,9 +1074,20 @@ describe('card stylesheet', () => {
       expect(declared(selector, 'content')).toBe("'·'");
       expect(declared(selector, 'margin-inline-end')).not.toBe('');
 
-      const rules = RULES.filter((rule) =>
+      // One more rule names the separator only to take it away: beside the title
+      // (`time_position: title`) a countdown alone in the time row follows the title, not a
+      // time, so it draws no dot. Removing a dot cannot put one in the list view, so the
+      // invariant is about the rules that draw one; the remover is pinned by name, so a
+      // second rule hiding behind `content: none` still fails here.
+      const all = RULES.filter((rule) =>
         rule.selectors.some((s) => s.includes('.time-countdown::before')),
       );
+      const removes = (rule: (typeof all)[number]) =>
+        /(^|;)\s*content:\s*none\s*(;|$)/.test(rule.body);
+      expect(all.filter(removes).map((rule) => rule.selectors)).toEqual([
+        ['.time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before'],
+      ]);
+      const rules = all.filter((rule) => !removes(rule));
       expect(rules).toHaveLength(2);
       for (const rule of rules) {
         for (const s of rule.selectors) {
@@ -3560,5 +3571,249 @@ describe('the today tile', () => {
       .flatMap((rule) => rule.selectors.filter(couldBeTile));
     // The base rule's flex and the text-box branch's block: the tile's own two.
     expect(setters).toEqual(['.day.today-tile', '.day.today-tile']);
+  });
+});
+
+/**
+ * `time_position: title`: the time at the end of the title's line, at any width, in a box of its
+ * own that list view's weather badge shares, after the title, which always scrolls.
+ *
+ * Every declaration is pinned by value, and the set of rules naming the placement is pinned
+ * whole, at any depth. That pins what the stylesheet says, not what a browser draws from it:
+ * nothing here lays anything out. CSS is the one layer the DOM tests in
+ * tests/time-position.test.ts cannot see, so a rule dropped from here would pass every one of
+ * them. What the rules do on screen was measured in browsers with the harness, and two of them
+ * exist because it caught a fault: "Now" stacked a letter to a line before the rule that keeps
+ * it whole, and an all-day pill with a folded countdown left the title a few pixels before list
+ * view's badge rows took column view's rules. A rule left over from the earlier
+ * design, which let the time drop to a line of its own, names `.title-time-row` and fails here
+ * as well.
+ */
+describe('the time beside the title', () => {
+  const ROW = '.time-beside-title > .summary-row';
+  const ASIDE = `${ROW} > .title-aside`;
+  const TIME = `${ASIDE} > .time`;
+  const BADGE_ROW = '.time-beside-title .time-actual:has(> .allday-badge + .time-text)';
+
+  /** Split a selector list at its top-level commas, so `:is(a, b)` stays one selector. */
+  function splitSelectors(list: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      if (list[i] === '(') depth += 1;
+      else if (list[i] === ')') depth -= 1;
+      else if (list[i] === ',' && depth === 0) {
+        parts.push(list.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(list.slice(start));
+    return parts.map((part) => part.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  }
+
+  /** A rule body as property to value, whitespace normalized as Prettier may break a value. */
+  function declarationsOf(body: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const declaration of body.split(';')) {
+      const colon = declaration.indexOf(':');
+      if (colon === -1) continue;
+      out[declaration.slice(0, colon).trim()] = declaration
+        .slice(colon + 1)
+        .replace(/\s+/g, ' ')
+        .replace(/\(\s/g, '(')
+        .replace(/\s\)/g, ')')
+        .trim();
+    }
+    return out;
+  }
+
+  /**
+   * Every innermost rule in the stylesheet, so a rule inside `@media` or `@supports` counts as
+   * much as a top-level one; an at-rule's own prelude never reaches here as a selector.
+   */
+  const INNERMOST = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, prelude, body]) => ({
+    selectors: splitSelectors(prelude),
+    declarations: declarationsOf(body),
+  }));
+
+  /**
+   * Every selector that names the placement, its box, or the earlier design's outer row, with the
+   * whole declaration set of each rule it appears in, in source order. A rule added for the
+   * placement, a declaration added to one of its rules, or a second rule repeating one of its
+   * selectors all change this.
+   */
+  function placementRules(): Record<string, Array<Record<string, string>>> {
+    const out: Record<string, Array<Record<string, string>>> = {};
+    for (const rule of INNERMOST) {
+      for (const selector of rule.selectors) {
+        if (/time-beside-title|title-aside|title-time-row/.test(selector)) {
+          (out[selector] ??= []).push(rule.declarations);
+        }
+      }
+    }
+    return out;
+  }
+
+  const one = (declarations: Record<string, string>) => [declarations];
+
+  /** The whole of the placement's stylesheet, by value. */
+  const EXPECTED: Record<string, Array<Record<string, string>>> = {
+    // The title line keeps every rule of the title row, nowrap included, and aligns its two items
+    // on the baseline rather than centering them.
+    [ROW]: one({ 'align-items': 'baseline' }),
+    // The title is its summary's baseline, beside every label kind.
+    [`${ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // The box: as wide as its content, up to 60% of the line less the title's gutter, and never
+    // narrower than what it cannot wrap.
+    [ASIDE]: one({
+      display: 'flex',
+      'align-items': 'baseline',
+      flex: 'none',
+      'max-width': 'calc(60% - 12px)',
+      'min-width': 'min-content',
+    }),
+    // List view's badge at the weather size, with the specificity of the rule that sizes it
+    // beside the title, and on the time's baseline by its text.
+    [':where(.title-aside) > .event-weather > .event-weather-text']: one({
+      'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
+      'align-self': 'baseline',
+    }),
+    [`${ASIDE} > .event-weather`]: one({ 'margin-inline-end': '0' }),
+    // The bullet, only after a badge, with the folded countdown's spacing.
+    [`${ASIDE} > .event-weather + .time::before`]: one({ content: "'·'", 'margin-inline': '4px' }),
+    // The time as an item of the box, with none of the row it is below the title, and every line
+    // of a time that wraps, or a pill wrapped above it, set against the end as the box is.
+    [TIME]: one({
+      width: 'auto',
+      'margin-top': '0',
+      'padding-inline-start': '0',
+      'flex-wrap': 'nowrap',
+      'justify-content': 'flex-end',
+      'align-items': 'baseline',
+      'column-gap': '0',
+      'text-align': 'end',
+    }),
+    [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
+    [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
+    // The countdown alone, with times off.
+    [`${TIME} > .time-countdown`]: one({
+      'margin-inline': '0',
+      'text-align': 'end',
+      'white-space': 'normal',
+    }),
+    [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),
+    // An all-day badge with a countdown folded after it wraps as column view's does, in list
+    // view too, so the pill and the countdown's longest word do not set the box's floor side
+    // by side. These share column view's rules, whole.
+    [`${BADGE_ROW}`]: one({ 'flex-wrap': 'wrap', 'margin-inline-start': '0' }),
+    [`${BADGE_ROW} > .allday-badge`]: one({ 'max-width': 'calc(100% - 5px)' }),
+    [`.time-beside-title .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child) > .allday-badge`]:
+      one({ 'max-width': 'calc(100% - 9px - 0.5em)' }),
+    [`.time-beside-title .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child)`]:
+      one({ display: 'contents' }),
+    [`.time-beside-title .time-actual .allday-badge + .time-text > .time-countdown:first-child`]:
+      one({ display: 'contents' }),
+  };
+
+  it('pins every rule naming the placement or its box, whole, at any depth', () => {
+    expect(INNERMOST.length).toBeGreaterThan(RULES.length);
+    expect(placementRules()).toEqual(EXPECTED);
+  });
+
+  it("lays out a badge row as column view's, rule for rule", () => {
+    // Every title-mode selector here sits in a rule beside its column view twin, so the two
+    // cannot drift apart: each rule naming one names the other.
+    const twins = INNERMOST.filter((rule) =>
+      rule.selectors.some((selector) => selector.startsWith('.time-beside-title .time-actual')),
+    );
+    expect(twins).toHaveLength(4);
+    for (const rule of twins) {
+      const title = rule.selectors.filter((s) => s.startsWith('.time-beside-title .time-actual'));
+      expect(rule.selectors.filter((s) => !title.includes(s))).toEqual(
+        title.map((s) => s.replace('.time-beside-title', '.column-events')),
+      );
+    }
+  });
+
+  it('keeps the title line one line: nothing lets it wrap', () => {
+    // The title line is the title row, a flex row that never wraps, so the time cannot leave it.
+    // No rule outside the grid, whatever else it names, may give it another display or let it
+    // wrap.
+    expect(declared('.summary-row', 'display')).toBe('flex');
+    const subjectIsTitleRow = (selector: string) =>
+      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) && !selector.includes('grid');
+    const settings = INNERMOST.flatMap((rule) =>
+      rule.selectors
+        .filter(subjectIsTitleRow)
+        .flatMap((selector) =>
+          ['display', 'flex-wrap']
+            .filter((property) => property in rule.declarations)
+            .map((property) => `${selector} { ${property}: ${rule.declarations[property]} }`),
+        ),
+    );
+    expect(settings).toEqual(['.summary-row { display: flex }']);
+    // The title has the rest: it grows from a basis of 0 and may shrink to nothing.
+    expect(declared('.summary', 'flex')).toBe('1');
+    expect(declared('.summary-scroll', 'min-width')).toBe('0');
+  });
+
+  it('relies on the scroll mode for the title: one line, clipped, with its ellipsis', () => {
+    // The leaf gives every title beside a time the scroll_long_titles markup, and these are the
+    // rules that keep it to one line. Under reduced motion nothing moves it, and the ellipsis is
+    // what is left.
+    expect(declared('.summary-scroll', 'display')).toBe('flex');
+    const title = '.summary-scroll > .event-title.title-scrollable';
+    expect(declared(title, 'white-space')).toBe('nowrap');
+    expect(declared(title, 'overflow')).toBe('hidden');
+    expect(declared(title, 'text-overflow')).toBe('ellipsis');
+  });
+
+  it('answers what the pinned values counter in the rules below the title', () => {
+    // Below the title, .time is a wrapping row as wide as the event, 2px under the title.
+    expect(declared('.time', 'width')).toBe('100%');
+    expect(declared('.time', 'margin-top')).toBe('2px');
+    expect(declared('.time', 'flex-wrap')).toBe('wrap');
+    expect(declared('.time', 'justify-content')).toBe('space-between');
+    expect(declared('.time', 'align-items')).toBe('center');
+    expect(declared('.time', 'column-gap')).toBe('8px');
+    // It keeps its end margin beside the title, so it ends where the rows below it do.
+    expect(declared('.time', 'margin-inline-end')).toBe('12px');
+    // Column view's indent for the clock, which the time has no longer.
+    expect(declared('.column-events .time', 'padding-inline-start')).toBe(
+      'calc(var(--calendar-card-icon-size-time, 14px) + 4px)',
+    );
+    expect(declared('.column-events .time-actual', 'margin-inline-start')).toBe(
+      'calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px))',
+    );
+    // A countdown alone: list view's trailing placement and column view's dot.
+    expect(declared('.time-countdown', 'margin-inline-start')).toBe('auto');
+    expect(declared('.time-countdown', 'margin-inline-end')).toBe('12px');
+    expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
+    expect(declared('.time-countdown', 'text-align')).toBe('right');
+    expect(declared('.column-events .time-countdown::before', 'content')).toBe("'·'");
+    // The badge beside the title, and the size it has there.
+    expect(declared('.event-weather', 'margin-inline-end')).toBe('12px');
+    expect(
+      declared(':where(.summary-row) > .event-weather > .event-weather-text', 'font-size'),
+    ).toBe('var(--calendar-card-weather-event-font-size, 12px)');
+    // "Now" may break anywhere below the title.
+    expect(declared('.time .now-indicator', 'overflow-wrap')).toBe('anywhere');
+  });
+
+  it("spaces the bullet as the folded countdown's separator is spaced", () => {
+    // The same dot, 4px either side: the countdown's start margin and its separator's end margin.
+    const countdown = '.time .time-actual .time-text > .time-countdown';
+    expect(declared(countdown, 'margin-inline-start')).toBe('4px');
+    expect(declared(`${countdown}::before`, 'margin-inline-end')).toBe('4px');
+    expect(declared(`${countdown}::before`, 'content')).toBe("'\\2060·\\200B'");
+  });
+
+  it('mirrors in a right-to-left card: no placement rule names a physical side', () => {
+    for (const declarations of Object.values(placementRules()).flat()) {
+      for (const [property, value] of Object.entries(declarations)) {
+        expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+      }
+    }
   });
 });

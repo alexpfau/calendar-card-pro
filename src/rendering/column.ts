@@ -204,6 +204,7 @@ function renderColumnEvent(
         countdownPlacement: 'text',
         hass,
         links: Presentation.rowLinksOn(config),
+        timePosition: Helpers.resolveTimePosition(config.time_position),
       })}
     </div>
   `;

@@ -112,6 +112,8 @@ export interface Config {
   event_color: string;
   empty_day_color: string;
   show_time: boolean;
+  /** Read through `resolveTimePosition`, which takes anything else as `below`. */
+  time_position: 'below' | 'title';
   show_single_allday_time: boolean;
   show_multiday_allday_time: boolean;
   allday_badge: boolean | string;
@@ -357,6 +359,7 @@ export interface SharedViewOverrides {
   progress_bar_width?: string;
   event_icon_vertical_alignment?: string;
   show_time?: boolean;
+  time_position?: 'below' | 'title';
   show_single_allday_time?: boolean;
   show_multiday_allday_time?: boolean;
   allday_badge?: boolean | string;

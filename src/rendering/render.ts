@@ -859,6 +859,7 @@ function renderEvent(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
             links: Presentation.rowLinksOn(config),
+            timePosition: Helpers.resolveTimePosition(config.time_position),
           }),
           tap,
           dayLabelId,

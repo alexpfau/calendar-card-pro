@@ -192,15 +192,16 @@ as no gap:
 
 A few more classes mark something the card draws only some of the time:
 
-| Class               | Carried by                                                     | Applied when                                                                    |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default since v5                               |
-| `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                     |
-| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                           |
-| `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                 |
-| `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                 |
-| `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load) |
-| `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                |
+| Class               | Carried by                                                     | Applied when                                                                                                                             |
+| ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default since v5                                                                                        |
+| `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                                                                              |
+| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                                                                                    |
+| `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
+| `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
+| `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
+| `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                          |
+| `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                                                                         |
 
 The [date tile](/features/layout-appearance#the-date-tile) is painted from
 `--calendar-card-today-indicator-color`, which the card writes on `ha-card` from
@@ -464,46 +465,21 @@ card_mod:
 
 ### Move Time Into the Same Row as the Event Title
 
-For list and column view. Grid blocks lay out their own content, and `:not(.grid-event)`
-keeps the recipe away from them.
+This no longer needs card-mod. The [`time_position`](/features/event-content#time-beside-the-title)
+option draws the time at the end of the title's line on every row with a time or a countdown,
+and keeps the title to the rest of the line, scrolling it when it is too long. It needs a wide
+event row, more so with countdowns, event weather and similar extras, as
+[Time Beside the Title](/features/event-content#time-beside-the-title) explains:
 
 ```yaml
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-card_mod:
-  style: |
-    .event:not(.grid-event) div.event-content {
-      display: grid;
-      grid-template-areas:
-        "title time"
-        "location location";
-      grid-template-columns: 1fr auto;
-      column-gap: 10px;
-      row-gap: 0px;
-    }
-
-    .event:not(.grid-event) div.summary-row {
-      grid-area: title;
-      min-width: 0;
-    }
-
-    .event:not(.grid-event) div.time {
-      grid-area: time;
-      white-space: nowrap;
-    }
-
-    .event:not(.grid-event) div.location {
-      grid-area: location;
-      white-space: normal;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .event:not(.grid-event) div.time-location {
-      display: contents;
-    }
+time_position: title
 ```
+
+A countdown follows the time after a dot, list view's progress bar takes a row of its own, and
+`list:` and `column:` can each set it for their own layout.
 
 These examples demonstrate how Calendar Card Pro can be customized to match any dashboard design using card-mod's powerful CSS customization capabilities.
 

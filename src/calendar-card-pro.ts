@@ -3396,14 +3396,15 @@ class CalendarCardPro extends LitElement {
   }
 
   //-----------------------------------------------------------------------------
-  // TITLE SCROLL (scroll_long_titles)
+  // TITLE SCROLL (scroll_long_titles, and time_position: title)
   //-----------------------------------------------------------------------------
 
   /**
    * Reconciles horizontal title scrolling after every render.
    *
    * Measurement observers rebind as titles change; the visible cohort and native clocks
-   * survive those rebinds. A card that never enables the option returns immediately.
+   * survive those rebinds. A card on which no title can scroll returns immediately: see
+   * `Helpers.titlesScroll`, which `time_position: title` turns on as well.
    *
    * Shares the detached-card guard the other reconcilers use, and re-measures after a
    * card/title resize, a late font load, or an inherited style or direction change.
@@ -3412,7 +3413,7 @@ class CalendarCardPro extends LitElement {
    * on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
-    if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+    if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
       this._stopTitleScrollObserver();
       return;
     }
@@ -3500,7 +3501,7 @@ class CalendarCardPro extends LitElement {
     }
     this._titleScrollRaf = requestAnimationFrame(() => {
       this._titleScrollRaf = null;
-      if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+      if (!this.isConnected || !Helpers.titlesScroll(this.effectiveConfig, this.effectiveView)) {
         return;
       }
       this._measureTitleScroll();

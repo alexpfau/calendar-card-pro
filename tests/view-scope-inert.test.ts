@@ -104,10 +104,14 @@ const BASE: Partial<Types.Config> = {
  * the renderer is handed the *effective* config so grid's divergent defaults arrive.
  * Skipping either renders something the card never would.
  */
-function renderView(view: Types.EffectiveView, overrides: Partial<Types.Config>): string {
+function renderView(
+  view: Types.EffectiveView,
+  overrides: Partial<Types.Config>,
+  events: Types.CalendarEventData[] = EVENTS,
+): string {
   const config = buildConfig({ view, ...BASE, ...overrides });
   const effective = ViewConfig.resolveEffectiveConfig(config, view);
-  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
+  const days = EventUtils.groupEventsByDay(events, config, false, 'en', view);
   const container = document.createElement('div');
 
   litRender(
@@ -149,6 +153,60 @@ describe('all-day badge options in grid', () => {
       expect(renderView('grid', base)).toBe(renderView('grid', changed));
     },
   );
+});
+
+describe('time_position in grid', () => {
+  /**
+   * Timed events, because a grid's all-day banner draws a title and nothing else, so the
+   * all-day fixture above would hold no time row for the option to move in any view. Tomorrow
+   * and the day after, so that grouping against the real clock keeps both and the grid's
+   * default hours draw them as blocks. `BASE` turns the countdown on and each carries a
+   * location, so the moved row takes something along and leaves something behind.
+   */
+  function timedEvent(offset: number, hour: number, summary: string): Types.CalendarEventData {
+    const start = new Date();
+    start.setDate(start.getDate() + offset);
+    start.setHours(hour, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(hour + 1);
+    return {
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+      summary,
+      location: '12 Rowan Street, Springfield',
+      _entityId: 'calendar.personal',
+    };
+  }
+
+  const TIMED = [timedEvent(1, 10, 'Ben piano lesson'), timedEvent(2, 15, 'Anna dentist')];
+
+  it('changes both agenda views', () => {
+    // The denominator: without it the grid comparison below is satisfied by a fixture whose
+    // rows hold no time to move, in any view.
+    for (const view of ['list', 'column'] as const) {
+      expect(renderView(view, { time_position: 'title' }, TIMED), view).not.toBe(
+        renderView(view, {}, TIMED),
+      );
+    }
+  });
+
+  it.each([
+    ['set card-wide', { time_position: 'title' }],
+    ['set in time_grid:', { time_grid: { time_position: 'title' } }],
+  ])('cannot change the grid tree, %s', (_name, overrides) => {
+    expect(renderView('grid', overrides as Partial<Types.Config>, TIMED)).toBe(
+      renderView('grid', {}, TIMED),
+    );
+  });
+
+  it('draws timed blocks in grid for the option to have been inert in', () => {
+    const markup = renderView('grid', {}, TIMED);
+
+    expect(markup).toContain('grid-event-disclosure');
+    expect(markup).toContain('Ben piano lesson');
+    expect(markup).toContain('class="time"');
+    expect(markup).not.toContain('time-beside-title');
+  });
 });
 
 describe('all-day content options in grid', () => {

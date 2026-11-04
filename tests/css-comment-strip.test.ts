@@ -279,8 +279,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(186_000);
-    // Links in rows and drawing a new event in the grid moved the ceiling last, from 183,000 to
+    expect(saved).toBeLessThan(191_000);
+    // The time beside the title moved the ceiling last, from 186,000 to 191,000: the notes on why
+    // the title line aligns its title and time on one baseline beside every label kind, why the
+    // time's box stops at 60% of the line but never below what it cannot wrap, why list view's
+    // weather badge keeps its size and lines up by its text there, why the bullet after it is
+    // spaced as the folded countdown's dot, why "Now" stays one word, and why list view's badge
+    // rows share column view's rules, and why the box may grow past its cap. The reading went
+    // from 183,042 to 188,921, taken with stripComments after the last comment was written.
+    //
+    // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
     // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and
     // why a drawn event is the time area's ::after, set by attributes and custom properties, so
     // the grid's structure observers never see an element come and go. The reading went to

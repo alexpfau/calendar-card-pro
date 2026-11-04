@@ -2696,6 +2696,133 @@ export const cardStyles = css`
     color: var(--calendar-card-color-description);
   }
 
+  /* ===== TIME BESIDE THE TITLE =====
+
+     time_position: title puts the time at the end of the title's line, where it stays at any
+     width. .summary-row holds the title and .title-aside, which holds list view's weather badge,
+     if there is one, and the time, and .event-content is marked time-beside-title. Only a row
+     with a time or a countdown to show takes either, so an empty day keeps every rule above and
+     nothing here reaches it. Off, the option leaves the markup as it was and none of these
+     selectors match.
+
+     The time comes without its clock and with nothing trailing it: the leaf folds a countdown
+     into the time text and draws the progress bar as a row of its own, in list view as in
+     column view. A title that shares its line always scrolls: the leaf gives it the
+     scroll_long_titles markup whatever that option says, so the rules for that mode keep it to
+     one line with its labels beside it, the card moves it only where it overflows, and under
+     reduced motion it ends in an ellipsis instead. The rules here only share the line between
+     the two. tests/stylesheet.test.ts pins every declaration in them; what they draw was
+     measured in browsers. Logical properties throughout, so a right-to-left card puts the time
+     at the left with nothing of its own. */
+
+  /* The time's text on the title's baseline. Centered, a line of the title beside a line at the
+     time's smaller size sets the two a pixel or two apart; on one baseline they read as one
+     line, and a time that wraps hangs below it. */
+  .time-beside-title > .summary-row {
+    align-items: baseline;
+  }
+
+  /* The title gives its summary the baseline the time lines up with. A scrolling summary is a
+     flex row of its labels and its title, and a flex container with no item in baseline
+     alignment takes its baseline from its first item: an icon or picture label's bottom edge,
+     which set the time 2 to 3.5px off the title's text, or the first line of a text label that
+     wraps, which set the time level with that line and above a title centered on the label. The
+     title opts in, so the time is on the title's line beside every label. Beside a wrapping
+     text label that moves the title from the label's middle to its first line. */
+  .time-beside-title > .summary-row > .summary-scroll > .event-title {
+    align-self: baseline;
+  }
+
+  /* The time and its badge take what they need, normally up to the cap, at the end of the line,
+     and the title has the rest: .summary grows from nothing and scrolls where that is too little.
+     The cap is 60% of the line less the title's 12px gutter, so the title's own box keeps 40% of
+     it, and past the cap the time wraps inside this box. The floor is what the box cannot wrap
+     any narrower: the badge, the bullet and the time's longest word. A floor wins over a cap, so
+     the box grows past 60% rather than break a word, and the title keeps less: beside a weather
+     badge on a 240px list card it kept a few pixels. The box's content never overflows the box;
+     the row would overflow the event only where the floor is wider than the whole line, which
+     none of the widths measured reached (list cards from 240px, columns from 145px). The option's
+     docs say plainly that it needs a wide row. */
+  .time-beside-title > .summary-row > .title-aside {
+    display: flex;
+    align-items: baseline;
+    flex: none;
+    max-width: calc(60% - 12px);
+    min-width: min-content;
+  }
+
+  /* List view's badge at the weather font size, as it is beside the title. The rule that sizes
+     it there matches a badge in .summary-row only, and this one keeps its specificity, so a
+     theme rule written against .event-weather .event-weather-text wins over both; the box is
+     drawn only in this mode, so it needs no further scope. The text takes the box's baseline
+     as well, so the temperature lines up with the time: a flex row of an icon and its text
+     would otherwise take its baseline from the icon's bottom edge. The icon stays centered on
+     the badge's line. */
+  :where(.title-aside) > .event-weather > .event-weather-text {
+    font-size: var(--calendar-card-weather-event-font-size, 12px);
+    align-self: baseline;
+  }
+
+  /* The badge leads the box and the time follows it after a bullet, so the badge gives up the
+     12px that kept it off the end of the row: the bullet's own spacing replaces it. */
+  .time-beside-title > .summary-row > .title-aside > .event-weather {
+    margin-inline-end: 0;
+  }
+
+  /* The bullet between the badge and the time: the folded countdown's middot, at the time's size
+     and in its color, with the same 4px either side. A flex item of the time, so it cannot be
+     parted from it, on its first baseline. A plain middot, as column view's trailing countdown
+     has, because a flex item needs no joiner to keep it on its line. */
+  .time-beside-title > .summary-row > .title-aside > .event-weather + .time::before {
+    content: '·';
+    margin-inline: 4px;
+  }
+
+  /* The time as one item of the box: as wide as its text, and on the title's baseline through
+     its first line. Under the title it is a row as wide as the event that spaces off and wraps a
+     trailing countdown or bar, 2px below the title, and in column view indented for its clock;
+     none of that has anything to do here. It keeps its 12px end margin, so it ends where the
+     rows below it do. A time that wraps sets every line against the end, as the time sits on
+     the title's line, and so does an all-day pill wrapped above it. */
+  .time-beside-title > .summary-row > .title-aside > .time {
+    width: auto;
+    margin-top: 0;
+    padding-inline-start: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: baseline;
+    column-gap: 0;
+    text-align: end;
+  }
+
+  /* Column view's matching negative margin for the clock's indent goes with it. Nothing inside
+     the box is let shrink below its own longest word: the box's floor already keeps it that
+     wide, and a row let shrink further split the joiner from the countdown's dot. */
+  .time-beside-title > .summary-row > .title-aside > .time > .time-actual {
+    margin-inline-start: 0;
+    justify-content: flex-end;
+  }
+
+  /* A running event's "Now" stays one word. It may break anywhere below the title, where only a
+     column narrower than the word itself can make it, but here a word that may break anywhere
+     sets no floor: the box shrank to its first letter and stacked "Now" a letter to a line. */
+  .time-beside-title > .summary-row > .title-aside > .time .now-indicator {
+    overflow-wrap: normal;
+  }
+
+  /* With times off, the countdown alone takes the time's place. It wraps like the time, against
+     the end, and brings neither the end margin the time already has nor column view's
+     leading dot: beside the title nothing comes before it but the badge's bullet. */
+  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown {
+    margin-inline: 0;
+    text-align: end;
+    white-space: normal;
+  }
+
+  .time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before {
+    content: none;
+  }
+
   /* A web address in an event row's location or description, drawn as a link while open_links
      is on. It keeps the row's own color and size, so a location in the calendar's accent stays
      in it, and is set apart by its underline alone. Its focus ring sits close around the words:
@@ -4117,8 +4244,14 @@ export const cardStyles = css`
      outside its border box, so a pill wider than the space beside the clock is cut short there
      rather than wrapping below the clock and leaving it alone on a line. Where the time text is
      the countdown alone, the pill also leaves room for 0.5em of dot and the dot's 4px, or a
-     pill clamped to the line would push the dot onto the next line alone. */
-  .column-events .time-actual:has(> .allday-badge + .time-text) {
+     pill clamped to the line would push the dot onto the next line alone.
+
+     time_position: title folds the countdown into the time text in list view as well, so its
+     badge rows take the same rules there. Unwrapped, the pill and the countdown's longest word
+     set the width the time's box could not go below, side by side: on a 240px list card the
+     title kept a few pixels and the pill was cut short anyway. */
+  .column-events .time-actual:has(> .allday-badge + .time-text),
+  .time-beside-title .time-actual:has(> .allday-badge + .time-text) {
     flex-wrap: wrap;
     margin-inline-start: 0;
   }
@@ -4127,18 +4260,24 @@ export const cardStyles = css`
     margin-inline-start: calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px));
   }
 
-  .column-events .time-actual:has(> .allday-badge + .time-text) > .allday-badge {
+  .column-events .time-actual:has(> .allday-badge + .time-text) > .allday-badge,
+  .time-beside-title .time-actual:has(> .allday-badge + .time-text) > .allday-badge {
     max-width: calc(100% - 5px);
   }
 
   .column-events
+    .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child)
+    > .allday-badge,
+  .time-beside-title
     .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child)
     > .allday-badge {
     max-width: calc(100% - 9px - 0.5em);
   }
 
   .column-events .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child),
-  .column-events .time-actual .allday-badge + .time-text > .time-countdown:first-child {
+  .column-events .time-actual .allday-badge + .time-text > .time-countdown:first-child,
+  .time-beside-title .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child),
+  .time-beside-title .time-actual .allday-badge + .time-text > .time-countdown:first-child {
     display: contents;
   }
 

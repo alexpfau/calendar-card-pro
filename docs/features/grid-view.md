@@ -898,6 +898,11 @@ The all-day badge controls (`allday_badge`, `allday_badge_style` and `allday_bad
 are also omitted in Grid. Its all-day banners have their own shape, and timed blocks never
 draw an all-day badge. Edit those controls in List, Columns or All Layouts instead.
 
+`time_position` does nothing here either, and the editor omits it in Grid. A block lays out
+its own rows and fits its time row to the room it has, so there is no title row for the time
+to join; list and column view move it
+[beside the title](/features/event-content#time-beside-the-title) instead.
+
 `show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`,
 `show_description_allday` and `show_countdown_allday` do nothing in grid view at all. They
 decide what an all-day row carries, and grid draws an all-day event as a

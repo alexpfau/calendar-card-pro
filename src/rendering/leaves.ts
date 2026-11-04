@@ -379,8 +379,13 @@ export function renderLabel(
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
   return html`<span class="calendar-label${glyphClass}">${label}</span>`;
 }
+
 /**
  * Render an event title with optional label and weather data
+ *
+ * `aside` is `time_position: title`'s time row. Given one, the title always scrolls, and the
+ * row draws it after the title in `.title-aside`, after list view's weather badge. Without one
+ * the row is the markup every view drew before the option existed.
  */
 function renderEventTitle(
   event: Types.CalendarEventData,
@@ -391,6 +396,7 @@ function renderEventTitle(
   mergedLabels?: Types.ResolvedLabel[],
   titleWords = false,
   entityLabelAlt = '',
+  aside?: TemplateResult,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -411,7 +417,9 @@ function renderEventTitle(
   const labelType = event._matchedConfig?.label_type;
 
   const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
-  const scrollTitles = config.scroll_long_titles;
+  // A title with a time beside it always scrolls: the time takes the line's end, and the title
+  // has one line beside it whatever `scroll_long_titles` says.
+  const scrollTitles = aside !== undefined || config.scroll_long_titles;
   // No whitespace inside the word spans, and the spaces between them stay text: joined, the
   // pieces are the title exactly, so its text content does not change.
   //
@@ -556,6 +564,21 @@ function renderEventTitle(
         >
           ${titleInner}
         </span>`;
+
+  // The title line of `time_position: title`: the scrolling title, then the badge and the time
+  // together in `.title-aside`, which the stylesheet caps so the title keeps the rest. No
+  // directive here: every element in this template is a flex container, which draws none of the
+  // whitespace between its children, so Prettier may lay the template out as it likes.
+  if (aside) {
+    return html`
+      <div class="summary-row">
+        <div class="summary${scrollTitles ? ' summary-scroll' : ''}">${title}</div>
+        <div class="title-aside">
+          ${renderEventWeather(event, config, weatherForecasts)}${aside}
+        </div>
+      </div>
+    `;
+  }
 
   // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
   // snapshots record the whitespace that separates the summary from its title. The same
@@ -840,6 +863,15 @@ export interface EventContentOptions {
    * for the eye only. Rows holding no link draw their text exactly as they do without it.
    */
   links?: boolean;
+  /**
+   * Where the time row goes (`time_position`): `'below'` under the title, which is the markup
+   * every view drew before the option existed, or `'title'` at the end of the title's line, on a
+   * row with a time or a countdown, where it stays at any width. In that mode the countdown folds
+   * into the time text and the progress bar takes a row of its own, whatever the two placements
+   * above ask for. List and column pass their resolved value; grid never does, because its blocks
+   * fit their own rows, and this function never reads the option from `config`.
+   */
+  timePosition?: Helpers.TimePosition;
 }
 
 /**
@@ -878,13 +910,19 @@ export function renderEventContent(
   const {
     weatherForecasts,
     weatherPlacement = 'title',
-    progressPlacement = 'inline',
-    countdownPlacement = 'trailing',
+    progressPlacement: requestedProgressPlacement = 'inline',
+    countdownPlacement: requestedCountdownPlacement = 'trailing',
     hass,
     splitTimeEnd = false,
     titleWords = false,
     links = false,
+    timePosition = 'below',
   } = options;
+  // Beside the title nothing trails the time: the countdown folds into its text and the bar
+  // takes a row of its own, in list view as column view always draws them.
+  const besideTitle = timePosition === 'title';
+  const progressPlacement = besideTitle ? 'row' : requestedProgressPlacement;
+  const countdownPlacement = besideTitle ? 'text' : requestedCountdownPlacement;
   const {
     eventTime,
     eventTimeEnd,
@@ -1011,6 +1049,38 @@ export function renderEventContent(
     ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
     : timeText;
 
+  // `time_position: title`, on a row with a time or a countdown to put beside the title. Every
+  // other row, an empty day's included, keeps the template below, with the placements above.
+  // The title-line markup is a function of its own, after this one, so the template below stays
+  // the markup every view drew before the option existed.
+  if (besideTitle && (shouldShowTime || countdownStr)) {
+    return renderTimeBesideTitle({
+      title: (aside) =>
+        renderEventTitle(
+          event,
+          config,
+          entityLabel,
+          titleForecasts,
+          titlePill,
+          mergedLabels,
+          titleWords,
+          entityLabelAlt,
+          aside,
+        ),
+      shouldShowTime,
+      allDayBadgeEl,
+      timeContent,
+      countdownStr,
+      progressRow,
+      weatherRow,
+      eventLocation,
+      locationIcon,
+      locationText,
+      eventDescription,
+      descriptionText,
+    });
+  }
+
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
   // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
   // extraction seams" in tests/list-dom.test.ts).
@@ -1077,6 +1147,80 @@ export function renderEventContent(
               </div>
             `
           : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * What `renderTimeBesideTitle` lays out, computed once by `renderEventContent` so that neither
+ * function derives a piece of the row the other already has.
+ */
+interface TimeBesideTitlePieces {
+  /** The title line, drawn with the given time row after the title. */
+  title: (aside: TemplateResult) => TemplateResult;
+  shouldShowTime: boolean;
+  allDayBadgeEl: TemplateResult | typeof nothing;
+  timeContent: TemplateResult | typeof nothing;
+  countdownStr: string | null;
+  progressRow: TemplateResult | typeof nothing;
+  weatherRow: TemplateResult | typeof nothing;
+  eventLocation: string;
+  locationIcon: string;
+  locationText: unknown;
+  eventDescription: string;
+  descriptionText: unknown;
+}
+
+/**
+ * An event body with its time at the end of the title's line (`time_position: title`).
+ *
+ * The time keeps the classes and rules it has below the title, so its "Now" run, an all-day
+ * badge, a clamp and the folded countdown look as they do there. It drops its clock, since the
+ * title already leads the line, and anything that would trail it: the countdown is folded into
+ * the time text and the progress bar is the row of its own `renderEventContent` passes here,
+ * in list view as in column view. With times off, the countdown alone takes the time's place.
+ *
+ * The title always scrolls, so every row drawn here lays out the same way: the time takes what
+ * it needs, normally up to a cap the stylesheet sets, and the title has the rest of the line. Everything else
+ * stays below in its usual order: the progress row, column view's weather row, the location
+ * and the description. tests/time-position.test.ts holds those, and the title, to the markup
+ * the card draws without the option.
+ *
+ * `time-beside-title` on `.event-content` is what the stylesheet keys on; see the block of rules
+ * under that name.
+ *
+ * @param pieces - The row's parts, as `renderEventContent` computed them
+ * @returns Rendered event body
+ */
+function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
+  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr } = pieces;
+
+  const timeRow = shouldShowTime
+    ? html`<div class="time"><div class="time-actual">${allDayBadgeEl}${timeContent}</div></div>`
+    : html`<div class="time"><div class="time-countdown">${countdownStr}</div></div>`;
+
+  return html`
+    <div class="event-content time-beside-title">
+      ${pieces.title(timeRow)}
+      <div class="time-location">
+        ${pieces.progressRow} ${pieces.weatherRow}
+        ${
+          pieces.eventLocation
+            ? html`<div class="location">
+                <ha-icon icon="${pieces.locationIcon}"></ha-icon>
+                <span>${pieces.locationText}</span>
+              </div>`
+            : nothing
+        }
+        ${
+          pieces.eventDescription
+            ? html`<div class="description">
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+                <span>${pieces.descriptionText}</span>
+              </div>`
+            : nothing
+        }
       </div>
     </div>
   `;

@@ -687,7 +687,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scroll_long_titles.helper':
     'Where supported, visible overflowing titles start together, return quickly one by one, ' +
     'and wait at their beginnings. Forces one line in either text direction and overrides ' +
-    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling.',
+    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling. ' +
+    'With the time beside the title, long titles always scroll.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
@@ -719,6 +720,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   time: 'Time',
   show_time: 'Show Time',
+  time_position: 'Time Position',
+  'time_position.helper':
+    "Puts the time on the title's line, without its clock, and never moves it below. Needs a " +
+    'wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
+    'weather, 12-hour or multi-day times, all-day badges, larger fonts or long text labels, the ' +
+    'title can shrink to a few characters and the time can take several lines. Use it where the ' +
+    'width allows, with few such extras. Titles that share the line always scroll, whatever ' +
+    'Scroll Long Titles says, and Title Line Limit does not apply.',
+  'time_position.option.below.label': 'Below the title',
+  'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper':
