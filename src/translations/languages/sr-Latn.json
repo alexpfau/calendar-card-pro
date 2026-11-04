@@ -1,0 +1,17 @@
+{
+  "daysOfWeek": ["Ned", "Pon", "Uto", "Sre", "Čet", "Pet", "Sub"],
+  "fullDaysOfWeek": ["Nedelja", "Ponedeljak", "Utorak", "Sreda", "Četvrtak", "Petak", "Subota"],
+  "months": ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Avg", "Sep", "Okt", "Nov", "Dec"],
+  "allDay": "ceo dan",
+  "multiDay": "do",
+  "at": "u",
+  "viewList": "Lista",
+  "viewColumns": "Kolone",
+  "viewGrid": "Mreža",
+  "endsToday": "završava se danas",
+  "endsTomorrow": "završava se sutra",
+  "noEvents": "Nema događaja",
+  "loading": "Učitavanje događaja iz kalendara...",
+  "error": "Greška: Entitet kalendara nije pronađen ili je neispravno konfigurisan",
+  "loadFailed": "Neuspešno učitavanje:"
+}
