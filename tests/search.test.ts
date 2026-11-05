@@ -574,6 +574,38 @@ describe('the events of a grouping, once each', () => {
     ]);
   });
 
+  it('keeps them apart in grid view too, where an event with no end gives both one stamp', () => {
+    const twice = buildConfig({
+      entities: [ANNA, ANNA],
+      view: 'grid',
+      show_past_events: true,
+    } as Partial<Types.Config>);
+    const days = EventUtils.groupEventsByDay(
+      EventUtils.processEvents(
+        [
+          {
+            summary: 'Reminder',
+            start: { dateTime: '2026-06-20T09:00:00.000Z' },
+            _entityId: ANNA,
+          } as Types.CalendarEventData,
+        ],
+        twice,
+      ),
+      Search.searchGroupingConfig(twice, window, 'grid'),
+      true,
+      'en',
+      'grid',
+      null,
+    );
+
+    const found = Search.occurrencesIn(days);
+    expect(found.map(({ event }) => event.summary)).toEqual(['Reminder', 'Reminder']);
+    // Repaired before it is matched to either entry, it carries one stamp into both, so only
+    // the entry each copy matched tells them apart.
+    expect(found[0].event._source).toBe(found[1].event._source);
+    expect(found[0].event._matchedConfig).not.toBe(found[1].event._matchedConfig);
+  });
+
   it('tells a day carrying no stamp apart by what it says', () => {
     const day = (location: string): Types.CalendarEventData => ({
       summary: 'Conference',

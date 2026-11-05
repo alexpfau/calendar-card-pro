@@ -839,8 +839,16 @@ describe('what a term finds', () => {
       timed('2026-06-20T23:00:00Z', '2026-06-21T06:00:00Z', 'Night shift', { uid: 'g-3' }),
       // Across midnight, inside them on its first day only.
       timed('2026-06-21T21:00:00Z', '2026-06-22T01:00:00Z', 'Late concert', { uid: 'g-4' }),
+      // Across midnight, inside them on its second day only, which the grid draws as a day of
+      // its own.
+      timed('2026-06-22T23:00:00Z', '2026-06-23T19:00:00Z', 'Overnight drive', { uid: 'g-5' }),
+      // Inside them, at a place the grid does not show unless its block asks it to.
+      timed('2026-06-23T19:30:00Z', '2026-06-23T20:30:00Z', 'Quiz night', {
+        uid: 'g-6',
+        location: 'Harbor tavern',
+      }),
     );
-    const terms = ['choir', 'run', 'shift', 'concert'];
+    const terms = ['choir', 'run', 'shift', 'concert', 'drive', 'harbor'];
     const config = {
       time_grid: { start_time: '18:00', end_time: '22:00' },
     } as Partial<Types.Config>;
@@ -848,14 +856,14 @@ describe('what a term finds', () => {
     const grid = await mount(configFor({ ...config, view: 'grid' }), { width: 1100 });
     expect((grid as unknown as { effectiveView: string }).effectiveView).toBe('grid');
     await openSearch(grid);
-    expect(terms.map((term) => found(term).length)).toEqual([1, 0, 0, 1]);
+    expect(terms.map((term) => found(term).length)).toEqual([1, 0, 0, 1, 1, 0]);
     await closeSearch(grid);
     grid.remove();
     manager.panel = null;
 
     const list = await mount(configFor({ ...config, view: 'list' }));
     await openSearch(list);
-    expect(terms.map((term) => found(term).length)).toEqual([1, 1, 1, 1]);
+    expect(terms.map((term) => found(term).length)).toEqual([1, 1, 1, 1, 1, 1]);
   });
 
   it('tells apart two multi-day events that share a title and times, each found by its own words', async () => {
@@ -1087,6 +1095,39 @@ describe('a write while the panel is open', () => {
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
   });
 
+  it('shows at once that it is loading the year again, and the year once it has', async () => {
+    const card = await mount(configFor());
+    await openSearch(card);
+    await typeTerm('dent');
+    expect(drawnResults()).toHaveLength(2);
+    const turning = () => manager.panel!.shadowRoot!.querySelector('.field-icon.turning');
+    expect(turning()).toBeNull();
+
+    holdWide = true;
+    window.dispatchEvent(
+      new CustomEvent(CalendarChanges.CALENDARS_CHANGED_EVENT, {
+        detail: {
+          changed: { ids: [ANNA] },
+          writeGeneration: EventUtils.advanceWriteGeneration(),
+          source: document.createElement('div'),
+        },
+      }),
+    );
+    await settle(card);
+    await manager.panel!.updateComplete;
+
+    // Until the calendars answer again, the search finds what the card holds, as it does the
+    // first time the panel opens, and its magnifier turns.
+    expect(turning()).not.toBeNull();
+    expect(drawnResults()).toEqual([]);
+
+    held.splice(0).forEach((answer) => answer());
+    await settle(card);
+    await manager.panel!.updateComplete;
+    expect(turning()).toBeNull();
+    expect(drawnResults()).toHaveLength(2);
+  });
+
   it('leaves a closed panel’s year for the next opening to decide', async () => {
     const card = await mount(configFor());
     await openSearch(card);
@@ -1259,6 +1300,26 @@ describe('live changes', () => {
     await flush(card);
     await openSearch(card);
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+  });
+
+  it('keeps the year while the panel is open when a subscription only starts', async () => {
+    const live = liveHass();
+    const card = await mount(configFor(), { hass: live.hass });
+    await flush(card);
+    await openSearch(card);
+    await typeTerm('swim');
+    const subscribed = live.subscribed();
+
+    // Another card on the page starts watching other days of a calendar this one shows.
+    LiveCalendars.hold(live.hass as unknown as Types.Hass, ANNA, {
+      start: new Date('2026-08-01T00:00:00Z'),
+      end: new Date('2026-08-08T00:00:00Z'),
+    });
+    await flush(card);
+
+    expect(live.subscribed()).toBe(subscribed + 1);
+    expect(isOpen()).toBe(true);
+    expect(wideRequests()).toEqual([ANNA, BEN]);
   });
 
   it('loads the year again at once while the panel is open, the term kept', async () => {
