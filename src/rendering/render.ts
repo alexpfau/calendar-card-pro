@@ -234,7 +234,14 @@ export function renderMainCardStructure(
             ? renderRefreshOutcome(refreshPhase)
             : isLoading || refreshPhase === 'turning'
               ? html`
-                  <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                  <div
+                    class=${refreshPhase === 'turning'
+                      ? 'loading-indicator'
+                      : 'loading-indicator unasked'}
+                    role="status"
+                    aria-live="polite"
+                    title="Loading"
+                  >
                     <div class="spinner" aria-hidden="true"></div>
                   </div>
                 `

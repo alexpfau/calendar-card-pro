@@ -350,6 +350,8 @@ describe('the refresh button', () => {
 
     expect(card.isLoading).toBe(true);
     expect(root(card).querySelector('.loading-indicator')).not.toBeNull();
+    // Nobody asked, so it shows only once the load has lasted a moment, as the button turns.
+    expect(corner(card)!.classList).toContain('unasked');
   });
 
   it('does nothing while the card is being edited', async () => {
@@ -550,6 +552,8 @@ describe('what a refresh someone asked for shows', () => {
     await settle(card);
     expect(card.isLoading).toBe(false);
     expect(corner(card)!.querySelector('.spinner')).not.toBeNull();
+    // Asked for, so it shows at once, however quickly the load ends.
+    expect(corner(card)!.classList).not.toContain('unasked');
 
     await advance(card, TURN);
     expect(corner(card)!.querySelector('.spinner')).toBeNull();

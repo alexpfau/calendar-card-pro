@@ -3117,6 +3117,19 @@ describe('the legend and refresh', () => {
     expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation-delay')).toBe('');
   });
 
+  it('shows the corner spinner for a load the card started itself only once the days would dim', () => {
+    // Where there is no refresh button, the corner stands in for it, and waits as long: a load
+    // that ends within a few frames painted the spinner for them, a flash with nothing to say.
+    const pending = flat(declared('.content-container.page-pending', 'transition')).split(' ');
+    const wait = pending[pending.length - 1];
+    const appear = flat(declared('.loading-indicator.unasked', 'animation')).split(' ');
+    expect(appear).toEqual(['ccp-appear', '0s', 'linear', wait, 'both']);
+    expect(
+      flat(/@keyframes ccp-appear\s*\{((?:\s*[a-z]+\s*\{[^}]*\})+)\s*\}/.exec(CSS)?.[1] ?? ''),
+    ).toBe('from { opacity: 0; } to { opacity: 1; }');
+    expect(declared('.loading-indicator', 'animation')).toBe('');
+  });
+
   it('turns the refresh icon while the card loads, one turn in the shortest a press shows', () => {
     // A press turns it for at least REFRESH_MIN_TURN, which is meant to be one whole turn.
     expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation')).toBe(
