@@ -432,6 +432,21 @@ describe('moving an event in a grid by drag', () => {
     });
   });
 
+  it('stops drawing it where it was dropped after a while, if the refresh is slow', async () => {
+    const { card, writes } = await mount(DETAILS);
+    holdFetches(card, [DENTIST]);
+    drag(block(card, 'Dentist'), [X(0), Y(14, 30)], [X(1), Y(16, 30)]);
+    await settle();
+    expect(writes()).toHaveLength(1);
+    expect(drawn(card)).toEqual([bodies(card)[1]]);
+
+    await vi.advanceTimersByTimeAsync(Constants.TIMING.NEW_EVENT_HOLD - 10);
+    expect(drawn(card)).toEqual([bodies(card)[1]]);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(drawn(card)).toEqual([]);
+    expect(all(card, '[data-move-origin]')).toEqual([]);
+  });
+
   it("puts it back, and shows Home Assistant's reason, when the write is refused", async () => {
     const { card, writes, notes } = await mount(DETAILS, [DENTIST], async () => {
       throw { code: 'invalid_format', message: 'Event overlaps a locked slot' };
