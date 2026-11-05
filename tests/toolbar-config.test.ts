@@ -4,9 +4,11 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * and once shown, what anyone looking at a calendar needs on: the date navigation, the view
- * switcher, add, refresh and the calendar filter as a menu. Reset alone is off, since it is for
- * a screen several people share. The configuration's own buttons are a list, empty unless it
- * writes some, and read entry by entry: one that cannot be drawn as written is left out.
+ * switcher, add, refresh and the calendar filter as a menu. Reset is off, since it is for a
+ * screen several people share, and so is search, the first control added after v5, since a
+ * release never adds a control to a toolbar someone already set up. The configuration's own
+ * buttons are a list, empty unless it writes some, and read entry by entry: one that cannot be
+ * drawn as written is left out.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -29,12 +31,13 @@ const DEFAULTS = {
   viewSwitcher: true,
   reset: false,
   refresh: true,
+  search: false,
   legend: 'menu',
   buttons: [],
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with every control on once shown except reset, and the filter as a menu', () => {
+  it('ships hidden, with every control on once shown except reset and search, and the filter as a menu', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       navigation: true,
@@ -42,6 +45,7 @@ describe('the toolbar configuration', () => {
       view_switcher: true,
       reset: false,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });
@@ -76,6 +80,11 @@ describe('the toolbar configuration', () => {
       reset: true,
       legend: false,
     });
+    expect(resolveToolbar({ toolbar: { show: true, search: true } })).toEqual({
+      ...DEFAULTS,
+      show: true,
+      search: true,
+    });
   });
 
   it('keeps the choices of a hidden bar', () => {
@@ -102,6 +111,7 @@ describe('the toolbar configuration', () => {
         navigation: 'yes',
         reset: 'yes',
         refresh: 'on',
+        search: 1,
         legend: 1,
       },
     };
@@ -154,6 +164,7 @@ describe('the toolbar block the editor shows', () => {
         'navigation',
         'refresh',
         'reset',
+        'search',
         'show',
         'view_switcher',
       ].sort(),

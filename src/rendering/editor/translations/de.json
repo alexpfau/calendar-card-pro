@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Für einen gemeinsam genutzten Bildschirm. Setzt mit einem Druck zurück, was auf diesem Gerät an Tagen, Layout, Kalendern und aufgeklappter Ansicht geändert wurde.",
   "toolbar.refresh": "Knopf „Aktualisieren“",
   "toolbar.refresh.helper": "Lädt die Termine sofort neu, statt erst bei der nächsten planmäßigen Aktualisierung.",
+  "toolbar.search": "Knopf „Durchsuchen“",
+  "toolbar.search.helper": "Findet Termine der Karte nach Titel, Ort oder Beschreibung, ein Jahr zurück und ein Jahr voraus. Ein Treffer öffnet seinen Tag auf der Karte, daher braucht der Knopf die Datumsnavigation.",
   "toolbar.add_event": "Knopf „Termin hinzufügen“",
   "toolbar.add_event.helper": "Öffnet einen neuen Termin zum Ausfüllen. Erscheint, wenn ein Kalender der Karte neue Termine annimmt.",
   "toolbar.legend": "Kalenderfilter",

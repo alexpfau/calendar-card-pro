@@ -3801,6 +3801,67 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* The event a search result paged the card to, rung in the theme's primary color for a moment
+     and faded out over its end; without the fade under reduced motion. Drawn as the focus rings
+     are: after the accent bar in list and column, an outline on a grid block. A class the
+     template binds, so no element comes or goes for it. */
+  td.event.search-ring::after,
+  .column-events > .event.search-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  td.event.search-ring::after,
+  .column-events > .event.search-ring::after,
+  .grid-event.search-ring,
+  .grid-banner.search-ring {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    animation: ccp-search-ring 2s ease-out forwards;
+  }
+
+  /* In column and grid the ring takes the place of the focus ring, which list view draws on the
+     button underneath, so a ringed event with keyboard focus fades into its focus ring instead
+     of away. */
+  .column-events > .event.search-ring:focus-visible::after,
+  .grid-event.search-ring:focus-visible,
+  .grid-banner.search-ring:focus-visible {
+    animation-name: ccp-search-ring-to-focus;
+  }
+
+  @keyframes ccp-search-ring {
+    75% {
+      outline-color: var(--primary-color);
+    }
+    100% {
+      outline-color: transparent;
+    }
+  }
+
+  @keyframes ccp-search-ring-to-focus {
+    75% {
+      outline-color: var(--primary-color);
+    }
+    100% {
+      outline-color: var(--calendar-card-line-color-vertical);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    td.event.search-ring::after,
+    .column-events > .event.search-ring::after,
+    .column-events > .event.search-ring:focus-visible::after,
+    .grid-event.search-ring,
+    .grid-event.search-ring:focus-visible,
+    .grid-banner.search-ring,
+    .grid-banner.search-ring:focus-visible {
+      animation: none;
+    }
+  }
+
   /* A tap on an event is the event's, so the card's ripple must not flash as though the card
    * had been tapped. The ripple listens on ha-card and sees every press inside it, and the
    * recognizer needs those presses to reach ha-card too, so the ripple is muted rather than

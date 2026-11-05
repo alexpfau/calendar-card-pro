@@ -46,6 +46,7 @@ import type * as Times from './interaction/event-times';
 import * as Feedback from './interaction/feedback';
 import * as GridDraft from './interaction/grid-draft';
 import type * as PopoverModel from './interaction/popover-model';
+import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
 import type * as Editor from './rendering/editor/index';
 import * as EventPopover from './rendering/event-popover';
@@ -53,6 +54,7 @@ import * as GridRender from './rendering/grid';
 import * as Legend from './rendering/legend';
 import * as Menu from './rendering/menu';
 import * as Render from './rendering/render';
+import * as SearchPanel from './rendering/search-panel';
 import * as Styles from './rendering/styles';
 import * as Toolbar from './rendering/toolbar';
 import * as Localize from './translations/localize';
@@ -71,6 +73,7 @@ import * as Helpers from './utils/helpers';
 import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
 import * as Paging from './utils/paging';
+import * as Search from './utils/search';
 import * as Templates from './utils/templates';
 import {
   TitleMotionController,
@@ -366,6 +369,12 @@ type LoadMode = 'navigate' | 'page' | 'cache' | 'reprocess' | 'network' | 'reloa
 
 /** The controls a render draws in the header toolbar, before it decides on the switcher's words. */
 type ToolbarControls = Omit<Toolbar.HeaderToolbar, 'labeled'>;
+
+/**
+ * An event drawn as a target of its own, which a search pick moves focus to: list view's button
+ * inside the row, or column and grid view's event itself.
+ */
+const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
@@ -888,6 +897,7 @@ class CalendarCardPro extends LitElement {
     EventUtils.expireStoredCalendars((ids) => CalendarChanges.touchesCalendars(changed, ids, hass));
     const writeGeneration = EventUtils.advanceWriteGeneration();
     void this.refreshEvents(writeGeneration).then(() => committed?.());
+    this._search?.calendarsChanged();
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
   }
 
@@ -979,6 +989,7 @@ class CalendarCardPro extends LitElement {
     if (CalendarChanges.concernsCalendars(detail, shownIds, this.safeHass)) {
       this._markHomeStaleIfAway();
       void this.refreshEvents(detail.writeGeneration);
+      this._search?.calendarsChanged();
     }
   };
 
@@ -1056,10 +1067,7 @@ class CalendarCardPro extends LitElement {
       ...params,
       language: hass?.locale?.language ?? this._language ?? 'en',
       hour24: FormatUtils.resolveTimeFormat24h(this.config, hass),
-      dark:
-        hass?.themes?.darkMode ??
-        window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ??
-        false,
+      dark: this._panelsDark(),
     };
     // A finger lifting as it opens it lifts onto the popover; see `_swallowTouchEnd`. Not a
     // click, whose touch has ended already, nor a pen, which sends no touch events.
@@ -1369,6 +1377,36 @@ class CalendarCardPro extends LitElement {
 
   /** The width the switcher's words needed in the toolbar drawn last, which `_syncToolbarLabels` watches for. */
   private _toolbarLabelMinWidthPx: number | null = null;
+
+  /**
+   * The search behind the toolbar's magnifier: its year-wide load, kept in memory for this card,
+   * and the panel open on it. Made at the first press.
+   */
+  private _search: SearchSession | null = null;
+
+  /**
+   * The event a search pick rings: from the pick until its ring has shown for `SEARCH_RING`, or
+   * the page asked for turned out not to draw it. `page` is the page the pick asked for, the only
+   * one the ring is drawn on; `until` is set once it is drawn; `focus` until focus has moved to it.
+   */
+  private _searchRing: {
+    target: Search.RingTarget;
+    page: string | null;
+    until?: number;
+    focus: boolean;
+  } | null = null;
+
+  private _searchRingTimer?: ReturnType<typeof setTimeout>;
+
+  /** Whether the render just made drew the event a pick rings (`Search.ringIn`). */
+  private _searchRingDrawn = false;
+
+  /**
+   * Whether no search panel is open or closing, and Home Assistant has had its moment to put
+   * focus back on the magnifier: only then may a ringed event take focus, which that would move
+   * back otherwise.
+   */
+  private _searchPanelGone = true;
 
   /**
    * How `handleAction` runs the actions only the card knows, for one press.
@@ -2079,6 +2117,8 @@ class CalendarCardPro extends LitElement {
     this._stopGridDisclosureObserver();
     this._stopTitleScrollObserver();
     Menu.closeMenus(this.renderRoot);
+    this._search?.close();
+    this._settleSearchRing();
     this._toolbarFontsCleanup?.();
     this._toolbarFontsCleanup = null;
     this._settleResetConfirmation();
@@ -2159,9 +2199,11 @@ class CalendarCardPro extends LitElement {
       const width = entries[0]?.contentRect?.width;
 
       if (typeof width === 'number' && width > 0) {
-        // The card moved under an open menu, which is placed by where its button was.
+        // The card moved under an open menu, which is placed by where its button was, and
+        // under the search panel, whose beak points at the magnifier.
         if (this._toolbarWidthPx !== null && Math.abs(width - this._toolbarWidthPx) > 0.5) {
           Menu.closeMenus(this.renderRoot);
+          this._search?.close();
         }
         this._syncToolbarLabels(width);
         this._scheduleLegendFit();
@@ -3341,6 +3383,10 @@ class CalendarCardPro extends LitElement {
     if (Menu.hasOpenMenu(this.renderRoot, 'overflow') && !this._startMenuMayStayOpen()) {
       Menu.closeMenus(this.renderRoot, 'overflow');
     }
+    // The search panel, likewise, before the card is edited or hidden, or loses its magnifier.
+    if (this._search?.isOpen && (this._isBeingEdited || this.hidden || !this._searchButton())) {
+      this._search.close();
+    }
     this._focusBeforeFold = this._focusedStartControl();
 
     if (
@@ -3446,6 +3492,7 @@ class CalendarCardPro extends LitElement {
     this._syncLegendFit(false);
     this._handFocusToMenu();
     this._syncStartFoldFit();
+    this._syncSearchRing();
     Legend.markShortenedChips(this.renderRoot);
     Menu.repositionMenus(this.renderRoot);
     Toolbar.paintSelectedView(this.renderRoot);
@@ -3525,7 +3572,10 @@ class CalendarCardPro extends LitElement {
     Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
 
     // A menu open over a card about to hide would keep the page inert under nothing visible.
-    if (shouldHide) Menu.closeMenus(this.renderRoot);
+    if (shouldHide) {
+      Menu.closeMenus(this.renderRoot);
+      this._search?.close();
+    }
 
     this.hidden = shouldHide;
     this.style.display = shouldHide ? 'none' : '';
@@ -3975,6 +4025,9 @@ class CalendarCardPro extends LitElement {
    * @param entityId The calendar
    */
   private readonly _onLiveChange = (entityId: string): void => {
+    // The search covers every calendar the card names, and decides itself whether this was a
+    // real change to one of them (`LiveCalendars.eventChanges`).
+    this._search?.calendarsChanged();
     if (entityId !== '*' && !this._liveCalendars.has(entityId)) return;
     if (this._liveSyncTimer !== null) return;
     this._liveSyncTimer = window.setTimeout(() => {
@@ -6374,7 +6427,13 @@ class CalendarCardPro extends LitElement {
       // branch would pass. Column and grid views both default `show_empty_days` on, so
       // an eventless card still fills from here — with empty day columns in column view
       // and a full empty time axis in grid.
-      const days = shownDays(this.groupedEvents);
+      const ring = this._searchRing;
+      const ringed = Search.ringIn(
+        shownDays(this.groupedEvents),
+        ring && this._pageShown === ring.page ? ring.target : null,
+      );
+      this._searchRingDrawn = ringed.found;
+      const days = ringed.days;
       content = renderDays(days);
       drawsEventTarget =
         (dayAdd !== undefined && days.length > 0) ||
@@ -6418,6 +6477,7 @@ class CalendarCardPro extends LitElement {
       viewSwitcher: this._viewSwitcher(),
       reset: this._resetButton(),
       refresh: this._refreshButton(),
+      search: this._searchButton(),
       addEvent: this._addEventButton(),
       customButtons: this._customButtons(),
     };
@@ -6463,8 +6523,8 @@ class CalendarCardPro extends LitElement {
    * `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` holds for the switcher alone in its row. The commands
    * beside it add their two groups' widths exactly: the folded filter, add and the
    * configuration's own buttons at the start, one icon each and none in the menu, since the words
-   * give way before any control folds; and reset and refresh at the end, each an icon, with a gap
-   * between two in a group.
+   * give way before any control folds; and reset, refresh and search at the end, each an icon,
+   * with a gap between two in a group.
    *
    * @param controls - The controls this render draws
    * @returns A width in CSS pixels, or null
@@ -6473,7 +6533,7 @@ class CalendarCardPro extends LitElement {
     if (!controls.viewSwitcher) return null;
     const count = (members: ReadonlyArray<unknown>): number =>
       members.filter((member) => member !== undefined).length;
-    const end = count([controls.reset, controls.refresh]);
+    const end = count([controls.reset, controls.refresh, controls.search]);
     return (
       Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
       ToolbarFold.groupWidth(Toolbar.startControls(controls).length) +
@@ -6499,6 +6559,7 @@ class CalendarCardPro extends LitElement {
       controls.addEvent ? 'add' : '',
       controls.reset ? 'reset' : '',
       controls.refresh ? 'refresh' : '',
+      controls.search ? 'search' : '',
       controls.legend?.folded ? 'filter' : '',
       `buttons:${controls.customButtons?.length ?? 0}`,
     ].join('\u0000');
@@ -6566,6 +6627,7 @@ class CalendarCardPro extends LitElement {
       toolbar.viewSwitcher !== undefined ||
       toolbar.reset !== undefined ||
       toolbar.refresh !== undefined ||
+      toolbar.search !== undefined ||
       toolbar.addEvent !== undefined ||
       toolbar.customButtons !== undefined ||
       drawsEventTarget
@@ -7055,6 +7117,9 @@ class CalendarCardPro extends LitElement {
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
     this._failureCountHint = 0;
+    // Likewise a search ring waiting for another page than this one: it would otherwise ring,
+    // and take focus, whenever that page was next shown, however long after.
+    if (this._searchRing && this._searchRing.page !== page) this._settleSearchRing();
   }
 
   /**
@@ -7199,6 +7264,196 @@ class CalendarCardPro extends LitElement {
     clearTimeout(this._refreshPhaseTimer);
     this._refreshPhaseTimer = undefined;
     if (this._refreshPhase !== 'idle') this._setRefreshPhase('idle');
+  }
+
+  //-----------------------------------------------------------------------------
+  // SEARCH
+  //-----------------------------------------------------------------------------
+
+  /**
+   * The search button, when the configuration asks for it and the card has its date navigation:
+   * a picked result pages the card, and home is the way back.
+   *
+   * Named by Home Assistant's own word, as refresh is. While the card is being edited it is drawn
+   * and a press does nothing.
+   *
+   * @returns Button description for the wrapper, or undefined for none
+   */
+  private _searchButton(): Toolbar.SearchButton | undefined {
+    const toolbar = Config.resolveToolbar(this.config);
+    if (!toolbar.show || !toolbar.search || !toolbar.navigation) return undefined;
+
+    return {
+      label: this._haString('ui.common.search'),
+      onActivate: (button, pressed) => this._openSearch(button, pressed),
+    };
+  }
+
+  /**
+   * Opens the search panel below the magnifier, through Home Assistant's dialog manager as the
+   * event popover is, and readies the year-wide load it searches (`SearchSession.prepare`).
+   *
+   * The magnifier takes focus first, so focus comes back to it when the panel closes, whichever
+   * browser pressed it: Home Assistant and the dialog itself both give focus back to what held it
+   * when the panel opened, and Safari leaves a pressed button unfocused. Nothing opens while the
+   * card is being edited.
+   *
+   * @param button - The magnifier
+   * @param pressed - Where a pointer pressed it, and with what; undefined for a key
+   */
+  private _openSearch(button: HTMLElement, pressed: Toolbar.ButtonPress | undefined): void {
+    if (this._isBeingEdited) {
+      Logger.debug('Not searching while the card is being edited');
+      return;
+    }
+    const session = (this._search ??= new SearchSession(() => this._searchHost(), {
+      picked: (row) => this._pickSearchResult(row),
+      gone: () => this._searchGone(),
+    }));
+    if (session.isOpen) return;
+    session.prepare();
+
+    button.focus({ preventScroll: true });
+    this._searchPanelGone = false;
+    const at = originOf(button);
+    const params: SearchPanel.SearchPanelParams = {
+      source: session,
+      anchor: at && { ...at, ...(pressed && { pointerType: pressed.pointerType }), below: true },
+      // Over the card: the magnifier ends the row, so the panel hangs back across it.
+      hang: getComputedStyle(button).direction === 'rtl' ? 'right' : 'left',
+      dark: this._panelsDark(),
+      language: this.effectiveLanguage,
+      pastOpacity: this.effectiveConfig.past_event_opacity / 100,
+    };
+    const showDialog = new Event('show-dialog', { bubbles: true, composed: true });
+    (showDialog as Event & { detail?: unknown }).detail = {
+      dialogTag: SearchPanel.SEARCH_PANEL_TAG,
+      dialogImport: () => customElements.whenDefined(SearchPanel.SEARCH_PANEL_TAG),
+      dialogParams: params,
+    };
+    this.dispatchEvent(showDialog);
+    Logger.debug('Opened the search panel');
+  }
+
+  /**
+   * What a search reads of the card: its calendars and how it matches events to them, the view
+   * on screen's configuration, the events it holds, the calendars the filter hides, and how it
+   * names and colors a calendar.
+   *
+   * @returns What the search reads now
+   */
+  private _searchHost(): SearchHost {
+    return {
+      hass: this.hass,
+      config: this.config,
+      viewConfig: this.effectiveConfig,
+      view: this.effectiveView,
+      language: this.effectiveLanguage,
+      hidden: this._activeHiddenCalendars,
+      held: this.events,
+      today: this._haString('ui.components.calendar.today'),
+      colorOf: (event) =>
+        this._resolvedColor(
+          EventUtils.getEntityAccentColorWithOpacity(
+            event._entityId,
+            this.config,
+            undefined,
+            event,
+            EntityColors.entityColors(),
+          ),
+        ),
+      nameOf: (entityId) => this._calendarName(entityId),
+      failedNameOf: (entityId) =>
+        CalendarNames.failedCalendarName(entityId, this.config, this.hass),
+    };
+  }
+
+  /**
+   * Pages the card to a picked result's day, through the date picker's path so the page lines up
+   * with home's, in the view on screen, and rings the event once that page draws it. Home brings
+   * the card back, as after any jump.
+   *
+   * @param row - The result picked
+   */
+  private _pickSearchResult(row: Search.SearchRow): void {
+    this._settleSearchRing();
+    this._pickDate(row.day);
+    this._searchRing = { target: row.target, page: this._pageRequested, focus: true };
+    Logger.debug(`Search: paging to ${row.day} to ring a result`);
+    this.requestUpdate();
+  }
+
+  /**
+   * The search panel has closed. Home Assistant gives focus back to the magnifier a frame after
+   * it hears so, so a ringed event takes focus only once that has happened, two frames on.
+   */
+  private _searchGone(): void {
+    const afterRender = (then: () => void) => requestAnimationFrame(() => setTimeout(then));
+    afterRender(() =>
+      afterRender(() => {
+        this._searchPanelGone = true;
+        this.requestUpdate();
+      }),
+    );
+  }
+
+  /**
+   * Rings the event a pick paged to once the page draws it, for `SEARCH_RING`, and moves focus to
+   * it once the panel has gone where it is a target; where the page cannot draw it, a compact
+   * card's limit or a column the width sheds, the card was paged all the same and there is
+   * nothing to ring, so focus stays on the magnifier. Called after every update.
+   */
+  private _syncSearchRing(): void {
+    const ring = this._searchRing;
+    if (!ring) return;
+
+    if (ring.until === undefined) {
+      if (this._searchRingDrawn) {
+        ring.until = Date.now() + Constants.TIMING.SEARCH_RING;
+        clearTimeout(this._searchRingTimer);
+        this._searchRingTimer = setTimeout(
+          () => this._settleSearchRing(),
+          Constants.TIMING.SEARCH_RING,
+        );
+      } else if (this._pageShown === ring.page && !this.isLoading && !this.isInitialLoad) {
+        Logger.debug('Search: the page does not draw the result picked; nothing to ring');
+        this._searchRing = null;
+        return;
+      }
+    }
+
+    if (ring.focus && ring.until !== undefined && this._searchPanelGone) {
+      ring.focus = false;
+      const ringed = this.renderRoot.querySelector<HTMLElement>('.search-ring');
+      const target = ringed?.matches(FOCUSABLE_EVENT)
+        ? ringed
+        : ringed?.querySelector<HTMLElement>(FOCUSABLE_EVENT);
+      target?.focus({ preventScroll: true });
+      ringed?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  /** Ends a ring wherever it stands: at its end, at another pick, and on disconnect. */
+  private _settleSearchRing(): void {
+    clearTimeout(this._searchRingTimer);
+    this._searchRingTimer = undefined;
+    if (this._searchRing === null) return;
+    this._searchRing = null;
+    this.requestUpdate();
+  }
+
+  /**
+   * Whether the card's panels, the event popover and the search panel, are drawn dark: as Home
+   * Assistant's dark mode, else as the system's.
+   *
+   * @returns True for dark
+   */
+  private _panelsDark(): boolean {
+    return (
+      this.safeHass?.themes?.darkMode ??
+      window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ??
+      false
+    );
   }
 
   //-----------------------------------------------------------------------------
@@ -7642,6 +7897,7 @@ class CalendarCardPro extends LitElement {
     const end: ToolbarFold.EndControl[] = [];
     if (controls.reset) end.push('reset');
     if (controls.refresh) end.push('refresh');
+    if (controls.search) end.push('search');
     return {
       start: Toolbar.startControls(controls),
       end,

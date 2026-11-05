@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Koplietotam ekrānam. Ar vienu pieskārienu atsauc šajā ierīcē veiktās dienu, izkārtojuma, kalendāru un izvērstā skata izmaiņas.",
   "toolbar.refresh": "Poga „Atsvaidzināt“",
   "toolbar.refresh.helper": "Uzreiz ielādē notikumus no jauna, nevis gaida nākamo plānoto atjaunošanu.",
+  "toolbar.search": "Poga „Meklēt“",
+  "toolbar.search.helper": "Atrod kartes notikumus pēc virsraksta, atrašanās vietas vai apraksta, gadu atpakaļ un gadu uz priekšu. Rezultāts atver savu dienu kartē, tāpēc pogai vajadzīga datumu navigācija.",
   "toolbar.add_event": "Poga „Pievienot notikumu“",
   "toolbar.add_event.helper": "Atver jaunu notikumu aizpildīšanai. Tiek rādīta, ja kāds no kartes kalendāriem pieņem jaunus notikumus.",
   "toolbar.legend": "Kalendāru filtrs",

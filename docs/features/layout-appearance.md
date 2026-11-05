@@ -144,9 +144,10 @@ The card can carry a toolbar of its own controls in its header: a
 [buttons of your own](#your-own-buttons), a view switcher between the List, Columns and Grid
 layouts, a button that
 [resets the card](#resetting-the-card) to how it is set up, arrows to
-[page through the dates](#paging-through-dates), and a button that
-[loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
-control in it except reset:
+[page through the dates](#paging-through-dates), a button that
+[loads the events again](#refreshing-the-events), and a magnifier that
+[searches the card's events](#searching-the-card). One option turns the toolbar on, and every
+control in it except reset and search:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -164,7 +165,8 @@ The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. 
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
 the calendar filter and the add button at its start, then any buttons of your own, the view
-switcher in its middle, and refresh at its end, after reset when that is on. The row under it names the month
+switcher in its middle, and refresh at its end, after reset and before search when those are on.
+The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. Its month's name is bold and the year beside it
@@ -181,7 +183,8 @@ touch guidelines ask for. The month answers across its words and its arrow, and 
 them, but hardly above, so a press on the title over it still reaches the card.
 
 Each control is either an icon or words, never both. The top row's commands, the calendar
-filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip,
+filter, add, reset, refresh and search, are icons, each named by Home Assistant's own word as its
+tooltip,
 and so are your own buttons, named by their `name`.
 The view switcher names its layouts in words, List, Columns and Grid, wherever the card is wide
 enough for them beside the commands, and shows a pictogram for each where it is not, with the
@@ -540,9 +543,10 @@ so the narrowest top row is that button and the menu button, the switcher, and t
 row's end. No control moves into the menu alone, since the menu button would take its room: two
 go when the menu first appears, and the last two come back together. The start of the row may
 take all the room the switcher and the end leave, so the switcher moves off center before a
-control moves. Reset and refresh never move into the menu: a card too narrow even for the
+control moves. Reset, refresh and search never move into the menu: a card too narrow even for the
 narrowest top row puts them on a line of their own, which beside the filter's button, the
-switcher and refresh happens below 274px, and with reset as well below 318px.
+switcher and refresh happens below 274px, with reset or search as well below 318px, and with
+both below 362px.
 
 The menu lists what it holds in the order the row draws it, each with its icon and its name in
 words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
@@ -560,6 +564,95 @@ in YAML.
 ::: tip Nothing Runs While You Edit
 In the card editor's preview, and on a dashboard in edit mode, your buttons are drawn, folded as
 they would be on the dashboard, and do nothing, like every other control in the toolbar there.
+:::
+
+### Searching the Card
+
+The search button finds the card's events a year back and a year ahead, by what they are called,
+where they are and what they say. It is off unless you turn it on:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  search: true
+```
+
+It is a magnifier at the very end of the top row, after refresh, named by Home Assistant's own
+"Search". A press opens a search field below it, in the same kind of panel as the
+[event popover](/features/actions#the-event-popover), its beak pointing at the magnifier, and on
+a phone a sheet from the bottom of the screen. Type, and the events whose title, location or
+description hold what you typed are listed under the field as you type, whatever the case and
+the accents: "zurich" finds "Zürich", and on a card in Turkish "ikea" finds "IKEA" although
+Turkish writes its lower case "ıkea". Upcoming events come first, soonest first, then a thin
+line and the past, most recent first and dimmed as the card dims past events, each grouped under
+its month. A result shows its calendar's color, its title, and its day, time and location, with
+what you typed marked. At most 200 are listed, the past's oldest left out first, and once you
+stop typing a screen reader hears how many there are in all.
+
+A search finds only what the card would show on some page, in the words it would show:
+
+- **A calendar's own filters apply,** `blocklist`, `allowlist`, `days_of_week`, `event_type` and
+  the rest, and a calendar hidden with the [calendar filter](#showing-hiding-calendars) stays
+  hidden.
+- **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
+- **A title is searched as `replace_pattern` rewrites it,** and a location without the country
+  `remove_location_country` takes away. A location or a description the card does not show, with
+  `show_location` or `show_description` off, is not searched.
+- **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
+  layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
+  outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
+  unless its `time_grid` block turns `show_location` on.
+- **`show_past_events` does not apply.** A search spans its own two years, whatever days the card
+  shows.
+
+Picking a result, with a press, or with the arrow keys and Enter, closes the panel and pages the
+card to that day, in the layout on screen and lined up with its pages as the date picker does.
+The event is then ringed in the theme's primary color for two seconds, the ring fading out at the
+end, or not fading with reduced motion turned on. Focus moves to the event where a tap on it
+does something, and stays on the magnifier where it does not. Where the page cannot show the
+event, the card turns to that day all the same and rings nothing: past a compact card's limit, in
+a column the card is too narrow for, and for an event that has ended on the days the card opens
+with while `show_past_events` is off, since those days show no ended event. Page elsewhere
+before that day has loaded, and nothing is ringed when you come back to it. The
+[home button](#paging-through-dates) brings the card back, as after any page. Since a result
+pages the card, the magnifier comes with the date navigation: `navigation: false` takes it away
+too.
+
+Every word the panel shows is Home Assistant's own, in its language, so it needs no translation
+of the card's. Escape, the close button, a press outside the panel, Back and a change in the
+card's width close it, and focus goes back to the magnifier. While it is open the dashboard
+behind it stays still, and the results scroll.
+
+The first time the panel opens, the card asks Home Assistant for each of its calendars' events
+over the whole two years, one request per calendar, and keeps them in memory for that card while
+the dashboard is open, never in the browser's storage. Typing asks nothing more. Later openings
+search the same events until one of the card's calendars is written to, Home Assistant pushes a
+change to one of them, the card's `refresh_interval` has passed or a new day has begun, and then
+ask again. A write or a pushed change while the panel is open asks again at once, keeping what
+you typed and the result you were on wherever it is still there. Until a calendar
+answers, the search finds the events the card already holds, and the magnifier in the field
+turns, as refresh's icon does. A calendar that cannot be loaded is named under the results in
+Home Assistant's words, its events left out, and is asked again the next time the panel opens.
+
+No Home Assistant calendar searches text, or limits how many days it is asked for, so the card
+asks for the days and searches them itself. What that costs depends on the integration:
+
+- **Local Calendar and Remote Calendar** answer from memory, quickly.
+- **Google Calendar** answers from its own copy of the calendar, which holds only about 90 days
+  of past events that do not repeat, so older ones may be missing from the results. A Google
+  calendar set up with a search filter, or with free/busy access only, asks Google each time
+  instead.
+- **CalDAV** asks its server each time the card loads the two years, and the server expands
+  recurring events over all of them: the one case where the first results can take a while.
+
+::: tip Nothing Searches While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the magnifier is drawn and does
+nothing, like every other control in the toolbar there.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).

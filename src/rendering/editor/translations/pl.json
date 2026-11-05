@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Do wspólnego ekranu. Jedno naciśnięcie cofa wprowadzone na tym urządzeniu zmiany dni, układu, kalendarzy i widoku rozszerzonego.",
   "toolbar.refresh": "Przycisk „Odśwież”",
   "toolbar.refresh.helper": "Od razu pobiera wydarzenia ponownie, zamiast czekać na następne zaplanowane odświeżenie.",
+  "toolbar.search": "Przycisk „Szukaj”",
+  "toolbar.search.helper": "Wyszukuje wydarzenia karty po tytule, lokalizacji lub opisie, rok wstecz i rok naprzód. Wynik otwiera swój dzień na karcie, więc przycisk wymaga nawigacji po datach.",
   "toolbar.add_event": "Przycisk „Dodaj wydarzenie”",
   "toolbar.add_event.helper": "Otwiera nowe wydarzenie do wypełnienia. Widoczny, gdy któryś z kalendarzy karty przyjmuje nowe wydarzenia.",
   "toolbar.legend": "Filtr kalendarzy",

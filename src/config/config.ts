@@ -182,7 +182,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   // picked on the switcher is a preference, which a lit reset button would keep presenting as
   // something to undo. v5 is the first release with a toolbar, so these are its first defaults. A control
   // added in a later release defaults off, so a release never adds a control to a toolbar
-  // someone already set up.
+  // someone already set up: `search` is the first such.
   toolbar: {
     show: false,
     navigation: true,
@@ -190,6 +190,7 @@ export const DEFAULT_CONFIG: Types.Config = {
     view_switcher: true,
     reset: false,
     refresh: true,
+    search: false,
     legend: 'menu',
     buttons: [],
   },
@@ -353,6 +354,7 @@ export interface ResolvedToolbar {
   viewSwitcher: boolean;
   reset: boolean;
   refresh: boolean;
+  search: boolean;
   /** How the calendar filter is offered, or false for none. */
   legend: false | Types.ToolbarLegendMode;
   /** The buttons the configuration adds, in the order written; entries it cannot draw left out. */
@@ -397,6 +399,7 @@ export function resolveToolbar(config: Readonly<Pick<Types.Config, 'toolbar'>>):
     viewSwitcher: read('view_switcher'),
     reset: read('reset'),
     refresh: read('refresh'),
+    search: read('search'),
     legend,
     buttons: Array.isArray(block.buttons) ? block.buttons.filter(isToolbarButton) : [],
   };

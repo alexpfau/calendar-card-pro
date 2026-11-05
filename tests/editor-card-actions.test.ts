@@ -451,12 +451,13 @@ describe('the event tap action in the editor', () => {
       reset: false,
       add_event: true,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });
 
-    // Every control but reset arrives switched on, as the card reads them, the filter as a
-    // menu, and nothing but the switch is written.
+    // Every control but reset and search arrives switched on, as the card reads them, the
+    // filter as a menu, and nothing but the switch is written.
     await change('toolbar', { ...(shown('toolbar') as object), show: true });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
     expect(names(owner('toolbar')!)).toEqual(
@@ -466,6 +467,7 @@ describe('the event tap action in the editor', () => {
         'view_switcher',
         'reset',
         'refresh',
+        'search',
         'add_event',
         'legend',
       ]),
@@ -477,6 +479,7 @@ describe('the event tap action in the editor', () => {
       reset: false,
       add_event: true,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });
@@ -489,6 +492,16 @@ describe('the event tap action in the editor', () => {
     });
     expect((shown('toolbar') as Record<string, unknown>).reset).toBe(true);
     await change('toolbar', { ...(shown('toolbar') as object), reset: false });
+    expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
+
+    // Search, off by default as a control added after v5, likewise.
+    await change('toolbar', { ...(shown('toolbar') as object), search: true });
+    expect(last(reported)).toEqual({
+      entities: ['calendar.anna'],
+      toolbar: { show: true, search: true },
+    });
+    expect((shown('toolbar') as Record<string, unknown>).search).toBe(true);
+    await change('toolbar', { ...(shown('toolbar') as object), search: false });
     expect(last(reported)).toEqual({ entities: ['calendar.anna'], toolbar: { show: true } });
 
     // And one on by default is written only once switched off.

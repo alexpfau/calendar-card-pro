@@ -731,6 +731,16 @@ describe("what the buttons cost the switcher's words", () => {
     expect(menuButton(card)).not.toBeNull();
   });
 
+  it('counts the magnifier as one more icon at the end, beside refresh', async () => {
+    // Add, the switcher, refresh and the magnifier: words from 248 + 36 + 36 + 8 + 36 = 364px.
+    // The date navigation the magnifier needs sits in the heading row, not in this one.
+    const card = await mount(withButtons([], { ...ROW, navigation: true, search: true }));
+    await measure(card, 363);
+    expect(words(card)).toBe(false);
+    await measure(card, 364);
+    expect(words(card)).toBe(true);
+  });
+
   it('never draws the words beside a menu, at any width', async () => {
     const card = await mount(withButtons([BACK, DASHBOARD, LAMP, WEATHER], ROW));
     for (let width = 260; width <= 560; width += 6) {
@@ -867,6 +877,20 @@ describe('the start group where the row runs out of room', () => {
       'custom-menu',
     ]);
     expect(controls(card, '.toolbar-end')).toEqual(['toolbar-button refresh-button']);
+  });
+
+  it('counts the magnifier beside refresh as reset is, and never folds it', async () => {
+    // At 362px refresh alone leaves room for three and the menu; refresh and the magnifier for
+    // two, as reset and refresh do.
+    const card = await mount(withButtons(THREE, { ...FOLD_ROW, navigation: true, search: true }));
+    await measure(card, 362);
+    expect(startShape(card)).toEqual([0, true, 3]);
+
+    await measure(card, 200);
+    expect(controls(card, '.toolbar-end')).toEqual([
+      'toolbar-button refresh-button',
+      'toolbar-button search-button',
+    ]);
   });
 
   it('keeps the first control there is with the filter off: add, or else the first button', async () => {

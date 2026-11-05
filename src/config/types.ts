@@ -785,6 +785,11 @@ export interface ToolbarConfig {
   /** A button that loads the events again now, last in the action row, after reset. */
   refresh?: boolean;
   /**
+   * A button that searches the card's events a year back and a year ahead, last in the action
+   * row, after refresh. Drawn only with the date navigation, since a picked result pages the card.
+   */
+  search?: boolean;
+  /**
    * The calendar filter, which hides or shows each calendar's events on this device: `menu`, a
    * button opening a checkbox per calendar; `chips`, a chip per calendar in the middle of the
    * heading row, or exactly the `menu` layout where they do not all fit; `false`, none.
@@ -963,6 +968,12 @@ export interface CalendarEventData {
    * take one icon rather than both. Counting blocks would break that pattern outright.
    */
   _mergedFrom?: ReadonlyArray<MergedCalendar>;
+  /**
+   * Set on the copy of a row the search panel picked, while the card rings it
+   * (`Search.ringIn`): every view's renderer binds its ring class from it, so the ring is drawn
+   * by the template and no element comes or goes for it.
+   */
+  _searchRing?: boolean;
 }
 
 /**

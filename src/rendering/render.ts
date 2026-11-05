@@ -821,6 +821,7 @@ function renderEvent(
     'past-event': presentation.isPastEvent,
     'event-tappable': tap !== undefined,
     'event-now': presentation.isNow,
+    'search-ring': event._searchRing === true,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks

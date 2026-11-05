@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "For en delt skjerm. Ett trykk angrer denne enhetens endringer av dager, layout, kalendere og utvidet visning.",
   "toolbar.refresh": "Knapp «Oppdater»",
   "toolbar.refresh.helper": "Henter hendelsene på nytt med en gang, i stedet for ved neste planlagte oppdatering.",
+  "toolbar.search": "Knapp «Søk»",
+  "toolbar.search.helper": "Finner kortets hendelser etter tittel, sted eller beskrivelse, et år tilbake og et år frem. Et treff åpner dagen sin på kortet, så knappen krever datonavigasjon.",
   "toolbar.add_event": "Knapp «Legg til hendelse»",
   "toolbar.add_event.helper": "Åpner en ny hendelse som du kan fylle ut. Vises når en kalender på kortet tar imot nye hendelser.",
   "toolbar.legend": "Kalenderfilter",
