@@ -34,6 +34,8 @@ describe('splitTitleWords', () => {
       '会議 Quarterly review',
       '회의 준비',
       '\tTabs\nand lines ',
+      'ประชุมทีมประจำสัปดาห์ Review',
+      ' פגישת  צוות שבועית ',
       '',
     ]) {
       expect(
@@ -78,8 +80,25 @@ describe('splitTitleWords', () => {
 
   it('leaves runs in scripts written without spaces to the browser', () => {
     expect(words('会議の準備')).toEqual(['text:会議の準備']);
-    expect(words('ประชุมทีม')).toEqual(['text:ประชุมทีม']);
     expect(words('会議Room')).toEqual(['text:会議Room']);
+  });
+
+  it('splits off the first word of a run whose script breaks between words, and only that', () => {
+    // Thai and its neighbors break where a dictionary finds a word, not between any two
+    // characters, so a first word wider than what a label leaves wrapped below the label and
+    // left it alone on the first line. As a word of its own it is narrowed beside the label.
+    expect(words('ประชุมทีมประจำสัปดาห์')).toEqual(['word:ประชุม', 'text:ทีมประจำสัปดาห์']);
+    expect(words('ประชุม')).toEqual(['word:ประชุม']);
+    expect(words('ประชุมทีม Review')).toEqual([
+      'word:ประชุม',
+      'text:ทีม',
+      'space: ',
+      'word:Review',
+    ]);
+    // Only the run the title opens with: one further along is not where the title starts.
+    expect(words('Review ประชุมทีม')).toEqual(['word:Review', 'space: ', 'text:ประชุมทีม']);
+    // Han and kana already break between any two characters, so they fill a label's line.
+    expect(words('会議 ประชุมทีม')).toEqual(['text:会議', 'space: ', 'text:ประชุมทีม']);
   });
 
   it('still cuts a Latin word beside such a run', () => {
@@ -92,13 +111,49 @@ describe('splitTitleWords', () => {
     ]);
   });
 
-  it('leaves a title containing right-to-left script as one run', () => {
+  it('leaves a title containing right-to-left script as one run after its first word', () => {
     // Separate boxes are ordered by the line's direction, not their own, so a Hebrew title
     // split into words read backwards on a left-to-right dashboard. One run is ordered by
-    // the browser's bidirectional algorithm, as before.
-    expect(words('פגישת צוות')).toEqual(['text:פגישת צוות']);
-    expect(words('اجتماع الفريق')).toEqual(['text:اجتماع الفريق']);
-    expect(words('Microsoft Teams עם דנה')).toEqual(['text:Microsoft Teams עם דנה']);
+    // the browser's bidirectional algorithm, as before. The first word is the exception: it
+    // is the one a label shares its line with, and a box opening the title sits at its start
+    // whatever the line's direction.
+    expect(words('פגישת צוות שבועית')).toEqual(['word:פגישת', 'space: ', 'text:צוות שבועית']);
+    expect(words('اجتماع الفريق')).toEqual(['word:اجتماع', 'space: ', 'text:الفريق']);
+    expect(words('Microsoft Teams עם דנה')).toEqual([
+      'word:Microsoft',
+      'space: ',
+      'text:Teams עם דנה',
+    ]);
+    expect(words('פגישה')).toEqual(['word:פגישה']);
+    expect(words(' פגישה  ')).toEqual(['space: ', 'word:פגישה', 'space:  ']);
+  });
+
+  it('takes the first word to be the first with a letter, after a time or an emoji', () => {
+    expect(words('📅 פגישת צוות')).toEqual([
+      'word:📅',
+      'space: ',
+      'word:פגישת',
+      'space: ',
+      'text:צוות',
+    ]);
+    expect(words('10:00 פגישה')).toEqual(['word:10:00', 'space: ', 'word:פגישה']);
+    expect(words('📅ประชุมทีม')).toEqual(['word:📅ประชุม', 'text:ทีม']);
+    expect(words('10:00 ประชุมทีม')).toEqual(['word:10:00', 'space: ', 'word:ประชุม', 'text:ทีม']);
+  });
+
+  it('still lets the first word of a right-to-left title wrap after its hyphen', () => {
+    expect(words('פגישת-צוות שבועית')).toEqual([
+      'word:פגישת-',
+      'word:צוות',
+      'space: ',
+      'text:שבועית',
+    ]);
+    expect(words('Parent-teacher פגישה')).toEqual([
+      'word:Parent-',
+      'word:teacher',
+      'space: ',
+      'text:פגישה',
+    ]);
   });
 
   it('returns nothing for an empty title', () => {

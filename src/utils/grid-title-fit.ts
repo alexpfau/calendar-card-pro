@@ -526,9 +526,10 @@ function ellipsisWidth(canvas: CanvasRenderingContext2D | null, element: Element
 
 /**
  * The title's first word, when it is also the first thing the title draws. A title that
- * opens with a run of Han, kana or Thai has none: that run already breaks between its
- * characters beside a label, and the first word element further along is not where the
- * title starts.
+ * opens with a run of Han or kana has none: that run already breaks between its characters
+ * beside a label, and the first word element further along is not where the title starts.
+ * Thai and right-to-left titles have one, their first word, split off for this
+ * (`splitTitleWords`).
  */
 function leadingWord(title: HTMLElement): HTMLElement | null {
   const words = title.querySelector<HTMLElement>('.title-words');
