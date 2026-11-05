@@ -12,8 +12,9 @@ import * as Localize from '../translations/localize';
 // LANGUAGE CODES
 //-----------------------------------------------------------------------------
 
-/** Home Assistant uses script subtags for Chinese weather translations. */
+/** Home Assistant uses script subtags for Chinese and Serbian Latin weather translations. */
 const HA_LANGUAGE_OVERRIDES: Record<string, string> = {
+  'sr-latn': 'sr-Latn',
   'zh-cn': 'zh-Hans',
   'zh-tw': 'zh-Hant',
 };

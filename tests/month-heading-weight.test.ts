@@ -130,8 +130,8 @@ describe("the month heading's runs", () => {
         }
       }
     }
-    expect(CARD_LANGUAGES).toHaveLength(36);
-    expect(checked).toBe(36 * 2 * 12);
+    expect(CARD_LANGUAGES).toHaveLength(38);
+    expect(checked).toBe(38 * 2 * 12);
     expect(wrong).toEqual([]);
     // Which languages write a month unit as a literal of its own, pinned by value, so a unit that
     // stops being absorbed, or a separator that starts to be, cannot pass unnoticed.
@@ -206,7 +206,7 @@ describe('the drawn month heading', () => {
         }
       }
     }
-    expect(checked).toBe(36 * 2 * 2);
+    expect(checked).toBe(38 * 2 * 2);
     expect(wrong).toEqual([]);
   });
 

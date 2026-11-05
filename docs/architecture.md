@@ -60,7 +60,7 @@ src/
 ├── translations/                 # Localization support
 │   ├── dayjs.ts                  # Relative-time localization
 │   ├── localize.ts               # Translation functions
-│   └── languages/                # Translation files (36 supported languages)
+│   └── languages/                # Translation files (38 supported languages)
 │       ├── en.json               # English translations
 │       ├── de.json               # German translations
 │       └── ...                   # Other language files
