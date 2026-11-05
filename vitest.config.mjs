@@ -15,27 +15,6 @@ import { defineConfig } from 'vitest/config';
  * The suite is split into projects so that one file can opt out of the global UTC
  * pin. See the `dst-*` projects below for why that exception has to exist.
  */
-/**
- * `.dst.test.ts` files written for the first three zones that do not yet hold under
- * `Atlantic/Azores`. Every new `.dst.test.ts` file runs there too; this list only shrinks.
- *
- * Triaged by their failures, each is a harness assumption rather than a defect in the card:
- * per-zone expectation tables with no Azores row, guards that assume summer time differs from
- * UTC (Azores summer time is UTC+0), or helpers that assume every day has a 00:00. Triage read
- * the failure messages, and the code behind grid-geometry's; it is not a proof.
- */
-const NOT_YET_AZORES = [
-  'tests/all-day-parse.dst.test.ts',
-  'tests/countdown-calendar-days.dst.test.ts',
-  'tests/event-time-zone.dst.test.ts',
-  'tests/event-times.dst.test.ts',
-  'tests/grid-fold.dst.test.ts',
-  'tests/grid-geometry.dst.test.ts',
-  'tests/local-day-filters.dst.test.ts',
-  'tests/rrule.dst.test.ts',
-  'tests/search-window.dst.test.ts',
-  'tests/weather-hourly-key.dst.test.ts',
-];
 
 export default defineConfig({
   test: {
@@ -97,7 +76,6 @@ export default defineConfig({
           test: {
             name: `dst-${timeZone.split('/')[1].toLowerCase()}`,
             include: ['tests/**/*.dst.test.ts'],
-            exclude: timeZone === 'Atlantic/Azores' ? NOT_YET_AZORES : [],
             env: {
               TZ: timeZone,
             },

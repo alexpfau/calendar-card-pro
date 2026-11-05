@@ -325,8 +325,24 @@ export const cardStyles = css`
     outline: none;
   }
 
-  ha-card:focus-visible {
+  ha-card:focus-visible,
+  ha-card:has(> .card-tap-control:focus-visible) {
     outline: 2px solid var(--calendar-card-line-color-vertical);
+  }
+
+  /* The control that runs the card's tap while the card hosts controls of its own (render.ts,
+     TapControl). It covers the card, so a screen reader's highlight and the focus ring above
+     both show the card, and draws nothing itself. It takes no pointer input: a tap on the card
+     lands on whatever is under it, as it always did. */
+  .card-tap-control {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .header-container,
@@ -2213,6 +2229,22 @@ export const cardStyles = css`
     margin-inline-end: 12px;
   }
 
+  /* A title cut by title_max_lines that runs against the dashboard lays its line out in its
+     own direction (renderEventTitle in leaves.ts), so the cut ends at its own end. Its box then
+     hugs the dashboard's side as wide as its text, instead of growing to the row's far edge,
+     where a short title would sit apart from the time beneath it. Its gap to the weather badge
+     is at its inline start, which is the badge's side in its own direction. */
+  .summary-row:dir(rtl) > .summary[dir='ltr'],
+  .summary-row:dir(ltr) > .summary[dir='rtl'] {
+    flex: 0 1 auto;
+  }
+
+  .summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child),
+  .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child) {
+    margin-inline-end: 0;
+    margin-inline-start: 12px;
+  }
+
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
      it inside, and font-size-nesting.test.ts fails if one does not. Declaring it here as
      well applied a relative size twice, so 1.5em drew the title at 2.25x while the labels
@@ -3545,6 +3577,19 @@ export const cardStyles = css`
      which a right-to-left line orders exactly as it did before. Line breaking ignores
      isolation, so the dot still cannot start a line. Left-to-right is left as it was. */
   .time-location .event-weather:dir(rtl) .event-weather-text > span + span::before {
+    unicode-bidi: isolate;
+  }
+
+  /* And each chip is isolated too, right-to-left, so the line orders the chips rather than
+     their letters. Left in the line, adjacent left-to-right chips joined one run with the
+     separator between them, which a right-to-left line draws as one piece: "12°", "UV3" and
+     "Partly cloudy" read 12° · Partly cloudy · UV3, and a wrapped row stranded a dot between
+     the wrong two chips. Each chip's separator is its own ::before, inside the isolate, which
+     lays it out at the chip's start, between it and the chip before. Line breaking ignores
+     isolation, so a condition still wraps inside its chip. The badge beside a list title has
+     the same chips without the dots and read UV3 before 12°, so it is isolated as well.
+     Left-to-right is left as it was. */
+  .event-weather:dir(rtl) .event-weather-text > span {
     unicode-bidi: isolate;
   }
 
@@ -5664,12 +5709,13 @@ export const cardStyles = css`
      carried 6px of dead slack, which pushed the bar out of every one-hour event at any
      normal density.
 
-     The rows have shrunk since. Measured in Chromium, the title row is now 15.0px, and the
-     bar and the time beneath it take 25.4px since the first row under a title lost its 2px,
-     so they need 40.4px and the rung opens with about 7.6px to spare. It has not moved with
-     them. So a one-hour event at the default 48px hour height, 44px of content, still draws
-     its title and time and stops, and the bar arrives from about 52px of block. Lowering
-     the rung would bring the bar to those events, which is a decision of its own.
+     The rows have shrunk since, and lowering the rung looked as if it would bring the bar to
+     a one-hour event. It cannot. Measured in Chromium, WebKit and Firefox at the default
+     48px hour height, a one-hour block is 45px on screen and 41px of content, and its title,
+     bar and time together need 41.8px: with the rung at 40px the bar appears and the time
+     runs 0.8px past the block in all three. So the rung stays, a one-hour event draws its
+     title and time and stops, and the bar arrives from about 52px of block. Measure again
+     before moving it; these numbers drift with every row's spacing.
 
      Grid always renders the progress row first and keeps it hidden below this rung, so there
      the row after it is the first one drawn, and it takes the first row's spacing until the

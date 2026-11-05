@@ -19,6 +19,7 @@ import { mdiCalendarFilter } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import { buildDetailEntry, detailPermissions } from '../src/interaction/event-details';
@@ -642,12 +643,12 @@ describe('the calendar legend', () => {
     expect(fired).toHaveLength(1);
   });
 
-  it('stops the card presenting itself as a button, and keeps its tab stop', async () => {
+  it('stops the card presenting itself as a button, and hands its tap to a control', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.getAttribute('role')).toBeNull();
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 

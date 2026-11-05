@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import { EVENT_POPOVER_TAG } from '../src/rendering/event-popover';
@@ -475,10 +476,10 @@ describe('day_tap_action: add-event', () => {
 
       const ids = all(card, '[id]').map((el) => el.id);
       expect(new Set(ids).size).toBe(ids.length);
-      // A button cannot hold buttons, so the card stops being one; it keeps its tab stop.
+      // A button cannot hold buttons, so the card stops being one; its tap gets a control.
       const haCard = root(card).querySelector('ha-card')!;
       expect(haCard.getAttribute('role')).toBeNull();
-      expect(haCard.getAttribute('tabindex')).toBe('0');
+      expectTapControl(haCard);
     },
   );
 

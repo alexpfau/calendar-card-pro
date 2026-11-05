@@ -300,7 +300,7 @@ more than one timezone:
 | `dst-berlin`   | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
 | `dst-sydney`   | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
 | `dst-new_york` | `America/New_York` | `tests/**/*.dst.test.ts`                            |
-| `dst-azores`   | `Atlantic/Azores`  | `tests/**/*.dst.test.ts`, **excluding** a list      |
+| `dst-azores`   | `Atlantic/Azores`  | `tests/**/*.dst.test.ts`                            |
 
 The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
 locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
@@ -333,12 +333,14 @@ one as one, and an event running past the spring change lost its last day.
 `tests/all-day-multiday-split.dst.test.ts` pins them, and planting either fix's revert fails
 only `dst-azores`. When you add a zone, say which failure mode it is the only one able to see.
 
-**`dst-azores` excludes the files written before it that do not yet hold there.**
-`NOT_YET_AZORES` in `vitest.config.mjs` names them, with why: per-zone expectation tables with
-no Azores row, guards assuming summer time differs from UTC (Azores summer time _is_ UTC+0),
-helpers assuming every day has a 00:00. The list only shrinks. A new `.dst.test.ts` file is not
-added to it; it runs under Azores like the rest, so write its zone tables and guards for a zone
-whose summer offset is zero and whose transition day has no midnight.
+**Every `.dst.test.ts` file runs under Azores, so write its zone tables and guards for it.**
+Its summer offset is zero, so a fixture meant to read differently from UTC belongs in January,
+where every zone here is off UTC; a June one proves nothing there. Its spring day has no 00:00,
+so a "midnight" is the day's first moment, 01:00 on that day, and a helper that steps a `Date`
+by `setDate` keeps whatever hour the last step landed on. Ten files written before the project
+existed broke one of those two ways and were excluded from it until v5.1. One of them,
+`tests/grid-geometry.dst.test.ts`, also found a real case: a grid block carried over into the
+spring day started an hour down. Planting the revert of that fix fails only `dst-azores`.
 
 So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all four zones
 automatically. Give it a guard test asserting the January and July offsets differ, so it

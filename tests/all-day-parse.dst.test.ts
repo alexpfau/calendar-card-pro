@@ -30,7 +30,7 @@ import * as FormatUtils from '../src/utils/format';
 const DATES = [
   '2026-01-01',
   '2026-03-28',
-  '2026-03-29', // Europe/Berlin DST begins
+  '2026-03-29', // Europe/Berlin DST begins; Atlantic/Azores too, at midnight
   '2026-03-30',
   '2026-04-04',
   '2026-04-05', // Australia/Sydney DST ends
@@ -40,7 +40,7 @@ const DATES = [
   '2026-10-04', // Australia/Sydney DST begins
   '2026-10-05',
   '2026-10-24',
-  '2026-10-25', // Europe/Berlin DST ends
+  '2026-10-25', // Europe/Berlin and Atlantic/Azores DST ends
   '2026-10-26',
   '2026-12-31',
 ];
@@ -53,12 +53,14 @@ describe('parseAllDayDate round-trips through the local calendar day', () => {
   it('produces a local midnight, not a UTC one', () => {
     // The falsifier. The round-trip above is necessary but not sufficient: an
     // implementation that returned UTC midnight would still round-trip in any zone
-    // *ahead* of UTC, which includes both project zones for part of the year. Asserting
+    // *ahead* of UTC, which includes Berlin and Sydney all year. Asserting
     // the local clock fields directly is what makes this fail in every zone.
-    const parsed = FormatUtils.parseAllDayDate('2026-06-17');
+    // January, because the Azores keep UTC itself all summer, where a UTC midnight is a
+    // local one and this would pass for the wrong implementation too.
+    const parsed = FormatUtils.parseAllDayDate('2026-01-17');
 
     expect(parsed.getFullYear()).toBe(2026);
-    expect(parsed.getMonth()).toBe(5);
+    expect(parsed.getMonth()).toBe(0);
     expect(parsed.getDate()).toBe(17);
     expect(parsed.getHours()).toBe(0);
     expect(parsed.getMinutes()).toBe(0);
@@ -70,8 +72,8 @@ describe('parseAllDayDate round-trips through the local calendar day', () => {
     // reason. This fails loudly in that case instead.
     expect(process.env.TZ).toBeDefined();
     expect(process.env.TZ).not.toBe('UTC');
-    expect(new Date('2026-06-17').getTime()).not.toBe(
-      FormatUtils.parseAllDayDate('2026-06-17').getTime(),
+    expect(new Date('2026-01-17').getTime()).not.toBe(
+      FormatUtils.parseAllDayDate('2026-01-17').getTime(),
     );
   });
 });

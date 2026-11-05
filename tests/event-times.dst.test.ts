@@ -13,18 +13,21 @@ import {
 
 /**
  * The event span under real zones, where a day can be 23 or 25 hours long and local midnight
- * is not UTC midnight. Runs under Europe/Berlin, Australia/Sydney and America/New_York. Each
- * year's clock changes are found from the zone itself rather than listed, so the tests mean
- * the same thing in every one of the three.
+ * is not UTC midnight. Runs under Europe/Berlin, Australia/Sydney, America/New_York and
+ * Atlantic/Azores. Each year's clock changes are found from the zone itself rather than listed,
+ * so the tests mean the same thing in every one of the four.
  */
 
 /** The local dates of this zone's two clock changes in 2026, found by stepping through the year. */
 function clockChanges(): Date[] {
   const changes: Date[] = [];
-  for (let day = new Date(2026, 0, 1); day.getFullYear() === 2026; day.setDate(day.getDate() + 1)) {
-    const next = new Date(day);
-    next.setDate(next.getDate() + 1);
-    if (next.getTime() - day.getTime() !== 86400000) changes.push(new Date(day));
+  // Each day built from its date rather than stepped from the last one. Where the clocks
+  // change at midnight (the Azores) the spring day opens at 01:00, and a stepped date would
+  // keep that hour, measuring 00:00 to 01:00 next day as 24 hours and missing the change.
+  for (let date = 1; new Date(2026, 0, date).getFullYear() === 2026; date++) {
+    const day = new Date(2026, 0, date);
+    const next = new Date(2026, 0, date + 1);
+    if (next.getTime() - day.getTime() !== 86400000) changes.push(day);
   }
   return changes;
 }

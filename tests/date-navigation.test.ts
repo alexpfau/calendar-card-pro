@@ -15,6 +15,7 @@ import { mdiHome, mdiHomeOutline } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as CalendarChanges from '../src/interaction/calendar-changes';
@@ -1177,7 +1178,7 @@ describe('the date navigation', () => {
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 

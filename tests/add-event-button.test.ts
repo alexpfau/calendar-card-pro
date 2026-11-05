@@ -28,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import { spyOnPopovers } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
@@ -442,12 +443,12 @@ describe('the card around the add-event button', () => {
 
   const TAPPABLE = { tap_action: { action: 'expand' as const } };
 
-  it('is not a button while the add-event button is in it, and keeps its tab stop', async () => {
+  it('is not a button while the add-event button is in it, and hands its tap to a control', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE });
 
     expect(button(card)).not.toBeNull();
     expect(haCard(card).hasAttribute('role')).toBe(false);
-    expect(haCard(card).getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard(card));
   });
 
   it('runs its tap action for Enter and Space on the card itself, beside the button', async () => {

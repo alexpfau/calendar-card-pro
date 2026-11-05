@@ -105,6 +105,23 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
 }
 
 /**
+ * The control that runs the card's own `tap_action` while the card hosts controls of its own.
+ *
+ * A button may not contain another, so a card whose events, links or toolbar are buttons
+ * cannot be one itself. This control stands in for it: a native button, first in the card's
+ * Tab order, which runs the card's tap from the keyboard and from assistive technology. It
+ * takes no pointer input, so a tap on the card still lands where it always did.
+ */
+export interface TapControl {
+  /** Its accessible name: the action's own word where it has one, else the card's name. */
+  label: string;
+  /** For `expand`, whether the card is expanded; undefined for any other action. */
+  expanded?: boolean;
+  /** Runs the card's tap action, from the control. */
+  activate: (control: HTMLElement) => void;
+}
+
+/**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
  * @param customStyles Custom style properties from configuration
@@ -124,6 +141,7 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
  * refresh button does
  * @param swipePaging Whether a swipe pages the card, which hands the browser only vertical
  * panning on the card, its toolbar's rows and its body (`swipe-paging`)
+ * @param tapControl The control standing in for the card's tap while it hosts controls
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -159,14 +177,31 @@ export function renderMainCardStructure(
   contentPending: boolean = false,
   refreshPhase: Toolbar.RefreshPhase = 'idle',
   swipePaging: boolean = false,
+  tapControl?: TapControl,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
-  // presenting itself as one to assistive technology, but keeps its tab stop: keys aimed
-  // at the card itself still run its tap action, and those aimed at a control inside it
-  // are the control's. A pointer tap anywhere off the controls still runs the tap action
-  // too, which is why the ripple and cursor stay.
+  // presenting itself as one to assistive technology, and its tap moves to a control of its
+  // own, first in its Tab order (`TapControl`), so the card is not a focusable container
+  // whose Enter nobody announces. A pointer tap anywhere off the controls still runs the tap
+  // action, which is why the ripple and cursor stay. The ripple's binding carries the control,
+  // so a card without one keeps exactly the nodes it had.
   const isCardButton = hasTapAction && !hostsControls;
+  const tapButton =
+    hasTapAction && hostsControls && tapControl
+      ? html`<button
+          class="card-tap-control"
+          type="button"
+          aria-label=${tapControl.label}
+          aria-expanded=${tapControl.expanded === undefined ? nothing : String(tapControl.expanded)}
+          @click=${(ev: MouseEvent) => {
+            ev.stopPropagation();
+            tapControl.activate(ev.currentTarget as HTMLElement);
+          }}
+        ></button>`
+      : nothing;
+  const ripple = isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing;
+  const lead = tapButton === nothing ? ripple : html`${tapButton}${ripple}`;
   const hasTitle = Boolean(title || titlePending);
   const titleBlock = hasTitle
     ? html`<h1 class="card-header">${title}</h1>`
@@ -208,7 +243,7 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex=${hasTapAction ? '0' : nothing}
+      tabindex=${hasTapAction && tapButton === nothing ? '0' : nothing}
       role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
@@ -223,7 +258,7 @@ export function renderMainCardStructure(
       @touchmove=${handlers.touchMove ?? nothing}
       @touchend=${handlers.touchEnd ?? nothing}
     >
-      ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
+      ${lead}
       ${
         // The refresh button turns while the card loads and shows how a refresh someone asked
         // for ended, so the corner says nothing beside it. Without the button the corner does

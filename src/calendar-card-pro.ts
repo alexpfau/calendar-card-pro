@@ -1372,6 +1372,13 @@ class CalendarCardPro extends LitElement {
   private _focusBeforeFold: ToolbarFold.StartControl | null = null;
 
   /**
+   * Whether the card's tap held focus as the coming render began, on the card itself or on the
+   * control standing in for it (`_tapControl`), which `_keepTapFocus` hands to whichever of the
+   * two that render draws.
+   */
+  private _tapFocusBefore: 'card' | 'control' | null = null;
+
+  /**
    * Counts fonts finishing loading while the toolbar is shown, since a chip or the month may
    * change width.
    */
@@ -3446,6 +3453,7 @@ class CalendarCardPro extends LitElement {
       this._search.close();
     }
     this._focusBeforeFold = this._focusedStartControl();
+    this._tapFocusBefore = this._focusedTapTarget();
 
     if (
       changedProps.has('hass') ||
@@ -3457,6 +3465,7 @@ class CalendarCardPro extends LitElement {
 
   updated(changedProps: PropertyValues) {
     this._syncNewShown();
+    this._keepTapFocus();
 
     // Editing shows the card as configured: a page the date navigation reached gives way to
     // home, and the controls do nothing until editing ends.
@@ -6525,7 +6534,69 @@ class CalendarCardPro extends LitElement {
       this._pageRequested !== this._pageShown && !this.isInitialLoad,
       this._refreshPhase,
       this._swipeAvailable,
+      this._tapControl(),
     );
+  }
+
+  /**
+   * Which of the card's two tap targets has focus: the card itself, or the control that stands
+   * in for it while the card hosts controls of its own.
+   *
+   * @returns The target with focus, or null for focus anywhere else
+   */
+  private _focusedTapTarget(): 'card' | 'control' | null {
+    const active = this.shadowRoot?.activeElement;
+    if (!active) return null;
+    if (active.matches('ha-card')) return 'card';
+    return active.matches('.card-tap-control') ? 'control' : null;
+  }
+
+  /**
+   * Keeps focus on the card's tap when a render moves it between the card and its control.
+   *
+   * The card starts or stops hosting controls whenever events arrive or go, a load or a page
+   * away. Left alone, a keyboard user on the card would stay on a container that has lost its
+   * role and tab stop, and one on the control would drop to the page when it went. The focus
+   * moves with the tap instead, without scrolling, so the keyboard is where it was.
+   */
+  private _keepTapFocus(): void {
+    const before = this._tapFocusBefore;
+    this._tapFocusBefore = null;
+    if (!before) return;
+    const card = this.shadowRoot?.querySelector<HTMLElement>('ha-card');
+    const control = card?.querySelector<HTMLElement>(':scope > .card-tap-control');
+    const target = control ?? (card?.hasAttribute('tabindex') ? card : null);
+    if (!target || target === this.shadowRoot?.activeElement) return;
+    // Only from one tap target to the other, or from one that went to nowhere: focus a render
+    // left on anything else is not the tap's to move.
+    if (this._focusedTapTarget() !== null || !this.shadowRoot?.activeElement) {
+      target.focus({ preventScroll: true });
+    }
+  }
+
+  /**
+   * The control standing in for the card's tap while it hosts controls (`Render.TapControl`).
+   *
+   * Named as a button of the card's own that runs the same action is named, Home Assistant's
+   * word for it: Refresh, Reset, Back, Add event. Every other action is named after the card,
+   * its title or else its first calendar, as Home Assistant's own cards name what a tap opens;
+   * `expand` adds whether the card is expanded, where it has events to fold.
+   *
+   * @returns The control; the renderer draws it only while the card hosts controls
+   */
+  private _tapControl(): Render.TapControl | undefined {
+    if (!this._hasTapAction) return undefined;
+    const action = this.config.tap_action?.action;
+    const activate = (control: HTMLElement) =>
+      Actions.handleAction(this, this.config, 'tap', this._cardActions(null, originOf(control)));
+    const command = this._commandName(action);
+    if (command) return { label: command.word ?? command.fallback, activate };
+    const first = this.config.entities[0];
+    const firstId = typeof first === 'string' ? first : first?.entity;
+    const label = this.effectiveTitle?.trim() || (firstId ? this._calendarName(firstId) : '');
+    const expanded =
+      action === 'expand' && this.hasCompactModeLimits() ? this.isExpanded : undefined;
+    return { label, expanded, activate };
   }
 
   /**
@@ -6677,8 +6748,8 @@ class CalendarCardPro extends LitElement {
    * button that adds an event, and the links in event rows (`open_links`). Answered from what
    * this render draws rather than from the configuration: `event_tap_action: details` on a
    * card showing only "No events", an error or the loading line hosts nothing, and stays a
-   * button. Either way the card keeps its tab stop while it has a tap action; only the
-   * button role goes.
+   * button. A card that hosts controls hands its tap action to a control of its own
+   * (`_tapControl`).
    *
    * @param toolbar - The header toolbar this render draws
    * @param drawsEventTarget - Whether this render draws at least one event as a target, a

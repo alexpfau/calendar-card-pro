@@ -24,7 +24,8 @@ import type { RepeatRule } from '../src/interaction/rrule';
  * getters each failed under all three zones, so no zone is the only guard for those. Reading
  * a `DATE` end as UTC midnight failed under New York alone: it lands a day early only behind
  * UTC. The expected instants are worked out from each zone's offsets, January and July, not
- * from the `Date` arithmetic under test.
+ * from the `Date` arithmetic under test. The Azores, an hour behind UTC in winter and on it in
+ * summer, came later, with the one end below that falls on a different date there.
  */
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -50,7 +51,8 @@ describe('recurrence rules in the local zone', () => {
   });
 
   describe("a timed event's end", () => {
-    // Berlin is UTC+1 in winter and +2 in summer, New York -5 and -4, Sydney +11 and +10.
+    // Berlin is UTC+1 in winter and +2 in summer, New York -5 and -4, Sydney +11 and +10,
+    // the Azores -1 and +0.
     it.each([
       [
         'a morning start, ending in winter',
@@ -60,6 +62,7 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '20260115T083000Z',
           'America/New_York': '20260115T143000Z',
           'Australia/Sydney': '20260114T223000Z',
+          'Atlantic/Azores': '20260115T103000Z',
         },
       ],
       [
@@ -70,6 +73,7 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '20260715T073000Z',
           'America/New_York': '20260715T133000Z',
           'Australia/Sydney': '20260714T233000Z',
+          'Atlantic/Azores': '20260715T093000Z',
         },
       ],
       [
@@ -80,6 +84,7 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '20260115T203015Z',
           'America/New_York': '20260116T023015Z',
           'Australia/Sydney': '20260115T103015Z',
+          'Atlantic/Azores': '20260115T223015Z',
         },
       ],
     ])(
@@ -118,6 +123,7 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '2026-01-14',
           'America/New_York': '2026-01-14',
           'Australia/Sydney': '2026-01-15',
+          'Atlantic/Azores': '2026-01-14',
         },
       ],
       [
@@ -126,6 +132,7 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '2026-01-15',
           'America/New_York': '2026-01-14',
           'Australia/Sydney': '2026-01-15',
+          'Atlantic/Azores': '2026-01-15',
         },
       ],
       [
@@ -134,6 +141,17 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': '2026-01-15',
           'America/New_York': '2026-01-14',
           'Australia/Sydney': '2026-01-15',
+          'Atlantic/Azores': '2026-01-14',
+        },
+      ],
+      // The one end on a different date in the Azores than in UTC: 23:30 on the 14th there.
+      [
+        'FREQ=DAILY;UNTIL=20260115T003000Z',
+        {
+          'Europe/Berlin': '2026-01-15',
+          'America/New_York': '2026-01-14',
+          'Australia/Sydney': '2026-01-15',
+          'Atlantic/Azores': '2026-01-14',
         },
       ],
     ])('takes the local date a UTC end falls on, %s', (text, expected) => {
@@ -164,13 +182,15 @@ describe('recurrence rules in the local zone', () => {
           'Europe/Berlin': 'Every day until January 14, 2026',
           'America/New_York': 'Every day until January 14, 2026',
           'Australia/Sydney': 'Every day until January 15, 2026',
+          'Atlantic/Azores': 'Every day until January 14, 2026',
         }),
       );
     });
   });
 
   describe("a start's weekday and day of the month", () => {
-    // Half an hour either side of midnight is a different UTC day in every zone here.
+    // Half an hour either side of midnight is a different UTC day in every zone here, but for
+    // the Azores, an hour behind UTC in winter, where only the first is.
     it.each([
       [new Date(2026, 0, 31, 23, 30), 'SA'],
       [new Date(2026, 0, 1, 0, 30), 'TH'],
