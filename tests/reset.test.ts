@@ -377,7 +377,7 @@ describe('the reset button', () => {
     expect(resetButton(noLegend)).toBeNull();
   });
 
-  it('leads the end of the action row, with refresh after it and last', async () => {
+  it('leads the end of the action row, with refresh after it and search last', async () => {
     const card = await mount({
       toolbar: { ...EVERYTHING, legend: 'menu', refresh: true, add_event: true },
     });
@@ -397,16 +397,18 @@ describe('the reset button', () => {
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     expect(resetButton(card)!.nextElementSibling).toBe(root(card).querySelector('.refresh-button'));
     const buttons = row.querySelectorAll('button');
-    expect(buttons[buttons.length - 1].classList).toContain('refresh-button');
+    expect(buttons[buttons.length - 1].classList).toContain('search-button');
 
-    // Without reset, refresh stands alone at the end, and nothing comes before it to widen.
+    // Without reset, refresh leads the end, and nothing comes before it to widen.
     document.body.innerHTML = '';
     const noReset = await mount({ toolbar: { ...EVERYTHING, reset: false, refresh: true } });
     expect(kinds(root(noReset).querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
   });
 
@@ -453,6 +455,7 @@ describe('the reset button', () => {
       legend: false,
       add_event: false,
       refresh: false,
+      search: false,
     };
     const classes = (of: CardUnderTest) => Array.from(resetButton(of)!.classList);
     const icon = (of: CardUnderTest) => resetButton(of)!.querySelector('path')!.getAttribute('d');

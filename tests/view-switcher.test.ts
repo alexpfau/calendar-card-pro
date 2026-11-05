@@ -48,7 +48,7 @@ vi.mock('../src/interaction/actions', () => ({ handleAction }));
 
 /**
  * A shown toolbar holding the switcher and nothing else. A shown toolbar draws add, the date
- * navigation, reset and the calendar filter by default, so each is switched off here and
+ * navigation, refresh, search and the calendar filter by default, so each is switched off here and
  * turned back on only where a case is about it.
  */
 const SWITCHER_ONLY: Types.ToolbarConfig = {
@@ -57,6 +57,7 @@ const SWITCHER_ONLY: Types.ToolbarConfig = {
   navigation: false,
   reset: false,
   refresh: false,
+  search: false,
   legend: false,
 };
 
@@ -266,7 +267,7 @@ describe('the view switcher', () => {
     }
   });
 
-  it('sits in the middle of the action row: filter and add before it, reset and refresh after', async () => {
+  it('sits in the middle of the action row: filter and add before it, reset, refresh and search after', async () => {
     const card = await mount({ toolbar: { show: true, reset: true, refresh: true } });
     const root = card.shadowRoot!;
     const actions = root.querySelector('.toolbar-actions')!;
@@ -289,6 +290,7 @@ describe('the view switcher', () => {
     expect(kinds(actions.querySelector('.toolbar-end')!)).toEqual([
       'reset-button',
       'refresh-button',
+      'search-button',
     ]);
     // None of them is drawn in the heading row as well.
     expect(
@@ -741,6 +743,7 @@ describe('words or pictograms', () => {
     'ui.components.calendar.event.add': 'Add event',
     'ui.common.reset': 'Reset',
     'ui.common.refresh': 'Refresh',
+    'ui.common.search': 'Search',
     'ui.components.calendar.my_calendars': 'My calendars',
   };
 
@@ -762,6 +765,7 @@ describe('words or pictograms', () => {
     view_switcher: false,
     reset: false,
     refresh: false,
+    search: false,
     legend: false,
   };
 
@@ -773,6 +777,7 @@ describe('words or pictograms', () => {
     view_switcher: true,
     reset: true,
     refresh: true,
+    search: true,
     legend: 'menu',
   };
 
@@ -860,7 +865,7 @@ describe('words or pictograms', () => {
       WITH_SWITCHER + 2 * ICON + GAP,
       5,
     ],
-    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 2 * GAP, 7],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 5 * ICON + 3 * GAP, 8],
     [
       'the switcher and add, the filter drawn as chips',
       { view_switcher: true, add_event: true, legend: 'chips' },
@@ -892,6 +897,7 @@ describe('words or pictograms', () => {
       'Add event',
       'Reset',
       'Refresh',
+      'Search',
     ]);
     for (const button of commands) {
       expect(button.querySelector('.toolbar-button-label')).toBeNull();
@@ -1068,7 +1074,8 @@ describe('the resolved toolbar the card reads', () => {
       legend: false,
       buttons: [],
     });
-    // What it switches off: a shown toolbar draws every control but reset by default.
+    // What it switches off: a shown toolbar draws every control but reset by default, search
+    // included (backlog item 182).
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
       navigation: true,
@@ -1076,7 +1083,7 @@ describe('the resolved toolbar the card reads', () => {
       viewSwitcher: true,
       reset: false,
       refresh: true,
-      search: false,
+      search: true,
       legend: 'menu',
       buttons: [],
     });

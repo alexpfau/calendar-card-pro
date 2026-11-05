@@ -231,7 +231,7 @@ describe('the refresh button', () => {
     expect(root(card).querySelector('.header-container')!.className).toBe('header-container');
   });
 
-  it('sits last in the action row, at its end after reset', async () => {
+  it('sits at the end of the action row, after reset and before search', async () => {
     const card = await mount({
       entities: [{ entity: 'calendar.anna' }],
       toolbar: { show: true, reset: true, refresh: true },
@@ -258,9 +258,10 @@ describe('the refresh button', () => {
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     const buttons = row.querySelectorAll('button');
-    expect(buttons[buttons.length - 1]).toBe(refreshButton(card));
+    expect(buttons[buttons.length - 2]).toBe(refreshButton(card));
     // The start holds the filter and add, the heading row the month and the arrows.
     expect(kinds(row.querySelector('.toolbar-start')!)).toEqual([
       'toolbar-button legend-button',

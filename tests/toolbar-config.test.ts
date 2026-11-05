@@ -4,9 +4,10 @@
  * Pinned by value rather than by walking the block's own keys: a walk would notice nothing
  * if a control left the defaults, and the defaults are a product decision — the bar hidden,
  * and once shown, what anyone looking at a calendar needs on: the date navigation, the view
- * switcher, add, refresh and the calendar filter as a menu. Reset is off, since it is for a
- * screen several people share, and so is search, the first control added after v5, since a
- * release never adds a control to a toolbar someone already set up. The configuration's own
+ * switcher, add, refresh, search and the calendar filter as a menu. Reset is off, since it is
+ * for a screen several people share. Search, the first control added after v5, is on, by the
+ * maintainer's choice (backlog item 182), and drawn only beside the date navigation a match
+ * needs to open its day. The configuration's own
  * buttons are a list, empty unless it writes some, and read entry by entry: one that cannot be
  * drawn as written is left out.
  */
@@ -31,13 +32,13 @@ const DEFAULTS = {
   viewSwitcher: true,
   reset: false,
   refresh: true,
-  search: false,
+  search: true,
   legend: 'menu',
   buttons: [],
 };
 
 describe('the toolbar configuration', () => {
-  it('ships hidden, with every control on once shown except reset and search, and the filter as a menu', () => {
+  it('ships hidden, with every control on once shown except reset, and the filter as a menu', () => {
     expect(DEFAULT_CONFIG.toolbar).toEqual({
       show: false,
       navigation: true,
@@ -45,7 +46,7 @@ describe('the toolbar configuration', () => {
       view_switcher: true,
       reset: false,
       refresh: true,
-      search: false,
+      search: true,
       legend: 'menu',
       buttons: [],
     });

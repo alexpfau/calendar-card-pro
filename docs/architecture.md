@@ -253,9 +253,10 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   inside a shown bar every control defaults on except `reset`, because v5 is the first release
   with a toolbar and these are its first defaults. Reset is for a shared screen: elsewhere a
   layout picked on the switcher is a preference, remembered until the card is edited, and a lit
-  reset button kept presenting it as something to undo. A control added in a later release defaults
-  off, so a release never adds a control to a toolbar someone already set up; `search` is the
-  first. Every control
+  reset button kept presenting it as something to undo. `search`, the first control added after
+  v5, defaults on as well, by the maintainer's choice (backlog item 182), so a toolbar set up in
+  v5.0 gains the magnifier on update; it is drawn only beside the date navigation, which it needs
+  to open a result's day. Every control
   needs a `toolbar → key` row in the reference:
   `check:docs` reconciles the block's defaults against those rows in both directions.
 - **It is conditional.** With no control enabled or available there is no toolbar and no new DOM:
