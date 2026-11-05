@@ -4,16 +4,18 @@
  * Opened through Home Assistant's dialog manager (`show-dialog` with this element's tag), which
  * gives it Back to close and puts focus back where it was, and drawn as a native modal
  * `<dialog>` in the top layer, beside the press that opened it, or as a sheet from the bottom
- * of a narrow screen. Every field is a cell that edits in place where the event may change.
- * Nothing is written while it is open: the changes are saved once, when it closes, and Escape
- * closes it without saving them. Every word it shows is Home Assistant's own (`hass.localize`),
- * so it needs no translation of its own.
+ * of a narrow screen. That shell, its placing, its beak, its glass and how it opens and closes,
+ * is shared with the search panel (`popover-shell.ts`). Every field is a cell that edits in
+ * place where the event may change. Nothing is written while it is open: the changes are saved
+ * once, when it closes, and Escape closes it without saving them. Every word it shows is Home
+ * Assistant's own (`hass.localize`), so it needs no translation of its own.
  */
 
 import { mdiMapMarkerOutline } from '@mdi/js';
-import { LitElement, PropertyValues, TemplateResult, css, html, nothing } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { PropertyValues, TemplateResult, css, html, nothing } from 'lit';
+import { state } from 'lit/decorators.js';
 
+import * as Shell from './popover-shell';
 import * as Types from '../config/types';
 import * as Writes from '../interaction/calendar-writes';
 import * as EventMap from '../interaction/event-map';
@@ -30,43 +32,10 @@ import * as Logger from '../utils/logger';
 /** The popover's element name; the production build drops `-dev`, as it does for the card. */
 export const EVENT_POPOVER_TAG = 'calendar-card-pro-dev-event-popover';
 
-/** Below this viewport width the popover is a sheet from the bottom of the screen. */
-const SHEET_BELOW_PX = 600;
+export { BEAK_EDGE } from './popover-shell';
 
 /** The popover's width beside a press. */
 const POPOVER_WIDTH = 340;
-
-/**
- * How far the popover keeps from the box it opens beside, which leaves its beak's tip a few
- * pixels off it, and from the viewport's edges.
- */
-const GAP = 10;
-const MARGIN = 12;
-
-/**
- * The beak the popover points with, drawn as Calendar on macOS draws its own: a short, rounded
- * point whose sides curve into the panel's edge, outlined by the same hairline as the panel.
- * Drawn pointing up from the edge, which runs along y = 6.5, and turned for the other sides.
- * The outline runs along the middle of the panel's half-pixel edge line, so the two join. The
- * glass under it (`.glass` in the stylesheet) is cut to the same curve closed along that
- * line's inner side, so no line shows across the beak's base.
- */
-export const BEAK_EDGE = 'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75';
-
-/**
- * Below a toolbar button: how far the popover's top keeps from the button, and how far in from
- * the popover's left edge its arrow points up at the button.
- */
-const BELOW_GAP = 10;
-const EAR_INSET = 32;
-
-/**
- * How the popover leaves, the reverse of how it opens, as measured from a screen recording of
- * Calendar on macOS: it shrinks toward its arrow to about a sixth of its size, slow at both
- * ends, and fades out a little ahead of it, over 180 ms. The opening half is in the stylesheet.
- */
-const LEAVE_MS = 180;
-const LEAVE_SCALE = 0.15;
 
 /**
  * How long after opening the popover still takes a mouse event or click with no press of its own
@@ -74,24 +43,10 @@ const LEAVE_SCALE = 0.15;
  * the 300 ms a page that can zoom waits for a second tap.
  */
 const GHOST_MS = 700;
-const LEAVE_SHRINK = 'cubic-bezier(0.37, 0, 0.63, 1)';
 
 /** The map preview's size: the popover's width inside its padding, and a strip's height. */
 const MAP_WIDTH = POPOVER_WIDTH - 28;
 const MAP_HEIGHT = 120;
-
-/**
- * Where the arrow points, as a CSS position on the panel: the point the popover grows out of
- * as it opens.
- *
- * @param arrow - The arrow's side and its offset along it
- * @returns A `transform-origin` value
- */
-function arrowPoint(arrow: { side: 'left' | 'right' | 'top' | 'bottom'; at: number }): string {
-  return arrow.side === 'left' || arrow.side === 'right'
-    ? `${arrow.side} ${arrow.at}px`
-    : `${arrow.at}px ${arrow.side}`;
-}
 
 /** Home Assistant's strings, and the English each falls back to where a key is missing. */
 const T = {
@@ -167,24 +122,15 @@ type Phase = 'edit' | 'delete' | 'update' | 'saving';
 
 /**
  * The event popover. Home Assistant's dialog manager creates it, hands it `hass`, calls
- * `showDialog` before attaching it, and calls `closeDialog` for Back.
+ * `showDialog` before attaching it, and calls `closeDialog` for Back; the shell it shares with
+ * the search panel opens, places and closes it (`PopoverShell`).
  */
-export class EventPopover extends LitElement {
-  /** Home Assistant, handed over by its dialog manager. */
-  @property({ attribute: false }) hass?: Types.Hass;
-
+export class EventPopover extends Shell.PopoverShell {
   @state() private _params?: Model.PopoverParams;
   @state() private _draft?: Model.Draft;
   @state() private _editing?: Cell;
   @state() private _phase: Phase = 'edit';
   @state() private _error?: string;
-  @state() private _sheet = false;
-  @state() private _place?: {
-    left: number;
-    top: number;
-    /** Which side of the popover the arrow is on, and how far along that side it points. */
-    arrow?: { side: 'left' | 'right' | 'top' | 'bottom'; at: number };
-  };
   @state() private _map?: {
     tiles: EventMap.MapTile[];
     tileSize: number;
@@ -194,15 +140,7 @@ export class EventPopover extends LitElement {
     source: EventMap.MapPlace['source'];
   };
 
-  /** Closing: Home Assistant has been told, and the popover is playing its way out. */
-  @state() private _closing = false;
-  /** The animations it is leaving by, canceled once it has gone or is opened again. */
-  private _leaving?: Animation[];
-
   private _original?: Model.Draft;
-  private _wantOpen = false;
-  private _openedAt = 0;
-  private _backdropDown = false;
   /**
    * Whether the press that opened the popover may still send it the mouse events and click a
    * browser derives from a touch, which arrive where the finger lifted, on the popover now. No
@@ -211,10 +149,22 @@ export class EventPopover extends LitElement {
   private _ghostPossible = false;
   /** Whether a finger or a pen opened it, which leaves even a new event's title unfocused. */
   private _touched = false;
-  /** Who to tell once the popover has closed (`closed`), taken when it opens. */
-  private _onClosed?: () => undefined;
   /** Counts opens, so a write that finishes after the popover was opened again leaves it be. */
   private _openId = 0;
+
+  protected readonly _logName = 'Event popover';
+
+  protected readonly _panelWidth = POPOVER_WIDTH;
+
+  protected get _anchor(): Model.PopoverAnchor | undefined {
+    return this._params?.anchor;
+  }
+
+  protected _clear(): void {
+    this._params = undefined;
+    this._draft = undefined;
+    this._original = undefined;
+  }
 
   //---------------------------------------------------------------------------
   // HOME ASSISTANT'S DIALOG CONTRACT
@@ -276,21 +226,8 @@ export class EventPopover extends LitElement {
   //---------------------------------------------------------------------------
 
   protected updated(changed: PropertyValues): void {
+    // Opens the modal once it is attached and drawn (`PopoverShell`).
     super.updated(changed);
-    const dialog = this._dialog;
-    if (this._wantOpen && dialog && this.isConnected && !dialog.open) {
-      this._wantOpen = false;
-      this._openedAt = Date.now();
-      try {
-        dialog.showModal();
-      } catch (error) {
-        Logger.warn('Event popover: could not open', error);
-      }
-      this._position();
-      // The modal opens hidden until it is placed, and a hidden control cannot take focus, so
-      // the focusing steps of `showModal` land on nothing. Focus once it is drawn in place.
-      void this.updateComplete.then(() => this._focusStart());
-    }
 
     // A question takes focus, so the keyboard and a screen reader land on its choices; backing
     // out of it puts focus back where the popover started.
@@ -305,133 +242,14 @@ export class EventPopover extends LitElement {
     }
   }
 
-  /** Whether it opens in the title field: a new event's, opened by mouse or key. */
+  /**
+   * Whether it opens in the title field: a new event's, opened by mouse or key, so the title can
+   * be typed at once as in macOS. Otherwise focus starts on its title heading (`_focusStart`),
+   * so a screen reader announces it while no field starts editing and no phone raises its
+   * keyboard unasked.
+   */
   private get _titleFirst(): boolean {
     return this._params?.mode === 'new' && !this._touched;
-  }
-
-  /**
-   * Puts focus where the popover starts: a new event's title field, opened by mouse or key, so
-   * the title can be typed at once as in macOS; otherwise its title heading, so a screen reader
-   * announces it while no field starts editing and no phone raises its keyboard unasked.
-   */
-  private _focusStart(): void {
-    const dialog = this._dialog;
-    if (!dialog?.open) return;
-    dialog.querySelector<HTMLElement>('[autofocus]')?.focus({ preventScroll: true });
-  }
-
-  private get _dialog(): HTMLDialogElement | null {
-    return this.renderRoot?.querySelector('dialog') ?? null;
-  }
-
-  private get _panel(): HTMLElement | null {
-    return this.renderRoot?.querySelector('.panel') ?? null;
-  }
-
-  //---------------------------------------------------------------------------
-  // PLACING
-  //---------------------------------------------------------------------------
-
-  /**
-   * Places the popover beside the press: to its right where there is room, else to its left,
-   * centered on it vertically and kept inside the viewport, with the arrow pointing at it. On
-   * a narrow screen it is a sheet from the bottom instead.
-   */
-  private _position(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    this._sheet = width < SHEET_BELOW_PX;
-    if (this._sheet) {
-      this._place = undefined;
-      return;
-    }
-
-    const anchor = this._params?.anchor;
-    const panelHeight = Math.min(this._panel?.offsetHeight ?? 420, height - 2 * MARGIN);
-    if (!anchor) {
-      this._place = {
-        left: Math.max(MARGIN, (width - POPOVER_WIDTH) / 2),
-        top: Math.max(MARGIN, (height - panelHeight) / 2),
-      };
-      return;
-    }
-
-    // A press on an event comes with what can be seen of the event, and the popover opens
-    // beside it, as macOS opens one beside an event: the edge of its box, or the end of its text
-    // where it draws no box (`eventBox`). A press with no event under it, on a day or an empty
-    // slot, comes with its point alone, and the popover opens right there. A toolbar button asks
-    // for the popover below it instead.
-    const rect = anchor.rect ?? {
-      left: anchor.x,
-      right: anchor.x,
-      top: anchor.y,
-      bottom: anchor.y,
-    };
-    this._place = anchor.below
-      ? this._placeBelow(rect, panelHeight, width, height)
-      : this._placeBeside(rect, panelHeight, width, height);
-  }
-
-  /**
-   * Beside a box: to its right where the popover fits, else to its left, centered on it and
-   * kept on screen, the arrow at its middle. Where neither side has room it is centered on the
-   * screen, without an arrow.
-   */
-  private _placeBeside(
-    rect: Model.PopoverBox,
-    panelHeight: number,
-    width: number,
-    height: number,
-  ): NonNullable<EventPopover['_place']> {
-    const centerY = (rect.top + rect.bottom) / 2;
-    let side: 'left' | 'right' | undefined = 'left';
-    let left = rect.right + GAP;
-    if (left + POPOVER_WIDTH > width - MARGIN) {
-      side = 'right';
-      left = rect.left - GAP - POPOVER_WIDTH;
-    }
-    if (left < MARGIN) {
-      side = undefined;
-      left = Math.max(MARGIN, (width - POPOVER_WIDTH) / 2);
-    }
-    const top = Math.min(
-      Math.max(MARGIN, centerY - panelHeight / 2),
-      height - panelHeight - MARGIN,
-    );
-    const at = Math.min(Math.max(24, centerY - top), panelHeight - 24);
-    return { left, top, arrow: side ? { side, at } : undefined };
-  }
-
-  /**
-   * Below a box, as macOS opens the popover of its toolbar's add button: the arrow on the top
-   * edge points up at the button's middle, a little in from the popover's left, so the popover
-   * hangs over the card rather than beside its corner. Above it instead where there is no room
-   * below and more above.
-   */
-  private _placeBelow(
-    rect: Model.PopoverBox,
-    panelHeight: number,
-    width: number,
-    height: number,
-  ): NonNullable<EventPopover['_place']> {
-    const centerX = (rect.left + rect.right) / 2;
-    const left = Math.min(
-      Math.max(MARGIN, centerX - EAR_INSET),
-      Math.max(MARGIN, width - POPOVER_WIDTH - MARGIN),
-    );
-    // Kept off the panel's rounded corners, so the beak meets a straight edge.
-    const at = Math.min(Math.max(24, centerX - left), POPOVER_WIDTH - 24);
-    const below = rect.bottom + BELOW_GAP;
-    const above = rect.top - BELOW_GAP - panelHeight;
-    if (below + panelHeight > height - MARGIN && above >= MARGIN) {
-      return { left, top: above, arrow: { side: 'bottom', at } };
-    }
-    return {
-      left,
-      top: Math.max(MARGIN, Math.min(below, height - panelHeight - MARGIN)),
-      arrow: { side: 'top', at },
-    };
   }
 
   //---------------------------------------------------------------------------
@@ -656,110 +474,6 @@ export class EventPopover extends LitElement {
     if (openId === this._openId) this._finish();
   }
 
-  /**
-   * Tells Home Assistant's dialog manager the popover is gone, and closes the modal once it has
-   * played its way out (`_leave`), or at once where there is nothing to play.
-   *
-   * @returns Always true
-   */
-  private _finish(): boolean {
-    this._wantOpen = false;
-    const animations = this._leave();
-    if (animations.length) {
-      this._closing = true;
-      this._leaving = animations;
-      // A tab in the background may hold animations back, so the popover goes regardless soon.
-      void Promise.race([
-        Promise.all(animations.map((animation) => animation.finished)),
-        new Promise((resolve) => setTimeout(resolve, LEAVE_MS + 200)),
-      ])
-        .catch(() => undefined)
-        .then(() => {
-          if (this._leaving === animations) this._closeNow();
-        });
-    } else {
-      this._closeNow();
-    }
-    this._fireClosed();
-    return true;
-  }
-
-  /** Closes the modal, drops what it showed, and stops any way out it was playing. */
-  private _closeNow(): void {
-    const dialog = this._dialog;
-    if (dialog?.open) dialog.close();
-    // Canceled after the close, so the panel never flashes back at full size.
-    this._leaving?.forEach((animation) => animation.cancel());
-    this._leaving = undefined;
-    this._closing = false;
-    this._params = undefined;
-    this._draft = undefined;
-    this._original = undefined;
-  }
-
-  /**
-   * Plays the popover's way out: shrinking toward its arrow and fading, or a sheet sinking away.
-   * Nothing where the system asks for less motion, or where the browser cannot animate.
-   *
-   * @returns The animations, or none
-   */
-  private _leave(): Animation[] {
-    const dialog = this._dialog;
-    const panel = dialog?.querySelector<HTMLElement>('.panel');
-    if (!dialog?.open || !panel || typeof panel.animate !== 'function') return [];
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [];
-
-    const timing = (easing: string): KeyframeAnimationOptions => ({
-      duration: LEAVE_MS,
-      easing,
-      fill: 'forwards',
-    });
-    if (this._sheet) {
-      return [
-        panel.animate(
-          [
-            { transform: 'none', opacity: 1 },
-            { transform: 'translateY(24px)', opacity: 0 },
-          ],
-          timing('ease-in'),
-        ),
-      ];
-    }
-    // The panel and its beak shrink about the same point, where the beak meets the panel's
-    // edge, which the panel's transform-origin names and the beak's box sits on.
-    const animations = [
-      panel.animate(
-        [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
-        timing(LEAVE_SHRINK),
-      ),
-      panel.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
-    ];
-    const arrow = dialog.querySelector<HTMLElement>('.arrow');
-    if (arrow) {
-      animations.push(
-        arrow.animate(
-          [{ transform: 'scale(1)' }, { transform: `scale(${LEAVE_SCALE})` }],
-          timing(LEAVE_SHRINK),
-        ),
-        arrow.animate([{ opacity: 1 }, { opacity: 0 }], timing('ease')),
-      );
-    }
-    return animations;
-  }
-
-  private _fireClosed(): void {
-    const closed = this._onClosed;
-    this._onClosed = undefined;
-    closed?.();
-    this.dispatchEvent(
-      new CustomEvent('dialog-closed', {
-        bubbles: true,
-        composed: true,
-        detail: { dialog: this.localName },
-      }),
-    );
-  }
-
   //---------------------------------------------------------------------------
   // INPUT
   //---------------------------------------------------------------------------
@@ -809,17 +523,6 @@ export class EventPopover extends LitElement {
     capture: true,
   };
 
-  /**
-   * Keeps the keys typed in the popover in it. Home Assistant answers a bare letter typed
-   * anywhere outside a text field with a shortcut of its own, opening Assist or its search
-   * over the popover, and a letter typed with the focus on the heading or a button, before the
-   * title field was chosen, would do that. A key with Ctrl, Alt or the command key, and every
-   * key that is not a character, still goes on.
-   */
-  private readonly _keepKeys = (ev: KeyboardEvent): void => {
-    if (ev.key.length === 1 && !ev.ctrlKey && !ev.altKey && !ev.metaKey) ev.stopPropagation();
-  };
-
   /** A field the derived events focused anyway leaves the focus where the popover put it. */
   private readonly _ghostFocus = {
     handleEvent: (ev: FocusEvent): void => {
@@ -842,10 +545,7 @@ export class EventPopover extends LitElement {
     handleEvent: (ev: MouseEvent): void => {
       this._ghostGuard.handleEvent(ev);
       if (ev.defaultPrevented) return;
-      if (ev.target !== this._dialog || !this._backdropDown) return;
-      this._backdropDown = false;
-      if (Date.now() - this._openedAt < 300) return;
-      this._requestClose('save');
+      if (this._isBackdropPress(ev)) this._requestClose('save');
     },
     capture: true,
   };
@@ -1000,18 +700,13 @@ export class EventPopover extends LitElement {
 
     const color = this._calendar(draft.calendarId)?.color ?? params.color ?? 'var(--primary-color)';
     const place = this._place;
-    const style = this._sheet
-      ? ''
-      : place
-        ? `left:${place.left}px;top:${place.top}px;`
-        : 'visibility:hidden;';
     const titleText = this._displayed('title');
 
     return html`
       <dialog
         class="${params.dark ? 'dark' : 'light'} ${this._sheet ? 'sheet' : 'popover'}"
         ?data-placed=${this._sheet || !!place}
-        style=${style}
+        style=${Shell.placedStyle(this._sheet, place)}
         aria-labelledby="popover-title"
         @cancel=${this._onCancel}
         @pointerdown=${this._onPointerDown}
@@ -1023,10 +718,10 @@ export class EventPopover extends LitElement {
       >
         <div
           class="panel"
-          style="--event-color:${color};${place?.arrow ? `transform-origin:${arrowPoint(place.arrow)}` : ''}"
+          style="--event-color:${color};${place?.arrow ? `transform-origin:${Shell.arrowPoint(place.arrow)}` : ''}"
           ?inert=${this._busy || this._closing}
         >
-          ${this._sheet ? html`<span class="grabber" aria-hidden="true"></span>` : nothing}
+          ${Shell.renderGrabber(this._sheet)}
           <h2
             id="popover-title"
             class="visually-hidden"
@@ -1046,18 +741,7 @@ export class EventPopover extends LitElement {
           ${this._renderMap()} ${this._renderError()} ${this._renderQuestion()}
           ${this._renderFoot()}
         </div>
-        ${
-          place?.arrow
-            ? html`<span
-                class="arrow ${place.arrow.side}"
-                style="${place.arrow.side === 'left' || place.arrow.side === 'right' ? 'top' : 'left'}:${place.arrow.at}px"
-                ><span class="beak"
-                  ><span class="glass"></span
-                  ><svg viewBox="0 0 15 7" aria-hidden="true">
-                    <path d=${BEAK_EDGE}></path></svg></span
-              ></span>`
-            : nothing
-        }
+        ${Shell.renderBeak(place?.arrow)}
       </dialog>
     `;
   }
@@ -1597,263 +1281,8 @@ export class EventPopover extends LitElement {
   }
 
   static styles = css`
-    :host {
-      font-family:
-        -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    dialog {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      overflow: visible;
-      max-width: none;
-      max-height: none;
-      position: fixed;
-      color: var(--text);
-    }
-    dialog::backdrop {
-      background: transparent;
-    }
-    dialog.sheet {
-      inset: auto 0 0 0;
-      width: 100%;
-    }
-    /* It opens as a popover in Calendar on macOS does, as measured from a screen recording of
-       it: growing out of its arrow from a tenth of its size, fast and then settling, over
-       230 ms, and fading in over 180 ms, with no overshoot. The beak grows with it about the
-       same point, where it meets the panel's edge, which the panel's inline transform-origin
-       names. A sheet rises from the bottom instead. Each starts once the popover is placed, so
-       none of it plays unseen. The way out is played from script (_leave). Without motion
-       where the system asks for less. */
-    dialog.popover[open][data-placed] > .panel {
-      animation:
-        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
-        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
-    }
-    dialog.popover[open][data-placed] > .arrow {
-      animation:
-        pop-grow 230ms cubic-bezier(0.33, 1, 0.68, 1),
-        pop-fade 180ms cubic-bezier(0, 0, 0.58, 1);
-    }
-    dialog.sheet[open][data-placed] > .panel {
-      animation: sheet-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
-    }
-    @keyframes pop-grow {
-      from {
-        transform: scale(0.1);
-      }
-    }
-    @keyframes pop-fade {
-      from {
-        opacity: 0;
-      }
-    }
-    @keyframes sheet-in {
-      from {
-        transform: translateY(24px);
-        opacity: 0;
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      dialog.popover[open][data-placed] > .panel,
-      dialog.popover[open][data-placed] > .arrow,
-      dialog.sheet[open][data-placed] > .panel {
-        animation: none;
-      }
-    }
-    dialog.sheet::backdrop {
-      background: rgba(0, 0, 0, 0.25);
-    }
-    .light {
-      --pop-bg: rgba(246, 246, 246, 0.82);
-      --pop-edge: rgba(0, 0, 0, 0.12);
-      --pop-outline: rgba(0, 0, 0, 0.22);
-      --cell: rgba(0, 0, 0, 0.045);
-      --cell-hover: rgba(0, 0, 0, 0.07);
-      --text: rgba(0, 0, 0, 0.86);
-      --dim: rgba(0, 0, 0, 0.36);
-      --button: rgba(0, 0, 0, 0.07);
-      --accent: #007aff;
-      --danger: #ff3b30;
-      color-scheme: light;
-    }
-    .dark {
-      --pop-bg: rgba(44, 44, 46, 0.78);
-      --pop-edge: rgba(255, 255, 255, 0.14);
-      --pop-outline: rgba(255, 255, 255, 0.2);
-      --cell: rgba(255, 255, 255, 0.075);
-      --cell-hover: rgba(255, 255, 255, 0.11);
-      --text: rgba(255, 255, 255, 0.92);
-      --dim: rgba(255, 255, 255, 0.42);
-      --button: rgba(255, 255, 255, 0.13);
-      --accent: #0a84ff;
-      --danger: #ff453a;
-      color-scheme: dark;
-    }
-    .panel {
-      position: relative;
-      box-sizing: border-box;
-      width: 340px;
-      max-height: calc(100vh - 24px);
-      overflow-y: auto;
-      padding: 14px 14px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      background: var(--pop-bg);
-      -webkit-backdrop-filter: blur(28px) saturate(170%);
-      backdrop-filter: blur(28px) saturate(170%);
-      /* One hairline, as on macOS, which the beak's outline continues. An inset shadow rather
-         than a border: browsers draw a half-pixel shadow as one, and some round a half-pixel
-         border up to a whole one, which would no longer match the beak's line. */
-      border-radius: 16px;
-      box-shadow:
-        inset 0 0 0 0.5px var(--pop-outline),
-        0 18px 50px rgba(0, 0, 0, 0.35);
-      font-size: 15px;
-      line-height: 1.35;
-    }
-    .sheet .panel {
-      width: 100%;
-      max-height: 85vh;
-      border-radius: 18px 18px 0 0;
-      padding-bottom: calc(16px + env(safe-area-inset-bottom));
-    }
-    .grabber {
-      align-self: center;
-      width: 36px;
-      height: 5px;
-      border-radius: 3px;
-      background: var(--dim);
-    }
-    /* The beak hangs off the dialog, not the panel, whose scrolling would clip it. Its box is a
-       point on the panel's outer edge, where it grows from and shrinks to; the beak is drawn
-       from there pointing up and turned to its side. Its glass blurs what is behind it as the
-       panel does, cut to the beak's shape, and the outline is drawn over it. */
-    .arrow {
-      position: absolute;
-      width: 0;
-      height: 0;
-      transform-origin: 0 0;
-    }
-    .arrow.top {
-      top: 0;
-    }
-    .arrow.bottom {
-      top: 100%;
-    }
-    .arrow.left {
-      left: 0;
-    }
-    .arrow.right {
-      left: 100%;
-    }
-    .beak {
-      position: absolute;
-      left: 0;
-      top: 0;
-      transform-origin: 0 0;
-    }
-    .arrow.right .beak {
-      transform: rotate(90deg);
-    }
-    .arrow.bottom .beak {
-      transform: rotate(180deg);
-    }
-    .arrow.left .beak {
-      transform: rotate(-90deg);
-    }
-    .beak > * {
-      position: absolute;
-      left: -7.5px;
-      top: -6.5px;
-      width: 15px;
-      height: 7px;
-    }
-    .glass {
-      background: var(--pop-bg);
-      -webkit-backdrop-filter: blur(28px) saturate(170%);
-      backdrop-filter: blur(28px) saturate(170%);
-      clip-path: path(
-        'M0 6.75C3.15 6.75 3.75 0.25 7.5 0.25C11.25 0.25 11.85 6.75 15 6.75L15 7L0 7Z'
-      );
-    }
-    .beak svg {
-      overflow: visible;
-    }
-    .beak path {
-      fill: none;
-      stroke: var(--pop-outline);
-      stroke-width: 0.5;
-    }
-    /* Hidden until the keyboard reaches it, then a button like the others. */
-    .reveal:not(:focus-visible),
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-      white-space: nowrap;
-      border: 0;
-    }
-    .group {
-      display: grid;
-      grid-template-columns: 5px minmax(0, 1fr);
-      gap: 0 10px;
-    }
-    .bar {
-      border-radius: 3px;
-      background: var(--event-color);
-    }
-    .stack {
-      display: flex;
-      flex-direction: column;
-      gap: 9px;
-      min-width: 0;
-    }
-    .cell {
-      box-sizing: border-box;
-      width: 100%;
-      min-width: 0;
-      padding: 10px 14px;
-      border: 0;
-      border-radius: 11px;
-      background: var(--cell);
-      color: var(--text);
-      font: inherit;
-      text-align: start;
-      overflow-wrap: anywhere;
-    }
-    input.cell,
-    textarea.cell,
-    button.cell,
-    .cell[tabindex] {
-      cursor: text;
-    }
-    button.cell {
-      cursor: pointer;
-    }
-    .cell:hover {
-      background: var(--cell-hover);
-    }
-    .cell:focus-visible,
-    input:focus-visible,
-    select:focus-visible,
-    textarea:focus-visible,
-    button:focus-visible,
-    a:focus-visible {
-      outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
-      outline-offset: 0;
-    }
-    input.cell,
-    textarea.cell {
-      outline-offset: -1px;
-    }
+    ${Shell.shellStyles}
+    ${Shell.cellStyles}
     .title {
       font-size: 21px;
       font-weight: 500;

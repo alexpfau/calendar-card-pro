@@ -263,7 +263,7 @@ const WRITE_GENERATION_KEY = Symbol.for('calendar-card-pro.write-generation');
  *
  * @returns Writes recorded so far, 0 before the first
  */
-function currentWriteGeneration(): number {
+export function currentWriteGeneration(): number {
   return (globalThis as unknown as Record<symbol, number | undefined>)[WRITE_GENERATION_KEY] ?? 0;
 }
 

@@ -564,6 +564,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.refresh': 'Refresh Button',
   'toolbar.refresh.helper':
     'Loads the events again now, rather than at the next scheduled refresh.',
+  'toolbar.search': 'Search Button',
+  'toolbar.search.helper':
+    "Finds the card's events by title, location or description, a year back and a year " +
+    'ahead. A result opens its day on the card, so the button needs the date navigation.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper':
     'Opens a new event, ready to fill in. Shown when a calendar on the card accepts new events.',

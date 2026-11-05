@@ -254,6 +254,60 @@ describe('a subscription', () => {
   });
 });
 
+describe('real changes to a calendar’s events', () => {
+  it('counts new events, or a failure, from a subscription that was live; never a first push', async () => {
+    const c = connection();
+    const anna = () => Live.eventChanges(['calendar.anna']);
+    const start = anna();
+    const numbered = Live.changeCount();
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+
+    // A first push changes nothing in the calendar, but `changeCount` still numbers it.
+    c.push('calendar.anna', [SWIM]);
+    expect(anna()).toBe(start);
+    expect(Live.changeCount()).toBe(numbered + 1);
+
+    // The same events again, written differently: nothing.
+    c.push('calendar.anna', [{ ...SWIM, start: '2026-06-17T15:00:00+00:00' }]);
+    expect(anna()).toBe(start);
+
+    c.push('calendar.anna', [{ ...SWIM, summary: 'Anna swim, lane 3' }]);
+    expect(anna()).toBe(start + 1);
+
+    c.push('calendar.anna', null);
+    expect(anna()).toBe(start + 2);
+
+    // Read again after failing: a first push once more, not a change.
+    c.push('calendar.anna', [SWIM]);
+    expect(anna()).toBe(start + 2);
+  });
+
+  it('counts each calendar on its own, and a new subscription’s first push for none', async () => {
+    const c = connection();
+    const start = {
+      anna: Live.eventChanges(['calendar.anna']),
+      ben: Live.eventChanges(['calendar.ben']),
+    };
+    Live.hold(c.hass, 'calendar.anna', WINDOW);
+    Live.hold(c.hass, 'calendar.ben', WINDOW);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+    c.push('calendar.ben', []);
+
+    c.push('calendar.ben', [{ ...SWIM, summary: 'Ben swim' }]);
+    // A later window's new subscription, as a card paging opens.
+    const later = { start: WINDOW.end, end: new Date('2026-06-19T00:00:00Z') };
+    Live.hold(c.hass, 'calendar.anna', later);
+    await vi.advanceTimersByTimeAsync(0);
+    c.push('calendar.anna', [SWIM]);
+
+    expect(Live.eventChanges(['calendar.anna'])).toBe(start.anna);
+    expect(Live.eventChanges(['calendar.ben'])).toBe(start.ben + 1);
+    expect(Live.eventChanges(['calendar.anna', 'calendar.ben'])).toBe(start.anna + start.ben + 1);
+  });
+});
+
 describe('Home Assistant before 2026.5', () => {
   it('is asked once per connection, however many calendars subscribe at once', async () => {
     const c = connection('unknown_command');

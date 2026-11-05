@@ -376,6 +376,13 @@ describe('reconciliation: the rule watches everything the card reads', () => {
     ],
     ['a plain card', { entities: ['calendar.anna'] }, []],
     [
+      // The magnifier is named by Home Assistant's own word, a top-level read; the search reads
+      // Home Assistant only once pressed.
+      'a toolbar with search',
+      { entities: ['calendar.anna'], toolbar: { show: true, search: true } },
+      [],
+    ],
+    [
       // Named by Home Assistant's own words, which are top-level reads; a button's entity is
       // named in the configuration and read by Home Assistant only when pressed.
       'a toolbar of its own buttons',

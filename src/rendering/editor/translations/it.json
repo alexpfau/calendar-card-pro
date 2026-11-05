@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Per uno schermo condiviso. Con un tocco annulla le modifiche fatte su questo dispositivo a giorni, layout, calendari e vista espansa.",
   "toolbar.refresh": "Pulsante Aggiorna",
   "toolbar.refresh.helper": "Ricarica subito gli eventi, senza attendere il prossimo aggiornamento programmato.",
+  "toolbar.search": "Pulsante Ricerca",
+  "toolbar.search.helper": "Trova gli eventi della scheda per titolo, luogo o descrizione, da un anno prima a un anno dopo. Un risultato apre il suo giorno sulla scheda, quindi il pulsante richiede la navigazione per date.",
   "toolbar.add_event": "Pulsante Aggiungi evento",
   "toolbar.add_event.helper": "Apre un nuovo evento da compilare. Compare quando un calendario della scheda accetta nuovi eventi.",
   "toolbar.legend": "Filtro calendari",

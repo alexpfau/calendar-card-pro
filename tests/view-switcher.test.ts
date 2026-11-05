@@ -1063,6 +1063,7 @@ describe('the resolved toolbar the card reads', () => {
       viewSwitcher: true,
       reset: false,
       refresh: false,
+      search: false,
       legend: false,
       buttons: [],
     });
@@ -1074,6 +1075,7 @@ describe('the resolved toolbar the card reads', () => {
       viewSwitcher: true,
       reset: false,
       refresh: true,
+      search: false,
       legend: 'menu',
       buttons: [],
     });

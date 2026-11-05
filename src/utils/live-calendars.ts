@@ -144,6 +144,24 @@ export function changeCount(): number {
   return sequence;
 }
 
+/** How often each calendar's events really changed on the page (`eventChanges`), by entity id. */
+const realChanges = new Map<string, number>();
+
+/**
+ * How often the events of some calendars really changed on the page: a subscription that was
+ * live pushed different events, or failed. Not a new subscription's first push, which
+ * `changeCount` numbers all the same and every paging or newly shown card makes, and which says
+ * only that the calendar could be read, not that anything in it changed.
+ *
+ * @param entityIds Calendar entity ids
+ * @returns Their changes so far, added up; it only ever grows
+ */
+export function eventChanges(entityIds: Iterable<string>): number {
+  let total = 0;
+  for (const entityId of entityIds) total += realChanges.get(entityId) ?? 0;
+  return total;
+}
+
 interface LivePush {
   events?: unknown;
 }
@@ -305,6 +323,7 @@ function receive(
   subscription.pushedAt = Date.now();
 
   const events = message?.events;
+  const wasLive = subscription.state === 'live';
   let changed = false;
   if (!Array.isArray(events)) {
     changed = subscription.state !== 'failed';
@@ -326,6 +345,10 @@ function receive(
     }
   }
 
+  // Only a subscription that was live already can tell its events changed (`eventChanges`).
+  if (changed && wasLive) {
+    realChanges.set(subscription.entityId, (realChanges.get(subscription.entityId) ?? 0) + 1);
+  }
   wake(subscription);
   if (changed) notify(registry, subscription.entityId);
 }

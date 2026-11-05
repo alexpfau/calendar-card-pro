@@ -1642,3 +1642,33 @@ describe('below a toolbar button', () => {
     expect(root.querySelector('.arrow.bottom')).not.toBeNull();
   });
 });
+
+describe('the page behind', () => {
+  // The shell holds the page still for every panel on it: the search panel's tests try each
+  // gesture, and these only that the popover has it too.
+  function wheel(target: EventTarget): boolean {
+    const event = new WheelEvent('wheel', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      deltaY: 120,
+    });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  it('does not scroll while the popover is open, and scrolls again once it has closed', async () => {
+    const { el, root, closed } = await open({});
+    const dialog = root.querySelector('dialog')!;
+
+    expect(wheel(dialog)).toBe(true);
+    expect(wheel(document.body)).toBe(true);
+
+    // Home Assistant hears it has closed at once, while it is still playing its way out: the
+    // modal is open until then, and the page stays still with it.
+    el.closeDialog();
+    expect(closed).toHaveBeenCalled();
+    await vi.waitFor(() => expect(dialog.open).toBe(false));
+    expect(wheel(document.body)).toBe(false);
+  });
+});

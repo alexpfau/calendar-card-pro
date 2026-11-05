@@ -319,6 +319,8 @@
   "toolbar.reset.helper": "Jagatud ekraani jaoks. Üks vajutus tühistab selles seadmes tehtud päevade, paigutuse, kalendrite ja laiendatud vaate muudatused.",
   "toolbar.refresh": "Nupp „Värskenda“",
   "toolbar.refresh.helper": "Laadib sündmused kohe uuesti, mitte alles järgmisel ajastatud värskendamisel.",
+  "toolbar.search": "Nupp „Otsing“",
+  "toolbar.search.helper": "Leiab kaardi sündmused pealkirja, asukoha või kirjelduse järgi, aasta tagasi ja aasta ette. Tulemus avab kaardil oma päeva, seega vajab nupp kuupäevade navigeerimist.",
   "toolbar.add_event": "Nupp „Lisa sündmus“",
   "toolbar.add_event.helper": "Avab täitmiseks uue sündmuse. Kuvatakse, kui mõni kaardi kalender võtab vastu uusi sündmusi.",
   "toolbar.legend": "Kalendrite filter",
