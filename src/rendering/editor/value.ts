@@ -133,82 +133,98 @@ export function changedKeys(
 }
 
 /**
- * The value an override key resolves to when the `column:` block does not supply it.
- *
- * @param config - Merged configuration, defaults already applied
- * @param key - Override key
- * @returns The inherited value
+ * What stripping one layout's own block needs to know about that layout.
  */
-function inheritedColumnValue(
-  config: Readonly<Types.Config>,
-  key: keyof Types.ColumnOverrides & keyof Types.Config,
-): unknown {
-  return ViewConfig.COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
-}
-
-function inheritedTimeGridValue(
-  config: Readonly<Types.Config>,
-  key: keyof Types.TimeGridOverrides & keyof Types.Config,
-): unknown {
-  return ViewConfig.TIME_GRID_DEFAULT_OVERRIDES[key] ?? config[key];
+interface StrippedBlock {
+  /** The block's configuration key. */
+  readonly blockKey: 'column' | 'time_grid';
+  /** Options only this layout reads, with their defaults. */
+  readonly defaults: Readonly<Record<string, unknown>>;
+  /** Resolves one of those options as the card does before using it. */
+  normalize(key: string, value: unknown): unknown;
+  /** Top-level options the block may override. */
+  readonly overrideKeys: ReadonlyArray<string>;
+  /** Overridable options whose default in this layout differs from the card's. */
+  readonly defaultOverrides: Readonly<Record<string, unknown>>;
+  /**
+   * Whether a value set for one of `defaultOverrides` is kept even where it equals what the
+   * layout would use without it. Grid's are: the editor once wrote them when switching a card to
+   * Grid, so that the layout's own look shows in its own workspace as set there, and the stored
+   * blocks that came of it are left alone (see `reconcileTimeGridValues`).
+   */
+  readonly keepsDivergentOverrides: boolean;
+  /**
+   * Answers for a key the generic rule cannot, or `undefined` to let it decide.
+   *
+   * @returns `true` to keep the line, `false` to drop it
+   */
+  special?(
+    config: Readonly<Types.Config>,
+    key: string,
+    value: unknown,
+    held: boolean,
+  ): boolean | undefined;
 }
 
 /**
- * Strips redundant entries from a `column:` block.
+ * Strips redundant entries from one layout's own block, `column:` or `time_grid:`.
+ *
+ * One rule for both. A line the YAML already holds, and the card reads as written, is kept as
+ * written, default or not, so a save rewrites only what it changed. Any other value equal to its
+ * default, or to what the layout would inherit, is dropped; a value the card rejects resolves to
+ * the default and goes with it. Anything else is stored as the card resolves it, which turns a
+ * number typed as text, or a bare length, into what the card declares.
  *
  * @param config - Merged configuration, defaults already applied
- * @param authored - The `column:` block as the YAML holds it; an entry it holds unchanged is
- *   kept even where it equals what it would resolve to without it
+ * @param authored - The block as the YAML holds it
+ * @param layout - What sets this layout's block apart
  * @returns The minimal block, or `undefined` when nothing in it is doing anything
  */
-export function stripColumnDefaults(
+function stripBlockDefaults(
   config: Readonly<Types.Config>,
-  authored?: unknown,
+  authored: unknown,
+  layout: StrippedBlock,
 ): Record<string, unknown> | undefined {
-  const block = config.column;
+  const block = config[layout.blockKey];
 
   if (!Helpers.isConfigBlock(block)) {
     return undefined;
   }
 
-  const overrideKeys = new Set<string>(ViewConfig.COLUMN_OVERRIDE_KEYS);
-  const columnDefaults = ViewConfig.COLUMN_DEFAULTS as Readonly<Record<string, unknown>>;
+  const overrideKeys = new Set<string>(layout.overrideKeys);
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
     if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-
     if (isSyntheticKey(key)) continue;
 
     const held = unchangedFromAuthored(authored, key, value);
 
-    if (key === 'min_days_to_show') {
-      const kept = held && readsAsWritten(value, ViewConfig.resolveMinDaysToShow(config));
-      if (!kept && resolvesTheSameWithout(config, key)) continue;
-      result[key] = value;
+    const special = layout.special?.(config, key, value, held);
+    if (special !== undefined) {
+      if (special) result[key] = value;
       continue;
     }
 
-    if (key in columnDefaults) {
-      // Compare what the key will actually resolve to, not what was typed: the render path
-      // coerces before use, so `"140"` and `140` are the same setting and neither is worth
-      // storing when it matches the default.
-      const resolved = ViewConfig.normalizeColumnValue(
-        key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
-        value,
-      );
-      const kept = held && readsAsWritten(value, resolved);
-      if (!kept && deepEqual(columnDefaults[key], resolved)) continue;
-      result[key] = value;
+    if (key in layout.defaults) {
+      // Compared as the card resolves it, not as typed: the render path coerces before use, so
+      // `"140"` and `140` are the same setting and neither is worth storing at the default.
+      const resolved = layout.normalize(key, value);
+      if (held && readsAsWritten(value, resolved)) result[key] = value;
+      else if (!deepEqual(layout.defaults[key], resolved)) result[key] = resolved;
       continue;
     }
 
     if (overrideKeys.has(key)) {
-      const inherited = inheritedColumnValue(
-        config,
-        key as keyof Types.ColumnOverrides & keyof Types.Config,
-      );
+      if (
+        layout.keepsDivergentOverrides &&
+        Object.prototype.hasOwnProperty.call(layout.defaultOverrides, key)
+      ) {
+        result[key] = value;
+        continue;
+      }
+      const inherited = layout.defaultOverrides[key] ?? config[key as keyof Types.Config];
       const resolved = normalizeRootValue(key, value);
       const kept = held && readsAsWritten(value, resolved);
       if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
@@ -220,6 +236,48 @@ export function stripColumnDefaults(
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+const COLUMN_BLOCK: StrippedBlock = {
+  blockKey: 'column',
+  defaults: ViewConfig.COLUMN_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value),
+  overrideKeys: ViewConfig.COLUMN_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.COLUMN_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: false,
+  // Decided by asking the resolver: the floor's default is dynamic, `days_to_show`, and it
+  // parses, floors and clamps, so a line is redundant only where removing it resolves the same.
+  special: (config, key, value, held) => {
+    if (key !== 'min_days_to_show') return undefined;
+    const kept = held && readsAsWritten(value, ViewConfig.resolveMinDaysToShow(config));
+    return kept || !resolvesTheSameWithout(config, key);
+  },
+};
+
+const TIME_GRID_BLOCK: StrippedBlock = {
+  blockKey: 'time_grid',
+  defaults: ViewConfig.TIME_GRID_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeTimeGridValue(key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS, value),
+  overrideKeys: ViewConfig.TIME_GRID_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.TIME_GRID_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: true,
+};
+
+/**
+ * Strips redundant entries from a `column:` block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param authored - The `column:` block as the YAML holds it; an entry it holds unchanged is
+ *   kept, as written, where the card reads it as written
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripColumnDefaults(
+  config: Readonly<Types.Config>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
+  return stripBlockDefaults(config, authored, COLUMN_BLOCK);
 }
 
 /**
@@ -247,63 +305,14 @@ function resolvesTheSameWithout(config: Readonly<Types.Config>, key: string): bo
  *
  * @param config - Merged configuration, defaults already applied
  * @param authored - The `time_grid:` block as the YAML holds it; an entry it holds unchanged
- *   is kept, as written, even where it equals the default or the inherited value
+ *   is kept, as written, where the card reads it as written
  * @returns The minimal block, or `undefined` when nothing in it is doing anything
  */
 export function stripTimeGridDefaults(
   config: Readonly<Types.Config>,
   authored?: unknown,
 ): Record<string, unknown> | undefined {
-  const block = config.time_grid;
-
-  if (!Helpers.isConfigBlock(block)) {
-    return undefined;
-  }
-
-  const overrideKeys = new Set<string>(ViewConfig.TIME_GRID_OVERRIDE_KEYS);
-  const gridDefaults = ViewConfig.TIME_GRID_DEFAULTS as Readonly<Record<string, unknown>>;
-  const result: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
-    if (value === undefined) continue;
-    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-    if (isSyntheticKey(key)) continue;
-
-    const held = unchangedFromAuthored(authored, key, value);
-
-    if (key in gridDefaults) {
-      const resolved = ViewConfig.normalizeTimeGridValue(
-        key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
-        value,
-      );
-      if (deepEqual(gridDefaults[key], resolved)) {
-        if (held && readsAsWritten(value, resolved)) result[key] = value;
-        continue;
-      }
-      result[key] = resolved;
-      continue;
-    }
-
-    if (overrideKeys.has(key)) {
-      const inherited = inheritedTimeGridValue(
-        config,
-        key as keyof Types.TimeGridOverrides & keyof Types.Config,
-      );
-      if (Object.prototype.hasOwnProperty.call(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES, key)) {
-        result[key] = value;
-        continue;
-      }
-      const resolved = normalizeRootValue(key, value);
-      const kept = held && readsAsWritten(value, resolved);
-      if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
-      result[key] = value;
-      continue;
-    }
-
-    result[key] = value;
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
+  return stripBlockDefaults(config, authored, TIME_GRID_BLOCK);
 }
 
 /**

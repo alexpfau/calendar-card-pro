@@ -3214,16 +3214,22 @@ export function cacheEvents(
 /**
  * Write a complete cache entry to localStorage.
  *
+ * Confirmed by what is read back, not by whether anything is: storage that drops a write
+ * without throwing leaves the entry before it readable, and taking that for this one lost
+ * the newer entry, so a calendar that had answered empty and then failed was refilled
+ * from the older one.
+ *
  * @param key Cache key
  * @param entry Entry to store
- * @returns True when the entry can be read back
+ * @returns True when this entry, and not an older one, can be read back
  */
 function writeCacheEntry(key: string, entry: Types.CacheEntry): boolean {
   try {
     Logger.info(`Caching ${entry.events.length} events`);
-    localStorage.setItem(key, JSON.stringify(entry));
+    const serialized = JSON.stringify(entry);
+    localStorage.setItem(key, serialized);
 
-    return readCacheEntry(key) !== null;
+    return localStorage.getItem(key) === serialized && readCacheEntry(key) !== null;
   } catch (e) {
     Logger.error('Failed to cache calendar events:', e);
     return false;

@@ -166,12 +166,14 @@ describe('customized-only and the write path read column values the way the card
     ).toBe(true);
   });
 
+  // Not held by the YAML here, so a value that stays is stored as the card resolves it, as grid
+  // always did; `tests/editor-view-block-strip.test.ts` pins the held spelling.
   it.each([
     ['140', undefined],
     [140, undefined],
-    ['220', '220'],
+    ['220', 220],
     [220, 220],
-  ])('strips %s from the stored block as %s', (written, kept) => {
+  ])('strips %j from the stored block as %j', (written, kept) => {
     const stripped = stripColumnDefaults(columnConfig(written));
 
     expect(stripped?.min_day_width).toBe(kept);
