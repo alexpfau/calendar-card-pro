@@ -15,7 +15,7 @@ import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Links from '../utils/links';
-import { splitTitleWords } from '../utils/title-words';
+import { splitTitleWords, titleDirection } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
 //-----------------------------------------------------------------------------
@@ -540,6 +540,22 @@ function renderEventTitle(
   // the dashboard's side; see the matching rule in styles.ts.
   const titleDir = titleWords && !scrollTitles ? 'auto' : nothing;
 
+  // A list or column title cut by `title_max_lines` lays out its whole line, labels included,
+  // in its own direction. The clamp puts its "…" at the end of the line in the direction of
+  // the box it clamps, so a title running against the dashboard (English on a Hebrew one,
+  // Hebrew on an English one) ended in "…" at its own start and lost its first letters, in
+  // Chromium, WebKit and Firefox alike, at one line and at three. Only the whole line's
+  // direction moves the "…": the title's own, through `dir="auto"` as grid has it, does not
+  // once a label shares the line. So the label leads the title in the title's own reading
+  // order on such a line, and the stylesheet keeps the line on the dashboard's side.
+  // Unclamped titles, the empty-day line and grid, which cuts its titles itself, are left as
+  // they were; so is the dir attribute on a title in the dashboard's direction, which moves
+  // nothing.
+  const summaryDir =
+    !titleWords && !scrollTitles && !isEmptyDay && config.title_max_lines > 0
+      ? (titleDirection(event.summary ?? '') ?? nothing)
+      : nothing;
+
   // 🚨 No whitespace between the last label and the title, and none inside the title before
   // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
   // collapses them into one visible word space after the label: about 3px on top of the
@@ -586,7 +602,7 @@ function renderEventTitle(
   // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
+      <div class="summary${scrollTitles ? ' summary-scroll' : ''}" dir=${summaryDir}>
         ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}

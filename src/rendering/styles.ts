@@ -2229,6 +2229,22 @@ export const cardStyles = css`
     margin-inline-end: 12px;
   }
 
+  /* A title cut by title_max_lines that runs against the dashboard lays its line out in its
+     own direction (renderEventTitle in leaves.ts), so the cut ends at its own end. Its box then
+     hugs the dashboard's side as wide as its text, instead of growing to the row's far edge,
+     where a short title would sit apart from the time beneath it. Its gap to the weather badge
+     is at its inline start, which is the badge's side in its own direction. */
+  .summary-row:dir(rtl) > .summary[dir='ltr'],
+  .summary-row:dir(ltr) > .summary[dir='rtl'] {
+    flex: 0 1 auto;
+  }
+
+  .summary-row:dir(rtl) > .summary[dir='ltr']:not(:only-child),
+  .summary-row:dir(ltr) > .summary[dir='rtl']:not(:only-child) {
+    margin-inline-end: 0;
+    margin-inline-start: 12px;
+  }
+
   /* No font-size: the title inherits event_font_size from .summary, which every view draws
      it inside, and font-size-nesting.test.ts fails if one does not. Declaring it here as
      well applied a relative size twice, so 1.5em drew the title at 2.25x while the labels
@@ -3561,6 +3577,19 @@ export const cardStyles = css`
      which a right-to-left line orders exactly as it did before. Line breaking ignores
      isolation, so the dot still cannot start a line. Left-to-right is left as it was. */
   .time-location .event-weather:dir(rtl) .event-weather-text > span + span::before {
+    unicode-bidi: isolate;
+  }
+
+  /* And each chip is isolated too, right-to-left, so the line orders the chips rather than
+     their letters. Left in the line, adjacent left-to-right chips joined one run with the
+     separator between them, which a right-to-left line draws as one piece: "12°", "UV3" and
+     "Partly cloudy" read 12° · Partly cloudy · UV3, and a wrapped row stranded a dot between
+     the wrong two chips. Each chip's separator is its own ::before, inside the isolate, which
+     lays it out at the chip's start, between it and the chip before. Line breaking ignores
+     isolation, so a condition still wraps inside its chip. The badge beside a list title has
+     the same chips without the dots and read UV3 before 12°, so it is isolated as well.
+     Left-to-right is left as it was. */
+  .event-weather:dir(rtl) .event-weather-text > span {
     unicode-bidi: isolate;
   }
 

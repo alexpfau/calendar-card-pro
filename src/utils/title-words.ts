@@ -118,6 +118,24 @@ function leadingRun(run: string): TitleSegment[] {
 const AFTER_HYPHEN = /(?<=[\p{L}\p{N}][-\u2010\u2013\u2014])(?=[\p{L}\p{N}])/u;
 
 /**
+ * The direction a title reads in, from its first letter or direction mark, as `dir="auto"`
+ * decides it. Only for the scripts `RIGHT_TO_LEFT_SCRIPT` names; a right-to-left script it does
+ * not reads left to right here.
+ *
+ * @param title - The title as it is shown
+ * @returns Its direction, or undefined for a title with no letter in it
+ */
+export function titleDirection(title: string): 'ltr' | 'rtl' | undefined {
+  // A direction mark is as strong as a letter: LEFT-TO-RIGHT MARK, then RIGHT-TO-LEFT MARK and
+  // ARABIC LETTER MARK.
+  const strong = title.match(/[\p{L}\u200E\u200F\u061C]/u)?.[0];
+  if (!strong) return undefined;
+  if (strong === '\u200E') return 'ltr';
+  if (strong === '\u200F' || strong === '\u061C') return 'rtl';
+  return RIGHT_TO_LEFT_SCRIPT.test(strong) ? 'rtl' : 'ltr';
+}
+
+/**
  * Split a title into the words it may wrap between.
  *
  * @param title - The title as it is shown
