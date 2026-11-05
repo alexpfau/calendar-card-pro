@@ -169,7 +169,7 @@ describe('Day.js source API guard', () => {
     const code = readFileSync(join(process.cwd(), 'src/translations/dayjs.ts'), 'utf8');
     const imports = validateDayjsUsage(code, 'dayjs.ts');
     expect(imports).toContain('dayjs/plugin/relativeTime');
-    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(35);
+    expect(imports.filter((id: string) => id.startsWith('dayjs/locale/'))).toHaveLength(37);
     expect(() =>
       validateDayjsUsage(
         source('const target=dayjs(date).locale(locale);return target.from(dayjs(date));'),
@@ -291,6 +291,42 @@ describe('fail-closed locale trimming', () => {
     expect(compacted.relativeTime.mm(7)).toBe(original.relativeTime.mm(7));
   });
 
+  it('follows a formatter kept on a local helper object, as Serbian keeps it', () => {
+    const code = locale(
+      'months:"One_Two".split("_")',
+      `{${grammar.replace('mm:"%d minutes"', 'mm:t.format')}}`,
+    ).replace(
+      'var data=',
+      'var t={words:{mm:"%d units"},format:function(n){return t.words.mm.replace("%d",n)}};var data=',
+    );
+    const result = trimDayjsLocaleFields(code, '/locales/xx.js');
+    expect(result).not.toContain('months:');
+    const original = runInNewContext(`${code};factory({locale(){}})`);
+    const compacted = runInNewContext(`${result};factory({locale(){}})`);
+    expect(compacted.relativeTime.mm(7)).toBe('7 units');
+    expect(compacted.relativeTime.mm(7)).toBe(original.relativeTime.mm(7));
+  });
+
+  it.each([
+    ['var t=make();', 't.format', /relativeTime.mm/],
+    ['var t={format:dynamic()};', 't.format', /relativeTime.mm/],
+    ['var t={other:function(){}};', 't.format', /relativeTime.mm/],
+    ['var t={format:function(){},format:function(){}};', 't.format', /relativeTime.mm/],
+    ['var t={...base,format:function(){}};', 't.format', /relativeTime.mm/],
+    ['var t={["format"]:function(){}};', 't.format', /static property key/],
+    ['var t={get format(){return function(){}}};', 't.format', /relativeTime.mm/],
+    ['var t={format:function(){}};', 'other.t.format', /relativeTime.mm/],
+  ])(
+    'rejects a helper-object formatter it cannot see statically: %s %s',
+    (helper, value, diagnostic) => {
+      const code = locale('', `{${grammar.replace('mm:"%d minutes"', `mm:${value}`)}}`).replace(
+        'var data=',
+        `${helper}var data=`,
+      );
+      expect(() => trimDayjsLocaleFields(code, '/locales/xx.js')).toThrow(diagnostic);
+    },
+  );
+
   it.each([
     [locale().replace('name:"xx"', 'name:"other"'), /filename/],
     [locale().replace('name:"xx"', 'name:dynamic'), /filename/],
@@ -355,7 +391,7 @@ describe('fail-closed locale trimming', () => {
       },
     });
     const payloads = watched.filter((file) => /dayjs[/\\]locale[/\\].+\.js$/.test(file));
-    expect(payloads).toHaveLength(35);
+    expect(payloads).toHaveLength(37);
     expect(watched).toContain(join(process.cwd(), 'src/calendar-card-pro.ts'));
     expect(watched).toContain(join(process.cwd(), 'src'));
     for (const file of payloads) {

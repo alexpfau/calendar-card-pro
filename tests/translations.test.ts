@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { getRelativeTimeString } from '../src/translations/dayjs';
+import {
+  getNowString,
+  getRelativeTimeString,
+  getRelativeUnitString,
+} from '../src/translations/dayjs';
 import en from '../src/translations/languages/en.json';
 import { TRANSLATIONS, getEffectiveLanguage, getTranslations } from '../src/translations/localize';
 import { formatEventTime } from '../src/utils/format';
@@ -79,6 +83,14 @@ describe('getEffectiveLanguage', () => {
       expect(resolved, `${language} did not resolve to itself`).toBe(language.toLowerCase());
     }
   });
+
+  it("resolves Home Assistant's two Serbian languages to their own scripts", () => {
+    // Home Assistant ships `sr`, which is Cyrillic, and `sr-Latn`. Reducing `sr-Latn` to
+    // its base code would turn a Latin-script user's card Cyrillic.
+    expect(getEffectiveLanguage(undefined, { language: 'sr' })).toBe('sr');
+    expect(getEffectiveLanguage(undefined, { language: 'sr-Latn' })).toBe('sr-latn');
+    expect(getEffectiveLanguage(undefined, { language: 'sr-RS' })).toBe('sr');
+  });
 });
 
 describe('getTranslations', () => {
@@ -131,7 +143,7 @@ describe('locale mapping', () => {
   });
 
   it('keeps the Chinese variants distinct from each other', () => {
-    // zh-cn and zh-tw are the two special cases that survive reduction.
+    // zh-cn and zh-tw survive reduction, as does sr-latn, which the script test below covers.
     const simplified = getRelativeTimeString(future, 'zh-cn', reference);
     const traditional = getRelativeTimeString(future, 'zh-tw', reference);
     expect(simplified).not.toBe(getRelativeTimeString(future, 'en', reference));
@@ -186,6 +198,32 @@ describe('relative time localization', () => {
   });
 });
 
+describe('relative times are written in the script of their language', () => {
+  // Relative times come from two libraries, and the two can disagree about what a language
+  // tag means. Day.js names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`,
+  // while `Intl` and Home Assistant read `sr` as Cyrillic. A tag handed to both unchanged
+  // writes "in 2 days" in one script and "now" and every other string in another, and the
+  // English-fallback test above cannot see it, because neither string is English.
+  //
+  // The oracle is the language's own day names, which come from its translation file rather
+  // than from either library.
+  const SCRIPTS = ['Latin', 'Cyrillic', 'Greek', 'Hebrew', 'Thai', 'Han', 'Hangul'] as const;
+  const scriptsOf = (text: string): string[] =>
+    SCRIPTS.filter((script) => new RegExp(`\\p{Script=${script}}`, 'u').test(text));
+
+  const reference = new Date('2026-06-15T12:00:00Z');
+  const future = new Date('2026-06-17T12:00:00Z');
+
+  it.each(LANGUAGES)('%s uses the script of its own day names', (language) => {
+    const own = scriptsOf(getTranslations(language).fullDaysOfWeek.join(' '));
+    expect(own, `${language}'s day names should be in one script`).toHaveLength(1);
+
+    expect(scriptsOf(getRelativeTimeString(future, language, reference)), 'Day.js').toEqual(own);
+    expect(scriptsOf(getRelativeUnitString(2, 'day', language)), 'Intl, days').toEqual(own);
+    expect(scriptsOf(getNowString(language)), 'Intl, now').toEqual(own);
+  });
+});
+
 describe('the weekday casing split is intentional and stays that way', () => {
   // `fullDaysOfWeek` and `daysOfWeek` are two arrays for two grammatical positions, and
   // the difference is deliberate: `daysOfWeek` is a standalone day-header label, while
@@ -220,6 +258,8 @@ describe('the weekday casing split is intentional and stays that way', () => {
     'pt',
     'sv',
     'vi',
+    'sr',
+    'sr-latn',
   ] as const;
 
   it.each(SPLIT_CORRECT)('%s keeps running-text lower-case against a capitalized label', (code) => {
@@ -254,6 +294,8 @@ describe('the weekday casing split is intentional and stays that way', () => {
     expect(getTranslations('ru').fullDaysOfWeek[1]).toBe('понедельника');
     expect(getTranslations('uk').fullDaysOfWeek[1]).toBe('понеділка');
     expect(getTranslations('pl').fullDaysOfWeek[1]).toBe('poniedziałku');
+    expect(getTranslations('sr').fullDaysOfWeek[1]).toBe('понедељка');
+    expect(getTranslations('sr-latn').fullDaysOfWeek[1]).toBe('ponedeljka');
   });
 
   // The rule above is only safe because something else supplies the capital a sentence
@@ -309,5 +351,74 @@ describe('the weekday casing split is intentional and stays that way', () => {
       expect(weekday[0]).toBe(weekday[0].toLocaleUpperCase('de'));
       expect(rendered).toContain(` ${weekday},`);
     });
+  });
+});
+
+describe('Serbian is one translation in two scripts', () => {
+  // `sr-Latn.json` is `sr.json` written in Latin letters, word for word. Editing one file and
+  // not the other would give Cyrillic and Latin users different wording, and nothing else
+  // compares the two. Cyrillic to Latin is unambiguous letter by letter, so the Latin file
+  // can be derived and compared exactly.
+  const LATIN: Record<string, string> = {
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    ђ: 'đ',
+    е: 'e',
+    ж: 'ž',
+    з: 'z',
+    и: 'i',
+    ј: 'j',
+    к: 'k',
+    л: 'l',
+    љ: 'lj',
+    м: 'm',
+    н: 'n',
+    њ: 'nj',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    ћ: 'ć',
+    у: 'u',
+    ф: 'f',
+    х: 'h',
+    ц: 'c',
+    ч: 'č',
+    џ: 'dž',
+    ш: 'š',
+  };
+
+  const toLatin = (text: string): string =>
+    [...text]
+      .map((char) => {
+        const lower = char.toLowerCase();
+        const latin = LATIN[lower];
+        if (latin === undefined) return char;
+        return char === lower ? latin : latin.charAt(0).toUpperCase() + latin.slice(1);
+      })
+      .join('');
+
+  const values = (language: string): Record<string, string | string[]> =>
+    getTranslations(language) as unknown as Record<string, string | string[]>;
+
+  it('writes sr.json in Cyrillic alone', () => {
+    // Guards the comparison below, which would pass trivially on two Latin files.
+    const text = Object.values(values('sr')).flat().join(' ');
+    expect(text).toMatch(/\p{Script=Cyrillic}/u);
+    expect(text).not.toMatch(/\p{Script=Latin}/u);
+  });
+
+  it('transliterates sr.json into sr-Latn.json exactly', () => {
+    const derived = Object.fromEntries(
+      Object.entries(values('sr')).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value.map(toLatin) : toLatin(value),
+      ]),
+    );
+    expect(values('sr-latn')).toEqual(derived);
   });
 });

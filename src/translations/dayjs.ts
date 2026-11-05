@@ -35,6 +35,8 @@ import 'dayjs/locale/ro';
 import 'dayjs/locale/ru';
 import 'dayjs/locale/sk';
 import 'dayjs/locale/sl';
+import 'dayjs/locale/sr';
+import 'dayjs/locale/sr-cyrl';
 import 'dayjs/locale/sv';
 import 'dayjs/locale/th';
 import 'dayjs/locale/tr';
@@ -71,7 +73,7 @@ const nowLabels = new Map<string, string>();
  * The language's own word for "now", capitalized to stand at the start of a label.
  *
  * `Intl.RelativeTimeFormat` with `numeric: 'auto'` formats zero seconds as that word —
- * "now", "jetzt", "maintenant", "現在" — so the label costs no entry in the card's 36
+ * "now", "jetzt", "maintenant", "現在" — so the label costs no entry in the card's
  * translation files. Where a browser ships no relative-time data for a language it answers
  * in English rather than failing. Measured in Playwright's Chromium, whose reduced ICU
  * answers in English for Icelandic and Nynorsk; Node's full ICU carries both.
@@ -100,22 +102,47 @@ export function getNowString(locale: string): string {
  */
 export function getRelativeTimeString(date: Date, locale: string, reference?: Date): string {
   const mappedLocale = mapLocale(locale);
-  const target = dayjs(date).locale(mappedLocale);
+  // A plain identifier, because the Day.js source guard in scripts/compact-payloads.mjs admits
+  // nothing else as the argument to locale().
+  const dayjsLocale = DAYJS_LOCALE_NAMES[mappedLocale] ?? mappedLocale;
+  const target = dayjs(date).locale(dayjsLocale);
   return reference ? target.from(dayjs(reference)) : target.fromNow();
 }
 
 /**
- * Map Home Assistant/Card locale to dayjs locale if needed
+ * Languages whose Day.js locale goes by a different name than their language tag.
+ *
+ * Day.js names the Serbian scripts the opposite way round from BCP 47: its `sr` locale is
+ * Latin and its Cyrillic one is `sr-cyrl`, where `Intl` and Home Assistant read a bare `sr`
+ * as Cyrillic and write Latin as `sr-Latn`. {@link mapLocale} returns the language tag,
+ * which `Intl` gets as it is; only the Day.js call is told the other name. Passing `sr`
+ * straight to Day.js would give Cyrillic users Latin relative times, with every other
+ * string on the card still in Cyrillic.
+ */
+const DAYJS_LOCALE_NAMES: Record<string, string> = {
+  sr: 'sr-cyrl',
+  'sr-latn': 'sr',
+};
+
+/**
+ * Map a Home Assistant or card language to the language tag relative times are formatted in.
+ *
+ * @param locale Language code, in any casing
+ * @returns A tag in `supportedLocales`, or `'en'`; Day.js may know it by another name
+ *   ({@link DAYJS_LOCALE_NAMES})
  */
 function mapLocale(locale: string): string {
   const lowerLocale = locale.toLowerCase();
-  if (lowerLocale === 'zh-cn' || lowerLocale === 'zh-tw') {
+
+  // These keep their second subtag, because it changes the script rather than only the region.
+  if (lowerLocale === 'zh-cn' || lowerLocale === 'zh-tw' || lowerLocale === 'sr-latn') {
     return lowerLocale;
   }
 
   const baseLocale = lowerLocale.split('-')[0];
 
-  // Must match the imported locales, or dayjs falls back to English relative times.
+  // Once renamed through DAYJS_LOCALE_NAMES, must match the imported locales, or dayjs falls
+  // back to English relative times.
   const supportedLocales = [
     'bg',
     'ca',
@@ -145,6 +172,8 @@ function mapLocale(locale: string): string {
     'ru',
     'sk',
     'sl',
+    'sr',
+    'sr-latn',
     'sv',
     'th',
     'tr',

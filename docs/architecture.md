@@ -74,7 +74,7 @@ src/
 │   ├── dayjs.ts                  # Relative-time localization
 │   ├── language-codes.ts         # Card-language codes and language selection, table-free
 │   ├── localize.ts               # Translation functions
-│   └── languages/                # Translation files (36 supported languages)
+│   └── languages/                # Translation files (38 supported languages)
 │       ├── en.json               # English translations
 │       ├── de.json               # German translations
 │       └── ...                   # Other language files

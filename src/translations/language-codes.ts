@@ -43,6 +43,8 @@ export const CARD_LANGUAGES = [
   'ru',
   'sk',
   'sl',
+  'sr',
+  'sr-latn',
   'sv',
   'th',
   'tr',

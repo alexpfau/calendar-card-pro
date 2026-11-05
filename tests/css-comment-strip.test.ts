@@ -279,8 +279,13 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(194_000);
-    // The pre-release layout fixes moved the ceiling last, from 191,000 to 194,000: the notes on
+    expect(saved).toBeLessThan(197_000);
+    // Merging v5.0.1 into v5.1 moved the ceiling last, from 194,000 to 197,000: the iOS 16 fix's
+    // notes on why every relative color also requires content-visibility, and why the probe
+    // must not name a color-mix() origin. The reading went from 193,577 to 194,199, taken with
+    // stripComments on the merged stylesheet.
+    //
+    // The pre-release layout fixes moved the ceiling before that, from 191,000 to 194,000: the notes on
     // why the countdown dot keeps its lead-in after a multi-day end phrase, why list view's
     // countdown wraps between words only where it is wider than its row, why a grid block's
     // detail rows give up the end gutter list and column keep, and why the grid's all-day band

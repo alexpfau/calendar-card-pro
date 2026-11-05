@@ -515,6 +515,35 @@ function relativeValue(node, symbol, seen = new Set()) {
   node = unwrap(node);
   if (ts.isStringLiteralLike(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node))
     return true;
+  // Serbian keeps its formatter on a helper object (translator.relativeTimeFormatter). Follow
+  // that only into a local object literal of plain, static properties with one match.
+  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)) {
+    const declaration = symbol(node.expression)?.valueDeclaration;
+    if (
+      !declaration ||
+      seen.has(declaration) ||
+      !ts.isVariableDeclaration(declaration) ||
+      !declaration.initializer
+    ) {
+      return false;
+    }
+    const holder = unwrap(declaration.initializer);
+    if (
+      !ts.isObjectLiteralExpression(holder) ||
+      !holder.properties.every(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)),
+      )
+    ) {
+      return false;
+    }
+    const matches = holder.properties.filter((property) => property.name.text === node.name.text);
+    return (
+      matches.length === 1 &&
+      relativeValue(matches[0].initializer, symbol, new Set([...seen, declaration]))
+    );
+  }
   if (!ts.isIdentifier(node)) return false;
   const declaration = symbol(node)?.valueDeclaration;
   if (!declaration || seen.has(declaration)) return false;

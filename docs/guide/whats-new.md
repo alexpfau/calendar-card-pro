@@ -39,6 +39,8 @@ public release in January 2025 to today.
 - 🐛 **A Card With No Actions Behaved Like a Button**: with `tap_action` and `hold_action` both at their `none` default, the card still showed a hand cursor and ripple, took keyboard focus, and dispatched the empty action on every tap, Enter and Space. Those affordances now appear only when an action is configured
 - 🐛 **A Second Finger Could Steal a Hold**: a second touch took over an active hold, so releasing it could trigger an action begun with the first finger, and a hold disc already drawn could stay on the dashboard until the page was reloaded
 - 🐛 **A Card Off Screen Could Start Itself Again**: switching dashboard tabs disconnects a card without destroying it. Disconnecting stopped its refresh timer and title template, but a configuration change or a queued repaint arriving afterwards restarted them on the detached card, with nothing left to stop them
+- 🐛 **Back on iOS 15 and 16**: v5.0.1 stops the card from crashing the Home Assistant app on iOS and iPadOS 16, where the colors of the today tile, the all-day badges and accent-colored text took Safari down, and lets it load again on iOS 15. The [installation guide](/guide/installation#browser-support) now says which iPhones and iPads can run it
+- 🌍 **Serbian**: v5.0.1 adds Serbian, in Cyrillic and Latin script, with dates, relative times and weather conditions in the script Home Assistant uses
 
 ## v4.2
 

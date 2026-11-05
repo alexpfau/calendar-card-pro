@@ -1618,8 +1618,9 @@ export const cardStyles = css`
      lightness, so each half takes its lightness from the mix and its chroma back up toward
      the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
      the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
-     so a half-transparent indicator color still gives a solid number. */
-  @supports (color: oklch(from red l c h)) {
+     so a half-transparent indicator color still gives a solid number. Gated as the pill's
+     relative-color tier is (#731). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
     .day.today-tile {
       background: oklch(
         from
@@ -1884,7 +1885,8 @@ export const cardStyles = css`
     }
   }
 
-  @supports (color: oklch(from red l c h)) {
+  /* Gated as the all-day badge's relative-color tier is (#731). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
     .event {
       --calendar-card-accent-ink: oklch(
         from
@@ -1927,7 +1929,8 @@ export const cardStyles = css`
     }
   }
 
-  @supports (color: oklch(from red l c h)) {
+  /* Gated as the all-day badge's relative-color tier is (#731). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
     .event-now {
       --calendar-card-now-ink: oklch(
         from
@@ -3406,8 +3409,14 @@ export const cardStyles = css`
    * existed to escape cannot recur, for any theme or any hue.
    *
    * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
-   * is still an improvement on sRGB; below that again the sRGB rule is the floor. */
-  @supports (color: oklch(from red l c h)) {
+   * is still an improvement on sRGB; below that again the sRGB rule is the floor.
+   *
+   * Safari 18 is named indirectly (#731). Safari 16.4 to 17.6 pass the first condition, as a
+   * plain origin works, but read a color-mix() origin as a keyword, which on Safari 16 can
+   * crash the whole page. A condition naming that origin runs the same code, so the second
+   * tests content-visibility, first on in Safari 18.0; Chrome and Firefox had it before
+   * relative color, so for them the first still decides. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: oklch(
@@ -3436,7 +3445,7 @@ export const cardStyles = css`
    *
    * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
-  @supports (color: oklch(from red l c h)) {
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
     .allday-pill-filled {
       color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
       background-color: var(--badge-solid);
