@@ -74,6 +74,7 @@ import * as LiveCalendars from './utils/live-calendars';
 import * as Logger from './utils/logger';
 import * as Paging from './utils/paging';
 import * as Search from './utils/search';
+import * as StartDate from './utils/start-date';
 import * as Templates from './utils/templates';
 import {
   TitleMotionController,
@@ -3287,6 +3288,32 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Whether this update's `hass` moved the window home opens with, the configuration unchanged.
+   *
+   * `first_day_of_week: system` follows the profile: its first weekday, or its language when that
+   * is left at the language's default. Under a week-relative `start_date` a profile change therefore
+   * moves home, which the card draws at once and the cache keys by the resolved weekday, while
+   * nothing asked for the new window: the card drew it with the old window's events, without any
+   * on the day it gained, until its next refresh. A page is not asked for again, since its first
+   * day is a date; home loads when the card goes back to it.
+   *
+   * @param changedProps - Properties changed in this update
+   * @returns True when home now starts on another day of the week
+   */
+  private _homeWeekMoved(changedProps: PropertyValues): boolean {
+    const previous = changedProps.get('hass') as Types.Hass | undefined;
+    const startDate = this.config?.start_date;
+    if (!previous || !this.hass || this._pageRequested !== null) return false;
+    if (typeof startDate !== 'string' || !StartDate.isWeekRelative(startDate)) return false;
+
+    const setting = this.config.first_day_of_week;
+    return (
+      FormatUtils.getFirstDayOfWeek(setting, previous.locale) !==
+      FormatUtils.getFirstDayOfWeek(setting, this.hass.locale)
+    );
+  }
+
+  /**
    * Whether this update can have changed what the grid's fitting passes measured.
    *
    * Unrelated Home Assistant state ticks must not remeasure thousands of unchanged blocks, and
@@ -3441,6 +3468,8 @@ class CalendarCardPro extends LitElement {
     // once did, threw away the cached events that load had just drawn.
     if (hassJustAvailable && this._appearLoadPending) {
       this.updateEvents('navigate');
+    } else if (!this._appearLoadPending && this._homeWeekMoved(changedProps)) {
+      this.updateEvents('cache');
     }
 
     const prevConfig = changedProps.get('config') as Types.Config | undefined;
