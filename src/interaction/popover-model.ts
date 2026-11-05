@@ -90,6 +90,12 @@ export interface PopoverParams {
   calendars: PopoverCalendar[];
   /** Where a new event starts and ends. */
   times?: Times.EventTimes;
+  /**
+   * Where a drag in a grid dropped an existing repeating event. The popover opens with the event
+   * moved there, its repeat moved with it, and asks at once which occurrences the move covers;
+   * backing out of that question throws the move away.
+   */
+  moved?: Times.EventTimes;
   /** Home Assistant's language, for dates and day names. */
   language: string;
   /** Whether times read on a 24-hour clock, as the card's rows read them. */
@@ -170,6 +176,18 @@ export function draftFromParams(params: PopoverParams, now: Date = new Date()): 
     repeat: RRule.parseRRule(entry.rrule),
     storedRule: entry.rrule || undefined,
   };
+}
+
+/**
+ * A draft moved to new times, its repeat moved with it so the series stays on the day the event
+ * moved to (`rebaseRepeat`), as changing the times in the popover moves it.
+ *
+ * @param draft - The draft
+ * @param times - Its new span
+ * @returns The moved draft
+ */
+export function moveDraft(draft: Draft, times: Times.EventTimes): Draft {
+  return { ...draft, times, repeat: rebaseRepeat(draft.repeat, draft.times.start, times.start) };
 }
 
 /** RFC 5545's weekday for each `Date.getDay()`, Sunday first. */

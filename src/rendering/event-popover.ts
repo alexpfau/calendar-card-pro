@@ -194,8 +194,11 @@ export class EventPopover extends Shell.PopoverShell {
       return;
     }
     this._params = params;
-    this._draft = draft;
     this._original = { ...draft, times: { ...draft.times } };
+    // Dropped by a drag: the move is the change, and the only question left is which
+    // occurrences it covers (`_requestClose` asks it for a repeating event).
+    this._draft =
+      params.mode === 'event' && params.moved ? Model.moveDraft(draft, params.moved) : draft;
     this._timedBefore = undefined;
     this._onClosed = params.closed;
     // Nothing is being edited when it opens. A new event opened by mouse or key starts in its
@@ -207,7 +210,7 @@ export class EventPopover extends Shell.PopoverShell {
     const pressedWith = params.anchor?.pointerType;
     this._touched = pressedWith === 'touch' || pressedWith === 'pen';
     this._ghostPossible = this._touched;
-    this._phase = 'edit';
+    this._phase = this._recurring && this._dropped ? 'update' : 'edit';
     this._error = undefined;
     this._map = undefined;
     this._place = undefined;
@@ -277,6 +280,23 @@ export class EventPopover extends Shell.PopoverShell {
   /** Whether the event pressed repeats, so a change or a delete asks which occurrences. */
   private get _recurring(): boolean {
     return Boolean(this._params?.entry?.recurrence_id);
+  }
+
+  /** Whether the popover opened on an event a drag dropped at new times (`moved`). */
+  private get _dropped(): boolean {
+    return this._params?.mode === 'event' && this._params.moved !== undefined;
+  }
+
+  /**
+   * Backs out of a question: back to the event, or, for the question a drop asks, out of the
+   * popover with the move thrown away, since the move was all there was to answer for.
+   */
+  private _backOut(): void {
+    if (this._phase === 'update' && this._dropped) {
+      this._requestClose('discard');
+      return;
+    }
+    this._phase = 'edit';
   }
 
   /** Whether a save or a delete is waiting on Home Assistant. */
@@ -493,7 +513,7 @@ export class EventPopover extends Shell.PopoverShell {
   private readonly _onCancel = (ev: Event): void => {
     ev.preventDefault();
     if (this._phase === 'update' || this._phase === 'delete') {
-      this._phase = 'edit';
+      this._backOut();
       return;
     }
     this._requestClose('discard');
@@ -1233,7 +1253,7 @@ export class EventPopover extends Shell.PopoverShell {
         <button class="btn" @click=${() => void this._requestClose('save', '')}>
           ${this._t('thisEvent')}
         </button>
-        <button class="btn" @click=${() => (this._phase = 'edit')}>${this._t('cancel')}</button>
+        <button class="btn" @click=${() => this._backOut()}>${this._t('cancel')}</button>
       </div>`;
     }
     if (this._phase !== 'delete') return nothing;
