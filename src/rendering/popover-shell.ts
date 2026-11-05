@@ -557,6 +557,61 @@ export const cellStyles = css`
 `;
 
 //-----------------------------------------------------------------------------
+// SCROLLING
+//-----------------------------------------------------------------------------
+
+/**
+ * Whether an element can still scroll some way: down or up for a vertical move, toward the end
+ * or the start for a horizontal one, in either writing direction.
+ *
+ * @param element - The element
+ * @param dx - How far the move scrolls across, positive toward the right
+ * @param dy - How far it scrolls down, positive downward
+ * @returns True where the element takes the move
+ */
+function canScroll(element: Element, dx: number, dy: number): boolean {
+  const style = getComputedStyle(element);
+  const scrolls = (overflow: string): boolean => overflow === 'auto' || overflow === 'scroll';
+  if (dy !== 0 && scrolls(style.overflowY)) {
+    const room = element.scrollHeight - element.clientHeight;
+    if (room > 0 && (dy < 0 ? element.scrollTop > 0 : element.scrollTop < room - 1)) return true;
+  }
+  if (dx !== 0 && scrolls(style.overflowX)) {
+    const room = element.scrollWidth - element.clientWidth;
+    // Right to left, scrolling runs from 0 at the start to -room at the end.
+    const [min, max] = style.direction === 'rtl' ? [-room, 0] : [0, room];
+    if (room > 0 && (dx < 0 ? element.scrollLeft > min + 1 : element.scrollLeft < max - 1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a move scrolls something inside a dialog: an element between where it happened and the
+ * dialog that can still scroll its way. A move on the backdrop happens on the dialog itself, and
+ * scrolls nothing inside it.
+ *
+ * @param path - The move's composed path
+ * @param dialog - The dialog
+ * @param dx - How far it scrolls across
+ * @param dy - How far it scrolls down
+ * @returns True where something inside takes it
+ */
+function scrollsInside(
+  path: ReadonlyArray<EventTarget>,
+  dialog: Element | null,
+  dx: number,
+  dy: number,
+): boolean {
+  for (const target of path) {
+    if (target === dialog) return false;
+    if (target instanceof Element && canScroll(target, dx, dy)) return true;
+  }
+  return false;
+}
+
+//-----------------------------------------------------------------------------
 // ELEMENT
 //-----------------------------------------------------------------------------
 
@@ -584,6 +639,10 @@ export abstract class PopoverShell extends LitElement {
 
   /** Opened, and waiting to be attached and drawn before the modal shows. */
   protected _wantOpen = false;
+  /** Whether the page's scrolling is held while the panel is open (`_guardScroll`). */
+  private _scrollGuarded = false;
+  /** Where the finger moving now last was, to tell which way it moves (`_onTouchMove`). */
+  private _touchAt?: { x: number; y: number };
   /** When the modal last showed, which keeps the press that opened it from closing it. */
   protected _openedAt = 0;
   /** Whether the press under way began on the backdrop. */
@@ -618,11 +677,17 @@ export abstract class PopoverShell extends LitElement {
       } catch (error) {
         Logger.warn(`${this._logName}: could not open`, error);
       }
+      this._guardScroll(dialog.open);
       this._position();
       // The modal opens hidden until it is placed, and a hidden control cannot take focus, so
       // the focusing steps of `showModal` land on nothing. Focus once it is drawn in place.
       void this.updateComplete.then(() => this._focusStart());
     }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._guardScroll(false);
   }
 
   /** Puts focus where the panel starts: whatever it marks `autofocus`. */
@@ -631,6 +696,70 @@ export abstract class PopoverShell extends LitElement {
     if (!dialog?.open) return;
     dialog.querySelector<HTMLElement>('[autofocus]')?.focus({ preventScroll: true });
   }
+
+  /**
+   * Keeps the page behind from scrolling while the panel is open, as Home Assistant's own dialogs
+   * do. A modal leaves the page inert to the pointer but not to the wheel or a finger: one over
+   * the backdrop, or over a part of the panel with nothing to scroll, scrolled the dashboard
+   * under a panel that stayed where it was, its beak pointing at nothing. Such a move is stopped;
+   * one that something inside the panel can take, its results or a sheet, is left to it. A pinch,
+   * or Ctrl with the wheel, still zooms.
+   *
+   * Listened for on the window, not the dialog: Chromium scrolls the page under the backdrop
+   * without asking a listener on the dialog, whose box the backdrop is no part of. Not passive,
+   * which stopping needs, and only while the panel is open, so the page scrolls freely otherwise.
+   *
+   * @param on - Whether the panel is open
+   */
+  private _guardScroll(on: boolean): void {
+    if (on === this._scrollGuarded) return;
+    this._scrollGuarded = on;
+    if (on) {
+      window.addEventListener('wheel', this._onWheel, { capture: true, passive: false });
+      window.addEventListener('touchstart', this._onTouchStart, { capture: true, passive: true });
+      window.addEventListener('touchmove', this._onTouchMove, { capture: true, passive: false });
+    } else {
+      window.removeEventListener('wheel', this._onWheel, { capture: true });
+      window.removeEventListener('touchstart', this._onTouchStart, { capture: true });
+      window.removeEventListener('touchmove', this._onTouchMove, { capture: true });
+      this._touchAt = undefined;
+    }
+  }
+
+  /**
+   * Whether a move should be left to the browser: it scrolls something inside the open panel.
+   *
+   * @param ev - The wheel or the finger's move
+   * @param dx - How far it scrolls across
+   * @param dy - How far it scrolls down
+   * @returns True to let it scroll
+   */
+  private _scrollsPanel(ev: Event, dx: number, dy: number): boolean {
+    const dialog = this._dialog;
+    const path = ev.composedPath();
+    return !!dialog && path.includes(dialog) && scrollsInside(path, dialog, dx, dy);
+  }
+
+  private readonly _onWheel = (ev: WheelEvent): void => {
+    if (ev.ctrlKey || this._scrollsPanel(ev, ev.deltaX, ev.deltaY)) return;
+    ev.preventDefault();
+  };
+
+  private readonly _onTouchStart = (ev: TouchEvent): void => {
+    const touch = ev.touches[0];
+    this._touchAt =
+      ev.touches.length === 1 && touch ? { x: touch.clientX, y: touch.clientY } : undefined;
+  };
+
+  private readonly _onTouchMove = (ev: TouchEvent): void => {
+    const touch = ev.touches[0];
+    const from = this._touchAt;
+    if (ev.touches.length !== 1 || !touch || !from) return;
+    this._touchAt = { x: touch.clientX, y: touch.clientY };
+    const dx = from.x - touch.clientX;
+    const dy = from.y - touch.clientY;
+    if (ev.cancelable && !this._scrollsPanel(ev, dx, dy)) ev.preventDefault();
+  };
 
   protected get _dialog(): HTMLDialogElement | null {
     return this.renderRoot?.querySelector('dialog') ?? null;
@@ -699,6 +828,7 @@ export abstract class PopoverShell extends LitElement {
   protected _closeNow(): void {
     const dialog = this._dialog;
     if (dialog?.open) dialog.close();
+    this._guardScroll(false);
     // Canceled after the close, so the panel never flashes back at full size.
     this._leaving?.forEach((animation) => animation.cancel());
     this._leaving = undefined;

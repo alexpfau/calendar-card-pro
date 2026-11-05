@@ -1008,6 +1008,12 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     Assistant's frontend is borrowed beyond that public contract
   - The manager calls `showDialog` before attaching the element, so the popover keeps the
     request and opens its native `<dialog>` with `showModal()` in `updated()`, once it is
+  - Holds the page still while a panel is open (`_guardScroll`), as Home Assistant's own dialogs
+    do: wheel and touch moves are stopped at the window, in the capture phase, unless something
+    inside the dialog can still scroll that way (`scrollsInside`, `canScroll`), so the results, a
+    description and a sheet scroll and the dashboard does not. The listeners sit on the window
+    because Chromium scrolls the page under a modal's backdrop without consulting a listener on
+    the dialog. A pinch, a wheel with Control held, is let through for the browser's zoom
     connected; that puts it in the top layer, above the whole page. Its own `showModal()`
     focusing finds nothing, because the dialog is hidden until it is placed, so it focuses its
     start once placed. For Back the manager calls `closeDialog()` and compares the answer with

@@ -651,6 +651,107 @@ describe('where it opens', () => {
   });
 });
 
+//-----------------------------------------------------------------------------
+// THE PAGE BEHIND
+//-----------------------------------------------------------------------------
+
+describe('the page behind', () => {
+  /** A wheel turned over an element, and whether the panel stopped it scrolling the page. */
+  function wheel(target: EventTarget, init: WheelEventInit = { deltaY: 120 }): boolean {
+    const event = new WheelEvent('wheel', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      ...init,
+    });
+    // happy-dom's WheelEvent leaves the modifier keys out of what it takes.
+    if (init.ctrlKey) Object.defineProperty(event, 'ctrlKey', { value: true });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  /** A finger moving up over an element, and whether the panel stopped it. */
+  function swipe(target: EventTarget): boolean {
+    const touch = (y: number) => ({ identifier: 1, target, clientX: 100, clientY: y }) as Touch;
+    const init = { bubbles: true, composed: true, cancelable: true };
+    target.dispatchEvent(new TouchEvent('touchstart', { ...init, touches: [touch(300)] }));
+    const move = new TouchEvent('touchmove', { ...init, touches: [touch(200)] });
+    target.dispatchEvent(move);
+    return move.defaultPrevented;
+  }
+
+  /** The elements made to scroll, which happy-dom cannot lay out. */
+  const scrollers = new Set<Element>();
+
+  /** Makes the results list scroll, `room` pixels of it, from `top`. */
+  function scrollable(list: HTMLElement, top: number, room = 700): void {
+    Object.defineProperties(list, {
+      scrollHeight: { configurable: true, value: 300 + room },
+      clientHeight: { configurable: true, value: 300 },
+      scrollTop: { configurable: true, value: top, writable: true },
+    });
+    scrollers.add(list);
+  }
+
+  beforeEach(() => {
+    scrollers.clear();
+    const real = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) =>
+      scrollers.has(element)
+        ? ({ overflowX: 'hidden', overflowY: 'auto', direction: 'ltr' } as CSSStyleDeclaration)
+        : real(element, pseudo),
+    );
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('does not scroll under a wheel on the backdrop, or on a part of the panel with nothing to scroll', async () => {
+    const { dialog, field } = await open();
+
+    expect(wheel(dialog())).toBe(true);
+    expect(wheel(field())).toBe(true);
+    expect(wheel(document.body)).toBe(true);
+  });
+
+  it('leaves a wheel to the results while they can still scroll its way', async () => {
+    const { type, root, options } = await open();
+    await type('dent');
+    const list = root.querySelector<HTMLElement>('.results')!;
+
+    scrollable(list, 0);
+    expect(wheel(options()[0], { deltaY: 120 })).toBe(false);
+    expect(wheel(options()[0], { deltaY: -120 })).toBe(true);
+
+    scrollable(list, 700);
+    expect(wheel(options()[0], { deltaY: 120 })).toBe(true);
+    expect(wheel(options()[0], { deltaY: -120 })).toBe(false);
+  });
+
+  it('leaves zooming to the browser', async () => {
+    const { dialog } = await open();
+
+    expect(wheel(dialog(), { deltaY: 120, ctrlKey: true })).toBe(false);
+  });
+
+  it('does not scroll under a finger on the backdrop, and leaves one in the results to them', async () => {
+    const { dialog, type, root, options } = await open();
+    expect(swipe(dialog())).toBe(true);
+
+    await type('dent');
+    scrollable(root.querySelector<HTMLElement>('.results')!, 0);
+    expect(swipe(options()[0])).toBe(false);
+  });
+
+  it('scrolls freely again once the panel has closed', async () => {
+    const panel = await open();
+    panel.el.closeDialog();
+    await vi.waitFor(() => expect(panel.gone).toHaveBeenCalled());
+
+    expect(wheel(document.body)).toBe(false);
+    expect(swipe(document.body)).toBe(false);
+  });
+});
+
 describe('its look', () => {
   it('is placed by its inline position alone, the dialog’s own insets reset', () => {
     // A modal dialog's default insets pin it to the viewport's edges, and in a right-to-left

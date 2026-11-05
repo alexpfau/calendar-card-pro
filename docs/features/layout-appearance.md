@@ -619,7 +619,8 @@ too.
 
 Every word the panel shows is Home Assistant's own, in its language, so it needs no translation
 of the card's. Escape, the close button, a press outside the panel, Back and a change in the
-card's width close it, and focus goes back to the magnifier.
+card's width close it, and focus goes back to the magnifier. While it is open the dashboard
+behind it stays still, and the results scroll.
 
 The first time the panel opens, the card asks Home Assistant for each of its calendars' events
 over the whole two years, one request per calendar, and keeps them in memory for that card while
