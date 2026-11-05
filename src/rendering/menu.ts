@@ -5,12 +5,12 @@
  * narrow card (`toolbar.ts`).
  *
  * Each is opened with `showModal()`. That reaches the browser's top layer, so `ha-card`'s
- * `overflow: hidden` cannot clip it, in every browser Home Assistant still serves; the popover
- * API would need a newer one. A modal dialog makes the rest of the page inert while it is open,
- * so every way it can end, a press outside, Escape, a scroll, a resize, a row picked, the card
- * hiding or its button going, closes it through one path (`closeMenu`). Floating over the
- * events, it has to be opaque even where a theme's card background is not, so its surface is
- * painted when it opens and after every update while it is open (`paintMenu`).
+ * `overflow: hidden` cannot clip it, in every browser Home Assistant still serves; the popover API
+ * would need a newer one. A modal dialog makes the rest of the page inert while it is open, so
+ * every way it can end, a press outside, Escape, a scroll that moves its button, a resize, a row
+ * picked, the card hiding or its button going, closes it through one path (`closeMenu`). Floating
+ * over the events, it has to be opaque even where a theme's card background is not, so its surface
+ * is painted when it opens and after every update while it is open (`paintMenu`).
  */
 
 import { setSurfaceColor, surfaceColor } from './surface';
@@ -126,6 +126,8 @@ interface OpenMenu {
   parts: MenuParts;
   /** Why it is closing, once something asked it to. */
   reason: CloseReason | undefined;
+  /** Where its button was when it was last placed beside it, in the viewport. */
+  placedAt: { top: number; left: number };
   /** Removes every listener the open menu holds. */
   stop: () => void;
 }
@@ -143,15 +145,20 @@ const openMenus = new Map<HTMLDialogElement, OpenMenu>();
  *
  * @param dialog - The open menu
  * @param opener - Its button
+ * @returns Where the button was, which the menu now sits beside
  */
-function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
+function positionMenu(
+  dialog: HTMLDialogElement,
+  opener: HTMLElement,
+): { top: number; left: number } {
   const scrollTop = dialog.scrollTop;
   dialog.style.maxHeight = '';
   const menu = dialog.getBoundingClientRect();
   const view = dialog.ownerDocument.defaultView;
   const rtl = getComputedStyle(opener).direction === 'rtl';
+  const button = opener.getBoundingClientRect();
   const placement = placeMenu(
-    opener.getBoundingClientRect(),
+    button,
     { width: menu.width, height: menu.height },
     { width: view?.innerWidth ?? menu.width, height: view?.innerHeight ?? menu.height },
     rtl,
@@ -160,6 +167,20 @@ function positionMenu(dialog: HTMLDialogElement, opener: HTMLElement): void {
   dialog.style.top = `${placement.top}px`;
   if (placement.maxHeight !== undefined) dialog.style.maxHeight = `${placement.maxHeight}px`;
   dialog.scrollTop = scrollTop;
+  return { top: button.top, left: button.left };
+}
+
+/**
+ * Whether a button has moved in the viewport since its menu was placed beside it, by half a
+ * pixel or more.
+ *
+ * @param opener - The button
+ * @param placedAt - Where it was then
+ * @returns True where the menu no longer sits beside it
+ */
+function moved(opener: HTMLElement, placedAt: { top: number; left: number }): boolean {
+  const now = opener.getBoundingClientRect();
+  return Math.abs(now.top - placedAt.top) >= 0.5 || Math.abs(now.left - placedAt.left) >= 0.5;
 }
 
 /**
@@ -269,15 +290,20 @@ function openMenu(
   }
   // In the same task as showModal, so the menu is never painted where the browser first puts
   // it, in the middle of the viewport, nor see-through for a frame.
-  positionMenu(dialog, opener);
+  const placedAt = positionMenu(dialog, opener);
   paintMenu(dialog, parts);
   if (pressed) dialog.focus({ preventScroll: true });
   opener.setAttribute('aria-expanded', 'true');
 
   const view = dialog.ownerDocument.defaultView ?? window;
-  // A scroll inside the menu is the menu's own; any other moves the button away from it.
+  // A scroll inside the menu is the menu's own. Any other closes it where it moved the button
+  // away from it, and only there: a scroll elsewhere on the dashboard leaves the button where
+  // it was, and the event for a scroll the menu was already placed after can arrive once it is
+  // open, as Firefox's does a few milliseconds late.
   const onScroll = (ev: Event) => {
     if (ev.composedPath().includes(dialog)) return;
+    const open = openMenus.get(dialog);
+    if (open && !moved(opener, open.placedAt)) return;
     closeMenu(dialog, 'scroll');
   };
   const onResize = () => closeMenu(dialog, 'resize');
@@ -291,6 +317,7 @@ function openMenu(
     pressed,
     parts,
     reason: undefined,
+    placedAt,
     stop: () => {
       view.removeEventListener('scroll', onScroll, { capture: true });
       view.removeEventListener('resize', onResize);
@@ -370,7 +397,7 @@ export function repositionMenus(root: ParentNode): void {
     if (!dialog.isConnected || !open.opener.isConnected) {
       closeMenu(dialog, 'gone');
     } else if (root.contains(dialog)) {
-      positionMenu(dialog, open.opener);
+      open.placedAt = positionMenu(dialog, open.opener);
       paintMenu(dialog, open.parts);
     }
   }

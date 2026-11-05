@@ -390,9 +390,9 @@ card draws exactly what `legend: menu` draws, the filter button back at the star
 never some of the chips. They come back once the card is wide enough for them again, as when a
 tablet is turned.
 
-The menu closes on a press outside it, Escape, a scroll or a change in the card's width. The
-button carries a dot while any calendar is hidden, so a card filtered behind a closed menu still
-says so. `legend: false` takes the filter away.
+The menu closes on a press outside it, Escape, a scroll that moves its button or a change in the
+card's width. The button carries a dot while any calendar is hidden, so a card filtered behind a
+closed menu still says so. `legend: false` takes the filter away.
 
 Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
 and named if they fail to load, so a press redraws at once and costs no request. Everything that
@@ -553,9 +553,10 @@ both below 362px.
 
 The menu lists what it holds in the order the row draws it, each with its icon and its name in
 words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
-scroll or a change in the card's width. The add button there opens the new event under the menu
-button. A control that has keyboard focus as it moves into the menu hands focus to the menu
-button. The controls come back into the row as the card widens again, as when a tablet is turned.
+scroll that moves the menu button or a change in the card's width. The add button there opens the
+new event under the menu button. A control that has keyboard focus as it moves into the menu hands
+focus to the menu button. The controls come back into the row as the card widens again, as when a
+tablet is turned.
 
 In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
 toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with
