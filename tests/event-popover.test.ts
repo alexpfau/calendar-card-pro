@@ -1802,6 +1802,8 @@ describe('the page behind', () => {
 
     expect(wheel(dialog)).toBe(true);
     expect(wheel(document.body)).toBe(true);
+    expect(key(root.querySelector('h2#popover-title')!, 'PageDown')).toBe(true);
+    expect(key(root.querySelector('h2#popover-title')!, ' ')).toBe(true);
 
     // Home Assistant hears it has closed at once, while it is still playing its way out: the
     // modal is open until then, and the page stays still with it.
@@ -1809,5 +1811,38 @@ describe('the page behind', () => {
     expect(closed).toHaveBeenCalled();
     await vi.waitFor(() => expect(dialog.open).toBe(false));
     expect(wheel(document.body)).toBe(false);
+    expect(key(document.body, 'PageDown')).toBe(false);
+  });
+
+  /** A key pressed on an element, and whether the popover stopped it scrolling the page. */
+  function key(target: EventTarget, name: string): boolean {
+    const event = new KeyboardEvent('keydown', {
+      key: name,
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  it('leaves each of its controls the keys it takes, and stops the page under the rest', async () => {
+    const { root, press } = await open({});
+    await press(root.querySelector('button.time')!);
+    const toggle = root.querySelector<HTMLInputElement>('input.switch')!;
+    const date = root.querySelector<HTMLInputElement>('input[type="date"]')!;
+    const time = root.querySelector<HTMLInputElement>('input[type="time"]')!;
+    const select = root.querySelector('select')!;
+
+    // A switch takes Space, and nothing that pages.
+    expect(key(toggle, ' ')).toBe(false);
+    expect(key(toggle, 'ArrowDown')).toBe(true);
+    expect(key(toggle, 'PageDown')).toBe(true);
+    // A date, a time or a list of choices takes them all, to change its value.
+    for (const control of [date, time, select]) {
+      for (const name of [' ', 'ArrowDown', 'PageDown', 'End']) {
+        expect(key(control, name)).toBe(false);
+      }
+    }
   });
 });
