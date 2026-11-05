@@ -96,3 +96,72 @@ describe('the menus a card holds', () => {
     expect([Menu.hasOpenMenu(mine), Menu.hasOpenMenu(theirs)]).toEqual([false, true]);
   });
 });
+
+/**
+ * A scroll closes a menu only where it moved the button away from it. Any scroll on the page
+ * closed it before, so one elsewhere on the dashboard did, and so did the event for a scroll the
+ * menu was already placed after, which Firefox delivers a few milliseconds after it opened.
+ */
+describe('a scroll while a menu is open', () => {
+  /** A menu whose button stands where `at` says, which a test moves by changing it. */
+  function placedMenu() {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const menu = addMenu(root, LEGEND);
+    const at = { top: 100, left: 20 };
+    menu.opener.getBoundingClientRect = () =>
+      ({ ...at, right: at.left + 36, bottom: at.top + 36, width: 36, height: 36 }) as DOMRect;
+    menu.opener.click();
+    return { ...menu, root, at };
+  }
+
+  const scroll = (target: EventTarget = window) => target.dispatchEvent(new Event('scroll'));
+
+  it('stays open under a scroll that leaves its button where it was', async () => {
+    const { dialog } = placedMenu();
+    const other = document.createElement('div');
+    document.body.append(other);
+
+    scroll();
+    scroll(other);
+    await closeEvents();
+    expect(dialog.open).toBe(true);
+  });
+
+  it('closes under a scroll that moves its button, down or across', async () => {
+    for (const move of [{ top: 70 }, { left: 21 }]) {
+      const { dialog, opener, at } = placedMenu();
+      Object.assign(at, move);
+
+      scroll();
+      await closeEvents();
+      expect(dialog.open).toBe(false);
+      expect(opener.getAttribute('aria-expanded')).toBe('false');
+      document.body.innerHTML = '';
+    }
+  });
+
+  it('ignores a move of less than half a pixel', async () => {
+    const { dialog, at } = placedMenu();
+    at.top += 0.4;
+
+    scroll();
+    await closeEvents();
+    expect(dialog.open).toBe(true);
+  });
+
+  it('measures from where it was last placed, after the card drew again', async () => {
+    const { dialog, root, at } = placedMenu();
+    at.top = 160;
+    Menu.repositionMenus(root);
+
+    scroll();
+    await closeEvents();
+    expect(dialog.open).toBe(true);
+
+    at.top = 150;
+    scroll();
+    await closeEvents();
+    expect(dialog.open).toBe(false);
+  });
+});

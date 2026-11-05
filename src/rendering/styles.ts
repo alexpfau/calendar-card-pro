@@ -4092,6 +4092,23 @@ export const cardStyles = css`
     height: 16px;
   }
 
+  /* A load the card started itself shows the spinner only once it has lasted as long as the
+     dimmed days wait (.page-pending), as the refresh button turns for one: a load that ends
+     within a few frames, as most do, painted it for those frames alone, a flash with nothing to
+     say. A refresh someone asked for shows it at once. */
+  .loading-indicator.unasked {
+    animation: ccp-appear 0s linear 150ms both;
+  }
+
+  @keyframes ccp-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   @keyframes ccp-spin {
     to {
       transform: rotate(360deg);

@@ -611,6 +611,62 @@ function scrollsInside(
   return false;
 }
 
+/** The keys that scroll a page, and which way: down, or up. Space goes up with Shift. */
+const SCROLL_KEYS: Readonly<Record<string, 1 | -1>> = {
+  ' ': 1,
+  PageDown: 1,
+  End: 1,
+  ArrowDown: 1,
+  PageUp: -1,
+  Home: -1,
+  ArrowUp: -1,
+};
+
+/** Text fields of one line, which take every key that moves in a page but those that page. */
+const LINE_FIELDS = new Set(['text', 'search', 'email', 'url', 'tel', 'password']);
+
+/** Fields that take Space and nothing that moves in a page: it presses or ticks them. */
+const PRESSED_FIELDS = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file']);
+
+/** Roles that take Space as a press, as a button does. */
+const PRESSED_ROLES = /^(?:button|checkbox|switch|radio|tab|option|menuitem(?:checkbox|radio)?)$/;
+
+/**
+ * Whether the control a key was pressed on takes it for itself, rather than the page scrolling
+ * under it. A one-line field takes everything but Page Up and Page Down, which Chromium and
+ * WebKit scroll the page under, and Home and End only while they can move its caret: macOS moves
+ * no caret with them, and the page scrolls instead, so with the caret already at that end of the
+ * field, as typing leaves it, they are stopped everywhere. A button, a switch and the like take
+ * Space; a link takes nothing, and Space scrolls the page from one. A date, a time, a number, a
+ * choice or text of several lines takes them all.
+ *
+ * @param target - Where the key was pressed
+ * @param key - The key
+ * @returns True to leave the key to the control
+ */
+function controlTakes(target: EventTarget | undefined, key: string): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+  if (target instanceof HTMLInputElement) {
+    const type = target.type.toLowerCase();
+    if (LINE_FIELDS.has(type)) {
+      if (key === 'PageDown' || key === 'PageUp') return false;
+      if (key !== 'Home' && key !== 'End') return true;
+      const end = key === 'Home' ? 0 : target.value.length;
+      return !(target.selectionStart === end && target.selectionEnd === end);
+    }
+    if (PRESSED_FIELDS.has(type)) return key === ' ';
+    return true;
+  }
+  if (key !== ' ') return false;
+  return (
+    target instanceof HTMLButtonElement ||
+    target.localName === 'summary' ||
+    PRESSED_ROLES.test(target.getAttribute('role') ?? '')
+  );
+}
+
 //-----------------------------------------------------------------------------
 // ELEMENT
 //-----------------------------------------------------------------------------
@@ -699,11 +755,12 @@ export abstract class PopoverShell extends LitElement {
 
   /**
    * Keeps the page behind from scrolling while the panel is open, as Home Assistant's own dialogs
-   * do. A modal leaves the page inert to the pointer but not to the wheel or a finger: one over
-   * the backdrop, or over a part of the panel with nothing to scroll, scrolled the dashboard
-   * under a panel that stayed where it was, its beak pointing at nothing. Such a move is stopped;
-   * one that something inside the panel can take, its results or a sheet, is left to it. A pinch,
-   * or Ctrl with the wheel, still zooms.
+   * do. A modal leaves the page inert to the pointer but not to the wheel, a finger or the keys
+   * that page: one over the backdrop, or over a part of the panel with nothing to scroll,
+   * scrolled the dashboard under a panel that stayed where it was, its beak pointing at nothing.
+   * Such a move is stopped; one that something inside the panel can take, its results or a
+   * sheet, is left to it, as is a key the control it was pressed on takes (`controlTakes`). A
+   * pinch, or Ctrl with the wheel, still zooms.
    *
    * Listened for on the window, not the dialog: Chromium scrolls the page under the backdrop
    * without asking a listener on the dialog, whose box the backdrop is no part of. Not passive,
@@ -718,10 +775,12 @@ export abstract class PopoverShell extends LitElement {
       window.addEventListener('wheel', this._onWheel, { capture: true, passive: false });
       window.addEventListener('touchstart', this._onTouchStart, { capture: true, passive: true });
       window.addEventListener('touchmove', this._onTouchMove, { capture: true, passive: false });
+      window.addEventListener('keydown', this._onPagingKey, { capture: true });
     } else {
       window.removeEventListener('wheel', this._onWheel, { capture: true });
       window.removeEventListener('touchstart', this._onTouchStart, { capture: true });
       window.removeEventListener('touchmove', this._onTouchMove, { capture: true });
+      window.removeEventListener('keydown', this._onPagingKey, { capture: true });
       this._touchAt = undefined;
     }
   }
@@ -759,6 +818,15 @@ export abstract class PopoverShell extends LitElement {
     const dx = from.x - touch.clientX;
     const dy = from.y - touch.clientY;
     if (ev.cancelable && !this._scrollsPanel(ev, dx, dy)) ev.preventDefault();
+  };
+
+  private readonly _onPagingKey = (ev: KeyboardEvent): void => {
+    if (ev.defaultPrevented || ev.isComposing || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const way = SCROLL_KEYS[ev.key];
+    if (!way) return;
+    const dy = ev.key === ' ' && ev.shiftKey ? -way : way;
+    if (controlTakes(ev.composedPath()[0], ev.key) || this._scrollsPanel(ev, 0, dy)) return;
+    ev.preventDefault();
   };
 
   protected get _dialog(): HTMLDialogElement | null {

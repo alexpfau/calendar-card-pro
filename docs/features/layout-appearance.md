@@ -338,15 +338,15 @@ toolbar:
 It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
-While the card loads, for whatever reason, the button's icon turns, and the small spinner the
-card otherwise shows in its corner is left out, since it would sit right beside it. A load the
-card starts by itself, such as a week it has not shown yet, turns the icon only once it has
-lasted a moment, so one that is over at once does not flicker it. After a press
-it turns for at least one full turn, however quickly the events arrive, so a fast network still
-shows that something happened. Then, for a moment, the button turns green and shows a check, or
-red with an alert where a calendar could not be loaded, and the card names that calendar at its
-foot as it always does. A press does nothing until the button is itself again, nor while the card
-is loading by itself.
+While the card loads, for whatever reason, the button's icon turns, and the small spinner the card
+otherwise shows in its corner is left out, since it would sit right beside it. A load the card
+starts by itself, such as a week it has not shown yet, turns the icon only once it has lasted a
+moment, so one that is over at once does not flicker it. The corner spinner of a card without the
+button waits the same moment before it shows. After a press the button turns for at least one full
+turn, however quickly the events arrive, so a fast network still shows that something happened.
+Then, for a moment, the button turns green and shows a check, or red with an alert where a calendar
+could not be loaded, and the card names that calendar at its foot as it always does. A press does
+nothing until the button is itself again, nor while the card is loading by itself.
 
 The same refresh is available as a [tap or hold action](/features/actions#refreshing-from-a-tap-or-hold),
 for a card that should not carry a button.
@@ -390,9 +390,9 @@ card draws exactly what `legend: menu` draws, the filter button back at the star
 never some of the chips. They come back once the card is wide enough for them again, as when a
 tablet is turned.
 
-The menu closes on a press outside it, Escape, a scroll or a change in the card's width. The
-button carries a dot while any calendar is hidden, so a card filtered behind a closed menu still
-says so. `legend: false` takes the filter away.
+The menu closes on a press outside it, Escape, a scroll that moves its button or a change in the
+card's width. The button carries a dot while any calendar is hidden, so a card filtered behind a
+closed menu still says so. `legend: false` takes the filter away.
 
 Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
 and named if they fail to load, so a press redraws at once and costs no request. Everything that
@@ -449,14 +449,17 @@ One press brings back all of these at once:
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button sits at the end of the top row, before refresh when that is on. It
-shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
-how it is set up, the button is hidden, and it appears the moment something is changed, so a
-glance at the card says whether someone left it on a choice of their own. It keeps its place while
-hidden, so nothing in the toolbar moves when it appears. A press shows a check for a second, as
-refresh does after a reload, then the button fades away. Where it is the only control in the top
-row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card with
-something it could undo: the date navigation, the view switcher, the calendar filter, or an
+The button sits at the end of the top row, before refresh when that is on. It shows a U-turn arrow,
+and Home Assistant's own word "Reset" names it. While the card already shows how it is set up, the
+button is hidden, and it appears the moment something is changed, so a glance at the card says
+whether someone left it on a choice of their own. It goes by what is on screen: a layout picked on
+the switcher that the card is too narrow for leaves List standing in for it, and where the
+configured layout would show List at that width too, there is nothing to undo, so the button stays
+hidden until the card is wide enough again, and a `reset` action does nothing meanwhile. It keeps
+its place while hidden, so nothing in the toolbar moves when it appears. A press shows a check for a
+second, as refresh does after a reload, then the button fades away. Where it is the only control in
+the top row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card
+with something it could undo: the date navigation, the view switcher, the calendar filter, or an
 `expand` action.
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
@@ -550,9 +553,10 @@ both below 362px.
 
 The menu lists what it holds in the order the row draws it, each with its icon and its name in
 words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
-scroll or a change in the card's width. The add button there opens the new event under the menu
-button. A control that has keyboard focus as it moves into the menu hands focus to the menu
-button. The controls come back into the row as the card widens again, as when a tablet is turned.
+scroll that moves the menu button or a change in the card's width. The add button there opens the
+new event under the menu button. A control that has keyboard focus as it moves into the menu hands
+focus to the menu button. The controls come back into the row as the card widens again, as when a
+tablet is turned.
 
 In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
 toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with

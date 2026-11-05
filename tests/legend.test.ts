@@ -1503,13 +1503,22 @@ describe("the menu the legend's button opens", () => {
     expect(root(card).activeElement).toBe(button(card));
   });
 
-  it('closes on a scroll of the page, and not on one inside it', async () => {
+  it('closes on a scroll of the page that moves its button, and not on one inside it', async () => {
     const card = await mountMenu();
     await open(card);
 
     dialog(card).dispatchEvent(new Event('scroll', { composed: true }));
     expect(dialog(card).open).toBe(true);
 
+    // happy-dom lays nothing out, so the scroll moves the button by hand.
+    vi.spyOn(button(card), 'getBoundingClientRect').mockReturnValue({
+      top: -40,
+      left: 0,
+      right: 36,
+      bottom: -4,
+      width: 36,
+      height: 36,
+    } as DOMRect);
     window.dispatchEvent(new Event('scroll'));
     await settle(card);
     expect(dialog(card).open).toBe(false);
