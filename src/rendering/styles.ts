@@ -5680,12 +5680,13 @@ export const cardStyles = css`
      carried 6px of dead slack, which pushed the bar out of every one-hour event at any
      normal density.
 
-     The rows have shrunk since. Measured in Chromium, the title row is now 15.0px, and the
-     bar and the time beneath it take 25.4px since the first row under a title lost its 2px,
-     so they need 40.4px and the rung opens with about 7.6px to spare. It has not moved with
-     them. So a one-hour event at the default 48px hour height, 44px of content, still draws
-     its title and time and stops, and the bar arrives from about 52px of block. Lowering
-     the rung would bring the bar to those events, which is a decision of its own.
+     The rows have shrunk since, and lowering the rung looked as if it would bring the bar to
+     a one-hour event. It cannot. Measured in Chromium, WebKit and Firefox at the default
+     48px hour height, a one-hour block is 45px on screen and 41px of content, and its title,
+     bar and time together need 41.8px: with the rung at 40px the bar appears and the time
+     runs 0.8px past the block in all three. So the rung stays, a one-hour event draws its
+     title and time and stops, and the bar arrives from about 52px of block. Measure again
+     before moving it; these numbers drift with every row's spacing.
 
      Grid always renders the progress row first and keeps it hidden below this rung, so there
      the row after it is the first one drawn, and it takes the first row's spacing until the
