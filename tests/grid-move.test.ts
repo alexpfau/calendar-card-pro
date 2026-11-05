@@ -415,6 +415,8 @@ describe('moving an event in a grid by drag', () => {
       expect(drawn(card)).toEqual([]);
       expect(origin(card, 'Dentist')).toBeNull();
       pointer(dentist, 'pointerup', X(1), Y(16, 30));
+      // A browser may still aim the click it derives from the press at the event.
+      dentist.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
       await settle();
       expect(writes()).toEqual([]);
       expect(dialogs).toEqual([]);

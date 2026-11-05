@@ -5292,6 +5292,13 @@ class CalendarCardPro extends LitElement {
     if (!move) return;
     this._move = null;
     if (!move.started) return;
+    // However it ended, the click a browser derives from the press is not a tap on the event:
+    // thrown away by Escape or a second contact before the pointer lifted, it would otherwise
+    // open the event the press set out to move. Pointer-up guards the same element already.
+    this._derivedClick = {
+      element: move.element,
+      deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW,
+    };
     if (!this._draft) {
       window.removeEventListener('keydown', this._draftKeyDown, true);
       window.removeEventListener('pointerdown', this._draftSecondContact, true);
@@ -5655,7 +5662,8 @@ class CalendarCardPro extends LitElement {
    * indicator and its day's wash, and spring back any days a swipe moved.
    *
    * Leaves `_derivedClick` alone, which outlives the gesture on purpose: pointer-up sets it
-   * just before calling this, for the click that follows.
+   * just before calling this, for the click that follows. The one exception is a press that
+   * lifted an event to move it, which guards that event's click however it ends (`_endMove`).
    */
   private _endGesture(): void {
     if (this._holdTimer) {
