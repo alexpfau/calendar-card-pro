@@ -93,6 +93,8 @@ function defaultCalendars(): Record<string, RawEvent[]> {
 const failing = new Set<string>();
 let holdWide = false;
 const held: Array<() => void> = [];
+/** Months whose page requests are held: a page that has not loaded yet. */
+const heldMonths = new Set<string>();
 
 const callApi = vi.fn(async (_method: string, path: string) => {
   const [, id, query] = /^calendars\/([^?]+)\?(.*)$/.exec(path)!;
@@ -101,6 +103,9 @@ const callApi = vi.fn(async (_method: string, path: string) => {
   const end = Date.parse(params.get('end')!);
   const wide = query === WIDE;
   if (wide && holdWide) await new Promise<void>((resolve) => held.push(resolve));
+  if (!wide && heldMonths.has(params.get('start')!.slice(0, 7))) {
+    await new Promise<void>((resolve) => held.push(resolve));
+  }
   if (wide && failing.has(id)) throw new Error(`${id} is down`);
   const at = (point: RawEvent['start']) => Date.parse(point.dateTime ?? `${point.date}T00:00:00Z`);
   return (calendars[id] ?? []).filter((e) => at(e.start) < end && at(e.end) > start);
@@ -328,11 +333,24 @@ function focused(card: CardUnderTest): Element | null {
   return root(card).activeElement;
 }
 
+/** The month the toolbar names. */
+function month(card: CardUnderTest): string {
+  return root(card).querySelector('.toolbar-month-text')!.textContent!.trim();
+}
+
 /** Press the date navigation's previous, home or next button. */
 async function navigate(card: CardUnderTest, which: 'previous' | 'home' | 'next'): Promise<void> {
   root(card)
     .querySelectorAll<HTMLButtonElement>('.date-navigation-segment')
     [{ previous: 0, home: 1, next: 2 }[which]].click();
+  await settle(card);
+}
+
+/** Pick a day in the date picker, as the browser reports it. */
+async function pickDay(card: CardUnderTest, day: string): Promise<void> {
+  const input = root(card).querySelector<HTMLInputElement>('.toolbar-date-input')!;
+  input.value = day;
+  input.dispatchEvent(new Event('change'));
   await settle(card);
 }
 
@@ -343,6 +361,20 @@ async function typeTerm(term: string): Promise<HTMLInputElement> {
   field.dispatchEvent(new Event('input'));
   await manager.panel!.updateComplete;
   return field;
+}
+
+/** Type a term into the open panel, move to a result, and pick it with Enter. */
+async function pickWithKeyboard(card: CardUnderTest, term: string, downs = 1): Promise<void> {
+  const field = manager.panel!.shadowRoot!.querySelector<HTMLInputElement>('input')!;
+  field.value = term;
+  field.dispatchEvent(new Event('input'));
+  await manager.panel!.updateComplete;
+  for (let press = 0; press < downs; press += 1) {
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await manager.panel!.updateComplete;
+  }
+  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await settle(card);
 }
 
 /** The results the open panel draws, by their accessible names. */
@@ -379,6 +411,7 @@ beforeEach(() => {
   failing.clear();
   holdWide = false;
   held.length = 0;
+  heldMonths.clear();
   callApi.mockClear();
   document.body.innerHTML = '';
   localStorage.clear();
@@ -885,20 +918,6 @@ describe('what a term finds', () => {
 //-----------------------------------------------------------------------------
 
 describe('picking a result', () => {
-  /** Type a term into the open panel, move to a result, and pick it with Enter. */
-  async function pickWithKeyboard(card: CardUnderTest, term: string, downs = 1): Promise<void> {
-    const field = manager.panel!.shadowRoot!.querySelector<HTMLInputElement>('input')!;
-    field.value = term;
-    field.dispatchEvent(new Event('input'));
-    await manager.panel!.updateComplete;
-    for (let press = 0; press < downs; press += 1) {
-      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-      await manager.panel!.updateComplete;
-    }
-    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await settle(card);
-  }
-
   it.each([
     ['list', 'td.event.search-ring'],
     ['column', '.column-events > .event.search-ring'],
@@ -1087,6 +1106,45 @@ describe('a write while the panel is open', () => {
 
     await openSearch(card);
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+  });
+});
+
+describe('a pick whose page the card left before it loaded', () => {
+  it('rings nothing when that page is shown later', async () => {
+    const card = await mount(configFor({ event_tap_action: { action: 'details' } }));
+    await openSearch(card);
+    heldMonths.add('2026-12');
+    await pickWithKeyboard(card, 'check');
+    await afterClose(card);
+    expect(ringed(card)).toBeNull();
+
+    await navigate(card, 'home');
+    heldMonths.clear();
+    held.splice(0).forEach((answer) => answer());
+    await settle(card);
+    expect(month(card)).toBe('June 2026');
+
+    await pickDay(card, '2026-12-08');
+    await afterClose(card);
+    expect(month(card)).toBe('December 2026');
+    expect(root(card).querySelector('td.event')!.textContent).toContain('Dentist check-up');
+    expect(ringed(card)).toBeNull();
+    expect(focused(card)).not.toBe(root(card).querySelector('td.event [role="button"]'));
+  });
+
+  it('still rings once the page it asked for loads late, where the card stayed', async () => {
+    const card = await mount(configFor({ event_tap_action: { action: 'details' } }));
+    await openSearch(card);
+    heldMonths.add('2026-12');
+    await pickWithKeyboard(card, 'check');
+    await afterClose(card);
+    expect(ringed(card)).toBeNull();
+
+    held.splice(0).forEach((answer) => answer());
+    await settle(card);
+    await afterClose(card);
+    expect(month(card)).toBe('December 2026');
+    expect(ringed(card)).toContain('Dentist check-up');
   });
 });
 

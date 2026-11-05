@@ -682,7 +682,9 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   mutation observers would take it for a change of structure. `_syncSearchRing` starts the ring's
   `SEARCH_RING` once it is drawn, and moves focus to the ringed event where it is a target only
   once the panel has gone and Home Assistant has given focus back, two frames after the panel
-  detaches (`_searchGone`). The panel closes before anything takes its magnifier or its anchor
+  detaches (`_searchGone`). A page request for another page (`_requestPage`) drops a ring still
+  waiting for its page, so a pick abandoned before its page loaded never rings later. The panel
+  closes before anything takes its magnifier or its anchor
   away: in `willUpdate` while editing, hiding or without the magnifier, in `_applyVisibility`, on
   a change of width and on disconnect.
 - **Weather is deliberately not a toolbar control.** The toolbar holds things the card

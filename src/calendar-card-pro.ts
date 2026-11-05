@@ -6941,6 +6941,9 @@ class CalendarCardPro extends LitElement {
     // asks through here as well, and records its arrival only once this returns.
     this._swipeArrival = null;
     this._failureCountHint = 0;
+    // Likewise a search ring waiting for another page than this one: it would otherwise ring,
+    // and take focus, whenever that page was next shown, however long after.
+    if (this._searchRing && this._searchRing.page !== page) this._settleSearchRing();
   }
 
   /**

@@ -616,7 +616,8 @@ end, or not fading with reduced motion turned on. Focus moves to the event where
 does something, and stays on the magnifier where it does not. Where the page cannot show the
 event, the card turns to that day all the same and rings nothing: past a compact card's limit, in
 a column the card is too narrow for, and for an event that has ended on the days the card opens
-with while `show_past_events` is off, since those days show no ended event. The
+with while `show_past_events` is off, since those days show no ended event. Page elsewhere
+before that day has loaded, and nothing is ringed when you come back to it. The
 [home button](#paging-through-dates) brings the card back, as after any page. Since a result
 pages the card, the magnifier comes with the date navigation: `navigation: false` takes it away
 too.
