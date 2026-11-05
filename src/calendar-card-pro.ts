@@ -659,7 +659,10 @@ class CalendarCardPro extends LitElement {
   private _effectiveConfigCache?: {
     config: Types.Config;
     view: Types.EffectiveView;
+    loadedDays: number | null;
     resolved: Types.Config;
+    /** The view's own `days_to_show`, before the days drawn wait for a wider load. */
+    configuredDays: number;
   };
 
   private _activePointerId: number | null = null;
@@ -1484,6 +1487,18 @@ class CalendarCardPro extends LitElement {
    */
   private _pageShown: string | null = null;
 
+  /**
+   * How many days the events in `events` were loaded for, or null before any load has put
+   * events there.
+   *
+   * Lags the configuration while a wider load is out, as `_pageShown` lags a page: raising
+   * `days_to_show` past the days loaded keeps the days on screen those the events cover, rather
+   * than adding days that read as empty before anything has been asked about them. Only a
+   * complete load moves it, failures included, since the card names a calendar that failed; a
+   * partial one has not heard from every calendar yet.
+   */
+  private _loadedDaysShown: number | null = null;
+
   /** The configuration a page is drawn and fetched with, per page, for one configuration. */
   private _pageConfigs: { config: Types.Config; pages: Map<string, Types.Config> } | null = null;
 
@@ -1771,15 +1786,26 @@ class CalendarCardPro extends LitElement {
   get effectiveConfig(): Types.Config {
     const view = this.effectiveView;
     const config = this._configForPage(this._pageShown);
+    const loadedDays = this._loadedDaysShown;
     const cache = this._effectiveConfigCache;
 
-    if (cache && cache.config === config && cache.view === view) {
+    if (
+      cache &&
+      cache.config === config &&
+      cache.view === view &&
+      cache.loadedDays === loadedDays
+    ) {
       return cache.resolved;
     }
 
-    const resolved = ViewConfig.resolveEffectiveConfig(config, view);
+    let resolved = ViewConfig.resolveEffectiveConfig(config, view);
+    const configuredDays = resolved.days_to_show;
+    // Days past those the events were loaded for are drawn once a load covering them lands.
+    if (loadedDays !== null && configuredDays > loadedDays) {
+      resolved = { ...resolved, days_to_show: loadedDays };
+    }
 
-    this._effectiveConfigCache = { config, view, resolved };
+    this._effectiveConfigCache = { config, view, loadedDays, resolved, configuredDays };
 
     return resolved;
   }
@@ -1853,9 +1879,14 @@ class CalendarCardPro extends LitElement {
     return ViewConfig.loadConfig(this._configForPage(page));
   }
 
-  /** How many days the view on screen draws: its own `days_to_show`. */
+  /**
+   * How many days the view on screen spans: its own `days_to_show`. Paging, the date picker and
+   * the range follow it at once; only the days drawn wait for a wider load (`_loadedDaysShown`),
+   * so pages stay lined up with home whenever the arrows are pressed.
+   */
   private get _viewDays(): number {
-    return this.effectiveConfig.days_to_show;
+    void this.effectiveConfig;
+    return this._effectiveConfigCache!.configuredDays;
   }
 
   /** Whether the configuration asks for the date navigation. */
@@ -5860,7 +5891,8 @@ class CalendarCardPro extends LitElement {
           this.updateEvents(load, afterWrite);
         }, 1500);
       } else {
-        // Nothing to load, and so nothing failing either.
+        // Nothing to load, and so nothing failing either, and no wider load to draw days for.
+        this._loadedDaysShown = null;
         this._setFailures([]);
         this.isInitialLoad = false;
       }
@@ -5899,7 +5931,7 @@ class CalendarCardPro extends LitElement {
 
     if (draws && snapshot) {
       Logger.info(`Drawing ${snapshot.events.length} cached events`);
-      this._commitEvents(snapshot, instanceId, page);
+      this._commitEvents(snapshot, instanceId, page, config.days_to_show);
     } else if (isAppearLoad && this.events.length > 0) {
       // The element itself still holds events from before it was detached. With nothing
       // cached to replace them, they would be drawn under a config they were not fetched
@@ -5985,6 +6017,7 @@ class CalendarCardPro extends LitElement {
         mayKeepDrawn ? this._keepFailedCalendars(hass, config, result, drawnBefore) : result,
         instanceId,
         page,
+        config.days_to_show,
       );
 
       this.isLoading = false;
@@ -6029,17 +6062,20 @@ class CalendarCardPro extends LitElement {
    * @param result Events and what is known about them
    * @param instanceId Query identity the events were loaded for
    * @param page The page they belong to, null for home; it becomes the page on screen
+   * @param loadedDays How many days they were loaded for (`_loadedDaysShown`)
    */
   private _commitEvents(
     result: Types.EventFetchResult,
     instanceId: string,
     page: string | null,
+    loadedDays: number,
   ): void {
     const failedEntities = result.failedEntities ?? [];
 
     this.events = [...(result.events ?? [])];
     this._eventsInstanceId = instanceId;
     this._pageShown = page;
+    this._loadedDaysShown = loadedDays;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._drawnRaw = result.raw ?? [];
     this._drawnLoadedAt = result.lastSuccess ?? {};
