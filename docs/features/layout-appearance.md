@@ -602,6 +602,10 @@ A search finds only what the card would show on some page, in the words it would
 - **A title is searched as `replace_pattern` rewrites it,** and a location without the country
   `remove_location_country` takes away. A location or a description the card does not show, with
   `show_location` or `show_description` off, is not searched.
+- **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
+  layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
+  outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
+  unless its `time_grid` block turns `show_location` on.
 - **`show_past_events` does not apply.** A search spans its own two years, whatever days the card
   shows.
 

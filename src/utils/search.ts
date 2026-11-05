@@ -9,8 +9,10 @@
  */
 
 import { getCalendarDayDiff, getLocalDateKey, parseAllDayDate } from './format';
+import * as Grid from './grid';
 import { addDays, startOfDay } from './paging';
 import type * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 
 //-----------------------------------------------------------------------------
 // CONSTANTS
@@ -169,27 +171,68 @@ export function searchWindow(now: Date): SearchWindow {
 
 /**
  * The configuration the card's own grouping (`groupEventsByDay`) describes a search's events
- * with: that of the view on screen, so duplicates, splitting and the words drawn are the ones the
- * card draws, opening on the window's first day and spanning all of it, with every past event
- * kept and no empty day made up. The view blocks are left out, since a block outranks the shared
- * value: a view's own `days_to_show` or its default `show_empty_days` would otherwise win.
+ * with, in the view on screen, since a pick pages the card in that view: the view's own, so
+ * duplicates, splitting and the words drawn are the ones the card draws, opening on the
+ * window's first day and spanning all of it, with every past event kept and no empty day made
+ * up. A view's block outranks the shared value, and so does a view's own default (the grid's
+ * `show_empty_days`, say), so those values are written into the view's block as well; the rest
+ * of the block, the grid's hours among it, stays as configured.
  *
  * @param viewConfig - The configuration as it applies to the view on screen
  * @param window - The days searched
- * @returns The configuration to group with, as list view groups
+ * @param view - The view on screen
+ * @returns The configuration to group with, in that view
  */
-export function searchGroupingConfig(viewConfig: Types.Config, window: SearchWindow): Types.Config {
-  return {
-    ...viewConfig,
+export function searchGroupingConfig(
+  viewConfig: Types.Config,
+  window: SearchWindow,
+  view: Types.EffectiveView,
+): Types.Config {
+  const forced = {
     start_date: window.key,
     days_to_show: window.days,
     show_past_events: true,
     show_empty_days: false,
     show_empty_today: false,
-    list: undefined,
-    column: undefined,
-    time_grid: undefined,
   };
+  const config: Record<string, unknown> = { ...viewConfig, ...forced };
+  const blockKey = ViewConfig.VIEW_BLOCKS[view]?.blockKey;
+  if (blockKey) {
+    const block = viewConfig[blockKey];
+    config[blockKey] = { ...(block && typeof block === 'object' ? block : {}), ...forced };
+  }
+  return config as unknown as Types.Config;
+}
+
+/**
+ * The grouping as the view on screen draws it. Grid view draws a timed event's day only where it
+ * reaches into the hours it shows (`renderDayBody`), so a day outside them is left out, by the
+ * grid's own measure and test of it (`segmentMinutes`, `intersectsBand`), and an event none of
+ * whose days reach in is not found. Every other view draws each day its grouping holds.
+ *
+ * @param days - The grouping, as `groupEventsByDay` returns it for the view
+ * @param config - The configuration it was grouped with, which holds the grid's hours
+ * @param view - The view on screen
+ * @returns The days, as the view draws them
+ */
+export function drawnIn(
+  days: Types.EventsByDay[],
+  config: Types.Config,
+  view: Types.EffectiveView,
+): Types.EventsByDay[] {
+  if (view !== 'grid') return days;
+  const band = Grid.resolveBand(
+    ViewConfig.resolveTimeGridOption(config, 'start_time'),
+    ViewConfig.resolveTimeGridOption(config, 'end_time'),
+  );
+  return days.map((day) => ({
+    ...day,
+    events: day.events.filter((event) => {
+      if (!event.start.dateTime) return true;
+      const extent = Grid.segmentMinutes(event);
+      return extent !== null && Grid.intersectsBand(extent.startMin, extent.endMin, band);
+    }),
+  }));
 }
 
 //-----------------------------------------------------------------------------

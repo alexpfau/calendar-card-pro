@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import * as EventUtils from '../src/utils/events';
 import * as Search from '../src/utils/search';
 
@@ -121,31 +122,130 @@ describe('the days searched', () => {
 });
 
 describe('the configuration a search groups with', () => {
-  it('is the view’s, over the whole window, with every past event and no empty day', () => {
-    const view = buildConfig({
-      days_to_show: 7,
-      start_date: '2026-01-05',
-      show_past_events: false,
-      show_empty_days: true,
-      show_empty_today: true,
-      show_location: false,
-      list: { days_to_show: 3 },
-      column: { days_to_show: 5 },
-      time_grid: { days_to_show: 4 },
-    } as Partial<Types.Config>);
-    const window = Search.searchWindow(NOW);
+  const view = buildConfig({
+    days_to_show: 7,
+    start_date: '2026-01-05',
+    show_past_events: false,
+    show_empty_days: true,
+    show_empty_today: true,
+    show_location: false,
+    list: { days_to_show: 3 },
+    column: { days_to_show: 5 },
+    time_grid: { days_to_show: 4, start_time: '18:00', end_time: '22:00' },
+  } as Partial<Types.Config>);
+  const window = Search.searchWindow(NOW);
+  const forced = {
+    start_date: '2025-06-17',
+    days_to_show: 731,
+    show_past_events: true,
+    show_empty_days: false,
+    show_empty_today: false,
+  };
 
-    expect(Search.searchGroupingConfig(view, window)).toEqual({
+  it('is the view’s, over the whole window, with every past event and no empty day', () => {
+    expect(Search.searchGroupingConfig(view, window, 'list')).toEqual({
       ...view,
-      start_date: '2025-06-17',
-      days_to_show: 731,
-      show_past_events: true,
-      show_empty_days: false,
-      show_empty_today: false,
-      list: undefined,
-      column: undefined,
-      time_grid: undefined,
+      ...forced,
+      list: { ...forced },
     });
+  });
+
+  it('writes those into the view’s own block too, which outranks them, keeping the rest of it', () => {
+    expect(Search.searchGroupingConfig(view, window, 'grid')).toEqual({
+      ...view,
+      ...forced,
+      time_grid: { start_time: '18:00', end_time: '22:00', ...forced },
+    });
+    expect(Search.searchGroupingConfig(view, window, 'column')).toEqual({
+      ...view,
+      ...forced,
+      column: { ...forced },
+    });
+  });
+
+  it('wins over a view’s own defaults once the card resolves it for that view', () => {
+    // The grid's own default shows empty days and a block's days_to_show is its own.
+    const resolved = ViewConfig.resolveEffectiveConfig(
+      Search.searchGroupingConfig(view, window, 'grid'),
+      'grid',
+    );
+    expect({
+      days: resolved.days_to_show,
+      empty: resolved.show_empty_days,
+      past: resolved.show_past_events,
+      start: ViewConfig.resolveTimeGridOption(resolved, 'start_time'),
+    }).toEqual({ days: 731, empty: false, past: true, start: '18:00' });
+  });
+});
+
+describe('what the view on screen draws', () => {
+  const config = buildConfig({
+    entities: [ANNA],
+    view: 'grid',
+    time_grid: { start_time: '18:00', end_time: '22:00' },
+  } as Partial<Types.Config>);
+  const window = Search.searchWindow(NOW);
+
+  function drawn(view: Types.EffectiveView, events: Types.CalendarEventData[]): string[] {
+    const grouping = Search.searchGroupingConfig(
+      ViewConfig.resolveEffectiveConfig(config, view),
+      window,
+      view,
+    );
+    const days = EventUtils.groupEventsByDay(
+      EventUtils.processEvents(
+        events.map((event) => ({ ...event, _entityId: ANNA })),
+        config,
+      ),
+      grouping,
+      true,
+      'en',
+      view,
+      null,
+    );
+    return Search.occurrencesIn(Search.drawnIn(days, grouping, view)).map(
+      ({ event }) => event.summary ?? '',
+    );
+  }
+
+  const EVENTS: Types.CalendarEventData[] = [
+    {
+      summary: 'Morning swim',
+      start: { dateTime: '2026-06-20T09:00:00.000Z' },
+      end: { dateTime: '2026-06-20T10:00:00.000Z' },
+    },
+    {
+      summary: 'Evening choir',
+      start: { dateTime: '2026-06-20T19:00:00.000Z' },
+      end: { dateTime: '2026-06-20T20:00:00.000Z' },
+    },
+    // Across midnight, and outside the hours on both of its days.
+    {
+      summary: 'Night shift',
+      start: { dateTime: '2026-06-20T23:00:00.000Z' },
+      end: { dateTime: '2026-06-21T06:00:00.000Z' },
+    },
+    // Across midnight, inside the hours on its first day only.
+    {
+      summary: 'Late concert',
+      start: { dateTime: '2026-06-21T21:00:00.000Z' },
+      end: { dateTime: '2026-06-22T01:00:00.000Z' },
+    },
+    { summary: 'Holiday', start: { date: '2026-06-22' }, end: { date: '2026-06-24' } },
+  ];
+
+  it('in grid view, only what reaches into the hours it shows, by the grid’s own test', () => {
+    expect(drawn('grid', EVENTS)).toEqual(['Evening choir', 'Late concert', 'Holiday']);
+  });
+
+  it('in list view, every event', () => {
+    expect(drawn('list', EVENTS)).toEqual([
+      'Morning swim',
+      'Evening choir',
+      'Night shift',
+      'Late concert',
+      'Holiday',
+    ]);
   });
 });
 
@@ -373,7 +473,7 @@ describe('the events of a grouping, once each', () => {
         events.map((event) => ({ ...event, _entityId: ANNA })),
         config,
       ),
-      Search.searchGroupingConfig(config, window),
+      Search.searchGroupingConfig(config, window, 'list'),
       true,
       'en',
       'list',
@@ -527,7 +627,7 @@ describe('finding a picked event again', () => {
         ],
         config,
       ),
-      Search.searchGroupingConfig(config, Search.searchWindow(NOW)),
+      Search.searchGroupingConfig(config, Search.searchWindow(NOW), 'list'),
       true,
       'en',
       'list',

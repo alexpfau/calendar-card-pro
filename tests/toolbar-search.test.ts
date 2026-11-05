@@ -194,7 +194,11 @@ async function measure(card: CardUnderTest, width: number): Promise<void> {
 
 async function mount(
   config: Types.Config,
-  options: { flag?: 'preview' | 'editMode'; localize?: (key: string) => string } = {},
+  options: {
+    flag?: 'preview' | 'editMode';
+    localize?: (key: string) => string;
+    width?: number;
+  } = {},
 ): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(config);
@@ -202,7 +206,7 @@ async function mount(
   card.hass = hass(options.localize);
   document.body.appendChild(card);
   await settle(card);
-  await measure(card, 784);
+  await measure(card, options.width ?? 784);
   return card;
 }
 
@@ -767,6 +771,33 @@ describe('what a term finds', () => {
     expect(active).toEqual(['search-option-0', 'search-option-1', 'search-option-0']);
   });
 
+  it('finds in grid view only what the grid draws, inside the hours it shows', async () => {
+    calendars[BEN].push(
+      timed('2026-06-20T19:00:00Z', '2026-06-20T20:00:00Z', 'Evening choir', { uid: 'g-1' }),
+      timed('2026-06-20T09:00:00Z', '2026-06-20T10:00:00Z', 'Morning run', { uid: 'g-2' }),
+      // Across midnight, outside the hours on both of its days.
+      timed('2026-06-20T23:00:00Z', '2026-06-21T06:00:00Z', 'Night shift', { uid: 'g-3' }),
+      // Across midnight, inside them on its first day only.
+      timed('2026-06-21T21:00:00Z', '2026-06-22T01:00:00Z', 'Late concert', { uid: 'g-4' }),
+    );
+    const terms = ['choir', 'run', 'shift', 'concert'];
+    const config = {
+      time_grid: { start_time: '18:00', end_time: '22:00' },
+    } as Partial<Types.Config>;
+
+    const grid = await mount(configFor({ ...config, view: 'grid' }), { width: 1100 });
+    expect((grid as unknown as { effectiveView: string }).effectiveView).toBe('grid');
+    await openSearch(grid);
+    expect(terms.map((term) => found(term).length)).toEqual([1, 0, 0, 1]);
+    await closeSearch(grid);
+    grid.remove();
+    manager.panel = null;
+
+    const list = await mount(configFor({ ...config, view: 'list' }));
+    await openSearch(list);
+    expect(terms.map((term) => found(term).length)).toEqual([1, 1, 1, 1]);
+  });
+
   it('names each result’s calendar and writes its day and time as the card does', async () => {
     const card = await mount(configFor());
     await openSearch(card);
@@ -805,12 +836,18 @@ describe('picking a result', () => {
     await settle(card);
   }
 
-  it.each(['list', 'column', 'time_grid'] as const)(
+  it.each([
+    ['list', 'td.event.search-ring'],
+    ['column', '.column-events > .event.search-ring'],
+    ['grid', '.grid-event.search-ring'],
+  ] as const)(
     'pages the card in %s view to the day, and rings the event there',
-    async (view) => {
+    async (view, ring) => {
       const card = await mount(
         configFor({ view, event_tap_action: { action: 'details' } } as Partial<Types.Config>),
+        { width: 1100 },
       );
+      expect((card as unknown as { effectiveView: string }).effectiveView).toBe(view);
       await openSearch(card);
 
       await pickWithKeyboard(card, 'check');
@@ -822,6 +859,7 @@ describe('picking a result', () => {
       );
       expect(ringed(card)).toContain('Dentist check-up');
       expect(root(card).querySelectorAll('.search-ring')).toHaveLength(1);
+      expect(root(card).querySelector(ring)).not.toBeNull();
     },
   );
 

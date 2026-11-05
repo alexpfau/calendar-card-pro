@@ -660,9 +660,13 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   interval all still hold; a calendar that failed is asked again alone at the next opening.
   Typing asks nothing. The rows are built from the card's own pipeline, the held events for a
   calendar still to answer and `processEvents` over the loaded ones, the hidden calendars left
-  out, then `groupEventsByDay` with the configuration of the view on screen spread over the whole
-  window (`searchGroupingConfig`), so filters, duplicates, replacements and what a row shows are
-  the card's, and a split multi-day event is found once (`occurrencesIn`). Matching is pure
+  out, then `groupEventsByDay` for the view on screen (`SearchHost.view`) with its
+  configuration spread over the whole window (`searchGroupingConfig`, which writes the window
+  into that view's block as well, since a block outranks the top level), so filters, duplicates,
+  replacements and what a row shows are the card's. `drawnIn` then keeps only what that view
+  draws, a grid's timed events inside its hours by the band test `renderDayBody` applies
+  (`Grid.intersectsBand`), and a split multi-day event is found once (`occurrencesIn`).
+  Matching is pure
   (`findRows`): text folded case- and accent-insensitively in the card's language, upcoming then
   past, grouped by month, at most `SEARCH_RESULT_LIMIT` drawn and the true total announced. A
   pick (`_pickSearchResult`) pages through the date picker's path (`_pickDate`), then rings the
@@ -1300,6 +1304,8 @@ Provides core functionality across the card:
     configuration its rows are grouped with, each event of a grouping once, folding and
     matching text, the order and month groups of what a term finds and the row cap, and how a
     picked event is found again on the card (`ringTargetOf`, `isRingTarget`, `ringIn`)
+  - Keeps only what the view on screen draws (`drawnIn`): in the grid, a timed event inside the
+    hours by the same `Grid.intersectsBand` test the grid's own day body applies
 
 - **helpers.ts**:
   - Provides color manipulation utilities

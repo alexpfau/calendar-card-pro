@@ -12,9 +12,10 @@
  * matched against what is in memory.
  *
  * Until a calendar answers, its rows are the events the card already holds. Every event goes
- * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), as the view
- * on screen draws it, so a search finds exactly the events the card would draw on some page, in
- * the words it would draw them in, and the calendars the filter hides stay hidden.
+ * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), in the view
+ * on screen and as it draws it (`drawnIn`), so a search finds exactly the events the card would
+ * draw on some page of that view, in the words it would draw them in, and the calendars the
+ * filter hides stay hidden.
  */
 
 import * as Types from '../config/types';
@@ -38,6 +39,8 @@ export interface SearchHost {
   config: Types.Config;
   /** The configuration as it applies to the view on screen, which says what each row draws. */
   viewConfig: Types.Config;
+  /** The view on screen, which a pick pages in, so the search finds what it draws. */
+  view: Types.EffectiveView;
   /** The card's language. */
   language: string;
   /** The calendars the filter hides on this device. */
@@ -249,8 +252,9 @@ export class SearchSession implements SearchSource {
   /**
    * Every event the search can find, described as the card draws it: held events for the
    * calendars still to answer, the load's for those that have, none for those that failed,
-   * matched to the card's calendars, the hidden ones left out, and grouped as the view on
-   * screen groups them over the whole window. Built again only when one of those changes.
+   * matched to the card's calendars, the hidden ones left out, grouped as the view on screen
+   * groups them over the whole window, and only those it draws. Built again only when one of
+   * those changes.
    *
    * @param host - What the card holds now
    * @param now - The current moment, in epoch milliseconds
@@ -265,6 +269,7 @@ export class SearchSession implements SearchSource {
       load?.version,
       host.config,
       host.viewConfig,
+      host.view,
       host.language,
       host.hidden,
       host.today,
@@ -285,13 +290,11 @@ export class SearchSession implements SearchSource {
     let rows: Search.SearchRow[] = [];
     if (events.length > 0) {
       const window = load?.window ?? Search.searchWindow(new Date(now));
-      const days = EventUtils.groupEventsByDay(
-        events,
-        Search.searchGroupingConfig(host.viewConfig, window),
-        true,
-        host.language,
-        'list',
-        host.hass,
+      const grouping = Search.searchGroupingConfig(host.viewConfig, window, host.view);
+      const days = Search.drawnIn(
+        EventUtils.groupEventsByDay(events, grouping, true, host.language, host.view, host.hass),
+        grouping,
+        host.view,
       );
       const describe = this._describer(host, today);
       rows = withOwnIds(Search.occurrencesIn(days).map(describe));

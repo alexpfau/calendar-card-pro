@@ -7163,6 +7163,7 @@ class CalendarCardPro extends LitElement {
       hass: this.hass,
       config: this.config,
       viewConfig: this.effectiveConfig,
+      view: this.effectiveView,
       language: this.effectiveLanguage,
       hidden: this._activeHiddenCalendars,
       held: this.events,
