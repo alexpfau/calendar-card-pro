@@ -527,6 +527,11 @@ describe('a repeating event', () => {
 
   describe('dropped by a drag in a grid', () => {
     // Wednesday at 18:00, from Tuesday at 16:00: the weekly rule moves to Wednesday with it.
+    /** The question's last button, Cancel. */
+    const lastAsk = (root: ShadowRoot) => {
+      const asked = root.querySelectorAll<HTMLElement>('.ask button');
+      return asked[asked.length - 1];
+    };
     const moved = {
       allDay: false,
       start: new Date('2026-11-04T18:00:00Z'),
@@ -567,11 +572,7 @@ describe('a repeating event', () => {
     });
 
     it.each([
-      [
-        'Cancel',
-        (root: ShadowRoot) =>
-          Array.from(root.querySelectorAll<HTMLElement>('.ask button')).at(-1)!.click(),
-      ],
+      ['Cancel', (root: ShadowRoot) => lastAsk(root).click()],
       [
         'Escape',
         (root: ShadowRoot) =>
@@ -583,9 +584,7 @@ describe('a repeating event', () => {
         display,
         moved,
       });
-      expect(Array.from(root.querySelectorAll('.ask button')).at(-1)!.textContent?.trim()).toBe(
-        'Cancel',
-      );
+      expect(lastAsk(root).textContent?.trim()).toBe('Cancel');
       back(root);
       await el.updateComplete;
 
@@ -599,7 +598,7 @@ describe('a repeating event', () => {
       await type('input.title', 'Swim lesson');
       el.closeDialog();
       await el.updateComplete;
-      Array.from(root.querySelectorAll<HTMLElement>('.ask button')).at(-1)!.click();
+      lastAsk(root).click();
       await el.updateComplete;
       expect(root.querySelector('.ask')).toBeNull();
       expect(closed).not.toHaveBeenCalled();
