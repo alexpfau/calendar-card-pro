@@ -98,8 +98,13 @@ export function addEventLabel(hass: Types.Hass | null | undefined): string | und
  * @returns The date the new event starts on
  */
 export function newEventDate(windowStart: Date, daysToShow: number, now: Date = new Date()): Date {
-  const windowEnd = new Date(windowStart);
-  windowEnd.setDate(windowEnd.getDate() + daysToShow);
+  // Built from the date, not by moving `windowStart` on: where the clocks change at midnight,
+  // the first day can start at 01:00, and `setDate` would carry that hour to the end.
+  const windowEnd = new Date(
+    windowStart.getFullYear(),
+    windowStart.getMonth(),
+    windowStart.getDate() + daysToShow,
+  );
 
   return now >= windowStart && now < windowEnd ? new Date(now) : new Date(windowStart);
 }

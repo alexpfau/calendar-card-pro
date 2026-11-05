@@ -15,6 +15,28 @@ import { defineConfig } from 'vitest/config';
  * The suite is split into projects so that one file can opt out of the global UTC
  * pin. See the `dst-*` projects below for why that exception has to exist.
  */
+/**
+ * `.dst.test.ts` files written for the first three zones that do not yet hold under
+ * `Atlantic/Azores`. Every new `.dst.test.ts` file runs there too; this list only shrinks.
+ *
+ * Triaged by their failures, each is a harness assumption rather than a defect in the card:
+ * per-zone expectation tables with no Azores row, guards that assume summer time differs from
+ * UTC (Azores summer time is UTC+0), or helpers that assume every day has a 00:00. Triage read
+ * the failure messages, and the code behind grid-geometry's; it is not a proof.
+ */
+const NOT_YET_AZORES = [
+  'tests/all-day-parse.dst.test.ts',
+  'tests/countdown-calendar-days.dst.test.ts',
+  'tests/event-time-zone.dst.test.ts',
+  'tests/event-times.dst.test.ts',
+  'tests/grid-fold.dst.test.ts',
+  'tests/grid-geometry.dst.test.ts',
+  'tests/local-day-filters.dst.test.ts',
+  'tests/rrule.dst.test.ts',
+  'tests/search-window.dst.test.ts',
+  'tests/weather-hourly-key.dst.test.ts',
+];
+
 export default defineConfig({
   test: {
     // Lit needs a DOM to render into. Pure-logic tests do not care either way, so
@@ -57,19 +79,31 @@ export default defineConfig({
       // every all-day event a day early for every user in the Americas, and neither
       // original zone can observe it.
       //
+      // A zone whose clocks change at local midnight is required for a third reason.
+      // There a transition day has no 00:00, so local midnight of that date is 01:00, and
+      // with an offset that crosses from behind UTC to UTC itself, UTC midnight lands on
+      // different local days at the two ends of an event. Azores (UTC-1, UTC+0 in summer)
+      // is the only zone here like that. Splitting an all-day event read a one-day event as
+      // two days there, a two-day one as one, and dropped the last day of an event running
+      // past the spring change; Berlin, Sydney and New York, which change at 02:00 or
+      // 03:00 local, passed all three. Planting each fails only this project.
+      //
       // Zones with a stable, long-standing DST rule are chosen deliberately — the
       // assertions must not depend on a recent legislative change in the host's tz
-      // database.
-      ...['Europe/Berlin', 'Australia/Sydney', 'America/New_York'].map((timeZone) => ({
-        extends: true,
-        test: {
-          name: `dst-${timeZone.split('/')[1].toLowerCase()}`,
-          include: ['tests/**/*.dst.test.ts'],
-          env: {
-            TZ: timeZone,
+      // database. Azores has followed the EU rule since 1996.
+      ...['Europe/Berlin', 'Australia/Sydney', 'America/New_York', 'Atlantic/Azores'].map(
+        (timeZone) => ({
+          extends: true,
+          test: {
+            name: `dst-${timeZone.split('/')[1].toLowerCase()}`,
+            include: ['tests/**/*.dst.test.ts'],
+            exclude: timeZone === 'Atlantic/Azores' ? NOT_YET_AZORES : [],
+            env: {
+              TZ: timeZone,
+            },
           },
-        },
-      })),
+        }),
+      ),
     ],
   },
 });

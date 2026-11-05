@@ -98,7 +98,9 @@ function readLocalizeWiring() {
   }
   assertFound([...imports.keys()], 'language JSON imports', LOCALIZE_TS);
 
-  const block = src.match(/export const TRANSLATIONS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  const block = src.match(
+    /export const TRANSLATIONS[^=]*=\s*\{([\s\S]*?)\n\}(?:\s+satisfies\s[^;]*)?;/,
+  );
   assertFound(block, 'the TRANSLATIONS map', LOCALIZE_TS);
 
   const entries = new Map(); // map key (as written) -> identifier
@@ -616,6 +618,40 @@ function checkLocalizeWiring(languages, { imports, entries }) {
         `TRANSLATIONS key '${key}' is wired to ${file} — expected key '${expected}'`,
       );
     }
+  }
+}
+
+/**
+ * `CARD_LANGUAGES` must name exactly the language files, both ways.
+ *
+ * It is what `getEffectiveLanguage` resolves against, for the card and for the editor, which
+ * imports it to stay clear of the tables in `localize.ts`. `tsc` already holds the TRANSLATIONS
+ * keys to it; this closes the chain to the files, so a language added without its code is
+ * reported here, by name, rather than only as a type error.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ */
+async function checkCardLanguageList(languages) {
+  const { CARD_LANGUAGES } = await loadEditor();
+  assertFound(CARD_LANGUAGES, 'CARD_LANGUAGES', 'src/translations/language-codes.ts');
+  const listed = new Set(CARD_LANGUAGES);
+
+  for (const [code, { file }] of languages) {
+    if (!listed.has(code)) {
+      error(
+        'language-codes.ts',
+        `${file} has no '${code}' in CARD_LANGUAGES — the card and the editor will never ` +
+          `resolve to it`,
+      );
+    }
+  }
+  for (const code of CARD_LANGUAGES) {
+    if (!languages.has(code)) {
+      error('language-codes.ts', `CARD_LANGUAGES lists '${code}', which has no language file`);
+    }
+  }
+  if (listed.size !== CARD_LANGUAGES.length) {
+    error('language-codes.ts', 'CARD_LANGUAGES lists a code more than once');
   }
 }
 
@@ -1627,6 +1663,7 @@ async function main() {
 
   checkLanguageParity(languages);
   checkLocalizeWiring(languages, localize);
+  await checkCardLanguageList(languages);
   checkNoEditorSectionsOnEagerPath(languages);
   checkDayjsWiring(localize.entries, dayjsWiring);
 

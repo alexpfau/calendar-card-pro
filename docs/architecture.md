@@ -72,6 +72,7 @@ src/
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
 │   ├── dayjs.ts                  # Relative-time localization
+│   ├── language-codes.ts         # Card-language codes and language selection, table-free
 │   ├── localize.ts               # Translation functions
 │   └── languages/                # Translation files (36 supported languages)
 │       ├── en.json               # English translations
@@ -1143,8 +1144,12 @@ Provides internationalization support:
   - Words the running event's "Now" label (`getNowString`): `Intl.RelativeTimeFormat` for
     zero seconds, capitalized and cached per locale
 
+- **language-codes.ts**:
+  - Lists the card languages and picks the one to use (`getEffectiveLanguage`)
+  - Imports nothing, so the editor can resolve a language without the translation tables
+
 - **localize.ts**:
-  - Manages language detection and selection
+  - Re-exports language selection and holds the translation tables, keyed by those codes
   - Handles translation lookups with fallbacks
   - Formats dates according to locale-specific patterns
 

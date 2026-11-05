@@ -289,7 +289,7 @@ rather than a skip — a dropdown labeled outside the string table is untranslat
 treating it as out of scope is how a gate silently stops covering the thing it was written
 for.
 
-### The suite runs as four projects, and the split is load-bearing
+### The suite runs as five projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
 more than one timezone:
@@ -300,6 +300,7 @@ more than one timezone:
 | `dst-berlin`   | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
 | `dst-sydney`   | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
 | `dst-new_york` | `America/New_York` | `tests/**/*.dst.test.ts`                            |
+| `dst-azores`   | `Atlantic/Azores`  | `tests/**/*.dst.test.ts`, **excluding** a list      |
 
 The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
 locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
@@ -309,7 +310,7 @@ release up to v4: wrong on roughly one date in seven under real zones, with a gr
 and a dedicated `tests/column-week-numbers.test.ts` that was structurally incapable of
 seeing it.
 
-Hence the three extra projects, and **each is required for a different reason**. Berlin and
+Hence the four extra projects, and **each is required for a different reason**. Berlin and
 Sydney cover the hemispheres: the drift is negative north of the equator and positive south
 of it, so `Math.floor` and `Math.ceil` fail in _opposite_ hemispheres. Berlin alone proves
 nothing about a `ceil`; Sydney alone proves nothing about a `floor`. Reverting either fix in
@@ -321,14 +322,29 @@ _ahead_ of UTC, so parsing a date-only string as UTC midnight rather than local 
 still lands on the correct local calendar day in both — the exact one-line "simplification"
 that would render every all-day event a day early for every user in the Americas. Planting
 it fails `tests/all-day-parse.dst.test.ts` twice under Berlin, twice under Sydney, and
-**seventeen times** under New York, while all of `unit` stays green. When you add a zone,
-say which failure mode it is the only one able to see.
+**seventeen times** under New York, while all of `unit` stays green.
 
-So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all three zones
+Azores covers **a transition at local midnight**, which none of the other three has. There
+the spring-forward day has no 00:00, so its local midnight is 01:00, and its offset crosses
+from behind UTC to UTC itself, so UTC midnight lands on different local days at the two ends
+of an event. Splitting all-day events was wrong three ways there in every release from
+v2.4.0 to v5.0.0, with the other three zones green: a one-day event read as two days, a two-day
+one as one, and an event running past the spring change lost its last day.
+`tests/all-day-multiday-split.dst.test.ts` pins them, and planting either fix's revert fails
+only `dst-azores`. When you add a zone, say which failure mode it is the only one able to see.
+
+**`dst-azores` excludes the files written before it that do not yet hold there.**
+`NOT_YET_AZORES` in `vitest.config.mjs` names them, with why: per-zone expectation tables with
+no Azores row, guards assuming summer time differs from UTC (Azores summer time _is_ UTC+0),
+helpers assuming every day has a 00:00. The list only shrinks. A new `.dst.test.ts` file is not
+added to it; it runs under Azores like the rest, so write its zone tables and guards for a zone
+whose summer offset is zero and whose transition day has no midnight.
+
+So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all four zones
 automatically. Give it a guard test asserting the January and July offsets differ, so it
 fails loudly instead of silently proving nothing if it is ever run under UTC —
 `tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
-what stops those files running a fourth time under UTC; do not drop it.
+what stops those files running a fifth time under UTC; do not drop it.
 
 🚨 **The transition is the famous exposure; the plain offset is the bigger one, and it
 was uncovered until v4.1.** Everything above is about DST _transitions_, which touch two
@@ -1426,7 +1442,12 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
-   lowercase the configured value before matching.
+   lowercase the configured value before matching. The same code goes into
+   `CARD_LANGUAGES` in `src/translations/language-codes.ts`, which `getEffectiveLanguage`
+   resolves against. It is a separate module so the editor can resolve a language without
+   bundling all 36 card-language tables, and **it must import nothing** for that reason. The
+   map `satisfies Record<CardLanguage, …>`, so `tsc` fails if the two disagree, and
+   `check:i18n` reconciles the list with the files.
 4. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`

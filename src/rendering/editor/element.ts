@@ -34,7 +34,7 @@ import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
-import * as Localize from '../../translations/localize';
+import * as LanguageCodes from '../../translations/language-codes';
 import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
@@ -242,7 +242,7 @@ export class CalendarCardProEditor extends LitElement {
       workspace,
       config,
       rawConfig,
-      language: Localize.getEffectiveLanguage(config.language, this.hass?.locale),
+      language: LanguageCodes.getEffectiveLanguage(config.language, this.hass?.locale),
     };
   }
 
