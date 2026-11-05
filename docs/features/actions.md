@@ -261,7 +261,7 @@ With `event_tap_action: details`, tapping an event opens it and does **not** run
 :::
 
 ::: info The Card Stays on the Keyboard
-A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. It keeps its place in the Tab order, though: with the card itself focused, Enter or Space runs its `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) is shown. A card with no event to tap, such as one showing only "No events", stays a button as before.
+A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. Its `tap_action` moves to a button of its own instead, the first stop in the card's Tab order: focused, it rings the card, and Enter or Space runs the `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. Screen readers announce it by the action's name where the card has a button for that action (Refresh, Reset, Back, Add event), and by the card's title otherwise, or its first calendar's name where it has no title. For `expand`, they also say whether the card is expanded. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) or a link in an event is shown. A card with nothing inside it to press, such as one showing only "No events", stays a button itself, as before.
 :::
 
 ### Holding an Event

@@ -325,8 +325,24 @@ export const cardStyles = css`
     outline: none;
   }
 
-  ha-card:focus-visible {
+  ha-card:focus-visible,
+  ha-card:has(> .card-tap-control:focus-visible) {
     outline: 2px solid var(--calendar-card-line-color-vertical);
+  }
+
+  /* The control that runs the card's tap while the card hosts controls of its own (render.ts,
+     TapControl). It covers the card, so a screen reader's highlight and the focus ring above
+     both show the card, and draws nothing itself. It takes no pointer input: a tap on the card
+     lands on whatever is under it, as it always did. */
+  .card-tap-control {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .header-container,

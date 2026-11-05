@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import '../src/calendar-card-pro';
@@ -330,8 +331,8 @@ describe('open_links: a press on a link is the link', () => {
     const withLinks = await mount(CARD_ACTIONS);
     const haCard = all(withLinks.card, 'ha-card')[0];
     expect(haCard.getAttribute('role')).toBeNull();
-    // It keeps its tab stop, so Enter on the card itself still runs its tap.
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    // Its tap moves to a control of its own, so the keyboard still runs it.
+    expectTapControl(haCard);
     document.body.replaceChildren();
 
     // The control: the same card with nothing to link is a button as before.

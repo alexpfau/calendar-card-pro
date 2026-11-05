@@ -441,15 +441,18 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   the configured view, the switcher marks it and ignores presses, and when the device's
   choice differs the shown day count is fitted for display alone, so a width measured while
   editing cannot overwrite the dashboard's fit.
-- **The card stops being a button while it hosts controls, and stays focusable.**
+- **The card stops being a button while it hosts controls, and its tap gets a control.**
   `_hostsControls` answers this once, for toolbar controls and tappable events alike, from
   what the render draws: a toolbar control, or at least one event that is a tap target, which
   the loading line, an error and days holding only empty-day placeholders are not
   (`drawsEvent` in `rendering/render.ts`, with `gridDrawsEvent` for grid view). `ha-card`
-  then drops `role="button"`, because a button may not contain another, but keeps
-  `tabindex="0"` while it has a `tap_action`: with the card itself focused, Enter and Space
-  still run it, since `_handleKeyDown` leaves keys aimed at a child to the child. The
-  ripple and the pointer `tap_action` stay too.
+  then drops `role="button"`, because a button may not contain another, and its tab stop
+  with it, since a focusable container with no role announces nothing about its Enter. The
+  `tap_action` moves to `button.card-tap-control` (`TapControl` in `rendering/render.ts`), a
+  native button drawn first in the card, over all of it, with no pointer input and nothing
+  drawn: the card's ring shows its focus, and `_tapControl` names it, by Home Assistant's
+  word for a `refresh`, `reset`, `back` or `add-event`, by the card otherwise. The ripple and
+  the pointer `tap_action` stay.
 - **The calendar filter (`legend`) filters what is drawn, never what is loaded.** The hidden calendars are a set
   of entity ids, replaced rather than changed in place, and `_shownEvents` is `events` without
   theirs, memoized on the events, that set and whether the card is being edited, which shows

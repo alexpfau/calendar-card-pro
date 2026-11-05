@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
@@ -434,12 +435,12 @@ describe('the view switcher', () => {
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
 
-  it('stops the card presenting itself as a button around it, and keeps its tab stop', async () => {
+  it('stops the card presenting itself as a button around it, and hands its tap to a control', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = card.shadowRoot!.querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 

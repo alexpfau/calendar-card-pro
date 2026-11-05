@@ -3911,3 +3911,21 @@ describe('the time beside the title', () => {
     }
   });
 });
+
+describe("the control for the card's tap", () => {
+  // It covers the card, so it must take no pointer input: a tap on the card lands on whatever
+  // is under it, an event or the title, as it did before the control existed, and a hold still
+  // reaches the card. And it draws nothing of its own; the card's ring shows its focus.
+  it('takes no pointer input and draws nothing', () => {
+    expect(declared('.card-tap-control', 'pointer-events')).toBe('none');
+    expect(declared('.card-tap-control', 'opacity')).toBe('0');
+    expect(declared('.card-tap-control', 'position')).toBe('absolute');
+  });
+
+  it("rings the card while it has the keyboard's focus", () => {
+    expect(declared('ha-card:has(> .card-tap-control:focus-visible)', 'outline')).toBe(
+      declared('ha-card:focus-visible', 'outline'),
+    );
+    expect(declared('ha-card:focus-visible', 'outline')).not.toBe('');
+  });
+});

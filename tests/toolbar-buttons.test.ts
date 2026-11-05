@@ -21,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { spyOnPopovers } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as EventUtils from '../src/utils/events';
@@ -458,14 +459,14 @@ describe("the configuration's own buttons", () => {
     expect(root(card).querySelector('.card-toolbar')).toBeNull();
   });
 
-  it('stop the card presenting itself as a button, and keep its tab stop', async () => {
+  it('stop the card presenting itself as a button, and hand its tap to a control', async () => {
     const card = await mount(
       withButtons([BACK], BUTTONS_ONLY, { tap_action: { action: 'more-info' } }),
     );
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
 
     // The control: the same card with no buttons draws no toolbar and is a button.
     const control = await mount(

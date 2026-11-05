@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import '../src/calendar-card-pro';
 import { FROZEN_NOW } from './fixtures';
 import type { PopoverRequest } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import { CALENDARS_CHANGED_EVENT } from '../src/interaction/calendar-changes';
@@ -739,12 +740,12 @@ describe('the card around events that are buttons', () => {
   }
 
   it.each(['list', 'column', 'grid'])(
-    'is not a button in %s view while its events are, and keeps its tab stop',
+    'is not a button in %s view while its events are, and hands its tap to a control',
     async (view) => {
       const { card } = await mount({ view, ...TAPPABLE, ...DETAILS });
 
       expect(haCard(card).hasAttribute('role')).toBe(false);
-      expect(haCard(card).getAttribute('tabindex')).toBe('0');
+      expectTapControl(haCard(card));
       // A pointer tap off the events still runs `tap_action`, so what shows that stays.
       expect(haCard(card).classList.contains('card-interactive')).toBe(true);
       expect(haCard(card).querySelector('ha-ripple')).not.toBeNull();
