@@ -346,15 +346,31 @@ function lowerCaseLocale(language: string): string | undefined {
  * One character folded: lower-cased in the card's language, then decomposed and its accents
  * dropped, those Lithuanian's lower case adds among them. Lower case comes first because the
  * accent can be the letter's case: Turkish lower-cases İ to i and a bare I to dotless ı, so
- * dropping İ's dot first would leave İstanbul out of a search for "istanbul". A Greek final
- * sigma reads as any other sigma.
+ * dropping İ's dot first would leave İstanbul out of a search for "istanbul". On a Turkish card
+ * the dotless ı then reads as i too, so "ikea" finds IKEA, which Turkish lower-cases to "ıkea",
+ * whichever keyboard typed it. A Greek final sigma reads as any other sigma.
  *
  * @param char - One code point
  * @param locale - The locale to lower-case in
  * @returns What it folds to, possibly nothing, possibly more than one unit
  */
 function foldChar(char: string, locale: string | undefined): string {
-  return char.toLocaleLowerCase(locale).normalize('NFD').replace(ACCENTS, '').replace(/ς/g, 'σ');
+  return dotlessAsI(char.toLocaleLowerCase(locale), locale)
+    .normalize('NFD')
+    .replace(ACCENTS, '')
+    .replace(/ς/g, 'σ');
+}
+
+/**
+ * Reads a Turkish dotless ı as i, on a Turkish card only. One unit for one, so a fold that maps
+ * unit for unit still does.
+ *
+ * @param lowered - Text already lower-cased in the card's language
+ * @param locale - The locale it was lower-cased in
+ * @returns The text, with ı read as i where the card is Turkish
+ */
+function dotlessAsI(lowered: string, locale: string | undefined): string {
+  return locale !== undefined && /^tr\b/i.test(locale) ? lowered.replace(/ı/g, 'i') : lowered;
 }
 
 /**
@@ -369,7 +385,9 @@ function foldChar(char: string, locale: string | undefined): string {
 export function foldText(text: string, language: string): FoldedText {
   const locale = lowerCaseLocale(language);
   // Plain ASCII folds unit for unit: lower case alone, in the card's language for a Turkish I.
-  if (/^[\t\n\r\x20-\x7e]*$/.test(text)) return { text: text.toLocaleLowerCase(locale) };
+  if (/^[\t\n\r\x20-\x7e]*$/.test(text)) {
+    return { text: dotlessAsI(text.toLocaleLowerCase(locale), locale) };
+  }
 
   let folded = '';
   const from: number[] = [];

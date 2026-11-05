@@ -587,7 +587,8 @@ It is a magnifier at the very end of the top row, after refresh, named by Home A
 [event popover](/features/actions#the-event-popover), its beak pointing at the magnifier, and on
 a phone a sheet from the bottom of the screen. Type, and the events whose title, location or
 description hold what you typed are listed under the field as you type, whatever the case and
-the accents: "zurich" finds "Zürich". Upcoming events come first, soonest first, then a thin
+the accents: "zurich" finds "Zürich", and on a card in Turkish "ikea" finds "IKEA" although
+Turkish writes its lower case "ıkea". Upcoming events come first, soonest first, then a thin
 line and the past, most recent first and dimmed as the card dims past events, each grouped under
 its month. A result shows its calendar's color, its title, and its day, time and location, with
 what you typed marked. At most 200 are listed, the past's oldest left out first, and once you

@@ -283,9 +283,14 @@ describe('folding words for matching', () => {
     expect(Search.matchIn(Search.foldText('İstanbul', 'tr'), 'ist')).toEqual([0, 3]);
   });
 
-  it('keeps the card’s language’s own lower case: a Turkish I is a dotless ı', () => {
-    expect(Search.foldText('IKEA', 'tr').text).toBe('ıkea');
+  it('keeps the card’s language’s own lower case, then reads a Turkish dotless ı as i', () => {
+    expect(Search.foldText('IKEA', 'tr').text).toBe('ikea');
+    expect(Search.foldText('ıkea', 'tr').text).toBe('ikea');
+    expect(Search.foldText('Kadıköy', 'tr').text).toBe('kadikoy');
     expect(Search.foldText('IKEA', 'en').text).toBe('ikea');
+    // Only a Turkish card reads ı as i; elsewhere it stays the letter it is.
+    expect(Search.foldText('ıkea', 'en').text).toBe('ıkea');
+    expect(Search.matchIn(Search.foldText('IKEA Kadıköy', 'tr'), 'kadikoy')).toEqual([5, 12]);
   });
 
   it('drops the accents a Lithuanian lower case adds', () => {
