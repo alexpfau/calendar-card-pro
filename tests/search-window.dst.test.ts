@@ -62,9 +62,23 @@ function at(date: string, time: string): Date {
 }
 
 /**
- * Days around every transition the three zones have in 2026, where a window starts a year back;
+ * A date's first moment in this zone: its 00:00, or 01:00 where the clocks change at midnight
+ * and the day has no 00:00, as the Azores' spring day does.
+ */
+function dayStart(date: string): Date {
+  try {
+    return at(date, '00:00');
+  } catch {
+    return at(date, '01:00');
+  }
+}
+
+/**
+ * Days around every transition the four zones have in 2026, where a window starts a year back;
  * the days a year before each of their 2027 transitions, where a window's last day is one, so it
- * ends on the day after a 23- or 25-hour day; and the 1st and 15th of each month.
+ * ends on the day after a 23- or 25-hour day; the day before a year before the Azores' 2027
+ * spring change, where a window ends on a day with no 00:00; and the 1st and 15th of each month.
+ * The Azores change on Berlin's dates, so they share Berlin's entries.
  */
 const DATES = [
   // A year before 2027's transitions: New York's, Berlin's, Sydney's, Sydney's, Berlin's, New York's.
@@ -74,6 +88,8 @@ const DATES = [
   '2026-10-03',
   '2026-10-31',
   '2026-11-07',
+  // A year before the day before the Azores' 2027 spring change: the window ends on 2027-03-28.
+  '2026-03-27',
   '2026-03-08',
   '2026-03-09',
   '2026-03-29',
@@ -110,16 +126,16 @@ describe(`the days a search covers, in ${ZONE}`, () => {
       days: window.days,
       key: window.key,
     }).toEqual({
-      start: `${start} 00:00`,
-      end: `${end} 00:00`,
+      start: local(dayStart(start)),
+      end: local(dayStart(end)),
       days: daysBetween(start, end),
       key: start,
     });
   });
 
   it.each(DATES)('from the first and last moments of %s, the same window', (date) => {
-    const first = Search.searchWindow(at(date, '00:00'));
-    const last = Search.searchWindow(new Date(at(shiftDate(date, 1), '00:00').getTime() - 1));
+    const first = Search.searchWindow(dayStart(date));
+    const last = Search.searchWindow(new Date(dayStart(shiftDate(date, 1)).getTime() - 1));
     const noon = Search.searchWindow(at(date, '12:00'));
 
     expect([local(first.start), local(first.end)]).toEqual([local(noon.start), local(noon.end)]);

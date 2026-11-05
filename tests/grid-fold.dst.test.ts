@@ -20,6 +20,8 @@ const FOLDS: Record<string, { date: string; hour: string; before: string; after:
   'Europe/Berlin': { date: '2026-10-25', hour: '02', before: '+02:00', after: '+01:00' },
   'Australia/Sydney': { date: '2026-04-05', hour: '02', before: '+11:00', after: '+10:00' },
   'America/New_York': { date: '2026-11-01', hour: '01', before: '-04:00', after: '-05:00' },
+  // The Azores fall back at 01:00 to 00:00, so the hour that repeats is the day's first.
+  'Atlantic/Azores': { date: '2026-10-25', hour: '00', before: '+00:00', after: '-01:00' },
 };
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const FOLD = FOLDS[ZONE];
