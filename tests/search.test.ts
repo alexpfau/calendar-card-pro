@@ -521,6 +521,86 @@ describe('the events of a grouping, once each', () => {
     ]);
   });
 
+  it('keeps two events with the same title and times apart, each found by its own words', () => {
+    const days = grouped([
+      {
+        summary: 'Conference',
+        start: { dateTime: '2026-06-20T15:00:00.000Z' },
+        end: { dateTime: '2026-06-22T11:00:00.000Z' },
+        location: 'Hall A',
+        uid: 'c-1',
+      },
+      {
+        summary: 'Conference',
+        start: { dateTime: '2026-06-20T15:00:00.000Z' },
+        end: { dateTime: '2026-06-22T11:00:00.000Z' },
+        location: 'Hall B',
+        uid: 'c-2',
+      },
+    ]);
+    const occurrences = Search.occurrencesIn(days);
+
+    expect(occurrences.map(({ event }) => event.location)).toEqual(['Hall A', 'Hall B']);
+  });
+
+  it('keeps the copies two identical entries for one calendar draw, one per entry', () => {
+    const twice = buildConfig({
+      entities: [ANNA, ANNA],
+      split_multiday_events: true,
+      show_past_events: true,
+    } as Partial<Types.Config>);
+    const days = EventUtils.groupEventsByDay(
+      EventUtils.processEvents(
+        [
+          {
+            summary: 'Conference',
+            start: { dateTime: '2026-06-20T15:00:00.000Z' },
+            end: { dateTime: '2026-06-22T11:00:00.000Z' },
+            _entityId: ANNA,
+          },
+        ],
+        twice,
+      ),
+      Search.searchGroupingConfig(twice, window, 'list'),
+      true,
+      'en',
+      'list',
+      null,
+    );
+
+    expect(Search.occurrencesIn(days).map(({ event }) => event.summary)).toEqual([
+      'Conference',
+      'Conference',
+    ]);
+  });
+
+  it('tells a day carrying no stamp apart by what it says', () => {
+    const day = (location: string): Types.CalendarEventData => ({
+      summary: 'Conference',
+      start: { dateTime: '2026-06-20T15:00:00.000Z' },
+      end: { dateTime: '2026-06-20T23:59:59.999Z' },
+      _sourceStart: { dateTime: '2026-06-20T15:00:00.000Z' },
+      _sourceEnd: { dateTime: '2026-06-22T11:00:00.000Z' },
+      _isMultiDaySegment: true,
+      _entityId: ANNA,
+      location,
+    });
+    const days: Types.EventsByDay[] = [
+      {
+        weekday: 'Sat',
+        day: 20,
+        month: 'Jun',
+        timestamp: Date.parse('2026-06-20T00:00:00.000Z'),
+        events: [day('Hall A'), day('Hall A'), day('Hall B')],
+      },
+    ];
+
+    expect(Search.occurrencesIn(days).map(({ event }) => event.location)).toEqual([
+      'Hall A',
+      'Hall B',
+    ]);
+  });
+
   it('reads an all-day event at local midnights, and skips a day made up as empty', () => {
     const days: Types.EventsByDay[] = [
       ...grouped([

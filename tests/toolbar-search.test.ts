@@ -798,6 +798,42 @@ describe('what a term finds', () => {
     expect(terms.map((term) => found(term).length)).toEqual([1, 1, 1, 1]);
   });
 
+  it('tells apart two multi-day events that share a title and times, each found by its own words', async () => {
+    calendars[ANNA].push(
+      timed('2026-06-20T15:00:00Z', '2026-06-22T11:00:00Z', 'Conference', {
+        uid: 'conf-a',
+        location: 'Hall A',
+      }),
+      timed('2026-06-20T15:00:00Z', '2026-06-22T11:00:00Z', 'Conference', {
+        uid: 'conf-b',
+        location: 'Hall B',
+      }),
+    );
+    for (const view of ['list', 'grid'] as const) {
+      // The grid hides locations by default, and search finds only what is drawn.
+      const card = await mount(
+        configFor({
+          view,
+          split_multiday_events: true,
+          show_location: true,
+          time_grid: { show_location: true },
+        } as Partial<Types.Config>),
+        { width: 1100 },
+      );
+      await openSearch(card);
+
+      expect(
+        source()
+          .find('conference')
+          .groups.flatMap((group) => group.hits.map(({ row }) => row.location)),
+      ).toEqual(['Hall A', 'Hall B']);
+      expect(found('hall b')).toEqual([['Conference', '2026-06-20']]);
+      await closeSearch(card);
+      card.remove();
+      manager.panel = null;
+    }
+  });
+
   it('names each result’s calendar and writes its day and time as the card does', async () => {
     const card = await mount(configFor());
     await openSearch(card);

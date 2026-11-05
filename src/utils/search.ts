@@ -268,12 +268,18 @@ function instantOf(point: Types.CalendarEventData['start'] | undefined): Date | 
  * Every event a grouping draws, once each: a multi-day event the view splits into a row a day
  * is one event, found at its first day's row, with the start and end it really has.
  *
+ * One event's days are told from another's by the object they were split from, which each day
+ * carries: the stamp `processEvents` takes of every event (`_source`), else the grid's own
+ * (`_gridSource`). Two events with the same title and times stay two, and so do the copies two
+ * blocks of one calendar draw, which the block each matched tells apart. Only a day carrying
+ * neither falls back to comparing what it says.
+ *
  * @param days - The grouping, as `groupEventsByDay` returns it
  * @returns The events, in the grouping's order
  */
 export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrence[] {
-  const seen = new Set<string>();
-  const blocks = new Map<Types.EntityConfig | undefined, number>();
+  const seen = new WeakMap<object, Set<unknown>>();
+  const signatures = new Set<string>();
   const occurrences: Occurrence[] = [];
   for (const day of days) {
     for (const event of day.events) {
@@ -284,16 +290,24 @@ export function occurrencesIn(days: ReadonlyArray<Types.EventsByDay>): Occurrenc
       const end = instantOf(endPoint);
       if (!start || !end) continue;
       if (event._isMultiDaySegment || event._gridSource) {
-        if (!blocks.has(event._matchedConfig)) blocks.set(event._matchedConfig, blocks.size);
-        const key = JSON.stringify([
-          event._entityId,
-          blocks.get(event._matchedConfig),
-          start.getTime(),
-          end.getTime(),
-          event.summary,
-        ]);
-        if (seen.has(key)) continue;
-        seen.add(key);
+        const identity = event._source ?? event._gridSource;
+        if (identity) {
+          const blocks = seen.get(identity) ?? new Set<unknown>();
+          if (blocks.has(event._matchedConfig)) continue;
+          blocks.add(event._matchedConfig);
+          seen.set(identity, blocks);
+        } else {
+          const signature = JSON.stringify([
+            event._entityId,
+            start.getTime(),
+            end.getTime(),
+            event.summary,
+            event.location,
+            event.description,
+          ]);
+          if (signatures.has(signature)) continue;
+          signatures.add(signature);
+        }
       }
       occurrences.push({ event, startPoint, endPoint, start, end });
     }

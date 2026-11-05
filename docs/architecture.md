@@ -665,8 +665,8 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   into that view's block as well, since a block outranks the top level), so filters, duplicates,
   replacements and what a row shows are the card's. `drawnIn` then keeps only what that view
   draws, a grid's timed events inside its hours by the band test `renderDayBody` applies
-  (`Grid.intersectsBand`), and a split multi-day event is found once (`occurrencesIn`).
-  Matching is pure
+  (`Grid.intersectsBand`), and each event of the grouping is found once (`occurrencesIn`, by its
+  `_source` and calendar block, so two events alike in title and times stay two). Matching is pure
   (`findRows`): text folded case- and accent-insensitively in the card's language, upcoming then
   past, grouped by month, at most `SEARCH_RESULT_LIMIT` drawn and the true total announced. A
   pick (`_pickSearchResult`) pages through the date picker's path (`_pickDate`), then rings the
