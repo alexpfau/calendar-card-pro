@@ -56,7 +56,7 @@ This motivated me to build a **dedicated calendar card**, fast by design. It has
 - 🌦️ **Weather** – [Forecasts](https://calendar-card-pro.alexpfau.com/features/weather) beside the date or each event.
 - 🎨 **Fits Your Theme** – Follows your theme's colors, with [custom properties](https://calendar-card-pro.alexpfau.com/features/theming) for finer styling.
 - ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens.
-- 🌍 **Multi-Language Support** – [Available in 36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 38 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
 
 ### 🔗 Requirements
 
@@ -154,6 +154,8 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 📍 **Today & Now at a Glance**: A [soft tile](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator) on today and ["Now" in green](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) on what is under way. ⚠️ Both are on by default and accents now follow your theme; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) say how to keep the v4 look, card-mod styles included
 - 📚 **Example Stories**: [Six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples) to copy, from a family's wall tablet to a bin-day tile
 - ⚡ **Your Events the Moment the Dashboard Opens**: Cached events draw straight away, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
+- 🐛 **Back on iOS 15 and 16**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16 and lets it load again on iOS 15; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
+- 🌍 **Serbian**: v5.0.1 adds Serbian, in Cyrillic and Latin script
 
 ### v4.2
 
@@ -183,7 +185,7 @@ and translations to new features. Pull requests go against the `dev` branch.
 
 - 📋 [Contributing guide](https://calendar-card-pro.alexpfau.com/contributing) — setup, workflow, coding standards, and how to add a translation
 - 🏗️ [Architecture documentation](https://calendar-card-pro.alexpfau.com/architecture) — module responsibilities, data flow, and performance design
-- 🌍 **Adding a translation?** The card speaks [36 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
+- 🌍 **Adding a translation?** The card speaks [38 languages](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) and the visual editor 12 — new ones are always welcome.
 - 🐛 **Found a bug or have an idea?** [Open an issue](https://github.com/alexpfau/calendar-card-pro/issues/new/choose).
 - 💬 **Questions?** Ask in the [community forum thread](https://community.home-assistant.io/t/calendar-card-pro-a-beautiful-high-performance-calendar-card-for-home-assistant/863711).
 

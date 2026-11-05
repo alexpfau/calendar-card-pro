@@ -211,12 +211,14 @@ describe('weather conditions follow the card language', () => {
    * Home Assistant identifies the two written forms of Chinese by script subtag, and
    * answers an unrecognized code with **English rather than an error** — so a wrong
    * code here is invisible at runtime. Measured against 2026.8.1: `zh-Hans` returns
-   * Chinese, `zh-CN` and `zh-cn` return English.
+   * Chinese, `zh-CN` and `zh-cn` return English. Serbian Latin is `sr-Latn` there, a
+   * script subtag too, which the region rule below would spell `sr-LATN`.
    */
   describe('language codes', () => {
     it('maps the card codes Home Assistant spells differently', () => {
       expect(toHaLanguage('zh-cn')).toBe('zh-Hans');
       expect(toHaLanguage('zh-tw')).toBe('zh-Hant');
+      expect(toHaLanguage('sr-latn')).toBe('sr-Latn');
     });
 
     it('capitalizes the region, because the match is case-sensitive', () => {
