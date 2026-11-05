@@ -68,8 +68,8 @@ const SENTENCE_END = /[.,;:!?'"]/;
 /** Markup that ends a line, kept as a line break so a description keeps its paragraphs. */
 const LINE_ENDING_MARKUP = /<br\s*\/?>|<\/(?:p|div|li|h[1-6]|tr)\s*>/gi;
 
-/** Marks where an anchor stood, in characters no calendar text uses. */
-const ANCHOR_MARK = /\uE000(\d+)\uE001/;
+/** The private-use characters an anchor's mark is made of: the first and the last. */
+const PRIVATE_USE = [0xe000, 0xf8ff] as const;
 
 //-----------------------------------------------------------------------------
 // PUBLIC API
@@ -148,22 +148,68 @@ export function linkPlainText(text: string): TextPiece[] {
 }
 
 /**
- * Text with each of its `<a href>` anchors replaced by a mark (`ANCHOR_MARK`) naming it.
+ * Text with each of its `<a href>` anchors replaced by a mark naming it: its number between
+ * `open` and `close`, which the card picks so the text holds neither (`markOwnAnchors`).
  *
  * Exported so `tests/links.test.ts` can compare it with the pattern it replaced.
  *
  * @param raw - The text as the calendar delivered it
+ * @param open - The character a mark opens with
+ * @param close - The character it closes with
  * @returns The marked text, and the anchors in the order their marks number them
  */
-export function markAnchors(raw: string): { marked: string; anchors: Anchor[] } {
+export function markAnchors(
+  raw: string,
+  open = '\uE000',
+  close = '\uE001',
+): { marked: string; anchors: Anchor[] } {
   const anchors: Anchor[] = [];
   const marked = raw.replace(ANCHOR, (anchor: string, attributes: string, words: string) => {
     const href = HREF.exec(attributes);
     if (!href) return anchor;
     anchors.push({ href: href[1] ?? href[2] ?? href[3] ?? '', words });
-    return `\uE000${anchors.length - 1}\uE001`;
+    return `${open}${anchors.length - 1}${close}`;
   });
   return { marked, anchors };
+}
+
+/**
+ * Two private-use characters the text does not hold, to mark where its anchors stood with:
+ * neither as written nor as a character reference, which `stripHtmlTags` decodes once the
+ * anchors are marked. No calendar character is out of reach of whoever writes to it, so a fixed
+ * pair was itself text that could be written, and was then taken for a mark: dropped, or drawn
+ * as an anchor's words in its place. Read in one pass, however many of them the text holds.
+ *
+ * @param raw - The text as the calendar delivered it
+ * @returns The opening and closing characters, or undefined where the text holds every one
+ */
+function markCharacters(raw: string): readonly [string, string] | undefined {
+  const text = raw.includes('&#') ? raw + stripHtmlTags(raw) : raw;
+  const used = new Set<number>();
+  for (let at = 0; at < text.length; at++) {
+    const code = text.charCodeAt(at);
+    if (code >= PRIVATE_USE[0] && code <= PRIVATE_USE[1]) used.add(code);
+  }
+  const free: string[] = [];
+  for (let code = PRIVATE_USE[0]; code <= PRIVATE_USE[1] && free.length < 2; code++) {
+    if (!used.has(code)) free.push(String.fromCharCode(code));
+  }
+  return free.length === 2 ? [free[0], free[1]] : undefined;
+}
+
+/**
+ * The text with its anchors marked in characters it does not hold, the anchors, and the pattern
+ * that finds a mark. Text that holds every such character is marked nowhere: it keeps every
+ * word, and no anchor of it links.
+ *
+ * @param raw - The text as the calendar delivered it
+ * @returns The marked text, its anchors, and the pattern of their marks
+ */
+function markOwnAnchors(raw: string): { marked: string; anchors: Anchor[]; mark: RegExp } {
+  const marks = markCharacters(raw);
+  if (!marks) return { marked: raw, anchors: [], mark: /(?!)/ };
+  const [open, close] = marks;
+  return { ...markAnchors(raw, open, close), mark: new RegExp(`${open}(\\d+)${close}`) };
 }
 
 /**
@@ -196,12 +242,12 @@ function anchorPieces(href: string, words: string): TextPiece[] {
  */
 export function linkText(raw: string | null | undefined): TextPiece[] {
   if (!raw) return [];
-  const { marked: anchored, anchors } = markAnchors(raw);
+  const { marked: anchored, anchors, mark } = markOwnAnchors(raw);
   const marked = anchored.replace(LINE_ENDING_MARKUP, '\n');
   const plain = stripHtmlTags(marked).replace(/\n{3,}/g, '\n\n');
 
   const pieces: TextPiece[] = [];
-  const parts = plain.split(ANCHOR_MARK);
+  const parts = plain.split(mark);
   parts.forEach((part, index) => {
     if (index % 2 === 0) {
       pieces.push(...linkPlainText(part));
@@ -243,10 +289,10 @@ export function hasLink(pieces: ReadonlyArray<TextPiece>): boolean {
 export function linkShownText(shown: string, raw?: string | null): TextPiece[] {
   if (!shown) return [];
   if (raw && /<a\b/i.test(raw)) {
-    const { marked, anchors } = markAnchors(raw);
+    const { marked, anchors, mark } = markOwnAnchors(raw);
     const pieces: TextPiece[] = [];
     stripHtmlTags(marked)
-      .split(ANCHOR_MARK)
+      .split(mark)
       .forEach((part, index) => {
         if (index % 2 === 0) {
           pieces.push(...linkPlainText(part));

@@ -6,6 +6,7 @@ import {
   dayDifference,
   moveStart,
   parseDate,
+  restoreTimes,
   setAllDay,
   timeValue,
   timesFromEntry,
@@ -172,5 +173,60 @@ describe('dayDifference', () => {
     expect(dayDifference(new Date(2026, 10, 3, 23), new Date(2026, 10, 5, 1))).toBe(2);
     expect(dayDifference(new Date(2026, 10, 5), new Date(2026, 10, 3))).toBe(-2);
     expect(dayDifference(new Date(2026, 10, 3, 9), new Date(2026, 10, 3, 18))).toBe(0);
+  });
+});
+
+describe('restoreTimes', () => {
+  const before = {
+    allDay: false,
+    start: new Date(2026, 10, 4, 15, 30),
+    end: new Date(2026, 10, 4, 16, 45),
+  };
+  const allDay = (from: Date, to: Date) => ({ allDay: true, start: from, end: to });
+
+  it('gives back the times as they were on the days they had', () => {
+    expect(restoreTimes(setAllDay(before, true, 9), before)).toEqual(before);
+    const overnight = {
+      allDay: false,
+      start: new Date(2026, 10, 4, 23),
+      end: new Date(2026, 10, 5, 0, 30),
+    };
+    expect(restoreTimes(setAllDay(overnight, true, 9), overnight)).toEqual(overnight);
+    const toMidnight = {
+      allDay: false,
+      start: new Date(2026, 10, 4, 23),
+      end: new Date(2026, 10, 5),
+    };
+    expect(restoreTimes(setAllDay(toMidnight, true, 9), toMidnight)).toEqual(toMidnight);
+  });
+
+  it('keeps them on the first day the span was moved to', () => {
+    expect(restoreTimes(allDay(new Date(2026, 10, 6), new Date(2026, 10, 6)), before)).toEqual({
+      allDay: false,
+      start: new Date(2026, 10, 6, 15, 30),
+      end: new Date(2026, 10, 6, 16, 45),
+    });
+  });
+
+  it('moves the end by as many days again where the last day moved as well', () => {
+    expect(restoreTimes(allDay(new Date(2026, 10, 4), new Date(2026, 10, 6)), before)).toEqual({
+      allDay: false,
+      start: new Date(2026, 10, 4, 15, 30),
+      end: new Date(2026, 10, 6, 16, 45),
+    });
+  });
+
+  it('keeps its length where the end would come at or before the start', () => {
+    const long = { allDay: false, start: new Date(2026, 10, 4, 15), end: new Date(2026, 10, 6, 9) };
+    expect(restoreTimes(allDay(new Date(2026, 10, 4), new Date(2026, 10, 4)), long)).toEqual({
+      allDay: false,
+      start: new Date(2026, 10, 4, 15),
+      end: new Date(2026, 10, 6, 9),
+    });
+    expect(restoreTimes(allDay(new Date(2026, 10, 4), new Date(2026, 10, 3)), before)).toEqual({
+      allDay: false,
+      start: new Date(2026, 10, 4, 15, 30),
+      end: new Date(2026, 10, 4, 16, 45),
+    });
   });
 });

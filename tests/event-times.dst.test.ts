@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   dateValue,
   moveStart,
+  restoreTimes,
+  setAllDay,
   timeValue,
   timesFromEntry,
   withTime,
@@ -86,6 +88,26 @@ describe('timed spans across a clock change', () => {
         const set = withTime(changeDay, `${String(hour).padStart(2, '0')}:30`)!;
         expect(set.getHours() === hour || set.getHours() === hour + 1).toBe(true);
       }
+    },
+  );
+});
+
+describe('times given back after all day, across a clock change', () => {
+  it.each(clockChanges().map((day) => [dateValue(day)]))(
+    'keeps the wall-clock times of a span moved across %s',
+    (date) => {
+      const day = new Date(`${date}T00:00:00`);
+      const before = {
+        allDay: false,
+        start: new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1, 9, 15),
+        end: new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1, 10, 45),
+      };
+      const next = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+      const moved = { ...setAllDay(before, true, 0), start: next, end: next };
+
+      const restored = restoreTimes(moved, before);
+      expect(dateValue(restored.start)).toBe(dateValue(next));
+      expect([timeValue(restored.start), timeValue(restored.end)]).toEqual(['09:15', '10:45']);
     },
   );
 });

@@ -441,6 +441,59 @@ describe('text that never ends where a link would', () => {
   });
 });
 
+/**
+ * The characters `markAnchors` marks an anchor's place with are private-use characters, which a
+ * calendar can still write, as written or as a character reference. Text holding them was taken
+ * for a mark and dropped, or stood in for an anchor's words.
+ */
+describe('text holding the characters an anchor is marked with', () => {
+  const OPEN = '\uE000';
+  const CLOSE = '\uE001';
+  const joined = (pieces: ReturnType<typeof linkText>): string =>
+    pieces.map((piece) => piece.text).join('');
+
+  it.each([
+    ['a whole mark', `Code ${OPEN}0${CLOSE} here`],
+    ['a mark naming no anchor', `Code ${OPEN}7${CLOSE} here`],
+    ['an opening character alone', `Code ${OPEN} here`],
+    ['a closing character alone', `Code ${CLOSE} here`],
+  ])('keeps %s with no anchor beside it', (_name, raw) => {
+    expect(joined(linkText(raw))).toBe(raw);
+    expect(linkText(raw).some((piece) => 'href' in piece)).toBe(false);
+  });
+
+  it('keeps a whole mark beside a real anchor, in its place, as text', () => {
+    const raw = `${OPEN}0${CLOSE} then <a href="https://e.example">the call</a>`;
+    expect(linkText(raw)).toEqual([
+      { text: `${OPEN}0${CLOSE} then ` },
+      { text: 'the call', href: 'https://e.example' },
+    ]);
+  });
+
+  it('keeps a mark written as character references beside a real anchor', () => {
+    const raw = '&#xE000;0&#xE001; then <a href="https://e.example">the call</a>';
+    expect(linkText(raw)).toEqual([
+      { text: `${OPEN}0${CLOSE} then ` },
+      { text: 'the call', href: 'https://e.example' },
+    ]);
+  });
+
+  it('keeps the link on a row whose text holds a mark', () => {
+    const raw = `${OPEN}0${CLOSE} then <a href="https://e.example">the call</a>`;
+    expect(linkShownText(stripHtmlTags(raw), raw)).toEqual([
+      { text: `${OPEN}0${CLOSE} then ` },
+      { text: 'the call', href: 'https://e.example' },
+    ]);
+  });
+
+  it('keeps every word of text holding every character a mark could use, linking none', () => {
+    let every = '';
+    for (let code = 0xe000; code <= 0xf8ff; code++) every += String.fromCharCode(code);
+    const raw = `${every} <a href="https://e.example">the call</a>`;
+    expect(linkText(raw)).toEqual([{ text: `${every} the call` }]);
+  });
+});
+
 describe('rowLinks', () => {
   it('hands back pieces only for a field that links somewhere', () => {
     const links = rowLinks({ location: 'Pool', description: 'See https://swim.example' });

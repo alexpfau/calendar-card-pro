@@ -142,6 +142,12 @@ export class EventPopover extends Shell.PopoverShell {
 
   private _original?: Model.Draft;
   /**
+   * The times the event had before All day was last switched on, which switching it off gives
+   * back (`_setAllDay`): a slot tapped in a grid, or an event's own. None for a draft that has
+   * not been timed since it opened, which starts at the hour it is now.
+   */
+  private _timedBefore?: Times.EventTimes;
+  /**
    * Whether the press that opened the popover may still send it the mouse events and click a
    * browser derives from a touch, which arrive where the finger lifted, on the popover now. No
    * press of the popover's own has begun yet; see `_ghostGuard`.
@@ -164,6 +170,7 @@ export class EventPopover extends Shell.PopoverShell {
     this._params = undefined;
     this._draft = undefined;
     this._original = undefined;
+    this._timedBefore = undefined;
   }
 
   //---------------------------------------------------------------------------
@@ -189,6 +196,7 @@ export class EventPopover extends Shell.PopoverShell {
     this._params = params;
     this._draft = draft;
     this._original = { ...draft, times: { ...draft.times } };
+    this._timedBefore = undefined;
     this._onClosed = params.closed;
     // Nothing is being edited when it opens. A new event opened by mouse or key starts in its
     // title, as macOS does; by finger or pen it does not, since a field taking the focus raises
@@ -594,7 +602,13 @@ export class EventPopover extends Shell.PopoverShell {
   private _setAllDay(allDay: boolean): void {
     const draft = this._draft;
     if (!draft) return;
-    this._setTimes(Times.setAllDay(draft.times, allDay, new Date().getHours()));
+    if (allDay && !draft.times.allDay) this._timedBefore = draft.times;
+    const before = this._timedBefore;
+    this._setTimes(
+      !allDay && draft.times.allDay && before
+        ? Times.restoreTimes(draft.times, before)
+        : Times.setAllDay(draft.times, allDay, new Date().getHours()),
+    );
   }
 
   private _setFrequency(freq: (typeof FREQUENCIES)[number]): void {

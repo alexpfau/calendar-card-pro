@@ -749,6 +749,94 @@ describe('the page behind', () => {
 
     expect(wheel(document.body)).toBe(false);
     expect(swipe(document.body)).toBe(false);
+    expect(key(document.body, 'PageDown')).toBe(false);
+  });
+
+  /** A key pressed on an element, and whether the panel stopped it scrolling the page. */
+  function key(target: EventTarget, name: string, init: KeyboardEventInit = {}): boolean {
+    const event = new KeyboardEvent('keydown', {
+      key: name,
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      ...init,
+    });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  const PAGING = ['PageDown', 'PageUp', ' ', 'End', 'Home', 'ArrowDown', 'ArrowUp'];
+
+  it.each(PAGING)(
+    'does not scroll under %j on a part of the panel with nothing to scroll',
+    async (name) => {
+      const { dialog } = await open();
+
+      expect(key(dialog(), name)).toBe(true);
+      expect(key(document.body, name)).toBe(true);
+      expect(key(dialog(), name, { shiftKey: true })).toBe(true);
+    },
+  );
+
+  it('leaves its field every key it types or moves in, and stops the page under paging keys', async () => {
+    const { field, type } = await open();
+    await type('dent');
+    const input = field() as HTMLInputElement;
+    input.setSelectionRange(2, 2);
+
+    for (const name of [' ', 'Home', 'End', 'ArrowLeft', 'a']) {
+      expect(key(field(), name)).toBe(false);
+    }
+    // A single-line field never pages; Chromium and WebKit scroll the page behind instead.
+    expect(key(field(), 'PageDown')).toBe(true);
+    expect(key(field(), 'PageUp')).toBe(true);
+
+    // Home and End with the caret already there move nothing, and macOS scrolls the page.
+    input.setSelectionRange(4, 4);
+    expect(key(field(), 'End')).toBe(true);
+    expect(key(field(), 'Home')).toBe(false);
+    input.setSelectionRange(0, 0);
+    expect(key(field(), 'Home')).toBe(true);
+    expect(key(field(), 'End')).toBe(false);
+    // A selection is moved off by either.
+    input.setSelectionRange(0, 4);
+    expect(key(field(), 'Home')).toBe(false);
+    expect(key(field(), 'End')).toBe(false);
+  });
+
+  it('leaves a press of Space to a button, and paging keys on it still stopped', async () => {
+    const { root } = await open();
+    const close = root.querySelector<HTMLButtonElement>('button.field-close')!;
+
+    expect(key(close, ' ')).toBe(false);
+    expect(key(close, 'PageDown')).toBe(true);
+    expect(key(close, 'ArrowDown')).toBe(true);
+  });
+
+  it('leaves a key to a part of the panel that can still scroll its way', async () => {
+    // Keys reach the results only from inside them; the field keeps focus while they are
+    // browsed, so the list stands in here for whatever scrolls with focus in it.
+    const { type, root } = await open();
+    await type('dent');
+    const list = root.querySelector<HTMLElement>('.results')!;
+
+    scrollable(list, 0);
+    expect(key(list, 'PageDown')).toBe(false);
+    expect(key(list, ' ')).toBe(false);
+    expect(key(list, ' ', { shiftKey: true })).toBe(true);
+    expect(key(list, 'PageUp')).toBe(true);
+
+    scrollable(list, 700);
+    expect(key(list, 'End')).toBe(true);
+    expect(key(list, 'Home')).toBe(false);
+  });
+
+  it('leaves shortcuts with a modifier to whoever has them', async () => {
+    const { dialog } = await open();
+
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
+      expect(key(dialog(), 'End', { [modifier]: true })).toBe(false);
+    }
   });
 });
 

@@ -8231,24 +8231,41 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Whether the card shows something its configuration does not, on this device: a page away
-   * from home, a layout picked with the switcher, a hidden calendar, or a compact card
-   * expanded. Never while it is being edited, when every control is inert: the page, the
-   * layout and the calendars show the configuration then, and an expansion is left as it is
-   * for when editing ends.
+   * from home, a layout picked with the switcher that draws something else at this width
+   * (`_viewChoiceShows`), a hidden calendar, or a compact card expanded. Never while it is being
+   * edited, when every control is inert: the page, the layout and the calendars show the
+   * configuration then, and an expansion is left as it is for when editing ends.
    *
    * The page is the one asked for, so a press answers at once while home loads. An expansion
-   * counts only where it shows: a card expanded as a list and switched to a layout without
-   * compact limits keeps the flag and draws nothing different, and a lit button with nothing
-   * to undo on screen would read as broken. A reset clears that flag too.
+   * counts only where it shows, as a pick does: a card expanded as a list and switched to a
+   * layout without compact limits keeps the flag and draws nothing different, and a lit button
+   * with nothing to undo on screen would read as broken. A reset clears that flag too.
    */
   private get _differsFromConfiguration(): boolean {
     if (this._isBeingEdited) return false;
     return (
       this._pageRequested !== null ||
-      this._viewChoice !== null ||
+      this._viewChoiceShows ||
       this._activeHiddenCalendars.size > 0 ||
       (this.isExpanded && this.hasCompactModeLimits())
     );
+  }
+
+  /**
+   * Whether the layout picked with the switcher draws something the configuration would not at
+   * this width, as a reset would draw it. A pick the card is too narrow for falls back to the
+   * list, which may be just what the configuration draws there too; the pick is kept for when
+   * the card is wide enough again, and counts again then. The view alone decides it: a pick is
+   * never the configured view (`_chooseView`), and two views only ever draw the same as the list.
+   */
+  private get _viewChoiceShows(): boolean {
+    if (this._viewChoice === null) return false;
+    const configured = ViewConfig.resolveColumnFitIfPicked(
+      this.config.view,
+      this.config,
+      this._measuredWidthPx,
+    );
+    return configured.view !== this._effectiveView;
   }
 
   /**
