@@ -572,6 +572,11 @@ over several days. It shows as a banner across those days, as the event's will b
 event, beside the all-day events or in a row of its own below them, and stays while the popover is open as a timed one
 does. The band is there whenever the days shown hold an all-day event.
 
+On days without an all-day event there is no band to draw in. Tap the time grid instead and
+switch on All day in the popover: the band opens, one row, for the new event's banner, and closes
+again if you switch All day off or cancel. Once the event is saved, the banner stays until the
+card shows the real one in its place.
+
 A hold on an empty spot of the grid draws even where the card has a `hold_action`; a hold
 anywhere else, on an event included, still runs it. Nothing is drawn while the card is edited.
 

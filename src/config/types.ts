@@ -1024,6 +1024,13 @@ export interface EventFetchResult {
   events: CalendarEventData[];
   /** Entity IDs whose calendar could not be retrieved during this fetch. */
   failedEntities: string[];
+  /**
+   * When each calendar the result speaks for last loaded successfully, in epoch milliseconds:
+   * each that answered, empty included, and each failing one the cache holds a last success of
+   * (`CacheEntry.lastSuccess`), empty included. A failing calendar not named here is one the
+   * result knows nothing of, so that `raw` holds none of its events does not mean it has none.
+   */
+  lastSuccess: Record<string, number>;
   /** When this payload was retrieved from Home Assistant, in epoch milliseconds. */
   fetchedAt: number;
   /**

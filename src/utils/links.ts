@@ -17,28 +17,53 @@ import { stripHtmlTags } from './format';
 /** A run of plain text, or a link with the words drawn for it. */
 export type TextPiece = { text: string } | { text: string; href: string };
 
+/** A calendar's anchor: its `href`, entities still encoded, and its words as written. */
+interface Anchor {
+  readonly href: string;
+  readonly words: string;
+}
+
 //-----------------------------------------------------------------------------
 // CONSTANTS
 //-----------------------------------------------------------------------------
 
 /**
- * An `<a>` element with an `href`, its quoted, single-quoted or bare value, and its words.
+ * An `<a>` element: the attributes of its start tag, and its words.
  *
  * 🚨 Every part stops at the next `<`, and the words stop at the next `<a`, so each attempt
  * that fails gives up at the next tag rather than at the end of the description. Anyone who
- * can write to a calendar writes its descriptions, and the pattern this replaced backtracked
+ * can write to a calendar writes its descriptions, and an earlier pattern backtracked
  * catastrophically on markup that never closes: 18 KB of `<a href="` repeated held a tab for
  * 37 seconds, and 105 KB of unclosed anchors for 280 ms on every render, where this takes about
- * a millisecond. An `href` holding `<` or `>` is no link a calendar writes.
+ * a millisecond.
+ *
+ * 🚨 **The `href` is read afterwards, from the attributes alone (`HREF`), not here.** Read
+ * here, its value's alternatives sat between the attributes and the `>`, so on a start tag
+ * with no `>` a long bare value was handed back one character at a time, and the rest of the
+ * tag was read again for each one: quadratic in the length of the tag, seconds for a few tens
+ * of KB. A tag that did close was read again the same way for each character of its value
+ * when its words never reached a `</a>`. With nothing to choose between before the `>`, a tag
+ * either closes or fails in one read, and every alternative of `HREF` ends where the tag does.
+ * An `<a>` with no `href` matches too, and `markAnchors` leaves it as it was, which is what
+ * the pattern this replaced did by not matching it: no anchor can start inside one, so
+ * stepping over it misses nothing.
  */
-const ANCHOR =
-  /<a\b[^<>]*?\bhref\s*=\s*(?:"([^"<>]*)"|'([^'<>]*)'|([^\s<>]+))[^<>]*>((?:(?!<a\b)[\s\S])*?)<\/a\s*>/gi;
+const ANCHOR = /<a\b([^<>]*)>((?:(?!<a\b)[\s\S])*?)<\/a\s*>/gi;
+
+/**
+ * The `href` among an anchor's attributes, with its quoted, single-quoted or bare value: the
+ * first `href` that has one. An `href` holding `<` or `>` is no link a calendar writes.
+ */
+const HREF = /\bhref\s*=\s*(?:"([^"<>]*)"|'([^'<>]*)'|([^\s<>]+))/i;
 
 /** Words that are a web address and nothing else, which may only link to themselves. */
 const URL_WORDS = /^https?:\/\/[^\s<>"']+$/i;
 
 /** A web address in running text, up to the first space or angle bracket or quote. */
 const BARE_URL = /\bhttps?:\/\/[^\s<>"']+/gi;
+
+/** Punctuation that ends a sentence, and so an address it follows. */
+const SENTENCE_END = /[.,;:!?'"]/;
 
 /** Markup that ends a line, kept as a line break so a description keeps its paragraphs. */
 const LINE_ENDING_MARKUP = /<br\s*\/?>|<\/(?:p|div|li|h[1-6]|tr)\s*>/gi;
@@ -73,6 +98,35 @@ function countOf(text: string, char: string): number {
 }
 
 /**
+ * A web address without what follows it in the sentence: trailing punctuation, and each
+ * closing parenthesis while the address closes more than it opened.
+ *
+ * The parentheses are counted once and the count kept as each one comes off. Counting them
+ * again for every character taken off read the whole address once per character, which made a
+ * run of `)` after an address quadratic in its length: seconds for a few tens of KB, on text
+ * anyone who can write to a calendar controls.
+ *
+ * @param found - An address as `BARE_URL` found it
+ * @returns The address the text links to
+ */
+function trimAddress(found: string): string {
+  const opened = countOf(found, '(');
+  let closed = countOf(found, ')');
+  let end = found.length;
+  for (;;) {
+    const last = found.charAt(end - 1);
+    if (SENTENCE_END.test(last)) {
+      end--;
+    } else if (last === ')' && closed > opened) {
+      closed--;
+      end--;
+    } else {
+      return found.slice(0, end);
+    }
+  }
+}
+
+/**
  * Split plain text at its web addresses. Trailing punctuation that ends a sentence stays text,
  * and a closing parenthesis stays with the address only while the address opened as many.
  *
@@ -83,13 +137,7 @@ export function linkPlainText(text: string): TextPiece[] {
   const pieces: TextPiece[] = [];
   let last = 0;
   for (const match of text.matchAll(BARE_URL)) {
-    let url = match[0];
-    while (
-      /[.,;:!?'"]$/.test(url) ||
-      (url.endsWith(')') && countOf(url, ')') > countOf(url, '('))
-    ) {
-      url = url.slice(0, -1);
-    }
+    const url = trimAddress(match[0]);
     const start = match.index ?? 0;
     if (start > last) pieces.push({ text: text.slice(last, start) });
     pieces.push({ text: url, href: url });
@@ -97,6 +145,25 @@ export function linkPlainText(text: string): TextPiece[] {
   }
   if (last < text.length) pieces.push({ text: text.slice(last) });
   return pieces;
+}
+
+/**
+ * Text with each of its `<a href>` anchors replaced by a mark (`ANCHOR_MARK`) naming it.
+ *
+ * Exported so `tests/links.test.ts` can compare it with the pattern it replaced.
+ *
+ * @param raw - The text as the calendar delivered it
+ * @returns The marked text, and the anchors in the order their marks number them
+ */
+export function markAnchors(raw: string): { marked: string; anchors: Anchor[] } {
+  const anchors: Anchor[] = [];
+  const marked = raw.replace(ANCHOR, (anchor: string, attributes: string, words: string) => {
+    const href = HREF.exec(attributes);
+    if (!href) return anchor;
+    anchors.push({ href: href[1] ?? href[2] ?? href[3] ?? '', words });
+    return `\uE000${anchors.length - 1}\uE001`;
+  });
+  return { marked, anchors };
 }
 
 /**
@@ -129,13 +196,8 @@ function anchorPieces(href: string, words: string): TextPiece[] {
  */
 export function linkText(raw: string | null | undefined): TextPiece[] {
   if (!raw) return [];
-  const anchors: Array<{ href: string; words: string }> = [];
-  const marked = raw
-    .replace(ANCHOR, (_match, doubled: string, single: string, bare: string, words: string) => {
-      anchors.push({ href: doubled ?? single ?? bare ?? '', words });
-      return `\uE000${anchors.length - 1}\uE001`;
-    })
-    .replace(LINE_ENDING_MARKUP, '\n');
+  const { marked: anchored, anchors } = markAnchors(raw);
+  const marked = anchored.replace(LINE_ENDING_MARKUP, '\n');
   const plain = stripHtmlTags(marked).replace(/\n{3,}/g, '\n\n');
 
   const pieces: TextPiece[] = [];
@@ -181,14 +243,7 @@ export function hasLink(pieces: ReadonlyArray<TextPiece>): boolean {
 export function linkShownText(shown: string, raw?: string | null): TextPiece[] {
   if (!shown) return [];
   if (raw && /<a\b/i.test(raw)) {
-    const anchors: Array<{ href: string; words: string }> = [];
-    const marked = raw.replace(
-      ANCHOR,
-      (_match, doubled: string, single: string, bare: string, words: string) => {
-        anchors.push({ href: doubled ?? single ?? bare ?? '', words });
-        return `\uE000${anchors.length - 1}\uE001`;
-      },
-    );
+    const { marked, anchors } = markAnchors(raw);
     const pieces: TextPiece[] = [];
     stripHtmlTags(marked)
       .split(ANCHOR_MARK)

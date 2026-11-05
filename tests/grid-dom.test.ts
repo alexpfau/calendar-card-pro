@@ -20,7 +20,10 @@ import * as GridUtils from '../src/utils/grid';
  * 12-hour axis label"), and the tests that read wording leave the marks out.
  */
 function axisText(element: Element): string | undefined {
-  return element.textContent?.trim().replace(/[\u2068\u2069]/g, '');
+  return element.textContent
+    ?.trim()
+    .replace(/[\u2068\u2069]/g, '')
+    .replace(/\u00a0/g, ' ');
 }
 
 /**
@@ -1040,8 +1043,8 @@ describe('with overlap_layout: columns, overlapping events share the column', ()
     const spans = blocks.map((block) => block.querySelector<HTMLElement>(ellipsized));
     // Each 12-hour reading is drawn inside invisible bidi isolates (clock-reading-bidi.test.ts).
     expect(spans.map((span) => span?.textContent?.trim() ?? null)).toEqual([
-      '\u20689:00 AM\u2069 - \u206811:00 AM\u2069',
-      '\u206810:00 AM\u2069 - \u206812:00 PM\u2069',
+      '\u20689:00\u00a0AM\u2069 - \u206811:00\u00a0AM\u2069',
+      '\u206810:00\u00a0AM\u2069 - \u206812:00\u00a0PM\u2069',
     ]);
 
     // The renderer hands over the whole range and never shortens it, so shortening is
@@ -2793,7 +2796,7 @@ describe('the axis', () => {
     // label is one left-to-right unit, as "9" alone already is. The sizer reads the same
     // text, so the gutter is measured from what is drawn.
     for (const [use24h, expected] of [
-      [false, ['\u20688 AM\u2069', '\u20689 AM\u2069']],
+      [false, ['\u20688\u00a0AM\u2069', '\u20689\u00a0AM\u2069']],
       [true, ['8', '9']],
     ] as const) {
       const container = renderGrid(

@@ -379,6 +379,45 @@ const FOCUSABLE_EVENT = '[role="button"][tabindex]';
 /** No calendar hidden: the one empty set, so an unchanged answer keeps its identity. */
 const NO_HIDDEN_CALENDARS: ReadonlySet<string> = new Set();
 
+/** What the card drew of a complete load (`_commitEvents`), and the query it was loaded for. */
+interface CompleteDrawing {
+  /** Query identity the events were loaded for (`_eventsInstanceId`). */
+  readonly instanceId: string;
+  /** The events drawn (`events`). */
+  readonly events: readonly Types.CalendarEventData[];
+  /** The same events, as loaded (`_drawnRaw`). */
+  readonly raw: readonly Types.CalendarEventData[];
+  /** When each calendar drawn last loaded successfully (`_drawnLoadedAt`). */
+  readonly loadedAt: Readonly<Record<string, number>>;
+  /** When the oldest of them loaded, for a calendar with no record of its own. */
+  readonly fetchedAt: number;
+}
+
+/** Nothing drawn yet, which no query matches. */
+const NOTHING_DRAWN: CompleteDrawing = {
+  instanceId: '',
+  events: [],
+  raw: [],
+  loadedAt: {},
+  fetchedAt: 0,
+};
+
+/**
+ * When the events drawn of a calendar last loaded successfully: by its own record, and for a
+ * calendar with none, by the oldest load drawn.
+ *
+ * @param drawing - When each calendar drawn loaded, and the oldest of them
+ * @param entityId - The calendar the events belong to
+ * @returns Epoch milliseconds
+ */
+function loadedAtOf(
+  drawing: Pick<CompleteDrawing, 'loadedAt' | 'fetchedAt'>,
+  entityId: string | undefined,
+): number {
+  const recorded = entityId === undefined ? undefined : drawing.loadedAt[entityId];
+  return typeof recorded === 'number' ? recorded : drawing.fetchedAt;
+}
+
 /**
  * Toolbar buttons already reported as having no name, by icon, so a card that renders again
  * does not say so again.
@@ -494,13 +533,35 @@ class CalendarCardPro extends LitElement {
   /**
    * The drift (`EventUtils.liveDrift`) the last `live` load was started for, until the card
    * commits events: the same drift is not loaded for again before then, so a load that commits
-   * nothing (a failure, or events kept after one) never loads in a loop. A `live` load that
-   * commits takes its events from the subscriptions, so no drift it was for outlives it. Each
-   * change has its own page-wide number, so a new change never reads as one loaded already.
+   * nothing (one that failed outright) never loads in a loop. A `live` load that commits takes
+   * its events from the subscriptions, so no drift it was for outlives it. Each change has its
+   * own page-wide number, so a new change never reads as one loaded already.
    */
   private _liveDriftLoaded = '';
-  /** The events drawn, as loaded (`EventFetchResult.raw`), to compare with live subscriptions. */
+  /**
+   * The events drawn, as loaded (`EventFetchResult.raw`), compared with live subscriptions.
+   * While a cold load draws calendars as they answer, only theirs; what a failing calendar
+   * keeps is read from `_completeDrawing`.
+   */
   private _drawnRaw: readonly Types.CalendarEventData[] = [];
+  /**
+   * When each calendar drawn last loaded successfully (`EventFetchResult.lastSuccess`): what
+   * bounds how long the card keeps drawing that calendar's events when nothing newer can be
+   * loaded, whatever the age of any other calendar drawn (`_drawnLoadedAtOf`).
+   */
+  private _drawnLoadedAt: Readonly<Record<string, number>> = {};
+  /**
+   * What the card last drew of a complete load, which a load keeps its failing calendars from
+   * (`_keepFailedCalendars`), read as the load starts.
+   *
+   * A cold load draws each calendar as it answers (`_schedulePartialCommit`), which replaces
+   * `events`, `_drawnRaw` and `_drawnLoadedAt` with the calendars that have answered, so a
+   * calendar failing after them would find nothing of its own there. Only `_commitEvents` writes
+   * this, so neither a partial draw nor a load a newer one replaced moves it. Letting go of
+   * events the card may no longer draw (`_dropUndrawableResidentEvents`) leaves it too: what is
+   * kept from it is held to the load's own query and to each calendar's 24 hours as it is read.
+   */
+  private _completeDrawing: CompleteDrawing = NOTHING_DRAWN;
   /**
    * Monotonic ticket for in-flight event requests.
    *
@@ -533,9 +594,9 @@ class CalendarCardPro extends LitElement {
   private _initialLoadRetryId?: number;
   /**
    * When the oldest of the events held in `events` last loaded successfully, in epoch
-   * milliseconds. Bounds how long the card keeps drawing them when nothing newer can be
-   * loaded. Not the time of the attempt that delivered them: an attempt that only carried
-   * a failing calendar's events forward does not make them any younger.
+   * milliseconds. Not the time of the attempt that delivered them: an attempt that only carried
+   * a failing calendar's events forward does not make them any younger. Each calendar is bounded
+   * by its own load (`_drawnLoadedAt`); this bounds one with no record of its own.
    */
   private _eventsFetchedAt = 0;
   /**
@@ -738,6 +799,11 @@ class CalendarCardPro extends LitElement {
   private _liftingTouch = false;
   /** The day the press under way is washing, so it can be unwashed however the press ends. */
   private _washedDay: Element | null = null;
+  /**
+   * Whether the grid draws the new event as a banner (`_paintNew`), which opens its all-day
+   * band, one row, on days that hold no all-day event of their own (`_openBandForNew`).
+   */
+  private _bandOpenForNew = false;
 
   /**
    * Whether the card's own action of this kind would run: one is configured, and it is not
@@ -4385,6 +4451,8 @@ class CalendarCardPro extends LitElement {
    * `NEW_EVENT_HOST_CLASS`, put into the day's plane or the all-day band, which the grid's
    * structure observer leaves alone: that it comes and goes changes nothing else the grid
    * draws, and its block is fitted on its own (`_fitNewBlocks`). Every render paints it again.
+   * A banner on days with no all-day event of their own opens the band it is drawn into
+   * (`_openBandForNew`).
    */
   private _paintNew(): void {
     const shown = this._newShown;
@@ -4405,13 +4473,12 @@ class CalendarCardPro extends LitElement {
       const headers = daysOn('.grid-day-header', 'day');
       const dayStarts = headers.map(({ day }) => day);
       const byDay = this._newEventByDay(shown, dayStarts);
-      const band = this.renderRoot.querySelector('.grid-allday-band');
       const columns = dayStarts.flatMap((day, column) => (byDay.has(day) ? [column] : []));
       const shownAs = byDay.values().next().value;
-      if (band && shownAs && columns.length) {
+      const banners: unknown[] = [];
+      if (shownAs && columns.length) {
         // As the grid lays out a banner: the event's whole span, over each run of its days.
         const event = { ...shownAs, ...(shownAs._gridSource ?? {}) };
-        const banners: unknown[] = [];
         let runStart = 0;
         for (let index = 1; index <= columns.length; index++) {
           if (index < columns.length && columns[index] === columns[index - 1] + 1) continue;
@@ -4431,9 +4498,14 @@ class CalendarCardPro extends LitElement {
           }
           runStart = index;
         }
-        wanted.set(band, banners);
       }
+      // Where the days shown hold no all-day event there is no band yet: the render this asks
+      // for opens one, and paints the banner into it.
+      this._openBandForNew(banners.length > 0);
+      const band = this.renderRoot.querySelector('.grid-allday-band');
+      if (band && banners.length) wanted.set(band, banners);
     } else {
+      this._openBandForNew(false);
       const bodies = daysOn('.grid-day-body', 'time');
       const byDay = this._newEventByDay(
         shown,
@@ -4590,10 +4662,28 @@ class CalendarCardPro extends LitElement {
   private _dropNew(): void {
     this._clearNewDrawing();
     this._newShown = null;
+    this._openBandForNew(false);
     if (this._newTimer !== undefined) {
       clearTimeout(this._newTimer);
       this._newTimer = undefined;
     }
+  }
+
+  /**
+   * Opens the grid's all-day band for the new event's banner, or closes it once the banner goes.
+   * A grid draws its band for the all-day events of the days it shows, and a new one is not
+   * among them until it is saved and the card's events bring it, so on days without one the
+   * band opens, one row, while the banner is drawn: switched to all-day in the popover, the new
+   * event would otherwise have nowhere to be drawn. That row is the banner's own, as every row
+   * of the band is, so it costs the height one all-day event does. A grid whose days hold an
+   * all-day event draws its band anyway, and is unchanged by this. Renders only where it changes.
+   *
+   * @param open - Whether the new event is drawn as a banner
+   */
+  private _openBandForNew(open: boolean): void {
+    if (open === this._bandOpenForNew) return;
+    this._bandOpenForNew = open;
+    this.requestUpdate();
   }
 
   /**
@@ -5781,15 +5871,11 @@ class CalendarCardPro extends LitElement {
     if (draws && snapshot) {
       Logger.info(`Drawing ${snapshot.events.length} cached events`);
       this._commitEvents(snapshot, instanceId, page);
-    } else if (isAppearLoad && this.events.length > 0 && !this._residentEventsDrawable()) {
+    } else if (isAppearLoad && this.events.length > 0) {
       // The element itself still holds events from before it was detached. With nothing
       // cached to replace them, they would be drawn under a config they were not fetched
       // for, or beyond the 24-hour bound, until the fetch lands.
-      this.events = [];
-      this._drawnRaw = [];
-      this._eventsInstanceId = '';
-      this._setFailures([]);
-      this.isInitialLoad = true;
+      this._dropUndrawableResidentEvents();
     }
 
     const ageMs = snapshot ? Date.now() - snapshot.fetchedAt : Infinity;
@@ -5824,6 +5910,9 @@ class CalendarCardPro extends LitElement {
       // the day after midnight or a configuration changed in place included, the events drawn
       // stay until every calendar has answered, so none of them vanishes and comes back.
       const cold = this.isInitialLoad || !this._drawsEventOn(page);
+      // What the card drew of its last complete load, before this one draws anything: a failing
+      // calendar keeps its events from here, not from what a cold load has drawn by then.
+      const drawnBefore = this._completeDrawing;
       let result: Types.EventFetchResult;
       try {
         result = await EventUtils.fetchEventData(
@@ -5853,25 +5942,21 @@ class CalendarCardPro extends LitElement {
       }
       this._failureCountHint = failedEntities.length > 0 ? this._failureCountHint + 1 : 0;
 
-      const eventsMatchCurrentQuery = this._eventsInstanceId === instanceId;
-      const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+      const eventsMatchCurrentQuery = drawnBefore.instanceId === instanceId;
       // The cache normally carries a failing calendar's last events forward itself. This
-      // covers the case where it cannot, with nothing stored or held in memory
-      // (`heldEntries` in events.ts), within the same bound.
-      const keepPreviousEvents =
-        failedEntities.length > 0 &&
-        result.events.length === 0 &&
-        this.events.length > 0 &&
-        eventsMatchCurrentQuery &&
-        Date.now() - this._eventsFetchedAt < maxStaleMs;
+      // covers the calendars it cannot, with nothing stored or held in memory for them
+      // (`heldEntries` in events.ts), within the same bound, counted from each one's own load:
+      // each keeps what the card drew of it at its last complete load for this query, whatever
+      // the other calendars answered, and the calendars that answered are drawn as they
+      // answered, empty included.
+      const mayKeepDrawn =
+        failedEntities.length > 0 && drawnBefore.events.length > 0 && eventsMatchCurrentQuery;
 
-      if (keepPreviousEvents) {
-        Logger.warn('Refresh failed and returned nothing — keeping previously loaded events');
-        this._setFailures(failedEntities);
-        this.isInitialLoad = false;
-      } else {
-        this._commitEvents(result, instanceId, page);
-      }
+      this._commitEvents(
+        mayKeepDrawn ? this._keepFailedCalendars(hass, config, result, drawnBefore) : result,
+        instanceId,
+        page,
+      );
 
       this.isLoading = false;
       this._scheduleRefresh(result.nextAttemptAt ?? Date.now() + this._refreshIntervalMs());
@@ -5928,6 +6013,14 @@ class CalendarCardPro extends LitElement {
     this._pageShown = page;
     this._eventsFetchedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
     this._drawnRaw = result.raw ?? [];
+    this._drawnLoadedAt = result.lastSuccess ?? {};
+    this._completeDrawing = {
+      instanceId,
+      events: this.events,
+      raw: this._drawnRaw,
+      loadedAt: this._drawnLoadedAt,
+      fetchedAt: this._eventsFetchedAt,
+    };
     // What is drawn now settles every drift it can; one it cannot is loaded for again.
     this._liveDriftLoaded = '';
     this._setFailures(failedEntities);
@@ -5939,6 +6032,69 @@ class CalendarCardPro extends LitElement {
       // run of failures this card had counted.
       this._failureCountHint = 0;
     }
+  }
+
+  /**
+   * A result with the events the card drew of each calendar that failed in it and that it
+   * knows nothing of (`lastSuccess`): those the cache could not carry forward
+   * (`fetchRawEvents`). Only theirs: a calendar that answered is drawn as it answered, and one
+   * whose last success the cache carried is drawn as the cache holds it, empty included, never
+   * twice and never from older events the card still drew of it.
+   *
+   * They are added as loaded and processed with the result's own, as the cache adds the events
+   * it carries, so they are drawn in the order they would be had the calendar answered. They
+   * come from the card's last complete load for this query (`drawing`), never from what a cold
+   * load has drawn since, which holds only the calendars that answered first. Each calendar is
+   * kept for 24 hours from when its own events loaded (`loadedAtOf`), whatever the age of any
+   * other calendar drawn, and the result carries that time on, so keeping a calendar again does
+   * not make its events any younger. The rule works from what this card drew, so a newer answer
+   * only another card saw is not known to it.
+   *
+   * @param hass Home Assistant instance the result was loaded from
+   * @param config The configuration the result was loaded for
+   * @param result Events of the calendars that answered, and of failed ones the cache carried
+   * @param drawing What the card drew of its last complete load for this query, as it started
+   * @returns The result with those events, or the result itself where the card drew none
+   */
+  private _keepFailedCalendars(
+    hass: Types.Hass,
+    config: Types.Config,
+    result: Types.EventFetchResult,
+    drawing: CompleteDrawing,
+  ): Types.EventFetchResult {
+    const known = result.lastSuccess ?? {};
+    const now = Date.now();
+    const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
+    const keptLoadedAt: Record<string, number> = Object.fromEntries(
+      (result.failedEntities ?? []).flatMap((entityId) => {
+        if (typeof known[entityId] === 'number') return [];
+        const loadedAt = loadedAtOf(drawing, entityId);
+        return now - loadedAt < maxStaleMs ? [[entityId, loadedAt]] : [];
+      }),
+    );
+    const drawn = drawing.raw.filter(
+      (event) => typeof keptLoadedAt[event._entityId ?? ''] === 'number',
+    );
+    if (drawn.length === 0) return result;
+
+    const names = [...new Set(drawn.map((event) => event._entityId))].join(', ');
+    Logger.warn(`Keeping the last events drawn of ${names}, which the cache could not carry`);
+    return EventUtils.withAddedEvents(hass, config, result, drawn, keptLoadedAt);
+  }
+
+  /**
+   * When the events the card draws now of a calendar last loaded successfully (`loadedAtOf`): by
+   * its own record (`_drawnLoadedAt`), and for a calendar with none, by the oldest load drawn
+   * (`_eventsFetchedAt`).
+   *
+   * @param entityId The calendar the events belong to
+   * @returns Epoch milliseconds
+   */
+  private _drawnLoadedAtOf(entityId: string | undefined): number {
+    return loadedAtOf(
+      { loadedAt: this._drawnLoadedAt, fetchedAt: this._eventsFetchedAt },
+      entityId,
+    );
   }
 
   /**
@@ -5976,6 +6132,7 @@ class CalendarCardPro extends LitElement {
       if (!this._partialDrawsAnEvent(pending.partial.events, pending.page)) return;
       this.events = [...pending.partial.events];
       this._drawnRaw = pending.partial.raw ?? [];
+      this._drawnLoadedAt = pending.partial.lastSuccess ?? {};
       this._eventsInstanceId = pending.instanceId;
       this._pageShown = pending.page;
       this._eventsFetchedAt = pending.partial.fetchedAt;
@@ -6111,20 +6268,38 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the events the element already holds may still be drawn for the current
-   * config.
-   *
-   * @returns True when they belong to the current query and are within the 24-hour bound
+   * Let go of what the element already holds that may no longer be drawn for the current config:
+   * everything, when it was loaded for another query, and otherwise each calendar's events once
+   * 24 hours have passed since they loaded (`_drawnLoadedAtOf`), whatever the age of any other
+   * calendar drawn. With nothing left, the card shows its loading state.
    */
-  private _residentEventsDrawable(): boolean {
+  private _dropUndrawableResidentEvents(): void {
     // Events nothing on this card loaded carry no query to compare, so they are left alone.
-    if (this._eventsInstanceId === '') return true;
+    if (this._eventsInstanceId === '') return;
 
+    const now = Date.now();
     const maxStaleMs = Constants.CACHE.MAX_STALE_HOURS * 60 * 60 * 1000;
-    return (
-      this._eventsInstanceId === this._instanceIdForPage(this._pageRequested) &&
-      Date.now() - this._eventsFetchedAt < maxStaleMs
-    );
+    const sameQuery = this._eventsInstanceId === this._instanceIdForPage(this._pageRequested);
+    const drawable = (event: Types.CalendarEventData): boolean =>
+      sameQuery && now - this._drawnLoadedAtOf(event._entityId) < maxStaleMs;
+    const events = this.events.filter(drawable);
+
+    if (events.length > 0) {
+      if (events.length === this.events.length) return;
+      this._eventsFetchedAt = Math.min(
+        ...events.map((event) => this._drawnLoadedAtOf(event._entityId)),
+      );
+      this.events = events;
+      this._drawnRaw = this._drawnRaw.filter(drawable);
+      return;
+    }
+
+    this.events = [];
+    this._drawnRaw = [];
+    this._drawnLoadedAt = {};
+    this._eventsInstanceId = '';
+    this._setFailures([]);
+    this.isInitialLoad = true;
   }
 
   /**
@@ -6213,6 +6388,7 @@ class CalendarCardPro extends LitElement {
           this._overflowStripPct,
           this._eventsActivatable,
           dayAdd,
+          this._bandOpenForNew,
         );
       }
 

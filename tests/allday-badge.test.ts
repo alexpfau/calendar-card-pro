@@ -8,6 +8,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as EditorSchemas from '../src/rendering/editor/schemas/events';
 import * as Render from '../src/rendering/render';
+import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
@@ -194,6 +195,47 @@ describe('allday_badge', () => {
       );
 
       expect(badgeIn(rowFor(container, 'Dentist'))).toBeNull();
+    });
+  });
+
+  describe('the countdown lead-in after a badge', () => {
+    // The stylesheet drops a folded countdown's 4px lead-in after a pill, which brings its own
+    // margin. A multi-day row's end phrase stands between the two and needs the lead-in, or
+    // its dot sits flush against the end (backlog item 141). Read from the stylesheet and
+    // matched against rendered rows, so a selector that reaches the multi-day row fails here.
+    const zeroLeadIn = cardStyles.cssText
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('}')
+      .filter((rule) => /margin-inline-start:\s*0\s*(;|$)/.test(rule.split('{')[1] ?? ''))
+      .flatMap((rule) => rule.split('{')[0].split(','))
+      .map((selector) => selector.replace(/\s+/g, ' ').trim())
+      .filter(
+        (selector) => selector.includes('.allday-badge') && /\.time-countdown\S*$/.test(selector),
+      );
+
+    it('reaches the countdown after a pill and not the one after an end phrase', () => {
+      const container = renderList(
+        [
+          allDayEvent('2026-06-18', '2026-06-19', 'Bin day'),
+          allDayEvent('2026-06-18', '2026-06-21', 'Festival'),
+        ],
+        buildConfig({
+          allday_badge: 'time',
+          show_countdown: true,
+          time_position: 'title',
+          days_to_show: 8,
+          split_multiday_events: false,
+        }),
+      );
+      const single = rowFor(container, 'Bin day').querySelector('.time-text > .time-countdown');
+      const multi = rowFor(container, 'Festival').querySelector('.time-text > .time-countdown');
+      expect(single).not.toBeNull();
+      expect(multi).not.toBeNull();
+      expect(multi?.previousElementSibling?.textContent).toBe('until Saturday, Jun 20');
+
+      expect(zeroLeadIn.length).toBeGreaterThan(0);
+      expect(zeroLeadIn.filter((selector) => single?.matches(selector))).not.toEqual([]);
+      expect(zeroLeadIn.filter((selector) => multi?.matches(selector))).toEqual([]);
     });
   });
 

@@ -1099,9 +1099,11 @@ describe('card stylesheet', () => {
       }
     });
 
-    it('keeps the countdown from breaking mid-phrase in list view, and lets it wrap here', () => {
-      // The list view keeps its single line: the event cell is as wide as the card, so
-      // there is nothing for wrapping to buy there.
+    it('keeps the countdown on one line in list view while it fits, and lets it wrap here', () => {
+      // The list view keeps its single line wherever the phrase fits the row, the event cell
+      // being as wide as the card. Only a phrase wider than the whole row wraps, between its
+      // words, through the rule pinned in "wraps list view's countdown only where it is wider
+      // than its row" below (backlog item 139).
       expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
 
       // The column releases it, and that is the indent above paying its own bill.
@@ -1259,6 +1261,22 @@ describe('card stylesheet', () => {
       // Titles keep theirs.
       expect(declared('.content-container', 'hyphens')).toBe('auto');
       expect(declared('.event-title', 'hyphens')).toBe('');
+    });
+
+    it("wraps list view's countdown only where it is wider than its row, not where it fitted", () => {
+      // The trailing countdown is a nowrap flex item at min-width: auto, so alone on its line
+      // it could not shrink below its phrase, and in Chromium, WebKit and Firefox "kahden
+      // päivän päästä" ran 22px past the edge of a 200px card. A box the width of the row at
+      // most, that never shrinks, leaves every countdown that fitted where it was, its end
+      // gutter included, and wraps only the one that did not.
+      const list = 'td.event .time-location > .time > .time-countdown';
+      expect(declared(list, 'max-width')).toBe('100%');
+      expect(declared(list, 'flex-shrink')).toBe('0');
+      expect(declared(list, 'white-space')).toBe('normal');
+      expect(declared(list, 'overflow-wrap')).toBe('break-word');
+      expect(declared(list, 'text-align')).toBe('end');
+      // Every other placement keeps the base rule's single line.
+      expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
     });
 
     it('breaks a column countdown word only where it cannot fit a line, never off its dot', () => {
@@ -1528,10 +1546,21 @@ describe('card stylesheet', () => {
     it('drops the countdown lead-in when a badge precedes it', () => {
       expect(
         declared(
-          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          '.time .time-actual .allday-badge + .time-text > .time-countdown:first-child',
           'margin-inline-start',
         ),
       ).toBe('0');
+    });
+
+    it('keeps the lead-in where an end phrase stands between the badge and the countdown', () => {
+      // A multi-day row's time text is its end phrase, a span ahead of the countdown, so the
+      // reset is scoped to the countdown that follows the pill alone (backlog item 141).
+      expect(
+        declared(
+          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          'margin-inline-start',
+        ),
+      ).toBe('');
     });
 
     it('gives the badge the margin its own comment derives', () => {
@@ -1547,7 +1576,7 @@ describe('card stylesheet', () => {
       const classes = (selector: string) => (selector.match(/\.[a-z-]+/g) ?? []).length;
 
       expect(
-        classes('.time .time-actual .allday-badge + .time-text > .time-countdown'),
+        classes('.time .time-actual .allday-badge + .time-text > .time-countdown:first-child'),
       ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
     });
 
@@ -1999,6 +2028,18 @@ describe('card stylesheet', () => {
   });
 
   describe('the grid view box model', () => {
+    it("gives a block's detail rows its whole width, as its title and time already have", () => {
+      // The 12px end gutter list and column view keep on .location and .description took 12px
+      // of a narrow lane from the words and none from the title or the time above them, so
+      // "Bring" broke as "Brin" / "g" in a lane it fits, in Chromium, WebKit and Firefox.
+      for (const row of ['.location', '.description', '.event-weather']) {
+        expect(declared(`.grid-event-disclosure ${row}`, 'margin-inline-end')).toBe('0');
+      }
+      // List and column view keep the gutter.
+      expect(declared('.description', 'margin-inline-end')).toBe('12px');
+      expect(declared('.time-location .event-weather', 'margin-inline-end')).toBe('12px');
+    });
+
     it('composes a block from its placement and its per-edge clearance', () => {
       // The half `grid-dom.test.ts` structurally cannot see. The renderer writes four
       // custom properties at most and never `top` or `height`, so what a browser resolves

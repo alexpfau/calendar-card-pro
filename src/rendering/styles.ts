@@ -2701,8 +2701,12 @@ export const cardStyles = css`
   }
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
-     badge there is no time text — the label became the badge — and the badge brings its own
-     margin, so keeping this one stacked the two into a visibly lopsided run-up to the dot.
+     single-day event's badge there is no time text — the label became the badge — and the
+     badge brings its own margin, so keeping this one stacked the two into a visibly lopsided
+     run-up to the dot. A multi-day event's time text is its end ("until Friday, Nov 6"), a span
+     of its own ahead of the countdown, and keeps the lead-in: without :first-child its dot sat
+     flush against the end. Where a countdown follows the pill alone, column view and the time
+     beside the title, it is display: contents and takes no margin, so this rule is a guard.
      No margin figures here on purpose: the same commit that first wrote them also changed
      the badge's own margin from 4px to 5px, so they were stale the moment they were
      committed. The badge's rule carries the live number and the reasoning for it; one copy
@@ -2710,12 +2714,12 @@ export const cardStyles = css`
      did when it was losing, which is a fact about a fixed bug rather than a live spacing
      that can drift out from under this comment.
      Adjacent-sibling rather than :has(), because the badge really is the element before.
-     The two-class prefix on the front of this selector is load-bearing: without it the
-     selector carries three classes against the four of the rule it has to beat, loses on
-     specificity and silently changes nothing. Measured at 8.62px before the dot against
-     5.62px after it while that was the case — a fix that typechecked, built, deployed and
-     did nothing. */
-  .time .time-actual .allday-badge + .time-text > .time-countdown {
+     The two-class prefix on the front of this selector keeps it ahead on specificity: without
+     it the selector carried three classes against the four of the rule it has to beat, lost
+     and silently changed nothing. With :first-child it would now tie, and win only on source
+     order. Measured at 8.62px before the dot against 5.62px after it while it lost — a fix
+     that typechecked, built, deployed and did nothing. */
+  .time .time-actual .allday-badge + .time-text > .time-countdown:first-child {
     margin-inline-start: 0;
   }
 
@@ -2730,7 +2734,7 @@ export const cardStyles = css`
    * Never hyphenated, in any placement; grid's folded countdown already was not. Column
    * view split "tomorrow" as "to-" / "morrow" in all three engines rather than move it whole
    * to the next line. A word too wide for any line breaks without a hyphen instead, through
-   * .column-events .time-countdown. Inert in list view, where the countdown is one line. */
+   * .column-events .time-countdown, and in list view through the rule below. */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
@@ -2738,6 +2742,17 @@ export const cardStyles = css`
     margin-inline-end: 12px;
     white-space: nowrap;
     hyphens: manual;
+  }
+
+  /* List view's countdown stays one line while it fits the row, end gutter included, and
+     wraps only past that, where the card's edge cut it: "kahden päivän päästä" lost 22px at
+     200px. Not let shrink, so every countdown that fitted stays where it was. */
+  td.event .time-location > .time > .time-countdown {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-align: end;
   }
 
   .location {
@@ -4656,7 +4671,9 @@ export const cardStyles = css`
 
   /* Its own nested grid so banners can span day columns while the band as a whole
      spans the outer grid's full width. The row template is set inline from the number
-     of rows the packing actually needed, so an empty band costs no height. */
+     of rows the packing actually needed, or one for a new all-day event the card is
+     adding on days without one (renderGridGroupedEvents), so an empty band costs no
+     height. */
   .grid-allday-band {
     display: grid;
     row-gap: 2px;
@@ -5167,6 +5184,15 @@ export const cardStyles = css`
   .grid-event-disclosure .description,
   .grid-event-disclosure .event-weather {
     flex: 0 0 auto;
+  }
+
+  /* The detail rows run to the block's own padding, as its title and time already do. The
+     12px end gutter list and column view keep broke words a block fits: "Bring" split as
+     "Brin" / "g" in blocks 58 to 69px wide. */
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    margin-inline-end: 0;
   }
 
   .grid-event-disclosure .time,

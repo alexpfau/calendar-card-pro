@@ -455,6 +455,11 @@ export async function fetchEventData(
           raw,
           events: processRawEvents(raw, config, request.firstDayOfWeek),
           failedEntities: [],
+          lastSuccess: Object.fromEntries(
+            [...inFlight.settled].flatMap(([entityId, events]) =>
+              events ? [[entityId, now]] : [],
+            ),
+          ),
           fetchedAt: now,
           loadedAt: now,
           nextAttemptAt: now + getCacheDuration(config),
@@ -523,9 +528,60 @@ function resultFromEntry(
     raw: rawEvents,
     events: processRawEvents(rawEvents, config, firstDayOfWeek),
     failedEntities: [...(entry.failedEntities ?? [])],
+    // By the cache's own record, so a failing calendar whose last answer held no events is
+    // named, though `rawEvents` holds nothing of it.
+    lastSuccess: Object.fromEntries(
+      uniqueEntityIds(config.entities).flatMap((entityId) => {
+        const loadedAt = lastSuccessOf(entry, entityId);
+        return loadedAt === undefined ? [] : [[entityId, loadedAt]];
+      }),
+    ),
     fetchedAt: entry.timestamp,
     loadedAt: oldestLoad(entry, rawEvents),
     nextAttemptAt: nextAttemptAt(entry, config),
+  };
+}
+
+/**
+ * A result with raw events of calendars it knows nothing of added, processed together with
+ * its own as the events the cache carries forward for a failing calendar are
+ * (`fetchRawEvents`). Processing orders events by calendar as the configuration lists them,
+ * which is the order events starting at the same moment are drawn in, so the added events
+ * fall where they would had the calendar answered. For the events a card drew of a failing
+ * calendar the cache could not carry. Each added calendar is recorded in `lastSuccess` with when
+ * its events loaded, so a calendar added again on a later failure is bounded by its own load.
+ *
+ * @param hass Home Assistant instance
+ * @param config The configuration the result was loaded for
+ * @param result The result to add to
+ * @param added Raw events of calendars the result does not speak for (`lastSuccess`)
+ * @param addedLoadedAt When each calendar of the added events last loaded successfully
+ * @returns The result with the added events and their calendars' load times, its `loadedAt`
+ *   the oldest of all
+ */
+export function withAddedEvents(
+  hass: Types.Hass,
+  config: Types.Config,
+  result: Types.EventFetchResult,
+  added: readonly Types.CalendarEventData[],
+  addedLoadedAt: Readonly<Record<string, number>>,
+): Types.EventFetchResult {
+  const raw = [...(result.raw ?? []), ...added];
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
+  const lastSuccess = { ...result.lastSuccess };
+  let loadedAt = result.loadedAt ?? result.fetchedAt ?? Date.now();
+  for (const event of added) {
+    const addedAt = event._entityId ? addedLoadedAt[event._entityId] : undefined;
+    if (!event._entityId || addedAt === undefined) continue;
+    lastSuccess[event._entityId] = addedAt;
+    loadedAt = Math.min(loadedAt, addedAt);
+  }
+  return {
+    ...result,
+    raw,
+    events: processRawEvents(raw, config, firstDayOfWeek),
+    lastSuccess,
+    loadedAt,
   };
 }
 

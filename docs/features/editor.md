@@ -293,9 +293,9 @@ The editor only offers the settings your current configuration calls for: a fixe
 
 The Calendars picker lists each calendar **once**, however many times the card uses it. It answers one question — which calendars this card shows — and the panels beneath it answer the other: how many blocks each calendar has, and what is set on each.
 
-Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading either, so the heading always matches the picker row above it; the **Name** field at the top of the panel shows your own.
+Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading either, so the heading always matches the picker row above it; the line under the heading and the **Name** field at the top of the panel show your own.
 
-The line under the heading says what the panel holds: your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not.
+The line under the heading says what the panel holds. It opens with the calendar's `name`, wherever that differs from the heading, so a calendar you named can be told apart while its panel is closed. Then comes your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not. A calendar whose only setting is its name shows just that name, as **Kids** rather than **Kids · Configured**, and with a label as well it reads **Kids · School**.
 
 Each panel opens with four actions:
 

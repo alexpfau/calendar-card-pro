@@ -6,6 +6,7 @@ import {
   linkPlainText,
   linkShownText,
   linkText,
+  markAnchors,
   rowLinks,
   safeHref,
 } from '../src/utils/links';
@@ -184,12 +185,15 @@ describe('a link shows where it goes', () => {
 
 /**
  * Markup that never closes, which anyone who can write to a calendar can put in a description.
- * The anchor pattern this replaced took 37 s on the first input here and 280 ms on the second;
- * each takes about a millisecond now, so a bound this loose still fails on the old one.
+ * An earlier anchor pattern took 37 s on the first input here and 280 ms on the second; each
+ * takes about a millisecond now, so a bound this loose still fails on that one.
  *
- * Only inputs whose tags do close somewhere, or are short: a long run of tags that never close
- * at all (`<a ` twenty thousand times) is slow in `stripHtmlTags`, which every row has run on
- * its description since long before links, and is not what this pins.
+ * Only inputs whose tags do close somewhere, or are short. A long run of tags that never close
+ * at all (`<a ` twenty thousand times) was slow in `stripHtmlTags` as well, which every row runs
+ * on its description, until its pattern became a scanner; `tests/strip-html-tags.test.ts` pins
+ * that one, measured without happy-dom's own parser, which this file's textarea would put back.
+ * The long runs the anchor pattern after that one was slow on are pinned below, under "text
+ * that never ends where a link would".
  */
 describe('markup that never closes', () => {
   it.each([
@@ -200,6 +204,240 @@ describe('markup that never closes', () => {
     linkText(raw);
     linkShownText('x', raw);
     expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
+
+/**
+ * The anchor pattern `markAnchors` replaced, verbatim, kept as its oracle.
+ *
+ * It read the `href` inside the pattern, which took quadratic time on a start tag that never
+ * closes. What it found is, by definition, what an anchor was until then, so `markAnchors`
+ * has to agree with it on every input rather than on the rows above.
+ */
+const PREVIOUS_ANCHOR =
+  /<a\b[^<>]*?\bhref\s*=\s*(?:"([^"<>]*)"|'([^'<>]*)'|([^\s<>]+))[^<>]*>((?:(?!<a\b)[\s\S])*?)<\/a\s*>/gi;
+
+/** What the previous anchor pattern marked in `raw`. */
+function previousMarkAnchors(raw: string): ReturnType<typeof markAnchors> {
+  const anchors: Array<{ href: string; words: string }> = [];
+  const marked = raw.replace(
+    PREVIOUS_ANCHOR,
+    (_match, doubled: string, single: string, bare: string, words: string) => {
+      anchors.push({ href: doubled ?? single ?? bare ?? '', words });
+      return `\uE000${anchors.length - 1}\uE001`;
+    },
+  );
+  return { marked, anchors };
+}
+
+/**
+ * What `linkPlainText` made of `text` before its trim counted the parentheses once, kept as its
+ * oracle: the same loop, counting both kinds again for each character it took off.
+ */
+function previousLinkPlainText(text: string): ReturnType<typeof linkPlainText> {
+  const countOf = (url: string, char: string): number => url.split(char).length - 1;
+  const pieces: ReturnType<typeof linkPlainText> = [];
+  let last = 0;
+  for (const match of text.matchAll(/\bhttps?:\/\/[^\s<>"']+/gi)) {
+    let url = match[0];
+    while (
+      /[.,;:!?'"]$/.test(url) ||
+      (url.endsWith(')') && countOf(url, ')') > countOf(url, '('))
+    ) {
+      url = url.slice(0, -1);
+    }
+    const start = match.index ?? 0;
+    if (start > last) pieces.push({ text: text.slice(last, start) });
+    pieces.push({ text: url, href: url });
+    last = start + url.length;
+  }
+  if (last < text.length) pieces.push({ text: text.slice(last) });
+  return pieces;
+}
+
+/**
+ * The inputs among `inputs` where `actual` and `expected` disagree, and how many of them
+ * `expected` found a link in: a corpus with none would agree with anything.
+ */
+function disagreements<T>(
+  inputs: Iterable<string>,
+  actual: (input: string) => T,
+  expected: (input: string) => T,
+  linked: (result: T) => boolean,
+): { inputs: number; linked: number; differ: string[] } {
+  const differ: string[] = [];
+  let count = 0;
+  let found = 0;
+  for (const input of inputs) {
+    count++;
+    const want = expected(input);
+    if (linked(want)) found++;
+    if (JSON.stringify(actual(input)) !== JSON.stringify(want) && differ.length < 5) {
+      differ.push(input);
+    }
+  }
+  return { inputs: count, linked: found, differ };
+}
+
+/** Every string made of one choice from each list, in order. */
+function* product(parts: ReadonlyArray<ReadonlyArray<string>>, prefix = ''): Generator<string> {
+  if (parts.length === 0) {
+    yield prefix;
+    return;
+  }
+  for (const part of parts[0]) yield* product(parts.slice(1), prefix + part);
+}
+
+/** Every arrangement of up to `depth` of `fragments`, the empty one included. */
+function* arrangements(
+  fragments: readonly string[],
+  depth: number,
+  prefix = '',
+): Generator<string> {
+  yield prefix;
+  if (depth === 0) return;
+  for (const fragment of fragments) yield* arrangements(fragments, depth - 1, prefix + fragment);
+}
+
+/** `count` seeded random strings up to 400 characters, built from `fragments`. */
+function* randomText(fragments: readonly string[], seed: number, count: number): Generator<string> {
+  // mulberry32, so the corpus is the same on every run and a failure reproduces.
+  let state = seed >>> 0;
+  const random = (): number => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let sample = 0; sample < count; sample++) {
+    let text = '';
+    const length = Math.floor(random() * 400);
+    while (text.length < length) text += fragments[Math.floor(random() * fragments.length)];
+    yield text;
+  }
+}
+
+describe('finds exactly the anchors the previous pattern found', () => {
+  // The rows above cannot show this: an `href` that is not the first, a quote that never
+  // closes, or an `<a>` with no `href` beside one that has one each need parts arranged just
+  // so. Each corpus states its size and how many of its inputs hold an anchor before it states
+  // that the two agree — a corpus with none would agree with anything.
+  const ANCHOR_PARTS = [
+    ['<a', '<A', '<ab'],
+    [' ', '\t', ' x ', ' xhref=y '],
+    ['href', 'HREF', 'hre'],
+    ['=', ' = ', ''],
+    ['"u"', "'u'", 'u', '""', '"u', "'u", ''],
+    ['', ' href=v'],
+    ['>', '', '<'],
+    ['', 'w', '<a>', '<a href=z>'],
+    ['</a>', '</A >', '</a', ''],
+  ];
+  const FRAGMENTS = [
+    ...['<a ', '<a href=', '<a href="', "<a href='", '<A HREF = ', '<ab ', 'href=', ' href'],
+    ...['"', "'", 'x', 'https://e.example/p', ' ', '=', '>', '>', '>w', '</a>', '</a>', '</A >'],
+    ...['</a', '<', '\n', '<b>', '/', '&amp;'],
+  ];
+  const linked = (result: ReturnType<typeof markAnchors>): boolean => result.anchors.length > 0;
+
+  it('agrees on every anchor built from these parts', () => {
+    const result = disagreements(product(ANCHOR_PARTS), markAnchors, previousMarkAnchors, linked);
+
+    expect(result.inputs).toBe(3 * 4 * 3 * 3 * 7 * 2 * 3 * 4 * 4);
+    expect(result.linked).toBe(11_856);
+    expect(result.differ).toEqual([]);
+  });
+
+  it('agrees on long random text dense with anchors', () => {
+    const result = disagreements(
+      randomText(FRAGMENTS, 28, 2_000),
+      markAnchors,
+      previousMarkAnchors,
+      linked,
+    );
+
+    expect(result.inputs).toBe(2_000);
+    expect(result.linked).toBe(585);
+    expect(result.differ).toEqual([]);
+  });
+});
+
+describe('takes the same sentence ends off an address as before', () => {
+  // A wrong count shows only where an address holds parentheses of both kinds and ends in a
+  // mix of them and sentence ends, which up to five fragments reach in every arrangement.
+  const FRAGMENTS = ['https://a.example/', 'http://b', ')', '(', '.', ',', '!', '?', 'x', ' '];
+  const MORE = [...FRAGMENTS, '))', '()', ':', ';', '"', "'", '<', '\n', 'HTTPS://C'];
+  const linked = (pieces: ReturnType<typeof linkPlainText>): boolean => hasLink(pieces);
+
+  it('agrees on every arrangement of up to five address fragments', () => {
+    const result = disagreements(
+      arrangements(FRAGMENTS, 5),
+      linkPlainText,
+      previousLinkPlainText,
+      linked,
+    );
+
+    expect(result.inputs).toBe(1 + 10 + 10 ** 2 + 10 ** 3 + 10 ** 4 + 10 ** 5);
+    expect(result.linked).toBe(68_586);
+    expect(result.differ).toEqual([]);
+  });
+
+  it('agrees on long random text dense with addresses', () => {
+    const result = disagreements(
+      randomText(MORE, 108, 2_000),
+      linkPlainText,
+      previousLinkPlainText,
+      linked,
+    );
+
+    expect(result.inputs).toBe(2_000);
+    expect(result.linked).toBe(1_971);
+    expect(result.differ).toEqual([]);
+  });
+});
+
+/**
+ * Text that never ends where a link would: a run of closing parentheses after an address, and
+ * an anchor's start tag or words that never close. Each shape took quadratic time until the
+ * trim counted the parentheses once and the anchor's `href` was read apart from its tag, and
+ * each runs here at a size where that took seconds. Each takes about a millisecond now, so the
+ * bound is loose enough for a loaded machine and still fails on the old code by a wide margin.
+ * They call the two functions directly, so the time measured is the card's own and not
+ * happy-dom's parser.
+ */
+describe('text that never ends where a link would', () => {
+  const ADDRESS = 'https://a.example/';
+  const run = (unit: string, kib: number): string =>
+    unit.repeat(Math.ceil((kib * 1024) / unit.length));
+
+  it.each([
+    ['closing parentheses', run(')', 32)],
+    ['sentence ends and closing parentheses', run('.)', 64)],
+  ])('trims a run of %s after an address in linear time', (_name, tail) => {
+    const started = performance.now();
+    const pieces = linkPlainText(ADDRESS + tail);
+    const elapsed = performance.now() - started;
+
+    // The whole run was read, and none of it went with the address.
+    expect(pieces).toEqual([{ text: ADDRESS, href: ADDRESS }, { text: tail }]);
+    expect(elapsed).toBeLessThan(250);
+  });
+
+  it.each([
+    ['a bare value', '<a href=' + run('x', 128)],
+    ['an unclosed quote', '<a href="' + run('x', 128)],
+    ['one href after another', '<a ' + run('href=x ', 256)],
+    ['words that never close', '<a href=' + run('x', 64) + '>' + run('w', 64)],
+  ])('reads an anchor with %s in linear time', (_name, raw) => {
+    const started = performance.now();
+    const { marked, anchors } = markAnchors(raw);
+    const elapsed = performance.now() - started;
+
+    // Nothing closes, so nothing is an anchor: the text was read, not skipped.
+    expect(anchors).toEqual([]);
+    expect(marked).toBe(raw);
+    expect(elapsed).toBeLessThan(250);
   });
 });
 

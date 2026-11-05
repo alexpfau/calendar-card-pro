@@ -279,8 +279,15 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(191_000);
-    // The time beside the title moved the ceiling last, from 186,000 to 191,000: the notes on why
+    expect(saved).toBeLessThan(194_000);
+    // The pre-release layout fixes moved the ceiling last, from 191,000 to 194,000: the notes on
+    // why the countdown dot keeps its lead-in after a multi-day end phrase, why list view's
+    // countdown wraps between words only where it is wider than its row, why a grid block's
+    // detail rows give up the end gutter list and column keep, and why the grid's all-day band
+    // opens for a new all-day event. The reading went from 189,983 to 191,009, taken with
+    // stripComments after the last comment was written.
+    //
+    // The time beside the title moved the ceiling before that, from 186,000 to 191,000: the notes on why
     // the title line aligns its title and time on one baseline beside every label kind, why the
     // time's box stops at 60% of the line but never below what it cannot wrap, why list view's
     // weather badge keeps its size and lines up by its text there, why the bullet after it is

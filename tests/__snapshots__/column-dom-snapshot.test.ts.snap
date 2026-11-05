@@ -53,7 +53,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -74,7 +74,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -95,7 +95,7 @@ exports[`column view DOM > renders a single day 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="location">
@@ -142,7 +142,7 @@ exports[`column view DOM > renders a single event 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -270,7 +270,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -291,7 +291,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -312,7 +312,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="location">
@@ -413,7 +413,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span>
+<span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span>
 </div>
 </div>
 </div>
@@ -1040,7 +1040,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨8:00 AM⁩ - ⁨9:00 AM⁩</span>
+<span>⁨8:00&nbsp;AM⁩ - ⁨9:00&nbsp;AM⁩</span>
 </div>
 </div>
 </div>
@@ -1061,7 +1061,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -1082,7 +1082,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -1103,7 +1103,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="location">
@@ -1204,7 +1204,7 @@ exports[`column view DOM > renders past events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span>
+<span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span>
 </div>
 </div>
 </div>
@@ -1268,7 +1268,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -1289,7 +1289,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -1310,7 +1310,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="location">
@@ -1411,7 +1411,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span>
+<span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span>
 </div>
 </div>
 </div>
@@ -1487,7 +1487,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -1508,7 +1508,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="time-text"><span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span><span class="time-countdown">in 4 hours</span></span>
+<span class="time-text"><span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span><span class="time-countdown">in 4 hours</span></span>
 </div>
 </div>
 </div>
@@ -1529,7 +1529,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="time-text"><span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span><span class="time-countdown">in 6 hours</span></span>
+<span class="time-text"><span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span><span class="time-countdown">in 6 hours</span></span>
 </div>
 </div>
 <div class="location">
@@ -1630,7 +1630,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="time-text"><span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span><span class="time-countdown">in 2 days</span></span>
+<span class="time-text"><span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span><span class="time-countdown">in 2 days</span></span>
 </div>
 </div>
 </div>
@@ -1694,7 +1694,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 </div>
@@ -1715,7 +1715,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
@@ -1736,7 +1736,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="location">
@@ -1816,7 +1816,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span>
+<span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span>
 </div>
 </div>
 </div>
@@ -1882,7 +1882,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock"></ha-icon>
-<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30 AM⁩ - ⁨11:00 AM⁩</span></span>
+<span class="now-time"><span class="now-indicator">Now</span><span>⁨9:30&nbsp;AM⁩ - ⁨11:00&nbsp;AM⁩</span></span>
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
@@ -1904,7 +1904,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
@@ -1926,7 +1926,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨4:00 PM⁩ - ⁨5:00 PM⁩</span>
+<span>⁨4:00&nbsp;PM⁩ - ⁨5:00&nbsp;PM⁩</span>
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>23°</span></span></div>
@@ -2032,7 +2032,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨10:00 AM⁩ - ⁨10:30 AM⁩</span>
+<span>⁨10:00&nbsp;AM⁩ - ⁨10:30&nbsp;AM⁩</span>
 </div>
 </div>
 <div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>16°</span></span></div>
@@ -2177,7 +2177,7 @@ exports[`column view DOM > suppresses empty day columns 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>⁨2:00 PM⁩ - ⁨3:00 PM⁩</span>
+<span>⁨2:00&nbsp;PM⁩ - ⁨3:00&nbsp;PM⁩</span>
 </div>
 </div>
 </div>
