@@ -159,6 +159,52 @@ describe('splitTitleWords', () => {
   it('returns nothing for an empty title', () => {
     expect(splitTitleWords('')).toEqual([]);
   });
+
+  // The split after a hyphen used to be a lookbehind, which Safari cannot parse before 16.4
+  // (#735). The reference below is that original split, so every generated word must come
+  // out the same through the matching rewrite. The alphabet has no breaking spaces and no
+  // script that skips the split, so each title is one word and the hyphen rule alone decides.
+  it('splits after a hyphen exactly as the lookbehind it replaced did', () => {
+    const lookbehind = new RegExp(
+      '(?<=[\\p{L}\\p{N}][-\\u2010\\u2013\\u2014])(?=[\\p{L}\\p{N}])',
+      'u',
+    );
+    const alphabet = [
+      'a',
+      'Z',
+      'é',
+      'ß',
+      'Ж',
+      '한',
+      '7',
+      '३',
+      '-',
+      '\u2010',
+      '\u2013',
+      '\u2014',
+      '_',
+      '.',
+      '°',
+      '\u0301',
+      '\u00a0',
+      '🎉',
+    ];
+    let seed = 735;
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const mismatches: string[] = [];
+    let compared = 0;
+    for (let i = 0; i < 50_000; i++) {
+      let title = '';
+      const length = 1 + Math.floor(next() * 9);
+      for (let j = 0; j < length; j++) title += alphabet[Math.floor(next() * alphabet.length)];
+      const expected = title.split(lookbehind);
+      const actual = splitTitleWords(title).map(({ text }) => text);
+      compared++;
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) mismatches.push(title);
+    }
+    expect(compared).toBe(50_000);
+    expect(mismatches.slice(0, 5)).toEqual([]);
+  });
 });
 
 describe('gridTitleUsefulPrefix', () => {

@@ -2,6 +2,32 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v5.0.1
+
+**Calendar Card Pro works again on iPhones and iPads that run iOS 15 and 16.** Since v5.0.0, a dashboard with the card could take down the whole Home Assistant app on iOS and iPadOS 16, not just the card, and on iOS 15 the card did not load at all. Both are fixed, the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) now says which iPhones and iPads can run the card, and the card speaks Serbian.
+
+## 🎉 New Features
+
+### 🌍 Serbian
+
+- **Serbian, in Cyrillic and Latin Script** - A Home Assistant set to Serbian now gets the card in Serbian, in whichever script it uses: Cyrillic (`sr`) or Latin (`sr-Latn`). Dates read day first with a dot, as in German, and relative times and weather conditions follow the same script. The visual editor stays in English for now. (Thanks @cpmarexel2f, #729)
+
+## 🐛 Bug Fixes
+
+### Compatibility
+
+- **The Dashboard Crashed on iOS and iPadOS 16** - Opening a dashboard with the card made the Home Assistant app reload in a loop or show "Connection lost", and Safari on the same device failed the same way. The color formulas v5 uses for the today highlight, the all-day badges and accent-colored text crash Safari from 16.4, and Safari 17 runs the same code. Those versions now get the simpler color mix the card already carried for older browsers; Safari 18 and later, Chrome and Firefox keep the full colors. All-day badges could crash Safari 16 the same way since v4.1.0, once `allday_badge` was on.
+- **The Card Did Not Load on iOS and iPadOS 15** - Safari before 16.4 could not read one of the card's regular expressions, so the whole card failed to load, in every view. It is now written in a form those versions understand, and titles still split exactly as before. (Thanks @double-u-dee for tracing it, #735)
+
+## Related Issues
+
+- [#731](https://github.com/alexpfau/calendar-card-pro/issues/731) - v5.0.0 crashes the Home Assistant iOS app on iPadOS 16 by @MaxGrmm, with app logs and testing on the iPad by @KHV8, also reported by @unveroleone
+- [#735](https://github.com/alexpfau/calendar-card-pro/issues/735) - v5.0.0 does not load on iOS/iPadOS 15 by @double-u-dee, who traced the cause, suggested the fix and tested it on an iPad Air 2
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v5.0.0...v5.0.1
+
+---
+
 # Calendar Card Pro v5.0.0
 
 ![Calendar Card Pro v5 — lists, columns, and now hour by hour](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_grid_view.png)

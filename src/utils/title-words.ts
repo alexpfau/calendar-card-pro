@@ -110,12 +110,15 @@ function leadingRun(run: string): TitleSegment[] {
 }
 
 /**
- * Between a letter or digit and a hyphen or dash, and the letter or digit after it. A
- * compound such as `Parent-teacher` can then still wrap after its hyphen, where the browser
- * would have wrapped it, instead of being cut as one word. A leading dash (`-5°C`) and a
- * spaced dash are left alone.
+ * One part of a word: everything up to a hyphen or dash that has a letter or digit on both
+ * sides, or else the rest of the word. A compound such as `Parent-teacher` can then still
+ * wrap after its hyphen, where the browser would have wrapped it, instead of being cut as one
+ * word. A leading dash (`-5°C`) and a spaced dash are left alone.
+ *
+ * Matched, not split on a lookbehind, which Safari cannot parse before 16.4: one such literal
+ * anywhere in the bundle is a syntax error there, and the whole card fails to load (#735).
  */
-const AFTER_HYPHEN = /(?<=[\p{L}\p{N}][-\u2010\u2013\u2014])(?=[\p{L}\p{N}])/u;
+const HYPHENATED_PART = /[\s\S]*?[\p{L}\p{N}][-\u2010\u2013\u2014](?=[\p{L}\p{N}])|[\s\S]+/gu;
 
 /**
  * The direction a title reads in, from its first letter or direction mark, as `dir="auto"`
@@ -161,7 +164,7 @@ export function splitTitleWords(title: string): TitleSegment[] {
             ? []
             : index % 2 === 1
               ? [{ kind: 'space', text: piece }]
-              : piece.split(AFTER_HYPHEN).map((text) => ({ kind: 'word', text })),
+              : (piece.match(HYPHENATED_PART) ?? [piece]).map((text) => ({ kind: 'word', text })),
         ),
       ...(after.length && after[0] ? [{ kind: 'space' as const, text: after[0] }] : []),
       ...(rest ? [{ kind: 'text' as const, text: rest }] : []),
@@ -174,6 +177,6 @@ export function splitTitleWords(title: string): TitleSegment[] {
     if (NO_SPACE_SCRIPT.test(piece)) {
       return index === lead ? leadingRun(piece) : [{ kind: 'text', text: piece }];
     }
-    return piece.split(AFTER_HYPHEN).map((text) => ({ kind: 'word', text }));
+    return (piece.match(HYPHENATED_PART) ?? [piece]).map((text) => ({ kind: 'word', text }));
   });
 }

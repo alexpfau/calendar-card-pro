@@ -30,7 +30,7 @@ import { TRANSLATIONS, getDateFormatStyle } from '../src/translations/localize';
 const LANGUAGES = Object.keys(TRANSLATIONS);
 
 /** Languages that render the day, a dot, then the month (`17. Mar`). */
-const DAY_DOT_MONTH = ['de', 'hr'];
+const DAY_DOT_MONTH = ['de', 'hr', 'sr', 'sr-latn'];
 
 /** Languages that render the month before the day (`Mar 17`). */
 const MONTH_DAY = ['en', 'hu'];
