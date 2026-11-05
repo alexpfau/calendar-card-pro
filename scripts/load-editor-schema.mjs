@@ -27,6 +27,7 @@ export async function loadEditorModule(root) {
         export { SYNTHETIC_FIELDS } from './src/rendering/editor/synthetic.js';
         export { DEFAULT_CONFIG } from './src/config/config.js';
         export { VIEWS, VIEW_SCOPE, ENTITY_VIEW_SCOPE, DEFAULT_OVERRIDES_BY_VIEW } from './src/config/view.js';
+        export { CARD_LANGUAGES } from './src/translations/language-codes.js';
       `,
       resolveDir: root,
       sourcefile: 'check-i18n-entry.ts',

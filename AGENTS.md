@@ -1442,7 +1442,12 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
-   lowercase the configured value before matching.
+   lowercase the configured value before matching. The same code goes into
+   `CARD_LANGUAGES` in `src/translations/language-codes.ts`, which `getEffectiveLanguage`
+   resolves against. It is a separate module so the editor can resolve a language without
+   bundling all 36 card-language tables, and **it must import nothing** for that reason. The
+   map `satisfies Record<CardLanguage, …>`, so `tsc` fails if the two disagree, and
+   `check:i18n` reconciles the list with the files.
 4. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
