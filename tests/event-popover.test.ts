@@ -1004,6 +1004,145 @@ describe('a new event changed but not titled', () => {
   });
 });
 
+/**
+ * Switching All day on and off again. Before, switching it off started the event at the hour
+ * it was switched in, whatever times it had had: a slot tapped in a grid, or an event's own.
+ */
+describe('switching All day off again', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // An hour no event below starts at, so the current hour cannot pass for a restored one.
+    vi.setSystemTime(new Date(2026, 10, 1, 7, 42));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** The popover opened and its time cell open, with a way to flip All day. */
+  async function openTimes(params: Partial<PopoverParams>) {
+    const opened = await open(params);
+    await opened.press(opened.root.querySelector('button.time')!);
+    const allDay = async (on: boolean) => {
+      const toggle = opened.root.querySelector<HTMLInputElement>('input.switch')!;
+      toggle.checked = on;
+      toggle.dispatchEvent(new Event('change'));
+      await opened.el.updateComplete;
+    };
+    const dates = () =>
+      Array.from(opened.root.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+    const shown = () =>
+      Array.from(
+        opened.root.querySelectorAll<HTMLInputElement>('input[type="date"], input[type="time"]'),
+      ).map((input) => input.value);
+    return { ...opened, allDay, dates, shown };
+  }
+
+  const tapped = {
+    mode: 'new' as const,
+    entry: undefined,
+    display: undefined,
+    times: {
+      allDay: false,
+      start: new Date(2026, 10, 4, 15, 30),
+      end: new Date(2026, 10, 4, 16, 30),
+    },
+    canDelete: false,
+  };
+
+  it('gives a new event back the slot it was tapped in, not the hour it is now', async () => {
+    const { el, allDay, shown, type, writes } = await openTimes(tapped);
+    await allDay(true);
+    expect(shown()).toEqual(['2026-11-04', '2026-11-04']);
+    await allDay(false);
+
+    expect(shown()).toEqual(['2026-11-04', '15:30', '2026-11-04', '16:30']);
+    await type('input.title', 'Swim');
+    el.closeDialog();
+    expect(writes()[0].event).toMatchObject({
+      dtstart: new Date(2026, 10, 4, 15, 30).toISOString().slice(0, 19) + 'Z',
+      dtend: new Date(2026, 10, 4, 16, 30).toISOString().slice(0, 19) + 'Z',
+    });
+  });
+
+  it('gives an event its own times back, on the day it was moved to while all day', async () => {
+    const { el, allDay, dates, shown } = await openTimes({});
+    await allDay(true);
+    const [startDate] = dates();
+    startDate.value = '2026-11-05';
+    startDate.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    await allDay(false);
+
+    expect(shown()).toEqual(['2026-11-05', '16:00', '2026-11-05', '17:00']);
+  });
+
+  it('keeps an event that runs past midnight as it was', async () => {
+    const { allDay, shown } = await openTimes({
+      ...tapped,
+      times: {
+        allDay: false,
+        start: new Date(2026, 10, 4, 23, 0),
+        end: new Date(2026, 10, 5, 0, 30),
+      },
+    });
+    await allDay(true);
+    await allDay(false);
+
+    expect(shown()).toEqual(['2026-11-04', '23:00', '2026-11-05', '00:30']);
+  });
+
+  it('gives back the times it had when All day was last switched on', async () => {
+    const { el, root, allDay, shown } = await openTimes(tapped);
+    await allDay(true);
+    await allDay(false);
+    const [startTime] = Array.from(root.querySelectorAll<HTMLInputElement>('input[type="time"]'));
+    startTime.value = '11:15';
+    startTime.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    expect(shown()).toEqual(['2026-11-04', '11:15', '2026-11-04', '12:15']);
+
+    await allDay(true);
+    await allDay(false);
+    expect(shown()).toEqual(['2026-11-04', '11:15', '2026-11-04', '12:15']);
+  });
+
+  it('starts a draft that began all day at the hour it is now, as before', async () => {
+    const { allDay, shown } = await openTimes({
+      ...tapped,
+      times: { allDay: true, start: new Date(2026, 10, 4), end: new Date(2026, 10, 4) },
+    });
+    await allDay(false);
+
+    expect(shown()).toEqual(['2026-11-04', '07:00', '2026-11-04', '08:00']);
+  });
+
+  it('forgets the times once the same popover opens again', async () => {
+    // Home Assistant's dialog manager keeps the element and opens it again.
+    const { el, root, allDay, shown, press } = await openTimes(tapped);
+    await allDay(true);
+    await allDay(false);
+    expect(el.closeDialog()).toBe(true);
+    await el.updateComplete;
+
+    el.showDialog({
+      mode: 'new',
+      calendarId: BEN.id,
+      times: { allDay: true, start: new Date(2026, 10, 4), end: new Date(2026, 10, 4) },
+      canEdit: true,
+      canDelete: false,
+      color: BEN.color,
+      calendars: [BEN],
+      language: 'en',
+      hour24: true,
+      dark: false,
+      updated: () => undefined,
+    });
+    await el.updateComplete;
+    await press(root.querySelector('button.time')!);
+    await allDay(false);
+
+    expect(shown()).toEqual(['2026-11-04', '07:00', '2026-11-04', '08:00']);
+  });
+});
+
 describe('moving a repeating event', () => {
   it('moves its weekday with it', async () => {
     const { el, root, type, press, button, writes, closed } = await open({ entry: WEEKLY });

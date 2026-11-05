@@ -248,6 +248,31 @@ export function setAllDay(times: EventTimes, allDay: boolean, hour: number): Eve
 }
 
 /**
+ * An all-day span given back the times it had before it was switched to all day.
+ *
+ * On the days it had then, they come back as they were, a span past midnight included. Moved
+ * since, it keeps them on its new first day; with its last day moved as well, the end moves by
+ * as many days again. Should that leave the end at or before the start, it keeps its length.
+ *
+ * @param times - The all-day span
+ * @param before - The timed span it was switched from
+ * @returns The timed span
+ */
+export function restoreTimes(times: EventTimes, before: EventTimes): EventTimes {
+  const was = setAllDay(before, true, 0);
+  const moved = dayDifference(was.start, times.start);
+  const stretched = dayDifference(was.end, times.end) - moved;
+  const start = addDays(before.start, moved);
+  const end = addDays(before.end, moved + stretched);
+  return {
+    allDay: false,
+    start,
+    end:
+      end > start ? end : new Date(start.getTime() + before.end.getTime() - before.start.getTime()),
+  };
+}
+
+/**
  * Whether Home Assistant would accept the span: a timed event must end after it starts, and an
  * all-day event may not end before its first day.
  *
