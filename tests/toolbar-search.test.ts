@@ -198,12 +198,13 @@ async function mount(
     flag?: 'preview' | 'editMode';
     localize?: (key: string) => string;
     width?: number;
+    hass?: unknown;
   } = {},
 ): Promise<CardUnderTest> {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
   card.setConfig(config);
   if (options.flag) card[options.flag] = true;
-  card.hass = hass(options.localize);
+  card.hass = options.hass ?? hass(options.localize);
   document.body.appendChild(card);
   await settle(card);
   await measure(card, options.width ?? 784);
@@ -324,6 +325,14 @@ function ringed(card: CardUnderTest): string | null {
 /** The element focused in the card, if focus is in it. */
 function focused(card: CardUnderTest): Element | null {
   return root(card).activeElement;
+}
+
+/** Press the date navigation's previous, home or next button. */
+async function navigate(card: CardUnderTest, which: 'previous' | 'home' | 'next'): Promise<void> {
+  root(card)
+    .querySelectorAll<HTMLButtonElement>('.date-navigation-segment')
+    [{ previous: 0, home: 1, next: 2 }[which]].click();
+  await settle(card);
 }
 
 const originalResizeObserver = globalThis.ResizeObserver;
@@ -536,11 +545,12 @@ describe('the year-wide load', () => {
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
   });
 
-  it('is asked again after a live subscription reports a change', async () => {
+  it('is asked again after a calendar it covers changes live', async () => {
     const card = await mount(configFor());
-    const changes = vi.spyOn(LiveCalendars, 'changeCount').mockReturnValue(4);
+    const changes = vi.spyOn(LiveCalendars, 'eventChanges').mockReturnValue(4);
     await openSearch(card);
     await closeSearch(card);
+    expect(changes).toHaveBeenLastCalledWith([ANNA, BEN]);
 
     changes.mockReturnValue(5);
     await openSearch(card);
@@ -996,6 +1006,120 @@ describe('picking a result', () => {
     );
     expect(root(card).querySelectorAll('.search-ring')).toHaveLength(1);
     expect(ringed(card)).toContain('Piano');
+  });
+});
+
+//-----------------------------------------------------------------------------
+// LIVE CHANGES
+//-----------------------------------------------------------------------------
+
+describe('live changes', () => {
+  /**
+   * A Home Assistant that can push: each subscription pushes its calendar's events in its window
+   * on subscribing, a moment later, and again whenever `change` says the calendar changed.
+   */
+  function liveHass() {
+    const subs: Array<{
+      id: string;
+      start: number;
+      end: number;
+      callback: (message: unknown) => void;
+      closed: boolean;
+    }> = [];
+    const at = (point: RawEvent['start']) =>
+      Date.parse(point.dateTime ?? `${point.date}T00:00:00Z`);
+    const send = (sub: (typeof subs)[number]): void => {
+      if (sub.closed) return;
+      const events = (calendars[sub.id] ?? [])
+        .filter((event) => at(event.start) < sub.end && at(event.end) > sub.start)
+        .map(({ start, end, ...rest }) => ({
+          ...rest,
+          start: start.dateTime ?? start.date,
+          end: end.dateTime ?? end.date,
+          all_day: !start.dateTime,
+        }));
+      sub.callback({ events });
+    };
+    const connection = {
+      connected: true,
+      subscribeMessage: vi.fn(
+        (
+          callback: (message: unknown) => void,
+          message: { type: string; entity_id: string; start: string; end: string },
+        ) => {
+          if (message.type !== 'calendar/event/subscribe') return Promise.resolve(() => undefined);
+          const sub = {
+            id: message.entity_id,
+            start: Date.parse(message.start),
+            end: Date.parse(message.end),
+            callback,
+            closed: false,
+          };
+          subs.push(sub);
+          setTimeout(() => send(sub), 5);
+          return Promise.resolve(() => {
+            sub.closed = true;
+          });
+        },
+      ),
+      subscribeEvents: vi.fn(),
+      addEventListener: () => undefined,
+    };
+    return {
+      hass: { ...hass(), connection, config: { time_zone: 'UTC' } },
+      change: (id: string) => subs.filter((sub) => sub.id === id).forEach(send),
+      subscribed: () => subs.length,
+    };
+  }
+
+  /** Let pushes arrive, and the loads and renders they cause. */
+  async function flush(card: CardUnderTest): Promise<void> {
+    for (let round = 0; round < 5; round += 1) {
+      vi.advanceTimersByTime(10);
+      await settle(card);
+    }
+  }
+
+  it('drops the year for a real change to a calendar it covers, not for a new subscription or another calendar', async () => {
+    const live = liveHass();
+    const card = await mount(configFor(), { hass: live.hass });
+    await flush(card);
+    await openSearch(card);
+    await closeSearch(card);
+    expect(wideRequests()).toEqual([ANNA, BEN]);
+
+    // Paging opens subscriptions for the next days, whose first pushes change nothing.
+    const before = live.subscribed();
+    await navigate(card, 'next');
+    await flush(card);
+    expect(live.subscribed()).toBeGreaterThan(before);
+    await openSearch(card);
+    await closeSearch(card);
+    expect(wideRequests()).toEqual([ANNA, BEN]);
+
+    // A calendar this card does not show changes.
+    calendars['calendar.work'] = [];
+    LiveCalendars.hold(live.hass as unknown as Types.Hass, 'calendar.work', {
+      start: new Date('2026-06-17T00:00:00Z'),
+      end: new Date('2026-06-24T00:00:00Z'),
+    });
+    await flush(card);
+    calendars['calendar.work'] = [timed('2026-06-18T09:00:00Z', '2026-06-18T10:00:00Z', 'Standup')];
+    live.change('calendar.work');
+    await flush(card);
+    await openSearch(card);
+    await closeSearch(card);
+    expect(wideRequests()).toEqual([ANNA, BEN]);
+
+    // One it covers does: an event is added on a day the card has a subscription for.
+    calendars[BEN] = [
+      ...calendars[BEN],
+      timed('2026-06-26T09:00:00Z', '2026-06-26T10:00:00Z', 'Haircut'),
+    ];
+    live.change(BEN);
+    await flush(card);
+    await openSearch(card);
+    expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
   });
 });
 

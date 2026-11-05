@@ -629,8 +629,9 @@ behind it stays still, and the results scroll.
 The first time the panel opens, the card asks Home Assistant for each of its calendars' events
 over the whole two years, one request per calendar, and keeps them in memory for that card while
 the dashboard is open, never in the browser's storage. Typing asks nothing more. Later openings
-search the same events until a calendar is written to, one pushes a change, the card's
-`refresh_interval` has passed or a new day has begun, and then ask again. Until a calendar
+search the same events until one of the card's calendars is written to, Home Assistant pushes a
+change to one of them, the card's `refresh_interval` has passed or a new day has begun, and then
+ask again. Until a calendar
 answers, the search finds the events the card already holds, and the magnifier in the field
 turns, as refresh's icon does. A calendar that cannot be loaded is named under the results in
 Home Assistant's words, its events left out, and is asked again the next time the panel opens.

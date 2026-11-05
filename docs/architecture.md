@@ -656,11 +656,14 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   plain REST and one request per calendar, each heard as it answers, so no live subscription is
   leased or disturbed. It is kept in memory on the session, never in `localStorage` or the page
   store, and later openings reuse it while the window's first day, the calendars asked, the write
-  generation (`currentWriteGeneration`), `LiveCalendars.changeCount()` and the card's refresh
-  interval all still hold; a calendar that failed is asked again alone at the next opening.
-  Typing asks nothing. The rows are built from the card's own pipeline, the held events for a
-  calendar still to answer and `processEvents` over the loaded ones, the hidden calendars left
-  out, then `groupEventsByDay` for the view on screen (`SearchHost.view`) with its
+  generation (`currentWriteGeneration`), the real changes to those calendars
+  (`LiveCalendars.eventChanges`) and the card's refresh interval all still hold; a calendar that
+  failed is asked again alone at the next opening. `eventChanges` counts a subscription that was
+  live pushing different events, or failing, and never a subscription's first push, which
+  `changeCount()` numbers for the views and which every page turn and every newly shown card
+  makes. Typing asks nothing. The rows are built from the card's own pipeline, the held events
+  for a calendar still to answer and `processEvents` over the loaded ones, the hidden calendars
+  left out, then `groupEventsByDay` for the view on screen (`SearchHost.view`) with its
   configuration spread over the whole window (`searchGroupingConfig`, which writes the window
   into that view's block as well, since a block outranks the top level), so filters, duplicates,
   replacements and what a row shows are the card's. `drawnIn` then keeps only what that view
@@ -1217,6 +1220,10 @@ Provides core functionality across the card:
     2026.10 never sends, nor settles, a command made then
   - Drops a push identical to the last, and one saying the same as it (`fingerprintEvents`:
     times as instants, absent and null alike, in any order) notifies no card
+  - Numbers every change for the views (`changeCount`), a subscription's first push included,
+    and counts real changes per calendar apart from that (`eventChanges`): a subscription that
+    was live pushing different events, or failing. A search's year-wide load reads the second,
+    so another card subscribing, or this one turning a page, does not drop it
   - Writes pushed times the way the REST API does, in Home Assistant's zone (`inZone`), so
     `{start}` and the popover see the same strings from either source
   - A push proves a subscription alive before anything is compared. After a reconnect, a

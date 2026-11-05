@@ -6,10 +6,10 @@
  * without its live subscriptions: plain REST, one request per calendar, each bounded by the same
  * 30 seconds, so no subscription is leased or disturbed. It is kept in memory for this card alone,
  * never in `localStorage` or the page store, and later openings reuse it until a calendar is
- * written to (the write generation), a live subscription pushes a change
- * (`LiveCalendars.changeCount()`), the card's refresh interval passes, or the day moves on; a
- * calendar that failed is asked again at the next opening. Typing asks nothing: every term is
- * matched against what is in memory.
+ * written to (the write generation), the events of one of its calendars really change live
+ * (`LiveCalendars.eventChanges`, which a new subscription's first push does not count), the
+ * card's refresh interval passes, or the day moves on; a calendar that failed is asked again at
+ * the next opening. Typing asks nothing: every term is matched against what is in memory.
  *
  * Until a calendar answers, its rows are the events the card already holds. Every event goes
  * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), in the view
@@ -71,6 +71,7 @@ interface WideLoad {
   /** The calendars it asks, each once, in the order configured. */
   ids: string;
   startedAt: number;
+  /** The write generation, and its calendars' real live changes, when it started. */
   writeGeneration: number;
   liveChanges: number;
   /** Each calendar that answered, with its events as Home Assistant returned them. */
@@ -152,7 +153,7 @@ export class SearchSession implements SearchSource {
       load.window.key === window.key &&
       load.ids === ids.join('\u0000') &&
       load.writeGeneration === EventUtils.currentWriteGeneration() &&
-      load.liveChanges === LiveCalendars.changeCount() &&
+      load.liveChanges === LiveCalendars.eventChanges(ids) &&
       now - load.startedAt < EventUtils.getCacheDuration(host.config);
 
     if (load && trusted) {
@@ -167,7 +168,7 @@ export class SearchSession implements SearchSource {
       ids: ids.join('\u0000'),
       startedAt: now,
       writeGeneration: EventUtils.currentWriteGeneration(),
-      liveChanges: LiveCalendars.changeCount(),
+      liveChanges: LiveCalendars.eventChanges(ids),
       answered: new Map(),
       failed: new Set(),
       pending: new Set(),
