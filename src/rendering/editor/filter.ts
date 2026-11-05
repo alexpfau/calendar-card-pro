@@ -14,7 +14,7 @@ import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
-import { configuredCalendarName } from '../../utils/calendar-names';
+import { configuredCalendarName, homeAssistantName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 
 /**
@@ -75,6 +75,11 @@ export interface FilterCtx extends SchemaCtx {
    * matcher cannot work it out from the node. `filterEntitySchema` sets it; absent means card.
    */
   scope?: 'card' | 'entity';
+  /**
+   * Home Assistant state, for the names it gives calendars: a calendar's panel is headed with
+   * that name, so a search for it has to find the panel. Absent before the editor has one.
+   */
+  hass?: Types.Hass;
 }
 
 /**
@@ -528,12 +533,34 @@ export function filterSchema(
         // A heading is not a setting, so it is never a search hit of its own — it rides
         // along and is pruned above when its section came back empty.
         isHeading(node) ||
-        (matchesQuery(node, nodePath, ctx, nodeDataPath) &&
+        ((matchesQuery(node, nodePath, ctx, nodeDataPath) ||
+          (nodeDataPath.length === 0 && listsCalendars(node) && namesACalendar(ctx))) &&
           (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx))),
       path,
       dataPath,
     ),
   );
+}
+
+/**
+ * Whether a field is the calendar picker: the control writing the card's `entities`.
+ *
+ * @param node - Schema node
+ * @returns `true` for the picker
+ */
+function listsCalendars(node: HaFormSchema): boolean {
+  return configKeysForField(node.name).includes('entities');
+}
+
+/**
+ * Whether the query names a calendar the card lists, as its panel would be found: the picker
+ * lists those calendars, so a search for one keeps it beside the calendar's panel.
+ *
+ * @param ctx - Matching context
+ * @returns `true` when some listed calendar answers the query
+ */
+function namesACalendar(ctx: FilterCtx): boolean {
+  return (ctx.config?.entities ?? []).some((entry) => matchesEntity(entry, ctx));
 }
 
 /**
@@ -583,8 +610,9 @@ export function filterExtras(
 /**
  * Whether a calendar's own identity answers the query.
  *
- * Its identity is its entity id, its label and its name. The name is the calendar's, so the
- * one the configuration gives it anywhere in the list counts, not only this block's own.
+ * Its identity is its entity id, its label and its names: the one the configuration gives it,
+ * anywhere in the list, not only in this block, and the one Home Assistant gives it, which
+ * heads its panel and names it in the picker.
  *
  * @param entry - Entry as stored
  * @param ctx - Matching context
@@ -598,7 +626,10 @@ function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx): bool
   const label = typeof config.label === 'string' ? config.label : undefined;
   const name = configuredCalendarName([...(ctx.config?.entities ?? []), config], config.entity);
 
-  return anyMatches([config.entity, label, name], query);
+  return anyMatches(
+    [config.entity, label, name, homeAssistantName(config.entity, ctx.hass)],
+    query,
+  );
 }
 
 /**

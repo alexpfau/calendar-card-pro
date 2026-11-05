@@ -275,10 +275,10 @@ Search matches what is on screen: the name of a setting, the sentence explaining
 Searching a panel's displayed title or helper shows its relevant controls, including a
 workspace-specific title such as Grid's **Rules** in your editor language.
 
-Searching a calendar's entity id or its
-[name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every setting
-of that calendar, on each of its blocks; searching a label shows every setting of the block
-that carries it.
+Searching a calendar's entity id, the name Home Assistant gives it, which heads its panel, or
+its [name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every
+setting of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists
+it; searching a label shows every setting of the block that carries it.
 
 **Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. It reads values the way the card does, so a number written as `"3"` in YAML counts as untouched when `3` is the default, and a value the card rejects counts as untouched too — because that is what the card is using.
 

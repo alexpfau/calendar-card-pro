@@ -271,6 +271,7 @@ export class CalendarCardProEditor extends LitElement {
     return {
       ...ctx,
       criteria: this._filter,
+      hass: this.hass,
     };
   }
 
