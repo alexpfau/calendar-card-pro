@@ -831,6 +831,7 @@ class CalendarCardPro extends LitElement {
     EventUtils.expireStoredCalendars((ids) => CalendarChanges.touchesCalendars(changed, ids, hass));
     const writeGeneration = EventUtils.advanceWriteGeneration();
     void this.refreshEvents(writeGeneration).then(() => committed?.());
+    this._search?.calendarsChanged();
     CalendarChanges.announceCalendarsChanged(this, changed, writeGeneration);
   }
 
@@ -922,6 +923,7 @@ class CalendarCardPro extends LitElement {
     if (CalendarChanges.concernsCalendars(detail, shownIds, this.safeHass)) {
       this._markHomeStaleIfAway();
       void this.refreshEvents(detail.writeGeneration);
+      this._search?.calendarsChanged();
     }
   };
 
@@ -3957,6 +3959,9 @@ class CalendarCardPro extends LitElement {
    * @param entityId The calendar
    */
   private readonly _onLiveChange = (entityId: string): void => {
+    // The search covers every calendar the card names, and decides itself whether this was a
+    // real change to one of them (`LiveCalendars.eventChanges`).
+    this._search?.calendarsChanged();
     if (entityId !== '*' && !this._liveCalendars.has(entityId)) return;
     if (this._liveSyncTimer !== null) return;
     this._liveSyncTimer = window.setTimeout(() => {

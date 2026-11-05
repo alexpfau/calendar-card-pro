@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
+import * as CalendarChanges from '../src/interaction/calendar-changes';
 import { SEARCH_PANEL_TAG, type SearchPanelParams } from '../src/rendering/search-panel';
 import * as EventUtils from '../src/utils/events';
 import * as LiveCalendars from '../src/utils/live-calendars';
@@ -333,6 +334,22 @@ async function navigate(card: CardUnderTest, which: 'previous' | 'home' | 'next'
     .querySelectorAll<HTMLButtonElement>('.date-navigation-segment')
     [{ previous: 0, home: 1, next: 2 }[which]].click();
   await settle(card);
+}
+
+/** Type a term into the open panel. */
+async function typeTerm(term: string): Promise<HTMLInputElement> {
+  const field = manager.panel!.shadowRoot!.querySelector<HTMLInputElement>('input')!;
+  field.value = term;
+  field.dispatchEvent(new Event('input'));
+  await manager.panel!.updateComplete;
+  return field;
+}
+
+/** The results the open panel draws, by their accessible names. */
+function drawnResults(): string[] {
+  return Array.from(manager.panel!.shadowRoot!.querySelectorAll('[role="option"]')).map(
+    (option) => option.getAttribute('aria-label') ?? '',
+  );
 }
 
 const originalResizeObserver = globalThis.ResizeObserver;
@@ -1010,6 +1027,70 @@ describe('picking a result', () => {
 });
 
 //-----------------------------------------------------------------------------
+// WHILE THE PANEL IS OPEN
+//-----------------------------------------------------------------------------
+
+describe('a write while the panel is open', () => {
+  it('loads the year again once, the term and the result the keyboard is on kept', async () => {
+    const card = await mount(configFor());
+    await openSearch(card);
+    const field = await typeTerm('dent');
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await manager.panel!.updateComplete;
+    expect(field.getAttribute('aria-activedescendant')).toBe('search-option-0');
+    expect(drawnResults()).toEqual([
+      'Dentist check-up, Tue, Dec 8, 3:30 PM - 4:00 PM, Anna',
+      'Dentist cleaning, Sat, Jan 10, 9:00 AM - 10:00 AM, Anna',
+    ]);
+
+    // Another card deletes the past appointment, and says so.
+    calendars[ANNA] = calendars[ANNA].filter((event) => event.uid !== 'dentist-0');
+    window.dispatchEvent(
+      new CustomEvent(CalendarChanges.CALENDARS_CHANGED_EVENT, {
+        detail: {
+          changed: { ids: [ANNA] },
+          writeGeneration: EventUtils.advanceWriteGeneration(),
+          source: document.createElement('div'),
+        },
+      }),
+    );
+    await settle(card);
+    await manager.panel!.updateComplete;
+
+    expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+    expect(isOpen()).toBe(true);
+    expect(field.value).toBe('dent');
+    expect(drawnResults()).toEqual(['Dentist check-up, Tue, Dec 8, 3:30 PM - 4:00 PM, Anna']);
+    expect(field.getAttribute('aria-activedescendant')).toBe('search-option-0');
+
+    // Typing on asks nothing more.
+    await typeTerm('denti');
+    expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+  });
+
+  it('leaves a closed panel’s year for the next opening to decide', async () => {
+    const card = await mount(configFor());
+    await openSearch(card);
+    await closeSearch(card);
+
+    window.dispatchEvent(
+      new CustomEvent(CalendarChanges.CALENDARS_CHANGED_EVENT, {
+        detail: {
+          changed: { ids: [ANNA] },
+          writeGeneration: EventUtils.advanceWriteGeneration(),
+          source: document.createElement('div'),
+        },
+      }),
+    );
+    await settle(card);
+    expect(wideRequests()).toEqual([ANNA, BEN]);
+
+    await openSearch(card);
+    expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+  });
+});
+
+//-----------------------------------------------------------------------------
 // LIVE CHANGES
 //-----------------------------------------------------------------------------
 
@@ -1120,6 +1201,25 @@ describe('live changes', () => {
     await flush(card);
     await openSearch(card);
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+  });
+
+  it('loads the year again at once while the panel is open, the term kept', async () => {
+    const live = liveHass();
+    const card = await mount(configFor(), { hass: live.hass });
+    await flush(card);
+    await openSearch(card);
+    const field = await typeTerm('swim');
+    expect(found('swim')).toEqual([['Swim', '2026-06-18']]);
+
+    calendars[ANNA] = calendars[ANNA].filter((event) => event.uid !== 'swim-1');
+    live.change(ANNA);
+    await flush(card);
+    await manager.panel!.updateComplete;
+
+    expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
+    expect(field.value).toBe('swim');
+    expect(found('swim')).toEqual([]);
+    expect(drawnResults()).toEqual([]);
   });
 });
 

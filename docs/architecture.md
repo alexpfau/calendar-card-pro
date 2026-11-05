@@ -661,7 +661,10 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   failed is asked again alone at the next opening. `eventChanges` counts a subscription that was
   live pushing different events, or failing, and never a subscription's first push, which
   `changeCount()` numbers for the views and which every page turn and every newly shown card
-  makes. Typing asks nothing. The rows are built from the card's own pipeline, the held events
+  makes. A write or a live change while the panel is open (`calendarsChanged`, from
+  `_refreshAfterWrite`, `_handleCalendarsChanged` and `_onLiveChange`) supersedes the load once
+  and tells the panel (`changed()`), which keeps the term and the active result where it still
+  exists. Typing asks nothing. The rows are built from the card's own pipeline, the held events
   for a calendar still to answer and `processEvents` over the loaded ones, the hidden calendars
   left out, then `groupEventsByDay` for the view on screen (`SearchHost.view`) with its
   configuration spread over the whole window (`searchGroupingConfig`, which writes the window
@@ -925,6 +928,8 @@ caller.
   - Is the panel's `SearchSource`, and tells the card about a pick and the panel going
     (`SearchEvents`); reads the card afresh each time through `SearchHost` (see
     _Header Toolbar_)
+  - Asks again while the panel is open when the card reports a write or a live change
+    (`calendarsChanged`), and only then; typing never fetches
 
 ### Rendering (`rendering/`)
 

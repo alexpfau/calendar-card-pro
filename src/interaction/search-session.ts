@@ -9,7 +9,9 @@
  * written to (the write generation), the events of one of its calendars really change live
  * (`LiveCalendars.eventChanges`, which a new subscription's first push does not count), the
  * card's refresh interval passes, or the day moves on; a calendar that failed is asked again at
- * the next opening. Typing asks nothing: every term is matched against what is in memory.
+ * the next opening. A write or a live change while the panel is open loads the year again at
+ * once (`calendarsChanged`), the term and the result the keyboard is on kept. Typing asks
+ * nothing: every term is matched against what is in memory.
  *
  * Until a calendar answers, its rows are the events the card already holds. Every event goes
  * through the card's own matching (`processEvents`) and grouping (`groupEventsByDay`), in the view
@@ -145,26 +147,65 @@ export class SearchSession implements SearchSource {
     const hass = host.hass;
     if (!hass) return;
 
-    const window = Search.searchWindow(new Date(now));
-    const ids = calendarIds(host.config.entities);
     const load = this._load;
-    const trusted =
-      load !== null &&
-      load.window.key === window.key &&
-      load.ids === ids.join('\u0000') &&
-      load.writeGeneration === EventUtils.currentWriteGeneration() &&
-      load.liveChanges === LiveCalendars.eventChanges(ids) &&
-      now - load.startedAt < EventUtils.getCacheDuration(host.config);
-
-    if (load && trusted) {
+    if (load && this._current(load, host, now)) {
       if (load.failed.size > 0 && load.pending.size === 0) {
         this._fetch(load, [...load.failed], hass, host.config);
       }
       return;
     }
+    this._start(host, hass, now);
+  }
 
+  /**
+   * A calendar the card shows was written to, or its events changed live. While the panel is
+   * open and that leaves the year in memory out of date, the year is loaded again, once, and the
+   * panel told; the term and the result the keyboard is on are the panel's, and stay. Closed, the
+   * next opening decides (`prepare`).
+   *
+   * @param now - The current moment, in epoch milliseconds
+   */
+  calendarsChanged(now: number = Date.now()): void {
+    const load = this._load;
+    if (!this._panel || !load) return;
+    const host = this._host();
+    if (!host.hass || this._current(load, host, now)) return;
+    Logger.debug('Search: a calendar changed while the panel is open; loading the year again');
+    this._start(host, host.hass, now);
+    this._panel.changed();
+  }
+
+  /**
+   * Whether a load still describes the calendars: the same day and calendars, no write since it
+   * started, no real change to its calendars' events live, and within the refresh interval.
+   *
+   * @param load - The load
+   * @param host - What the card holds now
+   * @param now - The current moment, in epoch milliseconds
+   * @returns True while it can be trusted
+   */
+  private _current(load: WideLoad, host: SearchHost, now: number): boolean {
+    const ids = calendarIds(host.config.entities);
+    return (
+      load.window.key === Search.searchWindow(new Date(now)).key &&
+      load.ids === ids.join('\u0000') &&
+      load.writeGeneration === EventUtils.currentWriteGeneration() &&
+      load.liveChanges === LiveCalendars.eventChanges(ids) &&
+      now - load.startedAt < EventUtils.getCacheDuration(host.config)
+    );
+  }
+
+  /**
+   * Starts a new load of every calendar, superseding any before it, whose answers are dropped.
+   *
+   * @param host - What the card holds now
+   * @param hass - Home Assistant
+   * @param now - The current moment, in epoch milliseconds
+   */
+  private _start(host: SearchHost, hass: Types.Hass, now: number): void {
+    const ids = calendarIds(host.config.entities);
     const next: WideLoad = {
-      window,
+      window: Search.searchWindow(new Date(now)),
       ids: ids.join('\u0000'),
       startedAt: now,
       writeGeneration: EventUtils.currentWriteGeneration(),
