@@ -2180,8 +2180,8 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   if (!event.start || !event.end) return false;
 
   if (event.start.date && event.end.date) {
-    const startDate = new Date(event.start.date);
-    const endDate = new Date(event.end.date);
+    const startDate = FormatUtils.parseAllDayDate(event.start.date);
+    const endDate = FormatUtils.parseAllDayDate(event.end.date);
     endDate.setDate(endDate.getDate() - 1);
 
     return startDate.toDateString() !== endDate.toDateString();
@@ -2225,8 +2225,16 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
     const endDate = FormatUtils.parseAllDayDate(event.end.date);
     endDate.setDate(endDate.getDate() - 1); // Adjust end date (exclusive in iCal)
+    // Compared as dates, not instants. Where the clocks change at midnight, a day whose 00:00
+    // does not exist starts at 01:00, and `setDate` keeps that hour on every later day, so an
+    // instant comparison against the last day's 00:00 stopped one day short.
+    const lastDateStr = formatAllDayDate(endDate);
 
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    for (
+      let date = new Date(startDate);
+      formatAllDayDate(date) <= lastDateStr;
+      date.setDate(date.getDate() + 1)
+    ) {
       const currentDateStr = formatAllDayDate(date);
 
       const nextDate = new Date(date);
