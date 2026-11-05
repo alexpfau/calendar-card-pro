@@ -652,6 +652,14 @@ describe('where it opens', () => {
 });
 
 describe('its look', () => {
+  it('is placed by its inline position alone, the dialog’s own insets reset', () => {
+    // A modal dialog's default insets pin it to the viewport's edges, and in a right-to-left
+    // document the start one outranks an inline left. happy-dom lays nothing out; measured in
+    // all three engines, the panel opened flush against the right edge without this.
+    const rule = /(?:^|\}|\*\/)\s*dialog\s*\{([^}]*)\}/.exec(Shell.shellStyles.cssText)?.[1] ?? '';
+    expect(rule).toMatch(/(?:^|;)\s*inset:\s*auto\s*;/);
+  });
+
   it('is the event popover’s: the same shell, glass, palettes and cells', () => {
     const own = (SearchPanel.styles as CSSResult).cssText;
     const popover = (EventPopover.styles as CSSResult).cssText;

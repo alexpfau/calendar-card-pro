@@ -994,6 +994,9 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     its name in the log and what it drops once closed (`_clear`)
   - Moved out of `event-popover.ts` without changing it: the popover's tests and snapshots
     passed over the move unchanged
+  - Places a dialog by its inline position alone (`inset: auto`): a modal dialog's own insets
+    pin it to the viewport's edges, and in a right-to-left page the one at the start outranks
+    an inline `left`, which opened both panels against the right edge, away from their button
 
 - **event-popover.ts**:
   - The event popover: an event's details, editable in place, and a new event. The card never

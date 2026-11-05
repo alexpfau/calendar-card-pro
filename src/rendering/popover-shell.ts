@@ -291,7 +291,12 @@ export const shellStyles = css`
       -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  /* Placed by its inline left and top (or bottom) alone. A modal dialog's own insets pin it
+     to every edge of the viewport, and in a right-to-left document the start one is the right
+     edge, which outranks the left the panel is placed at: it opened against the right edge,
+     away from its button. */
   dialog {
+    inset: auto;
     margin: 0;
     padding: 0;
     border: 0;
