@@ -5194,9 +5194,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Moves the event where the press let it go. A single event is written at once, as Calendar
-   * on macOS moves one, and stays drawn there until the refresh after the write brings it. A
-   * repeating one opens its popover at the new times, which asks first whether the move is for
-   * this occurrence or for it and every later one, and puts it back if neither.
+   * on macOS moves one, and stays drawn there until the refresh after the write. A repeating one
+   * opens its popover at the new times: an occurrence asks first whether the move is for it or
+   * for it and every later one, a series stored with its rule offers Save, and either puts it
+   * back on Cancel.
    *
    * @param move - The move
    * @param shown - Its block
@@ -5207,7 +5208,10 @@ class CalendarCardPro extends LitElement {
     shown: NonNullable<CalendarCardPro['_newShown']>,
     ev: PointerEvent,
   ): void {
-    if (!move.entry.recurrence_id) {
+    // An event that repeats, an occurrence of a series or a series stored with its rule, is moved
+    // in the popover, which keeps the rule and moves it with the event; written here, the rule
+    // would be lost.
+    if (!move.entry.recurrence_id && !move.entry.rrule) {
       shown.saved = true;
       this._markMoveOrigin();
       void this._writeMove(move, shown);

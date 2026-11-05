@@ -403,7 +403,7 @@ If Home Assistant refuses the change, because the title is empty, the times do n
 
 ### Dragging in Grid View
 
-In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times to ask which occurrences move. `allow_event_edit: false` turns dragging off along with editing.
+In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
 
 ### Moving to Another Calendar
 

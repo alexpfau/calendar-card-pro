@@ -65,7 +65,8 @@ export function movableTimes(entry: DetailEntry): EventTimes | undefined {
  * pointer went up or down from where it grabbed the event, and by as many days as it went
  * across. Its minute within the quarter stays, so an event at 10:10 moves to 10:25 or 9:55, and
  * so does its length in time, which a clock change on either day would otherwise stretch or
- * shrink. Its start stays on the day it is dropped on.
+ * shrink. It stays on the day it is dropped on, its end at that day's midnight at the latest,
+ * and in the repeated hour of a day the clocks go back, at the offset it had.
  *
  * @param times - The event's span, from `movableTimes`
  * @param grab - Where the pointer grabbed it
@@ -75,19 +76,57 @@ export function movableTimes(entry: DetailEntry): EventTimes | undefined {
 export function movedTimes(times: EventTimes, grab: MovePoint, at: MovePoint): EventTimes {
   const step = Constants.UI.ADD_SLOT_MINUTES;
   const start = times.start;
+  const length = times.end.getTime() - start.getTime();
   const startMin = start.getHours() * 60 + start.getMinutes();
+  const lengthMin = Math.ceil(length / 60_000);
   const lowest = Math.ceil(-startMin / step);
-  const highest = Math.floor((24 * 60 - 1 - startMin) / step);
-  const steps = Math.min(highest, Math.max(lowest, Math.round((at.minute - grab.minute) / step)));
+  // It starts on the day, and it ends there too, at the next midnight at the latest: a move
+  // never makes a single-day event run into a day the grid may not even show.
+  const highest = Math.max(
+    lowest,
+    Math.min(
+      Math.floor((24 * 60 - 1 - startMin) / step),
+      Math.floor((24 * 60 - startMin - lengthMin) / step),
+    ),
+  );
+  let steps = Math.min(highest, Math.max(lowest, Math.round((at.minute - grab.minute) / step)));
   const days = Times.dayDifference(new Date(dayOf(grab.timestamp)), new Date(dayOf(at.timestamp)));
   const day = Times.addDays(new Date(dayOf(start.getTime())), days);
-  const newStart = atMinute(day.getTime(), startMin + steps * step);
-  newStart.setSeconds(start.getSeconds(), start.getMilliseconds());
-  return {
-    allDay: false,
-    start: newStart,
-    end: new Date(newStart.getTime() + (times.end.getTime() - start.getTime())),
+  const place = (count: number) => {
+    const wall = atMinute(day.getTime(), startMin + count * step);
+    wall.setSeconds(start.getSeconds(), start.getMilliseconds());
+    // A wall-clock time the clocks pass twice, as they go back, is read as its first passing.
+    // Where the event was in the second, at the offset it keeps there, it stays in the second,
+    // so a move down never lands earlier than where it began.
+    const shift = (start.getTimezoneOffset() - wall.getTimezoneOffset()) * 60_000;
+    const again = new Date(wall.getTime() + shift);
+    return shift !== 0 && sameWallClock(again, wall) ? again : wall;
   };
+  let newStart = place(steps);
+  // A day the clocks change on can still carry the end past midnight; one quarter less at a time.
+  for (let tries = 0; tries < 8 && steps > lowest; tries++) {
+    const end = newStart.getTime() + length;
+    if (dayOf(Math.max(newStart.getTime(), end - 1)) === dayOf(newStart.getTime())) break;
+    steps -= 1;
+    newStart = place(steps);
+  }
+  return { allDay: false, start: newStart, end: new Date(newStart.getTime() + length) };
+}
+
+/**
+ * Whether two instants read the same on the local wall clock, to the second.
+ *
+ * @param a - One instant
+ * @param b - The other
+ * @returns True for the same local date and time
+ */
+function sameWallClock(a: Date, b: Date): boolean {
+  return (
+    Times.dateValue(a) === Times.dateValue(b) &&
+    a.getHours() === b.getHours() &&
+    a.getMinutes() === b.getMinutes() &&
+    a.getSeconds() === b.getSeconds()
+  );
 }
 
 /**

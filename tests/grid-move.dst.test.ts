@@ -94,3 +94,49 @@ describe(`a moved event on the days the clocks change, in ${ZONE}`, () => {
     }
   });
 });
+
+/**
+ * Where the day the clocks go back reads one quarter hour twice, as `[first, second]`: the
+ * second quarter of the hour that comes round twice, which leaves a quarter of that hour above
+ * it and below it, wherever the change falls. In the Azores it falls at midnight.
+ */
+function repeatedQuarter(): [Date, Date] {
+  const [midnight] = changeDays().filter((day) => {
+    const d = new Date(day);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - day > 86_400_000;
+  });
+  const seen = new Map<string, number>();
+  const pairs: Array<[Date, Date]> = [];
+  for (let t = midnight; t < midnight + 26 * HOUR; t += 15 * 60_000) {
+    const wall = wallClock(new Date(t));
+    const first = seen.get(wall);
+    if (first !== undefined) pairs.push([new Date(first), new Date(t)]);
+    seen.set(wall, t);
+  }
+  if (pairs.length < 3) throw new Error('no repeated hour');
+  return pairs[1];
+}
+
+describe(`a moved event in the hour the clocks pass twice, in ${ZONE}`, () => {
+  it.each([
+    ['in its second passing, a quarter down', 'second', 15],
+    ['in its second passing, a quarter up', 'second', -15],
+    ['in its first passing, a quarter down', 'first', 15],
+    ['in its first passing, a quarter up', 'first', -15],
+  ])('moves %s by exactly a quarter hour of time', (_name, passing, by) => {
+    const [first, second] = repeatedQuarter();
+    const start = passing === 'second' ? second : first;
+    const times = { allDay: false, start, end: new Date(start.getTime() + 15 * 60_000) };
+    const minute = start.getHours() * 60 + start.getMinutes();
+
+    const moved = GridMove.movedTimes(
+      times,
+      { timestamp: start.getTime(), minute },
+      { timestamp: start.getTime(), minute: minute + by },
+    );
+    // `Date` reads a wall-clock time the clocks pass twice as its first passing, so a move down
+    // from the second passing would otherwise land three quarters of an hour earlier.
+    expect(moved.start.getTime() - start.getTime()).toBe(by * 60_000);
+    expect(moved.end.getTime() - moved.start.getTime()).toBe(15 * 60_000);
+  });
+});

@@ -91,15 +91,25 @@ describe('movedTimes', () => {
     );
   });
 
-  it('keeps its start on the day: no earlier than its first quarter, no later than its last', () => {
+  it('keeps it on the day: no earlier than its first quarter, ending by midnight at the latest', () => {
     const early = timed(JUNE(17, 0, 20), JUNE(17, 1, 20));
     expect(GridMove.movedTimes(early, at(17, 50), at(17, 0))).toEqual(
       timed(JUNE(17, 0, 5), JUNE(17, 1, 5)),
     );
     const late = timed(JUNE(17, 23, 10), JUNE(17, 23, 40));
     expect(GridMove.movedTimes(late, at(17, 1400), at(17, 1440))).toEqual(
-      timed(JUNE(17, 23, 55), JUNE(18, 0, 25)),
+      timed(JUNE(17, 23, 25), JUNE(17, 23, 55)),
     );
+    const evening = timed(JUNE(17, 21), JUNE(17, 23));
+    expect(GridMove.movedTimes(evening, at(17, 1300), at(19, 1440))).toEqual(
+      timed(JUNE(19, 22), JUNE(20, 0)),
+    );
+    const long = timed(JUNE(17, 8), JUNE(17, 20));
+    expect(GridMove.movedTimes(long, at(17, 600), at(17, 1200))).toEqual(
+      timed(JUNE(17, 12), JUNE(18, 0)),
+    );
+    const untilMidnight = timed(JUNE(17, 22), JUNE(18, 0));
+    expect(GridMove.movedTimes(untilMidnight, at(17, 1330), at(17, 1400))).toEqual(untilMidnight);
   });
 });
 

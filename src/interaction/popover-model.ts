@@ -92,8 +92,9 @@ export interface PopoverParams {
   times?: Times.EventTimes;
   /**
    * Where a drag in a grid dropped an existing repeating event. The popover opens with the event
-   * moved there, its repeat moved with it, and asks at once which occurrences the move covers;
-   * backing out of that question throws the move away.
+   * moved there, its repeat moved with it. For an occurrence of a series it asks at once which
+   * occurrences the move covers, and backing out of that question throws the move away; a series
+   * stored with its rule shows Save and Cancel, as any change does.
    */
   moved?: Times.EventTimes;
   /** Home Assistant's language, for dates and day names. */

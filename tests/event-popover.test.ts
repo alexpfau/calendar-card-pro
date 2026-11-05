@@ -593,6 +593,26 @@ describe('a repeating event', () => {
       expect(updated).not.toHaveBeenCalled();
     });
 
+    it('offers Save for a series stored with its rule, writing the rule moved with it', async () => {
+      const { entry, ...rest } = { entry: { ...SWIM, rrule: 'FREQ=WEEKLY;BYDAY=TU' }, display };
+      const { root, writes, button, press, closed } = await open({ entry, ...rest, moved });
+      expect(root.querySelector('.ask')).toBeNull();
+
+      await press(button('Save'));
+      await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+      expect(writes()).toEqual([
+        {
+          type: 'calendar/event/update',
+          entity_id: 'calendar.ben',
+          uid: 'u-swim',
+          event: expect.objectContaining({
+            dtstart: '2026-11-04T18:00:00Z',
+            rrule: 'FREQ=WEEKLY;BYDAY=WE',
+          }),
+        },
+      ]);
+    });
+
     it('leaves a question asked about an ordinary change as it was', async () => {
       const { el, root, type, closed } = await open({ entry: WEEKLY, display });
       await type('input.title', 'Swim lesson');

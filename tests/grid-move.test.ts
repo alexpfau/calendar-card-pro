@@ -488,6 +488,24 @@ describe('moving an event in a grid by drag', () => {
       expect(origin(card, 'Swim')).toBeNull();
     });
 
+    it('opens the popover for a series stored with its rule, never writing it without the rule', async () => {
+      const series = {
+        summary: 'Book club',
+        start: { dateTime: '2026-06-18T18:00:00Z' },
+        end: { dateTime: '2026-06-18T19:00:00Z' },
+        uid: 'uid-book-club',
+        rrule: 'FREQ=MONTHLY',
+      };
+      const { card, writes, dialogs } = await mount(DETAILS, [series]);
+      drag(block(card, 'Book club'), [X(1), Y(18, 30)], [X(1), Y(20, 30)]);
+      await settle();
+
+      expect(writes()).toEqual([]);
+      expect(dialogs).toHaveLength(1);
+      expect(dialogs[0].dialogParams.entry?.rrule).toBe('FREQ=MONTHLY');
+      expect(dialogs[0].dialogParams.moved?.start).toEqual(new Date('2026-06-18T20:00:00Z'));
+    });
+
     it('stays where it was dropped once the popover saves it, until the refresh brings it', async () => {
       const { card, dialogs } = await mount(DETAILS, [SWIM]);
       drag(block(card, 'Swim'), [X(1), Y(9, 30)], [X(2), Y(10, 30)]);

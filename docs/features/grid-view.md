@@ -686,15 +686,17 @@ event_tap_action:
 
 The event follows the pointer in quarter hours, keeping its length and the minute it starts at
 within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another
-of the days shown. While you drag, it is drawn where it would go, with its new times, and its own
-block fades where it was. Let go, and it is saved there at once, and stays drawn there until the
-card shows the event in its new place. Let go where it started, press Escape, or touch the screen
-with a second finger, and nothing changes. It also goes back if the card turns to other days
-while you drag.
+of the days shown. It stays on the day you drop it on: an event that would run past midnight stops
+where it still ends by then. While you drag, it is drawn where it would go, with its new times,
+and its own block fades where it was. Let go, and it is saved there at once, and stays drawn there
+until the card has fetched its events again, a moment later. Let go where it started, press
+Escape, or touch the screen with a second finger, and nothing changes. It also goes back if the
+card turns to other days while you drag.
 
-A repeating event opens the popover at its new times when you let go, asking whether the move is
-for **Only this event** or for **This and all future events**, as a change in the popover does.
-**Cancel** puts it back.
+A repeating event opens the popover at its new times when you let go, and moves its repeat with it
+as a change of times in the popover does. One occurrence of a series asks whether the move is for
+**Only this event** or for **This and all future events**; a series the calendar returns whole
+shows **Save**. **Cancel** puts it back.
 
 If Home Assistant refuses the change, the event goes back where it was, and Home Assistant shows
 why at the bottom of the screen.
