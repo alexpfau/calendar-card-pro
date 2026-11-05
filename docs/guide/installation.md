@@ -84,5 +84,5 @@ newer `.js`.
 
 Calendar Card Pro runs in any current browser and in the Home Assistant Companion apps, which
 draw dashboards with the device's own browser engine. On an iPhone or iPad that engine is
-Safari's, and the card needs iOS or iPadOS 16.4 or later; older versions cannot load it. A
-device whose updates stop at iOS 16 should run the last one it offers, 16.7.
+Safari's, and the card needs iOS or iPadOS 15 or later, on the last update the device offers:
+15.8 for one that stops at iOS 15, and 16.7 for one that stops at iOS 16.
