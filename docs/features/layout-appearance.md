@@ -449,14 +449,17 @@ One press brings back all of these at once:
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button sits at the end of the top row, before refresh when that is on. It
-shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
-how it is set up, the button is hidden, and it appears the moment something is changed, so a
-glance at the card says whether someone left it on a choice of their own. It keeps its place while
-hidden, so nothing in the toolbar moves when it appears. A press shows a check for a second, as
-refresh does after a reload, then the button fades away. Where it is the only control in the top
-row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card with
-something it could undo: the date navigation, the view switcher, the calendar filter, or an
+The button sits at the end of the top row, before refresh when that is on. It shows a U-turn arrow,
+and Home Assistant's own word "Reset" names it. While the card already shows how it is set up, the
+button is hidden, and it appears the moment something is changed, so a glance at the card says
+whether someone left it on a choice of their own. It goes by what is on screen: a layout picked on
+the switcher that the card is too narrow for leaves List standing in for it, and where the
+configured layout would show List at that width too, there is nothing to undo, so the button stays
+hidden until the card is wide enough again, and a `reset` action does nothing meanwhile. It keeps
+its place while hidden, so nothing in the toolbar moves when it appears. A press shows a check for a
+second, as refresh does after a reload, then the button fades away. Where it is the only control in
+the top row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card
+with something it could undo: the date navigation, the view switcher, the calendar filter, or an
 `expand` action.
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
