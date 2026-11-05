@@ -154,6 +154,8 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 📍 **Today & Now at a Glance**: A [soft tile](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator) on today and ["Now" in green](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) on what is under way. ⚠️ Both are on by default and accents now follow your theme; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) say how to keep the v4 look, card-mod styles included
 - 📚 **Example Stories**: [Six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples) to copy, from a family's wall tablet to a bin-day tile
 - ⚡ **Your Events the Moment the Dashboard Opens**: Cached events draw straight away, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
+- 🐛 **Back on iOS 15 and 16**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16 and lets it load again on iOS 15; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
+- 🌍 **Serbian**: v5.0.1 adds Serbian, in Cyrillic and Latin script
 
 ### v4.2
 
