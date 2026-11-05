@@ -74,8 +74,9 @@ export interface RingTarget {
   /** Its identity, where Home Assistant gives it one. */
   uid?: string;
   recurrenceId?: string;
-  /** Where it has none: when it starts, as Home Assistant wrote it, and its title. */
+  /** When it starts, as an instant in UTC or a date (`startKey`). */
   start: string;
+  /** Its title as Home Assistant returned it, which tells it apart where it has no uid. */
   summary: string;
 }
 
@@ -461,20 +462,25 @@ export function findRows(
 //-----------------------------------------------------------------------------
 
 /**
- * How an event's start is written, as Home Assistant returned it: its time, or its date.
+ * When an event starts, comparable however it was written: a time as its instant in UTC, so a
+ * push and a request spelling one start in two zones agree, and a date as it is.
  *
  * @param event - Any copy of the event
  * @returns The start, or an empty string where it has none
  */
-function sourceStart(event: Types.CalendarEventData): string {
+function startKey(event: Types.CalendarEventData): string {
   const start =
     event._source?.start ?? event._gridSource?.start ?? event._sourceStart ?? event.start;
-  return start?.dateTime ?? start?.date ?? '';
+  if (start?.dateTime) {
+    const instant = Date.parse(start.dateTime);
+    return isNaN(instant) ? start.dateTime : new Date(instant).toISOString();
+  }
+  return start?.date ?? '';
 }
 
 /**
- * What finds an event again on the card: its calendar, and its uid and recurrence id where Home
- * Assistant gives them, else when it starts and its title as Home Assistant returned them.
+ * What finds an event again on the card: its calendar and when it starts, with its uid and
+ * recurrence id where Home Assistant gives them, else its title as Home Assistant returned it.
  *
  * @param event - The event's display copy
  * @returns The target
@@ -485,15 +491,16 @@ export function ringTargetOf(event: Types.CalendarEventData): RingTarget {
     entityId: event._entityId ?? '',
     uid: source?.uid || undefined,
     recurrenceId: source?.recurrence_id || undefined,
-    start: sourceStart(event),
+    start: startKey(event),
     summary: source?.summary ?? event.summary ?? '',
   };
 }
 
 /**
- * Whether one of the card's events is the one a pick names: the same calendar, and the same uid
- * and recurrence id where the pick has a uid, else the same start and title. Every day of a
- * multi-day event the card splits is the event.
+ * Whether one of the card's events is the one a pick names: the same calendar and start, and
+ * the same uid and recurrence id where the pick has a uid, else the same title. The start counts
+ * with a uid too, since an integration may return every occurrence of a series under one uid and
+ * no recurrence id. Every day of a multi-day event the card splits is the event.
  *
  * @param event - One of the card's display copies
  * @param target - The pick
@@ -501,17 +508,14 @@ export function ringTargetOf(event: Types.CalendarEventData): RingTarget {
  */
 export function isRingTarget(event: Types.CalendarEventData, target: RingTarget): boolean {
   if (event._isEmptyDay || event._entityId !== target.entityId) return false;
+  if (startKey(event) !== target.start) return false;
   const source = event._source;
   if (target.uid) {
     return (
       source?.uid === target.uid && (source?.recurrence_id || undefined) === target.recurrenceId
     );
   }
-  return (
-    !source?.uid &&
-    sourceStart(event) === target.start &&
-    (source?.summary ?? event.summary ?? '') === target.summary
-  );
+  return !source?.uid && (source?.summary ?? event.summary ?? '') === target.summary;
 }
 
 /**

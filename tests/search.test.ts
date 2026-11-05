@@ -650,7 +650,7 @@ describe('finding a picked event again', () => {
       entityId: ANNA,
       uid: 'u-1',
       recurrenceId: '20260620T090000Z',
-      start: '2026-06-20T09:00:00+00:00',
+      start: '2026-06-20T09:00:00.000Z',
       summary: 'Dentist',
     });
     expect(Search.isRingTarget(picked, target)).toBe(true);
@@ -663,6 +663,28 @@ describe('finding a picked event again', () => {
     expect(Search.isRingTarget(event({ _entityId: 'calendar.ben' }), target)).toBe(false);
   });
 
+  it('rings only the occurrence picked where every one shares a uid and has no recurrence id', () => {
+    const first = event({ source: { uid: 'u-series' } });
+    const next = event({
+      start: { dateTime: '2026-06-27T09:00:00+00:00' },
+      source: { uid: 'u-series', start: { dateTime: '2026-06-27T09:00:00+00:00' } },
+    });
+
+    expect(Search.isRingTarget(first, Search.ringTargetOf(first))).toBe(true);
+    expect(Search.isRingTarget(next, Search.ringTargetOf(first))).toBe(false);
+    expect(Search.isRingTarget(first, Search.ringTargetOf(next))).toBe(false);
+  });
+
+  it('finds a start again however its zone was written', () => {
+    const asPushed = event({
+      source: { uid: 'u-1', start: { dateTime: '2026-06-20T11:00:00+02:00' } },
+    });
+
+    expect(
+      Search.isRingTarget(asPushed, Search.ringTargetOf(event({ source: { uid: 'u-1' } }))),
+    ).toBe(true);
+  });
+
   it('names one without a uid by when it starts and its title as Home Assistant wrote them', () => {
     // The title drawn may be replaced; the one Home Assistant returned is what identifies it.
     const picked = event({ summary: 'Teeth' });
@@ -672,7 +694,7 @@ describe('finding a picked event again', () => {
       entityId: ANNA,
       uid: undefined,
       recurrenceId: undefined,
-      start: '2026-06-20T09:00:00+00:00',
+      start: '2026-06-20T09:00:00.000Z',
       summary: 'Dentist',
     });
     expect(Search.isRingTarget(event({}), target)).toBe(true);

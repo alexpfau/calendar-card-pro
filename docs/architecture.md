@@ -671,7 +671,7 @@ already there. `renderHeaderToolbar` in `rendering/toolbar.ts` draws it, and
   past, grouped by month, at most `SEARCH_RESULT_LIMIT` drawn and the true total announced. A
   pick (`_pickSearchResult`) pages through the date picker's path (`_pickDate`), then rings the
   event while that page shows it: render stamps the display copies that are the pick
-  (`ringIn`, by uid and recurrence id, else start and title) with `_searchRing`, which each view's
+  (`ringIn`, by start and then uid and recurrence id, else title) with `_searchRing`, which each view's
   template binds as a class, so nothing is added to the card from `updated()`, where the grid's
   mutation observers would take it for a change of structure. `_syncSearchRing` starts the ring's
   `SEARCH_RING` once it is drawn, and moves focus to the ringed event where it is a target only
