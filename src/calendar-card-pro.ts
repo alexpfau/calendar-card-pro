@@ -8948,6 +8948,7 @@ window.customCards.push({
   name: 'Calendar Card Pro',
   preview: true,
   description: 'A calendar card that supports multiple calendars with individual styling.',
-  documentationURL: 'https://github.com/alexpfau/calendar-card-pro',
+  // Home Assistant shows it as the help icon of its card editor dialog, so it opens on the docs.
+  documentationURL: 'https://calendar-card-pro.alexpfau.com',
   getEntitySuggestion: Config.getEntitySuggestion,
 });
