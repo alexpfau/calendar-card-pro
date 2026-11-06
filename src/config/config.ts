@@ -1614,9 +1614,11 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  *
  * All five configs load the same events: they share the entity and `days_to_show`, and none
  * sets a member of `FETCH_TIME_KEYS` or a view's own `days_to_show`. So they share one event-cache
- * key, and the picker's five live previews cost one calendar request. The first three differ
- * only by `view`; the two interactive ones add the toolbar and two actions
- * (`interactiveOptions`). Mind what the toolbar does to the key: its layout switcher makes every
+ * key, and the picker's five live previews cost one calendar request. The three plain ones
+ * differ only by `view`; the two interactive ones add the toolbar and two actions
+ * (`interactiveOptions`), and come first, because Home Assistant shows a card's suggestions in
+ * the order returned and these are the ones a new card is best started from. Mind what the
+ * toolbar does to the key: its layout switcher makes every
  * view reachable, and the card loads the longest `days_to_show` among the views it can reach
  * (`loadedDaysToShow`), so a per-view count in either interactive recipe would split the fetch
  * even though its top-level count matched. The grid previews hide locations through grid's own
@@ -1654,6 +1656,23 @@ export function getEntitySuggestion(
 
   return [
     {
+      label: SUGGESTION_INTERACTIVE_LIST_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        ...interactiveOptions(),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_INTERACTIVE_TIME_GRID_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'grid',
+        ...interactiveOptions(),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
       config: {
         ...buildDefaultCardConfig([entityId]),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
@@ -1672,23 +1691,6 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'grid',
-        grid_options: { ...SUGGESTION_GRID_OPTIONS },
-      },
-    },
-    {
-      label: SUGGESTION_INTERACTIVE_LIST_LABEL,
-      config: {
-        ...buildDefaultCardConfig([entityId]),
-        ...interactiveOptions(),
-        grid_options: { ...SUGGESTION_GRID_OPTIONS },
-      },
-    },
-    {
-      label: SUGGESTION_INTERACTIVE_TIME_GRID_LABEL,
-      config: {
-        ...buildDefaultCardConfig([entityId]),
-        view: 'grid',
-        ...interactiveOptions(),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

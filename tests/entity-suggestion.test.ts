@@ -73,36 +73,38 @@ describe('getEntitySuggestion', () => {
       const gridOptions = { grid_options: { columns: 'full', rows: 'auto' } };
 
       expect(suggestions).toEqual([
-        { config: { ...plain, ...gridOptions } },
-        { label: 'Columns', config: { ...plain, view: 'column', ...gridOptions } },
-        { label: 'Time Grid', config: { ...plain, view: 'grid', ...gridOptions } },
         { label: 'Interactive List', config: { ...plain, ...interactive, ...gridOptions } },
         {
           label: 'Interactive Time Grid',
           config: { ...plain, view: 'grid', ...interactive, ...gridOptions },
         },
+        { config: { ...plain, ...gridOptions } },
+        { label: 'Columns', config: { ...plain, view: 'column', ...gridOptions } },
+        { label: 'Time Grid', config: { ...plain, view: 'grid', ...gridOptions } },
       ]);
     });
 
-    it('offers the plain layouts first, then the interactive list and time grid', () => {
+    it('offers the interactive list and time grid first, then the plain layouts', () => {
+      // Home Assistant shows a card's suggestions in the order returned, so the first two
+      // tiles a new user sees are the ones with the toolbar and the event actions on.
       expect(suggestions?.map((suggestion) => suggestion.config.view)).toEqual([
+        undefined,
+        'grid',
         undefined,
         'column',
         'grid',
-        undefined,
-        'grid',
       ]);
     });
 
-    it('leaves the first entry unlabeled and labels only the variants', () => {
-      // Home Assistant renders `${cardName} - ${label}`, so the canonical recipe
+    it('leaves the plain list unlabeled and labels every variant', () => {
+      // Home Assistant renders `${cardName} - ${label}`, so the plain list recipe
       // carries no label and reads as the card's own name.
       expect(suggestions?.map((suggestion) => suggestion.label)).toEqual([
+        'Interactive List',
+        'Interactive Time Grid',
         undefined,
         'Columns',
         'Time Grid',
-        'Interactive List',
-        'Interactive Time Grid',
       ]);
     });
 
@@ -146,9 +148,9 @@ describe('getEntitySuggestion', () => {
       });
       expect(views).toEqual([
         { view: 'list', written: undefined, drawn: true },
-        { view: 'column', written: undefined, drawn: true },
         { view: 'grid', written: undefined, drawn: false },
         { view: 'list', written: undefined, drawn: true },
+        { view: 'column', written: undefined, drawn: true },
         { view: 'grid', written: undefined, drawn: false },
       ]);
     });
