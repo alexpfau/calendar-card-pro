@@ -155,7 +155,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🔍 **Search & Swipe**: [Search the card's events](https://calendar-card-pro.alexpfau.com/features/layout-appearance#searching-the-card) a year back and ahead from the toolbar, and [swipe](https://calendar-card-pro.alexpfau.com/features/layout-appearance#paging-through-dates) through the days
 - 📡 **Live Updates**: On Home Assistant 2026.5 or later, [a changed event shows on every open dashboard](https://calendar-card-pro.alexpfau.com/features/performance#live-updates) as soon as Home Assistant knows of it, with no polling
 - 🧰 **Your Own Toolbar Buttons**: [Buttons of your own](https://calendar-card-pro.alexpfau.com/features/layout-appearance#your-own-buttons), each an icon and an action, folding into one menu on a narrow card
-- 🐛 **Back on Android 7 Wall Panels**: The card no longer crashes Chromium 119, as in the Shelly Wall Display, or times out headless screenshot add-ons
+- 🐛 **Back on Android 7 Wall Panels**: The card no longer crashes Chromium 119, as in the Shelly Wall Display, or times out headless screenshot add-ons; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) lists the versions it runs on
 
 ### v5.0
 

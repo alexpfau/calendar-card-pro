@@ -86,3 +86,11 @@ Calendar Card Pro runs in any current browser and in the Home Assistant Companio
 draw dashboards with the device's own browser engine. On an iPhone or iPad that engine is
 Safari's, and the card needs iOS or iPadOS 15 or later, on the last update the device offers:
 15.8 for one that stops at iOS 15, and 16.7 for one that stops at iOS 16.
+
+On Android the Companion app draws with the Android System WebView, which is built on Chromium
+and numbered like Chrome. The card has been tested in Chromium versions from 92 onward, and is
+confirmed on a Shelly Wall Display, an Android 7 panel whose WebView stops at Chrome 119, and in
+the Chromium 119 a screenshot add-on runs headless. The visual editor needs Chrome 98 or later.
+Older versions draw some colors more simply: before Chrome 125 the today tile and the green of
+an event under way use a simpler mix, and before Chrome 111 the tile is a solid color and an
+event under way keeps the usual text color.

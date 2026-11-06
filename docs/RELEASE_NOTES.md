@@ -84,7 +84,7 @@ None of this needs a setting, so every card gets it.
 - **Changes Appear Everywhere at Once** - On Home Assistant 2026.5 or later, the card subscribes to each calendar it shows, and Home Assistant sends that calendar's events again whenever they change. An event added, moved or deleted on the card, in Home Assistant, on a phone or in the calendar's own app appears on every open dashboard as soon as Home Assistant knows of it: within seconds for a Local Calendar, at the integration's next sync for Google and CalDAV. There is no polling while live; older Home Assistant keeps polling as before. See [Live Updates](https://calendar-card-pro.alexpfau.com/features/performance#live-updates)
 - **A Slow Calendar No Longer Holds Back the Rest** - When a dashboard opens with nothing cached, each calendar is drawn as soon as it answers. With one calendar three seconds late, the others now appear in under a second rather than after more than three
 - **Less Work Between Changes** - Home Assistant tells every card about every state change in the house, about 140 a minute on a real instance, and the card redrew for each of them. It now redraws only when something it shows has changed, plus once a minute to keep countdowns and progress bars moving: 10 redraws in ten minutes instead of 1,391, measured on a live dashboard
-- **A Bigger Card, a Smaller Editor** - The card file every dashboard loads grew with this release's features, from 403 KB to 551 KB, or from 113 KB to 155 KB compressed (gzip -9), which is what a HACS install sends. Most of that is the new features, the popover above all, then search and your own buttons, adding in the grid and live updates; trimming what the card carries paid about an eighth of it back. The visual editor, loaded only when you open it, shrank from 579 KB to 467 KB, or from 168 KB to 144 KB compressed
+- **A Bigger Card, a Smaller Editor** - The card file every dashboard loads grew with this release's features, from 403 KB to 551 KB, or from 113 KB to 155 KB compressed (gzip -9), which is what a HACS install sends. Most of that is the new features, the popover above all, then search and your own buttons, adding in the grid and live updates; trimming what the card carries paid about an eighth of it back. The visual editor, loaded only when you open it, shrank from 578 KB to 466 KB, or from 168 KB to 144 KB compressed
 
 ## ⚠️ Changes to Existing Cards
 
@@ -104,7 +104,7 @@ None of this needs a setting, so every card gets it.
 
 ### Compatibility
 
-- **The Card Crashed Android 7 Wall Panels and Old Headless Chromium** - On Chromium 119, the version in Android 7 wall displays such as the Shelly Wall Display and in some headless screenshot add-ons, a dashboard with the card crashed shortly after loading, or the screenshot timed out. On Chrome 122 to 124, today's tinted tile and the running event's green time were missing. The color formulas behind them now wait for Chrome 125, and older versions get the plain colors (Thanks @twomore for testing it on the panel, #742, and @MarioKuester, #746)
+- **The Card Crashed Android 7 Wall Panels and Old Headless Chromium** - On Chromium 119, the version in Android 7 wall displays such as the Shelly Wall Display and in some headless screenshot add-ons, a dashboard with the card crashed shortly after loading, or the screenshot timed out. On Chrome 122 to 124, today's tinted tile and the running event's green time were missing. The color formulas behind them now wait for Chrome 125, and older versions get simpler ones; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which versions run the card (Thanks @twomore for testing it on the panel, #742, and @MarioKuester, #746)
 - **Colors Drifted Toward an Unrelated Hue** - The running event's green time turned gold on Chrome 125 to 131, and on a theme with a tinted gray text or card color, calendar colors and accents drifted toward that gray's hue in every browser. The all-day badge did the same since v4.1. Mixing in Oklab keeps every color on its own hue
 
 ### Right-to-Left
@@ -131,7 +131,7 @@ None of this needs a setting, so every card gets it.
 - **Countdowns in Narrow Places** - In narrow grid blocks a countdown could break a time that fit onto two lines, push the time out altogether, or start a line with its dot; in column view countdowns split as "to-morrow", and beside the ALL DAY pill the pill shrank to "A…"; on a narrow list card a long countdown was cut off at the card's edge
 - **12-Hour Times Split From AM and PM** - On narrow cards "12:30" and "PM" could land on different lines
 - **Grid Words Broke Where They Fit** - In narrow grid blocks, descriptions and locations broke inside words that would have fit ("Brin" / "g"), and a Thai, Hebrew or Arabic title dropped below its calendar label, leaving the label alone on the first line
-- **A Labeled Grid Title Sat on the Bar** - In grid view, a calendar label's event title touched the progress bar or line below it
+- **A Labeled Grid Title Sat on the Bar** - In grid view, the title of an event with a calendar label touched the progress bar or line below it. It now keeps a small gap there where the block has room
 
 ### Toolbar & Keyboard
 
