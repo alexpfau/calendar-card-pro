@@ -255,6 +255,10 @@ Home Assistant app have swipes of their own, and a grid that
 days narrower than `min_day_width`: those scroll sideways under the finger, and page with the
 arrows only.
 
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_swipe.mp4#t=0.001" width="390" height="685" loop muted playsinline controls preload="auto" aria-label="A two-day list card on a phone: two swipes to the left page forward to Wednesday and then Friday, and two swipes to the right page back to Monday"></video><br>
+
+On a phone, a swipe to the left shows the next days and a swipe to the right the previous ones.
+
 A few things work differently away from the days the card opens with:
 
 - **Events that have ended are shown,** dimmed as usual, even with `show_past_events: false`.
@@ -587,6 +591,10 @@ toolbar:
   show: true
   search: false
 ```
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_search.mp4#t=0.001" width="740" height="794" loop muted playsinline controls preload="auto" aria-label="A tap on the magnifier opens the search field; zoo is typed, the matching events are listed by month, and a tap on the January result turns the card to that week and rings the event"></video><br>
+
+Type, and the matches are listed under the field by month. A pick turns the card to that day and rings the event.
 
 It is a magnifier at the very end of the top row, after refresh, named by Home Assistant's own
 "Search". A press opens a search field below it, in the same kind of panel as the
