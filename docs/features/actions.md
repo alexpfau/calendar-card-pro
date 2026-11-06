@@ -386,7 +386,7 @@ actions are Nothing.
 
 Where the event's calendar allows it, the popover is where you change the event, too. There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
 
-<video src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.mp4" width="740" height="744" autoplay loop muted playsinline controls aria-label="A tap on Grandpa visits on Saturday opens the popover beside it; a tap on its date line opens the start, the end, All day and Repeat, All day is switched on, and Save turns the event into an all-day banner"></video><br>
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.mp4#t=0.001" width="740" height="744" loop muted playsinline controls preload="auto" aria-label="A tap on Grandpa visits on Saturday opens the popover beside it; a tap on its date line opens the start, the end, All day and Repeat, All day is switched on, and Save turns the event into an all-day banner"></video><br>
 
 Tap the date line to open it, switch on All day, and save: the event moves into the all-day band.
 
@@ -566,7 +566,7 @@ The calendar is the one [the add button](#add-event-button) would preselect: the
 In [grid view](/features/grid-view), `day_tap_action: add-event` also lets you draw a new event
 with its start and end, as in a calendar app. There is no option of its own.
 
-<video src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_draw.mp4" width="740" height="742" autoplay loop muted playsinline controls aria-label="A finger holds an empty spot on Wednesday at 14:15 until a New event block appears, drags its end down to 15:30 and lets go; the popover opens beside the block, Playground is typed as the title and Add saves it"></video><br>
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_draw.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A finger holds an empty spot on Wednesday at 14:15 until a New event block appears, drags its end down to 15:30 and lets go; the popover opens beside the block, Playground is typed as the title and Add saves it"></video><br>
 
 Hold an empty spot until a block appears, drag its end to where the event should stop, and let go. The popover opens beside the block, ready for a title.
 

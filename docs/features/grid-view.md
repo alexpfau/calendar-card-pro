@@ -678,7 +678,7 @@ event_tap_action:
   action: details
 ```
 
-<video src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.mp4" width="740" height="742" autoplay loop muted playsinline controls aria-label="A family's week in grid view on a tablet: a finger holds Bike repair on Friday at 16:30 until it lifts, drags it to Saturday at 11:00, lets go, and later drags it back"></video><br>
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A family's week in grid view on a tablet: a finger holds Bike repair on Friday at 16:30 until it lifts, drags it to Saturday at 11:00, lets go, and later drags it back"></video><br>
 
 Hold the event until it lifts, drag it to another day and time, and let go: it is saved there at once. The second drag puts it back.
 
