@@ -193,7 +193,8 @@ describe('timed Grid labels share the title line', () => {
     // padding, labeled or not, so the next line cannot show through it.
     // Nor in the short-block fallback, whose one-line summary has no padding: there the 2px
     // counted against the few pixels its title is fitted into, and a labeled 15-minute block
-    // went blank.
+    // went blank. Nor where the host has taken it out because it alone would cost a row: the
+    // gap is spacing, and gives way first. `grid-disclosure.test.ts` has that decision.
     const rule = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(
       ([, selectors]) =>
         selectors.includes('.grid-event-disclosure .summary') &&
@@ -202,7 +203,7 @@ describe('timed Grid labels share the title line', () => {
     expect(rule, 'the labeled title padding rule').toBeDefined();
     const selector = rule![1].replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').trim();
     expect(selector).toBe(
-      ".grid-event:not([data-grid-title-fit='measuring'], [data-grid-title-fit='compact'], [data-grid-title-fit='blank']) .grid-event-disclosure .summary:not(.summary-scroll):not([data-grid-title-lines]):has(> .event-title:not(:only-child))",
+      ".grid-event:not([data-grid-title-fit='measuring'], [data-grid-title-fit='compact'], [data-grid-title-fit='blank'], [data-grid-title-gap='yielded']) .grid-event-disclosure .summary:not(.summary-scroll):not([data-grid-title-lines]):has(> .event-title:not(:only-child))",
     );
     const padding = /padding-bottom:\s*([^;]+);/.exec(rule![2])?.[1];
     expect(padding).toBe('2px');

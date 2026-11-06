@@ -2954,6 +2954,13 @@ class CalendarCardPro extends LitElement {
    * tighten: the line count is measured after the user's configured limit has applied, so a
    * `location_max_lines: 2` stays at two even where four would have fitted.
    *
+   * The 2px a labeled title keeps under its text gives way before any of that. It is spacing,
+   * and where it would cost a row or a line the block has no room for it: a one-hour block at
+   * `hour_height: 36px` lost its time row to it. So it is taken out wherever the content
+   * overflows, before any row is shortened or withdrawn, and handed back once the rows are
+   * settled wherever they leave room for it. It stays out only where it alone decides the
+   * fit, which never happens to an unlabeled title, whose summary has no such gap.
+   *
    * Measuring requires restoring every hidden and every clamped detail row first, so every
    * apply can reflow observed title/block nodes even when the final result is unchanged.
    * Suppress ResizeObserver until two animation frames later so that reflow cannot re-arm
@@ -2971,6 +2978,9 @@ class CalendarCardPro extends LitElement {
       .map(GridTitleFit.gridTitleTarget)
       .filter((target): target is GridTitleFit.GridTitleTarget => target !== null);
     titles.forEach(GridTitleFit.resetGridTitle);
+    // Every pass starts with the gap in, so the title is measured the same way whatever the
+    // last pass decided. The hand-back below would correct the outcome anyway, not the reads.
+    for (const block of pending) delete block.dataset.gridTitleGap;
     GridTitleFit.reserveScrollingLabelWidths(titles.map((target) => target.title));
 
     try {
@@ -3005,6 +3015,12 @@ class CalendarCardPro extends LitElement {
       // beneath a title nobody could read whole.
       GridTitleFit.leadGridTitles(titles);
       GridTitleFit.cutGridTitleLines(titles);
+
+      // Take the labeled title's 2px out of every block it does not fit in, before the wrap or
+      // any row is asked to pay for it. Harmless where the block has no such gap: the rule
+      // that draws it matches nothing there, and the hand-back below clears the attribute.
+      const tight = transactions.filter(({ content }) => gridContentOverflows(content));
+      for (const { block } of tight) block.dataset.gridTitleGap = 'yielded';
 
       // A wrap, or a countdown's words flowing onto a line of their own, is decided on width
       // but paid for in height, so settle that here, before anything else competes for the
@@ -3056,6 +3072,18 @@ class CalendarCardPro extends LitElement {
       for (const { withdrawn } of rollbacks) {
         withdrawn.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
       }
+      // Hand the gap back wherever the rows that stayed leave room for it, so it stays out only
+      // where it alone decides the fit. Where the content overflows either way, a title too tall
+      // for its block, the gap returns too: taking it out would change nothing that fits.
+      const yielded = transactions.filter(({ block }) => block.dataset.gridTitleGap);
+      const fitsWithout = yielded.map(({ content }) => !gridContentOverflows(content));
+      for (const { block } of yielded) delete block.dataset.gridTitleGap;
+      const decides = yielded.map(
+        ({ content }, index) => fitsWithout[index] && gridContentOverflows(content),
+      );
+      yielded.forEach(({ block }, index) => {
+        if (decides[index]) block.dataset.gridTitleGap = 'yielded';
+      });
       const compact: GridTitleFit.GridTitleTarget[] = [];
       const centered: GridTitleFit.GridTitleTarget[] = [];
       for (const target of titles) {
