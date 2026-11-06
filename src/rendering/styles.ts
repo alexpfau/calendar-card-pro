@@ -1619,8 +1619,9 @@ export const cardStyles = css`
      the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
      the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
      so a half-transparent indicator color still gives a solid number. Gated as the pill's
-     relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+     relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .day.today-tile {
       background: oklch(
         from
@@ -1885,8 +1886,9 @@ export const cardStyles = css`
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event {
       --calendar-card-accent-ink: oklch(
         from
@@ -1929,8 +1931,9 @@ export const cardStyles = css`
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event-now {
       --calendar-card-now-ink: oklch(
         from
@@ -3408,15 +3411,24 @@ export const cardStyles = css`
    * rather than an absolute target -- which is why the collision the old 0.26-to-0.38 tuning
    * existed to escape cannot recur, for any theme or any hue.
    *
-   * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
+   * Chrome 125+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
    * is still an improvement on sRGB; below that again the sRGB rule is the floor.
    *
    * Safari 18 is named indirectly (#731). Safari 16.4 to 17.6 pass the first condition, as a
    * plain origin works, but read a color-mix() origin as a keyword, which on Safari 16 can
    * crash the whole page. A condition naming that origin runs the same code, so the second
    * tests content-visibility, first on in Safari 18.0; Chrome and Firefox had it before
-   * relative color, so for them the first still decides. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * relative color, so it never holds them back.
+   *
+   * Chrome 125 is named the same way (#742). Chrome 119 passes both conditions and then stops
+   * its renderer on a relative color whose origin is or resolves to a color-mix(), and an
+   * Android 7 WebView ends at 119, so every such wall panel crashed. Chrome 122 to 124 do not
+   * crash but compute that color as invalid, which drops it outright instead of letting the
+   * mix above stand. Chrome 125 is the first to get it right and also the first with round(),
+   * so the third condition tests round(). Safari has had round() since 15.4 and Firefox since
+   * 118, below their relative-color floors, so it never holds them back either. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: oklch(
@@ -3443,9 +3455,11 @@ export const cardStyles = css`
    * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
-   * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
-   * higher gate; below it the heuristic above is the floor. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * Relative color is Chrome 125+ / Firefox 133+ / Safari 18+ as admitted above, and this
+   * takes the same three conditions, since --badge-solid can be a user's color-mix() too. It
+   * stays a separate, higher gate; below it the heuristic above is the floor. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-pill-filled {
       color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
       background-color: var(--badge-solid);
