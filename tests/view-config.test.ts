@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  computeColumnThresholdPx,
+  resolveEffectiveView,
+  resolveViewOnMeasurement,
+} from './helpers/view-oracle';
 import { DEFAULT_CONFIG, FOLDED_OPTIONS, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
@@ -14,7 +19,6 @@ import {
   TIME_GRID_ONLY_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   columnFitCrams,
-  computeColumnThresholdPx,
   computeColumnThresholdPxFor,
   isZeroLength,
   multidaySplitPolicy,
@@ -22,11 +26,9 @@ import {
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
   resolveEffectiveConfig,
-  resolveEffectiveView,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
   resolveTimeGridOption,
-  resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
   validateView,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as EventUtils from '../src/utils/events';
 
@@ -211,5 +212,25 @@ describe('fetchEventData caching', () => {
     const { events } = await EventUtils.fetchEventData(hass, config, 'inst');
 
     expect(events.map((e) => e._entityLabel)).toEqual(['First', 'Second']);
+  });
+
+  it('asks again after a short retry window when the calendars answered with nothing', async () => {
+    // An empty answer is cached for seconds, not for the refresh interval, so events added
+    // just after it show on the next load rather than up to half an hour later.
+    const { hass, paths } = fakeHass([]);
+    const config = buildConfig({ entities: [{ entity: 'calendar.personal' }] });
+    const retryMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+
+    await EventUtils.fetchEventData(hass, config, 'inst');
+    expect(paths).toHaveLength(1);
+
+    // Control: inside the window the empty answer is still served from the cache.
+    vi.setSystemTime(FROZEN_NOW.getTime() + retryMs - 1000);
+    await EventUtils.fetchEventData(hass, config, 'inst');
+    expect(paths).toHaveLength(1);
+
+    vi.setSystemTime(FROZEN_NOW.getTime() + retryMs + 1000);
+    await EventUtils.fetchEventData(hass, config, 'inst');
+    expect(paths).toHaveLength(2);
   });
 });

@@ -25,9 +25,9 @@ import {
   labelIconSourceOf,
   labelImageSourceOf,
 } from './schemas/entity';
-import { buildDisplayViewSchema } from './schemas/layout';
 import { interpolate } from './strings';
 import styles from './styles';
+import * as Subforms from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Workspace from './workspace';
@@ -1233,11 +1233,12 @@ export class CalendarCardProEditor extends LitElement {
     );
 
     const empty = panels.length === 0 && Filter.isFiltering(this._filter);
+    const chassis = Subforms.chassisSchemas(ctx.language);
 
     return html`
       <div class="card-config">
-        ${this._renderViewControls(ctx)} ${this._renderGridReconciliation(ctx)}
-        ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+        ${this._renderViewControls(ctx, chassis)} ${this._renderGridReconciliation(ctx)}
+        ${this._renderFilterBar(chassis)} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
@@ -1344,11 +1345,12 @@ export class CalendarCardProEditor extends LitElement {
    * Keeps displayed-view configuration separate from the editor's local cursor.
    *
    * @param ctx - Current editor context
+   * @param chassis - The chassis schemas this render draws
    * @returns The two adjacent controls, outside the searchable panels
    */
-  private _renderViewControls(ctx: SchemaCtx): TemplateResult {
+  private _renderViewControls(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const data = { view: this._viewForConfig(this._config!) };
-    const schema = buildDisplayViewSchema(ctx.language);
+    const schema = chassis.displayView;
     const frame: Routing.FormFrame = { workspace: 'list', schema, data };
     const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
 
@@ -1368,7 +1370,7 @@ export class CalendarCardProEditor extends LitElement {
           class="workspace-form"
           .hass=${this._formHass}
           .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
-          .schema=${Workspace.buildWorkspaceSchema(ctx.language)}
+          .schema=${chassis.workspace}
           .computeLabel=${this._computeLabel}
           .computeHelper=${this._computeHelper}
           .localizeValue=${this._localizeValue}
@@ -1402,16 +1404,17 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders the filter bar above the panels.
    *
+   * @param chassis - The chassis schemas this render draws
    * @returns The filter bar
    */
-  private _renderFilterBar(): TemplateResult {
+  private _renderFilterBar(chassis: Subforms.ChassisSchemas): TemplateResult {
     return html`
       <div class="filter-bar">
         <ha-form
           class="filter-form"
           .hass=${this._formHass}
           .data=${Filter.filterFormData(this._filter)}
-          .schema=${Filter.FILTER_SCHEMA}
+          .schema=${chassis.filter}
           .computeLabel=${this._computeLabel}
           .computeHelper=${this._computeHelper}
           .localizeValue=${this._localizeValue}
