@@ -185,7 +185,19 @@ column:
   filter_duplicates: true # and too narrow to show the same meeting twice
 ```
 
-`toolbar`, `event_tap_action`, `open_links`, `allow_event_edit` and `allow_event_delete` act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
+These act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
+
+Its actions and its toolbar:
+
+`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar`
+
+Its title, its colors and how it writes dates and times:
+
+`title` · `title_font_size` · `title_color` · `background_color` · `accent_color` · `weekday_color` · `day_color` · `month_color` · `weekend_weekday_color` · `weekend_day_color` · `weekend_month_color` · `today_weekday_color` · `today_day_color` · `today_month_color` · `time_24h` · `language`
+
+Which class of event it keeps, and whether it hides when there is nothing to show:
+
+`event_type` · `hide_when_empty`
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
 

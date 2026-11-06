@@ -1291,8 +1291,8 @@ export interface HassEntity {
  * A single card recipe offered by the Home Assistant card picker after the user
  * selects an entity.
  *
- * The first entry of a suggestion list is the canonical recipe and carries no
- * `label`; any further entry is a labeled variant naming only what differs.
+ * The plain list recipe carries no `label`, so it reads as the card's own name; every
+ * other entry is a labeled variant naming only what differs.
  */
 export interface EntitySuggestion {
   label?: string;

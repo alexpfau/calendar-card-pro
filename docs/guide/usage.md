@@ -20,7 +20,22 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events — so you can skip straight to step 4. Nothing needs to be enabled for this.
 
-Three starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side, and **Calendar Card Pro - Time Grid** for the [grid layout](/features/grid-view), which places them on an hour axis. The three are identical apart from `view`, so picking one and changing your mind later costs nothing more than switching it. Grid hides locations by default, since they crowd a block on the axis; `time_grid: { show_location: true }` brings them back.
+Five starting points are offered. The first two, **Calendar Card Pro - Interactive List** and **Calendar Card Pro - Interactive Time Grid**, start with the card's interactive features on, in the list and the grid layout. They add three options to the plain card:
+
+```yaml
+toolbar:
+  show: true
+event_tap_action:
+  action: details
+day_tap_action:
+  action: add-event
+```
+
+The [header toolbar](/features/layout-appearance#header-toolbar) pages through dates, switches layouts, searches and adds events. A tap on an event opens it in the card's [popover](/features/actions#tapping-an-event), where its calendar allows changing or deleting it and, in the grid, dragging it to another time. A [tap on a day](/features/actions#tapping-a-day-to-add-an-event) adds an event there, and in the grid you can also [draw one](/features/actions#drawing-an-event-in-grid-view). The picker's preview shows only the toolbar, because a card does not respond to taps while it is being edited. On a calendar that accepts no new events, such as a holiday calendar, nothing adds an event and the popover only shows it.
+
+The other three differ only in layout: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side, and **Calendar Card Pro - Time Grid** for the [grid layout](/features/grid-view), which places them on an hour axis. They are identical apart from `view`, so picking one and changing your mind later costs nothing more than switching it. Grid hides locations by default, since they crowd a block on the axis; `time_grid: { show_location: true }` brings them back.
+
+For more than a starting point, the [Example Stories](/reference/examples) are complete cards, each built for one place in a home and ready to copy.
 :::
 
 ## 🚀 Your First Card
