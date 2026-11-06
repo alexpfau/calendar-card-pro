@@ -9,9 +9,10 @@ import * as FormatUtils from '../src/utils/format';
 /**
  * The cache layer decides how long the card is allowed to show data it already
  * has. Every branch here was free to be broken with the whole suite green: the
- * configured refresh interval could be ignored, the short retry window for an
- * empty calendar could be dropped, an expired entry could be handed back, and
- * the array returned to the caller could alias the cached one.
+ * configured refresh interval could be ignored, an entry's own short lifetime
+ * could be ignored, and an expired entry could be handed back. These tests write
+ * the entries themselves and check the read side; that the fetch path gives an
+ * empty answer its short lifetime is pinned in `event-cache.test.ts`.
  */
 
 // happy-dom's own localStorage is not usable here — its `clear()` is not a
