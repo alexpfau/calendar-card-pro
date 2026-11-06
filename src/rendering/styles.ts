@@ -5246,11 +5246,15 @@ export const cardStyles = css`
      the cut drops the padding, through which the next line showed (the cut rule above). Nor in
      the short-block fallback, whose one-line summary has no padding at all (the compact rules
      below): there the 2px counted against the few pixels the title is fitted into, and a
-     labeled 15-minute block was left blank. */
+     labeled 15-minute block was left blank. Nor where the block has no room for it: the host
+     sets data-grid-title-gap='yielded' wherever these 2px alone would cost a row or a line,
+     because they are spacing and the row is content. A one-hour block at hour_height: 36px lost its time
+     row to them. See _applyGridDisclosureSafety. */
   .grid-event:not(
       [data-grid-title-fit='measuring'],
       [data-grid-title-fit='compact'],
-      [data-grid-title-fit='blank']
+      [data-grid-title-fit='blank'],
+      [data-grid-title-gap='yielded']
     )
     .grid-event-disclosure
     .summary:not(.summary-scroll):not([data-grid-title-lines]):has(

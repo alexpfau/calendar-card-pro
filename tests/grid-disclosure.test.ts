@@ -1451,3 +1451,183 @@ describe('grid disclosure layout order', () => {
     expect(rule('.grid-event-disclosure .summary-row')).toContain('flex: 0 0 auto;');
   });
 });
+
+/**
+ * The 2px a labeled grid title keeps under its text, against the rows beneath it.
+ *
+ * The gap is spacing, so it gives way before any row or line does, and comes back wherever the
+ * rows that stayed leave room for it. A one-hour block at `hour_height: 36px` has a 29px content
+ * box, and a labeled title (15px), its gap and the time row (14.4px) need 31.4px of it: with the
+ * gap the time row went, and the title was centered alone, where v5.0.1 drew both.
+ *
+ * happy-dom has no layout, so the stub below stands in for the stylesheet: a labeled summary is
+ * 2px taller unless its block carries `data-grid-title-gap="yielded"`, which is what the rule
+ * that draws the gap excludes. `grid-inline-labels.test.ts` pins that exclusion in the rule.
+ * Heights are rounded, as `scrollHeight` is.
+ */
+describe('grid disclosure title gap', () => {
+  const TITLE = 15;
+  const GAP = 2;
+  const LINE = 14.4;
+  const WIDTH = 300;
+
+  /** Line rectangles per text node, so the title fitter can read the title and its label. */
+  const RUNS = new WeakMap<Node, DOMRect[]>();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  /**
+   * One block with a title, a time row and an optional weather row, with layout stubbed.
+   *
+   * The title and its label are given rectangles inside the block, as the title fitter reads
+   * them, so a block that keeps its rows stays in the normal title mode rather than falling
+   * back to a compact or blank one the browser would not choose. `.grid-event` is
+   * `padding: 2px 4px` and `box-sizing: border-box`, so its border box is the content box
+   * plus 4px.
+   *
+   * @param clientHeight Height the disclosed content has
+   * @param options Whether the title is labeled and has a weather row, and the title's height
+   * @returns The card, its nodes, and a way to change the content's height
+   */
+  function block(clientHeight: number, { labeled = true, weather = false, title = TITLE } = {}) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    document.body.append(card);
+    const label = labeled ? '<span class="calendar-label label-emoji">🏠</span>' : '';
+    root.innerHTML = `
+      <div class="grid-event" style="padding: 2px 4px; box-sizing: border-box">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="summary-row" style="--calendar-card-grid-title-eligible: 1"><div class="summary">${label}<span class="event-title">Long run</span></div></div>
+            <div class="time-location"><div class="time">10:00 - 11:00</div></div>
+            ${weather ? '<div class="event-weather">Sunny</div>' : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    const grid = root.querySelector<HTMLElement>('.grid-event')!;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    let height = clientHeight;
+    grid.style.height = `${height + 4}px`;
+    vi.spyOn(grid, 'getBoundingClientRect').mockImplementation(
+      () => new DOMRect(0, 0, WIDTH, height + 4),
+    );
+    for (const selector of ['.summary-row', '.summary']) {
+      vi.spyOn(root.querySelector<HTMLElement>(selector)!, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(4, 2, WIDTH - 8, title),
+      );
+    }
+    RUNS.set(root.querySelector('.event-title')!.firstChild!, [new DOMRect(30, 2, 60, TITLE)]);
+    const emoji = root.querySelector('.calendar-label')?.firstChild;
+    if (emoji) RUNS.set(emoji, [new DOMRect(4, 2, 20, TITLE)]);
+    vi.spyOn(Range.prototype, 'getClientRects').mockImplementation(function (this: Range) {
+      return (RUNS.get(this.startContainer) ?? []) as unknown as DOMRectList;
+    });
+
+    const rows = Array.from(content.querySelectorAll<HTMLElement>('.time, .event-weather'));
+    const shown = (row: HTMLElement) => !row.classList.contains('grid-event-detail-clipped');
+    for (const row of rows) {
+      row.getClientRects = () =>
+        shown(row)
+          ? ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList)
+          : ({} as DOMRectList);
+    }
+    const gap = () => (labeled && grid.dataset.gridTitleGap !== 'yielded' ? GAP : 0);
+    Object.defineProperties(content, {
+      clientHeight: { get: () => height },
+      scrollHeight: {
+        get: () => Math.round(title + gap() + rows.filter(shown).length * LINE),
+      },
+    });
+    const [time, weatherRow] = rows;
+    const resize = (next: number) => {
+      height = next;
+      grid.style.height = `${height + 4}px`;
+    };
+    return { card, grid, time, weather: weatherRow, resize };
+  }
+
+  it('gives the gap up before the time row of a one-hour block at hour_height: 36px', () => {
+    const { card, grid, time } = block(29);
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList, 'title and time end at 29.4px without the gap').not.toContain(
+      'grid-event-detail-clipped',
+    );
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+    expect(grid.dataset.gridTitleFit, 'the title stays in its normal mode').toBeUndefined();
+  });
+
+  it('keeps the gap wherever the block has room for it', () => {
+    // hour_height: 37px, a 30px content box: 31.4px is within the pixel the fit test forgives.
+    const { card, grid, time } = block(30);
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('leaves an unlabeled block as it was, having no gap to give', () => {
+    // An unlabeled title (16.4px with its own padding) and the time need 30.8px, as in v5.0.1.
+    const { card, grid, time } = block(29, { labeled: false, title: 16.4 });
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap, 'no attribute is left where it decides nothing').toBe(
+      undefined,
+    );
+  });
+
+  it('gives the gap up before any other row, not only the time', () => {
+    // Title, time and weather end at 43.8px without the gap, in a 44px box.
+    const { card, grid, time, weather } = block(44, { weather: true });
+
+    card._applyGridDisclosureSafety();
+
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(weather.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('hands the gap back once a withdrawn row leaves room for it', () => {
+    // Weather does not fit either way; once it goes, title, gap and time fit the 30px box.
+    const { card, grid, time, weather } = block(30, { weather: true });
+
+    card._applyGridDisclosureSafety();
+
+    expect(weather.classList).toContain('grid-event-detail-clipped');
+    expect(time.classList).not.toContain('grid-event-detail-clipped');
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+    expect(grid.dataset.gridTitleFit).toBeUndefined();
+  });
+
+  it('hands the gap back to a title too tall for its block, where it decides nothing', () => {
+    const { card, grid } = block(29, { title: 40 });
+
+    card._applyGridDisclosureSafety();
+
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+  });
+
+  it('gives the gap back on the next pass once the block grows', () => {
+    const { card, grid, resize } = block(29);
+    card._applyGridDisclosureSafety();
+    expect(grid.dataset.gridTitleGap).toBe('yielded');
+
+    resize(30);
+    card._applyGridDisclosureSafety();
+
+    expect(grid.dataset.gridTitleGap).toBeUndefined();
+  });
+});
