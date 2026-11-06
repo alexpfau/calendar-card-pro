@@ -1862,38 +1862,17 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
 const GRID_AXIS_BASE_FONT_PX = parsePixelLength(DEFAULT_CONFIG.time_font_size, 12);
 
 /**
- * Computes the card width, in pixels, at or above which column view can render.
+ * Computes the card width, in pixels, at or above which `days` columns can render.
  *
  * ```
- * column.min_day_width x days_to_show + card padding + (days_to_show - 1) x gutter
+ * column.min_day_width x days + card padding + (days - 1) x gutter
  * ```
  *
  * Grid view additionally reserves its time-axis track and one more gutter, because its
  * template has `axis + days` tracks rather than only day tracks.
  *
- * Both the width floor and the gutter are read out of `column:` by hand, and cannot
- * use `resolveEffectiveConfig` to get there. This function decides *whether* column
- * view renders, so it necessarily runs before the view is known, whereas
- * `resolveEffectiveConfig` needs the view as an input. Resolving the two keys it
- * depends on directly is the way out of that ordering constraint — there is no
- * circularity, because neither `resolveColumnOption` nor `coercePixelLength`
- * consults the view.
- *
- * @param config - Merged configuration, defaults already applied
- * @returns Minimum card width in pixels for the configured number of columns
- */
-export function computeColumnThresholdPx(
-  config: Types.Config,
-  view: Types.EffectiveView = 'column',
-): number {
-  return computeColumnThresholdPxFor(config, configuredDays(config, view), view);
-}
-
-/**
- * Computes the card width, in pixels, at or above which `days` columns can render.
- *
- * Column reduction needs a threshold per candidate column count; `computeColumnThresholdPx`
- * calls this with `days_to_show`.
+ * Column reduction needs a threshold per candidate column count, so the count is an
+ * argument rather than read from `days_to_show`.
  *
  * @param config - Merged configuration, defaults already applied
  * @param days - Number of columns to size for
@@ -2147,100 +2126,6 @@ export function loadConfig(config: Types.Config): Types.Config {
     : { ...config, days_to_show: days };
 }
 
-/**
- * Resolves the view for a width, without resolving a column count.
- *
- * **Not the production path.** The card renders through {@link resolveColumnFit}, which
- * answers view *and* column count in one pass. This function survives as the reference
- * implementation of the view half: `tests/view-config.test.ts` pins `resolveColumnFit`
- * against it, so a future change to the fit logic that silently altered the view
- * decision fails there. It is tree-shaken out of the bundle, so keeping it costs
- * nothing shipped — but do not add callers, and do not delete it without replacing
- * that equivalence check.
- *
- * - **`requestedView`** is what the user configured.
- * - **`effectiveView`** is what is rendered after the width fallback.
- *
- * Everything downstream — option resolution, grouping, compaction, rendering — takes
- * the resolved effective view, and none of it reads `config.view`, because below the
- * threshold that value still says `column` while the card renders a list, and every
- * per-view resolution would then resolve for the wrong view. The three sites that do
- * read it all want the *requested* view by definition: the `requestedView` getter, the
- * `resolveColumnFit` call that consumes it as input, and the editor, which must show
- * the user what they configured rather than what the current width happens to render.
- *
- * The fallback this function models is **wholesale**: below the threshold it answers
- * list view, never column view with fewer columns. That is a property of *this
- * function*, not of the card — do not cite it as product behavior. {@link
- * resolveColumnFit} reduces the column count to what fits and only falls back to list
- * when even `min_days_to_show` will not fit, so the card does render column view with
- * fewer columns than were asked for. `docs/features/column-view.md` describes that
- * behavior; this block describes only the view half it is pinned against.
- *
- * @param requestedView - The configured view
- * @param measuredWidthPx - Measured card width, or `null` before first measurement
- * @param thresholdPx - Result of `computeColumnThresholdPx`
- * @param previousEffectiveView - Last resolved view, for hysteresis; `null` initially
- * @returns The view to render
- */
-export function resolveEffectiveView(
-  requestedView: Types.EffectiveView,
-  measuredWidthPx: number | null,
-  thresholdPx: number,
-  previousEffectiveView: Types.EffectiveView | null = null,
-): Types.EffectiveView {
-  // List view has no width requirement, so there is nothing to fall back to.
-  if (!VIEWS_WITH_WIDTH_FALLBACK.has(requestedView)) {
-    return requestedView;
-  }
-
-  // Before the first measurement, honor the request to avoid flashing the fallback.
-  if (measuredWidthPx === null || measuredWidthPx <= 0) {
-    return requestedView;
-  }
-
-  // Schmitt trigger, centered on the threshold: enter half a band above, leave half a
-  // band below.
-  const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
-  const effectiveThreshold =
-    previousEffectiveView === requestedView ? thresholdPx - halfBand : thresholdPx + halfBand;
-
-  return measuredWidthPx >= effectiveThreshold ? requestedView : 'list';
-}
-
-/**
- * Resolves the view for a freshly measured width, given the previous measurement.
- *
- * **Not the production path**, for the same reason as {@link resolveEffectiveView}: the
- * card measures through {@link resolveColumnFitOnMeasurement}. This is the reference
- * implementation that check is pinned against.
- *
- * `resolveEffectiveView` renders the *requested* view before any measurement exists,
- * so that optimistic answer must not seed hysteresis. A `null`
- * `previousMeasuredWidthPx` means no measurement has confirmed the current view yet.
- *
- * @param requestedView - The configured view
- * @param previousMeasuredWidthPx - Width at the previous measurement, `null` if none
- * @param measuredWidthPx - The width just measured
- * @param thresholdPx - Result of `computeColumnThresholdPx`
- * @param previousEffectiveView - The view currently rendered
- * @returns The view to render
- */
-export function resolveViewOnMeasurement(
-  requestedView: Types.EffectiveView,
-  previousMeasuredWidthPx: number | null,
-  measuredWidthPx: number,
-  thresholdPx: number,
-  previousEffectiveView: Types.EffectiveView,
-): Types.EffectiveView {
-  return resolveEffectiveView(
-    requestedView,
-    measuredWidthPx,
-    thresholdPx,
-    previousMeasuredWidthPx === null ? null : previousEffectiveView,
-  );
-}
-
 //-----------------------------------------------------------------------------
 // COLUMN DENSITY
 //-----------------------------------------------------------------------------
@@ -2427,9 +2312,8 @@ export function resolveColumnFitIfPicked(
 /**
  * Resolves the layout for a freshly measured width, given the previous measurement.
  *
- * Mirrors `resolveViewOnMeasurement`: the optimistic pre-measurement answer must not
- * seed hysteresis. A `null` `previousMeasuredWidthPx` means no measurement has
- * confirmed the current layout.
+ * The optimistic pre-measurement answer must not seed hysteresis. A `null`
+ * `previousMeasuredWidthPx` means no measurement has confirmed the current layout.
  *
  * @param requestedView - The configured view
  * @param config - Merged configuration, defaults already applied

@@ -3168,50 +3168,6 @@ export function startDateFollowsToday(startDate: string | undefined): boolean {
 //-----------------------------------------------------------------------------
 
 /**
- * Read cached event data if it is still fresh: within its lifetime and with no calendar
- * failing.
- *
- * @param key Cache key
- * @param config Card configuration
- * @returns Cached events, or null when absent, due for a refetch or unusable
- */
-export function getCachedEvents(
-  key: string,
-  config?: Types.Config,
-): Types.CalendarEventData[] | null {
-  const cacheEntry = getValidCacheEntry(key, config);
-  if (cacheEntry) {
-    return [...cacheEntry.events];
-  }
-  return null;
-}
-
-/**
- * Store event data in localStorage.
- *
- * @param key Cache key
- * @param events Calendar event data to cache
- * @param ttlMs Optional entry-specific TTL in milliseconds
- * @returns True when the entry can be read back
- */
-export function cacheEvents(
-  key: string,
-  events: Types.CalendarEventData[],
-  ttlMs?: number,
-): boolean {
-  const cacheEntry: Types.CacheEntry = {
-    events,
-    timestamp: Date.now(),
-  };
-
-  if (typeof ttlMs === 'number' && ttlMs > 0) {
-    cacheEntry.ttlMs = ttlMs;
-  }
-
-  return writeCacheEntry(key, cacheEntry);
-}
-
-/**
  * Write a complete cache entry to localStorage.
  *
  * Confirmed by what is read back, not by whether anything is: storage that drops a write
