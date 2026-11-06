@@ -1530,6 +1530,42 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
 const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
 
 /**
+ * The label of the list suggestion that switches on the toolbar, event details and tap-to-add.
+ *
+ * Named for what the tile cannot show. In the picker the card is a preview, where every tap is
+ * inert, so the tile shows only the toolbar; the popover and the new event a tap opens arrive
+ * once the card is on a dashboard, and the label is the only place that can say so.
+ * Untranslated for the same reason as the column label above.
+ */
+const SUGGESTION_INTERACTIVE_LIST_LABEL = 'Interactive List';
+
+/** The time-grid counterpart of the interactive list label, which explains both. */
+const SUGGESTION_INTERACTIVE_TIME_GRID_LABEL = 'Interactive Time Grid';
+
+/**
+ * What the two interactive suggestions add to the plain recipe.
+ *
+ * The three options that put v5.1's interaction on the card: the toolbar, with paging, swipe,
+ * the layout switcher, search, the calendar menu, add and refresh at their defaults; a tap on
+ * an event opening it in the card's popover, and in grid dragging it; and a tap on a day,
+ * or a hold or drag in the grid, adding an event there. Each degrades on its own where the
+ * calendar cannot write: the add button, day taps and drawing need one that accepts new
+ * events, and the popover offers only what the integration allows.
+ *
+ * Nothing here is fetch-affecting, which is what keeps the two on the shared cache key; see
+ * {@link getEntitySuggestion}. Returned fresh, so no two suggestions share a mutable object.
+ *
+ * @returns The options to spread over the plain recipe
+ */
+function interactiveOptions(): Record<string, unknown> {
+  return {
+    toolbar: { show: true },
+    event_tap_action: { action: Constants.EVENT_DETAILS_ACTION },
+    day_tap_action: { action: Constants.ADD_EVENT_ACTION },
+  };
+}
+
+/**
  * Build the opinionated starting configuration for a set of calendar entities.
  *
  * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
@@ -1576,22 +1612,28 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * The three configs differ only by `view`, which is not fetch-affecting, so they share one
- * event-cache key. The grid preview hides locations through grid's own default
- * (`TIME_GRID_DEFAULT_OVERRIDES`), not through a value of its own. Changing a member of
- * `FETCH_TIME_KEYS` in any of them would make each picker preview issue its own calendar
- * request.
+ * All five configs load the same events: they share the entity and `days_to_show`, and none
+ * sets a member of `FETCH_TIME_KEYS` or a view's own `days_to_show`. So they share one event-cache
+ * key, and the picker's five live previews cost one calendar request. The first three differ
+ * only by `view`; the two interactive ones add the toolbar and two actions
+ * (`interactiveOptions`). Mind what the toolbar does to the key: its layout switcher makes every
+ * view reachable, and the card loads the longest `days_to_show` among the views it can reach
+ * (`loadedDaysToShow`), so a per-view count in either interactive recipe would split the fetch
+ * even though its top-level count matched. The grid previews hide locations through grid's own
+ * default (`TIME_GRID_DEFAULT_OVERRIDES`), not through a value of their own.
  *
  * The column and grid previews render as themselves rather than falling back to a list,
  * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
- * returns the requested view whenever that flag is set.
+ * returns the requested view whenever that flag is set. The same flag makes every tap in a
+ * preview inert, which is why the interactive tiles show their toolbar and nothing else of
+ * what they add.
  *
  * Note `grid_options` here is Home Assistant's own sections-layout sizing key and has
- * nothing to do with `view: 'grid'`; all three suggestions carry it.
+ * nothing to do with `view: 'grid'`; all five suggestions carry it.
  *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker
- * @returns A three-entry suggestion list, or `null` when nothing should be offered
+ * @returns A five-entry suggestion list, or `null` when nothing should be offered
  */
 export function getEntitySuggestion(
   hass: Types.Hass | null | undefined,
@@ -1630,6 +1672,23 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'grid',
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_INTERACTIVE_LIST_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        ...interactiveOptions(),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_INTERACTIVE_TIME_GRID_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'grid',
+        ...interactiveOptions(),
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },
