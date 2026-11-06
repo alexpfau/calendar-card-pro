@@ -165,6 +165,11 @@ export function renderMainCardStructure(
     touchMove?: EventListenerObject;
     /** Refuses the `touchend` of a finger that just opened the popover; see the card. */
     touchEnd?: (ev: TouchEvent) => void;
+    /**
+     * Refuses the browser's own text selection and drag while a press may move an event,
+     * bound only on a card that moves events by drag.
+     */
+    nativeDrag?: (ev: Event) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
@@ -257,6 +262,8 @@ export function renderMainCardStructure(
       @lostpointercapture=${handlers.lostPointerCapture}
       @touchmove=${handlers.touchMove ?? nothing}
       @touchend=${handlers.touchEnd ?? nothing}
+      @selectstart=${handlers.nativeDrag ?? nothing}
+      @dragstart=${handlers.nativeDrag ?? nothing}
     >
       ${lead}
       ${

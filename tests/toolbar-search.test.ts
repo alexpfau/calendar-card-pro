@@ -3,8 +3,9 @@
  * panel and when it is asked again, what a term finds as the card's own rows draw it, and what a
  * pick does: page the card to the day and ring the event there.
  *
- * The toolbar defaults to hidden and `search` to off, so every DOM gate built from default config
- * sees no magnifier and no search at all; every case here turns both on. The pure half (the
+ * The toolbar defaults to hidden, so every DOM gate built from default config sees no magnifier
+ * and no search at all, although `search` defaults to on inside a shown toolbar (backlog item
+ * 182); every case here turns the toolbar on and names `search` as well. The pure half (the
  * window, folding, order, cap and ring identity) is `search.test.ts`; the panel alone is
  * `search-panel.test.ts`; how the magnifier costs the switcher's words and never folds is pinned
  * beside the other buttons' fold in `toolbar-buttons.test.ts`.
@@ -461,9 +462,16 @@ describe('the magnifier', () => {
     expect(magnifier(card)!.hasAttribute('title')).toBe(false);
   });
 
-  it('is not drawn by default, nor without the date navigation a pick needs', async () => {
-    const off = await mount(configFor({}, { show: true }));
+  it('is drawn by default once the toolbar shows, but not without the date navigation a pick needs', async () => {
+    // On by default (backlog item 182): a toolbar that pages has search unless it says otherwise.
+    const byDefault = await mount(configFor({}, { show: true }));
+    expect(magnifier(byDefault)).not.toBeNull();
+
+    const off = await mount(configFor({}, { show: true, search: false }));
     expect(magnifier(off)).toBeNull();
+
+    const defaultNoNavigation = await mount(configFor({}, { show: true, navigation: false }));
+    expect(magnifier(defaultNoNavigation)).toBeNull();
 
     const noNavigation = await mount(
       configFor({}, { show: true, search: true, navigation: false }),
@@ -1386,7 +1394,7 @@ describe('the panel closes', () => {
     const card = await mount(configFor());
     await openSearch(card);
 
-    card.setConfig(configFor({}, { show: true }));
+    card.setConfig(configFor({}, { show: true, search: false }));
     await afterClose(card);
 
     expect(isOpen()).toBe(false);

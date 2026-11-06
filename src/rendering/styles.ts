@@ -4072,6 +4072,19 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* An event a drag moves is drawn the same way, as itself at its new times, and its own block
+     fades where it was, as Calendar on macOS leaves it while it is moved. Once dropped, the block
+     is gone from there until the refresh brings the event in its new place, and so is the
+     backdrop a raised block is drawn over, which would otherwise mask that empty place. */
+  .grid-event[data-move-origin] {
+    opacity: 0.35;
+  }
+
+  .grid-event[data-move-origin='dropped'],
+  .grid-event-backdrop:has(+ .grid-event[data-move-origin='dropped']) {
+    visibility: hidden;
+  }
+
   /* While a tap on a day adds, a hold on a grid's empty slot or its all-day band draws a new
      event, so the browser's own long press, selecting a word or a link's callout, is turned
      off there. */

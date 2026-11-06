@@ -957,13 +957,14 @@ describe('chips too wide for the heading row', () => {
   });
 
   /**
-   * The width at which the switcher names its views in words beside the fullest action row: four
-   * commands (the folded filter, add, reset and refresh), a gap within each of its two groups.
+   * The width at which the switcher names its views in words beside the fullest action row: five
+   * commands (the folded filter and add, then reset, refresh and search), a gap between each two
+   * in a group.
    */
   const ALL_LABELS =
     Constants.UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH +
-    4 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
-    2 * Constants.UI.TOOLBAR_COMMAND_GAP;
+    5 * Constants.UI.TOOLBAR_COMMAND_WIDTH +
+    3 * Constants.UI.TOOLBAR_COMMAND_GAP;
 
   it.each([
     {
@@ -1001,7 +1002,7 @@ describe('chips too wide for the heading row', () => {
     expect(headingRow(folded).classList.contains('chips-shown')).toBe(false);
 
     // What the comparison covers: the button leads the action row, before add; the views are
-    // words; reset and refresh end it; the month is in the form this width gives it.
+    // words; reset, refresh and search end it; the month is in the form this width gives it.
     expect(controls(menu, '.toolbar-start')).toEqual([
       'toolbar-button legend-button',
       'legend-menu',
@@ -1010,6 +1011,7 @@ describe('chips too wide for the heading row', () => {
     expect(controls(menu, '.toolbar-end')).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     expect(legendButton(menu)!.getAttribute('title')).toBe('My calendars');
     expect(

@@ -401,6 +401,10 @@ For one occurrence of a repeating event, closing asks once whether the change co
 
 If Home Assistant refuses the change, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
 
+### Dragging in Grid View
+
+In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
+
 ### Moving to Another Calendar
 
 Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own, which is why moving needs a calendar that allows deleting, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.

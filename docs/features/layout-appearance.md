@@ -147,7 +147,7 @@ layouts, a button that
 [page through the dates](#paging-through-dates), a button that
 [loads the events again](#refreshing-the-events), and a magnifier that
 [searches the card's events](#searching-the-card). One option turns the toolbar on, and every
-control in it except reset and search:
+control in it except reset:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -573,7 +573,9 @@ they would be on the dashboard, and do nothing, like every other control in the 
 ### Searching the Card
 
 The search button finds the card's events a year back and a year ahead, by what they are called,
-where they are and what they say. It is off unless you turn it on:
+where they are and what they say. It is on whenever the toolbar is, beside the
+[date navigation](#paging-through-dates) it needs to open a result's day: with `navigation: false`
+there is no magnifier either. `search: false` takes it away on its own:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -583,7 +585,7 @@ entities:
   - calendar.ben
 toolbar:
   show: true
-  search: true
+  search: false
 ```
 
 It is a magnifier at the very end of the top row, after refresh, named by Home Assistant's own

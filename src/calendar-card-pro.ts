@@ -45,6 +45,7 @@ import * as EventDetails from './interaction/event-details';
 import type * as Times from './interaction/event-times';
 import * as Feedback from './interaction/feedback';
 import * as GridDraft from './interaction/grid-draft';
+import * as GridMove from './interaction/grid-move';
 import type * as PopoverModel from './interaction/popover-model';
 import { type SearchHost, SearchSession } from './interaction/search-session';
 import * as Activation from './rendering/activation';
@@ -758,6 +759,27 @@ class CalendarCardPro extends LitElement {
     under: Element | null;
   } | null = null;
   /**
+   * The event the active press may move, from pointer-down on a block a drag moves
+   * (`_moveFrom`), and once the press lifts it (`_startMove`), where the pointer is taking it.
+   */
+  private _move: {
+    /** The block pressed, and the event and color it carries. */
+    readonly element: Element;
+    readonly target: Activation.EventTapTarget;
+    /** The event as stored, and its span. */
+    readonly entry: EventDetails.DetailEntry;
+    readonly times: Times.EventTimes;
+    readonly key: GridMove.MoveKey;
+    /** Where the pointer grabbed it. */
+    readonly grab: GridMove.MovePoint;
+    /** Whether the press has lifted it, so it follows the pointer. */
+    started: boolean;
+    /** Whether the pointer has had it anywhere but where it was. */
+    left: boolean;
+    /** The day element under the pointer, for the popover to open beside. */
+    under: Element | null;
+  } | null = null;
+  /**
    * The new event a grid shows as a block of its own: while a press draws it, and then while
    * the popover adds it, following what is typed and chosen there, as Calendar on macOS shows
    * a "New Event" until it is saved or thrown away (`_paintNew`).
@@ -784,6 +806,11 @@ class CalendarCardPro extends LitElement {
     saved: boolean;
     /** Whether the refresh after its save has put the card's events on it (`_newArrived`). */
     arrived: boolean;
+    /**
+     * For an event a drag moves rather than a new one: which it is, and the event as Home
+     * Assistant returned it, which the block is drawn from at its new times.
+     */
+    moving?: { key: GridMove.MoveKey; source: Types.SourceEvent };
   } | null = null;
   /**
    * What the new event is drawn into, by the element holding each: a day's plane for a timed
@@ -1027,23 +1054,36 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    const params = this._detailsParams(event, color, origin);
+    if (params) this._openPopover(params);
+  };
+
+  /**
+   * The popover's parameters for an existing event.
+   *
+   * @param event - The event
+   * @param color - The accent it is drawn in
+   * @param origin - Where the press was, for the popover to open beside
+   * @returns The parameters, or undefined for a row that is no event of a calendar
+   */
+  private _detailsParams(
+    event: Types.CalendarEventData,
+    color: string | undefined,
+    origin?: Feedback.PressOrigin,
+  ): Omit<PopoverModel.PopoverParams, 'language' | 'hour24' | 'dark'> | undefined {
     const calendarId = event._entityId;
     const entry = EventDetails.buildDetailEntry(event);
-    if (!calendarId || !entry) return;
+    if (!calendarId || !entry) return undefined;
 
     const calendar = this._popoverCalendar(calendarId, color);
-    const permissions = EventDetails.detailPermissions(this.safeHass, event, entry, {
-      allowEdit: this.config.allow_event_edit !== false,
-      allowDelete: this.config.allow_event_delete !== false,
-      failedEntities: this._failedEntities,
-    });
+    const permissions = this._eventPermissions(event, entry);
     // Moving an event writes it to another calendar and deletes it from its own, so it is
     // offered where both are allowed, to the card's other calendars that accept new events.
     const moveTargets =
       permissions.canEdit && permissions.canDelete
         ? this._writableCalendars.filter((id) => id !== calendarId)
         : [];
-    this._openPopover({
+    return {
       mode: 'event',
       calendarId,
       entry,
@@ -1054,8 +1094,27 @@ class CalendarCardPro extends LitElement {
       ...permissions,
       anchor: origin,
       updated: (...ids) => this._refreshAfterWrite({ ids: ids.length ? ids : [calendarId] }),
+    };
+  }
+
+  /**
+   * Whether an event may be changed and deleted from this card: what its calendar supports,
+   * narrowed by the card's own say (`detailPermissions`).
+   *
+   * @param event - The rendered event
+   * @param entry - The event as stored
+   * @returns The two permissions
+   */
+  private _eventPermissions(
+    event: Types.CalendarEventData,
+    entry: EventDetails.DetailEntry,
+  ): { canEdit: boolean; canDelete: boolean } {
+    return EventDetails.detailPermissions(this.safeHass, event, entry, {
+      allowEdit: this.config.allow_event_edit !== false,
+      allowDelete: this.config.allow_event_delete !== false,
+      failedEntities: this._failedEntities,
     });
-  };
+  }
 
   /**
    * Opens the event popover through Home Assistant's dialog manager, which puts it above the
@@ -4308,8 +4367,12 @@ class CalendarCardPro extends LitElement {
     );
     const swipeable = this._swipeStartsAt(ev);
     const draftFrom = this._draftAnchorFor(dayHit);
-    // A press where a new event may be drawn has a hold of its own, which draws one.
-    const holds = !onLink && (draftFrom !== undefined || this._holdRunsFor(tapTarget));
+    const moveFrom = this._moveFrom(ev, tapTarget);
+    // A press where a new event may be drawn has a hold of its own, which draws one, and so does
+    // a press on an event a drag may move, which lifts it.
+    const holds =
+      !onLink &&
+      (draftFrom !== undefined || moveFrom !== undefined || this._holdRunsFor(tapTarget));
     // A press arms only when it could end in something: the card's own tap or hold, the
     // event's own, the day under it, or a swipe. Any other press is left wholly to the browser.
     if (
@@ -4332,6 +4395,7 @@ class CalendarCardPro extends LitElement {
     this._pointerSwipeable = swipeable;
     this._pointerOnLink = onLink;
     this._pointerDraftFrom = draftFrom ?? null;
+    this._move = moveFrom ?? null;
     // A new gesture: whatever click the last one owed has had its chance.
     this._derivedClick = null;
     // Not for a link: capture would retarget the click a tap derives to `ha-card`, and the
@@ -4369,6 +4433,13 @@ class CalendarCardPro extends LitElement {
             return;
           }
 
+          // An event's that a drag may move: it lifts, under the finger. Lifted and let go where
+          // it was, the hold runs what it always ran (`_handlePointerUp`).
+          if (this._move) {
+            this._startMove();
+            return;
+          }
+
           if (this._holdIndicator) {
             Feedback.removeHoldIndicator(this._holdIndicator);
             this._holdIndicator = null;
@@ -4389,11 +4460,20 @@ class CalendarCardPro extends LitElement {
     const shown = this._newShown;
     if (!shown) return;
     if (this._draftContext() !== shown.context) {
-      if (this._draft) this._draftStillShown();
+      if (this._drawingPress) this._draftStillShown();
       else this._dropNew();
       return;
     }
     this._paintNew();
+  }
+
+  /**
+   * Whether the active press is drawing on the grid: a new event (`_draft`), or an event it
+   * moves, once lifted (`_move`). Escape, a second contact, and the days giving way to others
+   * end either, and a finger's scroll is refused while either is under way.
+   */
+  private get _drawingPress(): boolean {
+    return Boolean(this._draft || this._move?.started);
   }
 
   /**
@@ -4450,26 +4530,26 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Whether the draft still stands on the days the grid shows; throws it away, and the press
-   * with it, where it does not.
+   * Whether the draft, or the event a press moves, still stands on the days the grid shows;
+   * throws it away, and the press with it, where it does not.
    *
    * @returns True while the draft may go on
    */
   private _draftStillShown(): boolean {
-    if (!this._draft || !this._newShown) return false;
+    if (!this._drawingPress || !this._newShown) return false;
     if (this._draftContext() === this._newShown.context) return true;
-    Logger.debug('The days a new event was drawn on are gone; throwing it away');
+    Logger.debug('The days an event was drawn on are gone; throwing the press away');
     this._endGesture();
     return false;
   }
 
   /**
-   * A second contact anywhere while a new event is drawn throws it away. Heard on the window in
-   * the capture phase, because the toolbar's controls keep their presses from the card
-   * (`stopCardGesture`) and a second finger on one would otherwise never be heard.
+   * A second contact anywhere while a new event is drawn, or an event moved, throws it away.
+   * Heard on the window in the capture phase, because the toolbar's controls keep their presses
+   * from the card (`stopCardGesture`) and a second finger on one would otherwise never be heard.
    */
   private readonly _draftSecondContact = (ev: PointerEvent): void => {
-    if (this._draft && ev.pointerId !== this._activePointerId) this._endGesture();
+    if (this._drawingPress && ev.pointerId !== this._activePointerId) this._endGesture();
   };
 
   /**
@@ -4527,6 +4607,7 @@ class CalendarCardPro extends LitElement {
     const shown = this._newShown;
     if (!shown) {
       this._clearNewDrawing();
+      this._markMoveOrigin();
       return;
     }
     const config = this.effectiveConfig;
@@ -4631,6 +4712,7 @@ class CalendarCardPro extends LitElement {
       }
     }
     this._fitNewBlocks();
+    this._markMoveOrigin();
   }
 
   /**
@@ -4731,6 +4813,7 @@ class CalendarCardPro extends LitElement {
   private _dropNew(): void {
     this._clearNewDrawing();
     this._newShown = null;
+    this._markMoveOrigin();
     this._openBandForNew(false);
     if (this._newTimer !== undefined) {
       clearTimeout(this._newTimer);
@@ -4784,6 +4867,18 @@ class CalendarCardPro extends LitElement {
       this._dropNew();
       return;
     }
+    this._awaitArrival(shown);
+  }
+
+  /**
+   * Keeps a saved block until the refresh after its save brings the real event
+   * (`_newArrived`), or a few seconds if the refresh is slow.
+   *
+   * @param shown - The block saved
+   */
+  private _awaitArrival(shown: NonNullable<CalendarCardPro['_newShown']>): void {
+    if (this._newShown !== shown || shown.arrived) return;
+    if (this._newTimer !== undefined) clearTimeout(this._newTimer);
     this._newTimer = window.setTimeout(() => {
       this._newTimer = undefined;
       if (this._newShown === shown) this._dropNew();
@@ -4816,24 +4911,26 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
-   * Escape while a new event is drawn throws it away, and the press with it. Heard on the
-   * window, since a pointer press leaves no focus in the card for a key to reach it by.
+   * Escape while a new event is drawn, or an event moved, throws it away, and the press with
+   * it. Heard on the window, since a pointer press leaves no focus in the card for a key to
+   * reach it by.
    */
   private readonly _draftKeyDown = (ev: KeyboardEvent): void => {
-    if (ev.key !== 'Escape' || !this._draft) return;
+    if (ev.key !== 'Escape' || !this._drawingPress) return;
     ev.preventDefault();
     ev.stopPropagation();
     this._endGesture();
   };
 
   /**
-   * While a new event is drawn, a finger's movement is the drawing's, not the page's, so its
-   * scroll is refused. Bound without `passive` on `ha-card`, and only on a grid card that adds
-   * (`_drawsNewEvents`), so no other card makes the browser wait on a touch to scroll.
+   * While a new event is drawn, or an event moved, a finger's movement is the press's, not the
+   * page's, so its scroll is refused. Bound without `passive` on `ha-card`, and only on a grid
+   * card that adds or moves events (`_drawsNewEvents`, `_movesEvents`), so no other card makes
+   * the browser wait on a touch to scroll.
    */
   private readonly _draftTouchMove = {
     handleEvent: (ev: TouchEvent): void => {
-      if (this._draft && ev.cancelable) ev.preventDefault();
+      if (this._drawingPress && ev.cancelable) ev.preventDefault();
     },
     passive: false,
   };
@@ -4865,14 +4962,19 @@ class CalendarCardPro extends LitElement {
     const { times } = shown;
     const dayAfter = (date: Date) =>
       new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    return {
-      summary: shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent,
+    const span = {
       start: times.allDay
         ? { date: FormatUtils.getLocalDateKey(times.start) }
         : { dateTime: times.start.toISOString() },
       end: times.allDay
         ? { date: FormatUtils.getLocalDateKey(dayAfter(times.end)) }
         : { dateTime: times.end.toISOString() },
+    };
+    // An event a drag moves is drawn as itself, at its new times.
+    if (shown.moving) return { ...shown.moving.source, ...span, _entityId: shown.calendarId };
+    return {
+      summary: shown.title.trim() || Localize.getTranslations(this.effectiveLanguage).newEvent,
+      ...span,
       ...(shown.location?.trim() && { location: shown.location }),
       ...(shown.description?.trim() && { description: shown.description }),
       _entityId: shown.calendarId,
@@ -4959,6 +5061,291 @@ class CalendarCardPro extends LitElement {
       bottom: top + (rect.height * heightPct) / 100,
     };
   }
+
+  /**
+   * Whether a press on this card may move an event by drag: a grid whose events open their
+   * popover (`event_tap_action` or `event_hold_action` is `details`), where it may change them.
+   * Which events, among those, is each event's own (`_moveFrom`).
+   */
+  private get _movesEvents(): boolean {
+    if (this.effectiveView !== 'grid' || this._isBeingEdited) return false;
+    if (this.config.allow_event_edit === false) return false;
+    return [this.config.event_tap_action, this.config.event_hold_action].some(
+      (action) => EventActions.eventActionKind(action) === 'details',
+    );
+  }
+
+  /**
+   * The event a press may move, read at pointer-down: a grid's timed block for an event that
+   * starts and ends on one day (`movableTimes`) and that the popover may change. Repeating
+   * events included; their drop asks which occurrences it moves (`_dropMove`).
+   *
+   * @param ev - A pointer-down on `ha-card`
+   * @param hit - The event it landed on, if any
+   * @returns The move it arms, not yet started, or undefined
+   */
+  private _moveFrom(
+    ev: PointerEvent,
+    hit: Activation.EventTapHit | undefined,
+  ): NonNullable<CalendarCardPro['_move']> | undefined {
+    if (!hit || !this._movesEvents || typeof ev.composedPath !== 'function') return undefined;
+    const element = hit.element;
+    if (!(element instanceof Element) || !element.classList.contains('grid-event')) {
+      return undefined;
+    }
+    const { event } = hit.target;
+    const entityId = event._entityId;
+    const entry = EventDetails.buildDetailEntry(event);
+    if (!entityId || !entry?.uid) return undefined;
+    const times = GridMove.movableTimes(entry);
+    if (!times || !this._eventPermissions(event, entry).canEdit) return undefined;
+
+    const body = ev.composedPath().find((node) => Activation.daySlotOn(node)?.kind === 'time') as
+      Element | undefined;
+    const slot = Activation.daySlotOn(body);
+    if (!body || slot?.kind !== 'time') return undefined;
+    return {
+      element,
+      target: hit.target,
+      entry,
+      times,
+      key: {
+        entityId,
+        uid: entry.uid,
+        recurrenceId: entry.recurrence_id,
+        start: times.start.getTime(),
+      },
+      grab: {
+        timestamp: slot.timestamp,
+        minute: GridMove.preciseMinuteAt(
+          body.getBoundingClientRect(),
+          ev.clientY,
+          slot.startMin,
+          slot.endMin,
+        ),
+      },
+      started: false,
+      left: false,
+      under: body,
+    };
+  }
+
+  /**
+   * Lifts the event the press is on: drawn as itself, where it is, raised over its own block,
+   * which fades (`_markMoveOrigin`), to follow the pointer from here (`_followMove`). Escape
+   * puts it back.
+   */
+  private _startMove(): void {
+    const move = this._move;
+    if (!move || move.started || this._draft) return;
+    this._dropNew();
+    move.started = true;
+    this._washDay(undefined);
+    if (this._holdIndicator) {
+      Feedback.removeHoldIndicator(this._holdIndicator);
+      this._holdIndicator = null;
+    }
+    const { event } = move.target;
+    this._newShown = {
+      times: move.times,
+      title: '',
+      calendarId: move.key.entityId,
+      context: this._draftContext(),
+      inPopover: false,
+      saved: false,
+      arrived: false,
+      moving: { key: move.key, source: event._source ?? event },
+    };
+    window.addEventListener('keydown', this._draftKeyDown, true);
+    window.addEventListener('pointerdown', this._draftSecondContact, true);
+    this._paintNew();
+  }
+
+  /**
+   * Follows the pointer with the event a press moves: the time area of the day whose column is
+   * nearest, and as many quarter hours up or down as the pointer went (`movedTimes`).
+   *
+   * @param x - The pointer's viewport x
+   * @param y - The pointer's viewport y
+   */
+  private _followMove(x: number, y: number): void {
+    if (!this._draftStillShown()) return;
+    const move = this._move;
+    const shown = this._newShown;
+    if (!move || !shown) return;
+    const day = Activation.nearestDayAt(this.renderRoot.querySelectorAll('.grid-day-body'), x);
+    if (!day?.band) return;
+    const at = {
+      timestamp: day.timestamp,
+      minute: GridMove.preciseMinuteAt(
+        day.element.getBoundingClientRect(),
+        y,
+        day.band.startMin,
+        day.band.endMin,
+      ),
+    };
+    const times = GridMove.movedTimes(move.times, move.grab, at);
+    move.under = day.element;
+    if (GridDraft.sameSpan(shown.times, times)) return;
+    shown.times = times;
+    if (!GridDraft.sameSpan(times, move.times)) move.left = true;
+    this._paintNew();
+  }
+
+  /**
+   * Moves the event where the press let it go. A single event is written at once, as Calendar
+   * on macOS moves one, and stays drawn there until the refresh after the write. A repeating one
+   * opens its popover at the new times: an occurrence asks first whether the move is for it or
+   * for it and every later one, a series stored with its rule offers Save, and either puts it
+   * back on Cancel.
+   *
+   * @param move - The move
+   * @param shown - Its block
+   * @param ev - The pointer-up
+   */
+  private _dropMove(
+    move: NonNullable<CalendarCardPro['_move']>,
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+    ev: PointerEvent,
+  ): void {
+    // An event that repeats, an occurrence of a series or a series stored with its rule, is moved
+    // in the popover, which keeps the rule and moves it with the event; written here, the rule
+    // would be lost.
+    if (!move.entry.recurrence_id && !move.entry.rrule) {
+      shown.saved = true;
+      this._markMoveOrigin();
+      void this._writeMove(move, shown);
+      return;
+    }
+    const box = move.under ? this._draftBoxOn(move.under) : undefined;
+    const params = this._detailsParams(move.target.event, move.target.color, {
+      x: ev.clientX,
+      y: ev.clientY,
+      pointerType: ev.pointerType,
+      rect: box,
+    });
+    if (!params) return;
+    shown.inPopover = true;
+    this._openPopover({
+      ...params,
+      moved: shown.times,
+      updated: (...ids) => {
+        if (this._newShown === shown) {
+          shown.saved = true;
+          this._markMoveOrigin();
+        }
+        return this._refreshAfterWrite({ ids: ids.length ? ids : [move.key.entityId] }, () =>
+          this._newArrived(shown),
+        );
+      },
+      closed: () => {
+        if (this._newShown === shown) this._newClosed();
+        return undefined;
+      },
+    });
+  }
+
+  /**
+   * Writes a single event at the times it was dropped at. Refused, it goes back where it was and
+   * Home Assistant shows why, in its own notification.
+   *
+   * @param move - The move
+   * @param shown - Its block, drawn where it was dropped
+   */
+  private async _writeMove(
+    move: NonNullable<CalendarCardPro['_move']>,
+    shown: NonNullable<CalendarCardPro['_newShown']>,
+  ): Promise<void> {
+    const hass = this.safeHass;
+    const entityId = move.key.entityId;
+    try {
+      if (!hass) throw new Error('Home Assistant is not connected');
+      await Writes.updateEvent(
+        hass,
+        { entityId, uid: move.key.uid },
+        GridMove.moveWrite(move.entry, shown.times),
+      );
+    } catch (error) {
+      Logger.warn('Moving the event failed', error);
+      if (this._newShown === shown) this._dropNew();
+      this._notify(Writes.writeErrorMessage(error) ?? 'Unknown error');
+      return;
+    }
+    Logger.debug(`Moved an event of ${entityId}`);
+    this._refreshAfterWrite({ ids: [entityId] }, () => this._newArrived(shown));
+    this._awaitArrival(shown);
+  }
+
+  /**
+   * Shows a message in Home Assistant's own notification, at the foot of the screen.
+   *
+   * @param message - What to say
+   */
+  private _notify(message: string): void {
+    const notification = new Event('hass-notification', { bubbles: true, composed: true });
+    (notification as Event & { detail?: unknown }).detail = { message };
+    this.dispatchEvent(notification);
+  }
+
+  /**
+   * Ends the press moving an event. Its block goes with it, unless it was dropped, which keeps
+   * it while the popover asks about it or until the refresh after its write brings it.
+   */
+  private _endMove(): void {
+    const move = this._move;
+    if (!move) return;
+    this._move = null;
+    if (!move.started) return;
+    // However it ended, the click a browser derives from the press is not a tap on the event:
+    // thrown away by Escape or a second contact before the pointer lifted, it would otherwise
+    // open the event the press set out to move. Pointer-up guards the same element already.
+    this._derivedClick = {
+      element: move.element,
+      deadline: Date.now() + Constants.TIMING.DERIVED_CLICK_WINDOW,
+    };
+    if (!this._draft) {
+      window.removeEventListener('keydown', this._draftKeyDown, true);
+      window.removeEventListener('pointerdown', this._draftSecondContact, true);
+    }
+    const shown = this._newShown;
+    if (shown?.moving && !shown.inPopover && !shown.saved) this._dropNew();
+  }
+
+  /**
+   * Fades the block of the event a drag moves while it is lifted, and hides it once it is
+   * dropped, through an attribute on the block the grid drew, which its structure observers do
+   * not see. Found by the event it draws rather than kept from the press, since a render may
+   * draw another event in that element meanwhile, and the refresh after the move draws the
+   * event in its new place.
+   */
+  private _markMoveOrigin(): void {
+    const shown = this._newShown;
+    const key = shown?.moving?.key;
+    const state = shown?.saved ? 'dropped' : 'lifted';
+    const blocks = this.renderRoot.querySelectorAll(key ? '.grid-event' : '[data-move-origin]');
+    for (const block of blocks) {
+      const tap =
+        key && !block.closest(`.${GridRender.NEW_EVENT_HOST_CLASS}`)
+          ? Activation.tapTargetOn(block)
+          : undefined;
+      const origin =
+        key !== undefined &&
+        tap !== undefined &&
+        GridMove.isMoveOrigin(key, tap.event._entityId, EventDetails.buildDetailEntry(tap.event));
+      if (!origin) block.removeAttribute('data-move-origin');
+      else if (block.getAttribute('data-move-origin') !== state) {
+        block.setAttribute('data-move-origin', state);
+      }
+    }
+  }
+
+  /**
+   * Refuses the browser's own text selection and drag while a press is on an event a drag may
+   * move, which would otherwise take the pointer from the card.
+   */
+  private readonly _refuseNativeDrag = (ev: Event): void => {
+    if (this._move && ev.cancelable) ev.preventDefault();
+  };
 
   /**
    * Whether a press began on a link drawn in an event's row (`open_links`). See
@@ -5077,12 +5464,29 @@ class CalendarCardPro extends LitElement {
       this._moveDraft(ev.clientX, ev.clientY);
       return;
     }
+    if (this._move?.started) {
+      this._followMove(ev.clientX, ev.clientY);
+      return;
+    }
     if (this._holdTriggered) return;
 
     const deltaX = ev.clientX - this._pointerStart.x;
     const deltaY = ev.clientY - this._pointerStart.y;
     if (!this._pointerMoved) {
       if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+        return;
+      }
+
+      // A mouse dragging an event a drag may move moves it at once, as Calendar on macOS does.
+      // Moved, it is no tap, and no hold either, since the mouse never held still for one.
+      if (this._move && ev.pointerType === 'mouse') {
+        if (this._holdTimer) {
+          clearTimeout(this._holdTimer);
+          this._holdTimer = null;
+        }
+        this._pointerMoved = true;
+        this._startMove();
+        this._followMove(ev.clientX, ev.clientY);
         return;
       }
 
@@ -5162,9 +5566,17 @@ class CalendarCardPro extends LitElement {
     };
     const actions = this._cardActions(this._pointerAddContext, origin);
     let ranOffEvents = false;
+    const move = this._move?.started && this._draftStillShown() ? this._move : null;
+    const moved = move ? this._newShown : null;
     const draft = this._draftStillShown() ? this._draft : null;
     const drawn = draft ? this._newShown : null;
-    if (draft && drawn) {
+    if (move && moved && move.left) {
+      // Let go where it was taken from, it stays; anywhere else it is moved there.
+      if (!GridDraft.sameSpan(moved.times, move.times)) {
+        this._releasePressFocus();
+        this._dropMove(move, moved, ev);
+      }
+    } else if (draft && drawn) {
       // The new event drawn: the popover opens on it, beside its piece under the pointer, and
       // the block stays while it is open.
       Logger.debug('Adding the event drawn');
@@ -5254,7 +5666,8 @@ class CalendarCardPro extends LitElement {
    * indicator and its day's wash, and spring back any days a swipe moved.
    *
    * Leaves `_derivedClick` alone, which outlives the gesture on purpose: pointer-up sets it
-   * just before calling this, for the click that follows.
+   * just before calling this, for the click that follows. The one exception is a press that
+   * lifted an event to move it, which guards that event's click however it ends (`_endMove`).
    */
   private _endGesture(): void {
     if (this._holdTimer) {
@@ -5276,6 +5689,7 @@ class CalendarCardPro extends LitElement {
     this._pointerDraftFrom = null;
     this._liftingTouch = false;
     this._endDraft();
+    this._endMove();
     this._washDay(undefined);
     this._springBackSwipe();
 
@@ -6435,8 +6849,9 @@ class CalendarCardPro extends LitElement {
       pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
       lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
-      touchMove: this._drawsNewEvents ? this._draftTouchMove : undefined,
+      touchMove: this._drawsNewEvents || this._movesEvents ? this._draftTouchMove : undefined,
       touchEnd: this._swallowTouchEnd,
+      nativeDrag: this._movesEvents ? this._refuseNativeDrag : undefined,
     };
 
     let content: TemplateResult;

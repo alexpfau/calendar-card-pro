@@ -663,6 +663,52 @@ time_grid:
 
 :::
 
+## ✋ Moving Events by Drag
+
+Where a tap or a hold opens an event in the [event popover](/features/actions#the-event-popover)
+and the popover can change it, you can also move a timed event to another time or day by
+dragging its block, as in Calendar on macOS. There is no option of its own:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: grid
+event_tap_action:
+  action: details
+```
+
+- **With a mouse,** press on the event and drag at once. A click that does not move still opens
+  the popover.
+- **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
+  does not scroll while you do. Held and let go without moving, the hold does what it always did,
+  such as opening the popover under `event_hold_action: details`.
+
+The event follows the pointer in quarter hours, keeping its length and the minute it starts at
+within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another
+of the days shown. It stays on the day you drop it on: an event that would run past midnight stops
+where it still ends by then. While you drag, it is drawn where it would go, with its new times,
+and its own block fades where it was. Let go, and it is saved there at once, and stays drawn there
+until the card has fetched its events again, a moment later. Let go where it started, press
+Escape, or touch the screen with a second finger, and nothing changes. It also goes back if the
+card turns to other days while you drag.
+
+A repeating event opens the popover at its new times when you let go, and moves its repeat with it
+as a change of times in the popover does. One occurrence of a series asks whether the move is for
+**Only this event** or for **This and all future events**; a series the calendar returns whole
+shows **Save**. **Cancel** puts it back.
+
+If Home Assistant refuses the change, the event goes back where it was, and Home Assistant shows
+why at the bottom of the screen.
+
+A drag moves an event only where the popover could change it, so only on a calendar whose
+integration [can edit events](/features/actions#what-each-integration-allows), such as a Local
+Calendar, and not with [`allow_event_edit: false`](/features/actions#narrowing-what-the-popover-offers)
+or for an event the popover would show [read-only](/features/actions#when-the-card-leaves-them-out).
+It moves timed events that start and end on the same day. All-day events, and events running into
+another day, are changed in the popover. A drag cannot take an event past the days shown, to
+another calendar, or change its length, and nothing moves while the card is being edited.
+
 ## 📱 Fitting Narrow Cards
 
 Grid view uses the same responsive width fallback as column view, but with grid-specific

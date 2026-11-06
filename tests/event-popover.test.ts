@@ -525,6 +525,106 @@ describe('a repeating event', () => {
     expect(closed).not.toHaveBeenCalled();
   });
 
+  describe('dropped by a drag in a grid', () => {
+    // Wednesday at 18:00, from Tuesday at 16:00: the weekly rule moves to Wednesday with it.
+    /** The question's last button, Cancel. */
+    const lastAsk = (root: ShadowRoot) => {
+      const asked = root.querySelectorAll<HTMLElement>('.ask button');
+      return asked[asked.length - 1];
+    };
+    const moved = {
+      allDay: false,
+      start: new Date('2026-11-04T18:00:00Z'),
+      end: new Date('2026-11-04T19:00:00Z'),
+    };
+
+    it.each([
+      ['This and all future events', 'THISANDFUTURE', { rrule: 'FREQ=WEEKLY;BYDAY=WE' }],
+      ['Only this event', '', {}],
+    ])('asks at once which occurrences move, and moves them: %s', async (choice, range, rule) => {
+      const { root, writes, button, press, closed, updated } = await open({
+        entry: WEEKLY,
+        display,
+        moved,
+      });
+      expect(root.querySelector('.ask')).not.toBeNull();
+      expect(writes()).toEqual([]);
+
+      await press(button(choice));
+      await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+      expect(writes()).toEqual([
+        {
+          type: 'calendar/event/update',
+          entity_id: 'calendar.ben',
+          uid: 'u-swim',
+          recurrence_id: '20261103T160000Z',
+          recurrence_range: range,
+          event: expect.objectContaining({
+            summary: '🏊 Swim',
+            dtstart: '2026-11-04T18:00:00Z',
+            dtend: '2026-11-04T19:00:00Z',
+            ...rule,
+          }),
+        },
+      ]);
+      if (!range) expect(writes()[0].event).not.toHaveProperty('rrule');
+      expect(updated).toHaveBeenCalledWith('calendar.ben');
+    });
+
+    it.each([
+      ['Cancel', (root: ShadowRoot) => lastAsk(root).click()],
+      [
+        'Escape',
+        (root: ShadowRoot) =>
+          root.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true })),
+      ],
+    ])('throws the move away on %s, writing nothing', async (_name, back) => {
+      const { el, root, writes, closed, updated } = await open({
+        entry: WEEKLY,
+        display,
+        moved,
+      });
+      expect(lastAsk(root).textContent?.trim()).toBe('Cancel');
+      back(root);
+      await el.updateComplete;
+
+      await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+      expect(writes()).toEqual([]);
+      expect(updated).not.toHaveBeenCalled();
+    });
+
+    it('offers Save for a series stored with its rule, writing the rule moved with it', async () => {
+      const { entry, ...rest } = { entry: { ...SWIM, rrule: 'FREQ=WEEKLY;BYDAY=TU' }, display };
+      const { root, writes, button, press, closed } = await open({ entry, ...rest, moved });
+      expect(root.querySelector('.ask')).toBeNull();
+
+      await press(button('Save'));
+      await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+      expect(writes()).toEqual([
+        {
+          type: 'calendar/event/update',
+          entity_id: 'calendar.ben',
+          uid: 'u-swim',
+          event: expect.objectContaining({
+            dtstart: '2026-11-04T18:00:00Z',
+            rrule: 'FREQ=WEEKLY;BYDAY=WE',
+          }),
+        },
+      ]);
+    });
+
+    it('leaves a question asked about an ordinary change as it was', async () => {
+      const { el, root, type, closed } = await open({ entry: WEEKLY, display });
+      await type('input.title', 'Swim lesson');
+      el.closeDialog();
+      await el.updateComplete;
+      lastAsk(root).click();
+      await el.updateComplete;
+      expect(root.querySelector('.ask')).toBeNull();
+      expect(closed).not.toHaveBeenCalled();
+    });
+  });
+
   it("words its rule in Home Assistant's strings", async () => {
     const strings = {
       'ui.components.calendar.event.rrule.every': 'every',
