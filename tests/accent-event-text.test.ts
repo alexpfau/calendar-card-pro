@@ -253,16 +253,16 @@ describe('the ink an accent-colored surface is painted in', () => {
       (match) => match[1].replace(/\s+/g, ' ').trim(),
     );
 
-    // Three tiers: the sRGB floor, the OKLCH mix, and the relative-color chroma recovery.
+    // Three tiers: the sRGB floor, the Oklab mix, and the relative-color chroma recovery.
     expect(declarations).toHaveLength(3);
     for (const declaration of declarations) {
       expect(declaration).toContain(`var(${ACCENT_INK_SOURCE_PROPERTY})`);
       expect(declaration).toContain('var(--primary-text-color)');
     }
     expect(declarations[0]).toContain('in srgb');
-    expect(declarations[1]).toContain('in oklch');
+    expect(declarations[1]).toContain('in oklab');
     expect(declarations[2]).toContain('calc(c * 2.2)');
-    expect(css).toContain('@supports (color: color-mix(in oklch, red, blue))');
+    expect(css).toContain('@supports (color: color-mix(in oklab, red, blue))');
     expect(css).toContain('@supports (color: oklch(from red l c h))');
 
     // ...and every tier is hung on the event element, which is the only place the source

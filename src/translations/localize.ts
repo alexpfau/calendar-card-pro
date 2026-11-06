@@ -111,39 +111,6 @@ export function getTranslations(language: string): Types.Translations {
   return TRANSLATIONS[lang] || TRANSLATIONS[DEFAULT_LANGUAGE];
 }
 
-/**
- * Get a specific translation string from the provided language
- *
- * @param language - Language code
- * @param key - Translation key or path (supports 'editor.key' format)
- * @param fallback - Optional fallback value if translation is missing
- * @returns Translated string or array
- */
-export function translate(
-  language: string,
-  key: keyof Types.Translations | string,
-  fallback?: string | string[],
-): string | string[] {
-  const translations = getTranslations(language);
-
-  // Dotted keys belong to the editor chunk; this eager translation table is flat.
-  if (typeof key === 'string' && key.includes('.')) {
-    const [, ...rest] = key.split('.');
-    const subKey = rest.join('.');
-
-    return fallback !== undefined ? fallback : subKey;
-  }
-
-  if (key in translations) {
-    const value = translations[key as keyof Types.Translations];
-    if (typeof value === 'string' || Array.isArray(value)) {
-      return value;
-    }
-  }
-
-  return fallback !== undefined ? fallback : (key as string);
-}
-
 //-----------------------------------------------------------------------------
 // TEXT FORMATTING FUNCTIONS
 //-----------------------------------------------------------------------------

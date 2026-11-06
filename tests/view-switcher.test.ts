@@ -15,12 +15,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { computeColumnThresholdPx } from './helpers/view-oracle';
 import { expectTapControl } from './tap-control';
 import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
-  computeColumnThresholdPx,
   computeColumnThresholdPxFor,
   resolveColumnFit,
   resolveColumnFitIfPicked,

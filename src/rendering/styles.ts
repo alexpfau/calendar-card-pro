@@ -1599,15 +1599,15 @@ export const cardStyles = css`
      Mixed into the card's own background and text colors, both theme tokens, so the wash
      darkens on a dark theme and the digits lighten, with no question asked of the OS (see
      the all-day pill's ink for why light-dark() is not used). */
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .day.today-tile {
       background: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-today-indicator-color) 25%,
         var(--calendar-card-background-color, var(--card-background-color))
       );
       --calendar-card-today-indicator-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-today-indicator-color) 45%,
         var(--primary-text-color)
       );
@@ -1619,13 +1619,14 @@ export const cardStyles = css`
      the color's own, 1.8 times for the wash and 2.2 for the digits (the pill's reasoning for
      the two numbers holds here unchanged). The digits are opaque whatever the color's alpha,
      so a half-transparent indicator color still gives a solid number. Gated as the pill's
-     relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+     relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .day.today-tile {
       background: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-today-indicator-color) 25%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
@@ -1634,7 +1635,7 @@ export const cardStyles = css`
       --calendar-card-today-indicator-ink: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-today-indicator-color) 45%,
             var(--primary-text-color)
           )
@@ -1863,7 +1864,7 @@ export const cardStyles = css`
    * including why the progress bar is NOT painted from here.
    *
    * The weights are --badge-ink's, deliberately, and the tiers are the same three: an sRGB
-   * floor, an OKLCH mix that keeps the hue, and a relative-color tier that puts the chroma
+   * floor, an Oklab mix that keeps the hue, and a relative-color tier that puts the chroma
    * back. An event's title and the badge sitting inside it are two inks derived from one
    * accent; deriving them by two different rules is a difference a user can see and cannot
    * explain. */
@@ -1875,22 +1876,23 @@ export const cardStyles = css`
     );
   }
 
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .event {
       --calendar-card-accent-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-accent-ink-source) 45%,
         var(--primary-text-color)
       );
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event {
       --calendar-card-accent-ink: oklch(
         from
-          color-mix(in oklch, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
+          color-mix(in oklab, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
           l calc(c * 2.2) h
       );
     }
@@ -1919,23 +1921,24 @@ export const cardStyles = css`
     );
   }
 
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .event-now {
       --calendar-card-now-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-now-color, #34d399) 45%,
         var(--primary-text-color)
       );
     }
   }
 
-  /* Gated as the all-day badge's relative-color tier is (#731). */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+  /* Gated as the all-day badge's relative-color tier is (#731, #742). */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .event-now {
       --calendar-card-now-ink: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-now-color, #34d399) 45%,
             var(--primary-text-color)
           )
@@ -3011,7 +3014,7 @@ export const cardStyles = css`
    * risk.
    *
    * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
-   * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
+   * differ only in how hard they use them -- and so the Oklab block at the end can improve all
    * four by redefining two values. */
   .allday-badge,
   .allday-title-pill {
@@ -3317,7 +3320,7 @@ export const cardStyles = css`
 
      In sRGB this is a heuristic rather than a guarantee: it assumes a light theme's accents
      are mid-dark and a dark theme's are bright, which holds for the usual palette and fails
-     for a pale yellow on a light theme. The OKLCH block below replaces the heuristic with an
+     for a pale yellow on a light theme. The relative-color block below replaces the heuristic with an
      actual per-accent decision, so this rule is the floor rather than the intent. */
   .allday-pill-filled {
     color: var(--calendar-card-background-color, var(--card-background-color));
@@ -3336,8 +3339,18 @@ export const cardStyles = css`
    * text color, so a vivid pink arrives as blush rose -- legible, but visibly a different
    * color from the accent it is meant to name, which is what the maintainer reported seeing.
    *
-   * OKLCH interpolation keeps chroma across the mix instead of cutting through the middle of
+   * Oklab interpolation keeps chroma across the mix instead of cutting through the middle of
    * the sRGB cube, so the same 30/70 split arrives recognizably as this calendar's color.
+   *
+   * 🚨 Oklab, not OKLCH (#742). Every mix here goes toward the theme's text or card color,
+   * which is usually a gray, and a gray has no hue. OKLCH interpolates the hue angle anyway:
+   * Chrome 131 and earlier take the gray's arbitrary angle (near 24 degrees) as real, so the
+   * Now green came out beige and the relative-color tier, which reads its hue from this mix,
+   * gold. Where the text or card is tinted, even Chrome 151 and Safari blend that tint's hue
+   * in at the gray's full weight: a yellow wash on a blue-gray card turned teal, an orange
+   * ink on a blue-gray text color magenta. Oklab has no hue to interpolate, so a low-chroma
+   * color barely moves the accent's. Against a true gray the two spaces give the same color
+   * (measured within 1/255 on Chrome 151 and WebKit), so default themes see no change.
    * Because color-mix resolves at paint time this still works when the accent is a theme
    * token JavaScript could never read, and the accent weight is raised now that the mix no
    * longer costs saturation.
@@ -3361,19 +3374,19 @@ export const cardStyles = css`
    * card either, since it is defined relative to the card instead of at an absolute
    * lightness -- which retires the 0.26-to-0.38 tuning that collision previously forced.
    *
-   * Gated on OKLCH interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
+   * Gated on Oklab interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
    * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
    * rule below still needs relative color syntax and keeps its own, higher gate. */
-  @supports (color: color-mix(in oklch, red, blue)) {
+  @supports (color: color-mix(in oklab, red, blue)) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-event-accent) 45%,
         var(--primary-text-color)
       );
       --badge-wash: color-mix(
-        in oklch,
+        in oklab,
         var(--calendar-card-event-accent) 14%,
         var(--calendar-card-background-color, var(--card-background-color))
       );
@@ -3408,25 +3421,34 @@ export const cardStyles = css`
    * rather than an absolute target -- which is why the collision the old 0.26-to-0.38 tuning
    * existed to escape cannot recur, for any theme or any hue.
    *
-   * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
+   * Chrome 125+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
    * is still an improvement on sRGB; below that again the sRGB rule is the floor.
    *
    * Safari 18 is named indirectly (#731). Safari 16.4 to 17.6 pass the first condition, as a
    * plain origin works, but read a color-mix() origin as a keyword, which on Safari 16 can
    * crash the whole page. A condition naming that origin runs the same code, so the second
    * tests content-visibility, first on in Safari 18.0; Chrome and Firefox had it before
-   * relative color, so for them the first still decides. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * relative color, so it never holds them back.
+   *
+   * Chrome 125 is named the same way (#742). Chrome 119 passes both conditions and then stops
+   * its renderer on a relative color whose origin is or resolves to a color-mix(), and an
+   * Android 7 WebView ends at 119, so every such wall panel crashed. Chrome 122 to 124 do not
+   * crash but compute that color as invalid, which drops it outright instead of letting the
+   * mix above stand. Chrome 125 is the first to get it right and also the first with round(),
+   * so the third condition tests round(). Safari has had round() since 15.4 and Firefox since
+   * 118, below their relative-color floors, so it never holds them back either. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-badge,
     .allday-title-pill {
       --badge-ink: oklch(
-        from color-mix(in oklch, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
+        from color-mix(in oklab, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
           calc(c * 2.2) h
       );
       --badge-wash: oklch(
         from
           color-mix(
-            in oklch,
+            in oklab,
             var(--calendar-card-event-accent) 14%,
             var(--calendar-card-background-color, var(--card-background-color))
           )
@@ -3443,9 +3465,11 @@ export const cardStyles = css`
    * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
-   * Relative color is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
-   * higher gate; below it the heuristic above is the floor. */
-  @supports (color: oklch(from red l c h)) and (content-visibility: auto) {
+   * Relative color is Chrome 125+ / Firefox 133+ / Safari 18+ as admitted above, and this
+   * takes the same three conditions, since --badge-solid can be a user's color-mix() too. It
+   * stays a separate, higher gate; below it the heuristic above is the floor. */
+  @supports (color: oklch(from red l c h)) and (content-visibility: auto) and
+    (width: round(1px, 1px)) {
     .allday-pill-filled {
       color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
       background-color: var(--badge-solid);
@@ -3493,12 +3517,12 @@ export const cardStyles = css`
    * paints a patch of near-card-background and reads as a hole punched in the tint. Nothing
    * is given up by not being a mix, because there is no accent here whose chroma a mix could
    * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
-   * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
+   * sRGB mix toward the card would drain it. 14% is the accent wash's own Oklab weight, so
    * the two sources carry the same quantity of wash and differ only in whose color it is.
    *
    * The selector is compound rather than a bare class, and both blocks above are the reason.
    * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
-   * must beat them for any browser that has OKLCH -- which is every browser this stylesheet
+   * must beat them for any browser that has Oklab -- which is every browser this stylesheet
    * targets. (0,2,0) wins on specificity, so it does not also depend on staying below them
    * in source order. */
   .allday-badge.allday-source-text,

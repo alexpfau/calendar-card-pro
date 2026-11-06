@@ -42,7 +42,7 @@ src/
 │   │   ├── entities.ts           # Write path for the per-calendar list
 │   │   ├── buttons.ts            # Write path for the toolbar's own buttons
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
-│   │   ├── subforms.ts           # The schemas a panel renders outside its own form
+│   │   ├── subforms.ts           # Forms outside the panel forms: the chassis and panel extras
 │   │   ├── filter.ts             # Search and "customized only"
 │   │   ├── workspace.ts          # Editor-only All Layouts/List/Columns/Grid selection
 │   │   ├── routing.ts            # Workspace projections and scope-captured writes
