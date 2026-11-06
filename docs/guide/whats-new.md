@@ -6,7 +6,25 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v5.0
+## Latest Release: v5.1
+
+- 💬 **The Card's Own Event Popover**: [`event_tap_action: details`](/features/actions#the-event-popover) now opens a popover that belongs to the card instead of Home Assistant's dialog, beside the event on a wide screen and as a sheet on a phone. [Change an event](/features/actions#editing-deleting-events) where it is shown and it saves when the popover closes, move it to another of the card's calendars, or delete it; a repeating event asks which occurrences you mean. A location gets a [map or a pin](/features/actions#maps-locations), and links in the description open. What a calendar allows depends on [its integration](/features/actions#what-each-integration-allows): a Local Calendar does everything, Google adds and deletes, CalDAV only adds
+- ✍️ **Add & Move Events the Way a Calendar App Does**: [`day_tap_action: add-event`](/features/actions#tapping-a-day-to-add-an-event) adds an event on a day you tap, and in grid view a tap adds one at that quarter hour while a hold and drag [draws it](/features/actions#drawing-an-event-in-grid-view) across hours and days. An event the popover can change also [moves by drag](/features/grid-view#moving-events-by-drag) to another time or day
+- 🔍 **Search the Card's Events**: a magnifier in the toolbar [searches the card's events](/features/layout-appearance#searching-the-card) a year back and ahead by title, location or description, whatever the case and the accents, and a pick pages the card to the event and rings it where that page can show it. On wherever the toolbar shows its date navigation; `search: false` takes it away
+- 👆 **Swipe, Tap & Hold**: a swipe across the days [pages](/features/layout-appearance#paging-through-dates) on a touch screen, `event_hold_action: details` opens an event on a hold, `event_tap_action` takes Home Assistant's own actions with [the event's fields](/features/actions#using-the-events-fields-in-an-action) such as `{title}` and `{location}`, and `add-event`, `reset` and `back` join the card's own actions
+- 🧰 **Your Own Toolbar Buttons**: [`toolbar → buttons`](/features/layout-appearance#your-own-buttons) adds an icon and an action of your own after the add button, folding into one ⋮ menu on a narrow card
+- 🔗 **Links in Event Rows**: [`open_links`](/features/actions#links-in-events) turns web addresses in a location or description into links in list and column view, on cards whose events have no tap or hold action of their own
+- 🏷️ **A Name for Each Calendar**: a calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card) now names it in the toolbar's chips and menu, the couldn't-load notice, the grid for screen readers and the popover
+- ⏱️ **The Time Beside the Title**: [`time_position: title`](/features/event-content#time-beside-the-title) puts the time on the title's line in list and column view; it needs a wide event row, about a 360 px list card or a 280 px column
+- 🧩 **Interactive Starting Points**: the card picker now [offers Interactive List and Interactive Time Grid first](/guide/usage#adding-the-card-to-your-dashboard), with the toolbar, the popover and tap to add already on
+- 📡 **Live Updates**: on Home Assistant 2026.5 or later the card [subscribes to each calendar](/features/performance#live-updates), so a change made anywhere shows on every open dashboard as soon as Home Assistant knows of it, with no polling. On a cold load each calendar is drawn as it answers, and the card no longer redraws for state changes that touch nothing it shows
+- ⚠️ **Changes to Existing Cards**: a toolbar with date navigation gains the search button, Home Assistant actions set in `event_tap_action` now run, colors mix in Oklab, the `pulse` today indicator sits centered, and the editor keeps lines you wrote at their default value. The [release notes](/RELEASE_NOTES) list every change
+- 🐛 **Back on Android 7 Wall Panels**: Chromium 119, in Android 7 wall displays and some headless screenshot add-ons, crashed on the card's color formulas; they now wait for Chrome 125, and the running event's green no longer turns gold on Chrome 125 to 131
+- 🐛 **Right-to-Left Dashboards Mirror**: the list's dates, separators, today dot, progress bar and loading ring now sit where a right-to-left reader expects them, and 12-hour times, countdowns and labels read in order
+- 🐛 **Midnight, Outages & Storage**: a card following today shows the new day's events at midnight, events deleted while another calendar is down disappear, and a calendar that emptied no longer refills itself where browser storage fails
+- 🐛 **Broken HTML Can No Longer Freeze a Dashboard**: a description with tags that never close took seconds to draw every time; it now takes milliseconds
+
+## v5.0
 
 🎬 Smart-Live has the exclusive first video review of v5, in German: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 
