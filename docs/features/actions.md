@@ -403,11 +403,11 @@ If Home Assistant refuses the change, because the title is empty, the times do n
 
 ### Dragging in Grid View
 
-In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
+In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change, on a calendar that [allows changing events](#what-each-integration-allows), can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
 
 ### Moving to Another Calendar
 
-Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own, which is why moving needs a calendar that allows deleting, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.
+Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own. The picker is part of editing the event, so moving needs the event's own calendar to allow both changing and deleting it, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.
 
 A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on. It is offered only where the series can move whole: not for a series that ends after a number of occurrences, whose count would start again in the new calendar, so set its end to a date first, in the same popover; and not for an occurrence you changed on its own, which no longer carries its series' repeat.
 
@@ -425,16 +425,24 @@ Where the calendar allows deleting, **Delete** sits at the bottom of the popover
 
 ### What Each Integration Allows
 
-Whether a calendar's events can be changed, deleted or added at all is decided by the integration it comes from, not by the card. The popover saves through Home Assistant's own calendar commands, the ones its Calendar panel uses, and offers only what the calendar declares. For the calendar integrations that ship with Home Assistant:
+Whether a calendar's events can be added, changed or deleted at all is decided by the integration it comes from, not by the card. The popover saves through Home Assistant's own calendar commands, the ones its Calendar panel uses, and offers only what the calendar declares to Home Assistant. Adding needs a calendar that declares creating events. Changing an event needs one that declares updating them, and so do [dragging it](#dragging-in-grid-view) and [moving it to another calendar](#moving-to-another-calendar). Delete needs one that declares deleting them. For the calendar integrations that ship with Home Assistant:
 
 | Integration                                            | Add | Edit | Delete |
 | ------------------------------------------------------ | --- | ---- | ------ |
 | Local Calendar                                         | Yes | Yes  | Yes    |
 | Google Calendar                                        | Yes | No   | Yes    |
-| CalDAV                                                 | Yes | No   | No     |
+| CalDAV, iCloud included                                | Yes | No   | No     |
 | Read-only calendars, such as a subscribed holiday feed | No  | No   | No     |
 
-A Local Calendar can also edit or delete a repeating event from one occurrence onward. A Google calendar added to Home Assistant as read-only offers nothing, and calendars from custom integrations offer whatever their integration declares. The Add column decides which calendars the [add-event button](#add-event-button) can write to.
+- **Local Calendar** does all three, repeating events included, which makes it a good calendar to try the popover's editing with.
+- **Google Calendar** adds events and deletes them, one occurrence of a repeating event or every occurrence from it onward included, but Home Assistant's Google integration cannot change an event. Support for that is being worked on upstream. A Google calendar you can only read, or one added to Home Assistant with read-only access, offers nothing.
+- **CalDAV**, which is also how Home Assistant connects an iCloud calendar, only adds. Changing and deleting events are being brought into Home Assistant's CalDAV integration step by step.
+
+::: tip Changing & Deleting CalDAV Events
+The custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav) connects CalDAV calendars with adding, changing and deleting events, repeating ones included. For each calendar you can write to, it declares all three to Home Assistant, so the card offers them as it does for a Local Calendar; a calendar you can only read, or one under its own read-only option, declares none. Its calendars are entities of their own, beside any from the built-in CalDAV integration, so the card needs those in `entities`. It is not part of Home Assistant or of this card; how to install and set it up is described in its repository.
+:::
+
+Calendars from other integrations, custom ones included, offer whatever their integration declares. To see what a calendar declares, find it on the **States** tab under **Settings → Tools** (Developer Tools in older versions of Home Assistant) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them. The Add column decides which calendars the [add-event button](#add-event-button) can write to.
 
 ### Narrowing What the Popover Offers
 
@@ -591,9 +599,9 @@ and grid view, is a button named with Home Assistant's own "Add event" and descr
 date. Tab to it and press Enter or Space to add on that day, at the hour it is now.
 
 ::: tip It Needs Somewhere to Write
-Like the add button, a tap on a day only adds where one of the card's calendars [accepts new
-events](#what-each-integration-allows) and is not failing to load. On a card showing only
-read-only calendars, a tap on a day stays a tap on the card.
+Like the add button, a tap on a day, or an event drawn in the grid, only adds where one of the
+card's calendars [accepts new events](#what-each-integration-allows) and is not failing to load.
+On a card showing only calendars that take no new events, a tap on a day stays a tap on the card.
 :::
 
 ## 💬 The Event Popover
