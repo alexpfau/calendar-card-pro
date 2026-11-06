@@ -787,7 +787,8 @@ options listed below. In the visual editor, choose the Grid workspace to edit th
 values directly without changing Card Displays.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
-card-wide and ignored inside `time_grid:`; see
+card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
+such as the actions and the `toolbar`; see
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
 `days_to_show` is the exception, so a grid can show one week while the list shows two:
 

@@ -1153,9 +1153,10 @@ have no shared meaning and are not offered in All Layouts. Legacy List-only root
 remain supported as described below.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
-them: the ones that decide which events are loaded, such as `entities` and `start_date`,
-and `toolbar`, `event_tap_action`, `open_links`, `allow_event_edit` and `allow_event_delete`. See
-[Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
+them: the ones that decide which events are loaded, such as `entities` and `start_date`, and
+others such as the actions, the `toolbar`, the `title` and the date colors. See
+[Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden)
+for the full list.
 `days_to_show` is the exception: it decides what is loaded, and each layout can still have
 its own — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
