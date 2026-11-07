@@ -26,6 +26,8 @@ scroll_long_titles: true
 event_gap: 4px
 tap_action:
   action: expand
+event_hold_action:
+  action: details
 entities:
   - entity: calendar.anna
     label: person.anna
@@ -47,12 +49,12 @@ Nothing on the card says that more events are waiting. Tap it to see them all, a
 | Editor               | YAML                                                                                                        | What it adds                                                                                                      |
 | -------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Time Range & Content | `days_to_show: 2`, `list.compact_events_to_show: 4`, `show_empty_today`, `filter_duplicates`                | Today and tomorrow, four events until tapped; a free today still says so; a shared plan appears once              |
-| Actions & Refresh    | `tap_action: expand`                                                                                        | A tap shows the rest, another folds it back                                                                       |
+| Actions & Refresh    | `tap_action: expand`, `event_hold_action: details`                                                          | A tap shows the rest, another folds it back; a hold opens an event                                                |
 | Events               | `show_countdown`, `show_progress_bar`, `show_location: false`, `show_end_time: false`, `scroll_long_titles` | "in 2 hours"; how far along a running event is; two short lines per event; long titles scroll instead of wrapping |
 | Layout · Calendars   | `event_gap: 4px`, `person.*` labels                                                                         | Separate bars; a face per person, in the theme's accent                                                           |
 
-::: info Why Events Do Not Open on Tap
-`event_tap_action: details` is left out on purpose. A tap on an event wins over the card's tap, and events cover most of this card, so most taps would open an event's popover instead of expanding. `hold_action: expand` would avoid that, but a hold cannot be made from the keyboard.
+::: info Tap to Expand, Hold for an Event
+`event_tap_action` is left out on purpose: a tap on an event wins over the card's tap, and events cover most of this card, so most taps would open an event instead of expanding. [`event_hold_action: details`](/features/actions#holding-an-event) opens an event on a hold instead, so a tap anywhere still expands. From the keyboard, the card's first Tab stop expands it, and Enter on an event opens that event.
 :::
 
 ## 🔀 Adapt It

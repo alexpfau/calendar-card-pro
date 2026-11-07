@@ -124,10 +124,16 @@ interface Block {
 const iconIn = (element: Element | null): string =>
   String((element?.querySelector('ha-icon') as unknown as { icon?: string } | null)?.icon ?? '');
 
-/** The days the grid draws, as `YYYY-MM-DD`, in column order. */
+/**
+ * The days the grid draws, as `YYYY-MM-DD`, in column order. The header carries the day's id,
+ * or its date does once `day_tap_action` makes the header a button, so the id can describe it.
+ */
 function days(card: StoryCard): string[] {
   return [...shadow(card).querySelectorAll('.grid-day-header .column-day-header')].map((header) =>
-    header.id.replace('calendar-card-day-', ''),
+    (header.id || header.querySelector('[id^="calendar-card-day-"]')?.id || '').replace(
+      'calendar-card-day-',
+      '',
+    ),
   );
 }
 
@@ -213,8 +219,21 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       show_progress_bar: true,
       weather: { entity: 'weather.home', position: 'both', event: { show_conditions: false } },
       event_tap_action: { action: 'details' },
+      day_tap_action: { action: 'add-event' },
       time_grid: { start_time: '07:00', end_time: '21:00', hour_height: '56px', slot_minutes: 30 },
     });
+  });
+
+  it('makes each day a way to add an event', async () => {
+    // "A tap on a free hour adds an event there." Each day's header is the add button a
+    // keyboard reaches, and the grid under it takes the tap; both come from one option.
+    const card = await mountStory(CARD, DAYS);
+    expect(shadow(card).querySelectorAll('.grid-day-header .day-add-button')).toHaveLength(2);
+
+    // Control: without the option no day is a button.
+    const inert = await mountStory(dropOption(CARD, 'day_tap_action'), DAYS);
+    expect(shadow(inert).querySelectorAll('.grid-day-header .day-add-button')).toHaveLength(0);
+    expect(days(inert)).toEqual(days(card));
   });
 
   it('draws today and tomorrow on one axis from 07:00 to 21:00', async () => {

@@ -4,7 +4,7 @@ The next 60 days of birthdays and holidays, for a dashboard section or a pop-up:
 
 ## 🖼️ See It
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card titled Coming Up showing two months of birthdays and holidays: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown under every one still to come, a holiday of several days showing when it ends, and a thin rule between the months" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_birthdays_and_holidays.png" alt="A list card showing two months of birthdays and holidays under a header with a search button, the title Coming Up as a small label over the month, and arrows to page: each birthday with a cake emoji and the age after the name, each holiday with a party emoji, a countdown under every one still to come, a holiday of several days showing when it ends, and a thin rule between the months" width="600"><br>
 
 Birthdays in pink, holidays in teal, and a rule where one month ends.
 
@@ -23,6 +23,12 @@ month_separator_width: 1px
 day_spacing: 4px
 event_gap: 4px
 vertical_line_width: 4px
+toolbar:
+  show: true
+  legend: false
+  add_event: false
+  refresh: false
+  view_switcher: false
 event_tap_action:
   action: details
 entities:
@@ -34,6 +40,8 @@ entities:
     accent_color: '#26a69a'
 ```
 
+The toolbar is there for its magnifier: a search answers _when is Clara's birthday?_ a year back or ahead, beyond the 60 days on screen. Search comes with the date navigation, so the arrows and a swipe page through the days too, and the title becomes a small label over the month. Every other toolbar control is turned off. See [Searching the Card](/features/layout-appearance#searching-the-card).
+
 ## 🧭 What It Adds
 
 | Editor                           | YAML                                                                           | What it adds                                                                                                                                              |
@@ -42,6 +50,7 @@ entities:
 | Events                           | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
 | Separators · Layout              | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
 | Calendars › Name, Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |
+| Card & Header › Toolbar          | `toolbar` with `legend`, `add_event`, `refresh` and `view_switcher` off        | A search for any birthday or holiday a year back or ahead, and the arrows it comes with                                                                   |
 | Actions & Refresh                | `event_tap_action: details`                                                    | The calendar's entry on tap                                                                                                                               |
 
 ## 🔀 Adapt It
@@ -56,4 +65,5 @@ entities:
 - [Countdown Display](/features/event-content#countdown-display) — the wording under each event
 - [Week Numbers & Visual Separators](/features/layout-appearance#week-numbers-visual-separators) — the rule between months
 - [Tapping an Event](/features/actions#tapping-an-event) — what the popover shows
+- [Searching the Card](/features/layout-appearance#searching-the-card) — what the magnifier finds
 - [Configuration Reference](/reference/configuration) — every option
