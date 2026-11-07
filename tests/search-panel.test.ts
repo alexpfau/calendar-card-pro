@@ -3,8 +3,9 @@
  * `showDialog` before the element is attached, then the native modal, then `dialog-closed` once
  * it has gone. What it finds comes from a stand-in for the card (`SearchSource`) over rows built
  * by hand, so this file pins the panel alone: its combobox and listbox, the keyboard, the count
- * announced once typing pauses, the notes under the results, where it opens, and that it is drawn
- * in the shell the event popover is drawn in. The card's half is `toolbar-search.test.ts`.
+ * announced once typing pauses, the notes under the results, where it opens, that it is drawn in
+ * the shell the event popover is drawn in, and how it waits for a slow year. The card's half is
+ * `toolbar-search.test.ts`.
  *
  * happy-dom lays nothing out and cannot animate, so a close is immediate here; how the panel
  * looks and moves is checked in a browser.
@@ -543,14 +544,14 @@ describe('under the results', () => {
     await type('xyz');
 
     expect(root.querySelector('.note')).toBeNull();
-    expect(root.querySelector('.field-icon')!.getAttribute('class')).toBe('field-icon turning');
+    expect(root.querySelector('.field-mark')!.getAttribute('class')).toBe('field-mark waiting');
 
     stub.source.loading = false;
     handle.current!.changed();
     await el.updateComplete;
 
     expect(root.querySelector('.note')!.textContent).toBe('No matching items found');
-    expect(root.querySelector('.field-icon')!.getAttribute('class')).toBe('field-icon');
+    expect(root.querySelector('.field-mark')!.getAttribute('class')).toBe('field-mark');
   });
 
   it('names the calendars that could not be loaded, in Home Assistant’s words', async () => {
@@ -855,5 +856,107 @@ describe('its look', () => {
       expect(own).toContain(shared);
       expect(popover).toContain(shared);
     }
+  });
+});
+
+//-----------------------------------------------------------------------------
+// WHILE THE YEAR LOADS
+//-----------------------------------------------------------------------------
+
+/** A stylesheet's keyframes and its plain rules, those inside an at-rule included. */
+function parsed(cssText: string) {
+  const text = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const keyframes = new Map<string, string>();
+  const frames = /@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/g;
+  for (const [, name, body] of text.matchAll(frames)) keyframes.set(name, body);
+  const rules = [...text.replace(frames, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
+    ([, selector, body]) => ({ selector: selector.trim(), body }),
+  );
+  return { keyframes, rules };
+}
+
+/** The keyframes a rule's `animation` or `animation-name` names. */
+function animationsOf(body: string, keyframes: Map<string, string>): string[] {
+  return [...body.matchAll(/animation(?:-name)?\s*:\s*([^;]+)/g)].flatMap(([, value]) =>
+    value.split(/[\s,]+/).filter((token) => keyframes.has(token)),
+  );
+}
+
+describe('while the year loads', () => {
+  const panelCss = () => parsed((SearchPanel.styles as CSSResult).cssText);
+
+  it('never turns the magnifier: it is not round, and a turning one reads as a glitch', () => {
+    const { keyframes, rules } = panelCss();
+    const turning = [...keyframes].filter(([, body]) => /rotate/.test(body)).map(([name]) => name);
+    // The panel does turn something, its spinner, so a magnifier rule naming those keyframes
+    // would be found.
+    expect(turning).not.toEqual([]);
+
+    const magnifier = rules.filter(({ selector }) => selector.includes('.field-icon'));
+    expect(magnifier).not.toEqual([]);
+    for (const { selector, body } of magnifier) {
+      expect({
+        selector,
+        turns: animationsOf(body, keyframes).filter((name) => turning.includes(name)),
+      }).toEqual({ selector, turns: [] });
+      expect(body).not.toMatch(/transform\s*:[^;]*rotate/);
+    }
+  });
+
+  it('puts a spinner in the magnifier’s place while calendars are still to answer', async () => {
+    const stub = stubSource(ROWS, { loading: true });
+    const { root, el, handle } = await open({}, { source: stub });
+    const mark = () => root.querySelector('.field > .field-mark')!;
+
+    expect(mark().getAttribute('aria-hidden')).toBe('true');
+    expect(mark().getAttribute('class')).toBe('field-mark waiting');
+    expect(mark().querySelector('svg.field-icon')).not.toBeNull();
+    expect(mark().querySelector('.field-wait > .spinner')).not.toBeNull();
+
+    stub.source.loading = false;
+    handle.current!.changed();
+    await el.updateComplete;
+
+    expect(mark().getAttribute('class')).toBe('field-mark');
+    expect(mark().querySelector('svg.field-icon')).not.toBeNull();
+    expect(mark().querySelector('.spinner')).toBeNull();
+  });
+
+  it('swaps them only once the load has lasted a second, in the same step', () => {
+    const { keyframes, rules } = panelCss();
+    const wait = (selector: string) => {
+      const rule = rules.find((candidate) => candidate.selector === selector);
+      const [name] = animationsOf(rule?.body ?? '', keyframes);
+      return {
+        delay: /\s(\d+(?:\.\d+)?m?s)\s+both/.exec(rule?.body ?? '')?.[1],
+        frames: keyframes.get(name ?? ''),
+      };
+    };
+    const hide = wait('.field-mark.waiting .field-icon');
+    const show = wait('.field-wait');
+
+    expect(hide.delay).toBe('1s');
+    expect(show.delay).toBe('1s');
+    // Opacity alone: a step, not motion, so it is the same with reduced motion.
+    expect(hide.frames).toMatch(/opacity\s*:\s*0/);
+    expect(show.frames).toMatch(/opacity\s*:\s*0/);
+    expect(`${hide.frames}${show.frames}`).not.toMatch(/rotate|transform/);
+  });
+
+  it('holds the spinner still where the system asks for less motion', () => {
+    const own = (SearchPanel.styles as CSSResult).cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const reduced = [
+      ...own.matchAll(
+        /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/g,
+      ),
+    ].map(([, body]) => body);
+    const still = reduced.some((body) =>
+      [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some(
+        ([, selector, declarations]) =>
+          selector.split(',').some((part) => part.trim() === '.spinner') &&
+          /animation\s*:\s*none/.test(declarations),
+      ),
+    );
+    expect(still).toBe(true);
   });
 });

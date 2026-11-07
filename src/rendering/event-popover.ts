@@ -1606,23 +1606,7 @@ export class EventPopover extends Shell.PopoverShell {
     .btn.danger {
       color: var(--danger);
     }
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 2px solid var(--button);
-      border-top-color: var(--accent);
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
     @media (prefers-reduced-motion: reduce) {
-      .spinner {
-        animation: none;
-      }
       .switch::after {
         transition: none;
       }
