@@ -24,7 +24,7 @@ Smart-Live's video review of v5, in German, shows grid view on a family calendar
 
 ## 📋 Copy the Card
 
-Replace the `calendar.*` ids with your own calendars, each `person.*` label with someone from **Settings → People**, and `weather.home` with your weather entity. A person's picture shows as Home Assistant stores it, square; [A Face for Every Calendar](#a-face-for-every-calendar) shows how to make faces round.
+Replace the `calendar.*` ids with your own calendars, each `name` with what its chip should say, each `person.*` label with someone from **Settings → People**, and `weather.home` with your weather entity. A person's picture shows as Home Assistant stores it, square; [A Face for Every Calendar](#a-face-for-every-calendar) shows how to make faces round.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -43,19 +43,26 @@ toolbar:
   reset: true
 event_tap_action:
   action: details
+day_tap_action:
+  action: add-event
 entities:
   - entity: calendar.anna
+    name: Anna
     label: person.anna
     accent_color: '#ff6c92'
   - entity: calendar.ben
+    name: Ben
     label: person.ben
     accent_color: '#03a9f4'
   - entity: calendar.leo
+    name: Leo
     label: person.leo
     accent_color: '#66bb6a'
   - entity: calendar.family
+    name: Family
     accent_color: '#ffb74d'
   - entity: calendar.trash_pickup
+    name: Trash pickup
     accent_color: '#b388ff'
 list:
   days_to_show: 3
@@ -74,6 +81,8 @@ time_grid:
 
 `view: grid` is only where the card starts. The toolbar's switcher offers List, Columns and Grid, and each device remembers its own choice until the card is edited, so the wall stays on Grid while a phone keeps List. See [Switching Between Layouts](/features/layout-appearance#switching-between-layouts).
 
+On Home Assistant 2026.5 or later, every screen shows a change as soon as Home Assistant knows of it, with nothing to refresh: an event added on a phone to a Local Calendar is on the wall a few seconds later, and one added to a Google calendar at its next sync. See [Live Updates](/features/performance#live-updates).
+
 ### Grid, Columns & List
 
 `days_to_show: 7` is the week the grid and the columns show, and `list.days_to_show: 3` gives a phone's List today and the next two days. See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
@@ -90,9 +99,16 @@ With `show: true`, `toolbar` adds two rows of controls:
 
 - **Add** opens a new event in the card's popover, on the first calendar in `entities` that accepts new events and is not hidden on this device: Anna's while hers is shown, not the Family calendar. With every such calendar hidden, it starts on the first of them anyway. Where more than one calendar accepts new events, the popover lets you pick another before saving. Add appears only while some calendar [accepts new events](/features/actions#what-each-integration-allows). See [Add Event Button](/features/actions#add-event-button).
 - **Refresh** loads the events now.
-- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
-- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+- **Search**, the magnifier at the end of the row, finds an event a year back or ahead, and a pick turns the card to that day. See [Searching the Card](/features/layout-appearance#searching-the-card).
+- **The month**, under the title _Family_, opens a date picker. The arrows beside it page by the days on screen, a week on the wall and three on a phone, and the house returns to today. On a touch screen a swipe across the days pages too. See [Paging Through Dates](/features/layout-appearance#paging-through-dates).
+- **The chips** from `legend: chips` are the key to the colors, and each hides its calendar on this device. Each prints its calendar's [`name`](/features/core-settings#naming-a-calendar-in-the-card), so a calendar its integration named after an account still reads _Anna_. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 - **Reset** is off by default; `reset: true` turns it on for a shared wall. It appears once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
+
+### Adding & Moving on the Wall
+
+`day_tap_action: add-event` makes every free spot a way in: tap an empty hour, or hold it and drag down to where the plan ends, and the popover opens beside it for a title. In Columns and List, a tap on a day's empty space does the same. See [Tapping a Day to Add an Event](/features/actions#tapping-a-day-to-add-an-event).
+
+An event on a calendar that [allows changing events](/features/actions#what-each-integration-allows), such as a Local Calendar, moves in the grid by a drag: hold it for half a second on a touch screen, then drag it to another time or day. See [Moving Events by Drag](/features/grid-view#moving-events-by-drag).
 
 ## 🗂️ Calendars & Event Blocks
 
@@ -154,7 +170,7 @@ The wall is a 1280 × 800 tablet. A [panel view](https://www.home-assistant.io/d
 
 `event_tap_action: details` opens a tapped event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
 
-Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the event can also be changed right there, and **Delete** removes it: a Local Calendar allows both, a Google calendar only Delete. Neither is offered on a merged shared plan. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card. Adding events with the toolbar's Add still works.
+Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the event can also be changed right there, and **Delete** removes it: a Local Calendar allows both, a Google calendar only Delete. Neither is offered on a merged shared plan. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card. Adding still works; to keep new events off it too, leave `day_tap_action` out and set `add_event: false` under `toolbar`.
 
 ## 🔀 Variations
 
@@ -189,6 +205,7 @@ Ben's work calendar can go on the wall too, so the family sees when he is out bu
 entities:
   # calendar.anna, calendar.ben and calendar.leo as above
   - entity: calendar.work
+    name: Work
     label: person.ben
     accent_color: '#90a4ae'
     replace_with: Work # says Ben is at work, not what the meeting is

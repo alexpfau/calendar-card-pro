@@ -110,6 +110,13 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
       show_countdown: true,
       show_single_allday_time: false,
       month_separator_width: '1px',
+      toolbar: {
+        show: true,
+        legend: false,
+        add_event: false,
+        refresh: false,
+        view_switcher: false,
+      },
       event_tap_action: { action: 'details' },
     });
   });
@@ -232,5 +239,53 @@ describe('the Birthdays & Holidays card behaves as its page describes', () => {
 
     // Control: without `month_separator_width` there is no rule at all.
     expect(rules(await mountStory(dropOption(CARD, 'month_separator_width'), SEASON))).toEqual([]);
+  });
+
+  it('carries a toolbar for its search, with only the arrows search comes with', async () => {
+    // "The toolbar is there for its magnifier … the arrows and a swipe page through the days
+    // too … Every other toolbar control is turned off." Every button outside the events, by
+    // its name.
+    const controls = (card: Awaited<ReturnType<typeof mountStory>>) =>
+      [...shadow(card).querySelectorAll('button, [role="button"]')]
+        .filter((el) => !el.closest('.event, .grid-event, .event-tappable'))
+        .map((el) => el.getAttribute('aria-label') || el.className);
+    // The birthdays calendar accepts new events, so the toolbar's defaults would draw Add and
+    // the page's `add_event: false` is what keeps it off.
+    const writable: StoryHass = {
+      ...SEASON,
+      states: {
+        'calendar.birthdays': {
+          entity_id: 'calendar.birthdays',
+          state: 'off',
+          attributes: { friendly_name: 'Birthdays', supported_features: 7 },
+        },
+      },
+    };
+    expect(controls(await mountStory(CARD, writable))).toEqual([
+      'Search',
+      'toolbar-month-button',
+      'Previous',
+      'Today',
+      'Next',
+    ]);
+
+    // Controls. The toolbar with its defaults draws the filter, add, the switcher and refresh too,
+    // so the list above can tell what the page turned off; without it there is nothing.
+    expect(
+      controls(await mountStory(withOptions(CARD, { toolbar: { show: true } }), writable)),
+    ).toEqual([
+      'Calendars',
+      'Add event',
+      'List',
+      'Columns',
+      'Grid',
+      'Refresh',
+      'Search',
+      'toolbar-month-button',
+      'Previous',
+      'Today',
+      'Next',
+    ]);
+    expect(controls(await mountStory(dropOption(CARD, 'toolbar'), writable))).toEqual([]);
   });
 });

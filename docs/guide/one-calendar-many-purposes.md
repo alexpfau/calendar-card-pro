@@ -65,6 +65,7 @@ entities:
 
   # Ben's work, the half that is fine to share
   - entity: calendar.work
+    name: Work
     filter_field: description
     allowlist: '#family'
     days_of_week: weekdays
@@ -73,6 +74,7 @@ entities:
 
   # Ben's work, everything else — that he is busy, not what with
   - entity: calendar.work
+    name: Work
     filter_field: description
     blocklist: '#family'
     replace_with: 'Busy'
@@ -156,7 +158,7 @@ The work calendar is listed twice and split on its **description**: [`filter_fie
 - The block that **blocks** it replaces every title with _Busy_ through [`replace_with`](/features/core-settings#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
 - An event with no description counts as **not matching**, so it lands in the _Busy_ block: the safe default.
 
-Both keep the gray and Ben's face. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, unless the block itself sets `show_description: false`, as the _Busy_ block does. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
+Both keep the gray and Ben's face, and both carry `name: Work`, so the filter menu and the popover call the calendar _Work_ rather than whatever the work account calls itself. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, unless the block itself sets `show_description: false`, as the _Busy_ block does. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
 
 ::: warning A Title Is Not the Only Thing That Leaks
 Locations show by default, and _Meeting Room 2_ gives the game away. `show_location: false` and `show_description: false`, set on the _Busy_ block itself, keep both fields off the card and out of the [event popover](/features/actions#event-details) a tap opens. The popover says _Busy_ too, but where the calendar allows editing, the real title appears as soon as someone starts editing it; `allow_event_edit: false` closes that.
@@ -177,7 +179,7 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. The filter lists six calendars, not eight blocks, so hiding Ben's work hides both halves. `view_switcher: false` drops the layout switch, so the card stays a list.
+**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time; a swipe pages too. The filter lists six calendars, not eight blocks, so hiding Ben's work hides both halves. The magnifier finds an event a year back or ahead, such as the next birthday, and searches titles as the card draws them, so a _Busy_ event is found as Busy, never by its meeting's name. `view_switcher: false` drops the layout switch, so the card stays a list.
 
 **Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
 
@@ -236,7 +238,7 @@ Every block on this page also works in grid view, apart from the all-day layer, 
 - [Family Hub](/guide/family-calendar): the same family's week, on one card for every screen
 - [Core Settings](/features/core-settings): every per-calendar option
 - [Event Content & Display](/features/event-content): the all-day badge and birthday ages
-- [Header Toolbar](/features/layout-appearance#header-toolbar): the filter, paging and refresh
+- [Header Toolbar](/features/layout-appearance#header-toolbar): the filter, paging, search and refresh
 - [Tapping an Event](/features/actions#tapping-an-event): the event popover
 - [Configuration Reference](/reference/configuration): every option
 - [Example Stories](/reference/examples): every story
