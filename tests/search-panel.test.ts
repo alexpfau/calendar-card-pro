@@ -13,6 +13,7 @@
 import { CSSResult } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { withoutComments } from './helpers/without-comments';
 import type * as Types from '../src/config/types';
 import type { PopoverAnchor } from '../src/interaction/popover-model';
 import { EventPopover } from '../src/rendering/event-popover';
@@ -292,14 +293,11 @@ describe('the field and its results', () => {
     expect(first.className).toBe('cell group result');
     expect(first.getAttribute('style')).toBe('--event-color:rgb(204, 51, 102)');
     expect(first.querySelector('.bar')).not.toBeNull();
-    expect(first.querySelector('.result-title')!.innerHTML.replace(/<!--[^>]*-->/g, '')).toBe(
+    expect(withoutComments(first.querySelector('.result-title')!).innerHTML).toBe(
       '<mark>Dent</mark>ist check-up',
     );
     expect(
-      first
-        .querySelector('.result-detail')!
-        .innerHTML.replace(/<!--[^>]*-->/g, '')
-        .replace(/\s+/g, ' '),
+      withoutComments(first.querySelector('.result-detail')!).innerHTML.replace(/\s+/g, ' '),
     ).toBe('Day 2026-06-20 · 9:00 AM - 10:00 AM · <mark>Dent</mark>al Clinic');
     expect(options()[1].querySelector('.result-detail')!.textContent!.replace(/\s+/g, ' ')).toBe(
       'Day 2026-07-08 · 9:00 AM - 10:00 AM',

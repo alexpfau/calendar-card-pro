@@ -19,6 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { withoutComments } from './helpers/without-comments';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as CalendarChanges from '../src/interaction/calendar-changes';
@@ -997,17 +998,14 @@ describe('picking a result', () => {
     expect(ring).not.toBeNull();
     // Each class list by its tokens: removing a class rewrites the attribute's spacing.
     const markup = () =>
-      root(card)
-        .querySelector('.content-container')!
-        .innerHTML.replace(/<!--[^>]*-->/g, '')
-        .replace(
-          /class="([^"]*)"/g,
-          (_, list: string) =>
-            `class="${list
-              .split(/\s+/)
-              .filter((name) => name && name !== 'search-ring')
-              .join(' ')}"`,
-        );
+      withoutComments(root(card).querySelector('.content-container')!).innerHTML.replace(
+        /class="([^"]*)"/g,
+        (_, list: string) =>
+          `class="${list
+            .split(/\s+/)
+            .filter((name) => name && name !== 'search-ring')
+            .join(' ')}"`,
+      );
 
     await afterClose(card);
     const drawn = markup();

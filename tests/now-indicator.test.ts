@@ -219,7 +219,7 @@ describe('now_color', () => {
     // and the grid writes no now color of its own over it.
     for (const selector of ['.grid-now-line', '.grid-now-dot']) {
       const body = Styles.cardStyles.cssText.match(
-        new RegExp(`\\n\\s*${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`),
+        new RegExp(`\\n\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`),
       )?.[1];
       expect(body, selector).toContain('background: var(--calendar-card-now-color, #34d399);');
     }
