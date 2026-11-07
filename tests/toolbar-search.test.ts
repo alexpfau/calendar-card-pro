@@ -1106,7 +1106,7 @@ describe('a write while the panel is open', () => {
     await openSearch(card);
     await typeTerm('dent');
     expect(drawnResults()).toHaveLength(2);
-    const waiting = () => manager.panel!.shadowRoot!.querySelector('.field-mark.waiting .spinner');
+    const waiting = () => manager.panel!.shadowRoot!.querySelector('.field-wait .spinner');
     expect(waiting()).toBeNull();
 
     holdWide = true;

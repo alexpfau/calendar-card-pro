@@ -450,17 +450,14 @@ export class SearchPanel extends Shell.PopoverShell {
         <div class="panel search" style=${panelStyle} ?inert=${this._closing}>
           ${Shell.renderGrabber(this._sheet)}
           <div class="cell field">
-            <span
-              class=${params.source.loading ? 'field-mark waiting' : 'field-mark'}
-              aria-hidden="true"
-            >
-              <svg class="field-icon" viewBox="0 0 24 24" focusable="false">
-                <path d=${mdiMagnify}></path>
-              </svg>
+            <span class="field-mark" aria-hidden="true">
               ${
                 params.source.loading
-                  ? html`<span class="field-wait"><span class="spinner"></span></span>`
-                  : nothing
+                  ? html`<span class="field-wait">
+                      ${this._renderMagnifier()}
+                      <span class="field-ring"><span class="spinner"></span></span>
+                    </span>`
+                  : this._renderMagnifier()
               }
             </span>
             <input
@@ -506,6 +503,18 @@ export class SearchPanel extends Shell.PopoverShell {
         ${Shell.renderBeak(place?.arrow)}
       </dialog>
     `;
+  }
+
+  /**
+   * The field's magnifier. A template of its own, so the wait for a slow year (`render`) draws a
+   * new one each time it begins, and the step that hides it starts again with it.
+   *
+   * @returns The icon
+   */
+  private _renderMagnifier(): TemplateResult {
+    return html`<svg class="field-icon" viewBox="0 0 24 24" focusable="false">
+      <path d=${mdiMagnify}></path>
+    </svg>`;
   }
 
   /**
@@ -667,16 +676,22 @@ export class SearchPanel extends Shell.PopoverShell {
        A load that ends sooner, as most do, shows the magnifier alone: until then the search
        finds what the card holds, and nobody has waited long enough to need telling. A step at
        that second swaps them in one frame, with no timer, so a sooner load never paints the
-       spinner. The magnifier itself never turns: it is not round, and turning it read as a
-       glitch rather than as waiting. */
-    .field-mark {
+       spinner. Each wait the panel draws gets its own magnifier and spinner, so a load that
+       begins again after the panel drew the last one ending waits its own second, rather than
+       keeping a step that already ran and leaving the field empty. A load whose end the panel
+       never drew is one wait to the person waiting, and goes on. The spinner's step is on its
+       wrapper, so stopping the spinner for reduced motion keeps it.
+       The magnifier itself never turns: it is not round, and turning it read as a glitch
+       rather than as waiting. */
+    .field-mark,
+    .field-wait {
       flex: none;
       display: grid;
       place-items: center;
       width: 20px;
       height: 20px;
     }
-    .field-mark > * {
+    .field-wait > * {
       grid-area: 1 / 1;
     }
     .field-icon {
@@ -684,14 +699,14 @@ export class SearchPanel extends Shell.PopoverShell {
       height: 20px;
       fill: var(--dim);
     }
-    .field-mark.waiting .field-icon {
+    .field-wait > .field-icon {
       animation: field-wait-hide 0s linear 1s both;
     }
-    .field-wait {
+    .field-ring {
       display: flex;
       animation: field-wait-show 0s linear 1s both;
     }
-    .field-wait .spinner {
+    .field-ring .spinner {
       box-sizing: border-box;
       width: 16px;
       height: 16px;
