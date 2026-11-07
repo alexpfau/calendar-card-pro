@@ -5574,12 +5574,17 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    // Every press ends in exactly one of three ways (the gesture model in docs/architecture.md).
-    // Held: the event's own hold where it has one, else the card's, wherever it landed. Stayed:
-    // a tap, run by the innermost target that has one: the event's, else the day's where the
-    // press was on a day and not on an event, else the card's. Moved: never a tap or a hold on
-    // anything, and a swipe when it can be one. A hold cannot fire once the pointer has moved,
-    // and movement after it fired is ignored, so the three never overlap.
+    // Every press ends in exactly one of four ways (the gesture model in docs/architecture.md).
+    // Held: in a grid, a hold on a slot draws a new event, which the release opens in the
+    // popover, and a hold on an event a drag may move lifts it, which the release drops where it
+    // is let go; one that never left its place runs the event's hold instead. Otherwise the
+    // event's own hold where it has one, else the card's, wherever it landed. Stayed: a tap, run
+    // by the innermost target that has one: the event's, else the day's where the press was on a
+    // day and not on an event, else the card's. Moved: never a tap or a hold on anything; a mouse
+    // in a grid draws or moves at once, and otherwise it is a swipe when it can be one. Canceled:
+    // `_handlePointerCancel` ends it and runs nothing. A hold cannot fire once the pointer has
+    // moved, and movement after it fired only carries what it drew or lifted, so the four never
+    // overlap.
     const tapTarget = this._pointerTapTarget;
     const dayHit = this._pointerDayHit;
     // Where the press went down: a pointer that moved after a hold fired still acts on what it

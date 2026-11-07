@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Aprašymas",
   "entity.filter_field.helper": "Kurią įvykio dalį skaito du toliau esantys sąrašai. Po vieną — tas pats kalendorius įtraukiamas du kartus, kad būtų galima filtruoti pagal antrą.",
   "entity.allday_expires_at": "Visos dienos įvykiai baigiasi",
-  "entity.allday_expires_at.helper": "Paros laikas, kada šio kalendoriaus visos dienos įvykiai nustoja būti laikomi būsimais paskutinę jų apimamą dieną. Palikus tuščią, jie trunka iki vidurnakčio. Galioja tik tada, kai praėję įvykiai yra paslėpti, ir įsigalioja per kitą kortelės atnaujinimą, o ne tą pačią minutę.",
+  "entity.allday_expires_at.helper": "Paros laikas, kada šio kalendoriaus visos dienos įvykiai nustoja būti laikomi būsimais paskutinę jų apimamą dieną. Palikus tuščią, jie trunka iki vidurnakčio. Galioja tik tada, kai praėję įvykiai yra paslėpti, ir įsigalioja tuo laiku, nelaukiant kortelės atnaujinimo.",
   "entity.days_of_week": "Savaitės dienos",
   "entity.days_of_week.option.inherit.label": "Kiekvieną dieną",
   "entity.days_of_week.option.weekdays.label": "Kiekvieną dieną, išskyrus savaitgalį",

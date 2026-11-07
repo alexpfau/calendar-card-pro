@@ -161,11 +161,10 @@ hide_when_empty: true
 
 ::: details When a Finished Card Goes
 
-With `show_past_events: false`, a card goes as its last timed event ends in list and column
-view, and in grid view while its now line is off; with the now line on, within the minute.
-After its last all-day event expires, at midnight or at its
-[`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) time, the
-card goes on its next update, from Home Assistant or from its own refresh.
+With `show_past_events: false`, a card goes as its last timed event ends, or as its last
+all-day event expires, at midnight or at its
+[`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) time. In
+grid view with its now line on, it goes within the minute.
 
 :::
 

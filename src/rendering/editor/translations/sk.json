@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Popis",
   "entity.filter_field.helper": "Ktorú časť udalosti čítajú dva zoznamy nižšie. Vždy len jednu — ten istý kalendár uveďte dvakrát, aby ste filtrovali podľa druhej.",
   "entity.allday_expires_at": "Celodenné udalosti končia o",
-  "entity.allday_expires_at.helper": "Čas dňa, keď celodenné udalosti z tohto kalendára prestanú platiť za nadchádzajúce, v posledný deň, ktorý pokrývajú. Ak zostane prázdne, trvajú do polnoci. Platí len vtedy, keď sú minulé udalosti skryté, a prejaví sa až pri ďalšom obnovení karty, nie na minútu.",
+  "entity.allday_expires_at.helper": "Čas dňa, keď celodenné udalosti z tohto kalendára prestanú platiť za nadchádzajúce, v posledný deň, ktorý pokrývajú. Ak zostane prázdne, trvajú do polnoci. Platí len vtedy, keď sú minulé udalosti skryté, a uplatní sa v nastavenom čase, bez čakania na obnovenie karty.",
   "entity.days_of_week": "Dni v týždni",
   "entity.days_of_week.option.inherit.label": "Každý deň",
   "entity.days_of_week.option.weekdays.label": "Každý deň okrem víkendu",

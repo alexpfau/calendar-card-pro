@@ -170,7 +170,7 @@ export function preselectedCalendarId(
 /**
  * The span a new event starts with: the hour its date falls in, one hour long.
  *
- * @param date - The date it starts on, from `newEventDate` or `newEventDateOn`
+ * @param date - The date it starts on, from `newEventDate`
  * @returns The span
  */
 export function newEventTimes(date: Date): EventTimes {

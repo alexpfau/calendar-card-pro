@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Apraksts",
   "entity.filter_field.helper": "Kuru notikuma daļu lasa abi zemāk esošie saraksti. Pa vienai — viens un tas pats kalendārs jāpievieno divreiz, lai filtrētu pēc otras.",
   "entity.allday_expires_at": "Visas dienas notikumi beidzas",
-  "entity.allday_expires_at.helper": "Diennakts laiks, kad šī kalendāra visas dienas notikumi pēdējā aptvertajā dienā vairs netiek uzskatīti par gaidāmiem. Atstājot tukšu, tie ilgst līdz pusnaktij. Attiecas tikai tad, kad pagājušie notikumi ir paslēpti, un stājas spēkā kartes nākamajā atsvaidzināšanā, nevis tajā pašā minūtē.",
+  "entity.allday_expires_at.helper": "Diennakts laiks, kad šī kalendāra visas dienas notikumi pēdējā aptvertajā dienā vairs netiek uzskatīti par gaidāmiem. Atstājot tukšu, tie ilgst līdz pusnaktij. Attiecas tikai tad, kad pagājušie notikumi ir paslēpti, un stājas spēkā norādītajā laikā, negaidot kartes atsvaidzināšanu.",
   "entity.days_of_week": "Nedēļas dienas",
   "entity.days_of_week.option.inherit.label": "Katru dienu",
   "entity.days_of_week.option.weekdays.label": "Katru dienu, izņemot nedēļas nogali",

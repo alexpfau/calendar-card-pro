@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Opis",
   "entity.filter_field.helper": "Którą część wydarzenia czytają dwie poniższe listy. Po jednej naraz — ten sam kalendarz można dodać dwa razy, aby filtrować po drugiej.",
   "entity.allday_expires_at": "Wydarzenia całodniowe wygasają o",
-  "entity.allday_expires_at.helper": "Pora dnia, o której całodniowe wydarzenia z tego kalendarza przestają liczyć się jako nadchodzące, w ostatnim dniu, który obejmują. Jeśli pole pozostanie puste, trwają do północy. Obowiązuje tylko wtedy, gdy minione wydarzenia są ukryte, i działa przy następnym odświeżeniu karty, a nie co do minuty.",
+  "entity.allday_expires_at.helper": "Pora dnia, o której całodniowe wydarzenia z tego kalendarza przestają liczyć się jako nadchodzące, w ostatnim dniu, który obejmują. Jeśli pole pozostanie puste, trwają do północy. Obowiązuje tylko wtedy, gdy minione wydarzenia są ukryte, i zaczyna działać o tej porze, bez czekania na odświeżenie karty.",
   "entity.days_of_week": "Dni tygodnia",
   "entity.days_of_week.option.inherit.label": "Każdego dnia",
   "entity.days_of_week.option.weekdays.label": "Każdego dnia poza weekendem",

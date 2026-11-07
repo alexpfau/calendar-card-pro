@@ -4,7 +4,8 @@
  *
  * These are Home Assistant's public calendar commands, the ones its own calendar panel sends,
  * unchanged since 2023.1 (`calendar/event/update`) and 2022.12 (`create`, `delete`). The card's
- * event popover is their only caller.
+ * event popover sends all three, and dropping an event moved by a drag sends `update`
+ * (`_writeMove`).
  */
 
 import * as Types from '../config/types';
