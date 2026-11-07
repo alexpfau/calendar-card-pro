@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Beschreibung",
   "entity.filter_field.helper": "Welchen Teil eines Termins die beiden Listen unten lesen. Immer nur einen — denselben Kalender zweimal aufführen, um nach einem zweiten zu filtern.",
   "entity.allday_expires_at": "Ganztägige Termine enden um",
-  "entity.allday_expires_at.helper": "Uhrzeit, zu der die ganztägigen Termine dieses Kalenders an ihrem letzten Tag nicht mehr als bevorstehend gelten. Bleibt das Feld leer, gelten sie bis Mitternacht. Gilt nur, solange vergangene Termine ausgeblendet sind, und wirkt erst bei der nächsten Aktualisierung der Karte, nicht auf die Minute genau.",
+  "entity.allday_expires_at.helper": "Uhrzeit, zu der die ganztägigen Termine dieses Kalenders an ihrem letzten Tag nicht mehr als bevorstehend gelten. Bleibt das Feld leer, gelten sie bis Mitternacht. Gilt nur, solange vergangene Termine ausgeblendet sind, und wird zu dieser Uhrzeit wirksam, ohne auf eine Aktualisierung der Karte zu warten.",
   "entity.days_of_week": "Wochentage",
   "entity.days_of_week.option.inherit.label": "Jeden Tag",
   "entity.days_of_week.option.weekdays.label": "Jeden Tag außer am Wochenende",

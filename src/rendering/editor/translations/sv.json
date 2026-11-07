@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Beskrivning",
   "entity.filter_field.helper": "Vilken del av en händelse de två listorna nedan läser. En i taget — ta med samma kalender två gånger för att filtrera på en till.",
   "entity.allday_expires_at": "Heldagshändelser upphör klockan",
-  "entity.allday_expires_at.helper": "Tid på dygnet då den här kalenderns heldagshändelser slutar räknas som kommande, den sista dagen de täcker. Lämnas den tom varar de till midnatt. Gäller bara medan passerade händelser är dolda, och får effekt vid kortets nästa uppdatering snarare än på minuten.",
+  "entity.allday_expires_at.helper": "Tid på dygnet då den här kalenderns heldagshändelser slutar räknas som kommande, den sista dagen de täcker. Lämnas den tom varar de till midnatt. Gäller bara medan passerade händelser är dolda och träder i kraft vid den tidpunkten, utan att vänta på en uppdatering av kortet.",
   "entity.days_of_week": "Veckodagar",
   "entity.days_of_week.option.inherit.label": "Varje dag",
   "entity.days_of_week.option.weekdays.label": "Varje dag utom helgen",

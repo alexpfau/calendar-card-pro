@@ -127,7 +127,7 @@
   "entity.filter_field.option.description.label": "설명",
   "entity.filter_field.helper": "아래 두 목록이 읽어올 이벤트의 영역입니다. 한 번에 하나씩 — 두 번째 필터링을 하려면 캘린더를 두 번 추가하세요.",
   "entity.allday_expires_at": "종일 이벤트 만료 시간",
-  "entity.allday_expires_at.helper": "이 캘린더의 종일 이벤트가 마지막 날에 다가오는 일정으로 계산되지 않는 시각입니다. 비워두면 자정까지 유지됩니다. 지나간 이벤트가 숨겨져 있을 때만 적용되며, 분 단위가 아니라 카드가 다음 새로고침될 때 적용됩니다.",
+  "entity.allday_expires_at.helper": "이 캘린더의 종일 이벤트가 마지막 날에 다가오는 일정으로 계산되지 않는 시각입니다. 비워두면 자정까지 유지됩니다. 지나간 이벤트가 숨겨져 있을 때만 적용되며, 해당 시각이 되면 카드 새로고침을 기다리지 않고 반영됩니다.",
   "entity.days_of_week": "요일",
   "entity.days_of_week.option.inherit.label": "매일",
   "entity.replace_field": "바꾸기 대상 영역",

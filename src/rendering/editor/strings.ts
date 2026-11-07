@@ -307,8 +307,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.allday_expires_at.helper':
     'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +
     'last day they cover. Left empty they last until midnight. Only applies while past ' +
-    'events are hidden, and takes effect on the card\u2019s next refresh rather than on ' +
-    'the minute.',
+    'events are hidden, and takes effect at that time, without waiting for a refresh.',
   'entity.days_of_week': 'Days of the Week',
   'entity.days_of_week.option.inherit.label': 'Every day',
   'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',

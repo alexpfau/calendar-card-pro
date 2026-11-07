@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Descrizione",
   "entity.filter_field.helper": "Quale parte di un evento leggono le due liste qui sotto. Una alla volta — elenca lo stesso calendario due volte per filtrare su una seconda.",
   "entity.allday_expires_at": "Fine eventi di tutto il giorno",
-  "entity.allday_expires_at.helper": "Ora del giorno in cui gli eventi di tutto il giorno di questo calendario smettono di essere considerati futuri nell’ultimo giorno che coprono. Se lasciato vuoto, restano tali fino a mezzanotte. Si applica solo quando gli eventi passati sono nascosti e al prossimo aggiornamento della scheda, non esattamente allo scoccare dell’ora.",
+  "entity.allday_expires_at.helper": "Ora del giorno in cui gli eventi di tutto il giorno di questo calendario smettono di essere considerati futuri nell’ultimo giorno che coprono. Se lasciato vuoto, restano tali fino a mezzanotte. Si applica solo quando gli eventi passati sono nascosti e ha effetto a quell’ora, senza attendere un aggiornamento della scheda.",
   "entity.days_of_week": "Giorni della settimana",
   "entity.days_of_week.option.inherit.label": "Tutti i giorni",
   "entity.days_of_week.option.weekdays.label": "Tutti i giorni tranne il fine settimana",

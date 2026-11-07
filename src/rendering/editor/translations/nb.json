@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Beskrivelse",
   "entity.filter_field.helper": "Hvilken del av en hendelse de to listene under leser. Én om gangen — før opp den samme kalenderen to ganger for å filtrere på en til.",
   "entity.allday_expires_at": "Heldagshendelser utløper klokken",
-  "entity.allday_expires_at.helper": "Klokkeslettet da heldagshendelsene til denne kalenderen slutter å telle som kommende, på den siste dagen de dekker. Står det tomt, varer de til midnatt. Gjelder bare mens passerte hendelser er skjult, og trer i kraft ved neste oppdatering av kortet, ikke på minuttet.",
+  "entity.allday_expires_at.helper": "Klokkeslettet da heldagshendelsene til denne kalenderen slutter å telle som kommende, på den siste dagen de dekker. Står det tomt, varer de til midnatt. Gjelder bare mens passerte hendelser er skjult, og trer i kraft på det klokkeslettet, uten å vente på en oppdatering av kortet.",
   "entity.days_of_week": "Ukedager",
   "entity.days_of_week.option.inherit.label": "Hver dag",
   "entity.days_of_week.option.weekdays.label": "Hver dag unntatt i helgen",

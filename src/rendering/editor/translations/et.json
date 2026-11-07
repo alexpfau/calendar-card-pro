@@ -175,7 +175,7 @@
   "entity.filter_field.option.description.label": "Kirjeldus",
   "entity.filter_field.helper": "Millist sündmuse osa kaks allolevat loendit loevad. Korraga ühte — lisa sama kalender kaks korda, et filtreerida teise järgi.",
   "entity.allday_expires_at": "Terve päeva sündmused aeguvad kell",
-  "entity.allday_expires_at.helper": "Kellaaeg, mil selle kalendri terve päeva sündmused lakkavad viimasel hõlmataval päeval eelseisvaks lugemast. Tühjaks jättes kestavad need keskööni. Kehtib ainult siis, kui möödunud sündmused on peidetud, ja rakendub kaardi järgmisel värskendusel, mitte minuti täpsusega.",
+  "entity.allday_expires_at.helper": "Kellaaeg, mil selle kalendri terve päeva sündmused lakkavad viimasel hõlmataval päeval eelseisvaks lugemast. Tühjaks jättes kestavad need keskööni. Kehtib ainult siis, kui möödunud sündmused on peidetud, ja rakendub sel kellaajal, ootamata kaardi värskendust.",
   "entity.days_of_week": "Nädalapäevad",
   "entity.days_of_week.option.inherit.label": "Iga päev",
   "entity.days_of_week.option.weekdays.label": "Iga päev peale nädalavahetuse",
