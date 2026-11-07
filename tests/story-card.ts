@@ -3,10 +3,11 @@
  * page prints actually draws.
  *
  * The four short stories promise things only the mounted card can show: a tap that expands
- * (`now-and-next.md`), a card that hides itself (`bin-day.md`), an entry retired by the next
- * refresh, weather that arrives over Home Assistant's websocket. Calling the grouping and render
- * functions directly would skip the host that does each of those, so the card is configured,
- * handed a `hass`, attached and left to load, in Home Assistant's own order.
+ * (`now-and-next.md`), a card that hides itself (`bin-day.md`), an entry retired on the card's
+ * own clock without asking the feed again, weather that arrives over Home Assistant's websocket.
+ * Calling the grouping and render functions directly would skip the host that does each of
+ * those, so the card is configured, handed a `hass`, attached and left to load, in Home
+ * Assistant's own order.
  *
  * 🚨 **The card comes from the page, never from a test file** — read with `readGuideCard`, for
  * the reason `tests/guide-config.ts` gives. A control arm is a copy of the page's card with one
