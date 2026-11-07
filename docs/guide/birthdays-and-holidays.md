@@ -1,6 +1,6 @@
 # Birthdays & Holidays
 
-Two months of birthdays and holidays, for a dashboard section or a pop-up: whose birthday is next, how old they turn, and when the next break starts and ends. The ages come from the calendar entries, with nothing to set up on the card.
+The next 60 days of birthdays and holidays, for a dashboard section or a pop-up: whose birthday is next, how old they turn, and when the next break starts and ends. The ages come from the calendar entries, with nothing to set up on the card.
 
 ## 🖼️ See It
 
@@ -9,6 +9,8 @@ Two months of birthdays and holidays, for a dashboard section or a pop-up: whose
 Birthdays in pink, holidays in teal, and a rule where one month ends.
 
 ## 📋 Copy the Card
+
+Replace the two `calendar.*` ids with your own birthday and holiday calendars. The card is built for birthdays stored as all-day events that repeat every year, each with the birth year in its description as `YEAR=1990`. It adds the age to the title, `(36)` in 2026 and `(37)` in 2027, with nothing to edit. The age is the card's own addition, so the popover a tap opens shows the title without it.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -32,15 +34,11 @@ entities:
     accent_color: '#26a69a'
 ```
 
-Replace the two `calendar.*` ids with your own birthday and holiday calendars.
-
-For the ages, write the birth year into each birthday's description as `YEAR=1990`. The card adds the age to the title, `(36)` in 2026, and counts up by itself every year. The age is the card's own addition, so the popover a tap opens shows the title without it.
-
 ## 🧭 What It Adds
 
 | Editor                           | YAML                                                                           | What it adds                                                                                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Time Range & Content             | `days_to_show: 60`                                                             | Two months ahead; days with nothing on them stay hidden                                                                                                   |
+| Time Range & Content             | `days_to_show: 60`                                                             | 60 days, about two months ahead; days with nothing on them stay hidden                                                                                    |
 | Events                           | `show_countdown`, `show_single_allday_time: false`, `vertical_line_width: 4px` | How far away each event still to come is; no "All day" line under a one-day event, while a holiday of several days still shows when it ends; a bolder bar |
 | Separators · Layout              | `month_separator_width: 1px`, `day_spacing: 4px`, `event_gap: 4px`             | A rule between months; days close together, each event with a bar of its own                                                                              |
 | Calendars › Name, Label & Colors | `label`, `accent_color`                                                        | A 🎂 or 🎉 before each title, in its calendar's color                                                                                                     |

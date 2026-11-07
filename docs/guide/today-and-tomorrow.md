@@ -6,9 +6,11 @@ Today and tomorrow on an hour axis, for the breakfast question: where are we in 
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_today_and_tomorrow.png" alt="One two-day grid card at three widths, on a phone, in a dashboard section and on a portrait tablet: today and tomorrow from 07:00 to 21:00 as colored blocks with faces, the hour's temperature on events with room for it and the forecast above each column"><br>
 
-A phone, a dashboard section and an 800px portrait tablet.
+A phone, a dashboard section and an 800px portrait tablet, with a bar filling on the event under way.
 
 ## 📋 Copy the Card
+
+Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own, and set `start_time` and `end_time` to your own day. They are hard bounds: an event wholly outside them is not drawn at all, and one that runs past them is cut off at the edge.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -53,7 +55,7 @@ time_grid:
   event_font_size: 13px
 ```
 
-Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your own. Grid leaves locations off its blocks by default; the popover a tap opens shows them.
+Grid leaves locations off its blocks by default; the popover a tap opens shows them.
 
 ## 🧭 What It Adds
 
@@ -68,7 +70,7 @@ Replace the `calendar.*` ids, the `person.*` labels and `weather.home` with your
 
 ## 🔀 Adapt It
 
-- **Other hours.** `start_time` and `end_time` are hard bounds: an event wholly outside them is not drawn.
+- **Other hours.** A longer window between `start_time` and `end_time` makes the card taller at the same `hour_height`; lower it to keep the day on one screen.
 - **Read only.** `allow_event_edit: false` and `allow_event_delete: false` make the popover read-only and take Delete out of it.
 - **Lanes on a tablet.** `overlap_layout: columns` inside `time_grid:` puts overlaps side by side, which a phone cramps.
 
