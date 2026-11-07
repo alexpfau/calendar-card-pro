@@ -2280,16 +2280,22 @@ export function columnFitCrams(
 }
 
 /**
- * The layout a view gets when it is picked in the view switcher at this width.
+ * The layout a view gets when it is picked in the view switcher at this width, or brought
+ * back by a reset.
  *
- * Judged as though the view were already on screen, with the hysteresis band a view on
- * screen keeps. Judging a pick by the entry threshold instead made the switcher refuse a
- * layout the card had been drawing a moment earlier: a card left inside the band by a
- * narrowing window kept its columns, and once switched away could not switch back. A pick
- * is the user asking for the view, so it is granted the same margin as keeping it, and the
- * fit after the next measurement agrees, because that starts from the same layout. Before
- * any measurement there is no layout to start from, so the card fits a pick by this rule
- * again at the first one.
+ * The layout a fresh load draws, wherever a fresh load draws the view at all. Where it would
+ * fall back to the list, the view gets the hysteresis band a view on screen keeps, at its
+ * floor. Judging a pick by the entry threshold alone made the switcher refuse a layout the
+ * card had been drawing a moment earlier: a card left inside the band by a narrowing window
+ * kept its columns, and once switched away could not switch back. A pick is the user asking
+ * for the view, so the view is granted the same margin as keeping it. Its days are not:
+ * judging those as though every configured day were on screen too drew a day more than a
+ * fresh load, which a fresh load at that width has no room for: a seven-day grid on a 374px
+ * phone opened on two days and came back from the list, or from a reset, with three. The
+ * band is narrower than a day, so where only it admits the view the floor is all it admits.
+ * Either way the fit after the next measurement at that width agrees, because that starts
+ * from the same layout. Before any measurement there is no layout to start from, so the
+ * card fits a pick by this rule again at the first one.
  *
  * @param view - The view picked
  * @param config - Merged configuration, defaults already applied
@@ -2301,12 +2307,13 @@ export function resolveColumnFitIfPicked(
   config: Types.Config,
   measuredWidthPx: number | null,
 ): ColumnFit {
-  return resolveColumnFit(
+  const fresh = resolveColumnFit(view, config, measuredWidthPx, null);
+  if (fresh.view === view) return fresh;
+
+  return resolveColumnFit(view, config, measuredWidthPx, {
     view,
-    config,
-    measuredWidthPx,
-    measuredWidthPx === null ? null : { view, columns: configuredDays(config, view) },
-  );
+    columns: configuredDays(config, view),
+  });
 }
 
 /**

@@ -596,6 +596,99 @@ describe('narrow cards', () => {
   });
 });
 
+/**
+ * How many days a pick draws. A seven-day grid on a phone: the card is 374px wide, where a
+ * fresh load draws two days, and a third would sit 3px narrower than `min_day_width`. A pick
+ * once judged the layout as though all seven days were on screen and kept the margin a layout
+ * on screen keeps, so switching to the list and back, or opening a remembered grid, drew three
+ * days the card never opens with, their titles cut short and their date headers run together.
+ */
+describe('how many days a pick draws', () => {
+  const PHONE = 374;
+  const GRID: Partial<Types.Config> = {
+    view: 'grid',
+    list: { days_to_show: 3 },
+    time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+  };
+
+  function dayHeaders(card: CardUnderTest): number {
+    return card.shadowRoot!.querySelectorAll('.grid-day-header').length;
+  }
+
+  it('confirms the fixture: a fresh grid and the margin a grid on screen keeps disagree', () => {
+    // Without this, a change to the grid defaults could move the phone out of the band
+    // between the two rules, and every case below would pass without testing anything.
+    const config = configFor(GRID);
+    expect(resolveColumnFit('grid', config, PHONE, null).columns).toBe(2);
+    expect(resolveColumnFit('grid', config, PHONE, { view: 'grid', columns: 7 }).columns).toBe(3);
+  });
+
+  it('switches back to the configured grid with the days a fresh load draws', async () => {
+    const card = await mount(GRID);
+    await measure(card, PHONE);
+    expect(drawnView(card)).toBe('grid');
+    expect(card._columnCount).toBe(2);
+    expect(dayHeaders(card)).toBe(2);
+
+    await press(card, 'list');
+    expect(drawnView(card)).toBe('list');
+    await press(card, 'grid');
+    expect(drawnView(card)).toBe('grid');
+    expect(card._columnCount).toBe(2);
+    expect(dayHeaders(card)).toBe(2);
+
+    // The next settled measurement agrees with the press.
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(2);
+  });
+
+  it('draws a picked grid, and a reload of it, with the days a fresh grid draws', async () => {
+    const first = await mount({ ...GRID, view: 'list' });
+    await measure(first, PHONE);
+    await press(first, 'grid');
+    expect(drawnView(first)).toBe('grid');
+    expect(first._columnCount).toBe(2);
+    first.remove();
+
+    const second = await mount({ ...GRID, view: 'list' });
+    await measure(second, PHONE);
+    expect(drawnView(second)).toBe('grid');
+    expect(second._columnCount).toBe(2);
+  });
+
+  /**
+   * The margin is the resize hysteresis, and stays: a grid drawing three days keeps them while
+   * the card narrows into the band, and a card drawing two needs the full entry width before it
+   * takes a third, so a card on the boundary settles rather than flapping. A switch away and back
+   * is a fresh start, and draws what a fresh load draws at that width.
+   */
+  it('keeps the resize margin, and a switch back draws what a fresh load draws', async () => {
+    const config = configFor(GRID);
+    const enterThree = 80 + 3 * 101 + 16;
+    // Pins the arithmetic the widths below are derived from, so a moved default fails here.
+    expect(resolveColumnFit('grid', config, enterThree, null).columns).toBe(3);
+    expect(resolveColumnFit('grid', config, enterThree - 1, null).columns).toBe(2);
+
+    const card = await mount(GRID);
+    await measure(card, enterThree);
+    expect(card._columnCount).toBe(3);
+
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(3);
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(3);
+
+    await press(card, 'list');
+    await press(card, 'grid');
+    expect(card._columnCount).toBe(2);
+
+    await measure(card, enterThree - 1);
+    expect(card._columnCount).toBe(2);
+    await measure(card, enterThree);
+    expect(card._columnCount).toBe(3);
+  });
+});
+
 describe('what a device remembers', () => {
   it('keeps a switch across a reload of the same configuration', async () => {
     const first = await mount();

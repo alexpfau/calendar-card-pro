@@ -788,6 +788,43 @@ describe('what reset undoes', () => {
     expect(card.requestedView).toBe('column');
     expect(lit(card)).toBe(true);
   });
+
+  /**
+   * A seven-day grid on a 374px phone opens on two days; a third would sit narrower than
+   * `min_day_width`. Reset once fitted the configured grid as though all seven days were on
+   * screen, keeping the margin a layout on screen keeps, and drew three days the card never
+   * opens with. It draws what a fresh load draws.
+   */
+  it('goes back to the days a fresh load draws on a narrow grid', async () => {
+    const phone = 374;
+    const grid: Partial<Types.Config> = {
+      view: 'grid',
+      days_to_show: 7,
+      list: { days_to_show: 3 },
+      time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+    };
+    const dayHeaders = (card: CardUnderTest) => root(card).querySelectorAll('.grid-day-header');
+
+    const fresh = await mount(grid);
+    await measure(fresh, phone);
+    expect(drawnView(fresh)).toBe('grid');
+    expect(dayHeaders(fresh)).toHaveLength(2);
+    fresh.remove();
+
+    const card = await mount(grid);
+    await measure(card, phone);
+    await pressView(card, 'list');
+    expect(drawnView(card)).toBe('list');
+    expect(lit(card)).toBe(true);
+
+    await pressReset(card);
+    expect(drawnView(card)).toBe('grid');
+    expect(dayHeaders(card)).toHaveLength(2);
+    expect(lit(card)).toBe(false);
+
+    await measure(card, phone);
+    expect(dayHeaders(card)).toHaveLength(2);
+  });
 });
 
 //-----------------------------------------------------------------------------

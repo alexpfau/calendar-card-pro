@@ -23,6 +23,7 @@ import {
   isZeroLength,
   multidaySplitPolicy,
   resolveColumnFit,
+  resolveColumnFitIfPicked,
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
   resolveEffectiveConfig,
@@ -1941,6 +1942,85 @@ describe('resolveColumnFitOnMeasurement', () => {
     const confirmed = { view: 'column' as const, columns: 7 };
 
     expect(resolveColumnFitOnMeasurement('column', config, 1200, 1065, confirmed).columns).toBe(7);
+  });
+});
+
+describe('resolveColumnFitIfPicked', () => {
+  /**
+   * What a pick, and a reset, draws, against the two rules it sits between: `fresh`, the
+   * layout a fresh load draws, and `kept`, the layout a view on screen with every configured
+   * day keeps. The switcher offers a view when the pick draws it, so the view must be the one
+   * `kept` grants (`_viewFits`, and the reset button's `_viewChoiceShows`); the days must be
+   * the ones a fresh load draws wherever it draws the view, and the floor where only the band
+   * admits it. Swept a pixel at a time, with a count of the widths where the two rules
+   * disagree, so a fixture that never reaches the band fails rather than passing vacuously.
+   */
+  const cases: Array<{
+    name: string;
+    view: Types.EffectiveView;
+    overrides: Partial<Types.Config>;
+    days: number;
+    floor: number;
+  }> = [
+    { name: 'a seven-day grid', view: 'grid', overrides: {}, days: 7, floor: 1 },
+    {
+      name: 'a grid holding all seven days',
+      view: 'grid',
+      overrides: { time_grid: { min_days_to_show: 7 } },
+      days: 7,
+      floor: 7,
+    },
+    { name: 'seven columns', view: 'column', overrides: {}, days: 7, floor: 7 },
+    {
+      name: 'seven columns down to three',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 3 } },
+      days: 7,
+      floor: 3,
+    },
+    {
+      name: 'seven columns cramped at three',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 3, min_days_fallback: 'cramp' } },
+      days: 7,
+      floor: 3,
+    },
+  ];
+
+  it.each(cases)('draws what a fresh load draws, for $name', ({ view, overrides, days, floor }) => {
+    const config = buildConfig({ days_to_show: days, ...overrides });
+    let moreDays = 0;
+    let bandOnly = 0;
+
+    for (let width = 1; width <= 2400; width += 1) {
+      const fresh = resolveColumnFit(view, config, width, null);
+      const kept = resolveColumnFit(view, config, width, { view, columns: days });
+      const picked = resolveColumnFitIfPicked(view, config, width);
+
+      expect(picked.view, `view at ${width}px`).toBe(kept.view);
+      if (fresh.view === view) {
+        expect(picked, `layout at ${width}px`).toEqual(fresh);
+        if (kept.columns > fresh.columns) moreDays += 1;
+      } else if (picked.view === view) {
+        expect(picked.columns, `floor at ${width}px`).toBe(floor);
+        bandOnly += 1;
+      }
+      // The next measurement at the same width keeps what the pick drew.
+      expect(resolveColumnFitOnMeasurement(view, config, width, width, picked)).toEqual(picked);
+    }
+
+    // Where the old rule drew a day more than a fresh load, and where only the band admits
+    // the view: each fixture reaches at least one of them.
+    expect(moreDays + bandOnly).toBeGreaterThan(0);
+    if (floor < days) expect(moreDays).toBeGreaterThan(0);
+    if (view === 'column' && floor === days) expect(bandOnly).toBeGreaterThan(0);
+  });
+
+  it('draws every day before the first measurement, as a fresh load does', () => {
+    const config = buildConfig({ days_to_show: 7 });
+
+    expect(resolveColumnFitIfPicked('grid', config, null)).toEqual({ view: 'grid', columns: 7 });
+    expect(resolveColumnFitIfPicked('list', config, 400)).toEqual({ view: 'list', columns: 0 });
   });
 });
 
