@@ -10,6 +10,8 @@ Most of that is yours to turn on. Three things reach every card without a settin
 
 🎬 To see it at work, watch the Family Hub [on a kitchen wall](https://calendar-card-pro.alexpfau.com/guide/family-calendar#see-it) and [on a phone](https://calendar-card-pro.alexpfau.com/guide/family-calendar#across-different-screens), and the [Family Agenda](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes#see-it) on a hallway tablet. In the docs, each of the larger new features has a short clip at the top of its section.
 
+<a href="https://calendar-card-pro.alexpfau.com/guide/family-calendar#see-it"><img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" alt="The Family Hub on a kitchen wall: the family's week in grid view, with the toolbar and a chip for each calendar. Select it to watch the video in the docs" width="600"></a><br>
+
 ## 🎉 New Features
 
 ### 💬 The Card's Own Event Popover
@@ -83,6 +85,8 @@ On Home Assistant 2026.6 or later, picking a calendar in the card picker's **By 
 ## ⚡ Live Updates & Faster Loads
 
 None of this needs a setting, so every card gets it.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_live_updates.webp" alt="A phone adds an event and then deletes it, and the grid on a tablet beside it follows without being touched" width="600"><br>
 
 - **Changes Appear Everywhere at Once** - On Home Assistant 2026.5 or later, the card subscribes to each calendar it shows, and Home Assistant sends that calendar's events again whenever they change. An event added, moved or deleted on the card, in Home Assistant, on a phone or in the calendar's own app appears on every open dashboard as soon as Home Assistant knows of it: within seconds for a Local Calendar, at the integration's next sync for Google and CalDAV. There is no polling while live; older Home Assistant keeps polling as before. See [Live Updates](https://calendar-card-pro.alexpfau.com/features/performance#live-updates)
 - **A Slow Calendar No Longer Holds Back the Rest** - When a dashboard opens with nothing cached, each calendar is drawn as soon as it answers. With one calendar three seconds late, the others now appear in under a second rather than after more than three
