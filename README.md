@@ -148,7 +148,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 ### Latest Release: v5.1
 
-<!-- S56 CLIP: README hero clip (GIF/WebP in .github/img/) -->
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600">
 
 - 💬 **The Card's Own Event Popover**: A tapped event opens [in a popover of the card's own](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover), beside it or as a sheet on a phone, where you change it in place, move it to another calendar or delete it, as far as [its calendar allows](https://calendar-card-pro.alexpfau.com/features/actions#what-each-integration-allows). ⚠️ It replaces Home Assistant's dialog, and a few other things change on existing cards; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) list them
 - ✍️ **Tap, Draw & Drag**: [Tap a day](https://calendar-card-pro.alexpfau.com/features/actions#tapping-a-day-to-add-an-event) to add an event there, [draw one](https://calendar-card-pro.alexpfau.com/features/actions#drawing-an-event-in-grid-view) across the hours it covers in grid view, or [drag one](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag) to another time or day

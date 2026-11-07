@@ -4,8 +4,6 @@ title: Release Notes
 
 # Calendar Card Pro v5.1.0
 
-<!-- S56 CLIP: hero, the event popover editing an event or a drag in grid view (GIF/WebP in .github/img/) -->
-
 **Open, change, move and add events right on the card.** A tapped event now opens in the card's own popover, where you change it where it is shown, move it to another calendar or delete it, and in grid view you draw a new event across the hours it should cover and drag an existing one to another time or day. A search in the toolbar looks through the card's events a year back and ahead, a swipe pages through the days, and the toolbar takes buttons of your own.
 
 Most of that is yours to turn on. Three things reach every card without a setting: on Home Assistant 2026.5 or later, an event changed anywhere appears on every open dashboard as soon as Home Assistant knows of it, with no polling; when a dashboard opens, a slow calendar no longer holds back the others; and the card redraws far less often while nothing it shows has changed. A few things change on cards you already have; they are listed under ⚠️ Changes to Existing Cards, below the new features.
@@ -16,7 +14,7 @@ Most of that is yours to turn on. Three things reach every card without a settin
 
 In v5.0 a tapped event opened Home Assistant's event dialog. With `event_tap_action: details` it now opens a popover that belongs to the card, modeled on the one in Calendar on macOS: beside the event on a wide screen, as a sheet from the bottom on a phone, light or dark with your theme.
 
-<!-- S56 CLIP: popover, editing an event in place or moving it to another calendar -->
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.webp" alt="Editing an event in the card's popover: switching on All day" width="600"><br>
 
 - **Change an Event Where It Is Shown** - There is no Edit button. Tap the title, the date line, the location or the description and change it right there, and the popover saves when it closes. Once something has changed, **Cancel** and **Save** appear, and Escape throws the change away. A repeating event asks whether you mean this occurrence or this and all future ones, and Repeat offers the daily, weekly, monthly and yearly rules Home Assistant's own editor offers
 - **Move It to Another Calendar** - Tap the event's calendar and pick another of the card's calendars. A repeating event moves one occurrence, or the whole series from that occurrence on where the series can move whole
@@ -28,32 +26,35 @@ In v5.0 a tapped event opened Home Assistant's event dialog. With `event_tap_act
 
 `allow_event_edit: false` and `allow_event_delete: false` still take editing and Delete away on a wall tablet, and a calendar's own `show_location: false` or `show_description: false` keeps those fields out of the popover as well. See [The Event Popover](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover) and [Editing & Deleting Events](https://calendar-card-pro.alexpfau.com/features/actions#editing-deleting-events).
 
-### ✍️ Add & Move Events the Way a Calendar App Does
+### ✍️ Tap or Draw to Add an Event
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_draw.webp" alt="Drawing a new event in grid view and naming it in the popover" width="600"><br>
 
 - **Tap a Day to Add an Event There** - `day_tap_action: add-event` opens a new event on the day you tapped, wherever that day shows no event, in all three layouts: a date, an empty column, or an empty spot of the grid at that hour. Each date is also a button for the keyboard
 - **Draw a New Event in Grid View** - With the same option, a tap in the grid adds an event at that quarter hour, and a hold and drag, or a press and drag with a mouse, draws it across the hours and days it should cover. A tap on the all-day band adds an all-day event. The new event is drawn as it will look once saved, in its calendar's colors, and follows the popover while you type
-- **Drag an Event to Another Time or Day** - In grid view, an event the popover can change moves with a drag: with a mouse at once, on a touch screen after holding it for half a second. It snaps to quarter hours and keeps its length, and a repeating event asks which occurrences move. There is no option of its own; it comes with `event_tap_action: details` on a calendar that allows changing events, which today means a Local Calendar
 
-<!-- S56 CLIP: drawing a new event in grid view -->
+See [Tapping a Day to Add an Event](https://calendar-card-pro.alexpfau.com/features/actions#tapping-a-day-to-add-an-event) and [Drawing an Event in Grid View](https://calendar-card-pro.alexpfau.com/features/actions#drawing-an-event-in-grid-view).
 
-<!-- S56 CLIP: dragging an event to another time or day -->
+### ✋ Drag an Event to Another Time or Day
 
-See [Tapping a Day to Add an Event](https://calendar-card-pro.alexpfau.com/features/actions#tapping-a-day-to-add-an-event), [Drawing an Event in Grid View](https://calendar-card-pro.alexpfau.com/features/actions#drawing-an-event-in-grid-view) and [Moving Events by Drag](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag).
+In grid view, an event the popover can change moves with a drag: with a mouse at once, on a touch screen after holding it for half a second. It snaps to quarter hours and keeps its length, and a repeating event asks which occurrences move. There is no option of its own; it comes with `event_tap_action: details` on a calendar that allows changing events, which today means a Local Calendar. See [Moving Events by Drag](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag).
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600"><br>
 
 ### 🔍 Search the Card's Events
 
 A magnifier at the end of the toolbar finds the card's events a year back and a year ahead by their title, location or description, whatever the case and the accents, so "zurich" finds "Zürich". Upcoming events come first, grouped by month; pick one and the card pages to its day and rings it, wherever that page can show it. It is on wherever the toolbar shows its date navigation, and `search: false` takes it away. See [Searching the Card](https://calendar-card-pro.alexpfau.com/features/layout-appearance#searching-the-card).
 
-<!-- S56 CLIP: searching and jumping to an event -->
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_search.webp" alt="Searching the card from the toolbar and jumping to a result" width="600"><br>
 
 ### 👆 Swipe, Tap & Hold
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_swipe.webp" alt="Swiping to page a list card on a phone" width="316"><br>
 
 - **Swipe to Page** - On a touch screen, a swipe across the days pages exactly as the toolbar's arrows do, mirrored on a right-to-left dashboard. The days follow your finger a little and the new page slides in; with reduced motion on, the page simply changes. It comes with the toolbar's date navigation and needs no option of its own
 - **Hold an Event for Its Details** - `event_hold_action: details` opens the popover on a hold, so a tap stays free for something else
 - **Your Own Event Actions, With the Event's Fields** - `event_tap_action` and `event_hold_action` take Home Assistant's own actions, and `{title}`, `{start}`, `{end}`, `{all_day}`, `{location}`, `{description}` and `{calendar}` fill in the pressed event's values, such as a `url` built from its title. An event's text only ever fills an action's data or a web address's query, so whoever writes the calendar cannot choose which service runs or where a link goes
 - **Three More Card Actions** - `add-event`, `reset` and `back` join `expand` and `refresh` for the card's `tap_action` and `hold_action`. `back` returns to the page you came from, or to `navigation_path` where there is none
-
-<!-- S56 CLIP: swiping through the days -->
 
 See [Paging Through Dates](https://calendar-card-pro.alexpfau.com/features/layout-appearance#paging-through-dates), [Holding an Event](https://calendar-card-pro.alexpfau.com/features/actions#holding-an-event), [Using the Event's Fields in an Action](https://calendar-card-pro.alexpfau.com/features/actions#using-the-events-fields-in-an-action) and [Available Actions](https://calendar-card-pro.alexpfau.com/features/actions#available-actions).
 
