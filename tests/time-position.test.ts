@@ -5,6 +5,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
+import { withoutComments } from './helpers/without-comments';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
@@ -82,14 +83,15 @@ function moved(container: HTMLElement): HTMLElement[] {
 }
 
 /**
- * Markup with Lit's markers gone and the whitespace between tags reduced to one line break.
+ * An element's markup with Lit's markers gone and the whitespace between tags reduced to one
+ * line break, or nothing where there is no element.
  *
  * Kept as a break rather than removed, so whitespace present on one side and absent on the
  * other still differs; only its amount is ignored, which no flex row and no line start can
  * see. Text-adjacent whitespace is left exactly as it is.
  */
-function normalize(markup: string): string {
-  return markup.replace(/<!--[\s\S]*?-->/g, '').replace(/>\s+</g, '>\n<');
+function normalize(element: Element | null): string {
+  return element ? withoutComments(element).outerHTML.replace(/>\s+</g, '>\n<') : '';
 }
 
 /** The title of an event body, for messages. */
@@ -287,7 +289,7 @@ describe('time_position', () => {
       // The badge is the one the title row draws below the title, unchanged.
       const below = bodies(render('list', { ...DETAILS, time_position: 'below' }));
       const badges = (list: HTMLElement[]) =>
-        list.map((body) => normalize(body.querySelector('.event-weather')?.outerHTML ?? ''));
+        list.map((body) => normalize(body.querySelector('.event-weather')));
       expect(badges(rows)).toEqual(
         badges(below.filter((body) => body.querySelector('.time-location > .time'))),
       );
@@ -582,7 +584,7 @@ describe('time_position', () => {
             continue;
           }
           const twin = byTitle.get(key)!;
-          expect(normalize(body.outerHTML), key).toBe(normalize(twin.outerHTML));
+          expect(normalize(body), key).toBe(normalize(twin));
         }
         // Only the fixtures' multi-day event, which column view always splits, and an empty
         // day, so a broken key cannot skip the whole comparison.
@@ -620,5 +622,5 @@ function withoutFlexWhitespace(element: Element): string {
       if (node.nodeType === Node.TEXT_NODE && !node.textContent!.trim()) node.remove();
     }
   }
-  return normalize(clone.outerHTML);
+  return normalize(clone);
 }

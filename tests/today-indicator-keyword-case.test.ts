@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { withoutComments } from './helpers/without-comments';
 import type * as Types from '../src/config/types';
 import { TODAY_INDICATOR_STYLES } from '../src/rendering/editor/schemas/day-header';
 import { SYNTHETIC_FIELDS, todayIndicatorStyle } from '../src/rendering/editor/synthetic';
@@ -47,7 +48,7 @@ function configWith(value: string): Types.Config {
 function drawn(value: string): string {
   const host = document.createElement('div');
   litRender(renderTodayIndicator(configWith(value), true), host);
-  return host.innerHTML.replace(/<!--[^>]*-->/g, '').trim();
+  return withoutComments(host).innerHTML.trim();
 }
 
 describe('today_indicator keywords match in any casing', () => {

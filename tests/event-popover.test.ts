@@ -1347,7 +1347,9 @@ describe('opening and closing', () => {
 
   it('grows out of its arrow from a tenth of its size, and fades in a little faster', () => {
     const rule = (selector: string) =>
-      new RegExp(`${selector.replace(/[[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
+      new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(
+        css(),
+      )?.[1] ?? '';
     for (const part of ['.panel', '.arrow']) {
       const animation = rule(`dialog.popover[open][data-placed] > ${part}`);
       expect(animation).toContain('230ms cubic-bezier(0.33, 1, 0.68, 1)');
@@ -1488,7 +1490,7 @@ describe('the beak and the outline', () => {
       .cssText;
   // A rule's body by its exact selector, whitespace collapsed, so wrapping does not matter.
   const rule = (selector: string) => {
-    const escaped = selector.replace(/[.[\]()]/g, '\\$&');
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const body = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css())?.[1] ?? '';
     return body.replace(/\s+/g, ' ').replace(/\(\s/g, '(').replace(/\s\)/g, ')');
   };
