@@ -5654,7 +5654,9 @@ export const cardStyles = css`
      measured this exact row rather than assuming a type scale - see grid-time-fit.ts. The
      icon goes first because the block's own position already says this is a time; the end
      time goes onto a second line next, where there is one to spare, and is given up
-     altogether only after that, because the block's bottom edge already draws it. */
+     altogether only after that, because the block's bottom edge already draws it. On a
+     block running past midnight it does not, and the end goes with its day count, leaving
+     the start. */
   .grid-event-disclosure.grid-time-no-icon .time .time-actual > ha-icon {
     display: none;
   }

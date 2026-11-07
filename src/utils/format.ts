@@ -63,6 +63,11 @@ export interface EventTimeParts {
    * 14:00" names a time on a day this block does not cover, so no edge of it carries that
    * information and cutting the phrase would destroy it.
    *
+   * Grid builds one more droppable end of its own, never from here: on the block that
+   * starts an event running past midnight, the end and the days to it, "- 1:35 (+1)"
+   * (`gridTimedEventContentParts`). Nothing redraws that one either, so it is given up only
+   * as a last resort, whole, which leaves a bare start time rather than a cut phrase.
+   *
    * Absent, too, for an event that starts and ends in the same minute, because its `text`
    * is the start time alone and there is no end in it to drop (#625).
    *

@@ -922,9 +922,36 @@ function renderTimedEvent(
 /**
  * Adapt shared event content to the grid's per-day timed block convention.
  *
- * List and column views need cross-day time phrases because their rows do not themselves
- * show where the event starts and ends. A grid block's position and height already do, so a
- * timed segment either keeps only its true start time for that day or shows title only.
+ * A timed event that runs into a later day is drawn as one block per day, and the block
+ * that starts it says when, all of it: its start, its end, and how many days later the end
+ * falls, "22:05 - 1:35 (+1)", or its start alone under `show_end_time: false`. The others
+ * show title only, including the first one a card shows of an event that began before its
+ * first day. Their top edge is the start of their day rather than of the event.
+ *
+ * That first block's bottom edge is midnight, not the event's end, so the end has to be in
+ * its text. v5.0 left it out on the reasoning that the block's height already showed it,
+ * which holds only where the next day's block is drawn too: on the last day a card shows, or
+ * below the hours it draws, the end appeared nowhere (#768). List and column phrases ("ends
+ * tomorrow at 1:35") would say it, but they count from today rather than from the block's
+ * day, and they are too long to give up part of in a narrow block.
+ *
+ * The count is of local calendar days from the start to the date the end time falls on, so
+ * the end and its count name one moment: "19:00 - 0:00 (+2)" ends as the second day after
+ * its start begins. Counting to the last day the event fills would print "(+1)" there,
+ * which reads as the start of the next day, a whole day early. The one exception is an
+ * event that runs until the midnight after it starts, 22:00 to 0:00: one block, reading
+ * "22:00 - 0:00" as any calendar writes it. The end has to be the first instant of its day
+ * and read 0:00. Not just read it: an Azores autumn day repeats 0:00 to 0:59, and an end at
+ * the second 0:00, or at 0:00:30, is past midnight and keeps its count. Not just be the
+ * first instant: an Azores spring day has no 00:00 and starts at 1:00, so "22:00 - 1:00"
+ * would read as an end before the start, and it reads "(+1)". And the start must not read
+ * 0:00, so a whole day from midnight reads "0:00 - 0:00 (+1)" rather than as no time at all.
+ *
+ * The end and its count are a single droppable end (`eventTimeEnd`). The fit ladder wraps
+ * them onto a second line together and drops them together, so a narrow block falls back
+ * to the start alone, never to an end without its day. The count sits in a left-to-right
+ * isolate, because a right-to-left line would otherwise draw "(+1)" as "(1+)"; the no-break
+ * space before it keeps it on the end's line.
  *
  * @param event - Timed grid event segment
  * @param presented - Shared presentation content
@@ -941,41 +968,62 @@ function gridTimedEventContentParts(
   // Grid marks the present with its now line, which runs straight through the block that
   // is under way; a "Now" label inside that block would say it twice.
   const parts = presented.nowLabel ? { ...presented, nowLabel: null } : presented;
+  const untimed = {
+    ...parts,
+    eventTime: '',
+    eventTimeEnd: undefined,
+    shouldShowTime: false,
+    countdownStr: null,
+  };
 
-  if (!event._isMultiDaySegment) {
-    return parts;
+  if (event._isMultiDaySegment && !event._gridSegmentStartsEvent) {
+    return untimed;
   }
 
-  if (!event._gridSegmentStartsEvent || !event.start.dateTime) {
-    return {
-      ...parts,
-      eventTime: '',
-      eventTimeEnd: undefined,
-      shouldShowTime: false,
-      countdownStr: null,
-    };
-  }
+  // The event's own times. A split segment ends at midnight; `_gridSource` is what it was
+  // split from, and an unsplit block is its own source.
+  const source = event._gridSource ?? (event._isMultiDaySegment ? undefined : event);
+  const start = source?.start.dateTime ? new Date(source.start.dateTime) : undefined;
+  const end = source?.end.dateTime ? new Date(source.end.dateTime) : undefined;
+  const spansDays =
+    start !== undefined &&
+    end !== undefined &&
+    end.getTime() > start.getTime() &&
+    FormatUtils.getCalendarDayDiff(start, end) > 0;
 
-  const startDate = new Date(event.start.dateTime);
-  if (Number.isNaN(startDate.getTime())) {
+  if (!spansDays) {
+    if (!event._isMultiDaySegment) return parts;
+
+    // A segment whose source cannot be read keeps its start, as every first block did
+    // before it could say more.
+    const segmentStart = event.start.dateTime ? new Date(event.start.dateTime) : undefined;
+    if (!segmentStart || Number.isNaN(segmentStart.getTime())) return untimed;
+    const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
     return {
       ...parts,
-      eventTime: '',
+      eventTime: FormatUtils.formatTime(segmentStart, use24h, config.time_two_digit_hours),
       eventTimeEnd: undefined,
-      shouldShowTime: false,
-      countdownStr: null,
     };
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const startText = FormatUtils.formatTime(start, use24h, config.time_two_digit_hours);
 
-  // No droppable end to carry over: this segment keeps a start time and nothing else, which
-  // is the same answer the fit ladder would reach on its own if it were asked.
-  return {
-    ...parts,
-    eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours),
-    eventTimeEnd: undefined,
-  };
+  if (!config.show_end_time) {
+    return { ...parts, eventTime: startText, eventTimeEnd: undefined };
+  }
+
+  const readsMidnight = (date: Date) => date.getHours() === 0 && date.getMinutes() === 0;
+  const days = FormatUtils.getCalendarDayDiff(start, end);
+  const untilMidnight =
+    days === 1 &&
+    end.getTime() === Grid.startOfDay(end).getTime() &&
+    readsMidnight(end) &&
+    !readsMidnight(start);
+  const count = untilMidnight ? '' : `\u00a0\u2066(+${days})\u2069`;
+  const endText = ` - ${FormatUtils.formatTime(end, use24h, config.time_two_digit_hours)}${count}`;
+
+  return { ...parts, eventTime: `${startText}${endText}`, eventTimeEnd: endText };
 }
 
 /**

@@ -62,9 +62,13 @@ time_grid:
   edge on that side, so the event reads as carrying on past the visible hours. An event
   entirely outside the window is not drawn at all, so the window decides what the card shows,
   not only how it looks.
-- A timed event that runs across more than one day gets one block per day column. The first
-  shows its start time and countdown, the others neither; weather, location and description
-  rows can still appear on each.
+- A timed event that runs across more than one day gets one block per day column. The block
+  where it starts shows its start and end time, with how many days later the end falls, and
+  its countdown: a late match from `22:05` to `01:35` reads `22:05 - 1:35 (+1)`, and with
+  `show_end_time: false` just `22:05`. The others show neither, even when the event began
+  before the card's first day; weather, location and description rows can still appear on
+  each. An event that runs until the midnight after it starts needs no count, so `22:00` to
+  `00:00` is one block reading `22:00 - 0:00`.
 - An event with no duration, such as a reminder, or one shorter than a minute still gets a
   block at its start time, with a minimum height, so a very short event looks taller than it
   lasts. That height is too little for a time row, so a reminder shows as any block that short
@@ -479,7 +483,8 @@ not fit is left out whole, never cut part way.
   and location for one more line.
 - A time row too narrow for its block gives things up in order: first the clock icon, then the
   end time moves onto a second line if the block is tall enough, then the end time goes, since
-  the block's bottom edge already shows it, and only then the row. It never shows a cut time:
+  the block's bottom edge already shows it, and only then the row. On an event running past
+  midnight the end and its day count move and go together. It never shows a cut time:
   `10:00 - 1…` on a meeting ending at 12:00 would read as one o'clock, so the card shows a bare
   `10:00`, or nothing.
 - A long title stops at the last line that fits whole, ending in "…" when more follows.
