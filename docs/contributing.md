@@ -1,10 +1,10 @@
 # Contributing & Roadmap
 
-Calendar Card Pro is community-driven. Whether you want to report a bug, propose a feature, translate the card into your language or work on the code itself, this page covers how to get involved and what is planned next.
+Calendar Card Pro is community-driven. Whether you want to report a bug, propose a feature, translate the card into your language or work on the code itself, this page covers how to get involved and where plans are tracked.
 
 ## 🚀 How to Contribute
 
-Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—whether it’s **fixing bugs, improving performance, or adding new features**!
+Contributions of all kinds are welcome, from **bug fixes and performance work** to **new features**.
 
 ### Getting Started
 
@@ -17,9 +17,8 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
    ```sh
    npm run dev
    ```
-   This emits **two** files into `dist/` — `calendar-card-pro-dev.js` and `editor-dev.js`.
-   The card fetches the editor by URL the first time someone opens it, so both belong in
-   the same directory when you install a development build.
+   This emits **two** files into `dist/`, `calendar-card-pro-dev.js` and `editor-dev.js`.
+   Install both in the same folder when you try a development build.
 4. **Verify before you push.** These are every gate CI runs, so a green local run should
    mean a green pull request:
    ```sh
@@ -39,23 +38,29 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
 
 ### Reporting a Bug
 
-Released builds log errors only. Everything below that — the running commentary about
-caching, refreshes and rendering — is suppressed at runtime, so the console stays quiet
-on a normal dashboard. The logging code is still in the bundle; only the level it prints
-at differs, which is what makes the switch below work without a rebuild.
+Report a bug as a [new issue on GitHub](https://github.com/alexpfau/calendar-card-pro/issues/new/choose),
+after checking that you are on the latest version, that a refresh with a cleared browser cache
+does not fix it, and that it has not been reported yet. The bug form asks for:
 
-That is the right default, but it is unhelpful when something _is_ wrong. To turn the
-detail back on, open your browser's developer console and run:
+- what happens, what you expected, and the steps that reproduce it
+- your card's YAML configuration
+- your browser, Home Assistant version, Calendar Card Pro version and device
+- the browser console output, which usually identifies the cause immediately
+
+Remove anything private from the YAML and the console output before you post them. For
+questions rather than bugs, use the
+[community forum thread](https://community.home-assistant.io/t/calendar-card-pro-a-beautiful-high-performance-calendar-card-for-home-assistant/863711).
+
+Released builds log errors only. To turn the detail on, open your browser's developer console
+and run:
 
 ```js
 window.calendarCardProDebug = true;
 ```
 
-Then reproduce the problem **without reloading the page**. The flag lives on `window`,
-so a reload discards it and puts you back where you started. The card reads it on its
-next render, which means switching to another dashboard view and back — or opening the
-card's editor — is enough to get a fully logged render. Include the resulting console
-output in your issue; it usually identifies the cause immediately.
+Then reproduce the problem **without reloading the page**, because a reload turns logging off
+again. Switching to another dashboard view and back, or opening the card's editor, is enough
+to get a fully logged render. Include the resulting console output in your issue.
 
 For finer control, set a level instead: `0` errors only, `1` adds warnings, `2` adds
 information, `3` adds full debug output.
@@ -64,8 +69,8 @@ information, `3` adds full debug output.
 window.calendarCardProLogLevel = 1;
 ```
 
-Neither setting persists, which is also how you turn them off again: reload the page, or
-open the dashboard in a new tab, and the card is back to its normal quiet behavior.
+Neither setting persists: to turn either off, reload the page or open the dashboard in a new
+tab.
 
 ::: tip Warnings Are Worth Reading
 Level `1` is the useful one for configuration problems. Several warnings report a
@@ -75,25 +80,39 @@ setting the card could not use and what it fell back to — for example an inval
 
 ## 📅 Roadmap & Planned Features
 
-I am continuously working on improving **Calendar Card Pro**. Here’s what’s planned for upcoming releases:
+Requests and plans are tracked in the project's
+[GitHub issues](https://github.com/alexpfau/calendar-card-pro/issues). Feature requests carry the
+[`enhancement`](https://github.com/alexpfau/calendar-card-pro/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+label, and larger themes are grouped under labels starting with `epic:`, one per theme. What
+has shipped is listed in [What's New](/guide/whats-new).
 
-- **New Features & Improvements** - Feature requests as proposed by community members.
-- **Expanded Language Support** – Adding more languages (looking for community translations).
+Got a feature request? Search the open issues first, and if yours is already there, add your
+use case to it. Otherwise open one with the **Feature Request** form, which asks for the
+problem it solves and how you would use it.
 
-💡 Got a feature request? **Open a GitHub Issue** or start a **discussion**!
+Translations into more languages are always welcome: [Adding Translations](#adding-translations)
+explains how, for the card and for its editor.
 
 ## 📖 Developer Documentation
 
-For those interested in contributing code, I maintain detailed **[architecture documentation](/architecture)** that explains:
+For those interested in contributing code, I maintain detailed **[architecture documentation](/architecture)**
+in five parts:
 
-- **Code Organization** – Structure and module responsibilities.
-- **Data Flow & Processing** – How events are fetched, stored, and displayed.
-- **Performance Optimization** – Techniques for fast rendering and caching.
-- **Design Principles** – Best practices for UI consistency and accessibility.
+- **[Overview](/architecture)** – how the code is organized, which module owns what, the design
+  principles, and a checklist for adding an option.
+- **[Data Loading & Caching](/architecture-data)** – how events are fetched, cached and kept up to
+  date, and what keeps the card fast.
+- **[Rendering & Views](/architecture-rendering)** – how the list, column and grid layouts are drawn.
+- **[Interaction & Event Writes](/architecture-interaction)** – taps, the popover, and how events are added, changed and deleted.
+- **[Toolbar & Navigation](/architecture-toolbar)** – the header toolbar and paging through dates.
 
 ## 🌍 Adding Translations
 
-**Calendar Card Pro** currently supports:
+Adding a language to the card takes one JSON file of strings and a few registrations; the
+[visual editor](#translating-the-editor) can be translated too, in part or in full. These are
+the languages **Calendar Card Pro** currently supports:
+
+::: details Supported Languages
 
 - **Bulgarian** (`bg`)
 - **Catalan** (`ca`)
@@ -134,36 +153,43 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Ukrainian** (`uk`)
 - **Vietnamese** (`vi`)
 
+:::
+
 To add a new language:
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
 2. **Copy the structure** from `en.json` and translate all values (never change the keys).
-   The file must contain **every top-level** key present in `en.json`, and nothing else —
-   these files are loaded by every dashboard, so the editor's strings do not belong here.
+   The file must contain **every top-level** key present in `en.json`, and nothing else:
+   the editor's strings go in [their own file](#translating-the-editor).
 3. **Register it in `src/translations/localize.ts` and `language-codes.ts`** — three edits:
    - add the `import` for your JSON file
    - add an entry to the `TRANSLATIONS` map. **The key must be lowercase**
-     (e.g. `'en-gb'`, `'zh-cn'`), because lookups lowercase the configured language.
+     (e.g. `'en-gb'`, `'zh-cn'`).
    - add the same lowercase code to `CARD_LANGUAGES` in
-     `src/translations/language-codes.ts`, which is what the card and the editor resolve a
-     configured language against. `npm run check:i18n` fails if the list and the files disagree.
+     `src/translations/language-codes.ts`. `npm run check:i18n` fails if the list and the
+     files disagree.
 4. **Register it in `src/translations/dayjs.ts`** — this is **two** edits, and both
-   are required. Forgetting the second one is a silent failure: the language will work
-   everywhere except relative times, which quietly fall back to English.
+   are required. Without the second, the language works everywhere except relative times,
+   which quietly fall back to English.
    - add `import 'dayjs/locale/[lang-code]';`
    - add the base language code to the `supportedLocales` array
-   - _Note:_ regional variants normally need no dayjs entry, since `mapLocale()` reduces
-     them to their base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct
-     locale you actually need (as with `zh-cn` / `zh-tw`).
-   - _Note:_ check which script a dayjs locale is written in before you import it. Day.js
-     names its Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, the opposite of
-     what Home Assistant and the browser mean by `sr`. A language whose dayjs locale goes
-     by another name also needs an entry in `DAYJS_LOCALE_NAMES` in the same file.
 5. **Add your language to the supported list above** on this page, in alphabetical order.
 6. **Verify** with `npm run lint`, `npm run check:i18n` and `npm run build`
 7. **Submit a Pull Request** with your changes
 
-**Example**: To add German support, you would:
+::: details Regional & Script Variants
+
+- Regional variants normally need no dayjs entry, since `mapLocale()` reduces them to their
+  base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct locale you actually
+  need (as with `zh-cn` / `zh-tw`).
+- Check which script a dayjs locale is written in before you import it. Day.js names its
+  Serbian Latin locale `sr` and its Cyrillic one `sr-cyrl`, the opposite of what Home
+  Assistant and the browser mean by `sr`. A language whose dayjs locale goes by another name
+  also needs an entry in `DAYJS_LOCALE_NAMES` in the same file.
+
+:::
+
+::: details Example: Adding German
 
 1. Create `src/translations/languages/de.json`
 2. Copy the structure from `en.json` and translate all values (not keys)
@@ -171,6 +197,8 @@ To add a new language:
    and `'de',` to `CARD_LANGUAGES` in `language-codes.ts`
 4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
 5. Add a ``- **German** (`de`)`` entry to the list above
+
+:::
 
 ### Translating the Editor
 
@@ -180,14 +208,9 @@ The visual editor's strings are optional and live separately, in
 in full, Korean in part, plus British English, which carries only the strings where it
 differs from US English. The other 26 render the editor in English, which is fully supported.
 
-They are kept apart because they are the larger half of the translations by some margin,
-and the editor is loaded only when someone opens it — so a dashboard never downloads them
-at all. Putting them back in `languages/` would undo that, and `npm run check:i18n` fails
-if you do.
-
-English is not among them. It lives in `src/rendering/editor/strings.ts` and nowhere else,
-so there is no second English table to disagree with it. Each file below holds the subset
-of those keys its language translates, keyed identically.
+Keep the editor's strings out of `src/translations/languages/`; `npm run check:i18n` fails if
+they are there. English lives only in `src/rendering/editor/strings.ts`, and a translation file
+uses the same keys, holding only the ones its language translates.
 
 A partial translation is safe to ship. Each key falls back on its own, so anything you
 leave out simply renders in English rather than looking broken. Register a new file with an
