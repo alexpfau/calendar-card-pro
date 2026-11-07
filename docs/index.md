@@ -54,11 +54,11 @@ features:
 
 ## 🔍 About
 
+**Calendar Card Pro** is a calendar card for Home Assistant that you can work with right on the dashboard. It shows your events in **three layouts**, has a **toolbar** to page through the dates and switch between them, and lets you **open, add and edit events** in a popover of its own.
+
 **Calendar Card Pro** was inspired by a beautiful [calendar design using button-card and Hass calendar add-on](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) shared in the Home Assistant community. While the original design was visually stunning, implementing it with **button-card** and **card-mod** led to **performance issues**.
 
-This motivated me to create a **dedicated calendar card**. It started out doing one thing well, **displaying upcoming events beautifully and efficiently**, and has since grown into a calendar you can work with right on the dashboard: **three layouts**, a **toolbar** to page through the dates and switch between them, and **adding, opening and editing events** in a popover of its own.
-
-**Performance** is still the foundation: cached events are on screen the moment a dashboard opens, every calendar loads in parallel, and the visual editor is only downloaded when you open it.
+This motivated me to create a **dedicated calendar card**.
 
 ## ✨ Features
 
@@ -69,7 +69,7 @@ This motivated me to create a **dedicated calendar card**. It started out doing 
 - ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](/features/editor#search-customized-only) that finds any setting by name or YAML key.
 - 🌦️ **Weather** – [Forecasts](/features/weather) in the date column or beside each event.
 - 🎨 **Fits Your Theme** – Follows your Home Assistant theme and its primary color, with [custom properties](/features/theming) for finer styling.
-- ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, and every calendar loaded in parallel.
+- ⚡ **Optimized Performance** – Cached events on screen the moment a dashboard opens, every calendar loaded in parallel, and the visual editor downloaded only when you open it.
 - 🌍 **Multi-Language Support** – [Available in 38 languages](/contributing#adding-translations), with the visual editor in 12. Community contributions welcome!
 
 ## 🔗 Requirements
