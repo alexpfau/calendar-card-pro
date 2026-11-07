@@ -4,7 +4,7 @@ title: Release Notes
 
 # Calendar Card Pro v5.1.0
 
-**Open, change, move and add events right on the card.** A tapped event now opens in the card's own popover, where you change it where it is shown, move it to another calendar or delete it, and in grid view you draw a new event across the hours it should cover and drag an existing one to another time or day. A search in the toolbar looks through the card's events a year back and ahead, a swipe pages through the days, and the toolbar takes buttons of your own.
+**Open, change, move and add events right on the card.** A tapped event can now open in the card's own popover, where you change it where it is shown, move it to another calendar or delete it, and in grid view you draw a new event across the hours it should cover and drag an existing one to another time or day. A search in the toolbar looks through the card's events a year back and ahead, a swipe pages through the days, and the toolbar takes buttons of your own.
 
 Most of that is yours to turn on. Three things reach every card without a setting: on Home Assistant 2026.5 or later, an event changed anywhere appears on every open dashboard as soon as Home Assistant knows of it, with no polling; when a dashboard opens, a slow calendar no longer holds back the others; and the card redraws far less often while nothing it shows has changed. A few things change on cards you already have; they are listed under ⚠️ Changes to Existing Cards, below the new features.
 
@@ -23,7 +23,7 @@ In v5.0 a tapped event opened Home Assistant's event dialog. With `event_tap_act
 - **Delete It** - Where the calendar allows deleting, **Delete** sits at the bottom of the popover and asks first
 - **A Map for the Place** - On Home Assistant 2026.10 or later, a location that names one of your zones, or a town or city the card can place, gets a small map, and anything else a pin that opens a Google Maps search. Town and city names are looked up with Open-Meteo's free geocoding service, and [the docs say exactly what leaves your home](https://calendar-card-pro.alexpfau.com/features/actions#maps-locations)
 - **Links in the Description** - Web addresses in an event's description open in a new tab
-- **Add in the Same Place** - The add button opens the popover on a new event, below the button, with the cursor in its title, and its calendar picker lists only the card's calendars that accept new events. Every word in the popover is Home Assistant's own, in your profile's language
+- **Add in the Same Place** - The add button opens the popover on a new event, below the button, and its calendar picker lists only the card's calendars that accept new events. Every word in the popover is Home Assistant's own, in your profile's language
 - **Which Calendars You Can Edit** - Adding, changing, dragging and deleting follow what each calendar's integration declares to Home Assistant. A Local Calendar does all of it, which makes it a good one to try first; a Google calendar adds and deletes; CalDAV, iCloud included, only adds. For changing and deleting CalDAV events there is the custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav). See [What Each Integration Allows](https://calendar-card-pro.alexpfau.com/features/actions#what-each-integration-allows)
 
 `allow_event_edit: false` and `allow_event_delete: false` still take editing and Delete away on a wall tablet, and a calendar's own `show_location: false` or `show_description: false` keeps those fields out of the popover as well. See [The Event Popover](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover) and [Editing & Deleting Events](https://calendar-card-pro.alexpfau.com/features/actions#editing-deleting-events).
@@ -39,7 +39,7 @@ See [Tapping a Day to Add an Event](https://calendar-card-pro.alexpfau.com/featu
 
 ### ✋ Drag an Event to Another Time or Day
 
-In grid view, an event the popover can change moves with a drag: with a mouse at once, on a touch screen after holding it for half a second. It snaps to quarter hours and keeps its length, and a repeating event asks which occurrences move. There is no option of its own; it comes with `event_tap_action: details` on a calendar that allows changing events, which today means a Local Calendar. See [Moving Events by Drag](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag).
+In grid view, a timed event that starts and ends on one day moves with a drag: with a mouse at once, on a touch screen after holding it for half a second. It snaps to quarter hours and keeps its length, and a repeating event asks which occurrences move. There is no option of its own; it comes with `event_tap_action: details` or `event_hold_action: details`, on a calendar that allows changing events, such as a Local Calendar. See [Moving Events by Drag](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag).
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600"><br>
 
@@ -55,8 +55,8 @@ A magnifier at the end of the toolbar finds the card's events a year back and a 
 
 - **Swipe to Page** - On a touch screen, a swipe across the days pages exactly as the toolbar's arrows do, mirrored on a right-to-left dashboard. The days follow your finger a little and the new page slides in; with reduced motion on, the page simply changes. It comes with the toolbar's date navigation and needs no option of its own
 - **Hold an Event for Its Details** - `event_hold_action: details` opens the popover on a hold, so a tap stays free for something else
-- **Your Own Event Actions, With the Event's Fields** - `event_tap_action` and `event_hold_action` take Home Assistant's own actions, and `{title}`, `{start}`, `{end}`, `{all_day}`, `{location}`, `{description}` and `{calendar}` fill in the pressed event's values, such as a `url` built from its title. An event's text only ever fills an action's data or a web address's query, so whoever writes the calendar cannot choose which service runs or where a link goes
-- **Three More Card Actions** - `add-event`, `reset` and `back` join `expand` and `refresh` for the card's `tap_action` and `hold_action`. `back` returns to the page you came from, or to `navigation_path` where there is none
+- **Your Own Event Actions, With the Event's Fields** - `event_tap_action` and `event_hold_action` take Home Assistant's own actions, and `{title}`, `{start}`, `{end}`, `{all_day}`, `{location}`, `{description}` and `{calendar}` fill in the pressed event's values, such as a `url` built from its title. An event's text only ever fills an action's data, its confirmation, or the part of a link after its `?` or `#`, so whoever writes the calendar cannot choose which service runs or where a link goes
+- **Three More Card Actions** - `add-event`, `reset` and `back` join `expand` and `refresh` for the card's `tap_action` and `hold_action`. `back` returns to the page you came from, or where there is none, to the dashboard's first view or a `navigation_path` of your own
 
 See [Paging Through Dates](https://calendar-card-pro.alexpfau.com/features/layout-appearance#paging-through-dates), [Holding an Event](https://calendar-card-pro.alexpfau.com/features/actions#holding-an-event), [Using the Event's Fields in an Action](https://calendar-card-pro.alexpfau.com/features/actions#using-the-events-fields-in-an-action) and [Available Actions](https://calendar-card-pro.alexpfau.com/features/actions#available-actions).
 
@@ -78,7 +78,7 @@ A calendar's `name` now names it wherever the card does: in the toolbar's chips 
 
 ### 🧩 Two Interactive Starting Points in the Card Picker
 
-Adding the card from Home Assistant's card picker now offers **Calendar Card Pro - Interactive List** and **Calendar Card Pro - Interactive Time Grid** first. They start with the toolbar, the event popover and tap to add turned on, so a new card can page, search, edit and add from the start. Existing cards and every default are unchanged. The help icon in Home Assistant's card editor now opens the documentation site. See [Adding the Card to Your Dashboard](https://calendar-card-pro.alexpfau.com/guide/usage#adding-the-card-to-your-dashboard).
+On Home Assistant 2026.6 or later, picking a calendar in the card picker's **By entity** tab now offers **Calendar Card Pro - Interactive List** and **Calendar Card Pro - Interactive Time Grid** first. They start with the toolbar, the event popover and tap to add turned on, so a new card can page, search, edit and add from the start. Existing cards and every default are unchanged. The help icon in Home Assistant's card editor now opens the documentation site. See [Adding the Card to Your Dashboard](https://calendar-card-pro.alexpfau.com/guide/usage#adding-the-card-to-your-dashboard).
 
 ## ⚡ Live Updates & Faster Loads
 
@@ -96,9 +96,8 @@ None of this needs a setting, so every card gets it.
 - **Swipes and Empty Toolbar Space** - On a card with the toolbar's date navigation, a sideways swipe now pages. A press on the toolbar's empty space now runs the card's `tap_action` or `hold_action`, as a press on its title always did
 - **Home Assistant Actions on Events Now Run** - v5.0 left a tap on an event to the card's `tap_action` for any `event_tap_action` other than `details`. An action such as `navigate` or `url` set there now runs instead
 - **`refresh_interval` Applies Only When Not Live** - On Home Assistant 2026.5 or later the card no longer polls; `refresh_interval` applies to older versions, and to a calendar whose integration cannot be read until it can again
-- **`allday_expires_at` Retires on Time** - With past events hidden, an all-day event now leaves the card at the time you set, within a minute in a grid showing its now line. Before, it stayed until the card next redrew for some other reason, such as a refresh
 - **Colors Mix in Oklab** - Accents, tints and the today tile are now mixed in Oklab rather than OKLCH. On the default themes in current browsers nothing changes; on a theme whose text or card color is a tinted gray, mixed colors shift slightly, because they no longer take on that gray's hue
-- **The `pulse` Today Indicator Sits Centered** - It was drawn off-center by half its size, down and to one side, so it moves on cards that use it. It also holds still when the device asks for reduced motion
+- **The `pulse` Today Indicator Sits Centered** - In list view it was drawn off-center by half its size, down and to one side, so it moves on list cards that use it. It also holds still when the device asks for reduced motion
 - **`today_indicator` Keywords in Any Casing** - `Tile`, `Dot`, `Pulse` and `Glow` now draw the indicator rather than the word
 - **Card-Mod on the Filter Menu** - A background that card-mod gives `.legend-menu` now applies exactly as written, so make it opaque, or events show through the menu
 - **The Visual Editor Keeps What You Wrote** - Saving in the editor, or answering its upgrade question, no longer deletes the lines you had written out at their default value
@@ -121,8 +120,8 @@ None of this needs a setting, so every card gets it.
 ### Loading & Refreshing
 
 - **The New Day Arrived Late at Midnight** - A card whose dates follow today showed the newest day without its events after midnight until its next refresh, up to 30 minutes later by default, and the time grid stayed on yesterday for up to a minute
-- **Deleted Events Stayed While Another Calendar Was Down** - While one calendar could not be reached, events removed from the others stayed on the card until it came back, and a failing calendar's last events could vanish before the 24 hours the card promises to keep them
-- **An Emptied Calendar Refilled Itself** - In a browser whose storage was full, blocked or private, a calendar that had emptied and then failed to load showed its old events again for up to a day. Cards that share calendars also now share what they loaded there, rather than each asking Home Assistant again
+- **Deleted Events Stayed While Another Calendar Was Down** - While one calendar could not be reached, another calendar emptied of its events could go on showing them until the first came back, and a failing calendar's last events could vanish before the 24 hours the card promises to keep them
+- **An Emptied Calendar Refilled Itself** - In a browser whose storage was full, a calendar that had emptied and then failed to load showed its old events again for up to a day. Where storage is full, blocked or private, cards that share calendars also now share what they loaded, rather than each asking Home Assistant again
 - **Added Days Flashed "No Events"** - Raising `days_to_show` drew the new days as empty for a moment before their events loaded
 - **A New First Weekday Left a Day Empty** - With `first_day_of_week: system` and a week-relative `start_date`, changing the first day of the week or the language in your profile showed the new week with the day it gained empty until the next refresh
 - **Old Events After a Write** - With `refresh_on_navigate: false`, an event added, changed or deleted from the card could still show its old state on a reload or on another card until the next refresh
@@ -132,7 +131,7 @@ None of this needs a setting, so every card gets it.
 
 - **Broken HTML in a Description Could Freeze the Dashboard** - An event whose description held tags that never close took seconds to draw, every time the card drew it, and anyone who can write to a calendar could do that. It now takes milliseconds
 - **A Day Went Missing Where Clocks Change at Midnight** - In time zones such as the Azores, Chile, Lebanon and Cuba, a multi-day all-day event lost a day across the night the clocks changed, most visibly in column view, and in grid view an event carried over from the evening before started an hour down
-- **A Grid Event Running Past Midnight Never Said When It Ended** - In grid view, an event running into the next day showed only its start time, so on the last day the card shows, or below the hours it draws, its end appeared nowhere. Its first block now reads `22:05 - 1:35 (+1)`, the number counting the days to the end, and one running until the midnight after it starts reads `22:00 - 0:00` instead of "22:00, ends tomorrow at 0:00" (#768)
+- **A Grid Event Running Past Midnight Never Said When It Ended** - In grid view, an event running into the next day showed only its start time, so on the last day the card shows, or below the hours it draws, its end appeared nowhere. Its first block now reads "22:05 - 1:35 (+1)", the number counting the days to the end, and one running until the midnight after it starts reads "22:00 - 0:00" instead of "22:00, ends tomorrow at 0:00" (#768)
 - **Countdowns in Narrow Places** - In narrow grid blocks a countdown could break a time that fit onto two lines, push the time out altogether, or start a line with its dot; in column view countdowns split as "to-morrow", and beside the ALL DAY pill the pill shrank to "A…"; on a narrow list card a long countdown was cut off at the card's edge
 - **12-Hour Times Split From AM and PM** - On narrow cards "12:30" and "PM" could land on different lines
 - **Grid Words Broke Where They Fit** - In narrow grid blocks, descriptions and locations broke inside words that would have fit ("Brin" / "g"), and a Thai, Hebrew or Arabic title dropped below its calendar label, leaving the label alone on the first line
@@ -159,7 +158,7 @@ None of this needs a setting, so every card gets it.
 - [#718](https://github.com/alexpfau/calendar-card-pro/issues/718) - Your own toolbar buttons by @alexpfau
 - [#742](https://github.com/alexpfau/calendar-card-pro/issues/742) - v5.0.0 crashes the Shelly Wall Display on Android 7 by @twomore, who sent the logs, confirmed the fix on the panel and spotted the light-yellow Now color that led to the Oklab change
 - [#746](https://github.com/alexpfau/calendar-card-pro/issues/746) - v5.0.0 times out headless Chromium screenshots by @MarioKuester, the same cause as #742
-- [#768](https://github.com/alexpfau/calendar-card-pro/issues/768) - Show the end time of an event that runs into the next day by @jangerlach — answered in grid view by the end and its `(+1)` on the event's first block
+- [#768](https://github.com/alexpfau/calendar-card-pro/issues/768) - Show the end time of an event that runs into the next day by @jangerlach — answered in grid view by the end and its "(+1)" on the event's first block
 - [#37](https://github.com/alexpfau/calendar-card-pro/issues/37) - Time and title on the same line by @perolamlarsson, and [#243](https://github.com/alexpfau/calendar-card-pro/issues/243) by @voyagers21 — answered by `time_position: title`, which puts the time after the title
 - [#259](https://github.com/alexpfau/calendar-card-pro/issues/259) - Right-to-left event alignment by @dmatik, whose follow-up about the gap beside the time icon the right-to-left fixes answer
 - [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The time-grid proposal by @lenaxia. Swipe and the event popover ship here; the one-day step, scrolling to the current time and copying a location do not, so it **stays open**
