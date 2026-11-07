@@ -88,7 +88,7 @@ With `show: true`, `toolbar` adds two rows. The lower one carries the title _Fam
 
 `legend: chips` puts a chip in each calendar's color in that row. It is the key to the colors and a switch that hides that calendar on this device. Where they do not all fit, as on a phone, they fold into the filter button, a menu with a checkbox per calendar. See [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 
-The top row holds the rest. Add opens Home Assistant's new-event dialog with the first calendar that accepts new events preselected, Anna's here, and refresh loads the events now. See [Add Event Button](/features/actions#add-event-button).
+The top row holds the rest. Add opens a new event in the card's popover, in the first calendar that accepts new events, Anna's here, and refresh loads the events now. See [Add Event Button](/features/actions#add-event-button).
 
 Reset is off by default, and `reset: true` turns it on for a shared wall. It appears only once someone on this device has paged away, switched layouts or hidden a calendar, and one press puts it all back for whoever walks up next. On a card only you use, leave it off. See [Resetting the Card](/features/layout-appearance#resetting-the-card).
 
@@ -152,9 +152,9 @@ The wall is a 1280 × 800 tablet. A [panel view](https://www.home-assistant.io/d
 
 ## 🔒 Shared-Screen Safety
 
-`event_tap_action: details` opens a tapped event in Home Assistant's own dialog, with its description, its location, which the grid leaves off its blocks, and how it repeats. The dialog shows the event as the calendar stores it, so Grandma's birthday appears there without her age. See [Tapping an Event](/features/actions#tapping-an-event).
+`event_tap_action: details` opens a tapped event in the card's popover, beside it, with its description, its location, which the grid leaves off its blocks, and how it repeats. The age is the card's own addition, so Grandma's birthday appears there without it. See [Tapping an Event](/features/actions#tapping-an-event).
 
-Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the dialog also offers **Edit** and **Delete**: a Local Calendar both, a Google calendar only Delete. Neither appears on a merged shared plan, where one copy cannot speak for the others. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card.
+Where the calendar's [integration allows it](/features/actions#what-each-integration-allows), the event can also be changed right there, and **Delete** removes it: a Local Calendar allows both, a Google calendar only Delete. Neither is offered on a merged shared plan, where one copy cannot speak for the others. To keep them off a screen everyone walks past, add `allow_event_edit: false` and `allow_event_delete: false` to the card.
 
 ## 🔀 Variations
 
@@ -199,6 +199,8 @@ entities:
 
 [`replace_with: Work`](/features/core-settings#hiding-what-an-event-is-about) replaces every title with _Work_, and Ben's face says whose it is. The gray is quieter than his own blue on purpose, because the working day is background. Grid hides locations already, but List and Columns show them, so `show_location: false` keeps a meeting room off the phone, and `show_description: false` keeps an agenda off even if descriptions are turned on for the whole card.
 
+One gap remains. A tap opens a work event in the [event popover](/features/actions#event-details), which says _Work_ too but shows the location and the description these two options keep off the card, and the real title once someone starts editing it. Where that matters more than the details, leave `event_tap_action` off this card.
+
 To let some work events keep their real title, such as a late finish the family plans around, split the calendar into two blocks on a marker, as the Family Agenda's [Busy & Nothing Else](/guide/one-calendar-many-purposes#busy-nothing-else) does. The two blocks work in the grid unchanged.
 
 ## 📚 Next Steps
@@ -207,5 +209,5 @@ To let some work events keep their real title, such as a late finish the family 
 - [Header Toolbar](/features/layout-appearance#header-toolbar) — the switcher, the chips, paging and Reset in full
 - [Grid View](/features/grid-view) — every grid option, from the hours to overlapping events
 - [Column View](/features/column-view) — what Columns overrides, and how it falls back on narrow screens
-- [Actions](/features/actions) — the event dialog, editing, deleting and the add button
+- [Actions](/features/actions) — the event popover, editing, deleting and the add button
 - [Configuration Reference](/reference/configuration) — the complete option table

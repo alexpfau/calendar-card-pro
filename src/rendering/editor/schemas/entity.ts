@@ -327,10 +327,12 @@ function labelFields(
  * carries**. Every category shared with the card-level panel appears in the same relative
  * order there, and the keys inside a shared category start the same way.
  *
- * `Label & Colors` leads, and is deliberately *outside* that spine rather than an
- * exception to it. It selects nothing, arranges nothing and populates nothing — it names
+ * `Name, Label & Colors` leads, and is deliberately *outside* that spine rather than an
+ * exception to it. It selects nothing, arranges nothing and populates nothing — it says
  * which calendar is being edited. Identity precedes configuration, which is also why the
- * card-level panel has no counterpart: a card is not one of several.
+ * card-level panel has no counterpart: a card is not one of several. `name` opens it,
+ * because a name is the purest identity there is: it changes nothing about how an event
+ * looks, only what the card calls the calendar it came from.
  *
  * `Text Replacement` is likewise outside it, and is the one category this panel carries
  * that the card-level one does not. It rewrites what a row says rather than deciding which
@@ -344,6 +346,7 @@ function labelFields(
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
     heading('heading_appearance'),
+    text('name'),
     labelType(ctx.language),
     labelIconSource(ctx.language),
     labelImageSource(ctx.language),

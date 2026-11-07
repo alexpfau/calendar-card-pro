@@ -14,7 +14,8 @@ import * as Localize from '../translations/localize';
 import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
-import { splitTitleWords } from '../utils/title-words';
+import * as Links from '../utils/links';
+import { splitTitleWords, titleDirection } from '../utils/title-words';
 import * as Weather from '../utils/weather';
 
 //-----------------------------------------------------------------------------
@@ -119,8 +120,11 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param separator Optional rule under the header
  * @param hass Home Assistant instance, whose country decides which days are the weekend,
  *   or its language when no country is set
- * @param id The header's id, given only while the day's events are tap targets; see
- *   `dayLabelId` in `activation.ts`
+ * @param id The day's id, given only while the day's events are tap targets or the header is
+ *   the day's add button; see `dayLabelId` in `activation.ts`
+ * @param dayAdd The header as the day's add button: its name and its day. While it is one,
+ *   the id moves from the header to the date inside it, which describes the button and the
+ *   day's events alike; on the header it would describe both by the button's name.
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -132,6 +136,7 @@ export function renderSharedDayHeader(
   separator?: { width: string; color: string } | null,
   hass?: Types.Hass | null,
   id?: string,
+  dayAdd?: { label: string; timestamp: number },
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -147,13 +152,22 @@ export function renderSharedDayHeader(
     : nothing;
 
   return html`
-    <div class="column-day-header" id=${id ?? nothing}>
+    <div
+      class=${dayAdd ? 'column-day-header day-add-button' : 'column-day-header'}
+      id=${dayAdd ? nothing : (id ?? nothing)}
+      role=${dayAdd ? 'button' : nothing}
+      tabindex=${dayAdd ? '0' : nothing}
+      aria-label=${dayAdd ? dayAdd.label : nothing}
+      aria-describedby=${dayAdd && id ? id : nothing}
+      .calendarCardDayAdd=${dayAdd?.timestamp}
+    >
       <div
         class=${classMap({
           'column-date-content': true,
           'with-today-indicator': hasInlineIndicator,
           'with-today-tile': isTileIndicator(config),
         })}
+        id=${dayAdd && id ? id : nothing}
       >
         ${todayIndicator}
         ${renderDateContent(date, config, language, isToday, weatherContent, hass)}
@@ -365,8 +379,13 @@ export function renderLabel(
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
   return html`<span class="calendar-label${glyphClass}">${label}</span>`;
 }
+
 /**
  * Render an event title with optional label and weather data
+ *
+ * `aside` is `time_position: title`'s time row. Given one, the title always scrolls, and the
+ * row draws it after the title in `.title-aside`, after list view's weather badge. Without one
+ * the row is the markup every view drew before the option existed.
  */
 function renderEventTitle(
   event: Types.CalendarEventData,
@@ -377,6 +396,7 @@ function renderEventTitle(
   mergedLabels?: Types.ResolvedLabel[],
   titleWords = false,
   entityLabelAlt = '',
+  aside?: TemplateResult,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -397,7 +417,9 @@ function renderEventTitle(
   const labelType = event._matchedConfig?.label_type;
 
   const titleString = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
-  const scrollTitles = config.scroll_long_titles;
+  // A title with a time beside it always scrolls: the time takes the line's end, and the title
+  // has one line beside it whatever `scroll_long_titles` says.
+  const scrollTitles = aside !== undefined || config.scroll_long_titles;
   // No whitespace inside the word spans, and the spaces between them stay text: joined, the
   // pieces are the title exactly, so its text content does not change.
   //
@@ -473,7 +495,7 @@ function renderEventTitle(
 
   // A merged row answers for every calendar that contributed a copy, so it draws each of
   // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
-  // the `margin-right` every label kind already carries. The branch is behavioral rather
+  // the inline-end margin every label kind already carries. The branch is behavioral rather
   // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
   // merge whose winner carries none renders as it always has.
   const labels = mergedLabels
@@ -518,6 +540,22 @@ function renderEventTitle(
   // the dashboard's side; see the matching rule in styles.ts.
   const titleDir = titleWords && !scrollTitles ? 'auto' : nothing;
 
+  // A list or column title cut by `title_max_lines` lays out its whole line, labels included,
+  // in its own direction. The clamp puts its "…" at the end of the line in the direction of
+  // the box it clamps, so a title running against the dashboard (English on a Hebrew one,
+  // Hebrew on an English one) ended in "…" at its own start and lost its first letters, in
+  // Chromium, WebKit and Firefox alike, at one line and at three. Only the whole line's
+  // direction moves the "…": the title's own, through `dir="auto"` as grid has it, does not
+  // once a label shares the line. So the label leads the title in the title's own reading
+  // order on such a line, and the stylesheet keeps the line on the dashboard's side.
+  // Unclamped titles, the empty-day line and grid, which cuts its titles itself, are left as
+  // they were; so is the dir attribute on a title in the dashboard's direction, which moves
+  // nothing.
+  const summaryDir =
+    !titleWords && !scrollTitles && !isEmptyDay && config.title_max_lines > 0
+      ? (titleDirection(event.summary ?? '') ?? nothing)
+      : nothing;
+
   // 🚨 No whitespace between the last label and the title, and none inside the title before
   // its text, wherever a label is drawn. Lit keeps both as text nodes, and inline layout
   // collapses them into one visible word space after the label: about 3px on top of the
@@ -543,13 +581,28 @@ function renderEventTitle(
           ${titleInner}
         </span>`;
 
+  // The title line of `time_position: title`: the scrolling title, then the badge and the time
+  // together in `.title-aside`, which the stylesheet caps so the title keeps the rest. No
+  // directive here: every element in this template is a flex container, which draws none of the
+  // whitespace between its children, so Prettier may lay the template out as it likes.
+  if (aside) {
+    return html`
+      <div class="summary-row">
+        <div class="summary${scrollTitles ? ' summary-scroll' : ''}">${title}</div>
+        <div class="title-aside">
+          ${renderEventWeather(event, config, weatherForecasts)}${aside}
+        </div>
+      </div>
+    `;
+  }
+
   // Prettier pulls `${title}` up beside the tags around it, and the list and column DOM
   // snapshots record the whitespace that separates the summary from its title. The same
   // experiment as above shows it.
   // prettier-ignore
   return html`
     <div class="summary-row">
-      <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
+      <div class="summary${scrollTitles ? ' summary-scroll' : ''}" dir=${summaryDir}>
         ${title}
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -820,6 +873,39 @@ export interface EventContentOptions {
    * than wraps. See `splitTitleWords`.
    */
   titleWords?: boolean;
+  /**
+   * Draw the web addresses in the location and the description as links (`open_links`). List
+   * and column set it from `rowLinksOn`; grid never does, because its blocks draw their words
+   * for the eye only. Rows holding no link draw their text exactly as they do without it.
+   */
+  links?: boolean;
+  /**
+   * Where the time row goes (`time_position`): `'below'` under the title, which is the markup
+   * every view drew before the option existed, or `'title'` at the end of the title's line, on a
+   * row with a time or a countdown, where it stays at any width. In that mode the countdown folds
+   * into the time text and the progress bar takes a row of its own, whatever the two placements
+   * above ask for. List and column pass their resolved value; grid never does, because its blocks
+   * fit their own rows, and this function never reads the option from `config`.
+   */
+  timePosition?: Helpers.TimePosition;
+}
+
+/**
+ * Text and links for a location or a description: each link a real `<a>` through Lit
+ * bindings, so no event text becomes markup, opening in a new tab with no opener and no
+ * referrer. The words stay exactly as the row shows them.
+ *
+ * @param pieces - The row's text as pieces
+ * @returns The pieces, drawn
+ */
+function renderLinkedText(pieces: ReadonlyArray<Links.TextPiece>): unknown[] {
+  return pieces.map((piece) =>
+    'href' in piece
+      ? html`<a class="event-link" href=${piece.href} target="_blank" rel="noopener noreferrer"
+          >${piece.text}</a
+        >`
+      : piece.text,
+  );
 }
 
 /**
@@ -840,12 +926,19 @@ export function renderEventContent(
   const {
     weatherForecasts,
     weatherPlacement = 'title',
-    progressPlacement = 'inline',
-    countdownPlacement = 'trailing',
+    progressPlacement: requestedProgressPlacement = 'inline',
+    countdownPlacement: requestedCountdownPlacement = 'trailing',
     hass,
     splitTimeEnd = false,
     titleWords = false,
+    links = false,
+    timePosition = 'below',
   } = options;
+  // Beside the title nothing trails the time: the countdown folds into its text and the bar
+  // takes a row of its own, in list view as column view always draws them.
+  const besideTitle = timePosition === 'title';
+  const progressPlacement = besideTitle ? 'row' : requestedProgressPlacement;
+  const countdownPlacement = besideTitle ? 'text' : requestedCountdownPlacement;
   const {
     eventTime,
     eventTimeEnd,
@@ -862,6 +955,15 @@ export function renderEventContent(
     mergedLabels,
     nowLabel,
   } = parts;
+
+  // Pieces only where a field holds a link, so every other row binds its plain string as before.
+  const linked = links
+    ? Links.rowLinks({ location: eventLocation, description: eventDescription }, event._source)
+    : undefined;
+  const locationText = linked?.location ? renderLinkedText(linked.location) : eventLocation;
+  const descriptionText = linked?.description
+    ? renderLinkedText(linked.description)
+    : eventDescription;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
   const showInlineProgress = hasProgressBar && progressPlacement === 'inline';
@@ -900,6 +1002,9 @@ export function renderEventContent(
       ? eventTimeEnd
       : null;
 
+  // The text before a droppable end, which the end's own layout depends on (see below).
+  const timeHead = splitEnd ? eventTime.slice(0, -splitEnd.length) : eventTime;
+
   // No whitespace inside the split: a text node between the two spans would put a second
   // space in the middle of "10:00 - 12:00".
   //
@@ -909,11 +1014,15 @@ export function renderEventContent(
   // >` -- so no text node appears and the DOM is identical. What it buys is that the source
   // reads as the single line the browser sees, instead of the `>`-on-its-own-line form that
   // is exactly what the two lines above are warning about.
+  //
+  // Each piece goes through `isolateClockReadings`, so a 12-hour reading reads as one unit in a
+  // right-to-left card. The end is handed the text before it, because how each reading
+  // is laid out depends on the letter that precedes it.
   // prettier-ignore
   const timeValue = eventTime
     ? splitEnd
-      ? html`<span>${eventTime.slice(0, -splitEnd.length)}<span class="time-end">${splitEnd}</span></span>`
-      : html`<span>${eventTime}</span>`
+      ? html`<span>${FormatUtils.isolateClockReadings(timeHead)}<span class="time-end">${FormatUtils.isolateClockReadings(splitEnd, timeHead)}</span></span>`
+      : html`<span>${FormatUtils.isolateClockReadings(eventTime)}</span>`
     : nothing;
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
@@ -955,6 +1064,38 @@ export function renderEventContent(
   const timeContent = nowLabel
     ? html`<span class="now-time"><span class="now-indicator">${nowLabel}</span>${timeText}</span>`
     : timeText;
+
+  // `time_position: title`, on a row with a time or a countdown to put beside the title. Every
+  // other row, an empty day's included, keeps the template below, with the placements above.
+  // The title-line markup is a function of its own, after this one, so the template below stays
+  // the markup every view drew before the option existed.
+  if (besideTitle && (shouldShowTime || countdownStr)) {
+    return renderTimeBesideTitle({
+      title: (aside) =>
+        renderEventTitle(
+          event,
+          config,
+          entityLabel,
+          titleForecasts,
+          titlePill,
+          mergedLabels,
+          titleWords,
+          entityLabelAlt,
+          aside,
+        ),
+      shouldShowTime,
+      allDayBadgeEl,
+      timeContent,
+      countdownStr,
+      progressRow,
+      weatherRow,
+      eventLocation,
+      locationIcon,
+      locationText,
+      eventDescription,
+      descriptionText,
+    });
+  }
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
   // the source-shape guard on the `: ''` idiom here ("preserves no-output idioms at
@@ -1010,7 +1151,7 @@ export function renderEventContent(
           ? html`
               <div class="location">
                 <ha-icon icon="${locationIcon}"></ha-icon>
-                <span>${eventLocation}</span>
+                <span>${locationText}</span>
               </div>
             `
           : ''}
@@ -1018,10 +1159,84 @@ export function renderEventContent(
           ? html`
               <div class="description">
                 <ha-icon icon="mdi:information-outline"></ha-icon>
-                <span>${eventDescription}</span>
+                <span>${descriptionText}</span>
               </div>
             `
           : ''}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * What `renderTimeBesideTitle` lays out, computed once by `renderEventContent` so that neither
+ * function derives a piece of the row the other already has.
+ */
+interface TimeBesideTitlePieces {
+  /** The title line, drawn with the given time row after the title. */
+  title: (aside: TemplateResult) => TemplateResult;
+  shouldShowTime: boolean;
+  allDayBadgeEl: TemplateResult | typeof nothing;
+  timeContent: TemplateResult | typeof nothing;
+  countdownStr: string | null;
+  progressRow: TemplateResult | typeof nothing;
+  weatherRow: TemplateResult | typeof nothing;
+  eventLocation: string;
+  locationIcon: string;
+  locationText: unknown;
+  eventDescription: string;
+  descriptionText: unknown;
+}
+
+/**
+ * An event body with its time at the end of the title's line (`time_position: title`).
+ *
+ * The time keeps the classes and rules it has below the title, so its "Now" run, an all-day
+ * badge, a clamp and the folded countdown look as they do there. It drops its clock, since the
+ * title already leads the line, and anything that would trail it: the countdown is folded into
+ * the time text and the progress bar is the row of its own `renderEventContent` passes here,
+ * in list view as in column view. With times off, the countdown alone takes the time's place.
+ *
+ * The title always scrolls, so every row drawn here lays out the same way: the time takes what
+ * it needs, normally up to a cap the stylesheet sets, and the title has the rest of the line. Everything else
+ * stays below in its usual order: the progress row, column view's weather row, the location
+ * and the description. tests/time-position.test.ts holds those, and the title, to the markup
+ * the card draws without the option.
+ *
+ * `time-beside-title` on `.event-content` is what the stylesheet keys on; see the block of rules
+ * under that name.
+ *
+ * @param pieces - The row's parts, as `renderEventContent` computed them
+ * @returns Rendered event body
+ */
+function renderTimeBesideTitle(pieces: TimeBesideTitlePieces): TemplateResult {
+  const { shouldShowTime, allDayBadgeEl, timeContent, countdownStr } = pieces;
+
+  const timeRow = shouldShowTime
+    ? html`<div class="time"><div class="time-actual">${allDayBadgeEl}${timeContent}</div></div>`
+    : html`<div class="time"><div class="time-countdown">${countdownStr}</div></div>`;
+
+  return html`
+    <div class="event-content time-beside-title">
+      ${pieces.title(timeRow)}
+      <div class="time-location">
+        ${pieces.progressRow} ${pieces.weatherRow}
+        ${
+          pieces.eventLocation
+            ? html`<div class="location">
+                <ha-icon icon="${pieces.locationIcon}"></ha-icon>
+                <span>${pieces.locationText}</span>
+              </div>`
+            : nothing
+        }
+        ${
+          pieces.eventDescription
+            ? html`<div class="description">
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+                <span>${pieces.descriptionText}</span>
+              </div>`
+            : nothing
+        }
       </div>
     </div>
   `;
@@ -1048,19 +1263,24 @@ export function renderAccentBar(): TemplateResult {
 /**
  * Parse position from CSS-like syntax (e.g., "10% 50%") and convert to absolute positioning styles with centering transform
  *
+ * The first value is measured from the inline start, so the indicator mirrors in a
+ * right-to-left card, and the translation that centers it on that point reads its horizontal
+ * half from `--calendar-card-today-indicator-shift`, which the stylesheet turns around there.
+ * Unset, as in every left-to-right card, it is the -50% this always was.
+ *
  * @param position Position in CSS-like syntax ("x y" format)
  * @returns Style object with positioning properties
  */
 function parseIndicatorPosition(position: string): Record<string, string> {
   const positionStyles: Record<string, string> = {
     position: 'absolute',
-    transform: 'translate(-50%, -50%)',
+    transform: 'translate(var(--calendar-card-today-indicator-shift, -50%), -50%)',
   };
 
   const parts = position.trim().split(/\s+/);
 
   if (parts.length >= 1) {
-    positionStyles.left = parts[0];
+    positionStyles['inset-inline-start'] = parts[0];
   }
 
   if (parts.length >= 2) {

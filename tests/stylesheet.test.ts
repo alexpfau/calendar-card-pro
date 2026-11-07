@@ -583,7 +583,7 @@ describe('card stylesheet', () => {
     it.each(['.label-icon', '.label-image', '.calendar-label'])(
       '%s carries the 4px margin the indent arithmetic assumes',
       (selector) => {
-        expect(declared(selector, 'margin-right')).toBe('4px');
+        expect(declared(selector, 'margin-inline-end')).toBe('4px');
       },
     );
   });
@@ -742,14 +742,15 @@ describe('card stylesheet', () => {
     it('cannot reach the list view badge', () => {
       // The scoping is the whole safety argument for a change made in CSS: a bare
       // `.event-weather span + span::before` would separate the title-row badge too,
-      // which is a layout the maintainer has frozen.
+      // which is a layout the maintainer has frozen. The second rule only isolates the
+      // separators in right-to-left (rtl-mirroring.test.ts), under the same scope.
       const separators = RULES.filter((rule) =>
         rule.selectors.some((s) => s.includes('span + span::before')),
       );
 
-      expect(separators).toHaveLength(1);
-      expect(separators[0].selectors).toEqual([
-        '.time-location .event-weather .event-weather-text > span + span::before',
+      expect(separators.map((rule) => rule.selectors)).toEqual([
+        ['.time-location .event-weather .event-weather-text > span + span::before'],
+        ['.time-location .event-weather:dir(rtl) .event-weather-text > span + span::before'],
       ]);
     });
 
@@ -882,7 +883,7 @@ describe('card stylesheet', () => {
 
       expect(declared(selector, 'margin-inline-start')).toBe('0');
       expect(declared(selector, 'font-weight')).toBe('normal');
-      expect(declared('.event-weather .weather-uv-index', 'margin-left')).toBe('2px');
+      expect(declared('.event-weather .weather-uv-index', 'margin-inline-start')).toBe('2px');
     });
 
     it('relies on the list header being a flex container, which discards whitespace', () => {
@@ -1073,9 +1074,20 @@ describe('card stylesheet', () => {
       expect(declared(selector, 'content')).toBe("'·'");
       expect(declared(selector, 'margin-inline-end')).not.toBe('');
 
-      const rules = RULES.filter((rule) =>
+      // One more rule names the separator only to take it away: beside the title
+      // (`time_position: title`) a countdown alone in the time row follows the title, not a
+      // time, so it draws no dot. Removing a dot cannot put one in the list view, so the
+      // invariant is about the rules that draw one; the remover is pinned by name, so a
+      // second rule hiding behind `content: none` still fails here.
+      const all = RULES.filter((rule) =>
         rule.selectors.some((s) => s.includes('.time-countdown::before')),
       );
+      const removes = (rule: (typeof all)[number]) =>
+        /(^|;)\s*content:\s*none\s*(;|$)/.test(rule.body);
+      expect(all.filter(removes).map((rule) => rule.selectors)).toEqual([
+        ['.time-beside-title > .summary-row > .title-aside > .time > .time-countdown::before'],
+      ]);
+      const rules = all.filter((rule) => !removes(rule));
       expect(rules).toHaveLength(2);
       for (const rule of rules) {
         for (const s of rule.selectors) {
@@ -1087,9 +1099,11 @@ describe('card stylesheet', () => {
       }
     });
 
-    it('keeps the countdown from breaking mid-phrase in list view, and lets it wrap here', () => {
-      // The list view keeps its single line: the event cell is as wide as the card, so
-      // there is nothing for wrapping to buy there.
+    it('keeps the countdown on one line in list view while it fits, and lets it wrap here', () => {
+      // The list view keeps its single line wherever the phrase fits the row, the event cell
+      // being as wide as the card. Only a phrase wider than the whole row wraps, between its
+      // words, through the rule pinned in "wraps list view's countdown only where it is wider
+      // than its row" below (backlog item 139).
       expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
 
       // The column releases it, and that is the indent above paying its own bill.
@@ -1209,6 +1223,157 @@ describe('card stylesheet', () => {
 
       expect(declared(selector, '-webkit-line-clamp')).toBe('none');
       expect(declared(selector, 'overflow')).toBe('visible');
+    });
+
+    it('lets a folded countdown follow the end time in grid when the range wraps', () => {
+      // The wrapped rung puts the end time on a line of its own. As a block it ended its line
+      // too, and the countdown started a third one with its dot; with a folded countdown it
+      // stays inline behind a line break, so the countdown continues after it. A row without
+      // a countdown keeps the block, which carries its own ellipsis.
+      const plain = '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end';
+      const folded =
+        '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-text .time-end';
+      expect(declared(plain, 'display')).toBe('block');
+      expect(declared(folded, 'display')).toBe('inline');
+      expect(declared(`${folded}::before`, 'content')).toBe("'\\A'");
+      expect(declared(`${folded}::before`, 'white-space')).toBe('pre');
+
+      // Its words wrap as the weather chips do: inside a word only when one cannot fit a
+      // line, and never hyphenated, though the card hyphenates its text.
+      const words = '.grid-event-disclosure .time .time-actual .time-text > .time-countdown';
+      expect(declared(words, 'overflow-wrap')).toBe('break-word');
+      expect(declared(words, 'hyphens')).toBe('manual');
+    });
+
+    it('never hyphenates a countdown, in any view or placement', () => {
+      // `.content-container` hyphenates the card's text, which is right for a title and wrong
+      // for a generated phrase: column view split "tomorrow" as "to-" / "morrow" after the
+      // time in Chromium, WebKit and Firefox rather than move it whole to the next line.
+      // Declared on the base rule, so the folded span and column's leftover div both carry
+      // it. `manual` rather than `none`, as grid's, so an explicit soft hyphen still counts.
+      expect(declared('.time-countdown', 'hyphens')).toBe('manual');
+      for (const rule of RULES.filter((r) =>
+        r.selectors.some((s) => s.includes('.time-countdown')),
+      )) {
+        expect(rule.body).not.toMatch(/hyphens\s*:\s*auto/);
+      }
+
+      // Titles keep theirs.
+      expect(declared('.content-container', 'hyphens')).toBe('auto');
+      expect(declared('.event-title', 'hyphens')).toBe('');
+    });
+
+    it("wraps list view's countdown only where it is wider than its row, not where it fitted", () => {
+      // The trailing countdown is a nowrap flex item at min-width: auto, so alone on its line
+      // it could not shrink below its phrase, and in Chromium, WebKit and Firefox "kahden
+      // päivän päästä" ran 22px past the edge of a 200px card. A box the width of the row at
+      // most, that never shrinks, leaves every countdown that fitted where it was, its end
+      // gutter included, and wraps only the one that did not.
+      const list = 'td.event .time-location > .time > .time-countdown';
+      expect(declared(list, 'max-width')).toBe('100%');
+      expect(declared(list, 'flex-shrink')).toBe('0');
+      expect(declared(list, 'white-space')).toBe('normal');
+      expect(declared(list, 'overflow-wrap')).toBe('break-word');
+      expect(declared(list, 'text-align')).toBe('end');
+      // Every other placement keeps the base rule's single line.
+      expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
+    });
+
+    it('breaks a column countdown word only where it cannot fit a line, never off its dot', () => {
+      // anywhere, not break-word: a word breaks inside only where it cannot fit a line of its
+      // own, and it no longer holds the row at its own width. With hyphenation gone that
+      // width is a whole word, and `.time-actual`, a flex item at min-width: auto, stood
+      // "tomorrow" up to 9px out of an 80px column.
+      expect(declared('.column-events .time-countdown', 'overflow-wrap')).toBe('anywhere');
+
+      // The time and its dot still hold the row. Letting the row shrink instead (min-width:
+      // 0) let break-word split the joiner from the dot, and Firefox then started 56 lines
+      // with the dot. So the row keeps its floor, and the countdown's anywhere stops at the
+      // separator, which the countdown's own rule would otherwise hand down to it.
+      expect(declared('.column-events .time-actual', 'min-width')).toBe('');
+      expect(declared('.column-events .time-countdown::before', 'overflow-wrap')).toBe('normal');
+    });
+
+    it('ends a column badge row with its dot when the countdown wraps under the pill', () => {
+      // Squeezed beside the pill, the countdown broke inside its words, "to- / mor- / row";
+      // moved under it whole, it would start its line with the dot, which a countdown never
+      // does. So the row wraps, and the countdown and its wrapper give up their boxes: the
+      // dot and the words become items of the row, and only the words move under the pill,
+      // "[ALL DAY] ·" / "tomorrow".
+      const row = '.column-events .time-actual:has(> .allday-badge + .time-text)';
+      expect(declared(row, 'flex-wrap')).toBe('wrap');
+      // Only where the time text is the countdown alone: a multi-day event's end is a span ahead
+      // of the countdown, which the dot follows, so that time text keeps its boxes and moves
+      // under the pill whole (allday-badge.test.ts pins the markup this reads).
+      const alone = '.time-countdown:first-child';
+      expect(
+        declared(
+          `.column-events .time-actual .allday-badge + .time-text:has(> ${alone})`,
+          'display',
+        ),
+      ).toBe('contents');
+      expect(
+        declared(`.column-events .time-actual .allday-badge + .time-text > ${alone}`, 'display'),
+      ).toBe('contents');
+      expect(declared('.column-events .time-actual .allday-badge + .time-text', 'display')).toBe(
+        '',
+      );
+      expect(
+        declared(
+          '.column-events .time-actual .allday-badge + .time-text > .time-countdown',
+          'display',
+        ),
+      ).toBe('');
+
+      // The hanging indent moves from the row to the clock, so a wrapped line starts under
+      // the pill, and the clock is pulled into the gutter by exactly what the row was.
+      expect(declared(row, 'margin-inline-start')).toBe('0');
+      expect(expr(declared(`${row} > ha-icon`, 'margin-inline-start'))).toBe(
+        expr(declared('.column-events .time-actual', 'margin-inline-start')),
+      );
+
+      // The pill leaves the dot its room: its own margin and the dot's, plus 0.5em for the
+      // glyph. Flex lines break on the items' own widths, so a pill clamped to the whole
+      // line pushed the dot alone onto the next one.
+      const gaps =
+        parseFloat(declared('.allday-badge', 'margin-inline-end')) +
+        parseFloat(
+          declared('.time .time-actual .time-text > .time-countdown::before', 'margin-inline-end'),
+        );
+      expect(
+        declared(
+          '.column-events .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child) > .allday-badge',
+          'max-width',
+        ),
+      ).toBe(`calc(100% - ${gaps}px - 0.5em)`);
+
+      // Every other badge row still caps the pill, at its line less its own margin (the pill
+      // is border-box, so the margin is all that lies outside the cap). Without a cap, a
+      // multi-day row whose pill did not fit beside the clock wrapped before the pill and left
+      // the clock alone on a line, in 268 of 972 narrow rows per engine.
+      expect(declared('.allday-badge', 'box-sizing')).toBe('border-box');
+      expect(declared(`${row} > .allday-badge`, 'max-width')).toBe(
+        `calc(100% - ${declared('.allday-badge', 'margin-inline-end')})`,
+      );
+    });
+
+    it('clips column view at the card edge, so a dot standing past its column is drawn', () => {
+      // A countdown's dot follows its time word whole, so in a column too narrow for
+      // "12:30 ·" the pair stands past the column, and the body's overflow-x cut the dot
+      // off, at every 24-hour one-day card from 101px down. The body takes the card's
+      // end inset as its own padding instead, so its clip moves out to the card's edge and
+      // nothing inside it moves. Only the end: the start edge keeps its clip, because the
+      // today tile sits on it.
+      const inset = declared('.calendar-card-pro.column-view', 'padding-inline');
+      const body = '.calendar-card-pro.column-view .content-container';
+      expect(declared('.content-container', 'overflow-x')).toBe('hidden');
+      expect(declared(body, 'padding-inline-end')).toBe(inset);
+      expect(declared(body, 'margin-inline-end')).toBe(`-${inset}`);
+      expect(declared(body, 'margin-inline-start')).toBe('');
+      expect(declared(body, 'margin-inline')).toBe('');
+
+      // content-box, or the padding would come out of the columns' width.
+      expect(declared('.content-container', 'box-sizing')).toBe('');
     });
 
     it('spaces the folded separator evenly on both sides', () => {
@@ -1381,10 +1546,21 @@ describe('card stylesheet', () => {
     it('drops the countdown lead-in when a badge precedes it', () => {
       expect(
         declared(
-          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          '.time .time-actual .allday-badge + .time-text > .time-countdown:first-child',
           'margin-inline-start',
         ),
       ).toBe('0');
+    });
+
+    it('keeps the lead-in where an end phrase stands between the badge and the countdown', () => {
+      // A multi-day row's time text is its end phrase, a span ahead of the countdown, so the
+      // reset is scoped to the countdown that follows the pill alone (backlog item 141).
+      expect(
+        declared(
+          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          'margin-inline-start',
+        ),
+      ).toBe('');
     });
 
     it('gives the badge the margin its own comment derives', () => {
@@ -1400,7 +1576,7 @@ describe('card stylesheet', () => {
       const classes = (selector: string) => (selector.match(/\.[a-z-]+/g) ?? []).length;
 
       expect(
-        classes('.time .time-actual .allday-badge + .time-text > .time-countdown'),
+        classes('.time .time-actual .allday-badge + .time-text > .time-countdown:first-child'),
       ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
     });
 
@@ -1852,6 +2028,18 @@ describe('card stylesheet', () => {
   });
 
   describe('the grid view box model', () => {
+    it("gives a block's detail rows its whole width, as its title and time already have", () => {
+      // The 12px end gutter list and column view keep on .location and .description took 12px
+      // of a narrow lane from the words and none from the title or the time above them, so
+      // "Bring" broke as "Brin" / "g" in a lane it fits, in Chromium, WebKit and Firefox.
+      for (const row of ['.location', '.description', '.event-weather']) {
+        expect(declared(`.grid-event-disclosure ${row}`, 'margin-inline-end')).toBe('0');
+      }
+      // List and column view keep the gutter.
+      expect(declared('.description', 'margin-inline-end')).toBe('12px');
+      expect(declared('.time-location .event-weather', 'margin-inline-end')).toBe('12px');
+    });
+
     it('composes a block from its placement and its per-edge clearance', () => {
       // The half `grid-dom.test.ts` structurally cannot see. The renderer writes four
       // custom properties at most and never `top` or `height`, so what a browser resolves
@@ -2379,6 +2567,18 @@ describe('card stylesheet', () => {
           target: '.time .time-actual .time-end',
           body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
         },
+        // With a countdown folded into the time, the end time stays inline behind a line
+        // break, so the countdown can follow it on its line.
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-text .time-end',
+          body: 'display: inline; overflow: visible; text-overflow: clip;',
+        },
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-text .time-end::before',
+          body: "content: '\\A'; white-space: pre;",
+        },
       ]);
 
       // The end time is inline, never inline-block. `.time span` makes every span in a
@@ -2459,6 +2659,24 @@ describe('card stylesheet', () => {
       expect(CSS.indexOf('.grid-time-no-icon')).toBeGreaterThan(reveal);
       expect(CSS.indexOf('.grid-time-no-end')).toBeGreaterThan(reveal);
       expect(CSS.indexOf('.grid-time-wrap')).toBeGreaterThan(reveal);
+
+      // A folded countdown that fits no line is left out by a class only the fit sets, so the
+      // time it would otherwise have cost stays. Hidden outright: its words would reach the
+      // block's edge, and its separator alone was what the row could not afford.
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text > .time-countdown',
+          'display',
+        ),
+      ).toBe('none');
+      // And the time it leaves behind cannot break: Firefox drew "10:0" over "0" without this.
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-no-countdown .time .time-actual .time-text',
+          'white-space',
+        ),
+      ).toBe('nowrap');
+      expect(CSS.indexOf('.grid-time-no-countdown')).toBeGreaterThan(reveal);
 
       // `no-end` and `wrap` are mutually exclusive by construction — the ladder never sets
       // both, and a withdrawn wrap swaps one for the other — but they target the same
@@ -2719,6 +2937,14 @@ describe('a tappable event', () => {
   // so on touch the pressed wash is the only thing a tap on an event shows. `declared` sees
   // top-level rules only, so finding these there also proves they are not inside that
   // media query.
+  // The popover opens over the event as the press ends, and the ripple finishes the press after
+  // that; muting by :hover and :active alone let it flash across the card then.
+  it("keeps the card's ripple still through a whole press marked as an event's or a day's", () => {
+    expect(
+      flat(declared('ha-card[data-own-press] > ha-ripple', '--ha-ripple-pressed-opacity')),
+    ).toBe('0');
+  });
+
   it('washes untinted in the card hover color, 8% on hover and 16% pressed', () => {
     expect(flat(declared('.event-interactive:active', 'box-shadow'))).toBe(
       'inset 0 0 0 100vmax var(--calendar-card-event-wash-pressed, ' +
@@ -2834,24 +3060,49 @@ describe('the toolbar controls', () => {
     expect(declared('.view-switcher-segment.selected', 'background')).toBe(
       'var(--calendar-card-toolbar-selected)',
     );
+    // The surface property is set only under a see-through card background; see paintSelectedView.
+    expect(
+      declared('.view-switcher-segment.selected', 'background-color').replace(/\s+/g, ' '),
+    ).toBe(
+      'var( --calendar-card-toolbar-selected-surface, var(--calendar-card-toolbar-selected) )',
+    );
   });
 });
 
 describe("the card's ripple over the toolbar", () => {
-  const RIPPLE_STILL =
-    'ha-card:has(.card-toolbar:hover):not(:has(.toolbar-identity > .card-header:hover)) > ha-ripple';
+  // Every control that keeps its presses from the card (`stopCardGesture`), and nothing else.
+  const CONTROLS = [
+    '.toolbar-button',
+    '.toolbar-month-button',
+    '.view-switcher',
+    '.date-navigation',
+    '.toolbar-legend',
+    '.legend-menu',
+    // The menu the configuration's own buttons fold into keeps its presses as the filter's does.
+    '.custom-menu',
+  ];
 
-  it('stays still while the pointer is anywhere on the bar, as it does over an event', () => {
-    // The bar keeps every press and click from the card, rim and gaps included, so the
-    // ripple's hover must not promise a tap there; it washed the card blue behind a control
-    // washing blue. Top level, so it is not gated on (hover: hover) like the controls' fill.
-    expect(declared(RIPPLE_STILL, '--ha-ripple-hover-opacity')).toBe('0');
+  it('stays still while the pointer is on a control, as it does over an event', () => {
+    // A control keeps its presses, rim and near misses included, so the ripple's hover must not
+    // promise a tap there; it washed the card blue behind a control washing blue. Top level, so
+    // it is not gated on (hover: hover) like the controls' fill.
+    const rules = RULES.filter((rule) =>
+      rule.selectors.some(
+        (selector) => selector.startsWith('ha-card:has(.') && selector.includes('.toolbar'),
+      ),
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].selectors).toEqual(
+      CONTROLS.map((control) => `ha-card:has(${control}:hover) > ha-ripple`),
+    );
+    expect(declared(rules[0].selectors[0], '--ha-ripple-hover-opacity')).toBe('0');
   });
 
-  it('still ripples over the title, which runs the card tap action from inside the heading row', () => {
-    // The title is the one part of a toolbar row that is the card's, so the rule spares it.
-    expect(RIPPLE_STILL).toContain(':not(:has(.toolbar-identity > .card-header:hover))');
-    expect(rulesFor('ha-card:has(.card-toolbar:hover) > ha-ripple')).toEqual([]);
+  it('still ripples over the rows around the controls, which are the card', () => {
+    // When the rows kept their whole width from the card, the hover flickered on and off in
+    // stripes as a pointer crossed the header; now only the controls mute it.
+    expect(CSS).not.toContain('.card-toolbar:hover');
+    expect(CSS).not.toContain('.toolbar-identity > .card-header:hover');
   });
 });
 
@@ -2864,6 +3115,19 @@ describe('the legend and refresh', () => {
       pending[pending.length - 1],
     );
     expect(declared('.refresh-button.busy .toolbar-button-icon', 'animation-delay')).toBe('');
+  });
+
+  it('shows the corner spinner for a load the card started itself only once the days would dim', () => {
+    // Where there is no refresh button, the corner stands in for it, and waits as long: a load
+    // that ends within a few frames painted the spinner for them, a flash with nothing to say.
+    const pending = flat(declared('.content-container.page-pending', 'transition')).split(' ');
+    const wait = pending[pending.length - 1];
+    const appear = flat(declared('.loading-indicator.unasked', 'animation')).split(' ');
+    expect(appear).toEqual(['ccp-appear', '0s', 'linear', wait, 'both']);
+    expect(
+      flat(/@keyframes ccp-appear\s*\{((?:\s*[a-z]+\s*\{[^}]*\})+)\s*\}/.exec(CSS)?.[1] ?? ''),
+    ).toBe('from { opacity: 0; } to { opacity: 1; }');
+    expect(declared('.loading-indicator', 'animation')).toBe('');
   });
 
   it('turns the refresh icon while the card loads, one turn in the shortest a press shows', () => {
@@ -2913,18 +3177,54 @@ describe('the legend and refresh', () => {
 
   it("draws the menu on the theme's card surface, not this card's own background", () => {
     // `background_color` may make the card transparent; a menu over the events must not be.
-    // Where the theme's card surface is see-through, `paintMenuSurface` in `legend.ts` paints
-    // the menu opaque inline; everywhere else this declaration is the whole of it.
+    // Where the theme's card surface is see-through, `paintMenu` in `menu.ts` hands the
+    // background color an opaque one in its own property; everywhere else the property is unset
+    // and the background color is the card surface again.
     expect(declared('.legend-menu', 'background')).toBe(
       'var(--ha-card-background, var(--card-background-color, #fff))',
     );
+    expect(declared('.legend-menu', 'background-color').replace(/\s+/g, ' ')).toBe(
+      'var( --calendar-card-legend-menu-surface, var(--ha-card-background, var(--card-background-color, #fff)) )',
+    );
   });
 
-  it('needs no ripple rule of its own for the chips, which sit inside a toolbar row', () => {
-    // The chips are in the heading row, a `.card-toolbar`, so the bar's own rule covers them.
-    // A rule for their box alone would be dead weight, and its absence is the proof that the
-    // chips never moved back out of the rows.
-    expect(rulesFor('ha-card:has(.toolbar-legend:hover) > ha-ripple')).toEqual([]);
+  it("keeps the stand-ins the menu's colors are read off hidden, in those colors", () => {
+    // Drawn inside the menu so nothing is added to the card for the read; see `paintMenu` in
+    // `menu.ts`. The surface's stand-in carries the menu's own background, so the color handed
+    // over never feeds back into the next read.
+    expect(declared('.legend-menu-surface', 'display')).toBe('none');
+    expect(declared('.legend-menu-surface', 'background')).toBe(
+      declared('.legend-menu', 'background'),
+    );
+    // The same value again, where `surfaceColor` in `surface.ts` reads it as written, to tell a
+    // background shorthand from a color.
+    expect(declared('.legend-menu-surface', '--calendar-card-surface-value')).toBe(
+      declared('.legend-menu', 'background'),
+    );
+    expect(declared('.legend-menu-page', 'display')).toBe('none');
+    expect(declared('.legend-menu-page', 'background-color')).toBe(
+      'var(--primary-background-color)',
+    );
+  });
+
+  it("keeps the selected view's stand-in value beside its background, as the menu's does", () => {
+    // `surfaceColor` in `surface.ts` reads the value as written off the stand-in, to tell a
+    // background shorthand, which the segment's background color cannot fall back to, from a
+    // color. It has to be the value the stand-in paints, or the two answers disagree.
+    expect(declared('.view-switcher-probe', '--calendar-card-surface-value')).toBe(
+      declared('.view-switcher-probe', 'background'),
+    );
+    expect(declared('.view-switcher-probe', 'background')).toBe(
+      'var(--calendar-card-toolbar-selected)',
+    );
+  });
+
+  it('mutes the ripple over the chips as one control, their gaps and touch target included', () => {
+    // The chips' box is padded around them for the touch target and keeps their presses, so
+    // the ripple stays still over all of it rather than flickering between two chips.
+    expect(
+      declared('ha-card:has(.toolbar-legend:hover) > ha-ripple', '--ha-ripple-hover-opacity'),
+    ).toBe('0');
   });
 });
 
@@ -3150,6 +3450,44 @@ describe('the toolbar layout', () => {
     }
   });
 
+  it("works out the start group's room from the widths the stylesheet draws", () => {
+    // The plan of which start controls fold (`utils/toolbar-fold.ts`) adds the switcher's
+    // pictograms on their track, and the row's inset from the card's edges, to the commands.
+    const { UI } = Constants;
+    expect(declared('.view-switcher-segment.icon-only', 'width')).toBe(
+      `${UI.TOOLBAR_SWITCHER_SEGMENT_WIDTH}px`,
+    );
+    expect(declared('.view-switcher', 'padding')).toBe(`${UI.TOOLBAR_SWITCHER_TRACK_PADDING}px`);
+
+    const px = (value: string): number => {
+      expect(value).toMatch(/^(\d+px|0)$/);
+      return Number.parseFloat(value);
+    };
+    // Home Assistant draws the card's border, 1px on either side by default; the rest is ours.
+    const border = 2 * 1;
+    // List: the card's padding shorthand, its block sides set aside, pads 16px at the inline end
+    // and 8px at the start, and the row adds its own start padding for the title's margin.
+    const sides = declared('ha-card', 'padding')
+      .replace(/calc\((?:[^()]|\([^()]*\))*\)/g, 'calc')
+      .split(/\s+/);
+    expect(sides).toEqual(['calc', '16px', 'calc', '8px']);
+    const list =
+      border + px(sides[1]) + px(sides[3]) + px(declared('.card-toolbar', 'padding-inline-start'));
+    // Column and grid pad the card alike on both sides, and drop the row's own padding.
+    const column =
+      border +
+      2 * px(declared('.calendar-card-pro.column-view', 'padding-inline')) +
+      px(declared('.calendar-card-pro.column-view .card-toolbar', 'padding-inline-start'));
+    expect(declared('.calendar-card-pro.grid-view', 'padding-inline')).toBe(
+      'var(--calendar-card-grid-inset)',
+    );
+    const grid =
+      border +
+      2 * px(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')) +
+      px(declared('.calendar-card-pro.grid-view .card-toolbar', 'padding-inline-start'));
+    expect({ list, column, grid }).toEqual(UI.TOOLBAR_ROW_INSET);
+  });
+
   it('draws the arrows as three round buttons apart, each a pill of its own', () => {
     expect(declared('.date-navigation', 'background')).toBe('');
     expect(declared('.date-navigation', 'gap')).toBe('4px');
@@ -3216,6 +3554,30 @@ describe('the toolbar layout', () => {
     expect(declared('.toolbar-month-measure', 'overflow')).toBe('hidden');
     expect(declared('.toolbar-month-probe', 'position')).toBe('absolute');
     expect(declared('.toolbar-month-probe', 'white-space')).toBe('nowrap');
+  });
+});
+
+describe('the pulse today indicator', () => {
+  it('holds the pulse still under reduced motion, in the list and everywhere else', () => {
+    const placed = '.today-indicator-container:not(.inline) ha-icon.today-indicator.pulse';
+    const plain = 'ha-icon.today-indicator.pulse';
+    const reduced = atRuleBlock('@media (prefers-reduced-motion: reduce)')
+      .split('}')
+      .map((part) => part.split('{'))
+      .filter((pair) => pair.length === 2)
+      .map(([selectors, body]) => ({
+        selectors: selectors.split(',').map((s) => s.replace(/\s+/g, ' ').trim()),
+        body: flat(body),
+      }));
+    for (const selector of [plain, placed]) {
+      expect(
+        reduced.filter((rule) => rule.selectors.includes(selector)).map((rule) => rule.body),
+        selector,
+      ).toEqual(['animation: none;']);
+    }
+    // Outside the query it still pulses, and the list still runs its placed keyframes.
+    expect(declared(plain, 'animation')).toBe('pulse-animation 2s infinite ease-in-out');
+    expect(declared(placed, 'animation-name')).toBe('pulse-animation-placed');
   });
 });
 
@@ -3303,5 +3665,267 @@ describe('the today tile', () => {
       .flatMap((rule) => rule.selectors.filter(couldBeTile));
     // The base rule's flex and the text-box branch's block: the tile's own two.
     expect(setters).toEqual(['.day.today-tile', '.day.today-tile']);
+  });
+});
+
+/**
+ * `time_position: title`: the time at the end of the title's line, at any width, in a box of its
+ * own that list view's weather badge shares, after the title, which always scrolls.
+ *
+ * Every declaration is pinned by value, and the set of rules naming the placement is pinned
+ * whole, at any depth. That pins what the stylesheet says, not what a browser draws from it:
+ * nothing here lays anything out. CSS is the one layer the DOM tests in
+ * tests/time-position.test.ts cannot see, so a rule dropped from here would pass every one of
+ * them. What the rules do on screen was measured in browsers with the harness, and two of them
+ * exist because it caught a fault: "Now" stacked a letter to a line before the rule that keeps
+ * it whole, and an all-day pill with a folded countdown left the title a few pixels before list
+ * view's badge rows took column view's rules. A rule left over from the earlier
+ * design, which let the time drop to a line of its own, names `.title-time-row` and fails here
+ * as well.
+ */
+describe('the time beside the title', () => {
+  const ROW = '.time-beside-title > .summary-row';
+  const ASIDE = `${ROW} > .title-aside`;
+  const TIME = `${ASIDE} > .time`;
+  const BADGE_ROW = '.time-beside-title .time-actual:has(> .allday-badge + .time-text)';
+
+  /** Split a selector list at its top-level commas, so `:is(a, b)` stays one selector. */
+  function splitSelectors(list: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      if (list[i] === '(') depth += 1;
+      else if (list[i] === ')') depth -= 1;
+      else if (list[i] === ',' && depth === 0) {
+        parts.push(list.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(list.slice(start));
+    return parts.map((part) => part.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  }
+
+  /** A rule body as property to value, whitespace normalized as Prettier may break a value. */
+  function declarationsOf(body: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const declaration of body.split(';')) {
+      const colon = declaration.indexOf(':');
+      if (colon === -1) continue;
+      out[declaration.slice(0, colon).trim()] = declaration
+        .slice(colon + 1)
+        .replace(/\s+/g, ' ')
+        .replace(/\(\s/g, '(')
+        .replace(/\s\)/g, ')')
+        .trim();
+    }
+    return out;
+  }
+
+  /**
+   * Every innermost rule in the stylesheet, so a rule inside `@media` or `@supports` counts as
+   * much as a top-level one; an at-rule's own prelude never reaches here as a selector.
+   */
+  const INNERMOST = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, prelude, body]) => ({
+    selectors: splitSelectors(prelude),
+    declarations: declarationsOf(body),
+  }));
+
+  /**
+   * Every selector that names the placement, its box, or the earlier design's outer row, with the
+   * whole declaration set of each rule it appears in, in source order. A rule added for the
+   * placement, a declaration added to one of its rules, or a second rule repeating one of its
+   * selectors all change this.
+   */
+  function placementRules(): Record<string, Array<Record<string, string>>> {
+    const out: Record<string, Array<Record<string, string>>> = {};
+    for (const rule of INNERMOST) {
+      for (const selector of rule.selectors) {
+        if (/time-beside-title|title-aside|title-time-row/.test(selector)) {
+          (out[selector] ??= []).push(rule.declarations);
+        }
+      }
+    }
+    return out;
+  }
+
+  const one = (declarations: Record<string, string>) => [declarations];
+
+  /** The whole of the placement's stylesheet, by value. */
+  const EXPECTED: Record<string, Array<Record<string, string>>> = {
+    // The title line keeps every rule of the title row, nowrap included, and aligns its two items
+    // on the baseline rather than centering them.
+    [ROW]: one({ 'align-items': 'baseline' }),
+    // The title is its summary's baseline, beside every label kind.
+    [`${ROW} > .summary-scroll > .event-title`]: one({ 'align-self': 'baseline' }),
+    // The box: as wide as its content, up to 60% of the line less the title's gutter, and never
+    // narrower than what it cannot wrap.
+    [ASIDE]: one({
+      display: 'flex',
+      'align-items': 'baseline',
+      flex: 'none',
+      'max-width': 'calc(60% - 12px)',
+      'min-width': 'min-content',
+    }),
+    // List view's badge at the weather size, with the specificity of the rule that sizes it
+    // beside the title, and on the time's baseline by its text.
+    [':where(.title-aside) > .event-weather > .event-weather-text']: one({
+      'font-size': 'var(--calendar-card-weather-event-font-size, 12px)',
+      'align-self': 'baseline',
+    }),
+    [`${ASIDE} > .event-weather`]: one({ 'margin-inline-end': '0' }),
+    // The bullet, only after a badge, with the folded countdown's spacing.
+    [`${ASIDE} > .event-weather + .time::before`]: one({ content: "'·'", 'margin-inline': '4px' }),
+    // The time as an item of the box, with none of the row it is below the title, and every line
+    // of a time that wraps, or a pill wrapped above it, set against the end as the box is.
+    [TIME]: one({
+      width: 'auto',
+      'margin-top': '0',
+      'padding-inline-start': '0',
+      'flex-wrap': 'nowrap',
+      'justify-content': 'flex-end',
+      'align-items': 'baseline',
+      'column-gap': '0',
+      'text-align': 'end',
+    }),
+    [`${TIME} > .time-actual`]: one({ 'margin-inline-start': '0', 'justify-content': 'flex-end' }),
+    [`${TIME} .now-indicator`]: one({ 'overflow-wrap': 'normal' }),
+    // The countdown alone, with times off.
+    [`${TIME} > .time-countdown`]: one({
+      'margin-inline': '0',
+      'text-align': 'end',
+      'white-space': 'normal',
+    }),
+    [`${TIME} > .time-countdown::before`]: one({ content: 'none' }),
+    // An all-day badge with a countdown folded after it wraps as column view's does, in list
+    // view too, so the pill and the countdown's longest word do not set the box's floor side
+    // by side. These share column view's rules, whole.
+    [`${BADGE_ROW}`]: one({ 'flex-wrap': 'wrap', 'margin-inline-start': '0' }),
+    [`${BADGE_ROW} > .allday-badge`]: one({ 'max-width': 'calc(100% - 5px)' }),
+    [`.time-beside-title .time-actual:has(> .allday-badge + .time-text > .time-countdown:first-child) > .allday-badge`]:
+      one({ 'max-width': 'calc(100% - 9px - 0.5em)' }),
+    [`.time-beside-title .time-actual .allday-badge + .time-text:has(> .time-countdown:first-child)`]:
+      one({ display: 'contents' }),
+    [`.time-beside-title .time-actual .allday-badge + .time-text > .time-countdown:first-child`]:
+      one({ display: 'contents' }),
+  };
+
+  it('pins every rule naming the placement or its box, whole, at any depth', () => {
+    expect(INNERMOST.length).toBeGreaterThan(RULES.length);
+    expect(placementRules()).toEqual(EXPECTED);
+  });
+
+  it("lays out a badge row as column view's, rule for rule", () => {
+    // Every title-mode selector here sits in a rule beside its column view twin, so the two
+    // cannot drift apart: each rule naming one names the other.
+    const twins = INNERMOST.filter((rule) =>
+      rule.selectors.some((selector) => selector.startsWith('.time-beside-title .time-actual')),
+    );
+    expect(twins).toHaveLength(4);
+    for (const rule of twins) {
+      const title = rule.selectors.filter((s) => s.startsWith('.time-beside-title .time-actual'));
+      expect(rule.selectors.filter((s) => !title.includes(s))).toEqual(
+        title.map((s) => s.replace('.time-beside-title', '.column-events')),
+      );
+    }
+  });
+
+  it('keeps the title line one line: nothing lets it wrap', () => {
+    // The title line is the title row, a flex row that never wraps, so the time cannot leave it.
+    // No rule outside the grid, whatever else it names, may give it another display or let it
+    // wrap.
+    expect(declared('.summary-row', 'display')).toBe('flex');
+    const subjectIsTitleRow = (selector: string) =>
+      /\.summary-row(?![\w-])[^\s>+~]*$/.test(selector) && !selector.includes('grid');
+    const settings = INNERMOST.flatMap((rule) =>
+      rule.selectors
+        .filter(subjectIsTitleRow)
+        .flatMap((selector) =>
+          ['display', 'flex-wrap']
+            .filter((property) => property in rule.declarations)
+            .map((property) => `${selector} { ${property}: ${rule.declarations[property]} }`),
+        ),
+    );
+    expect(settings).toEqual(['.summary-row { display: flex }']);
+    // The title has the rest: it grows from a basis of 0 and may shrink to nothing.
+    expect(declared('.summary', 'flex')).toBe('1');
+    expect(declared('.summary-scroll', 'min-width')).toBe('0');
+  });
+
+  it('relies on the scroll mode for the title: one line, clipped, with its ellipsis', () => {
+    // The leaf gives every title beside a time the scroll_long_titles markup, and these are the
+    // rules that keep it to one line. Under reduced motion nothing moves it, and the ellipsis is
+    // what is left.
+    expect(declared('.summary-scroll', 'display')).toBe('flex');
+    const title = '.summary-scroll > .event-title.title-scrollable';
+    expect(declared(title, 'white-space')).toBe('nowrap');
+    expect(declared(title, 'overflow')).toBe('hidden');
+    expect(declared(title, 'text-overflow')).toBe('ellipsis');
+  });
+
+  it('answers what the pinned values counter in the rules below the title', () => {
+    // Below the title, .time is a wrapping row as wide as the event, 2px under the title.
+    expect(declared('.time', 'width')).toBe('100%');
+    expect(declared('.time', 'margin-top')).toBe('2px');
+    expect(declared('.time', 'flex-wrap')).toBe('wrap');
+    expect(declared('.time', 'justify-content')).toBe('space-between');
+    expect(declared('.time', 'align-items')).toBe('center');
+    expect(declared('.time', 'column-gap')).toBe('8px');
+    // It keeps its end margin beside the title, so it ends where the rows below it do.
+    expect(declared('.time', 'margin-inline-end')).toBe('12px');
+    // Column view's indent for the clock, which the time has no longer.
+    expect(declared('.column-events .time', 'padding-inline-start')).toBe(
+      'calc(var(--calendar-card-icon-size-time, 14px) + 4px)',
+    );
+    expect(declared('.column-events .time-actual', 'margin-inline-start')).toBe(
+      'calc(-1 * (var(--calendar-card-icon-size-time, 14px) + 4px))',
+    );
+    // A countdown alone: list view's trailing placement and column view's dot.
+    expect(declared('.time-countdown', 'margin-inline-start')).toBe('auto');
+    expect(declared('.time-countdown', 'margin-inline-end')).toBe('12px');
+    expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
+    expect(declared('.time-countdown', 'text-align')).toBe('right');
+    expect(declared('.column-events .time-countdown::before', 'content')).toBe("'·'");
+    // The badge beside the title, and the size it has there.
+    expect(declared('.event-weather', 'margin-inline-end')).toBe('12px');
+    expect(
+      declared(':where(.summary-row) > .event-weather > .event-weather-text', 'font-size'),
+    ).toBe('var(--calendar-card-weather-event-font-size, 12px)');
+    // "Now" may break anywhere below the title.
+    expect(declared('.time .now-indicator', 'overflow-wrap')).toBe('anywhere');
+  });
+
+  it("spaces the bullet as the folded countdown's separator is spaced", () => {
+    // The same dot, 4px either side: the countdown's start margin and its separator's end margin.
+    const countdown = '.time .time-actual .time-text > .time-countdown';
+    expect(declared(countdown, 'margin-inline-start')).toBe('4px');
+    expect(declared(`${countdown}::before`, 'margin-inline-end')).toBe('4px');
+    expect(declared(`${countdown}::before`, 'content')).toBe("'\\2060·\\200B'");
+  });
+
+  it('mirrors in a right-to-left card: no placement rule names a physical side', () => {
+    for (const declarations of Object.values(placementRules()).flat()) {
+      for (const [property, value] of Object.entries(declarations)) {
+        expect(`${property}: ${value}`).not.toMatch(/\b(left|right)\b/);
+      }
+    }
+  });
+});
+
+describe("the control for the card's tap", () => {
+  // It covers the card, so it must take no pointer input: a tap on the card lands on whatever
+  // is under it, an event or the title, as it did before the control existed, and a hold still
+  // reaches the card. And it draws nothing of its own; the card's ring shows its focus.
+  it('takes no pointer input and draws nothing', () => {
+    expect(declared('.card-tap-control', 'pointer-events')).toBe('none');
+    expect(declared('.card-tap-control', 'opacity')).toBe('0');
+    expect(declared('.card-tap-control', 'position')).toBe('absolute');
+  });
+
+  it("rings the card while it has the keyboard's focus", () => {
+    expect(declared('ha-card:has(> .card-tap-control:focus-visible)', 'outline')).toBe(
+      declared('ha-card:focus-visible', 'outline'),
+    );
+    expect(declared('ha-card:focus-visible', 'outline')).not.toBe('');
   });
 });

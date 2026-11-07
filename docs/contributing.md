@@ -140,11 +140,14 @@ To add a new language:
 2. **Copy the structure** from `en.json` and translate all values (never change the keys).
    The file must contain **every top-level** key present in `en.json`, and nothing else —
    these files are loaded by every dashboard, so the editor's strings do not belong here.
-3. **Register it in `src/translations/localize.ts`** — this is two edits:
+3. **Register it in `src/translations/localize.ts` and `language-codes.ts`** — three edits:
    - add the `import` for your JSON file
    - add an entry to the `TRANSLATIONS` map. **The key must be lowercase**
      (e.g. `'en-gb'`, `'zh-cn'`), because lookups lowercase the configured language.
-4. **Register it in `src/translations/dayjs.ts`** — this is also **two** edits, and both
+   - add the same lowercase code to `CARD_LANGUAGES` in
+     `src/translations/language-codes.ts`, which is what the card and the editor resolve a
+     configured language against. `npm run check:i18n` fails if the list and the files disagree.
+4. **Register it in `src/translations/dayjs.ts`** — this is **two** edits, and both
    are required. Forgetting the second one is a silent failure: the language will work
    everywhere except relative times, which quietly fall back to English.
    - add `import 'dayjs/locale/[lang-code]';`
@@ -164,7 +167,8 @@ To add a new language:
 
 1. Create `src/translations/languages/de.json`
 2. Copy the structure from `en.json` and translate all values (not keys)
-3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`
+3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`,
+   and `'de',` to `CARD_LANGUAGES` in `language-codes.ts`
 4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
 5. Add a ``- **German** (`de`)`` entry to the list above
 

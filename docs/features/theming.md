@@ -17,7 +17,7 @@ An unstyled card takes its colors from the active Home Assistant theme:
 | `--secondary-text-color`                               | Outside grid view, an event's time, location, description, progress bar and weather badge; list view's `day_separator_color`; grid view's axis labels                                                                                                                                                                       |
 | `--divider-color`                                      | Column view's `day_header_separator_color`. In grid view, at 50%, the hour lines, the day separators and the rules under the dates and under the all-day band                                                                                                                                                               |
 | `--ha-card-background`, then `--card-background-color` | The card's background, `background_color`; the calendar filter's menu                                                                                                                                                                                                                                                       |
-| `--primary-background-color`                           | Under the calendar filter's menu, where the card background is see-through: the menu is that background laid over this color, so the events never show through it                                                                                                                                                           |
+| `--primary-background-color`                           | Under the calendar filter's menu and the view switcher's selected view, where the card background is see-through: each is that background laid over this color, so nothing under it shows through                                                                                                                           |
 | `--ha-card-border-radius`                              | The rounded corners of an event's box in list and column view, at half the card's radius                                                                                                                                                                                                                                    |
 | `--error-color`                                        | The card's error message, and the line naming a calendar that [failed to load](/features/performance#when-a-calendar-fails-to-load)                                                                                                                                                                                         |
 
@@ -192,15 +192,16 @@ as no gap:
 
 A few more classes mark something the card draws only some of the time:
 
-| Class               | Carried by                                                     | Applied when                                                                    |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default since v5                               |
-| `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                     |
-| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                           |
-| `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                 |
-| `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                 |
-| `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load) |
-| `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                |
+| Class               | Carried by                                                     | Applied when                                                                                                                             |
+| ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `today-tile`        | today's day number, `.day`                                     | `today_indicator` is `tile`, the default since v5                                                                                        |
+| `with-today-tile`   | every day's `.column-date-content`, in column and grid view    | `today_indicator` is `tile`                                                                                                              |
+| `event-now`         | `td.event` in list view, `.event` in column view               | the event is under way and `show_now_indicator` is on                                                                                    |
+| `event-interactive` | `.event` in column and grid view, `.event-button` in list view | `event_tap_action` is `details`                                                                                                          |
+| `event-tappable`    | `td.event` in list view                                        | `event_tap_action` is `details`                                                                                                          |
+| `time-beside-title` | `.event-content` in list and column view                       | `time_position` is `title` and the event has a time or a countdown, which then sits in `.title-aside` after `.summary` in `.summary-row` |
+| `fetch-error`       | the line below the events naming the calendars that failed     | a calendar [fails to load](/features/performance#when-a-calendar-fails-to-load)                                                          |
+| `page-pending`      | `.content-container`                                           | the days on screen wait for another page's events, dimmed to 50%                                                                         |
 
 The [date tile](/features/layout-appearance#the-date-tile) is painted from
 `--calendar-card-today-indicator-color`, which the card writes on `ha-card` from
@@ -291,6 +292,14 @@ names it as the header's own child, does not while the toolbar is drawn.
 | `.view-switcher`           | the view switcher's track                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `.view-switcher-segment`   | one view in it; `.selected` for the current one, `.unavailable` while the card is too narrow for it, `.icon-only` while it shows its pictogram rather than its word                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `.view-switcher-icon`      | a segment's pictogram                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+The menu is drawn in the theme's card background. Where that background is see-through, the
+card makes the menu's background color opaque, the theme's card background laid over
+`--primary-background-color`, so the events never show through it. A card-mod `background` or
+`background-color` on `.legend-menu` takes the place of both, as it would of any color the
+stylesheet gives: write an opaque one, or the events show through the menu. Before v5.1 the card
+painted over such a rule unless it carried `!important`. To tint the menu and still have the card
+keep it opaque, set `--ha-card-background` on `.legend-menu` instead.
 
 The controls are painted from four custom properties:
 
@@ -456,46 +465,21 @@ card_mod:
 
 ### Move Time Into the Same Row as the Event Title
 
-For list and column view. Grid blocks lay out their own content, and `:not(.grid-event)`
-keeps the recipe away from them.
+This no longer needs card-mod. The [`time_position`](/features/event-content#time-beside-the-title)
+option draws the time at the end of the title's line on every row with a time or a countdown,
+and keeps the title to the rest of the line, scrolling it when it is too long. It needs a wide
+event row, more so with countdowns, event weather and similar extras, as
+[Time Beside the Title](/features/event-content#time-beside-the-title) explains:
 
 ```yaml
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-card_mod:
-  style: |
-    .event:not(.grid-event) div.event-content {
-      display: grid;
-      grid-template-areas:
-        "title time"
-        "location location";
-      grid-template-columns: 1fr auto;
-      column-gap: 10px;
-      row-gap: 0px;
-    }
-
-    .event:not(.grid-event) div.summary-row {
-      grid-area: title;
-      min-width: 0;
-    }
-
-    .event:not(.grid-event) div.time {
-      grid-area: time;
-      white-space: nowrap;
-    }
-
-    .event:not(.grid-event) div.location {
-      grid-area: location;
-      white-space: normal;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .event:not(.grid-event) div.time-location {
-      display: contents;
-    }
+time_position: title
 ```
+
+A countdown follows the time after a dot, list view's progress bar takes a row of its own, and
+`list:` and `column:` can each set it for their own layout.
 
 These examples demonstrate how Calendar Card Pro can be customized to match any dashboard design using card-mod's powerful CSS customization capabilities.
 

@@ -1,10 +1,11 @@
 /**
  * Converts merged form data back into stored configuration.
- * Defaults are stripped on write so opening the editor does not persist values the user never set.
+ * Defaults are stripped on write so opening the editor does not persist values the user never
+ * set, and a value the YAML already holds is kept unless the write changed it.
  */
 
 import { LEGEND_OFF, normalizeRootValue } from './normalize';
-import { applySyntheticChange, isSyntheticKey } from './synthetic';
+import { applySyntheticChange, isSet, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -16,7 +17,13 @@ import * as Helpers from '../../utils/helpers';
  * Exported so a reconciliation can name them without re-listing them. A second copy is
  * one more thing to forget, and forgetting is the failure mode these tables have.
  */
-export const ATOMIC_KEYS = ['tap_action', 'hold_action', 'event_tap_action'] as const;
+export const ATOMIC_KEYS = [
+  'tap_action',
+  'hold_action',
+  'day_tap_action',
+  'event_tap_action',
+  'event_hold_action',
+] as const;
 
 /** The nested groups of a `weather:` block, each defaulted option by option. */
 const WEATHER_GROUPS = ['date', 'event'] as const;
@@ -59,6 +66,57 @@ export function equalConfigs(
 }
 
 /**
+ * Whether a value is one the stored YAML already holds, unchanged, at this key.
+ *
+ * 🚨 This is the one exception to minimizing on write, and it is what keeps an explicit
+ * `show_month: true` from disappearing when someone edits the title. A default-valued line
+ * changes nothing today, but it pins the card against a later change of that default, and
+ * the person who wrote it may have meant exactly that. The editor cannot tell, so it leaves
+ * the line alone until the person edits that option.
+ *
+ * The baseline is the YAML as the editor last received or wrote it, never the merged
+ * configuration, where every default is present. It moves with each write, so an option
+ * edited back to its default is minimized as before: the line was changed, and the change
+ * is what decides. An unset value — absent, null or empty — is never kept by this; it was
+ * not a setting.
+ *
+ * @param authored - The stored block or configuration this value belongs to, if any
+ * @param key - Key within it
+ * @param value - The value about to be written
+ * @returns `true` when the YAML holds this exact value at this key
+ */
+function unchangedFromAuthored(authored: unknown, key: string, value: unknown): boolean {
+  return (
+    Helpers.isConfigBlock(authored) &&
+    Object.prototype.hasOwnProperty.call(authored, key) &&
+    isSet(value) &&
+    deepEqual(authored[key], value)
+  );
+}
+
+/**
+ * Whether a value reads as itself, so that resolving it rejected or repaired nothing.
+ *
+ * 🚨 Asked before keeping a held line that resolves to its default, because a rejected value
+ * resolves there too: `slot_minutes: 45` and `min_day_width: 0` fall back to the default and
+ * would otherwise be kept as written, labeled as the layout's own and listed by Customized
+ * Only, while the card draws the default. A number or a switch written as text, as YAML and
+ * the form hand them over, still reads as itself.
+ *
+ * @param value - The value as written
+ * @param resolved - What the card resolves it to
+ * @returns `true` when the card uses the value as written
+ */
+function readsAsWritten(value: unknown, resolved: unknown): boolean {
+  if (deepEqual(value, resolved)) return true;
+  return (
+    typeof value === 'string' &&
+    (typeof resolved === 'number' || typeof resolved === 'boolean') &&
+    value.trim() === String(resolved)
+  );
+}
+
+/**
  * Names the keys that differ between two form-data objects.
  *
  * @param previous - Form data as it was rendered
@@ -75,76 +133,101 @@ export function changedKeys(
 }
 
 /**
- * The value an override key resolves to when the `column:` block does not supply it.
- *
- * @param config - Merged configuration, defaults already applied
- * @param key - Override key
- * @returns The inherited value
+ * What stripping one layout's own block needs to know about that layout.
  */
-function inheritedColumnValue(
-  config: Readonly<Types.Config>,
-  key: keyof Types.ColumnOverrides & keyof Types.Config,
-): unknown {
-  return ViewConfig.COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
-}
-
-function inheritedTimeGridValue(
-  config: Readonly<Types.Config>,
-  key: keyof Types.TimeGridOverrides & keyof Types.Config,
-): unknown {
-  return ViewConfig.TIME_GRID_DEFAULT_OVERRIDES[key] ?? config[key];
+interface StrippedBlock {
+  /** The block's configuration key. */
+  readonly blockKey: 'column' | 'time_grid';
+  /** Options only this layout reads, with their defaults. */
+  readonly defaults: Readonly<Record<string, unknown>>;
+  /** Resolves one of those options as the card does before using it. */
+  normalize(key: string, value: unknown): unknown;
+  /** Top-level options the block may override. */
+  readonly overrideKeys: ReadonlyArray<string>;
+  /** Overridable options whose default in this layout differs from the card's. */
+  readonly defaultOverrides: Readonly<Record<string, unknown>>;
+  /**
+   * Whether a value set for one of `defaultOverrides` is kept even where it equals what the
+   * layout would use without it. Grid's are: the editor once wrote them when switching a card to
+   * Grid, so that the layout's own look shows in its own workspace as set there, and the stored
+   * blocks that came of it are left alone (see `reconcileTimeGridValues`).
+   */
+  readonly keepsDivergentOverrides: boolean;
+  /**
+   * Answers for a key the generic rule cannot, or `undefined` to let it decide.
+   *
+   * @returns `true` to keep the line, `false` to drop it
+   */
+  special?(
+    config: Readonly<Types.Config>,
+    key: string,
+    value: unknown,
+    held: boolean,
+  ): boolean | undefined;
 }
 
 /**
- * Strips redundant entries from a `column:` block.
+ * Strips redundant entries from one layout's own block, `column:` or `time_grid:`.
+ *
+ * One rule for both. A line the YAML already holds, and the card reads as written, is kept as
+ * written, default or not, so a save rewrites only what it changed. Any other value equal to its
+ * default, or to what the layout would inherit, is dropped; a value the card rejects resolves to
+ * the default and goes with it. Anything else is stored as the card resolves it, which turns a
+ * number typed as text, or a bare length, into what the card declares.
  *
  * @param config - Merged configuration, defaults already applied
+ * @param authored - The block as the YAML holds it
+ * @param layout - What sets this layout's block apart
  * @returns The minimal block, or `undefined` when nothing in it is doing anything
  */
-export function stripColumnDefaults(
+function stripBlockDefaults(
   config: Readonly<Types.Config>,
+  authored: unknown,
+  layout: StrippedBlock,
 ): Record<string, unknown> | undefined {
-  const block = config.column;
+  const block = config[layout.blockKey];
 
   if (!Helpers.isConfigBlock(block)) {
     return undefined;
   }
 
-  const overrideKeys = new Set<string>(ViewConfig.COLUMN_OVERRIDE_KEYS);
-  const columnDefaults = ViewConfig.COLUMN_DEFAULTS as Readonly<Record<string, unknown>>;
+  const overrideKeys = new Set<string>(layout.overrideKeys);
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
     if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-
     if (isSyntheticKey(key)) continue;
 
-    if (key === 'min_days_to_show') {
-      if (resolvesTheSameWithout(config, key)) continue;
-      result[key] = value;
+    const held = unchangedFromAuthored(authored, key, value);
+
+    const special = layout.special?.(config, key, value, held);
+    if (special !== undefined) {
+      if (special) result[key] = value;
       continue;
     }
 
-    if (key in columnDefaults) {
-      // Compare what the key will actually resolve to, not what was typed: the render path
-      // coerces before use, so `"140"` and `140` are the same setting and neither is worth
-      // storing when it matches the default.
-      const resolved = ViewConfig.normalizeColumnValue(
-        key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
-        value,
-      );
-      if (deepEqual(columnDefaults[key], resolved)) continue;
-      result[key] = value;
+    if (key in layout.defaults) {
+      // Compared as the card resolves it, not as typed: the render path coerces before use, so
+      // `"140"` and `140` are the same setting and neither is worth storing at the default.
+      const resolved = layout.normalize(key, value);
+      if (held && readsAsWritten(value, resolved)) result[key] = value;
+      else if (!deepEqual(layout.defaults[key], resolved)) result[key] = resolved;
       continue;
     }
 
     if (overrideKeys.has(key)) {
-      const inherited = inheritedColumnValue(
-        config,
-        key as keyof Types.ColumnOverrides & keyof Types.Config,
-      );
-      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
+      if (
+        layout.keepsDivergentOverrides &&
+        Object.prototype.hasOwnProperty.call(layout.defaultOverrides, key)
+      ) {
+        result[key] = value;
+        continue;
+      }
+      const inherited = layout.defaultOverrides[key] ?? config[key as keyof Types.Config];
+      const resolved = normalizeRootValue(key, value);
+      const kept = held && readsAsWritten(value, resolved);
+      if (!kept && deepEqual(normalizeRootValue(key, inherited), resolved)) continue;
       result[key] = value;
       continue;
     }
@@ -153,6 +236,48 @@ export function stripColumnDefaults(
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+const COLUMN_BLOCK: StrippedBlock = {
+  blockKey: 'column',
+  defaults: ViewConfig.COLUMN_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeColumnValue(key as keyof typeof ViewConfig.COLUMN_DEFAULTS, value),
+  overrideKeys: ViewConfig.COLUMN_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.COLUMN_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: false,
+  // Decided by asking the resolver: the floor's default is dynamic, `days_to_show`, and it
+  // parses, floors and clamps, so a line is redundant only where removing it resolves the same.
+  special: (config, key, value, held) => {
+    if (key !== 'min_days_to_show') return undefined;
+    const kept = held && readsAsWritten(value, ViewConfig.resolveMinDaysToShow(config));
+    return kept || !resolvesTheSameWithout(config, key);
+  },
+};
+
+const TIME_GRID_BLOCK: StrippedBlock = {
+  blockKey: 'time_grid',
+  defaults: ViewConfig.TIME_GRID_DEFAULTS,
+  normalize: (key, value) =>
+    ViewConfig.normalizeTimeGridValue(key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS, value),
+  overrideKeys: ViewConfig.TIME_GRID_OVERRIDE_KEYS,
+  defaultOverrides: ViewConfig.TIME_GRID_DEFAULT_OVERRIDES,
+  keepsDivergentOverrides: true,
+};
+
+/**
+ * Strips redundant entries from a `column:` block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param authored - The `column:` block as the YAML holds it; an entry it holds unchanged is
+ *   kept, as written, where the card reads it as written
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripColumnDefaults(
+  config: Readonly<Types.Config>,
+  authored?: unknown,
+): Record<string, unknown> | undefined {
+  return stripBlockDefaults(config, authored, COLUMN_BLOCK);
 }
 
 /**
@@ -175,52 +300,19 @@ function resolvesTheSameWithout(config: Readonly<Types.Config>, key: string): bo
   );
 }
 
+/**
+ * Strips redundant entries from a `time_grid:` block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param authored - The `time_grid:` block as the YAML holds it; an entry it holds unchanged
+ *   is kept, as written, where the card reads it as written
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
 export function stripTimeGridDefaults(
   config: Readonly<Types.Config>,
+  authored?: unknown,
 ): Record<string, unknown> | undefined {
-  const block = config.time_grid;
-
-  if (!Helpers.isConfigBlock(block)) {
-    return undefined;
-  }
-
-  const overrideKeys = new Set<string>(ViewConfig.TIME_GRID_OVERRIDE_KEYS);
-  const gridDefaults = ViewConfig.TIME_GRID_DEFAULTS as Readonly<Record<string, unknown>>;
-  const result: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
-    if (value === undefined) continue;
-    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
-    if (isSyntheticKey(key)) continue;
-
-    if (key in gridDefaults) {
-      const resolved = ViewConfig.normalizeTimeGridValue(
-        key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
-        value,
-      );
-      if (deepEqual(gridDefaults[key], resolved)) continue;
-      result[key] = resolved;
-      continue;
-    }
-
-    if (overrideKeys.has(key)) {
-      const inherited = inheritedTimeGridValue(
-        config,
-        key as keyof Types.TimeGridOverrides & keyof Types.Config,
-      );
-      if (Object.prototype.hasOwnProperty.call(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES, key)) {
-        result[key] = value;
-        continue;
-      }
-      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
-      result[key] = value;
-      continue;
-    }
-
-    result[key] = value;
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
+  return stripBlockDefaults(config, authored, TIME_GRID_BLOCK);
 }
 
 /**
@@ -406,13 +498,22 @@ export function migrateListConfig(
 /**
  * Removes unused defaults while preserving explicitly authored shared view choices.
  *
+ * Two things survive minimizing. An authored divergent root is kept whatever its value,
+ * because a view with a different default would otherwise stop following it
+ * ({@link retainAuthoredSharedValues}). And any value the stored YAML already holds,
+ * unchanged, is kept where it equals a default, so an edit rewrites only what it changed
+ * ({@link unchangedFromAuthored}).
+ *
  * @param config - Merged configuration as the form sees it
  * @param authoredRootKeys - Raw root presence plus later root edits; never merged defaults
+ * @param authored - The configuration as the YAML holds it, before defaults are merged;
+ *   omitted, every default-valued line is minimized
  * @returns The configuration to store
  */
 export function toStoredConfig(
   config: Readonly<Types.Config>,
   authoredRootKeys: ReadonlySet<string> = new Set(),
+  authored?: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   const draft = { ...(config as unknown as Record<string, unknown>) };
   if (Config.toValidPercentage(draft.past_event_opacity) === undefined) {
@@ -431,26 +532,35 @@ export function toStoredConfig(
   const list = stripListDefaults(config);
   delete draft.list;
 
-  const column = stripColumnDefaults(config);
+  const column = stripColumnDefaults(config, authored?.column);
   delete draft.column;
 
-  const grid = stripTimeGridDefaults(config);
+  const grid = stripTimeGridDefaults(config, authored?.time_grid);
   delete draft.time_grid;
 
-  const weather = stripWeatherDefaults(config);
+  const weather = stripWeatherDefaults(config, authored?.weather);
   delete draft.weather;
 
-  const toolbar = stripToolbarDefaults(config);
+  const toolbar = stripToolbarDefaults(config, authored?.toolbar);
   delete draft.toolbar;
 
-  const stored = Helpers.filterDefaultValues(
+  const minimized = Helpers.filterDefaultValues(
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
   );
+  // Rebuilt in the draft's order, so a kept line lands where it always would have.
+  const stored: Record<string, unknown> = {};
+  for (const key of Object.keys(draft)) {
+    if (Object.prototype.hasOwnProperty.call(minimized, key)) stored[key] = minimized[key];
+    else if (unchangedFromAuthored(authored, key, draft[key])) stored[key] = draft[key];
+  }
   retainAuthoredSharedValues(stored, draft, authoredRootKeys);
 
   for (const [key, value] of atomic) {
-    if (value !== undefined && !deepEqual(value, Config.DEFAULT_CONFIG[key])) {
+    if (
+      value !== undefined &&
+      (!deepEqual(value, Config.DEFAULT_CONFIG[key]) || unchangedFromAuthored(authored, key, value))
+    ) {
       stored[key] = value;
     }
   }
@@ -476,6 +586,43 @@ export function toStoredConfig(
   }
 
   return stored;
+}
+
+/** The storage key of every view block, from the registry rather than named here. */
+const VIEW_BLOCK_KEYS: ReadonlyArray<string> = Object.values(ViewConfig.VIEW_BLOCKS).map(
+  (block) => block.blockKey as string,
+);
+
+/**
+ * The view blocks as the editor stores them, for labeling a view's controls and offering
+ * their resets.
+ *
+ * 🚨 Read through the same rule a write applies, or a kept line is mislabeled. A write keeps
+ * an override equal to what it would inherit when the YAML already holds it. Asked of the
+ * minimizing serializer instead, that line would read as inherited and offer no reset, while
+ * it would stop following the shared value the moment that value moved.
+ *
+ * Between edits the merged configuration's view blocks are the stored ones: `DEFAULT_CONFIG`
+ * holds none, and the editor rebuilds its configuration from what it stored after every
+ * write. So each block is its own authored baseline here. Only the blocks are returned,
+ * because only they can be: the merged root holds every default, so it says nothing about
+ * which root lines the YAML holds.
+ *
+ * @param config - Merged configuration, between edits
+ * @returns Each view block that stores anything, by its key
+ */
+export function storedViewBlocks(
+  config: Readonly<Types.Config>,
+): Readonly<Record<string, Record<string, unknown>>> {
+  const record = config as unknown as Record<string, unknown>;
+  const authored = Object.fromEntries(VIEW_BLOCK_KEYS.map((key) => [key, record[key]]));
+  const stored = toStoredConfig(config, new Set(), authored);
+
+  return Object.fromEntries(
+    VIEW_BLOCK_KEYS.flatMap((key) =>
+      Helpers.isConfigBlock(stored[key]) ? [[key, stored[key] as Record<string, unknown>]] : [],
+    ),
+  );
 }
 
 function gridReconciliations(
@@ -724,6 +871,12 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
 
   return Object.fromEntries(
     Object.keys(Config.DEFAULT_CONFIG.toolbar ?? {}).map((key) => {
+      // The list as written, not as resolved: an entry the card cannot draw yet, such as one
+      // with no icon, must survive the next edit rather than vanish from the form.
+      if (key === 'buttons') {
+        const written = Helpers.isConfigBlock(config.toolbar) ? config.toolbar.buttons : undefined;
+        return [key, Array.isArray(written) ? written : []];
+      }
       const value = toolbar[resolvedName(key)];
       return [key, key === 'legend' && value === false ? LEGEND_OFF : value];
     }),
@@ -737,10 +890,13 @@ export function toolbarFormBlock(config: Readonly<Types.Config>): Record<string,
  * toolbar itself is off: `show: false` hides the bar and keeps the choices made for it.
  *
  * @param config - Merged configuration, defaults already applied
+ * @param authored - The `toolbar:` block as the YAML holds it; an entry it holds unchanged
+ *   is kept even where it equals the default
  * @returns The minimal block, or `undefined` when nothing in it is doing anything
  */
 export function stripToolbarDefaults(
   config: Readonly<Types.Config>,
+  authored?: unknown,
 ): Record<string, unknown> | undefined {
   const block = config.toolbar;
 
@@ -753,7 +909,7 @@ export function stripToolbarDefaults(
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
-    if (deepEqual(defaults[key], value)) continue;
+    if (deepEqual(defaults[key], value) && !unchangedFromAuthored(authored, key, value)) continue;
     result[key] = value;
   }
 
@@ -795,10 +951,13 @@ export function weatherFormBlock(config: Readonly<Types.Config>): Record<string,
  * option, so without this every edit would persist the whole block.
  *
  * @param config - Merged configuration, defaults already applied
+ * @param authored - The `weather:` block as the YAML holds it; an option it holds unchanged
+ *   is kept even where it equals the default
  * @returns The minimal block, or `undefined` when nothing in it is doing anything
  */
 export function stripWeatherDefaults(
   config: Readonly<Types.Config>,
+  authored?: unknown,
 ): Record<string, unknown> | undefined {
   const block = config.weather;
 
@@ -816,11 +975,16 @@ export function stripWeatherDefaults(
       if (!Helpers.isConfigBlock(value)) continue;
 
       const groupDefaults = (defaults[key] ?? {}) as Record<string, unknown>;
+      const authoredGroup = Helpers.isConfigBlock(authored) ? authored[key] : undefined;
       const group: Record<string, unknown> = {};
 
       for (const [option, setting] of Object.entries(value)) {
         if (setting === undefined) continue;
-        if (deepEqual(groupDefaults[option], setting)) continue;
+        if (
+          deepEqual(groupDefaults[option], setting) &&
+          !unchangedFromAuthored(authoredGroup, option, setting)
+        )
+          continue;
         group[option] = setting;
       }
 
@@ -828,7 +992,7 @@ export function stripWeatherDefaults(
       continue;
     }
 
-    if (deepEqual(defaults[key], value)) continue;
+    if (deepEqual(defaults[key], value) && !unchangedFromAuthored(authored, key, value)) continue;
     result[key] = value;
   }
 

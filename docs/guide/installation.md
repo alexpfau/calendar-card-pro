@@ -60,7 +60,7 @@ question. HACS does all of this for you, which is why it is the recommended rout
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
 compress on the fly. HACS writes one beside every file it installs, so a HACS install already
 transfers compressed. A manual install has none: with the production bundles,
-the card transfers at its full 403 KB and the editor at 578 KB — once per version, then the
+the card transfers at its full 551 KB and the editor at 466 KB — once per version, then the
 browser caches both.
 
 If you want the smaller transfer, create the companions yourself and keep them beside the
@@ -70,7 +70,7 @@ originals:
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 113 KB and the editor to 168 KB at gzip level 9, the level HACS uses
+That brings the card to 155 KB and the editor to 144 KB at gzip level 9, the level HACS uses
 as well. Every size here is a production build in whole kilobytes of 1,000 bytes, rounded
 down; the compressed ones were measured with Node 24.21.0's zlib at level 9, and the exact
 sizes depend on the `gzip` build. Delete the `.gz` files whenever you
@@ -86,3 +86,11 @@ Calendar Card Pro runs in any current browser and in the Home Assistant Companio
 draw dashboards with the device's own browser engine. On an iPhone or iPad that engine is
 Safari's, and the card needs iOS or iPadOS 15 or later, on the last update the device offers:
 15.8 for one that stops at iOS 15, and 16.7 for one that stops at iOS 16.
+
+On Android the Companion app draws with the Android System WebView, which is built on Chromium
+and numbered like Chrome. The card has been tested in Chromium versions from 92 onward, and is
+confirmed on a Shelly Wall Display, an Android 7 panel whose WebView stops at Chrome 119, and in
+the Chromium 119 a screenshot add-on runs headless. The visual editor needs Chrome 98 or later.
+Older versions draw some colors more simply: before Chrome 125 the today tile and the green of
+an event under way use a simpler mix, and before Chrome 111 the tile is a solid color and an
+event under way keeps the usual text color.

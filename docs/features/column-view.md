@@ -137,6 +137,8 @@ What decides the outcome is whether the block mentions an option at all, not wha
 
 The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
 
+[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view, because it needs a wide event row and the default column width of about 140px is not a good fit for it. It puts the time on the title's line on every row with a time or a countdown, and in about 145px columns that left the title about 50px, a word or so at a time, while a time with a countdown took two to six lines. About 280px columns left the title about 100px. [Time Beside the Title](/features/event-content#time-beside-the-title) has the details. To leave the columns exactly as they are, set it in `list:` alone.
+
 ## 🔀 Options That Start From a Different Default
 
 Two options mean something different once days sit side by side, so column view starts them from its own default rather than from yours.
@@ -183,7 +185,19 @@ column:
   filter_duplicates: true # and too narrow to show the same meeting twice
 ```
 
-`toolbar`, `event_tap_action`, `allow_event_edit` and `allow_event_delete` act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
+These act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
+
+Its actions and its toolbar:
+
+`tap_action` · `hold_action` · `day_tap_action` · `event_tap_action` · `event_hold_action` · `open_links` · `allow_event_edit` · `allow_event_delete` · `toolbar`
+
+Its title, its colors and how it writes dates and times:
+
+`title` · `title_font_size` · `title_color` · `background_color` · `accent_color` · `weekday_color` · `day_color` · `month_color` · `weekend_weekday_color` · `weekend_day_color` · `weekend_month_color` · `today_weekday_color` · `today_day_color` · `today_month_color` · `time_24h` · `language`
+
+Which class of event it keeps, and whether it hides when there is nothing to show:
+
+`event_type` · `hide_when_empty`
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
 
@@ -229,7 +243,7 @@ A [countdown](/features/event-content#countdown-display) and a [progress bar](/f
 🕐 09:30 – 11:00 · in 2 days
 ```
 
-In a column too narrow to hold it, the whole phrase wraps as ordinary running text and continues under the time.
+In a column too narrow to hold it, the whole phrase wraps as ordinary running text and continues under the time. The middot stays at the end of a line and never starts one. The countdown's words are not hyphenated: a word that does not fit at the end of a line moves whole to the next one, and only a word wider than the column itself is split. Beside an [all-day pill](/features/event-content#where-the-pill-goes) on the time row, a countdown that cannot share the pill's line moves under the pill, and the middot stays after it.
 
 ::: tip Icon Alignment
 Because the time can now occupy two lines, `event_icon_vertical_alignment` decides where the clock sits against it. The default `top` lines the icon up with the first line; `middle` centers it against the whole wrapped block. See [Spacing & Alignment](/features/layout-appearance#spacing-alignment).
@@ -245,6 +259,8 @@ column:
 ```
 
 Left unset entirely, each layout keeps the width that suits it — which is usually the right answer, since a width tuned for the column's own row is often too wide for the list view's time row.
+
+With [`time_position: title`](/features/event-content#time-beside-the-title) the time sits on the title's line, so the bar's row comes directly under both.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
 

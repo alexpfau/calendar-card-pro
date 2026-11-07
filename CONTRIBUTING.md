@@ -101,7 +101,7 @@ repeated here:
 That guide covers both namespaces:
 
 - **Card translations** — `src/translations/languages/*.json`. Every language is loaded
-  eagerly, so each new one also needs wiring in `localize.ts` and `dayjs.ts`. These files
+  eagerly, so each new one also needs wiring in `localize.ts`, `language-codes.ts` and `dayjs.ts`. These files
   must **not** contain an `editor` section; `npm run check:i18n` rejects one.
 - **[Editor translations](https://calendar-card-pro.alexpfau.com/contributing#translating-the-editor)**
   — `src/rendering/editor/translations/*.json`, loaded only when the editor is opened.

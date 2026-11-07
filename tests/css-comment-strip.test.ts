@@ -279,8 +279,77 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(162_000);
-    // The now line drawn again inside the block under way moved the ceiling last, from 159,000
+    expect(saved).toBeLessThan(197_000);
+    // Merging v5.0.1 into v5.1 moved the ceiling last, from 194,000 to 197,000: the iOS 16 fix's
+    // notes on why every relative color also requires content-visibility, and why the probe
+    // must not name a color-mix() origin. The reading went from 193,577 to 194,199, taken with
+    // stripComments on the merged stylesheet.
+    //
+    // The pre-release layout fixes moved the ceiling before that, from 191,000 to 194,000: the notes on
+    // why the countdown dot keeps its lead-in after a multi-day end phrase, why list view's
+    // countdown wraps between words only where it is wider than its row, why a grid block's
+    // detail rows give up the end gutter list and column keep, and why the grid's all-day band
+    // opens for a new all-day event. The reading went from 189,983 to 191,009, taken with
+    // stripComments after the last comment was written.
+    //
+    // The time beside the title moved the ceiling before that, from 186,000 to 191,000: the notes on why
+    // the title line aligns its title and time on one baseline beside every label kind, why the
+    // time's box stops at 60% of the line but never below what it cannot wrap, why list view's
+    // weather badge keeps its size and lines up by its text there, why the bullet after it is
+    // spaced as the folded countdown's dot, why "Now" stays one word, and why list view's badge
+    // rows share column view's rules, and why the box may grow past its cap. The reading went
+    // from 183,042 to 188,921, taken with stripComments after the last comment was written.
+    //
+    // Links in rows and drawing a new event in the grid moved the ceiling before that, from 183,000 to
+    // 186,000: the notes on why a link keeps the row's color and unclamps its field on focus, and
+    // why a drawn event is the time area's ::after, set by attributes and custom properties, so
+    // the grid's structure observers never see an element come and go. The reading went to
+    // 183,027, taken with stripComments after the last comment in the change was written.
+    //
+    // Column countdowns moved the ceiling before that, from 178,000 to 183,000: the notes on why the
+    // countdown is never hyphenated and its separator stops overflow-wrap, why a badge row
+    // wraps with its countdown's boxes given up so the dot ends the pill's line, how far the
+    // pill leaves room for the dot, and why the column body's clip moves out to the card's
+    // inline end, and on that side only. Firefox reading the label before the dot as one word
+    // with the countdown's first is the expensive kind: nothing in the declarations hints at
+    // it. The reading went 177,710 to 180,180, taken with stripComments after the last comment
+    // in the change was written.
+    //
+    // A grid countdown that flows like the weather chips moved the ceiling before that, from 175,000 to
+    // 178,000: the notes on why a folded countdown's end time stays inline behind a line break
+    // on the wrapped rung, why its words may break but are never hyphenated, and why a labeled
+    // grid title carries the 2px an unlabeled one has, except where its title is cut or fitted
+    // into a short block. The reading went 173,354, the ceiling's last, to 175,351, taken with
+    // stripComments after the last comment in the change was written.
+    //
+    // The second right-to-left batch moved the ceiling before that, from 171,000 to 175,000: the notes
+    // on why the folded countdown and its separator are isolated in both directions, and which of
+    // the three ways the dot lost its gap each half answers; why grid's text labels now take
+    // plaintext where its icons keep isolate; why the filter menu's rows are padded by inline
+    // side; why the shared surface reader asks whether a value is a background color at all; and
+    // why the list's pulse runs keyframes of its own that repeat its centering before their
+    // scale. The reading went 170,220, its base's own, to 173,354, taken with stripComments after
+    // the last comment in the change was written.
+    //
+    // Right-to-left mirroring moved the ceiling before that, from 165,000 to 171,000: the notes on why
+    // the week row, the separators, the date column and the title hold their sides by inline
+    // direction, why the card's own padding turns around as one shorthand, why the list's today
+    // indicator turns its centering around in right-to-left through a custom property rather
+    // than a rule of its own, why the progress fill rounds its inline start, which corner the
+    // loading ring takes, why the own-row weather separators are isolated in right-to-left, and
+    // why a text label is now isolated in its own direction on either side. The reading went
+    // 164,726, its base's own, to 169,299, taken with stripComments after the last comment in the
+    // change was written.
+    //
+    // Glyph gaps written by inline side moved the ceiling before that, from 162,000 to 165,000: the
+    // notes on why an icon's, a label's and the weather badge's gaps sit at their inline end,
+    // why the UV index keeps a left margin only right after a temperature, in a run of digits
+    // and Latin letters, why the list view's placed today indicator drops the icon gap, why a
+    // text label is isolated in its own direction in a right-to-left card only, and how the
+    // selected view is handed an opaque color. The reading went 161,367, its base's own, to
+    // 164,373, taken with stripComments after the last comment in the change was written.
+    //
+    // The now line drawn again inside the block under way moved the ceiling before that, from 159,000
     // to 162,000: the notes on why the line beneath the blocks now only covers the gaps, why the
     // block under way repaints it as its own background -- over its fill and under everything
     // it draws -- and only that block, judged by its time and not by its floored box; why not

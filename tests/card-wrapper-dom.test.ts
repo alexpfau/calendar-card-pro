@@ -49,6 +49,7 @@ function wrapper(
     hasHoldAction?: boolean;
     toolbar?: Toolbar.HeaderToolbar;
     hostsControls?: boolean;
+    tapControl?: Render.TapControl;
   } = {},
 ): Element {
   const host = document.createElement('div');
@@ -66,6 +67,10 @@ function wrapper(
       undefined,
       opts.toolbar,
       opts.hostsControls,
+      false,
+      'idle',
+      false,
+      opts.tapControl,
     ),
     host,
   );
@@ -145,15 +150,58 @@ describe('the card wrapper', () => {
     expect(inert.querySelector('ha-ripple')).toBeNull();
   });
 
-  it('stops being a button while it hosts controls, keeps its tab stop, and stays tappable', () => {
-    // A button may not contain another, so the card gives up the role. It keeps the tab stop,
-    // so a keyboard can still reach the card itself and run its tap action, and keeps what a
-    // pointer tap still uses.
-    const host = wrapper({ hasTapAction: true, hostsControls: true });
-    expect(host.getAttribute('tabindex')).toBe('0');
+  it('stops being a button while it hosts controls, hands its tap to a control, and stays tappable', () => {
+    // A button may not contain another, so the card gives up the role, and its tab stop with
+    // it: a focusable container with no role is one whose Enter nobody announces. The tap
+    // moves to a native button of its own, first in the card's Tab order, and the card keeps
+    // what a pointer tap still uses.
+    const activated: HTMLElement[] = [];
+    const host = wrapper({
+      hasTapAction: true,
+      hostsControls: true,
+      tapControl: { label: 'Refresh', activate: (control) => activated.push(control) },
+    });
+    expect(host.hasAttribute('tabindex')).toBe(false);
     expect(host.hasAttribute('role')).toBe(false);
     expect(classes(host)).toContain('card-interactive');
     expect(host.querySelector('ha-ripple')).not.toBeNull();
+
+    const control = host.querySelector<HTMLButtonElement>(':scope > button.card-tap-control')!;
+    expect(control).not.toBeNull();
+    expect(host.firstElementChild).toBe(control);
+    expect(control.getAttribute('type')).toBe('button');
+    expect(control.getAttribute('aria-label')).toBe('Refresh');
+    expect(control.hasAttribute('aria-expanded')).toBe(false);
+
+    // Its click is its own: it runs the tap and goes no further, as a native button's would.
+    let bubbled = 0;
+    host.addEventListener('click', () => bubbled++);
+    control.click();
+    expect(activated).toEqual([control]);
+    expect(bubbled).toBe(0);
+
+    // `expand` says whether the card is expanded.
+    const expand = (expanded: boolean) =>
+      wrapper({
+        hasTapAction: true,
+        hostsControls: true,
+        tapControl: { label: 'Agenda', expanded, activate: () => {} },
+      }).querySelector('.card-tap-control')!;
+    expect(expand(false).getAttribute('aria-expanded')).toBe('false');
+    expect(expand(true).getAttribute('aria-expanded')).toBe('true');
+
+    // Only while the card hosts controls: a card that is a button needs no stand-in.
+    const button = wrapper({
+      hasTapAction: true,
+      tapControl: { label: 'Refresh', activate: () => {} },
+    });
+    expect(button.querySelector('.card-tap-control')).toBeNull();
+    expect(button.getAttribute('role')).toBe('button');
+    expect(button.getAttribute('tabindex')).toBe('0');
+
+    // Called without a control, a hosting card keeps the tab stop it always had, so its tap
+    // stays on the keyboard either way.
+    expect(wrapper({ hasTapAction: true, hostsControls: true }).getAttribute('tabindex')).toBe('0');
 
     // The control is the tap case above: the same card without controls is a button.
     expect(wrapper({ hasTapAction: true }).getAttribute('role')).toBe('button');

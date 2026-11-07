@@ -140,11 +140,13 @@ Assistant holds for each calendar instead of a color you pick here. Named colors
 ## 🧰 Header Toolbar
 
 The card can carry a toolbar of its own controls in its header: a
-[filter for the card's calendars](#showing-hiding-calendars), a button for adding events, a view
-switcher between the List, Columns and Grid layouts, a button that
+[filter for the card's calendars](#showing-hiding-calendars), a button for adding events,
+[buttons of your own](#your-own-buttons), a view switcher between the List, Columns and Grid
+layouts, a button that
 [resets the card](#resetting-the-card) to how it is set up, arrows to
-[page through the dates](#paging-through-dates), and a button that
-[loads the events again](#refreshing-the-events). One option turns the toolbar on, and every
+[page through the dates](#paging-through-dates), a button that
+[loads the events again](#refreshing-the-events), and a magnifier that
+[searches the card's events](#searching-the-card). One option turns the toolbar on, and every
 control in it except reset:
 
 ```yaml
@@ -162,8 +164,9 @@ toolbar:
 The [Family Hub](/guide/family-calendar) on a phone and in a dashboard section. On the phone the switcher shows pictograms, and Reset appears once the layout has been switched; in the section the calendar chips fold into the filter button. On the wall, with room for them, they are chips.
 
 With the toolbar on, the header is two rows above the events. The top row holds the actions:
-the calendar filter and the add button at its start, the view switcher in its middle, and
-refresh at its end, after reset when that is on. The row under it names the month
+the calendar filter and the add button at its start, then any buttons of your own, the view
+switcher in its middle, and refresh at its end, after reset and before search when those are on.
+The row under it names the month
 the days on screen start in, with smaller arrows at its end, level with the month's letters, and
 the card's title shrinks to a small label over the month. The month is the card's headline then, so `title_font_size` and
 `title_color` style it rather than the title. Its month's name is bold and the year beside it
@@ -180,7 +183,9 @@ touch guidelines ask for. The month answers across its words and its arrow, and 
 them, but hardly above, so a press on the title over it still reaches the card.
 
 Each control is either an icon or words, never both. The top row's commands, the calendar
-filter, add, reset and refresh, are icons, each named by Home Assistant's own word as its tooltip.
+filter, add, reset, refresh and search, are icons, each named by Home Assistant's own word as its
+tooltip,
+and so are your own buttons, named by their `name`.
 The view switcher names its layouts in words, List, Columns and Grid, wherever the card is wide
 enough for them beside the commands, and shows a pictogram for each where it is not, with the
 name as its tooltip. In English the words fit from a 248px card with the switcher alone, plus 36px
@@ -236,6 +241,23 @@ them, every month takes the language's short form ("Nov 2026"), and on a card na
 month is cut short. Which form is
 drawn follows the card's width and language, never the month on screen, so paging never changes
 it. `navigation: false` takes the arrows away and leaves the month as plain text.
+
+On a touch screen a swipe across the days pages too, exactly as the arrows do: a finger moving
+left shows the next days, one moving right the previous ones, and reading right to left the two
+turn around, as the arrows do. While the finger moves sideways the days follow it a little, and
+the new page slides in from that side once it is drawn. With reduced motion turned on in the
+device's settings nothing moves, and the page simply changes. A tap on an event still opens it,
+a swipe that starts on one never does, and scrolling up and down works as it always has. A mouse
+keeps to the arrows. Swiping comes with the arrows, so `navigation: false` turns it off too. Two
+places are left alone: a swipe starting at the very edge of the screen, where the browser and the
+Home Assistant app have swipes of their own, and a grid that
+[`min_days_fallback: cramp`](/features/grid-view#fitting-narrow-cards) has crammed, holding its
+days narrower than `min_day_width`: those scroll sideways under the finger, and page with the
+arrows only.
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_swipe.mp4#t=0.001" width="390" height="685" loop muted playsinline controls preload="auto" aria-label="A two-day list card on a phone: two swipes to the left page forward to Wednesday and then Friday, and two swipes to the right page back to Monday"></video><br>
+
+On a phone, a swipe to the left shows the next days and a swipe to the right the previous ones.
 
 A few things work differently away from the days the card opens with:
 
@@ -320,15 +342,15 @@ toolbar:
 It sits last in the top row, after the reset button, named by Home Assistant's own "Refresh".
 It asks Home Assistant for every calendar on the card, even when the events the card holds are
 recent, which is how to pick up a change made somewhere else without reloading the dashboard.
-While the card loads, for whatever reason, the button's icon turns, and the small spinner the
-card otherwise shows in its corner is left out, since it would sit right beside it. A load the
-card starts by itself, such as a week it has not shown yet, turns the icon only once it has
-lasted a moment, so one that is over at once does not flicker it. After a press
-it turns for at least one full turn, however quickly the events arrive, so a fast network still
-shows that something happened. Then, for a moment, the button turns green and shows a check, or
-red with an alert where a calendar could not be loaded, and the card names that calendar at its
-foot as it always does. A press does nothing until the button is itself again, nor while the card
-is loading by itself.
+While the card loads, for whatever reason, the button's icon turns, and the small spinner the card
+otherwise shows in its corner is left out, since it would sit right beside it. A load the card
+starts by itself, such as a week it has not shown yet, turns the icon only once it has lasted a
+moment, so one that is over at once does not flicker it. The corner spinner of a card without the
+button waits the same moment before it shows. After a press the button turns for at least one full
+turn, however quickly the events arrive, so a fast network still shows that something happened.
+Then, for a moment, the button turns green and shows a check, or red with an alert where a calendar
+could not be loaded, and the card names that calendar at its foot as it always does. A press does
+nothing until the button is itself again, nor while the card is loading by itself.
 
 The same refresh is available as a [tap or hold action](/features/actions#refreshing-from-a-tap-or-hold),
 for a card that should not carry a button.
@@ -337,7 +359,9 @@ for a card that should not carry a button.
 
 The calendar filter hides or shows each calendar's events on this device. It is on whenever the
 toolbar is, as a button at the start of the top row that opens a menu with a checkbox for each
-calendar on the card, tinted in that calendar's color and named as Home Assistant names it. A
+calendar on the card, tinted in that calendar's color and named by its
+[`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one, and as Home
+Assistant names it otherwise. A
 calendar listed twice, such as one split by `event_type`, is listed once, in the color of its
 first entry.
 
@@ -370,9 +394,9 @@ card draws exactly what `legend: menu` draws, the filter button back at the star
 never some of the chips. They come back once the card is wide enough for them again, as when a
 tablet is turned.
 
-The menu closes on a press outside it, Escape, a scroll or a change in the card's width. The
-button carries a dot while any calendar is hidden, so a card filtered behind a closed menu still
-says so. `legend: false` takes the filter away.
+The menu closes on a press outside it, Escape, a scroll that moves its button or a change in the
+card's width. The button carries a dot while any calendar is hidden, so a card filtered behind a
+closed menu still says so. `legend: false` takes the filter away.
 
 Hiding changes what is drawn, never what is loaded. Hidden calendars are still fetched, cached,
 and named if they fail to load, so a press redraws at once and costs no request. Everything that
@@ -391,8 +415,8 @@ configuration of the card. A change to the card's configuration shows every cale
 every device, and a configuration changed back to exactly what it was finds its hidden calendars
 again; opening the editor and closing it without a change forgets nothing. The
 [reset button](#resetting-the-card) shows them all again on one device. Two cards with the
-same configuration share their hidden calendars, and a press on either changes both at once.
-Paging and switching layouts keep them.
+same configuration share their hidden calendars, and a press on either changes both at once,
+in other tabs and windows of the same browser too. Paging and switching layouts keep them.
 
 ::: tip Nothing Hides While You Edit
 In the card editor's preview, and on a dashboard in edit mode, every calendar is shown, and the
@@ -429,24 +453,31 @@ One press brings back all of these at once:
 - **A compact card collapsed,** after a tap or hold with the
   [`expand` action](/features/actions#expandable-calendar-card) opened it.
 
-The button sits at the end of the top row, before refresh when that is on. It
-shows a U-turn arrow, and Home Assistant's own word "Reset" names it. While the card already shows
-how it is set up, the button is hidden, and it appears the moment something is changed, so a
-glance at the card says whether someone left it on a choice of their own. It keeps its place while
-hidden, so nothing in the toolbar moves when it appears. A press shows a check for a second, as
-refresh does after a reload, then the button fades away. Where it is the only control in the top
-row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card with
-something it could undo: the date navigation, the view switcher, the calendar filter, or an
+The button sits at the end of the top row, before refresh when that is on. It shows a U-turn arrow,
+and Home Assistant's own word "Reset" names it. While the card already shows how it is set up, the
+button is hidden, and it appears the moment something is changed, so a glance at the card says
+whether someone left it on a choice of their own. It goes by what is on screen: a layout picked on
+the switcher that the card is too narrow for leaves List standing in for it, and where the
+configured layout would show List at that width too, there is nothing to undo, so the button stays
+hidden until the card is wide enough again, and a `reset` action does nothing meanwhile. It keeps
+its place while hidden, so nothing in the toolbar moves when it appears. A press shows a check for a
+second, as refresh does after a reload, then the button fades away. Where it is the only control in
+the top row it is never hidden, only dimmed, so the row never sits empty. It is drawn only on a card
+with something it could undo: the date navigation, the view switcher, the calendar filter, or an
 `expand` action.
 
 What the device remembered, its layout and its hidden calendars, is forgotten on that device
 only. Another card with the same configuration shows every calendar again at once, as it does
-after a press on the filter; its layout stays until that card is reset, reloaded or edited.
+after a press on the filter, including one open in another tab of the same browser; its layout
+stays until that card is reset, reloaded or edited.
 Nothing is loaded again for the layout or the calendars, and the card's own days are drawn from
 what it already holds unless they are due for a refresh anyway.
 
 The card never goes back by itself. A layout and hidden calendars stay until someone presses
 the button or the card is edited, and a page until then or a reload.
+
+The same reset can run from a tap or a hold on the card, with or without the button, through the
+[`reset` action](/features/actions#resetting-from-a-tap-or-hold).
 
 ::: warning Its Name Needs Home Assistant 2026.2
 The button takes its name from Home Assistant, which has had a word for "Reset" since 2026.2.
@@ -458,6 +489,184 @@ English. Nothing else in the toolbar changes.
 In the card editor's preview, and on a dashboard in edit mode, the button is hidden and does
 nothing, like every other control in the toolbar there. What each device remembers is kept for
 when editing ends.
+:::
+
+### Your Own Buttons
+
+The toolbar can carry buttons of your own, each an icon and an action, at the start of the top
+row after the add button, in the order you write them. Here, a way back to the page you came
+from, and one to the main dashboard:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  buttons:
+    - icon: mdi:arrow-left
+      name: Back
+      tap_action:
+        action: back
+    - icon: mdi:view-dashboard-outline
+      name: Main dashboard
+      tap_action:
+        action: navigate
+        navigation_path: /lovelace/0
+```
+
+A press runs the button's `tap_action`, as a tap on the card runs the card's: any of
+[Home Assistant's actions](/features/actions#available-actions), or one of the card's own,
+`back`, `refresh`, `add-event`, `reset` or `expand`. `add-event` opens the
+[event popover](/features/actions#the-event-popover) right under the button. For `toggle` and
+`more-info`, `entity` names what the button acts on; without one it is the card's first
+calendar. A button with no action, or with `none`, is drawn and does nothing, so give each one
+an action. Buttons answer a tap only, not a hold.
+
+They look like the toolbar's other commands, a gray pill with the icon in the text color, and
+sit after the add button, toward the view switcher, so nothing that was there before them moves.
+An entry with no `icon`, or with a field of the wrong kind, is left out rather than drawn as an
+empty pill.
+
+Give each button a `name`. It is the button's tooltip and what screen readers announce. Without
+one, a button running `back`, `refresh`, `add-event` or `reset` takes Home Assistant's own word
+for it, as the toolbar's own buttons do; any other is named after its icon,
+"view dashboard outline", for screen readers alone.
+
+`back` goes back to the page you came from, as the arrow in Home Assistant's own header does.
+Where there is none, as in a new tab, a bookmark or the first page a wall tablet shows, it shows
+the page its `navigation_path` names instead, or else the first view of this dashboard; see
+[Going Back From a Tap or Hold](/features/actions#going-back-from-a-tap-or-hold). In a language
+read right to left the top row is mirrored, and an icon is drawn as you chose it, so pick
+`mdi:arrow-right` for a back button there.
+
+On a narrow card the top row gives way in a fixed order. The view switcher's words become
+pictograms first. Then the controls at the start of the row move into one menu button, three dots,
+from the end: your last button first, then the ones before it, then the add button. The first
+control there stays in the row at any width, the calendar filter's button wherever it is drawn,
+so the narrowest top row is that button and the menu button, the switcher, and the controls at the
+row's end. No control moves into the menu alone, since the menu button would take its room: two
+go when the menu first appears, and the last two come back together. The start of the row may
+take all the room the switcher and the end leave, so the switcher moves off center before a
+control moves. Reset, refresh and search never move into the menu: a card too narrow even for the
+narrowest top row puts them on a line of their own, which beside the filter's button, the
+switcher and refresh happens below 274px, with reset or search as well below 318px, and with
+both below 362px.
+
+The menu lists what it holds in the order the row draws it, each with its icon and its name in
+words; a press runs it and closes the menu, which also closes on a press outside it, Escape, a
+scroll that moves the menu button or a change in the card's width. The add button there opens the
+new event under the menu button. A control that has keyboard focus as it moves into the menu hands
+focus to the menu button. The controls come back into the row as the card widens again, as when a
+tablet is turned.
+
+In the [visual editor](/features/editor), the buttons are under **Card & Header**, below the
+toolbar's switches, while the toolbar is shown: a panel for each, headed by its name, with
+**Move Up**, **Move Down** and **Remove**, and **Add Button** after the last, which adds one with
+the `mdi:gesture-tap-button` icon for you to change. **Tap Action** offers the card's own actions
+first, **Go Back** among them. The editor has no field for `back`'s `navigation_path`; write that
+in YAML.
+
+::: tip Nothing Runs While You Edit
+In the card editor's preview, and on a dashboard in edit mode, your buttons are drawn, folded as
+they would be on the dashboard, and do nothing, like every other control in the toolbar there.
+:::
+
+### Searching the Card
+
+The search button finds the card's events a year back and a year ahead, by what they are called,
+where they are and what they say. It is on whenever the toolbar is, beside the
+[date navigation](#paging-through-dates) it needs to open a result's day: with `navigation: false`
+there is no magnifier either. `search: false` takes it away on its own:
+
+```yaml
+type: custom:calendar-card-pro
+title: Family
+entities:
+  - calendar.anna
+  - calendar.ben
+toolbar:
+  show: true
+  search: false
+```
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_search.mp4#t=0.001" width="740" height="794" loop muted playsinline controls preload="auto" aria-label="A tap on the magnifier opens the search field; zoo is typed, the matching events are listed by month, and a tap on the January result turns the card to that week and rings the event"></video><br>
+
+Type, and the matches are listed under the field by month. A pick turns the card to that day and rings the event.
+
+It is a magnifier at the very end of the top row, after refresh, named by Home Assistant's own
+"Search". A press opens a search field below it, in the same kind of panel as the
+[event popover](/features/actions#the-event-popover), its beak pointing at the magnifier, and on
+a phone a sheet from the bottom of the screen. Type, and the events whose title, location or
+description hold what you typed are listed under the field as you type, whatever the case and
+the accents: "zurich" finds "Zürich", and on a card in Turkish "ikea" finds "IKEA" although
+Turkish writes its lower case "ıkea". Upcoming events come first, soonest first, then a thin
+line and the past, most recent first and dimmed as the card dims past events, each grouped under
+its month. A result shows its calendar's color, its title, and its day, time and location, with
+what you typed marked. At most 200 are listed, the past's oldest left out first, and once you
+stop typing a screen reader hears how many there are in all.
+
+A search finds only what the card would show on some page, in the words it would show:
+
+- **A calendar's own filters apply,** `blocklist`, `allowlist`, `days_of_week`, `event_type` and
+  the rest, and a calendar hidden with the [calendar filter](#showing-hiding-calendars) stays
+  hidden.
+- **`filter_duplicates` lists an event two calendars share once,** as the card draws it.
+- **A title is searched as `replace_pattern` rewrites it,** and a location without the country
+  `remove_location_country` takes away. A location or a description the card does not show, with
+  `show_location` or `show_description` off, is not searched.
+- **The layout on screen decides what is drawn,** since a pick turns the card to a day in that
+  layout. In the [grid](/features/grid-view#choosing-the-hours-the-card-shows) a timed event
+  outside the hours from `start_time` to `end_time` is not found, and the grid draws no location
+  unless its `time_grid` block turns `show_location` on.
+- **`show_past_events` does not apply.** A search spans its own two years, whatever days the card
+  shows.
+
+Picking a result, with a press, or with the arrow keys and Enter, closes the panel and pages the
+card to that day, in the layout on screen and lined up with its pages as the date picker does.
+The event is then ringed in the theme's primary color for two seconds, the ring fading out at the
+end, or not fading with reduced motion turned on. Focus moves to the event where a tap on it
+does something, and stays on the magnifier where it does not. Where the page cannot show the
+event, the card turns to that day all the same and rings nothing: past a compact card's limit, in
+a column the card is too narrow for, and for an event that has ended on the days the card opens
+with while `show_past_events` is off, since those days show no ended event. Page elsewhere
+before that day has loaded, and nothing is ringed when you come back to it. The
+[home button](#paging-through-dates) brings the card back, as after any page. Since a result
+pages the card, the magnifier comes with the date navigation: `navigation: false` takes it away
+too.
+
+Every word the panel shows is Home Assistant's own, in its language, so it needs no translation
+of the card's. Escape, the close button, a press outside the panel, Back and a change in the
+card's width close it, and focus goes back to the magnifier. While it is open the dashboard
+behind it stays still, and the results scroll.
+
+The first time the panel opens, the card asks Home Assistant for each of its calendars' events
+over the whole two years, one request per calendar, and keeps them in memory for that card while
+the dashboard is open, never in the browser's storage. Typing asks nothing more. Later openings
+search the same events until one of the card's calendars is written to, Home Assistant pushes a
+change to one of them, the card's `refresh_interval` has passed or a new day has begun, and then
+ask again. A write or a pushed change while the panel is open asks again at once, keeping what
+you typed and the result you were on wherever it is still there. Until a calendar
+answers, the search finds the events the card already holds, and the magnifier in the field
+turns, as refresh's icon does. A calendar that cannot be loaded is named under the results in
+Home Assistant's words, its events left out, and is asked again the next time the panel opens.
+
+No Home Assistant calendar searches text, or limits how many days it is asked for, so the card
+asks for the days and searches them itself. What that costs depends on the integration:
+
+- **Local Calendar and Remote Calendar** answer from memory, quickly.
+- **Google Calendar** answers from its own copy of the calendar, which holds only about 90 days
+  of past events that do not repeat, so older ones may be missing from the results. A Google
+  calendar set up with a search filter, or with free/busy access only, asks Google each time
+  instead.
+- **CalDAV** asks its server each time the card loads the two years, and the server expands
+  recurring events over all of them: the one case where the first results can take a while.
+
+::: tip Nothing Searches While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the magnifier is drawn and does
+nothing, like every other control in the toolbar there.
 :::
 
 The add button is described under [Add Event Button](/features/actions#add-event-button).
@@ -719,9 +928,9 @@ today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
 list:
-  today_indicator_position: '15% 50%' # Centered left in the date column (default)
-  today_indicator_position: '15% 15%' # Top left
-  today_indicator_position: '85% 15%' # Top right
+  today_indicator_position: '15% 50%' # Centered at the date column's start (default)
+  today_indicator_position: '15% 15%' # Top, at the start
+  today_indicator_position: '85% 15%' # Top, at the far side
 
 # Restyle the indicator
 today_indicator_color: '#e67c73' # Tints the tile; colors the dot and MDI icons (default: your theme's primary color)
@@ -745,6 +954,8 @@ Available indicator types:
 - Any other text: Drawn as the characters themselves — a week number, a quarter, a sprint name
 
 Anything the card does not recognize as one of the first six is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
+
+The keywords `tile`, `dot`, `pulse` and `glow` count in any casing: `Tile`, `DOT` and `Glow` are the tile, the dot and the glow. So those four words cannot be drawn as text, though a longer one holding them, such as `Tiles`, can.
 
 ### The Date Tile
 
@@ -775,6 +986,8 @@ today_day_color: '#8c1d18' # Choose the digits' color yourself
 ### Placing an Indicator
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+
+The first value follows the reading direction, as the rest of the list does. It is measured from the left on a left-to-right dashboard, and from the right on a right-to-left one such as Hebrew or Arabic, where the dates sit on the right. So `15% 50%` puts the indicator beside the date's outer edge either way, and one configuration serves both.
 
 ::: tip Column View Places It For You
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.

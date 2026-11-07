@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  computeColumnThresholdPx,
+  resolveEffectiveView,
+  resolveViewOnMeasurement,
+} from './helpers/view-oracle';
 import { DEFAULT_CONFIG, FOLDED_OPTIONS, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
@@ -13,7 +18,7 @@ import {
   TIME_GRID_DEFAULT_OVERRIDES,
   TIME_GRID_ONLY_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
-  computeColumnThresholdPx,
+  columnFitCrams,
   computeColumnThresholdPxFor,
   isZeroLength,
   multidaySplitPolicy,
@@ -21,16 +26,15 @@ import {
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
   resolveEffectiveConfig,
-  resolveEffectiveView,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
   resolveTimeGridOption,
-  resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
   validateView,
   viewAppliesCompactLimits,
 } from '../src/config/view';
+import type { ColumnFit } from '../src/config/view';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
 /**
@@ -1846,6 +1850,73 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(
       resolveTimeGridOption(build({ min_days_fallback: 'banana' as never }), 'min_days_fallback'),
     ).toBe('list');
+  });
+});
+
+describe('columnFitCrams', () => {
+  /**
+   * Whether a view is crammed, read two more ways while the card's own walk across every width,
+   * in both directions, draws each layout from the one before, as the card does.
+   *
+   * The same configuration with `list` as its fallback, asked from the layout on screen, gives
+   * way to the list at exactly the widths where `cramp` holds the floor instead. The two share
+   * the hysteresis arithmetic, so this pins the decision, not the band. The band is pinned by
+   * geometry instead: a crammed view is narrower than its floor of days needs at
+   * `min_day_width`, give or take the hysteresis band, and a roomy one is not.
+   */
+  function reconcile(view: 'column' | 'grid', overrides: Record<string, unknown>): number {
+    const cramp = buildConfig({ days_to_show: 7 });
+    const list = buildConfig({ days_to_show: 7 });
+    const block = view === 'grid' ? 'time_grid' : 'column';
+    Object.assign(cramp, { [block]: { ...overrides, min_days_fallback: 'cramp' } });
+    Object.assign(list, { [block]: { ...overrides, min_days_fallback: 'list' } });
+    const floor = resolveMinDaysToShow(cramp, view);
+    const needs = computeColumnThresholdPxFor(cramp, floor, view);
+
+    let crammed = 0;
+    const widths = Array.from({ length: 1400 }, (_, i) => i + 1);
+    for (const sweep of [widths, [...widths].reverse()]) {
+      let shown: ColumnFit | null = null;
+      for (const width of sweep) {
+        shown = resolveColumnFit(view, cramp, width, shown);
+        const answer = columnFitCrams(view, cramp, width, shown);
+        const label = `${view} ${JSON.stringify(overrides)} at ${width}px`;
+        expect(answer, label).toBe(resolveColumnFit(view, list, width, shown).view === 'list');
+        if (answer) {
+          crammed += 1;
+          expect(width, label).toBeLessThan(needs + VIEW_SWITCH_HYSTERESIS_PX);
+        } else {
+          expect(width, label).toBeGreaterThan(needs - VIEW_SWITCH_HYSTERESIS_PX);
+        }
+      }
+    }
+    return crammed;
+  }
+
+  it('is crammed exactly where the list fallback would have given way', () => {
+    // Each walk must find crammed widths and roomy ones, or it proves nothing.
+    for (const [view, overrides] of [
+      ['grid', { min_days_to_show: 7 }],
+      ['grid', { min_days_to_show: 3 }],
+      ['grid', {}],
+      ['column', { min_days_to_show: 5 }],
+    ] as const) {
+      const crammed = reconcile(view, overrides);
+      expect(crammed, `${view} ${JSON.stringify(overrides)}`).toBeGreaterThan(0);
+      expect(crammed, `${view} ${JSON.stringify(overrides)}`).toBeLessThan(2800);
+    }
+  });
+
+  it('is never crammed without cramp, before a width is known, or for another view', () => {
+    const config = buildConfig({ days_to_show: 7 });
+    config.time_grid = { min_days_to_show: 7 };
+    expect(columnFitCrams('grid', config, 100, { view: 'grid', columns: 7 })).toBe(false);
+
+    config.time_grid = { min_days_to_show: 7, min_days_fallback: 'cramp' };
+    expect(columnFitCrams('grid', config, 100, { view: 'grid', columns: 7 })).toBe(true);
+    expect(columnFitCrams('grid', config, null, { view: 'grid', columns: 7 })).toBe(false);
+    expect(columnFitCrams('grid', config, 100, { view: 'list', columns: 0 })).toBe(false);
+    expect(columnFitCrams('list', config, 100, { view: 'list', columns: 0 })).toBe(false);
   });
 });
 

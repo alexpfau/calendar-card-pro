@@ -8,6 +8,7 @@ import { buildEventPresentation } from './presentation';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import { getNowString } from '../translations/dayjs';
+import { calendarName } from '../utils/calendar-names';
 import * as EventUtils from '../utils/events';
 import { resolveLabelType } from '../utils/helpers';
 import { isPersonEntityId } from '../utils/person-pictures';
@@ -43,9 +44,13 @@ function labelNames(
       ? { ...event, _entityId: entityId, _matchedConfig: contributor.config }
       : event;
     const authored = EventUtils.getEntityLabel(entityId, config, source);
-    const namedId = isPersonEntityId(authored) ? authored : entityId;
-    const name = namedId && hass?.states[namedId]?.attributes.friendly_name;
-    return typeof name === 'string' && name.trim() ? [name] : namedId ? [namedId] : [];
+    // A person's picture is named by the person, whose name is their own; any other icon or
+    // picture stands for its calendar, named as the card names it everywhere else.
+    if (authored !== undefined && isPersonEntityId(authored)) {
+      const person = hass?.states[authored]?.attributes.friendly_name;
+      return [typeof person === 'string' && person.trim() ? person : authored];
+    }
+    return entityId ? [calendarName(entityId, config, hass)] : [];
   });
 }
 

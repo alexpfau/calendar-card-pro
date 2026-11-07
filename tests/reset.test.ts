@@ -228,6 +228,25 @@ function lit(card: CardUnderTest): boolean {
   return !off;
 }
 
+/**
+ * A whole press by a mouse, down and up, as the card's gesture reads it: a tap runs the card's
+ * `tap_action` only at pointer-up, so a press that stops short of it proves nothing.
+ */
+function tapWithPointer(target: EventTarget): void {
+  for (const type of ['pointerdown', 'pointerup']) {
+    const event = new Event(type, { bubbles: true, composed: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      button: { value: 0 },
+      isPrimary: { value: true },
+      pointerType: { value: 'mouse' },
+      clientX: { value: 0 },
+      clientY: { value: 0 },
+    });
+    target.dispatchEvent(event);
+  }
+}
+
 async function pressReset(card: CardUnderTest): Promise<void> {
   resetButton(card)!.click();
   await settle(card);
@@ -358,7 +377,7 @@ describe('the reset button', () => {
     expect(resetButton(noLegend)).toBeNull();
   });
 
-  it('leads the end of the action row, with refresh after it and last', async () => {
+  it('leads the end of the action row, with refresh after it and search last', async () => {
     const card = await mount({
       toolbar: { ...EVERYTHING, legend: 'menu', refresh: true, add_event: true },
     });
@@ -378,16 +397,18 @@ describe('the reset button', () => {
     expect(kinds(row.querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button reset-button',
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
     expect(resetButton(card)!.nextElementSibling).toBe(root(card).querySelector('.refresh-button'));
     const buttons = row.querySelectorAll('button');
-    expect(buttons[buttons.length - 1].classList).toContain('refresh-button');
+    expect(buttons[buttons.length - 1].classList).toContain('search-button');
 
-    // Without reset, refresh stands alone at the end, and nothing comes before it to widen.
+    // Without reset, refresh leads the end, and nothing comes before it to widen.
     document.body.innerHTML = '';
     const noReset = await mount({ toolbar: { ...EVERYTHING, reset: false, refresh: true } });
     expect(kinds(root(noReset).querySelector('.toolbar-end')!)).toEqual([
       'toolbar-button refresh-button',
+      'toolbar-button search-button',
     ]);
   });
 
@@ -434,6 +455,7 @@ describe('the reset button', () => {
       legend: false,
       add_event: false,
       refresh: false,
+      search: false,
     };
     const classes = (of: CardUnderTest) => Array.from(resetButton(of)!.classList);
     const icon = (of: CardUnderTest) => resetButton(of)!.querySelector('path')!.getAttribute('d');
@@ -455,17 +477,27 @@ describe('the reset button', () => {
     expect(classes(withRefresh)).not.toContain('alone');
   });
 
-  it('keeps a press from becoming a press on the card', async () => {
-    const card = await mount({ tap_action: { action: 'more-info' } });
+  it('keeps a press from becoming a press on the card, as refresh beside it does', async () => {
+    const card = await mount({
+      tap_action: { action: 'more-info' },
+      toolbar: { ...EVERYTHING, refresh: true },
+    });
     await pressNext(card);
     const fired: Event[] = [];
     card.addEventListener('hass-action', (ev) => fired.push(ev));
 
-    resetButton(card)!.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    tapWithPointer(resetButton(card)!);
     resetButton(card)!.click();
     await settle(card);
-
+    const refresh = root(card).querySelector<HTMLButtonElement>('.refresh-button')!;
+    tapWithPointer(refresh);
+    refresh.click();
+    await settle(card);
     expect(fired).toEqual([]);
+
+    // The control: the same press on the days is the card's.
+    tapWithPointer(root(card).querySelector('.content-container')!);
+    expect(fired).toHaveLength(1);
   });
 });
 
@@ -706,12 +738,55 @@ describe('what reset undoes', () => {
     await pressView(card, 'list');
     expect(lit(card)).toBe(true);
 
+    // Too narrow for columns, the configuration draws the list picked: nothing to undo shows.
     await measure(card, 320);
+    expect(drawnView(card)).toBe('list');
+    expect(lit(card)).toBe(false);
+
+    await measure(card, 1400);
+    expect(lit(card)).toBe(true);
     await pressReset(card);
 
     expect(card.requestedView).toBe('column');
-    expect(drawnView(card)).toBe('list');
+    expect(drawnView(card)).toBe('column');
     expect(lit(card)).toBe(false);
+  });
+
+  /**
+   * A layout picked with the switcher that the card is too narrow for falls back to the list.
+   * Where the configuration draws the list as well, nothing on screen differs from it, and a lit
+   * button would undo nothing visible, as for an expansion that does not show.
+   */
+  it('stays dark for a picked layout that falls back to the list the configuration draws', async () => {
+    const card = await mount({ days_to_show: 7 });
+    await measure(card, 1400);
+    await pressView(card, 'column');
+    expect(drawnView(card)).toBe('column');
+    expect(lit(card)).toBe(true);
+
+    await measure(card, 320);
+    expect(drawnView(card)).toBe('list');
+    expect(card.requestedView).toBe('column');
+    expect(lit(card)).toBe(false);
+    // Dark means inert: the pick stays for when the card is wide enough again.
+    await pressReset(card);
+    expect(card.requestedView).toBe('column');
+
+    await measure(card, 1400);
+    expect(drawnView(card)).toBe('column');
+    expect(lit(card)).toBe(true);
+  });
+
+  it('lights up for a picked layout that falls back where the configuration draws another', async () => {
+    // A grid still fits one day at this width, so the configuration draws it, not the list.
+    const card = await mount({ view: 'grid', days_to_show: 7 });
+    await measure(card, 1400);
+    await pressView(card, 'column');
+    await measure(card, 320);
+
+    expect(drawnView(card)).toBe('list');
+    expect(card.requestedView).toBe('column');
+    expect(lit(card)).toBe(true);
   });
 });
 
@@ -766,5 +841,179 @@ describe('reset beside other cards and while editing', () => {
 
     expect(drawnView(card)).toBe('grid');
     expect(lit(card)).toBe(true);
+  });
+});
+
+//-----------------------------------------------------------------------------
+// THE RESET ACTION
+//-----------------------------------------------------------------------------
+
+describe('the reset card action', () => {
+  /** Every control reset can undo, and no reset button. */
+  const NO_BUTTON: Types.ToolbarConfig = { ...EVERYTHING, reset: false };
+
+  const haCard = (card: CardUnderTest): HTMLElement =>
+    root(card).querySelector<HTMLElement>('ha-card')!;
+
+  /** A whole tap on the card's own space, which runs `tap_action`. */
+  async function tapCard(card: CardUnderTest): Promise<void> {
+    tapWithPointer(haCard(card));
+    await settle(card);
+  }
+
+  it('undoes every choice from a tap, on a card without the reset button', async () => {
+    const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' } };
+    const card = await mount(overrides);
+    const fingerprint = configFingerprint(configFor(overrides));
+    const home = range(card);
+    expect(resetButton(card)).toBeNull();
+
+    await pressChip(card, BEN);
+    await pressNext(card);
+    await pressView(card, 'column');
+    expect(drawnView(card)).toBe('column');
+    // Remembered for this configuration, so the reads below can see them forgotten.
+    expect(readViewChoice(fingerprint)).toBe('column');
+    expect(readHiddenCalendars(fingerprint)).toEqual([BEN]);
+
+    const writes = watchChoiceWrites();
+    await tapCard(card);
+
+    expect(writes()).toEqual(['remove']);
+    expect(readViewChoice(fingerprint)).toBeUndefined();
+    expect(readHiddenCalendars(fingerprint)).toEqual([]);
+    expect(drawnView(card)).toBe('list');
+    expect(range(card)).toBe(home);
+    expect(titles(card)).toContain('Football');
+  });
+
+  it('runs from a hold as from a tap', async () => {
+    const card = await mount({ toolbar: NO_BUTTON, hold_action: { action: 'reset' } });
+    const home = range(card);
+
+    await pressNext(card);
+    expect(range(card)).not.toBe(home);
+
+    (card as unknown as { handleAction(action: Types.ActionConfig): void }).handleAction(
+      (card as unknown as { config: Types.Config }).config.hold_action!,
+    );
+    await settle(card);
+
+    expect(range(card)).toBe(home);
+  });
+
+  it('collapses an expanded card whose only control is its expand action', async () => {
+    // No toolbar at all: expand is then the one thing a reset could undo.
+    const card = await mount({
+      toolbar: { show: false },
+      compact_events_to_show: 1,
+      tap_action: { action: 'expand' },
+      hold_action: { action: 'reset' },
+    });
+    await expand(card);
+    expect(titles(card)).toHaveLength(3);
+
+    (card as unknown as { handleAction(action: Types.ActionConfig): void }).handleAction(
+      (card as unknown as { config: Types.Config }).config.hold_action!,
+    );
+    await settle(card);
+
+    expect(card.isExpanded).toBe(false);
+    expect(titles(card)).toHaveLength(1);
+  });
+
+  it('collapses an expansion its expand action was edited away from', async () => {
+    // The configuration changes, the expansion stays: with no expand action left, only the
+    // reset action can still undo it, so it must still run.
+    const compact = { toolbar: { show: false }, compact_events_to_show: 1 };
+    const card = await mount({ ...compact, tap_action: { action: 'expand' } });
+    await expand(card);
+    expect(titles(card)).toHaveLength(3);
+
+    card.setConfig(configFor({ ...compact, tap_action: { action: 'reset' } }));
+    await settle(card);
+    expect(card.isExpanded).toBe(true);
+    expect(root(card).querySelector('ha-card')!.getAttribute('role')).toBe('button');
+
+    await tapCard(card);
+
+    expect(card.isExpanded).toBe(false);
+    expect(titles(card)).toHaveLength(1);
+  });
+
+  it('does nothing where the card shows its configuration: no write, no request, no check', async () => {
+    const card = await mount({ tap_action: { action: 'reset' } });
+    const requests = callApi.mock.calls.length;
+    const writes = watchChoiceWrites();
+
+    await tapCard(card);
+
+    expect(writes()).toEqual([]);
+    expect(callApi.mock.calls.length).toBe(requests);
+    expect(resetButton(card)!.classList.contains('reset-done')).toBe(false);
+  });
+
+  it('leaves a picked layout alone while it falls back to the list the configuration draws', async () => {
+    // The action follows the button: nothing on screen differs, so it keeps the pick for when
+    // the card is wide enough for it again.
+    const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' }, days_to_show: 7 };
+    const card = await mount(overrides);
+    const fingerprint = configFingerprint(configFor(overrides));
+    await measure(card, 1400);
+    await pressView(card, 'column');
+    await measure(card, 320);
+    expect(drawnView(card)).toBe('list');
+
+    const writes = watchChoiceWrites();
+    await tapCard(card);
+    expect(writes()).toEqual([]);
+    expect(readViewChoice(fingerprint)).toBe('column');
+    expect(card.requestedView).toBe('column');
+
+    await measure(card, 1400);
+    expect(drawnView(card)).toBe('column');
+    await tapCard(card);
+    expect(readViewChoice(fingerprint)).toBeUndefined();
+    expect(drawnView(card)).toBe('list');
+  });
+
+  it("shows the button's check where the card has the button", async () => {
+    const card = await mount({ tap_action: { action: 'reset' } });
+    await pressNext(card);
+    expect(lit(card)).toBe(true);
+
+    await tapCard(card);
+
+    expect(resetButton(card)!.classList.contains('reset-done')).toBe(true);
+  });
+
+  it('is no action at all on a card with nothing a reset could undo', async () => {
+    // No toolbar and no expand action: nothing could ever differ from the configuration, so the
+    // card promises nothing, as `add-event` on a card that cannot add one does not.
+    const card = await mount({ toolbar: { show: false }, tap_action: { action: 'reset' } });
+
+    expect(haCard(card).hasAttribute('role')).toBe(false);
+    expect(haCard(card).hasAttribute('tabindex')).toBe(false);
+
+    // The control: the same card with an action that runs is a button with a tab stop.
+    const control = await mount({ toolbar: { show: false }, tap_action: { action: 'refresh' } });
+    expect(haCard(control).getAttribute('role')).toBe('button');
+    expect(haCard(control).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('is no action while the card is edited, and loses nothing', async () => {
+    const overrides = { toolbar: NO_BUTTON, tap_action: { action: 'reset' } };
+    const fingerprint = configFingerprint(configFor(overrides));
+    writeViewChoice(fingerprint, 'grid');
+    writeHiddenCalendars(fingerprint, [BEN]);
+    const card = await mount(overrides, { flag: 'editMode' });
+
+    await tapCard(card);
+    expect(readViewChoice(fingerprint)).toBe('grid');
+    expect(readHiddenCalendars(fingerprint)).toEqual([BEN]);
+
+    card.editMode = false;
+    await settle(card);
+    expect(drawnView(card)).toBe('grid');
   });
 });

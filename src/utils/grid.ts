@@ -1466,6 +1466,13 @@ export function splitTimedEventByDay(
  * An event with no duration reports the same minute twice. That is an instant, not an
  * empty interval, and the band and lane tests downstream treat it as one.
  *
+ * A segment carried over from the day before starts at minute 0, even where that day has no
+ * 00:00. In a zone whose clocks spring forward at midnight, such as the Azores, the day opens
+ * at 01:00, and its wall clock would start the block an hour down, leaving the top row empty
+ * on one day a year. A zone changing at 02:00 draws its block through the missing hour, so
+ * this draws the two alike. A segment that begins its event keeps its own wall-clock start,
+ * so an event starting at 01:00 that day still draws from 01:00.
+ *
  * @param segment - A timed segment confined to one local day
  * @returns Start and end in minutes from that day's midnight
  */
@@ -1481,7 +1488,9 @@ export function segmentMinutes(segment: Types.CalendarEventData): LaneInput | nu
     return null;
   }
 
-  const startMin = minutesFromMidnight(start);
+  const continues =
+    segment._gridSegmentStartsEvent === false && start.getTime() === startOfDay(start).getTime();
+  const startMin = continues ? 0 : minutesFromMidnight(start);
   const rawEndMin = minutesFromMidnight(end);
 
   // Midnight reads as 0 on the *following* day, which would invert the interval.

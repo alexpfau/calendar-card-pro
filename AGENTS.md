@@ -235,6 +235,16 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+🚨 **A fake `hass.connection.subscribeMessage` must refuse `calendar/event/subscribe`.** Since
+v5.1 the card subscribes to every calendar it shows (`src/utils/live-calendars.ts`). A fake that
+resolves any subscription and never pushes leaves each calendar waiting
+`FIRST_PUSH_TIMEOUT` for a first push before it falls back to REST, so the card sits in its
+loading state and the test fails for a reason it never names. Nineteen tests in three files
+failed that way at once, and a fourth fake passed only by accident, its weather payload read as
+a failed calendar. Unless the test is about live updates, answer it as Home Assistant before
+2026.5 does, with `Promise.reject({ code: 'unknown_command' })`; `tests/live-updates.test.ts`
+has a fake that pushes.
+
 🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
 `for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
 like coverage and is not: delete an entry and the loop runs one fewer time, so the suite
@@ -279,7 +289,7 @@ rather than a skip — a dropdown labeled outside the string table is untranslat
 treating it as out of scope is how a gate silently stops covering the thing it was written
 for.
 
-### The suite runs as four projects, and the split is load-bearing
+### The suite runs as five projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
 more than one timezone:
@@ -290,6 +300,7 @@ more than one timezone:
 | `dst-berlin`   | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
 | `dst-sydney`   | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
 | `dst-new_york` | `America/New_York` | `tests/**/*.dst.test.ts`                            |
+| `dst-azores`   | `Atlantic/Azores`  | `tests/**/*.dst.test.ts`                            |
 
 The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
 locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
@@ -299,7 +310,7 @@ release up to v4: wrong on roughly one date in seven under real zones, with a gr
 and a dedicated `tests/column-week-numbers.test.ts` that was structurally incapable of
 seeing it.
 
-Hence the three extra projects, and **each is required for a different reason**. Berlin and
+Hence the four extra projects, and **each is required for a different reason**. Berlin and
 Sydney cover the hemispheres: the drift is negative north of the equator and positive south
 of it, so `Math.floor` and `Math.ceil` fail in _opposite_ hemispheres. Berlin alone proves
 nothing about a `ceil`; Sydney alone proves nothing about a `floor`. Reverting either fix in
@@ -311,14 +322,31 @@ _ahead_ of UTC, so parsing a date-only string as UTC midnight rather than local 
 still lands on the correct local calendar day in both — the exact one-line "simplification"
 that would render every all-day event a day early for every user in the Americas. Planting
 it fails `tests/all-day-parse.dst.test.ts` twice under Berlin, twice under Sydney, and
-**seventeen times** under New York, while all of `unit` stays green. When you add a zone,
-say which failure mode it is the only one able to see.
+**seventeen times** under New York, while all of `unit` stays green.
 
-So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all three zones
+Azores covers **a transition at local midnight**, which none of the other three has. There
+the spring-forward day has no 00:00, so its local midnight is 01:00, and its offset crosses
+from behind UTC to UTC itself, so UTC midnight lands on different local days at the two ends
+of an event. Splitting all-day events was wrong three ways there in every release from
+v2.4.0 to v5.0.0, with the other three zones green: a one-day event read as two days, a two-day
+one as one, and an event running past the spring change lost its last day.
+`tests/all-day-multiday-split.dst.test.ts` pins them, and planting either fix's revert fails
+only `dst-azores`. When you add a zone, say which failure mode it is the only one able to see.
+
+**Every `.dst.test.ts` file runs under Azores, so write its zone tables and guards for it.**
+Its summer offset is zero, so a fixture meant to read differently from UTC belongs in January,
+where every zone here is off UTC; a June one proves nothing there. Its spring day has no 00:00,
+so a "midnight" is the day's first moment, 01:00 on that day, and a helper that steps a `Date`
+by `setDate` keeps whatever hour the last step landed on. Ten files written before the project
+existed broke one of those two ways and were excluded from it until v5.1. One of them,
+`tests/grid-geometry.dst.test.ts`, also found a real case: a grid block carried over into the
+spring day started an hour down. Planting the revert of that fix fails only `dst-azores`.
+
+So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all four zones
 automatically. Give it a guard test asserting the January and July offsets differ, so it
 fails loudly instead of silently proving nothing if it is ever run under UTC —
 `tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
-what stops those files running a fourth time under UTC; do not drop it.
+what stops those files running a fifth time under UTC; do not drop it.
 
 🚨 **The transition is the famous exposure; the plain offset is the bigger one, and it
 was uncovered until v4.1.** Everything above is about DST _transitions_, which touch two
@@ -477,7 +505,7 @@ them survives contact with the suite.
 
 ### `scripts/`
 
-Ten files, and only three are reachable through `package.json`, so the rest are easy to
+Eleven files, and only three are reachable through `package.json`, so the rest are easy to
 mistake for leftovers. They are not. What each one is:
 
 | Script                      | Kind           | How it runs                          |
@@ -485,6 +513,7 @@ mistake for leftovers. They are not. What each one is:
 | `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
 | `check-docs.mjs`            | gate           | `npm run check:docs`                 |
 | `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `compact-payloads.mjs`      | build library  | imported by `rollup.config.mjs`      |
 | `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
 | `generate-en-gb.mjs`        | generator      | by hand — see below                  |
 | `editor-glossary.mjs`       | data           | imported by the i18n gate            |
@@ -492,6 +521,14 @@ mistake for leftovers. They are not. What each one is:
 | `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
 | `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
 | `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+
+`compact-payloads.mjs` subsets Day.js locale data for the card's relative-time-only API
+and packs the editor's English and translated string maps behind one shared key vector.
+Both are build-only representations; keep the authoring files and the i18n gate's independent
+loader unchanged. New Day.js APIs require revisiting the subset, not bypassing its source
+guard. The emitted equivalence tests run through the real Rollup plugin chain under UTC and
+the DST projects. Incremental builds must regenerate every language vector when English keys
+change. See _Compact Payloads, Readable Sources_ in `docs/architecture.md`.
 
 **`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
 is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
@@ -1245,10 +1282,35 @@ Neither has a workflow file, so neither shows up in `.github/workflows/`.
   pushes to `main` and same-repository pull requests into it, so the release PR is the first
   scan a change gets. **`dev` is not covered**: its deletion-only ruleset makes the branches
   API report it as protected, but default setup did not scan a push to it.
-- **One CodeQL alert is dismissed rather than fixed**: js/incomplete-multi-character-sanitization
-  on `HTML_MARKUP` in `src/utils/format.ts`. The function is not a sanitizer and its output
-  only ever reaches a Lit text binding; the docblock above the pattern says why, and why the
-  obvious fix would be a regression. Do not reopen it without reading that first.
+- **One CodeQL alert was dismissed rather than fixed**: js/incomplete-multi-character-sanitization
+  on the `HTML_MARKUP` regex in `src/utils/format.ts`. That regex is gone from `src/`: it took
+  quadratic time on markup that never closes, and the `removeMarkup` scanner replaced it,
+  removing exactly what it removed. **Whether the alert closes is not yet known** — confirm it
+  on the release PR's CodeQL scan, the first one to see the change. The reasoning behind the
+  dismissal still holds for the scanner, and the docblock on `removeMarkup` carries it: the
+  function is not a sanitizer; its output is plain text by contract, which the card draws only
+  through Lit bindings (as text, and in an `href` attribute only as an `http` or `https`
+  address: an anchor's once `safeHref`'s scheme allowlist accepts it, one in the text as
+  `BARE_URL` matches it) and never parses as HTML; and scanning until nothing changes would be
+  a regression. The regex survives verbatim as the oracle in
+  `tests/strip-html-tags.test.ts`, applied through `matchAll` rather than `replace`, and CodeQL
+  may flag it there; read that file's docblock on it before acting on an alert that names it.
+- **Two Dependabot alerts are dismissed rather than fixed**: 31 (`deepmerge`, low) and 32
+  (`minimatch`, moderate), both transitive and dev-only. Neither reaches `dist/`, and only
+  this repository's own lint globs and Rollup options reach them. The lockfile refresh above
+  changes nothing for either: `minimatch` is patched only in 11, which ESLint, its config
+  loader and its plugins do not accept yet, and `deepmerge` has no patched release at all,
+  while `@rollup/plugin-node-resolve` still depends on it. An `overrides` entry forcing
+  `minimatch` 11 was tried and stops ESLint loading its config: `@eslint/eslintrc` imports a
+  default export 11 removed, and `eslint-plugin-import-x` imports `makeRe`, which 11 also
+  removed. Several packages hold `minimatch` back, so ask npm rather than any one of them:
+  revisit when the audit below stops saying "No fix available" for `minimatch`, or
+  "`npm audit fix --force`" for `deepmerge`. The lockfile refresh above then clears it, or
+  Dependabot's monthly tooling bump carries it:
+
+  ```bash
+  npx npm@11 audit --package-lock-only
+  ```
 
 ## Docs site deployment
 
@@ -1382,7 +1444,12 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
-   lowercase the configured value before matching.
+   lowercase the configured value before matching. The same code goes into
+   `CARD_LANGUAGES` in `src/translations/language-codes.ts`, which `getEffectiveLanguage`
+   resolves against. It is a separate module so the editor can resolve a language without
+   bundling all 36 card-language tables, and **it must import nothing** for that reason. The
+   map `satisfies Record<CardLanguage, …>`, so `tsc` fails if the two disagree, and
+   `check:i18n` reconciles the list with the files.
 4. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
@@ -1586,6 +1653,23 @@ _timed / all-day / multi-day_ is not a partition, and no selection over it can e
 names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
 definition before it can offer one.
 
+### The card renders only for `hass` changes it draws
+
+`shouldUpdate` skips an update whose only change is a `hass` in which nothing the card reads
+moved (`src/utils/hass-relevance.ts`). Two consequences for new code:
+
+- **A new `hass` read needs nothing here** as long as it reads a top-level key, or the state
+  of an entity the configuration names. Walking every state (`Object.keys(hass.states)`), or
+  reading an entity the configuration does not name, silently breaks the rule:
+  `tests/hass-relevance.test.ts` records every read across a matrix of views and fails on
+  either. Add a case there when a feature reads `hass` in a new way.
+- **Nothing on screen may rely on `hass` traffic to stay current.** Unrelated updates used to
+  repaint every card every few seconds, which kept countdowns, progress bars,
+  `allday_expires_at` and midnight moving without anything scheduling it. Text that changes
+  with time alone needs a timer: the event boundary (`nextEventBoundary`) or the clock repaint
+  (`_nextClockRepaint`). A test that sets `card.hass = { ...card.hass }` to force a render now
+  renders nothing; call `requestUpdate()`, or pass time with fake timers.
+
 ## Editor (`src/rendering/editor/`)
 
 The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
@@ -1602,12 +1686,20 @@ Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. Th
 load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
 schema and read it, rather than scraping the source that produces it. Keep it that way.
 
-Three things are easy to get wrong:
+Four things are easy to get wrong:
 
 - **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
   narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
   defaults into the user's YAML — the classic failure of an `ha-form` editor, and one that
   moving an existing editor onto `ha-form` tends to introduce rather than remove.
+- **Minimizing must not eat what the user wrote.** `toStoredConfig` drops a default-valued
+  line only when the write changed it; a line the YAML already holds stays, so a later
+  default change cannot move the card. That needs the stored YAML as its third argument
+  (`_rawConfig`), and every editor write passes it. A new write path that omits it
+  compiles, passes every type check, and silently drops `show_month: true` on the next
+  edit; `tests/editor-keeps-authored-defaults.test.ts` fails if `_report` does. Anything
+  that labels or resets a view value reads `storedViewBlocks`, the same rule, so a kept
+  line is never shown as inherited.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
   there is no place for a per-field `event.type` guard. Values that are invalid _while
   being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and

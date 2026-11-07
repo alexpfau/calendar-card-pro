@@ -101,16 +101,19 @@ describe('scrolling labels and titles share one vertical center', () => {
     expect(reset).toHaveLength(1);
     expect(reset[0].body).toMatch(/^padding-bottom:\s*0;$/);
 
-    // One reset, not two competing ones: no other scrolling rule touches this padding.
+    // One reset, not two competing ones: no other scrolling rule touches this padding. A rule
+    // that names the class only to exclude it, as grid's labeled-title padding does, is not one.
+    const targetsScrolling = (selectors: string): boolean =>
+      selectors.replace(/:not\(\.summary-scroll\)/g, '').includes('.summary-scroll');
     const padding = rules.filter(
-      (rule) => rule.selectors.includes('.summary-scroll') && /padding-bottom/.test(rule.body),
+      (rule) => targetsScrolling(rule.selectors) && /padding-bottom/.test(rule.body),
     );
     expect(padding.map((rule) => rule.selectors)).toEqual([RESET]);
 
     // The correction is the existing reset widened, not a second mechanism.
     const nudges = rules.filter(
       (rule) =>
-        rule.selectors.includes('.summary-scroll') &&
+        targetsScrolling(rule.selectors) &&
         /(transform|line-height|margin-top|margin-block-start|position:\s*relative)/.test(
           rule.body,
         ),

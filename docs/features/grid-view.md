@@ -269,8 +269,9 @@ of the first day column to the right edge of the last. It crosses the gutters be
 columns but not the hour gutter, which macOS Calendar leaves clear too, and it begins and
 ends exactly where the hour rules do. This option exists in column view as well, where it
 draws a separate short rule inside each day's own header — the grid spends it on the one
-line that boundary needs. It is only drawn when there are all-day events to close off; with
-none, the band collapses and the heavier rule below takes its place.
+line that boundary needs. It is only drawn when there is a band to close off: when the days
+shown hold an all-day event, or while you [add one by tapping the grid](/features/actions#drawing-an-event-in-grid-view).
+With none, the band collapses and the heavier rule below takes its place.
 
 **Under the all-day band**, `allday_band_line_*` defaults to a heavier `2px` boundary,
 independently of the day rule's width. It is drawn inside the band, growing upward, so it never bleeds
@@ -551,23 +552,34 @@ block.
 Titles wrap only between words. Where overlapping events share a narrow column, a word can
 be wider than its block; it is then cut short and ends in "…", so "Quarterly review" reads
 "Quarte… review" rather than "Quarte rly review" broken over three lines. A hyphenated word
-can still wrap after its hyphen. Titles in Chinese, Japanese, Thai and other scripts written
-without spaces wrap between characters, as they always have, and so do titles containing a
-right-to-left script such as Hebrew or Arabic. A scrolling title (`scroll_long_titles`) stays
-on one line and moves instead.
+can still wrap after its hyphen. Titles in Chinese, Japanese and other scripts written
+without spaces wrap between characters, as they always have, and titles in Thai and its
+neighbors wrap between the words the browser finds. Titles containing a right-to-left script
+such as Hebrew or Arabic wrap as the browser decides. In both, only the first word is a word
+of its own, cut short like any other. A scrolling title (`scroll_long_titles`) stays on one
+line and moves instead.
 
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words
 can wrap beneath the temperature instead of competing with the title. The progress bar gets
-its own row under the title, while countdowns trail the time text.
+its own row under the title, while countdowns trail the time text. A countdown wraps as the
+weather row does: the time keeps its line whenever it fits, the dot stays at the end of that
+line, and the countdown's words continue on the next, where the block has room for it. The
+clock icon needs room beside the time only, so it stays wherever it fits there. Where the
+block has no room for the extra line, the clock gives way first and then the end time, so the
+countdown can follow the time on its line. In a lane too narrow for the countdown, it is the
+countdown that gives way, not the time. Where its dot cannot follow even the start time, or
+its words are wider than the block, the block draws its time exactly as it would with
+`show_countdown: false`; where no time leaves room for its words on their line and the block
+has no line to spare for them, it draws the time on one line, without the countdown.
 
 Calendar labels sit inline before the timed event's title, with the same small gap as in
 List and Column. Text, emoji, icon, image, and merged-calendar labels share that first
 line rather than taking a row above it. The title starts on that line too: a first word
 wider than the room the labels leave is cut short there, so in a narrow lane "Birthday
 lunch" beside a picture reads "Birth…" with "lunch" below it, rather than leaving the picture
-on a line of its own. Titles in Thai or a right-to-left script wrap as the browser decides,
-so in a narrow lane their first word can still start below a label. Wrapped lines start at
+on a line of its own. Titles in Thai or a right-to-left script start beside the label the
+same way. Wrapped lines start at
 the block's edge, under the labels, rather than indented to line up with the title as they
 do in List and Column, where a row has the width to spare. Title line limits include the
 labeled line; scrolling keeps the labels stationary while the title moves. All-day banners
@@ -627,7 +639,9 @@ therefore not guaranteed to show text at every card height or font.
 
 Timed events retain their full, unellipsized configured information in the browser's
 accessibility tree even when their visual text is clipped or absent. Calendar and person
-names identify picture/icon labels, original event times describe continuations, and
+names identify picture/icon labels, a calendar by its
+[`name`](/features/core-settings#naming-a-calendar-in-the-card) where it has one and a person
+always by their own; original event times describe continuations, and
 intentionally disabled details stay omitted. This does not add an event action or another
 keyboard tab stop; [`event_tap_action`](/features/actions#tapping-an-event) is what adds
 both. All-day banners and overflow-count blocks are outside this fallback.
@@ -648,6 +662,56 @@ time_grid:
 ```
 
 :::
+
+## ✋ Moving Events by Drag
+
+Where a tap or a hold opens an event in the [event popover](/features/actions#the-event-popover)
+and the popover can change it, you can also move a timed event to another time or day by
+dragging its block, as in Calendar on macOS. There is no option of its own:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: grid
+event_tap_action:
+  action: details
+```
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A family's week in grid view on a tablet: a finger holds Bike repair on Friday at 16:30 until it lifts, drags it to Saturday at 11:00, lets go, and later drags it back"></video><br>
+
+Hold the event until it lifts, drag it to another day and time, and let go: it is saved there at once. The second drag puts it back.
+
+- **With a mouse,** press on the event and drag at once. A click that does not move still opens
+  the popover.
+- **On a phone or tablet,** hold the event for half a second, until it lifts, then drag. The page
+  does not scroll while you do. Held and let go without moving, the hold does what it always did,
+  such as opening the popover under `event_hold_action: details`.
+
+The event follows the pointer in quarter hours, keeping its length and the minute it starts at
+within its quarter, so one at 10:10 moves to 10:25 or 9:55. Drag sideways to move it to another
+of the days shown. It stays on the day you drop it on: an event that would run past midnight stops
+where it still ends by then. While you drag, it is drawn where it would go, with its new times,
+and its own block fades where it was. Let go, and it is saved there at once, and stays drawn there
+until the card has fetched its events again, a moment later. Let go where it started, press
+Escape, or touch the screen with a second finger, and nothing changes. It also goes back if the
+card turns to other days while you drag.
+
+A repeating event opens the popover at its new times when you let go, and moves its repeat with it
+as a change of times in the popover does. One occurrence of a series asks whether the move is for
+**Only this event** or for **This and all future events**; a series the calendar returns whole
+shows **Save**. **Cancel** puts it back.
+
+If Home Assistant refuses the change, the event goes back where it was, and Home Assistant shows
+why at the bottom of the screen.
+
+A drag moves an event only where the popover could change it, so only on a calendar whose
+integration [can edit events](/features/actions#what-each-integration-allows), such as a Local
+Calendar, and not with [`allow_event_edit: false`](/features/actions#narrowing-what-the-popover-offers)
+or for an event the popover would show [read-only](/features/actions#when-the-card-leaves-them-out).
+It moves timed events that start and end on the same day. All-day events, and events running into
+another day, are changed in the popover. A drag cannot take an event past the days shown, to
+another calendar, or change its length, and nothing moves while the card is being edited.
 
 ## 📱 Fitting Narrow Cards
 
@@ -685,6 +749,8 @@ next:
 - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`.
   At extreme widths, each day retains a `2rem` floor and the grid scrolls horizontally
   rather than collapsing days to zero width. The axis and day gaps keep their configured sizes.
+  A crammed grid keeps that sideways scroll on a touch screen, so a swipe across it scrolls
+  rather than [paging](/features/layout-appearance#paging-through-dates); the arrows still page.
 
 When the grid sheds columns, the days that stay always include today. They start at today
 and run forward, reaching back to earlier days only when the range ends before the columns
@@ -725,7 +791,8 @@ options listed below. In the visual editor, choose the Grid workspace to edit th
 values directly without changing Card Displays.
 
 Options that decide which events the card loads, such as `start_date` and `entities`, are
-card-wide and ignored inside `time_grid:`; see
+card-wide and ignored inside `time_grid:`, and so are others that act on the card as a whole,
+such as the actions and the `toolbar`; see
 [Options That Cannot Be Overridden](/features/column-view#options-that-cannot-be-overridden).
 `days_to_show` is the exception, so a grid can show one week while the list shows two:
 
@@ -885,6 +952,11 @@ The all-day badge controls (`allday_badge`, `allday_badge_style` and `allday_bad
 are also omitted in Grid. Its all-day banners have their own shape, and timed blocks never
 draw an all-day badge. Edit those controls in List, Columns or All Layouts instead.
 
+`time_position` does nothing here either, and the editor omits it in Grid. A block lays out
+its own rows and fits its time row to the room it has, so there is no title row for the time
+to join; list and column view move it
+[beside the title](/features/event-content#time-beside-the-title) instead.
+
 `show_single_allday_time`, `show_multiday_allday_time`, `show_location_allday`,
 `show_description_allday` and `show_countdown_allday` do nothing in grid view at all. They
 decide what an all-day row carries, and grid draws an all-day event as a
@@ -895,6 +967,13 @@ The other detail-row options still shape timed blocks but never reach the all-da
 `show_time`, `show_progress_bar`, `weather.position: event`, per-calendar `label`,
 `label_type`, `label_icon_color` and the title and weather line limits. `time_max_lines` is
 the exception, below.
+
+`open_links` does nothing here. A grid block draws its words for the eye only, behind a
+name of its own that screen readers announce, and shows or hides its rows as it grows and
+shrinks, so a link in it would be a stop for the keyboard that a screen reader cannot see, in a
+box often too small to aim at. Its location and description stay text, and the editor omits
+the switch in Grid. [Links in Events](/features/actions#links-in-events) has the list and
+column behavior.
 
 `event_spacing` and `event_gap` do nothing here either. They set the padding inside a list
 or column row and the space between one row and the next, while a grid block sets its own

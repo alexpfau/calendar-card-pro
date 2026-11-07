@@ -56,6 +56,7 @@ interface CardUnderTest extends HTMLElement {
  * they were missing from it.
  */
 const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
+  ['name', 'Anna', 'Ben'],
   ['label', 'Old label', 'New label'],
   ['label_type', 'text', 'icon'],
   ['color', 'red', 'blue'],

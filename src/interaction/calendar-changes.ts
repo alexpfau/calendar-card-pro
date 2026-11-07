@@ -1,12 +1,12 @@
 /**
- * Telling every card on the page that one of Home Assistant's dialogs changed a calendar.
+ * Telling every card on the page that the event popover changed a calendar.
  *
- * The card that opened the dialog refreshes itself, but a dashboard often shows the same
+ * The card that opened the popover refreshes itself, but a dashboard often shows the same
  * calendar on several cards: a week on one, today on another. Without this, those keep
  * drawing the old events until their own next scheduled refresh.
  */
 
-import { calendarSupports } from './ha-calendar-dialogs';
+import { calendarSupports } from './calendar-writes';
 import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
@@ -32,10 +32,9 @@ export type ChangedCalendars =
   /** These calendars. An edit or a delete names the event's own. */
   | { readonly ids: ReadonlyArray<string> }
   /**
-   * Any calendar that advertises this feature bit. A new event is announced this way, with
-   * the create bit: Home Assistant's create dialog lets the user pick any calendar that
-   * accepts new events, not only the one the card preselected, so the change cannot be
-   * narrowed to one calendar, but it cannot have landed in a read-only one either.
+   * Any calendar that advertises this feature bit, for a new event whose calendar is not
+   * known: it cannot be narrowed to one calendar, but it cannot have landed in a read-only one
+   * either. The popover names the calendar it wrote to, so it announces `ids`.
    */
   | { readonly feature: number };
 
@@ -57,7 +56,7 @@ export interface CalendarsChangedDetail {
 //-----------------------------------------------------------------------------
 
 /**
- * Announce on `window` that a dialog saved a change.
+ * Announce on `window` that the popover saved a change.
  *
  * @param source - The announcing card
  * @param changed - The calendars the change may have touched
@@ -79,7 +78,7 @@ export function announceCalendarsChanged(
  * Whether an announced change concerns a card showing these calendars.
  *
  * A change announced by feature is read against the receiving card's own `hass`, the same
- * `supported_features` the announcing card's dialog offered calendars from.
+ * `supported_features` the announcing card read.
  *
  * @param detail - The announcement
  * @param shownIds - Entity ids of the calendars the card shows
@@ -91,8 +90,23 @@ export function concernsCalendars(
   shownIds: ReadonlyArray<string>,
   hass: Types.Hass | null | undefined,
 ): boolean {
-  const { changed } = detail;
+  return touchesCalendars(detail.changed, shownIds, hass);
+}
+
+/**
+ * Whether a saved change may have touched any of these calendars.
+ *
+ * @param changed - The calendars the change may have touched
+ * @param calendarIds - Entity ids of the calendars in question
+ * @param hass - Home Assistant instance, for the feature a change is announced by
+ * @returns True when any of them may have changed
+ */
+export function touchesCalendars(
+  changed: ChangedCalendars,
+  calendarIds: ReadonlyArray<string>,
+  hass: Types.Hass | null | undefined,
+): boolean {
   return 'ids' in changed
-    ? changed.ids.some((id) => shownIds.includes(id))
-    : shownIds.some((id) => calendarSupports(hass, id, changed.feature));
+    ? changed.ids.some((id) => calendarIds.includes(id))
+    : calendarIds.some((id) => calendarSupports(hass, id, changed.feature));
 }

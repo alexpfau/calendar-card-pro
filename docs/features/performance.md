@@ -1,13 +1,52 @@
 # Performance & Caching
 
-Calendar Card Pro keeps the events it loads in your browser. It draws them the moment a
-dashboard opens, and asks Home Assistant again only when they are due for a refresh.
+Calendar Card Pro keeps the events it loads in your browser and draws them the moment a
+dashboard opens. On Home Assistant 2026.5 or later, Home Assistant then tells it of every change
+to its calendars, so it never polls; on older versions it asks again whenever its events are due
+for a refresh.
 
 ```yaml
 # Cache and refresh settings
 refresh_interval: 30 # Minutes between refreshes
 refresh_on_navigate: true # Refetch in the background whenever the card appears
 ```
+
+## 📡 Live Updates
+
+On Home Assistant 2026.5 or later, the card subscribes to each calendar it shows, and Home
+Assistant sends that calendar's events again whenever they change. An event added, moved or
+deleted anywhere, on the card, in Home Assistant, on a phone or in the calendar's own app,
+appears on every open dashboard as soon as Home Assistant knows of it, with no refresh in
+between.
+
+How soon Home Assistant knows depends on the calendar's integration:
+
+| Calendar                                               | A change appears                                 |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| Local calendars, and those an integration keeps itself | within seconds                                   |
+| Google Calendar, CalDAV                                | at the integration's next sync, every 15 minutes |
+| Remote calendars (an iCal address)                     | at the integration's next refresh, once a day    |
+
+- **No polling while live.** `refresh_interval` applies only where live updates are not
+  available: on Home Assistant before 2026.5, and for a calendar whose integration could not
+  read its events, until it can again. It is also the longest wait between retries of a
+  calendar that keeps failing. On Home Assistant before 2026.5 the card asks again at most every
+  30 minutes whether it can subscribe, in case Home Assistant was only starting up.
+- **Nothing redrawn for nothing.** Home Assistant also sends a calendar's events when one of
+  them starts or ends, and some integrations at every sync, every minute for some. The card
+  compares and redraws only when an event changed.
+- **A calendar's integration reloaded.** Reloading it, changing its options or signing in to
+  the calendar again replaces the calendar in Home Assistant, and its subscription goes quiet. A
+  card on screen notices and subscribes again within 30 seconds; one that was not on screen, as
+  while you were in Home Assistant's settings, subscribes again when it comes back.
+- **One subscription per calendar.** Cards showing the same calendar over the same dates share
+  one subscription per browser tab. A card that leaves the page lets go of its subscriptions a
+  few seconds later, and subscribes again when it comes back, which costs Home Assistant one
+  read of each calendar, as a refresh on appearing did.
+- **What it costs Home Assistant.** Each subscription reads the calendar's events once when it
+  starts and again at every change Home Assistant sends, so a card appearing costs what a
+  refresh did, and a calendar that changes often is read as often. Home Assistant's own
+  calendar card works the same way.
 
 ## ⚡ Loading & Refreshing
 
@@ -18,16 +57,24 @@ refresh_on_navigate: true # Refetch in the background whenever the card appears
   default, the card then asks Home Assistant again and swaps in the answer, unless its data
   is less than 5 seconds old or a calendar is failing to load and waiting for its next
   retry. Turn it off to keep using the cached events until they are due.
-- **A refresh every `refresh_interval` minutes**, counted from when the data was loaded.
+- **Where live updates are not available, a refresh every `refresh_interval` minutes**,
+  counted from when the data was loaded.
   Cards showing the same calendars over the same dates share one cache, so one card's
   refresh serves the others.
 - **All calendars at once.** Every calendar is requested in parallel, so a load takes as
-  long as the slowest calendar rather than the sum of all of them.
+  long as the slowest calendar rather than the sum of all of them. When the card has nothing
+  to draw yet, on its first load or on dates it has not shown before, it draws each calendar
+  as it answers, so one slow calendar no longer holds back the rest. A card already showing
+  saved events for those dates keeps them until every calendar has answered.
 - **At once after a change made on the card.** Adding, editing or deleting an event through
-  the card's [dialogs](/features/actions#home-assistants-own-dialogs) refetches straight
+  the card's [event popover](/features/actions#the-event-popover) refetches straight
   away, on that card and on every other Calendar Card Pro card on the page that shows the
-  changed calendar. A new event could have gone to any calendar that accepts new events, so
-  after one every card showing such a calendar refreshes.
+  changed calendar. A card that is not on the page, on
+  another view or dashboard, loads the changed calendar again the next time it appears, even
+  with `refresh_on_navigate` off, and so does the card itself after a reload.
+- **Just after midnight.** A card whose dates move with today, with no `start_date` or a
+  [relative one](/features/start-date-offset), loads the new day's events just after midnight
+  rather than at its next refresh.
 - **Pages kept in memory only.** Dates the
   [date navigation](/features/layout-appearance#paging-through-dates) pages to are loaded the
   first time they are shown and kept in memory, shared by the cards on the page, for the 16
@@ -43,15 +90,31 @@ refresh_interval: 15
 refresh_on_navigate: false
 ```
 
+## 🖥️ Redrawing
+
+Home Assistant tells the card about every change in the house, often several a second. The
+card redraws only when something it shows has changed: one of its calendars, a label's
+person or entity, its weather entity, or your language, theme or Home Assistant settings. A
+light switching in another room costs it nothing.
+
+Some of what the card shows changes with time alone, and it redraws for that on its own:
+
+- when an event starts or ends, and when `allday_expires_at` retires an all-day event;
+- once a minute while a countdown to something later today, or a progress bar, is on screen;
+- just after midnight, which moves the mark of today, even on a card whose dates are fixed.
+
 ## ⚠️ When a Calendar Fails to Load
 
 A calendar can fail to load because its integration returns an error, because Home
 Assistant is restarting, or because it does not answer within 30 seconds. The card then:
 
-- names it in a line at the bottom of the card, such as "Couldn't load: Ben", using the
-  calendar's name in Home Assistant, or its entity id when Home Assistant does not know it;
+- names it in a line at the bottom of the card, such as "Couldn't load: Ben", by its
+  [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card, else its name
+  in Home Assistant, else its entity id. Where Home Assistant does not know the calendar at
+  all, the entity id stays in the line, after the name if it has one, as in "Couldn't load:
+  Ben (calendar.bne)", because the id is what needs fixing;
 - keeps showing that calendar's last loaded events, for up to 24 hours;
-- offers no Edit or Delete for those events, which may be a day out of date, and never
+- lets no one change or delete those events, which may be a day out of date, and never
   preselects that calendar for a [new event](/features/actions#add-event-button) (see
   [Editing & Deleting Events](/features/actions#when-the-card-leaves-them-out));
 - tries again after 1 minute, then after 2, 4, 8 and so on, up to `refresh_interval`.

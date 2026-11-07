@@ -574,3 +574,52 @@ describe('scroll_long_titles lifecycle', () => {
     expect(RecordingIntersectionObserver.instances).toHaveLength(intersectionCount + 1);
   });
 });
+
+/**
+ * Whether the card measures and moves titles at all. `time_position: title` scrolls every title it
+ * puts a time beside, whatever `scroll_long_titles` says, so the card has to measure them with
+ * the option off; grid ignores the placement, so it measures there only as the option says. Both
+ * gates are held, the one that starts the observers and the one each frame passes, by counting
+ * the measurements a sync leads to.
+ */
+describe('which cards measure their titles', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  function measured(config: Partial<Types.Config>, view: Types.EffectiveView): number {
+    const { card } = cardWithTitle(500, 100);
+    const gated = card as unknown as {
+      _syncTitleScroll(): void;
+      _measureTitleScroll(): void;
+    };
+    Object.defineProperty(card, 'isConnected', { value: true });
+    Object.defineProperty(card, 'effectiveConfig', { value: buildConfig(config) });
+    Object.defineProperty(card, 'effectiveView', { value: view });
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    const measure = vi.spyOn(gated, '_measureTitleScroll').mockImplementation(() => {});
+    gated._syncTitleScroll();
+    return measure.mock.calls.length;
+  }
+
+  it.each([
+    ['the time beside the title, list view', { time_position: 'title' }, 'list'],
+    ['the time beside the title, column view', { time_position: 'title' }, 'column'],
+    ['scroll_long_titles, grid view', { scroll_long_titles: true }, 'grid'],
+    ['scroll_long_titles, list view', { scroll_long_titles: true }, 'list'],
+  ] as const)('measures with %s', (_name, config, view) => {
+    expect(measured(config as Partial<Types.Config>, view)).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ['neither option, list view', {}, 'list'],
+    ['the time beside the title, grid view', { time_position: 'title' }, 'grid'],
+    ['an unknown time_position', { time_position: 'beside' }, 'list'],
+  ] as const)('does not measure with %s', (_name, config, view) => {
+    expect(measured(config as Partial<Types.Config>, view)).toBe(0);
+  });
+});

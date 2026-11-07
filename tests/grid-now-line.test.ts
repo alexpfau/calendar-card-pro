@@ -158,8 +158,10 @@ describe('the timer is released', () => {
 describe('midnight', () => {
   // A plain repaint at midnight is wrong in a way that is easy to miss: every day header
   // is a day stale, "today" has moved to a different column, and the line would be drawn
-  // at the top of a column that is no longer today. Only refetching fixes that.
-  it('refetches rather than repainting when the local day rolls over', async () => {
+  // at the top of a column that is no longer today. Only loading again fixes that. The load
+  // goes through the cache, which fetches when the window moved and nothing stored the new
+  // one yet; `midnight-window.test.ts` counts the requests.
+  it('loads again rather than repainting when the local day rolls over', async () => {
     const element = await mounted({ view: 'grid' });
     const update = vi.spyOn(element, 'updateEvents').mockResolvedValue();
     const repaint = vi.spyOn(element, 'requestUpdate');
@@ -167,7 +169,7 @@ describe('midnight', () => {
     element._nowLineDayKey = '2026-06-16';
     element._tickNowLine();
 
-    expect(update, 'a rollover must refetch').toHaveBeenCalledWith('network');
+    expect(update, 'a rollover must load again').toHaveBeenCalledWith('cache');
     expect(repaint, 'and must not merely repaint').not.toHaveBeenCalled();
 
     update.mockRestore();
@@ -201,7 +203,7 @@ describe('midnight', () => {
     update.mockRestore();
   });
 
-  it('refetches when a hidden tab returns just after midnight', async () => {
+  it('loads again when a hidden tab returns just after midnight', async () => {
     vi.setSystemTime(new Date(2026, 5, 17, 23, 59, 30));
     const element = await mounted({ view: 'grid' });
     const update = vi.spyOn(element, 'updateEvents').mockResolvedValue();
@@ -215,7 +217,7 @@ describe('midnight', () => {
     visibility.mockReturnValue('visible');
     document.dispatchEvent(new Event('visibilitychange'));
 
-    expect(update, 'returning on a new local day must refetch').toHaveBeenCalledWith('network');
+    expect(update, 'returning on a new local day must load again').toHaveBeenCalledWith('cache');
 
     visibility.mockRestore();
     update.mockRestore();

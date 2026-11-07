@@ -34,5 +34,6 @@
   "noEvents": "Ei tapahtumia",
   "loading": "Ladataan kalenteritapahtumia...",
   "error": "Virhe: Kalenteriyksikköä ei löydy tai se on väärin määritetty",
-  "loadFailed": "Lataus epäonnistui:"
+  "loadFailed": "Lataus epäonnistui:",
+  "newEvent": "Uusi tapahtuma"
 }

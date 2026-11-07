@@ -21,5 +21,6 @@
   "noEvents": "Nėra įvykių",
   "loading": "Įkeliami kalendoriaus įvykiai...",
   "error": "Klaida: Kalendoriaus objektas nerastas arba neteisingai sukonfigūruotas",
-  "loadFailed": "Nepavyko įkelti:"
+  "loadFailed": "Nepavyko įkelti:",
+  "newEvent": "Naujas įvykis"
 }

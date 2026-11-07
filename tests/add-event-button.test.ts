@@ -20,17 +20,18 @@
  *
  * Two behaviors are pinned beyond the rendering: a press on the button must never become
  * a press on the card (the card captures the pointer for its own tap and hold actions),
- * and the dialog must preselect the first calendar that can actually take the event.
+ * and the popover must preselect the first calendar that can actually take the event.
  */
 
 import { mdiPlus } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as AddEvent from '../src/interaction/add-event';
-import * as Dialogs from '../src/interaction/ha-calendar-dialogs';
 import '../src/calendar-card-pro';
 
 /** A shown toolbar holding the add button and nothing else. */
@@ -55,6 +56,9 @@ vi.mock('../src/utils/logger', () => ({
 
 const handleAction = vi.hoisted(() => vi.fn());
 vi.mock('../src/interaction/actions', () => ({ handleAction }));
+
+/** How long a new event lasts when it opens. */
+const HOUR_MS = 60 * 60 * 1000;
 
 const WRITABLE = 'calendar.anna';
 const WRITABLE_2 = 'calendar.ben';
@@ -182,16 +186,6 @@ function dispatchPointer(target: EventTarget, type: string, pointerId = 1): void
     clientY: { value: 0 },
   });
   target.dispatchEvent(event);
-}
-
-/** Stand in for Home Assistant having already loaded its event dialog. */
-function dialogAlreadyLoaded(): void {
-  const original = customElements.get.bind(customElements);
-  vi.spyOn(customElements, 'get').mockImplementation((tag: string) =>
-    tag === Dialogs.EVENT_EDITOR_DIALOG_TAG
-      ? (class {} as CustomElementConstructor)
-      : original(tag),
-  );
 }
 
 const originalResizeObserver = globalThis.ResizeObserver;
@@ -449,12 +443,12 @@ describe('the card around the add-event button', () => {
 
   const TAPPABLE = { tap_action: { action: 'expand' as const } };
 
-  it('is not a button while the add-event button is in it, and keeps its tab stop', async () => {
+  it('is not a button while the add-event button is in it, and hands its tap to a control', async () => {
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...TAPPABLE });
 
     expect(button(card)).not.toBeNull();
     expect(haCard(card).hasAttribute('role')).toBe(false);
-    expect(haCard(card).getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard(card));
   });
 
   it('runs its tap action for Enter and Space on the card itself, beside the button', async () => {
@@ -498,34 +492,84 @@ describe('the card around the add-event button', () => {
 });
 
 describe('pressing the add-event button', () => {
-  it('opens the dialog for the first writable calendar and refreshes once saved', async () => {
-    dialogAlreadyLoaded();
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
+  beforeEach(() => {
+    popovers = spyOnPopovers();
+  });
+
+  afterEach(() => {
+    popovers.stop();
+  });
+
+  /** The one popover the press opened. */
+  function openedOnce() {
+    expect(popovers.opened).toHaveBeenCalledOnce();
+    return popovers.opened.mock.calls[0][0];
+  }
+
+  it('opens the popover below the button, by pointer or by key', async () => {
+    const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY });
+
+    button(card)!.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        composed: true,
+        detail: 1,
+        clientX: 42,
+        clientY: 17,
+      }),
+    );
+    const pressed = openedOnce().anchor;
+    expect(pressed).toMatchObject({ below: true, pointerType: 'mouse' });
+    expect(pressed?.rect).toBeDefined();
+
+    // A key's click has no detail and no pointer.
+    button(card)!.click();
+    const keyed = popovers.opened.mock.calls[1][0].anchor;
+    expect(keyed).toMatchObject({ below: true });
+    expect(keyed).not.toHaveProperty('pointerType');
+  });
+
+  it('opens the popover on a new event for the first writable calendar and refreshes once saved', async () => {
     const card = await mount({ entities: [READ_ONLY, WRITABLE_2, WRITABLE], toolbar: ADD_ONLY });
     const refreshEvents = vi.spyOn(card, 'refreshEvents').mockResolvedValue();
 
-    const shown = new Promise<CustomEvent>((resolve) =>
-      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
-        once: true,
-      }),
-    );
     button(card)!.click();
-    const detail = (await shown).detail as {
-      dialogTag: string;
-      dialogParams: { calendarId: string; updated: () => unknown };
-    };
+    const params = openedOnce();
 
-    expect(detail.dialogTag).toBe('dialog-calendar-event-editor');
-    expect(detail.dialogParams.calendarId).toBe(WRITABLE_2);
+    expect(params).toMatchObject({
+      mode: 'new',
+      calendarId: WRITABLE_2,
+      canEdit: true,
+      canDelete: false,
+    });
+    // Every calendar the event may go to, in configuration order; the read-only one is not.
+    expect(params.calendars.map(({ id }) => id)).toEqual([WRITABLE_2, WRITABLE]);
     expect(refreshEvents).not.toHaveBeenCalled();
 
     // What the refresh does with a request already in flight is in
     // `dialog-writes.test.ts`; this pins only that saving asks for one.
-    detail.dialogParams.updated();
+    params.updated(params.calendarId);
     expect(refreshEvents).toHaveBeenCalledOnce();
   });
 
+  it('names the calendars a new event may go to as the card names them', async () => {
+    const card = await mount({
+      entities: [READ_ONLY, { entity: WRITABLE_2, name: 'Ben at school' }, WRITABLE],
+      toolbar: ADD_ONLY,
+    });
+
+    button(card)!.click();
+
+    // Neither has a name in Home Assistant here, so the unnamed one keeps its id.
+    expect(openedOnce().calendars.map(({ id, name }) => [id, name])).toEqual([
+      [WRITABLE_2, 'Ben at school'],
+      [WRITABLE, WRITABLE],
+    ]);
+  });
+
   it('preselects the first writable calendar that is not failing to load', async () => {
-    dialogAlreadyLoaded();
     const callApi = vi.fn((_method: string, path: string) =>
       path.startsWith(`calendars/${WRITABLE_2}`)
         ? Promise.reject(new Error('unavailable'))
@@ -537,15 +581,12 @@ describe('pressing the add-event button', () => {
     );
     await vi.waitFor(() => expect(card.shadowRoot!.querySelector('.fetch-error')).not.toBeNull());
 
-    const shown = new Promise<CustomEvent>((resolve) =>
-      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
-        once: true,
-      }),
-    );
     button(card)!.click();
 
     // The control is the case above: the same calendars, all loading, preselect WRITABLE_2.
-    expect((await shown).detail.dialogParams.calendarId).toBe(WRITABLE);
+    const params = openedOnce();
+    expect(params.calendarId).toBe(WRITABLE);
+    expect(params.calendars.map(({ id }) => id)).toEqual([WRITABLE]);
   });
 
   it('draws nothing while every writable calendar is failing to load', async () => {
@@ -575,21 +616,63 @@ describe('pressing the add-event button', () => {
   ])('starts a new event on %s', async (_name, overrides, expected) => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    dialogAlreadyLoaded();
     const card = await mount({ entities: [WRITABLE], toolbar: ADD_ONLY, ...overrides });
 
-    const shown = new Promise<CustomEvent>((resolve) =>
-      document.body.addEventListener('show-dialog', (ev) => resolve(ev as CustomEvent), {
-        once: true,
-      }),
-    );
     button(card)!.click();
 
-    expect((await shown).detail.dialogParams.selectedDate).toEqual(expected);
+    // An hour from there: every date above is already on the hour.
+    expect(openedOnce().times).toEqual({
+      allDay: false,
+      start: expected,
+      end: new Date(expected.getTime() + HOUR_MS),
+    });
+  });
+
+  it('starts a new event on today on a collapsed compact card that draws only an earlier day', async () => {
+    // The days are the page's, not the rows drawn: collapsing a compact card draws fewer days,
+    // never different ones, and today is the day an event is most often added for.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(FROZEN_NOW);
+    const event = (summary: string, day: string, hour: string) => ({
+      summary,
+      start: { dateTime: `${day}T${hour}:00:00Z` },
+      end: { dateTime: `${day}T${hour}:30:00Z` },
+    });
+    const callApi = vi
+      .fn()
+      .mockResolvedValue([
+        event('Breakfast', '2026-06-15', '08'),
+        event('Dentist', '2026-06-17', '14'),
+      ]);
+    const config = {
+      entities: [WRITABLE],
+      toolbar: ADD_ONLY,
+      start_date: '2026-06-15',
+      days_to_show: 3,
+      show_past_events: true,
+    };
+    const drawn = (card: CardUnderTest) =>
+      Array.from(card.shadowRoot!.querySelectorAll('.event-title'), (el) => el.textContent!.trim());
+
+    // The control: the same card, not compact, draws today's event.
+    const open = await mount(config, { callApi });
+    await vi.waitFor(() => expect(drawn(open)).toEqual(['Breakfast', 'Dentist']));
+    open.remove();
+
+    const card = await mount({ ...config, list: { compact_days_to_show: 1 } }, { callApi });
+    await vi.waitFor(() => expect(drawn(card)).toEqual(['Breakfast']));
+    // waitFor advances the faked clock while it polls; put it back on the frozen moment.
+    vi.setSystemTime(FROZEN_NOW);
+    button(card)!.click();
+
+    expect(openedOnce().times).toEqual({
+      allDay: false,
+      start: FROZEN_NOW,
+      end: new Date(FROZEN_NOW.getTime() + HOUR_MS),
+    });
   });
 
   it("does not run the card's tap action, while a tap elsewhere on the card still does", async () => {
-    dialogAlreadyLoaded();
     const card = await mount({
       entities: [WRITABLE],
       toolbar: ADD_ONLY,
@@ -607,6 +690,8 @@ describe('pressing the add-event button', () => {
     expect(card._activePointerId).toBeNull();
     expect(handleAction).not.toHaveBeenCalled();
     expect(clicksOnHost).not.toHaveBeenCalled();
+    // The press was the button's: it opened a new event, once.
+    expect(openedOnce().mode).toBe('new');
 
     // The control: the same tap on the events reaches the card's gesture.
     const content = card.shadowRoot!.querySelector('.content-container')!;

@@ -368,8 +368,11 @@ export function resolveLocationIcon(location: string, configured?: string): stri
   return isTeamsLocation(location) ? TEAMS_LOCATION_ICON : LOCATION_ICON;
 }
 
+/** What makes a `<` open markup: an ASCII letter (branch 2), `/` (branch 3), `!` or `?` (4). */
+const OPENS_MARKUP = /^[a-zA-Z/!?]$/;
+
 /**
- * What counts as markup in an event description (#576, #581).
+ * Remove what counts as markup in an event description (#576, #581).
  *
  * The predecessor was `/<[^>]*>/g` — a `<`, anything that is not a `>`, then a `>` — which
  * has no idea what a tag is. Any description pairing a `<` with a later `>` lost everything
@@ -380,21 +383,27 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  * **anything else makes the `<` ordinary text**. A space, a digit or a hyphen therefore
  * open nothing, which is every shape #576 reported.
  *
- * Four branches, one tokenizer state each, and **the order is load-bearing**:
+ * Four branches, one tokenizer state each, tried in this order at every `<`, and **the order
+ * is load-bearing**:
  *
- * 1. `<!--(?:-?>|[\s\S]*?-->)` — a comment. `<!-->` and `<!--->` are complete *empty*
- *    comments, which is why the short form is tried first; anything else runs to the first
- *    `-->`. This branch has to come first overall, because a comment may span a `>` and
- *    branch 4 would otherwise stop at it.
- * 2. `<[a-zA-Z][^>]*>` — a start tag. The rule #576 turned on.
- * 3. `<\/[^>]*>` — an end tag, and everything the tokenizer does when one has no name.
- *    `</p>` is an end tag, `</>` emits nothing at all, and `</ p>`, `<//p>` and `</3 … >`
- *    are *bogus comments*. All three outcomes run to the same `>`, so one branch covers
- *    them — spelling them apart yields the identical language, measured exhaustively over
- *    111,110 strings from a markup-dense alphabet rather than argued.
- * 4. `<[!?][^>]*>` — a markup declaration or a processing instruction: `<!DOCTYPE html>`,
- *    `<?xml … ?>`, `<![CDATA[…]]>`, and the parse errors the spec also turns into bogus
- *    comments (`<!>`, `<! x >`). Every one consumes to the next `>`.
+ * 1. A comment, `<!--`. `<!-->` and `<!--->` are complete *empty* comments, which is why the
+ *    short forms are tried first; anything else runs to the first `-->` after the opener.
+ *    This branch has to come first overall, because a comment may span a `>` and branch 4
+ *    would otherwise stop at it. A `<!--` with no `-->` after it is not a comment, and
+ *    branch 4 reads it as a declaration instead.
+ * 2. A start tag: `<` and an ASCII letter, to the next `>`. The rule #576 turned on.
+ * 3. An end tag, `</` to the next `>`, and everything the tokenizer does when one has no
+ *    name. `</p>` is an end tag, `</>` emits nothing at all, and `</ p>`, `<//p>` and
+ *    `</3 … >` are *bogus comments*. All three outcomes run to the same `>`, so one rule
+ *    covers them — spelling them apart in the pattern this replaced yielded the identical
+ *    language, measured exhaustively over 111,110 strings from a markup-dense alphabet
+ *    rather than argued.
+ * 4. A markup declaration or a processing instruction, `<!` or `<?` to the next `>`:
+ *    `<!DOCTYPE html>`, `<?xml … ?>`, `<![CDATA[…]]>`, and the parse errors the spec also
+ *    turns into bogus comments (`<!>`, `<! x >`).
+ *
+ * Markup is removed whole and the scan resumes after it, so a `<` inside a comment or a tag
+ * starts nothing. A `<` that no branch takes is text, and the scan moves on to the next one.
  *
  * The error-recovery halves of branches 3 and 4 are what #581 is about, and #579 had
  * neither: in a 77-input differential against headless Chromium, released v4.0.0 agreed on
@@ -404,17 +413,38 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  * neither. Say "approximates the tokenizer", not "is the tokenizer", when reasoning about
  * the next edge case.
  *
- * 🚨 **The regex is the only thing removing tags in production, so it is not optional and
- * it cannot be narrowed casually.** The `<textarea>` round-trip below decodes entities and
- * nothing else: `textarea` content is RCDATA, so a real browser treats `<p>x</p>` written
- * into it as literal text. Measured rather than read off the spec — in headless Chromium,
- * `textarea.innerHTML = '<p>Paragraph</p>'` reads back verbatim while `&nbsp;` decodes.
+ * 🚨 **This is a scanner because the regex it replaced took quadratic time, on text anyone
+ * who can write to a calendar controls.** The same four branches used to be the pattern
+ * `/<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g`. On markup that never
+ * closes, every `<` that opens something sent `[^>]*` to the end of the description looking
+ * for a `>` that is not there, and the engine then tried again one character later. The
+ * pattern alone took 1.8 s on 120 KB of `<a ` repeated, 7.2 s on 240 KB, and 10.7 s on
+ * 240 KB of `</`, all on Node 24 and all holding the thread, on every render of every row
+ * showing the description. A shared calendar, an
+ * invitation or a subscribed feed can deliver that, and no stricter pattern avoids it
+ * without changing what is removed.
+ *
+ * The scanner removes exactly what that pattern removed, character for character —
+ * `tests/strip-html-tags.test.ts` keeps the pattern as its oracle and compares the two — and
+ * stays linear by never looking for something that is not there. It asks once, up front,
+ * where the last `>` and the last `-->` are. A branch whose closer would have to lie beyond
+ * them fails without reading anything, and every search for a closer it does start succeeds
+ * inside the markup it then removes; the search for the next `<` resumes where the last one
+ * stopped. So no stretch of the text is read more than a fixed number of times, however the
+ * markup in it is arranged.
+ *
+ * 🚨 **The scanner is the only thing removing tags in production, so it is not optional and
+ * it cannot be narrowed casually.** The `<textarea>` round-trip in `stripHtmlTags` decodes
+ * entities and nothing else: `textarea` content is RCDATA, so a real browser treats
+ * `<p>x</p>` written into it as literal text. Measured rather than read off the spec — in
+ * headless Chromium, `textarea.innerHTML = '<p>Paragraph</p>'` reads back verbatim while
+ * `&nbsp;` decodes.
  *
  * That matters because **happy-dom parses the same assignment as HTML**, so it strips tags
- * the browser would keep, and the test environment silently stands in for this regex.
- * Deleting the regex outright leaves the suite green. `tests/strip-html-tags.test.ts` runs
- * the browser's answer explicitly for that reason, and it is the only place any of this can
- * be seen.
+ * the browser would keep, and the test environment silently stands in for this scanner.
+ * Bypassing it outright leaves every other test file green. `tests/strip-html-tags.test.ts`
+ * runs the browser's answer explicitly for that reason, and it is the only place any of this
+ * can be seen.
  *
  * Branch 1 exists because of exactly that gap. `<!--` fails the letter test, so branch 2
  * alone would have left every comment on screen in production while every gate stayed green
@@ -429,31 +459,81 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  *   closed` and `a </3 b` all reach the end of the string without a `>`, and a browser
  *   discards everything from the `<` onwards. Keeping it is the deliberate side: a `<` that
  *   ate the whole rest of a description would be far worse than a stray `<b` on screen.
- * - **A `>` inside a quoted attribute value ends the match.** `<a title="a>b">link</a>`
- *   leaves `b">link`. Tracking quote state is where this stops being a regex; the limit
- *   predates v4 and #581 rules it out of scope.
+ * - **A `>` inside a quoted attribute value ends the markup.** `<a title="a>b">link</a>`
+ *   leaves `b">link`. A scanner could track quote state where the pattern could not, but
+ *   that would change what is removed; the limit predates v4 and #581 rules it out of scope.
  * - **Prose that genuinely looks like markup is flattened.** `if a<b and c>d` renders as
  *   `if ad`, and the broken-heart emoticon does the same when a `>` follows it later in the
  *   description — `feeling </3 and >:( today` renders as `feeling :( today`. Neither is a
  *   shortcut: both are what a browser does with the same text, and both are what released
  *   v4.0.0 did. `<3` is unaffected, because `3` opens nothing.
  *
- * 🚨 **This is not a sanitizer, and CodeQL's js/incomplete-multi-character-sanitization
- * alert on it is dismissed as a false positive on that basis.** The query is right that one
- * pass can leave a `<script` behind — `a <<script>script> b` does, and so does a browser.
- * It is wrong that this matters. The `<textarea>` step decodes `&lt;script&gt;` straight
- * back into `<script>` on purpose, so the output is plain text by contract and no pattern
- * here could make it safe to parse as HTML. Nothing parses it: the textarea is RCDATA, and
- * the description reaches the card through a Lit text binding in `renderEventContent`.
+ * 🚨 **This is not a sanitizer, and it does not need to be.** CodeQL's
+ * js/incomplete-multi-character-sanitization flagged the pattern this replaced, and the alert
+ * was dismissed as a false positive on that basis; the reasoning outlives the pattern. The
+ * query is right that one pass can leave a `<script` behind — `a <<script>script> b` does,
+ * from this scanner exactly as from the pattern, and so does a browser. It is wrong that
+ * this matters. The `<textarea>` step decodes `&lt;script&gt;` straight back into `<script>`
+ * on purpose, so the output is plain text by contract and nothing removed here could make
+ * it safe to parse as HTML. Nothing parses it: the textarea is RCDATA, and the card draws the
+ * output only through Lit bindings. Text goes through a text binding, a row's description in
+ * `renderEventContent` among them. An address reaches an `href` attribute binding, in
+ * `renderLinkedText` and in the event popover, and only as an `http` or `https` address: an
+ * anchor's `href` once `safeHref`'s scheme allowlist has let it through, an address in the
+ * text as `BARE_URL` matches it (both in `links.ts`). The output also fills an event action's
+ * fields (`eventFields`), which the card hands to Home Assistant as data and never draws.
  *
- * Do not "fix" the alert by re-running the regex until nothing changes. That satisfies the
- * query and turns `a <<b>b> c` into `a  c`, where a browser shows `a <b> c`. If a
- * description is ever rendered as HTML, it needs a real sanitizer at that sink rather than
- * a stricter pattern here. `tests/strip-html-tags.test.ts` pins the plain-text contract and
- * `tests/list-dom.test.ts` pins the text binding; each goes red under the change it guards
- * against.
+ * Do not make the output "safer" by scanning until nothing changes, which is the fix the
+ * query asks for. It turns `a <<b>b> c` into `a  c`, where a browser shows `a <b> c`. If a
+ * description is ever rendered as HTML, it needs a real sanitizer at that sink rather than a
+ * stricter scan here. `tests/strip-html-tags.test.ts` pins the plain-text contract,
+ * `tests/list-dom.test.ts` the text binding and `tests/links.test.ts` the allowlist; each goes
+ * red under the change it guards against.
+ *
+ * Exported so `tests/strip-html-tags.test.ts` can compare it with the pattern it replaced.
+ *
+ * @param text - Raw text as the calendar delivered it
+ * @returns The same text with its markup removed, character references still encoded
  */
-const HTML_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g;
+export function removeMarkup(text: string): string {
+  // Where the last `>` and the last `-->` are. A closer that would have to lie beyond them is
+  // missing, and `find` answers that without reading anything; any search it starts succeeds.
+  const lastClose = text.lastIndexOf('>');
+  const lastCommentClose = text.lastIndexOf('-->');
+  const find = (closer: string, last: number, from: number): number =>
+    last < from ? -1 : text.indexOf(closer, from);
+
+  // Where the markup that opens at `at` ends, or -1 where that `<` opens nothing.
+  const markupEnd = (at: number): number => {
+    // 1. A comment. A `<!--` with no `-->` after it falls through to branch 4.
+    if (text.startsWith('<!--', at)) {
+      if (text.charAt(at + 4) === '>') return at + 5;
+      if (text.startsWith('->', at + 4)) return at + 6;
+      const close = find('-->', lastCommentClose, at + 4);
+      if (close !== -1) return close + 3;
+    }
+    // 2. A start tag, 3. an end tag, 4. a declaration or processing instruction.
+    if (OPENS_MARKUP.test(text.charAt(at + 1))) {
+      const close = find('>', lastClose, at + 2);
+      if (close !== -1) return close + 1;
+    }
+    return -1;
+  };
+
+  let kept = '';
+  let copied = 0;
+  for (let at = text.indexOf('<'); at !== -1;) {
+    const end = markupEnd(at);
+    if (end === -1) {
+      at = text.indexOf('<', at + 1);
+    } else {
+      kept += text.slice(copied, at);
+      copied = end;
+      at = text.indexOf('<', end);
+    }
+  }
+  return kept + text.slice(copied);
+}
 
 /**
  * Strip HTML tags and decode HTML entities from a string, returning plain text
@@ -463,11 +543,8 @@ const HTML_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return '';
-  // `replace` seeks a global regex from 0 and resets `lastIndex` afterwards, so the shared
-  // constant carries no state between calls. `test` would; do not swap one for the other.
-  const stripped = text.replace(HTML_MARKUP, '');
   const textarea = document.createElement('textarea');
-  textarea.innerHTML = stripped;
+  textarea.innerHTML = removeMarkup(text);
   return textarea.value.trim();
 }
 
@@ -708,6 +785,86 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
   }
 
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
+}
+
+/**
+ * A 12-hour clock reading as the card writes one: "9:41 AM" and "09:41 PM" from `formatTime`,
+ * and the grid axis's hour-only "9 AM". The 24-hour form has no letter in it and is
+ * deliberately not matched. No translation writes AM or PM, so nothing else in a time row can
+ * match.
+ */
+const CLOCK_READING_12H = /\d{1,2}(?::\d{2})? [AP]M/g;
+
+/** Letters the bidi algorithm reads right to left: Hebrew through NKo, and the presentation forms. */
+const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
+
+/**
+ * The direction of the last letter before a clock reading, skipping the meridiem of any reading
+ * before it, which a 24-hour clock would not have written. Null where no letter precedes it, as
+ * at the start of a range.
+ *
+ * @param text Time text up to the reading
+ * @returns The direction of that letter, or null
+ */
+function directionBefore(text: string): 'ltr' | 'rtl' | null {
+  const chars = [...text.replace(CLOCK_READING_12H, '')];
+  for (let i = chars.length - 1; i >= 0; i--) {
+    if (RTL_LETTER.test(chars[i])) return 'rtl';
+    if (/\p{L}/u.test(chars[i])) return 'ltr';
+  }
+  return null;
+}
+
+/**
+ * Lay out each 12-hour clock reading in `text` the way the bidi algorithm lays out a 24-hour
+ * one, with its meridiem kept beside its digits.
+ *
+ * A 24-hour reading is a European number: digits, a colon and a dash, none of them a strong
+ * letter. A right-to-left line orders a range of them start first, from the right, and a number
+ * after a left-to-right word joins that word's run ("ends tomorrow at 0:30"). AM and PM are
+ * strong left-to-right letters, so the algorithm grouped the first reading's meridiem with the
+ * dash and the whole second reading instead of with its own digits: "AM - 12:30 PM 11:30".
+ *
+ * Each reading therefore becomes what a number already is, case by case:
+ *
+ *   - after a left-to-right letter it is left as it is. A number there turns left-to-right
+ *     itself, so the reading is one run with the word before it, as the 24-hour one is.
+ *   - anywhere else it is wrapped in FIRST STRONG ISOLATE and POP DIRECTIONAL ISOLATE, which
+ *     keeps it whole and neutral to the text around it, as a number is there.
+ *   - after a right-to-left letter the isolate is followed by a RIGHT-TO-LEFT MARK, because a
+ *     number there counts as right-to-left for the text after it. An isolate alone counts as
+ *     neutral and, in a left-to-right card, moved to the far side of the Hebrew run it ends.
+ *
+ * Isolating every reading instead is simpler and wrong in one place a right-to-left card already
+ * got right: "Ends tomorrow at 12:30 AM" in an English card, where a neutral reading at the end
+ * of the line goes to its far end, "12:30 AM Ends tomorrow at".
+ *
+ * Characters rather than elements, so the time stays one text node: Chromium places the text
+ * after a node boundary up to 2/64 px differently, which would move every left-to-right row
+ * with a range, while these invisible format characters move nothing in any of the three
+ * engines. The text a reader copies carries them, as the grid's accessible names already do
+ * (grid-accessibility.ts).
+ *
+ * For the time row and the grid axis only. The formatter's own strings stay plain, so every
+ * caller that compares or announces them is unaffected.
+ *
+ * The space inside each reading also becomes a NO-BREAK SPACE, so a reading never wraps between
+ * its digits and its meridiem ("12:30 / PM") in either direction. Here rather than in
+ * `formatTime` for the same reason: only drawn text can wrap. Roboto draws it at the space's
+ * own width, so a line that did not break there is laid out as it was.
+ *
+ * @param text Time text as the formatter wrote it
+ * @param before Text drawn before `text` in the same line, for a droppable end time drawn as an
+ *   element of its own
+ * @returns The text, with its 12-hour readings laid out; unchanged where it has none
+ */
+export function isolateClockReadings(text: string, before = ''): string {
+  return text.replace(CLOCK_READING_12H, (reading: string, index: number) => {
+    const whole = reading.replace(' ', '\u00a0');
+    const context = directionBefore(before + text.slice(0, index));
+    if (context === 'ltr') return whole;
+    return `\u2068${whole}\u2069${context === 'rtl' ? '\u200f' : ''}`;
+  });
 }
 
 /**
