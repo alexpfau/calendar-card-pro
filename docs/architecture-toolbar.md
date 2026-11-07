@@ -92,6 +92,9 @@ device's choice, else `view`) and the effective view the width fit makes of it (
 - **What it offers.** Decided at render: the view on screen always, any other by
   `resolveColumnFitIfPicked` with the hysteresis a view on screen keeps. One that does not fit is
   `aria-disabled`; with fewer than two that fit there is no switcher.
+- **What a pick draws.** The days a fresh load draws at that width. The band a view on screen
+  keeps admits only the view, at its floor, where a fresh load would fall back to the list; it
+  never adds a day. Reset refits `view` by the same rule.
 - **Words or pictograms.** The words show from `UI.TOOLBAR_SWITCHER_LABEL_MIN_WIDTH` plus the
   commands' widths, which `stylesheet.test.ts` reconciles; `_syncToolbarLabelFit` only ever drops
   them.

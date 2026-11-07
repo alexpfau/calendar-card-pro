@@ -694,7 +694,8 @@ minimum column width.
 
 ::: details Which Days Stay & How Wide a Card Must Be
 
-- At the default spacing and content-sized axis, three grid days need 383px before hysteresis, or 399px when the card is entering grid view from the list fallback.
+- At the default spacing and content-sized axis, three grid days need 383px before hysteresis, or 399px when the card opens on the grid, is switched to it or is reset to it.
+  A grid already drawing three keeps them while the card narrows to 367px.
 - The days that stay start at today and run forward, reaching back to earlier days only when
   the range ends before the columns are full. A `start_of_week` grid two columns wide on a
   Wednesday shows Wednesday and Thursday, not Monday and Tuesday.
