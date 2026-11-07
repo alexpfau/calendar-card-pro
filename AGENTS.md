@@ -732,7 +732,8 @@ come from a Home Assistant instance only the maintainer has, so they cannot be r
 from a PR. Two consequences: a change that alters how the card renders by default — spacing,
 alignment, what a row shows — silently invalidates them, so **say so in the PR** rather than
 assuming someone will notice; and they are referenced by `main`-branch raw URLs, so a
-replacement is only live once it reaches `main`.
+replacement is only live once it reaches `main`. The same holds for the clips and journey
+videos there: name any whose frames or steps a change alters.
 
 **In a feature or fix PR** (targeting `dev`), document the change in `docs/`, not the README:
 
@@ -1053,7 +1054,9 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    stories one at a time and decide, for each feature the release adds, to add it or leave it
    out, with a reason. Record the result in the release PR body, one short list per story. A
    story that gains a feature changes its YAML, prose and stills in a PR into `dev` before the
-   release PR opens.
+   release PR opens. Then go through every published clip and journey video the same way: one
+   whose frames or steps the release changes is recaptured in a PR into `dev` before the release
+   PR opens, and the PR body says which were recaptured and which are still current.
 
 4. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
