@@ -23,9 +23,13 @@
  * at one o'clock. A wrapped row is consistent with that rather than an exception to it: it
  * states the whole reading, and only spends a line doing so. The clock icon is the first
  * thing to go because it repeats what the row's position in the block already says; the end
- * time goes next because a grid block already draws it, as its own bottom edge. Where the
- * end time is not drawn at all, rungs 2, 3 and 4 coincide -- same test, same result -- and
- * the ladder collapses on its own, with no case analysis.
+ * time goes next because a grid block already draws it, as its own bottom edge. A block
+ * that starts an event running past midnight is the exception: its bottom edge is midnight,
+ * and its end carries the days to it ("- 1:35 (+1)", see `gridTimedEventContentParts`).
+ * That end and its count go as one, so what is left is the start alone and still true, and
+ * no rung is added for it. Where the end time is not drawn at all, rungs 2, 3 and 4
+ * coincide -- same test, same result -- and the ladder collapses on its own, with no case
+ * analysis.
  *
  * There is deliberately no "clock icon and start" rung between 2 and 3, and adding one
  * reintroduces a defect rather than a nicety. An end time is always wider than the icon --

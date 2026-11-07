@@ -918,8 +918,9 @@ export interface CalendarEventData {
    * Set on grid-owned timed segments that keep the original event's start time.
    *
    * Grid view splits timed multi-day events into per-day timed blocks instead of using the
-   * list splitter. The block geometry already communicates each day's end, so the renderer
-   * needs only this provenance to decide whether a segment may show its start time.
+   * list splitter. This marks the one block that may show the event's time: its whole span,
+   * read from `_gridSource`, with the days to its end (`gridTimedEventContentParts`). The
+   * other blocks start at midnight rather than at the event's start, and show title only.
    */
   _gridSegmentStartsEvent?: boolean;
   /**

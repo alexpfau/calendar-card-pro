@@ -864,6 +864,18 @@ describe('timed multi-day events stay in the time grid', () => {
     );
   }
 
+  /** An evening band, so a block starting late is drawn. Its continuation is not. */
+  const EVENING = { start_time: '19:00', end_time: '24:00' };
+
+  /**
+   * A block's wording without its invisible bidi isolates: the day count's left-to-right
+   * one, and the first-strong ones around each 12-hour reading. Both are pinned on their own
+   * ("makes the end and its day count one droppable end, the count isolated").
+   */
+  function wording(text: string): string {
+    return text.replace(/[\u2066\u2068\u2069]/g, '');
+  }
+
   it('renders a three-day timed event in every touched day column', () => {
     const container = renderGrid([timedRange(17, '09:00', 19, '17:00', 'Conference')]);
     const columns = Array.from(container.querySelectorAll('.grid-day-body'));
@@ -907,13 +919,167 @@ describe('timed multi-day events stay in the time grid', () => {
     expect(blockTexts(container)).toEqual(['Workshop 14:00 - 16:00']);
   });
 
-  it('shows only the start time on a multi-day timed event first segment', () => {
+  it('shows the whole span and the days to its end on a multi-day timed event first segment', () => {
     const container = renderGrid(
       [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
       buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
     );
 
-    expect(blockTexts(container)[0]).toBe('Conference Trip 14:00');
+    expect(wording(blockTexts(container)[0])).toBe('Conference Trip 14:00 - 11:00 (+2)');
+  });
+
+  /**
+   * The block's bottom edge is midnight, not the end, and on the last day a card shows, or
+   * below the hours it draws, no later block draws the end either. Before #768 this read
+   * "22:05" and the end appeared nowhere.
+   */
+  it('names the end of an event that runs past midnight, with the days to it', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 1,
+        time_24h: true,
+        time_grid: EVENING,
+      }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Late match 22:05 - 1:35 (+1)']);
+  });
+
+  it('reads the same span on a 12-hour clock', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: false, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Late match 10:05 PM - 1:35 AM (+1)']);
+  });
+
+  /**
+   * One droppable end, so the fit ladder wraps and drops the end and its count together and
+   * a narrow block falls back to the start alone, never to an end without its day. The count
+   * is in a left-to-right isolate, because a right-to-left line draws a bare "(+1)" as
+   * "(1+)", and a no-break space keeps it on the end's line.
+   */
+  it('makes the end and its day count one droppable end, the count isolated', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true, time_grid: EVENING }),
+    );
+    const block = container.querySelector('.grid-event:not(.grid-event-overflow)');
+
+    expect(block?.querySelector('.time-end')?.textContent).toBe(' - 1:35\u00a0\u2066(+1)\u2069');
+  });
+
+  it('shows the start alone with show_end_time off, as a single-day block does', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        show_end_time: false,
+        time_grid: EVENING,
+      }),
+    );
+
+    expect(blockTexts(container)).toEqual(['Late match 22:05']);
+    expect(container.querySelector('.time-end')).toBeNull();
+  });
+
+  it('folds the countdown after the day count', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:05', 18, '01:35', 'Late match')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        show_countdown: true,
+        time_grid: EVENING,
+      }),
+    );
+    const text = container.querySelector('.grid-event:not(.grid-event-overflow) .time-text');
+    const end = text?.querySelector('.time-end');
+    const countdown = text?.querySelector('.time-countdown');
+
+    expect(end).not.toBeNull();
+    expect(countdown).not.toBeNull();
+    expect(
+      end!.compareDocumentPosition(countdown!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  /**
+   * Until the midnight after it starts, which any calendar writes without a day. This block
+   * is not split at all, so it used to fall through to the list's phrase, "22:00, ends
+   * tomorrow at 0:00": counted from today rather than from the block's day, and too long to
+   * give up part of, so a narrow lane dropped the whole time row.
+   */
+  it('reads an event ending at the next midnight as one day, with no day count', () => {
+    const container = renderGrid(
+      [timedRange(17, '22:00', 18, '00:00', 'Movie night')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true, time_grid: EVENING }),
+    );
+    const block = container.querySelector('.grid-event:not(.grid-event-overflow)');
+
+    expect(blockTexts(container)).toEqual(['Movie night 22:00 - 0:00']);
+    expect(block?.querySelector('.time-end')?.textContent).toBe(' - 0:00');
+  });
+
+  /**
+   * The end and its count name one moment. Counting to the last day the event fills would
+   * print "(+1)" here, which reads as the start of Thursday, a whole day early.
+   */
+  it('counts a later midnight end to the date it falls on', () => {
+    const container = renderGrid(
+      [timedRange(17, '19:00', 19, '00:00', 'Sleepover')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual([
+      'Sleepover 19:00 - 0:00 (+2)',
+      'Sleepover',
+    ]);
+  });
+
+  it('counts the day on an end seconds past midnight, which is not the midnight itself', () => {
+    const container = renderGrid(
+      [
+        {
+          start: { dateTime: new Date(2026, 5, 17, 22).toISOString() },
+          end: { dateTime: new Date(2026, 5, 18, 0, 0, 30).toISOString() },
+          summary: 'Movie night',
+          _entityId: 'calendar.personal',
+        },
+      ],
+      buildConfig({ view: 'grid', days_to_show: 1, time_24h: true, time_grid: EVENING }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['Movie night 22:00 - 0:00 (+1)']);
+  });
+
+  it('counts the day on a whole day from midnight, which would otherwise read as no time', () => {
+    const container = renderGrid(
+      [timedRange(17, '00:00', 18, '00:00', 'On call')],
+      buildConfig({ view: 'grid', days_to_show: 2, time_24h: true }),
+    );
+
+    expect(blockTexts(container).map(wording)).toEqual(['On call 0:00 - 0:00 (+1)']);
+  });
+
+  it('shows title only on a continuation whose first day is before the window', () => {
+    const container = renderGrid(
+      [timedRange(16, '22:00', 17, '02:00', 'Night shift')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 2,
+        time_24h: true,
+        time_grid: { start_time: '00:00', end_time: '24:00' },
+      }),
+    );
+
+    expect(blockTexts(container)).toEqual(['Night shift']);
   });
 
   it('shows title only on multi-day timed continuation segments', () => {
@@ -940,7 +1106,7 @@ describe('timed multi-day events stay in the time grid', () => {
     expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
   });
 
-  it('shows a Tuesday start time and title-only Wednesday and Thursday continuations', () => {
+  it('shows a Tuesday span and title-only Wednesday and Thursday continuations', () => {
     const event = timedRange(23, '22:00', 25, '02:00', 'Overnight Migration');
     const container = renderGridDays(
       [gridDay(23, [event]), gridDay(24), gridDay(25)],
@@ -952,8 +1118,8 @@ describe('timed multi-day events stay in the time grid', () => {
       }),
     );
 
-    expect(blockTexts(container)).toEqual([
-      'Overnight Migration 22:00',
+    expect(blockTexts(container).map(wording)).toEqual([
+      'Overnight Migration 22:00 - 2:00 (+2)',
       'Overnight Migration',
       'Overnight Migration',
     ]);

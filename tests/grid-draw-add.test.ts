@@ -283,8 +283,9 @@ describe('drawing a new event in a grid', () => {
     expect(drawn(card)).toEqual([bodies(card)[1], bodies(card)[2]]);
     expect(piece(bodies(card)[1])).toEqual([pct(180), pct(720)]);
     expect(piece(bodies(card)[2])).toEqual([pct(0), pct(75)]);
-    // As the grid draws any event across days: its start on the first, its title on the next.
-    expect(label(bodies(card)[1])).toBe('New event\n10:00');
+    // As the grid draws any event across days: its whole span on the first, with the days to
+    // its end in a left-to-right isolate, and its title on the next.
+    expect(label(bodies(card)[1])).toBe('New event\n10:00 - 8:15 \u2066(+1)\u2069');
     expect(label(bodies(card)[2])).toBe('New event');
 
     // Back across to the day before, through a whole day: the middle one drawn in full.
