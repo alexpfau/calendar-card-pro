@@ -4,7 +4,11 @@ Anna, Ben and their baby son Leo are an invented family with a tablet on the kit
 
 ## 🖼️ See It
 
-The kitchen wall in grid view, then the same card switched to Columns, on a phone and in a dashboard section.
+The kitchen wall in use, then three stills: the wall in grid view, the same card switched to Columns, and the card on a phone and in a dashboard section.
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall.mp4" poster="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/journey_family_hub_wall_poster.jpg" width="800" height="500" loop muted playsinline controls preload="metadata" aria-label="A wall tablet with the family's week in grid view: a finger draws Bike repair into Tuesday at 17:00, drags it to Wednesday at 10:00, moves it to Ben's calendar so it turns blue with his face, switches to Columns and back to Grid, pages to the next week and swipes back, searches for ducks and picks Feed the ducks on Tuesday, October 20, hides Anna's and Ben's calendars, presses Reset, and deletes Bike repair"></video><br>
+
+Draw an event into Tuesday afternoon, drag it to Wednesday, move it to Ben's calendar, switch to Columns and back, page a week ahead and swipe back, search for the ducks, hide two calendars, reset the card and delete the event.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_hub.png" alt="A wall tablet showing the family's next seven days in grid view under a two-row toolbar with a chip for each calendar: each person's events in their own color with their face in front of the title, shared plans in gold, all-day banners above the hours, and a forecast in each date header"><br>
 
@@ -18,7 +22,7 @@ Switched to Columns on the toolbar: a column of tinted boxes per day, the mornin
 
 A phone switched to List, and a dashboard section where Grid shows three days and the calendar chips fold into the filter button.
 
-::: tip Watch It on Video
+::: tip A Video Review in German
 Smart-Live's video review of v5, in German, shows grid view on a family calendar: [Calendar Card Pro 5: Endlich ZEITRASTER für deinen Familienkalender in Home Assistant](https://youtu.be/ptXdis8WHXo)
 :::
 
