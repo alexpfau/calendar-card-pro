@@ -8,6 +8,8 @@ title: Release Notes
 
 Most of that is yours to turn on. Three things reach every card without a setting: on Home Assistant 2026.5 or later, an event changed anywhere appears on every open dashboard as soon as Home Assistant knows of it, with no polling; when a dashboard opens, a slow calendar no longer holds back the others; and the card redraws far less often while nothing it shows has changed. A few things change on cards you already have; they are listed under ⚠️ Changes to Existing Cards, below the new features.
 
+🎬 To see it at work, watch the Family Hub [on a kitchen wall](https://calendar-card-pro.alexpfau.com/guide/family-calendar#see-it) and [on a phone](https://calendar-card-pro.alexpfau.com/guide/family-calendar#across-different-screens), and the [Family Agenda](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes#see-it) on a hallway tablet. In the docs, each of the larger new features has a short clip at the top of its section.
+
 ## 🎉 New Features
 
 ### 💬 The Card's Own Event Popover
@@ -94,6 +96,7 @@ None of this needs a setting, so every card gets it.
 - **Swipes and Empty Toolbar Space** - On a card with the toolbar's date navigation, a sideways swipe now pages. A press on the toolbar's empty space now runs the card's `tap_action` or `hold_action`, as a press on its title always did
 - **Home Assistant Actions on Events Now Run** - v5.0 left a tap on an event to the card's `tap_action` for any `event_tap_action` other than `details`. An action such as `navigate` or `url` set there now runs instead
 - **`refresh_interval` Applies Only When Not Live** - On Home Assistant 2026.5 or later the card no longer polls; `refresh_interval` applies to older versions, and to a calendar whose integration cannot be read until it can again
+- **`allday_expires_at` Retires on Time** - With past events hidden, an all-day event now leaves the card at the time you set, within a minute in a grid showing its now line. Before, it stayed until the card next redrew for some other reason, such as a refresh
 - **Colors Mix in Oklab** - Accents, tints and the today tile are now mixed in Oklab rather than OKLCH. On the default themes in current browsers nothing changes; on a theme whose text or card color is a tinted gray, mixed colors shift slightly, because they no longer take on that gray's hue
 - **The `pulse` Today Indicator Sits Centered** - It was drawn off-center by half its size, down and to one side, so it moves on cards that use it. It also holds still when the device asks for reduced motion
 - **`today_indicator` Keywords in Any Casing** - `Tile`, `Dot`, `Pulse` and `Glow` now draw the indicator rather than the word
@@ -140,6 +143,7 @@ None of this needs a setting, so every card gets it.
 - **Calendars You Showed Again Went Back Into Hiding** - After Reset, or showing hidden calendars again in one tab, the next filter press in another open tab hid them again, and so did a reload
 - **The Selected Layout Was See-Through** - Under a theme with a see-through card background, the toolbar's selected layout blended into its track. On a card with a tap or hold action, the toolbar's hover also flickered in stripes
 - **Reset Stayed Lit for Nothing** - On a narrow card that fell back to the list, Reset stayed lit although pressing it changed nothing on screen
+- **A Narrow Grid Gained a Day After a Switch or Reset** - On a narrow card, choosing the grid in the view switcher, pressing Reset, or reloading after choosing it could draw one day more than the card opens with at that width, cutting titles short and running the date headers together. Column view with `min_days_to_show` did the same. They no longer add that day
 - **A Silent Stop for Screen Readers** - A card with a `tap_action` and the toolbar or event details took keyboard focus without saying it could be pressed or what pressing it did. It now offers its tap as a named button, first in Tab order and drawing the card's focus ring
 - **The Editor's Search Missed Calendars by Name** - Searching the visual editor for a calendar by the name its panel shows hid that panel and the Calendars picker
 
