@@ -36,7 +36,7 @@ const ENTITY = 'calendar.work';
 
 const PERSON = 'person.anna';
 
-const PICTURE = '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512';
+const PICTURE = '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512';
 
 /**
  * A `hass` holding a picture for one person and nothing else of interest.
