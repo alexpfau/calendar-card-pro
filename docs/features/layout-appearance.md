@@ -290,6 +290,10 @@ The view switcher lets each device show the card as List, Columns or Grid withou
 a wall tablet can show Grid while a phone keeps List. It comes with the toolbar, wherever more
 than one layout fits the card.
 
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_view_switcher.mp4#t=0.001" width="740" height="728" loop muted playsinline controls preload="auto" aria-label="Two days of a family's calendar on a tablet in Grid; a tap on Columns lays the same two days out side by side, a tap on List stacks them under their dates, and a tap on Grid brings back the time grid"></video><br>
+
+Each press redraws the same two days: as Columns, then as List, then as Grid again.
+
 - **The configured `view` is where the card starts.** Each device remembers its own switch in its
   browser, never in the configuration. A change to the card's configuration, even resizing it in
   a sections dashboard, returns every device to `view`, and the
@@ -350,6 +354,10 @@ for a card that should not carry a button.
 The calendar filter lets anyone hide or show each calendar's events on this device, without
 editing the card. It comes with the toolbar as a menu, or as a row of chips that doubles as a
 key to the calendars' colors.
+
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_calendar_chips.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A family's four days in grid view with a chip for each calendar; a tap on Anna's chip hides her events and grays it, a tap on Ben's hides his, and taps on Ben's chip and then Anna's bring them back"></video><br>
+
+Here `legend: chips` hides Anna's events and then Ben's, and a press on Ben's chip and then Anna's shows them again.
 
 By default, `legend: menu`, it is a button at the start of the top row that opens a menu with a
 checkbox for each calendar, tinted in that calendar's color and named by its

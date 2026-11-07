@@ -48,6 +48,10 @@ The button does not trigger the card's `tap_action` or `hold_action`, so it can 
 
 A tap on a day can add an event on it, so a new event starts on the right day without picking a date. Set `day_tap_action` to `add-event`, and a tap where a day shows no event opens a new event on that day in the [event popover](#the-event-popover).
 
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_list_tap_add.mp4#t=0.001" width="740" height="769" loop muted playsinline controls preload="auto" aria-label="Two days of a family's list on a tablet: a tap on Thursday's date opens the popover there with a new event on Thursday at 10:00, Plumber is typed as the title, and Add saves it between WFH and Grandma time"></video><br>
+
+A tap on Thursday's date opens a new event that day at the hour it is now, and Add saves it.
+
 ```yaml
 type: custom:calendar-card-pro
 entities:
