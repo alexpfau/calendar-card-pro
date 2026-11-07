@@ -617,7 +617,8 @@ A search finds only what the card would show on some page, in the words it would
 The first time the panel opens, the card loads two years of every calendar, which can take a
 while with CalDAV, and Google Calendar may leave out one-off events more than about 90 days old;
 see [How Search Loads](/features/performance#how-search-loads). Until a calendar answers, the
-search finds the events the card already holds, and the magnifier in the field turns. A calendar
+search finds the events the card already holds. If the calendars take more than a second to
+answer, a small spinner stands in the field in place of the magnifier until they have. A calendar
 that cannot be loaded is named under the results, its events left out, and is asked again the
 next time the panel opens.
 
@@ -626,7 +627,8 @@ next time the panel opens.
 - On a card in Turkish, "ikea" finds "IKEA" although Turkish writes its lower case "ıkea".
 - Once you stop typing, a screen reader hears how many results there are in all. After a pick,
   focus moves to the event where a tap on it does something, and stays on the magnifier where it
-  does not. With reduced motion turned on, the ring does not fade out.
+  does not. With reduced motion turned on, the ring does not fade out and the spinner in the field
+  stands still.
 - Page elsewhere before the result's day has loaded, and nothing is ringed when you come back
   to it.
 - Every word the panel shows is Home Assistant's own, in its language. On a phone the panel is a

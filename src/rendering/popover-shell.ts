@@ -282,8 +282,8 @@ export function renderBeak(arrow: Arrow | undefined): TemplateResult | typeof no
 
 /**
  * The shell's stylesheet: the system font, the dialog and its sheet, how a panel opens, the light
- * and dark palettes, the panel's glass and its hairline, the sheet's grabber, the beak, and what
- * only a screen reader or a keyboard reaches.
+ * and dark palettes, the panel's glass and its hairline, the sheet's grabber, the beak, what only
+ * a screen reader or a keyboard reaches, and the spinner.
  */
 export const shellStyles = css`
   :host {
@@ -492,6 +492,26 @@ export const shellStyles = css`
     clip: rect(0 0 0 0);
     white-space: nowrap;
     border: 0;
+  }
+  /* Work under way: the event popover's while it saves, the search panel's while its year loads.
+     A ring, so turning reads as waiting; still where the system asks for less motion. */
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--button);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
   }
 `;
 

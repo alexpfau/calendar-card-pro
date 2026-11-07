@@ -1101,13 +1101,13 @@ describe('a write while the panel is open', () => {
     expect(wideRequests()).toEqual([ANNA, BEN, ANNA, BEN]);
   });
 
-  it('shows at once that it is loading the year again, and the year once it has', async () => {
+  it('marks at once that it is loading the year again, and the year once it has', async () => {
     const card = await mount(configFor());
     await openSearch(card);
     await typeTerm('dent');
     expect(drawnResults()).toHaveLength(2);
-    const turning = () => manager.panel!.shadowRoot!.querySelector('.field-icon.turning');
-    expect(turning()).toBeNull();
+    const waiting = () => manager.panel!.shadowRoot!.querySelector('.field-wait .spinner');
+    expect(waiting()).toBeNull();
 
     holdWide = true;
     window.dispatchEvent(
@@ -1123,14 +1123,15 @@ describe('a write while the panel is open', () => {
     await manager.panel!.updateComplete;
 
     // Until the calendars answer again, the search finds what the card holds, as it does the
-    // first time the panel opens, and its magnifier turns.
-    expect(turning()).not.toBeNull();
+    // first time the panel opens, and the field waits for them: a spinner in the magnifier's
+    // place, drawn once the wait has lasted a second.
+    expect(waiting()).not.toBeNull();
     expect(drawnResults()).toEqual([]);
 
     held.splice(0).forEach((answer) => answer());
     await settle(card);
     await manager.panel!.updateComplete;
-    expect(turning()).toBeNull();
+    expect(waiting()).toBeNull();
     expect(drawnResults()).toHaveLength(2);
   });
 
