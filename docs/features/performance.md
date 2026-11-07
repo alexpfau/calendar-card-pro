@@ -18,6 +18,10 @@ Home Assistant, on a phone or in the calendar's own app, appears on every open d
 as Home Assistant knows of it, with no refresh in between. The card subscribes to each calendar
 it shows, and Home Assistant sends that calendar's events again whenever they change.
 
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_live_updates.mp4#t=0.001" width="800" height="509" loop muted playsinline controls preload="auto" aria-label="Two screens side by side, a phone with a two-day list on the left and a tablet with a four-day grid on the right: a finger taps the add button on the phone, types Vet visit and adds it on Anna's calendar for Wednesday from 14:00 to 15:00, and the grid shows it a moment later without being touched; then the phone deletes it, and it leaves the grid too"></video><br>
+
+The phone adds Vet visit to Anna's calendar, and the tablet shows it a moment later without being touched; when the phone deletes it, it goes from both.
+
 How soon Home Assistant knows depends on the calendar's integration:
 
 | Calendar                                               | A change appears                                 |
