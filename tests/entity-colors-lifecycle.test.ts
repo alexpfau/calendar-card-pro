@@ -36,6 +36,7 @@ interface CardElement extends HTMLElement {
   isInitialLoad: boolean;
   updateComplete: Promise<boolean>;
   setConfig(config: Types.Config): void;
+  requestUpdate(): void;
 }
 
 /** Resolve pending microtasks *and* the macrotask queue. */
@@ -154,9 +155,10 @@ describe('registry colors: who is listening', () => {
     const { state, hass } = makeHass();
     const card = await mount(hass);
 
-    card.hass = { ...hass } as Types.Hass;
+    // Bare requests: a `hass` that changed nothing drawn no longer updates the card at all.
+    card.requestUpdate();
     await card.updateComplete;
-    card.hass = { ...hass } as Types.Hass;
+    card.requestUpdate();
     await card.updateComplete;
     await flush();
 
@@ -356,8 +358,9 @@ describe('registry colors: the last card out closes the subscription', () => {
     const card = await mount(hass);
     expect(state.handler).toBeTypeOf('function');
 
-    // A hass change schedules an update; the card leaves before it flushes.
-    card.hass = { ...hass } as Types.Hass;
+    // An update is scheduled; the card leaves before it flushes. A bare request rather than a
+    // new `hass`, which would be skipped before `updated()` and so test nothing here.
+    card.requestUpdate();
     card.remove();
     await flush();
     await flush();
@@ -383,7 +386,7 @@ describe('registry colors: one subscription, one fetch', () => {
     const first = await mount(hass);
     await mount(hass);
 
-    first.hass = { ...hass } as Types.Hass;
+    first.requestUpdate();
     await first.updateComplete;
     await flush();
 
@@ -424,8 +427,10 @@ describe('registry colors: one subscription, one fetch', () => {
     expect(attemptsWhileRefused).toBeGreaterThan(0);
 
     // Home Assistant answers this time, and the same card gets through on its next update.
+    // A bare request rather than a new `hass`: an update whose only change is a `hass` that
+    // changed nothing the card draws is skipped (`shouldUpdate`).
     state.reject = false;
-    card.hass = { ...hass } as Types.Hass;
+    card.requestUpdate();
     await card.updateComplete;
     await flush();
 

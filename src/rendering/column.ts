@@ -179,6 +179,7 @@ function renderColumnEvent(
     'past-event': presentation.isPastEvent,
     'event-interactive': tap !== undefined,
     'event-now': presentation.isNow,
+    'search-ring': event._searchRing === true,
   };
 
   // Column view places two of these differently from list view: the countdown rides the
@@ -194,6 +195,7 @@ function renderColumnEvent(
       tabindex=${tap ? '0' : nothing}
       aria-describedby=${tap && dayLabelId ? dayLabelId : nothing}
       .calendarCardEventTap=${tap}
+      .calendarCardDaySlot=${event._isEmptyDay ? undefined : Activation.COVERED}
     >
       ${Leaves.renderAccentBar()}
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
@@ -202,6 +204,8 @@ function renderColumnEvent(
         progressPlacement: 'row',
         countdownPlacement: 'text',
         hass,
+        links: Presentation.rowLinksOn(config),
+        timePosition: Helpers.resolveTimePosition(config.time_position),
       })}
     </div>
   `;
@@ -221,6 +225,7 @@ function renderColumnEvent(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw the header as the day's add button, or undefined for none
  * @returns Rendered day column
  */
 function renderDayColumn(
@@ -231,13 +236,14 @@ function renderDayColumn(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
-  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+  const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
 
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
@@ -255,6 +261,7 @@ function renderDayColumn(
         weekend: isWeekendDay,
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
     >
       ${Leaves.renderSharedDayHeader(
         dayDate,
@@ -265,6 +272,7 @@ function renderDayColumn(
         headerSeparator,
         hass,
         dayLabelId,
+        dayAdd && { label: dayAdd.label, timestamp: day.timestamp },
       )}
       <div
         class=${ViewConfig.hasEventGap(config) ? 'column-events with-event-gap' : 'column-events'}
@@ -353,6 +361,8 @@ function buildWeekRows(
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw each day's header as its add button, or undefined while a tap
+ *   on a day adds nothing
  * @returns Rendered column grid
  */
 export function renderColumnGroupedEvents(
@@ -362,6 +372,7 @@ export function renderColumnGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -383,10 +394,20 @@ export function renderColumnGroupedEvents(
         columnGap: gutter,
         '--calendar-card-column-header-gap': headerGap,
       })}
+      .calendarCardDaySlot=${Activation.COLUMNS_AMONG_CHILDREN}
     >
       ${weekRows}
       ${days.map((day, index) =>
-        renderDayColumn(day, config, language, index, weatherForecasts, hass, eventsTappable),
+        renderDayColumn(
+          day,
+          config,
+          language,
+          index,
+          weatherForecasts,
+          hass,
+          eventsTappable,
+          dayAdd,
+        ),
       )}
       ${separators}
     </div>

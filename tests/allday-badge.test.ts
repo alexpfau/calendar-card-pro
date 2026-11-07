@@ -4,8 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
+import * as Column from '../src/rendering/column';
 import * as EditorSchemas from '../src/rendering/editor/schemas/events';
 import * as Render from '../src/rendering/render';
+import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
@@ -192,6 +195,47 @@ describe('allday_badge', () => {
       );
 
       expect(badgeIn(rowFor(container, 'Dentist'))).toBeNull();
+    });
+  });
+
+  describe('the countdown lead-in after a badge', () => {
+    // The stylesheet drops a folded countdown's 4px lead-in after a pill, which brings its own
+    // margin. A multi-day row's end phrase stands between the two and needs the lead-in, or
+    // its dot sits flush against the end (backlog item 141). Read from the stylesheet and
+    // matched against rendered rows, so a selector that reaches the multi-day row fails here.
+    const zeroLeadIn = cardStyles.cssText
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('}')
+      .filter((rule) => /margin-inline-start:\s*0\s*(;|$)/.test(rule.split('{')[1] ?? ''))
+      .flatMap((rule) => rule.split('{')[0].split(','))
+      .map((selector) => selector.replace(/\s+/g, ' ').trim())
+      .filter(
+        (selector) => selector.includes('.allday-badge') && /\.time-countdown\S*$/.test(selector),
+      );
+
+    it('reaches the countdown after a pill and not the one after an end phrase', () => {
+      const container = renderList(
+        [
+          allDayEvent('2026-06-18', '2026-06-19', 'Bin day'),
+          allDayEvent('2026-06-18', '2026-06-21', 'Festival'),
+        ],
+        buildConfig({
+          allday_badge: 'time',
+          show_countdown: true,
+          time_position: 'title',
+          days_to_show: 8,
+          split_multiday_events: false,
+        }),
+      );
+      const single = rowFor(container, 'Bin day').querySelector('.time-text > .time-countdown');
+      const multi = rowFor(container, 'Festival').querySelector('.time-text > .time-countdown');
+      expect(single).not.toBeNull();
+      expect(multi).not.toBeNull();
+      expect(multi?.previousElementSibling?.textContent).toBe('until Saturday, Jun 20');
+
+      expect(zeroLeadIn.length).toBeGreaterThan(0);
+      expect(zeroLeadIn.filter((selector) => single?.matches(selector))).not.toEqual([]);
+      expect(zeroLeadIn.filter((selector) => multi?.matches(selector))).toEqual([]);
     });
   });
 
@@ -855,5 +899,69 @@ describe('allday_badge', () => {
       expect(off).not.toContain('allday-badge');
       expect(on).toContain('allday-badge');
     });
+  });
+});
+
+describe('the time text a column badge row folds a countdown into', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('starts with the countdown for a single-day event, and with its end for a multi-day one', () => {
+    // The stylesheet gives up the boxes of a badge row's time text only where it is the
+    // countdown alone (`.time-countdown:first-child`), so the dot can end the pill's line while
+    // the words move under the pill. A multi-day event's end ("until ...") is a span of its own
+    // ahead of the countdown, and flattened with it, the dot after the end could start a line.
+    // This pins the markup that selector reads.
+    const config = buildConfig({
+      view: 'column',
+      allday_badge: 'time',
+      show_countdown: true,
+      show_countdown_allday: true,
+      // Column view splits multi-day events unless its own block says otherwise.
+      column: { split_multiday_events: false },
+      days_to_show: 7,
+    });
+    const effective = ViewConfig.resolveEffectiveConfig(config, 'column');
+    const days = EventUtils.groupEventsByDay(
+      [
+        allDayEvent('2026-06-18', '2026-06-19', 'Picnic'),
+        allDayEvent('2026-06-19', '2026-06-22', 'Festival'),
+      ],
+      config,
+      false,
+      'en',
+      'column',
+    );
+    const container = document.createElement('div');
+    litRender(Column.renderColumnGroupedEvents(days, effective, 'en', undefined, null), container);
+
+    const timeText = (title: string): Element => {
+      const event = Array.from(container.querySelectorAll('.event-title'))
+        .find((element) => element.textContent?.trim() === title)
+        ?.closest('.event');
+      const text = event?.querySelector('.allday-badge + .time-text');
+      expect(text, title).not.toBeNull();
+      return text!;
+    };
+
+    const single = timeText('Picnic');
+    expect(single.firstElementChild?.classList.contains('time-countdown')).toBe(true);
+    expect(single.matches('.allday-badge + .time-text:has(> .time-countdown:first-child)')).toBe(
+      true,
+    );
+
+    const multi = timeText('Festival');
+    expect(multi.firstElementChild?.classList.contains('time-countdown')).toBe(false);
+    expect(multi.firstElementChild?.textContent).toMatch(/^until /);
+    expect(multi.querySelector(':scope > .time-countdown')).not.toBeNull();
+    expect(multi.matches('.allday-badge + .time-text:has(> .time-countdown:first-child)')).toBe(
+      false,
+    );
   });
 });

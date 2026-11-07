@@ -115,6 +115,22 @@ export function isIconValue(value: string): boolean {
 }
 
 /**
+ * An icon's name as words: what follows its set's prefix, with its hyphens as spaces, so
+ * `mdi:view-dashboard-outline` reads "view dashboard outline". The name to fall back on where
+ * nothing else says what the icon stands for, such as a toolbar button with no `name`.
+ *
+ * @param icon - An icon name, such as `mdi:arrow-left`
+ * @returns Its words, or an empty string when it holds none
+ */
+export function iconWords(icon: string): string {
+  return icon
+    .slice(icon.indexOf(':') + 1)
+    .split(/[-_\s]+/)
+    .filter((word) => word !== '')
+    .join(' ');
+}
+
+/**
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config
@@ -135,8 +151,15 @@ export function getTodayIndicatorType(value: string | boolean): string {
     // (`BUILT_IN_INDICATORS`), so it reached the right answer only because *every*
     // unrecognized string did. The moment the fallthrough below became text rather than a
     // dot, that accident would have drawn the word "dot" on the card.
-    if (value === 'dot' || value === 'pulse' || value === 'glow' || value === 'tile') {
-      return value;
+    //
+    // The keywords match in any casing, so `Tile` and `GLOW` are the tile and the glow, and
+    // the type returned is always the lowercase keyword, which names the indicator's class.
+    // Folding case was chosen over matching exactly as written, and it costs something the
+    // closed keyword options do not pay: this option is open, so the four words, in any
+    // casing, can no longer be drawn as text. Every other word still is.
+    const keyword = value.toLowerCase();
+    if (keyword === 'dot' || keyword === 'pulse' || keyword === 'glow' || keyword === 'tile') {
+      return keyword;
     }
 
     // Nothing to draw. `renderTodayIndicator` short-circuits on a falsy value before it ever
@@ -569,6 +592,67 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
 
     return result;
   };
+}
+
+/**
+ * Where `time_position` can put an event's time row: under the title, as every release before
+ * it drew it, or at the end of the title's line, on a row with a time or a countdown to put there.
+ */
+export const TIME_POSITIONS = ['below', 'title'] as const;
+
+export type TimePosition = (typeof TIME_POSITIONS)[number];
+
+/**
+ * The placement used when `time_position` is absent or names nothing recognized.
+ *
+ * 🚨 Not the same constant as `DEFAULT_CONFIG.time_position`, though the two must agree:
+ * that one is merged in by `setConfig` and is what a card without the key draws, and this
+ * one is the resolver's answer for a value that is present and unusable. See
+ * `DEFAULT_ALLDAY_BADGE_STYLE`, which has the same pair for the same reason.
+ */
+export const DEFAULT_TIME_POSITION: TimePosition = 'below';
+
+/**
+ * Resolve `time_position` to where the time row goes.
+ *
+ * A closed set, like `resolveAlldayBadgePosition`, and it falls back in the same direction:
+ * anything that is not one of the two names is the shipped layout. That is the safe direction
+ * here as it is there. `below` changes nothing about a card, so a typo, a YAML boolean or a value from
+ * a later release draws the card exactly as it was, where falling through to `title` would
+ * rearrange every row for a word nobody meant.
+ *
+ * @param value - Configured `time_position` value
+ * @returns Where to draw the time row, never null
+ */
+export function resolveTimePosition(value: unknown): TimePosition {
+  if (typeof value === 'string') {
+    const candidate = value.toLowerCase().trim();
+    if ((TIME_POSITIONS as ReadonlyArray<string>).includes(candidate)) {
+      return candidate as TimePosition;
+    }
+  }
+
+  return DEFAULT_TIME_POSITION;
+}
+
+/**
+ * Whether titles on the card can scroll: in every view with `scroll_long_titles`, and in list and
+ * column view with `time_position: title`, which scrolls each title it puts a time beside
+ * whatever `scroll_long_titles` says. The card measures and animates titles only when this is
+ * true; the leaf decides which titles take part.
+ *
+ * @param config - The configuration of the view on screen
+ * @param view - The view on screen
+ * @returns True when a title on the card can scroll
+ */
+export function titlesScroll(
+  config: { scroll_long_titles?: unknown; time_position?: unknown },
+  view: string,
+): boolean {
+  return (
+    Boolean(config.scroll_long_titles) ||
+    (view !== 'grid' && resolveTimePosition(config.time_position) === 'title')
+  );
 }
 
 /** Where `allday_badge` can put the pill. */

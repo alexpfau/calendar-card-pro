@@ -42,47 +42,45 @@ type: module
 5. **Refresh** your browser. After a later update, clear its cache as well, or the old version can stay loaded.
 
 ::: warning Both Files, In Their Own Folder
-The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
-same folder, and only `calendar-card-pro.js` is named as a resource — the card fetches the
-editor itself, the first time you open it, so a dashboard never downloads it.
-
-Copying just `calendar-card-pro.js` leaves you with a card that renders normally but
-cannot be configured: opening the visual editor reports that a file is missing.
-
-Use a subfolder rather than dropping the files straight into `/config/www/`. That folder
-is shared by every hand-installed card, theme and script, and `editor.js` is a common
-enough name that another file can take it — in which case the card finds a file where it
-expects its editor, and the editor still will not open. A folder of its own removes the
-question. HACS does all of this for you, which is why it is the recommended route.
+Keep `calendar-card-pro.js` and `editor.js` together, in a folder of their own, and add only
+`calendar-card-pro.js` as a resource. Without `editor.js` beside it, the card renders normally
+but cannot be configured: opening the visual editor reports that a file is missing. Use a
+subfolder rather than `/config/www/` itself, where another file called `editor.js` can take
+its place and stop the editor from opening.
 :::
 
-::: tip Optional: Compress The Files Yourself
-Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
-compress on the fly. HACS writes one beside every file it installs, so a HACS install already
-transfers compressed. A manual install has none: with the production bundles,
-the card transfers at its full 403 KB and the editor at 578 KB — once per version, then the
-browser caches both.
+::: details Compressing the Files Yourself
+Home Assistant serves a pre-compressed `.gz` beside a file when it finds one. HACS writes one
+for every file it installs; a manual install has none, so the card transfers at its full
+551 KB and the editor at 466 KB, once per version before the browser caches both.
 
-If you want the smaller transfer, create the companions yourself and keep them beside the
-originals:
+For a smaller transfer, create the `.gz` files beside the originals:
 
 ```bash
 gzip -9 -k calendar-card-pro.js editor.js
 ```
 
-That brings the card to 113 KB and the editor to 168 KB at gzip level 9, the level HACS uses
-as well. Every size here is a production build in whole kilobytes of 1,000 bytes, rounded
-down; the compressed ones were measured with Node 24.21.0's zlib at level 9, and the exact
-sizes depend on the `gzip` build. Delete the `.gz` files whenever you
-update, or regenerate them — Home Assistant will serve a stale `.gz` in preference to a
-newer `.js`.
+That brings the card to 155 KB and the editor to 144 KB. Delete or regenerate the `.gz`
+files with every update: Home Assistant serves a stale `.gz` in preference to a newer `.js`.
 :::
 
 </details>
 
 ## 🧭 Browser Support
 
-Calendar Card Pro runs in any current browser and in the Home Assistant Companion apps, which
-draw dashboards with the device's own browser engine. On an iPhone or iPad that engine is
-Safari's, and the card needs iOS or iPadOS 15 or later, on the last update the device offers:
-15.8 for one that stops at iOS 15, and 16.7 for one that stops at iOS 16.
+Calendar Card Pro runs in any current browser and in the Home Assistant Companion apps. The
+minimum versions are:
+
+- **On an iPhone or iPad,** iOS or iPadOS 15 or later, on the last update the device offers:
+  15.8 for one that stops at iOS 15, and 16.7 for one that stops at iOS 16.
+- **On Android,** what counts in the Companion app is the version of the Android System
+  WebView, numbered like Chrome. The card has been tested from Chromium 92 onward, and is
+  confirmed on a Shelly Wall Display, an Android 7 panel whose WebView stops at Chrome 119, and
+  in the headless Chromium 119 of a screenshot add-on.
+- **The visual editor** needs Chrome 98 or later.
+
+::: details Colors Before Chrome 125
+Older versions draw some colors more simply. Before Chrome 125 the today tile and the green of
+an event under way use a simpler mix, and before Chrome 111 the tile is a solid color and an
+event under way keeps the usual text color.
+:::

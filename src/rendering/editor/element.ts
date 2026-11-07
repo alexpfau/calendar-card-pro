@@ -6,7 +6,9 @@
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { repeat } from 'lit/directives/repeat.js';
 
+import * as Buttons from './buttons';
 import * as Entities from './entities';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
@@ -16,22 +18,24 @@ import * as EditorLocalize from './localize';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
+import { TOOLBAR_BUTTON_ICON, TOOLBAR_BUTTON_PATH } from './schemas/card';
 import {
   accentColorModeOf,
   entitySchemaFor,
   labelIconSourceOf,
   labelImageSourceOf,
 } from './schemas/entity';
-import { buildDisplayViewSchema } from './schemas/layout';
 import { interpolate } from './strings';
 import styles from './styles';
+import * as Subforms from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
-import * as Localize from '../../translations/localize';
+import * as LanguageCodes from '../../translations/language-codes';
+import { configuredCalendarName } from '../../utils/calendar-names';
 import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
 
@@ -68,6 +72,17 @@ export class CalendarCardProEditor extends LitElement {
   @state() private _migration: MigrationState = { kind: 'current' };
 
   private _authoredRootKeys = new Set<string>();
+
+  /**
+   * A key per toolbar button, in the list's order, so each button keeps its own panel, open or
+   * closed, through a move and through the removal of another.
+   */
+  private _buttonKeys: number[] = [];
+
+  private _nextButtonKey = 0;
+
+  /** The keys of the buttons Add Button created, whose panels open as they arrive. */
+  private _addedButtons = new Set<number>();
 
   private _rawConfig: Record<string, unknown> = {};
 
@@ -118,7 +133,11 @@ export class CalendarCardProEditor extends LitElement {
       this._gridResetKeys.clear();
     }
 
-    this._lastDispatched = Value.toStoredConfig(this._config, this._authoredRootKeys);
+    this._lastDispatched = Value.toStoredConfig(
+      this._config,
+      this._authoredRootKeys,
+      this._rawConfig,
+    );
   }
 
   /**
@@ -153,7 +172,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _migrationResult(mode: Value.ListMigrationMode): Value.ListMigrationResult {
     return Value.migrateListConfig(
-      Value.toStoredConfig(this._config!, this._authoredRootKeys),
+      Value.toStoredConfig(this._config!, this._authoredRootKeys, this._rawConfig),
       this._rawConfig,
       mode,
     );
@@ -223,7 +242,7 @@ export class CalendarCardProEditor extends LitElement {
       workspace,
       config,
       rawConfig,
-      language: Localize.getEffectiveLanguage(config.language, this.hass?.locale),
+      language: LanguageCodes.getEffectiveLanguage(config.language, this.hass?.locale),
     };
   }
 
@@ -252,6 +271,7 @@ export class CalendarCardProEditor extends LitElement {
     return {
       ...ctx,
       criteria: this._filter,
+      hass: this.hass,
     };
   }
 
@@ -333,7 +353,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Merged configuration after the edit
    */
   private _report(config: Types.Config): void {
-    const stored = Value.toStoredConfig(config, this._authoredRootKeys);
+    const stored = Value.toStoredConfig(config, this._authoredRootKeys, this._rawConfig);
 
     // A pruned override must stop owning its value locally too, before any HA echo.
     this._rawConfig = structuredClone(stored);
@@ -428,13 +448,15 @@ export class CalendarCardProEditor extends LitElement {
 
     const resets = this._renderResetControls(schema, ctx);
     const entities = this._renderEntities(panel, ctx);
+    const buttons = this._renderToolbarButtons(panel, ctx);
     const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
 
     const empty =
       !Filter.hasFields(schema) &&
       extras.length === 0 &&
       resets === nothing &&
-      entities === nothing;
+      entities === nothing &&
+      buttons === nothing;
 
     if (empty) {
       return nothing;
@@ -465,7 +487,7 @@ export class CalendarCardProEditor extends LitElement {
               ></ha-form>
             `,
           )}
-          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${resets}
+          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${buttons} ${resets}
         </div>
       </ha-expansion-panel>
     `;
@@ -599,7 +621,7 @@ export class CalendarCardProEditor extends LitElement {
                   <button
                     type="button"
                     class="text-button"
-                    ?disabled=${!Entities.hasSettings(entry)}
+                    ?disabled=${!Entities.hasTransferableSettings(entry)}
                     @click=${() => this._copyEntitySettings(entry)}
                   >
                     ${this._string(ctx, 'entity.copy')}
@@ -631,7 +653,7 @@ export class CalendarCardProEditor extends LitElement {
               <ha-form
                 class="entity-form"
                 .hass=${this._formHass}
-                .data=${Entities.toEntityFormData(entry)}
+                .data=${Entities.toEntityFormData(entry, entries)}
                 .schema=${schema}
                 .computeLabel=${computeLabel}
                 .computeHelper=${computeHelper}
@@ -648,11 +670,21 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The line under a calendar's heading.
    *
-   * The heading is the calendar's name, so two blocks over one calendar carry the same
-   * one. This is where they are told apart, and the order is the useful one: a label the
-   * user wrote wins, because it is their own answer to this exact question, and the
-   * position is prefixed to it either way so that "the same calendar, twice" is never
-   * mistaken for the card having listed something twice by accident.
+   * The heading is Home Assistant's name for the calendar, matching the picker row above it,
+   * so a name this card gives the calendar shows on no closed panel, and two blocks over one
+   * calendar carry the same heading. This line answers both, in the order that is useful:
+   *
+   * - the calendar's own name on this card, wherever it differs from the heading by more than
+   *   the spaces around either. It is read from the whole list, because a name belongs to the
+   *   calendar rather than to one block (`configuredCalendarName`), so a block that does not
+   *   hold it still shows it, and a blank one is no name;
+   * - its position among the calendar's blocks, when there is more than one, so that "the same
+   *   calendar, twice" is never mistaken for the card having listed something twice by
+   *   accident;
+   * - what the block holds: a label the user wrote wins, because it is their own answer to
+   *   this exact question, else whether it configures anything. A block whose only setting is
+   *   the name the line already leads with says nothing more, where "Configured" would only
+   *   point at that name a second time.
    *
    * It deliberately does not report *which setting* differs between two blocks. Any of the
    * thirty-odd per-calendar options can be the one, several can differ at once, and a diff
@@ -661,7 +693,7 @@ export class CalendarCardProEditor extends LitElement {
    * question the duplicate actually raises, which is "which of these two am I editing",
    * and answers it in every case rather than in the neat ones.
    *
-   * @param entities - The list as stored, for finding this calendar's duplicates
+   * @param entities - The list as stored, for finding this calendar's name and duplicates
    * @param index - Position of the calendar being described
    * @param ctx - Schema context
    * @returns Secondary text
@@ -673,20 +705,35 @@ export class CalendarCardProEditor extends LitElement {
   ): string {
     const entry = entities[index];
     const config = Entities.asEntityConfig(entry);
+    const entityId = Synthetic.entityIdOf(entry);
+
+    // Both trimmed, as the heading reads: a name differing from Home Assistant's only in the
+    // spaces around either is the same name, and is not repeated under it.
+    const configured = configuredCalendarName(entities, entityId);
+    const name =
+      configured !== undefined &&
+      configured !== Entities.entityDisplayName(entityId, this.hass).trim()
+        ? configured
+        : undefined;
+    const holdsOnlyName =
+      name !== undefined && Entities.hasSettings(entry) && !Entities.hasTransferableSettings(entry);
 
     const described =
       typeof config.label === 'string' && config.label !== ''
         ? config.label
-        : Entities.hasSettings(entry)
-          ? this._string(ctx, 'entity.customised')
-          : this._string(ctx, 'entity.unconfigured');
+        : holdsOnlyName
+          ? undefined
+          : Entities.hasSettings(entry)
+            ? this._string(ctx, 'entity.customised')
+            : this._string(ctx, 'entity.unconfigured');
 
     const { position, total } = Entities.occurrenceOf(entities, index);
-    if (total < 2) return described;
+    const occurrence =
+      total < 2
+        ? undefined
+        : interpolate(this._string(ctx, 'entity.occurrence'), { position, total });
 
-    const occurrence = interpolate(this._string(ctx, 'entity.occurrence'), { position, total });
-
-    return `${occurrence} · ${described}`;
+    return [name, occurrence, described].filter((part) => part !== undefined).join(' · ');
   }
 
   /**
@@ -781,6 +828,252 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Renders the toolbar's own buttons: the sub-heading, a collapsible form per button headed by
+   * its name, and Add Button after the last.
+   *
+   * Only while the toolbar is shown, as the card draws the buttons only then. The list is read
+   * as written, so an entry the card cannot draw yet, such as one whose icon was just cleared,
+   * stays here to be finished. Add Button is withheld while the editor is filtered, where the
+   * button it adds could arrive hidden.
+   *
+   * @param panel - Panel being rendered
+   * @param ctx - Schema context
+   * @returns The buttons, or nothing for every other panel and while the toolbar is hidden
+   */
+  private _renderToolbarButtons(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const subform = panel
+      .subforms?.(ctx)
+      ?.find((candidate) => candidate.path.join('.') === TOOLBAR_BUTTON_PATH.join('.'));
+    if (subform === undefined || !Config.resolveToolbar(ctx.config).show) return nothing;
+
+    const filterCtx = this._filterCtx;
+    const filtering = Filter.isFiltering(this._filter);
+    const written = Buttons.writtenButtons(this._config!);
+    const keys = this._buttonKeysFor(written.length);
+    const headings = subform.schema.filter((node) => Filter.isHeading(node));
+    const fields = subform.schema.filter((node) => !Filter.isHeading(node));
+
+    const shown = written
+      .map((entry, index) => ({
+        entry,
+        index,
+        key: keys[index],
+        schema: Filter.filterButtonSchema(fields, entry, subform.path, filterCtx),
+      }))
+      .filter((candidate) => Filter.hasFields(candidate.schema));
+
+    if (filtering && shown.length === 0) return nothing;
+
+    const computeLabel = (schema: HaFormSchema): string =>
+      EditorLocalize.computeLabel(ctx.language, schema, subform.path);
+
+    const computeHelper = (schema: HaFormSchema): string | undefined =>
+      EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schema, subform.path);
+
+    const untitled = this._string(ctx, 'toolbar.buttons.untitled');
+
+    return html`
+      <ha-form
+        class="buttons-heading"
+        .hass=${this._formHass}
+        .data=${{}}
+        .schema=${headings}
+        .computeLabel=${computeLabel}
+      ></ha-form>
+      ${repeat(
+        shown,
+        ({ key }) => key,
+        ({ entry, index, key, schema }) => html`
+          <ha-expansion-panel
+            outlined
+            class="button-panel"
+            data-button-key=${key}
+            .header=${Buttons.buttonTitle(entry, index, untitled)}
+            .leftChevron=${false}
+            .expanded=${filtering || this._addedButtons.has(key)}
+          >
+            <ha-svg-icon slot="leading-icon" .path=${TOOLBAR_BUTTON_ICON}></ha-svg-icon>
+            <div class="panel-body">
+              <div class="button-actions">
+                <div class="button-actions-safe">
+                  <button
+                    type="button"
+                    class="text-button"
+                    data-move="up"
+                    ?disabled=${index === 0}
+                    @click=${() => this._moveButton(index, -1)}
+                  >
+                    ${this._string(ctx, 'toolbar.buttons.move_up')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    data-move="down"
+                    ?disabled=${index === written.length - 1}
+                    @click=${() => this._moveButton(index, 1)}
+                  >
+                    ${this._string(ctx, 'toolbar.buttons.move_down')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="text-button destructive"
+                  @click=${() => this._removeButton(index)}
+                >
+                  ${this._string(ctx, 'toolbar.buttons.remove')}
+                </button>
+              </div>
+              <ha-form
+                class="button-form"
+                .hass=${this._formHass}
+                .data=${Buttons.toButtonFormData(entry)}
+                .schema=${schema}
+                .computeLabel=${computeLabel}
+                .computeHelper=${computeHelper}
+                .localizeValue=${this._localizeValue}
+                @value-changed=${(event: CustomEvent) => this._buttonChanged(index, event)}
+              ></ha-form>
+            </div>
+          </ha-expansion-panel>
+        `,
+      )}
+      ${
+        filtering
+          ? nothing
+          : html`
+              <button type="button" class="text-button add-button" @click=${this._addButton}>
+                ${this._string(ctx, 'toolbar.buttons.add')}
+              </button>
+            `
+      }
+    `;
+  }
+
+  /**
+   * The buttons' keys, made afresh for a list whose length the editor did not change itself,
+   * such as one edited in YAML.
+   *
+   * @param length - How many buttons the list holds
+   * @returns A key per button, in order
+   */
+  private _buttonKeysFor(length: number): number[] {
+    if (this._buttonKeys.length !== length) {
+      this._buttonKeys = Array.from({ length }, () => this._nextButtonKey++);
+      this._addedButtons.clear();
+    }
+    return this._buttonKeys;
+  }
+
+  /**
+   * Stores a new list of toolbar buttons, and nothing else.
+   *
+   * @param buttons - The list as it should be written
+   * @returns Whether it was written, which a blocked migration prevents
+   */
+  private _writeButtons(buttons: ReadonlyArray<unknown>): boolean {
+    if (!this._config || !this._prepareForWrite()) return false;
+    const toolbar = Helpers.isConfigBlock(this._config.toolbar) ? this._config.toolbar : {};
+    this._config = {
+      ...this._config,
+      toolbar: { ...toolbar, buttons: [...buttons] as Types.ToolbarButtonConfig[] },
+    };
+
+    this._report(this._config);
+    return true;
+  }
+
+  /**
+   * Folds one button's form change into the list.
+   *
+   * @param index - Position of the button in the list
+   * @param event - The form's `value-changed`
+   */
+  private _buttonChanged(index: number, event: CustomEvent): void {
+    event.stopPropagation();
+
+    const next = event.detail?.value as Record<string, unknown> | undefined;
+    if (!next || !this._config) return;
+
+    const written = Buttons.writtenButtons(this._config);
+    const buttons = Buttons.writeButton(written, index, next);
+    if (Value.deepEqual(buttons, written)) return;
+    this._writeButtons(buttons);
+  }
+
+  /**
+   * Moves one button a place toward the start or the end, its panel with it.
+   *
+   * Focus stays on the control that moved it, or passes to its other move control once the
+   * button reaches an end, so a keyboard can keep moving it.
+   *
+   * @param index - Position of the button in the list
+   * @param by - `-1` toward the start, `1` toward the end
+   */
+  private _moveButton(index: number, by: -1 | 1): void {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const to = index + by;
+    if (to < 0 || to >= written.length) return;
+
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.moveButton(written, index, by))) return;
+    [keys[index], keys[to]] = [keys[to], keys[index]];
+
+    const moved = keys[to];
+    void this.updateComplete.then(() => this._focusMoveControl(moved, by));
+  }
+
+  /**
+   * Returns focus to a moved button's move controls, where the move took it away.
+   *
+   * @param key - The moved button's key
+   * @param by - The way it moved
+   */
+  private _focusMoveControl(key: number, by: -1 | 1): void {
+    const active = (this.renderRoot as ShadowRoot).activeElement as HTMLButtonElement | null;
+    if (active !== null && !active.disabled) return;
+
+    const panel = this.renderRoot.querySelector(`.button-panel[data-button-key="${key}"]`);
+    const same = panel?.querySelector<HTMLButtonElement>(`[data-move="${by < 0 ? 'up' : 'down'}"]`);
+    const other = panel?.querySelector<HTMLButtonElement>(
+      `[data-move="${by < 0 ? 'down' : 'up'}"]`,
+    );
+    (same && !same.disabled ? same : other)?.focus();
+  }
+
+  /**
+   * Drops one button from the list. Focus passes to Add Button, as the removed panel held it.
+   *
+   * @param index - Position of the button in the list
+   */
+  private _removeButton(index: number): void {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.removeButton(written, index))) return;
+
+    const [removed] = keys.splice(index, 1);
+    this._addedButtons.delete(removed);
+    void this.updateComplete.then(() =>
+      this.renderRoot.querySelector<HTMLButtonElement>('.add-button')?.focus(),
+    );
+  }
+
+  /**
+   * Adds a button after the last, and opens its panel to be filled in.
+   */
+  private _addButton = (): void => {
+    if (!this._config) return;
+    const written = Buttons.writtenButtons(this._config);
+    const keys = this._buttonKeysFor(written.length);
+    if (!this._writeButtons(Buttons.addButton(written))) return;
+
+    const key = this._nextButtonKey++;
+    keys.push(key);
+    this._addedButtons.add(key);
+  };
+
+  /**
    * The view whose layer this context writes into, or `undefined` for the shared base.
    *
    * 🚨 Not `ctx.view`, and the difference only appears under the shared workspace. Panels
@@ -824,7 +1117,7 @@ export class CalendarCardProEditor extends LitElement {
     if (view === undefined) return nothing;
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey === undefined) return nothing;
-    const stored = Value.toStoredConfig(this._config!)[blockKey];
+    const stored = Value.storedViewBlocks(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
     const seen = new Set<string>();
     const resets = [...Routing.workspaceFields(schema)].flatMap(({ node, path, labelPath }) => {
@@ -940,11 +1233,12 @@ export class CalendarCardProEditor extends LitElement {
     );
 
     const empty = panels.length === 0 && Filter.isFiltering(this._filter);
+    const chassis = Subforms.chassisSchemas(ctx.language);
 
     return html`
       <div class="card-config">
-        ${this._renderViewControls(ctx)} ${this._renderGridReconciliation(ctx)}
-        ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+        ${this._renderViewControls(ctx, chassis)} ${this._renderGridReconciliation(ctx)}
+        ${this._renderFilterBar(chassis)} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
@@ -1051,11 +1345,12 @@ export class CalendarCardProEditor extends LitElement {
    * Keeps displayed-view configuration separate from the editor's local cursor.
    *
    * @param ctx - Current editor context
+   * @param chassis - The chassis schemas this render draws
    * @returns The two adjacent controls, outside the searchable panels
    */
-  private _renderViewControls(ctx: SchemaCtx): TemplateResult {
+  private _renderViewControls(ctx: SchemaCtx, chassis: Subforms.ChassisSchemas): TemplateResult {
     const data = { view: this._viewForConfig(this._config!) };
-    const schema = buildDisplayViewSchema(ctx.language);
+    const schema = chassis.displayView;
     const frame: Routing.FormFrame = { workspace: 'list', schema, data };
     const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
 
@@ -1075,7 +1370,7 @@ export class CalendarCardProEditor extends LitElement {
           class="workspace-form"
           .hass=${this._formHass}
           .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
-          .schema=${Workspace.buildWorkspaceSchema(ctx.language)}
+          .schema=${chassis.workspace}
           .computeLabel=${this._computeLabel}
           .computeHelper=${this._computeHelper}
           .localizeValue=${this._localizeValue}
@@ -1109,16 +1404,17 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders the filter bar above the panels.
    *
+   * @param chassis - The chassis schemas this render draws
    * @returns The filter bar
    */
-  private _renderFilterBar(): TemplateResult {
+  private _renderFilterBar(chassis: Subforms.ChassisSchemas): TemplateResult {
     return html`
       <div class="filter-bar">
         <ha-form
           class="filter-form"
           .hass=${this._formHass}
           .data=${Filter.filterFormData(this._filter)}
-          .schema=${Filter.FILTER_SCHEMA}
+          .schema=${chassis.filter}
           .computeLabel=${this._computeLabel}
           .computeHelper=${this._computeHelper}
           .localizeValue=${this._localizeValue}

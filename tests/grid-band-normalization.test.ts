@@ -45,8 +45,10 @@ function draw(raw: Record<string, unknown>): { first: string; last: string } {
   card.isInitialLoad = false;
   const container = document.createElement('div');
   render(card.render(), container);
+  // A 12-hour label is drawn inside invisible bidi isolates (grid-dom.test.ts pins them);
+  // this reads the wording.
   const labels = [...container.querySelectorAll('.grid-axis-label')].map((label) =>
-    label.textContent!.trim(),
+    label.textContent!.trim().replace(/[\u2068\u2069]/g, ''),
   );
   expect(labels.length).toBeGreaterThan(1);
   return { first: labels[0], last: labels.slice(-1)[0]! };

@@ -102,7 +102,10 @@ export function getNowString(locale: string): string {
  */
 export function getRelativeTimeString(date: Date, locale: string, reference?: Date): string {
   const mappedLocale = mapLocale(locale);
-  const target = dayjs(date).locale(DAYJS_LOCALE_NAMES[mappedLocale] ?? mappedLocale);
+  // A plain identifier, because the Day.js source guard in scripts/compact-payloads.mjs admits
+  // nothing else as the argument to locale().
+  const dayjsLocale = DAYJS_LOCALE_NAMES[mappedLocale] ?? mappedLocale;
+  const target = dayjs(date).locale(dayjsLocale);
   return reference ? target.from(dayjs(reference)) : target.fromNow();
 }
 

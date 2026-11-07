@@ -4,9 +4,10 @@
  * `docs/guide/bin-day.md` splits one waste-collection feed into four blocks so the card answers
  * "which bin goes out tonight?". Its promises: each block's `allowlist` keeps one bin and its
  * `compact_events_to_show: 1` leaves only that bin's next pickup, nearest first, a month ahead
- * so a monthly bin still shows; `replace_pattern` strips the feed's prefix while the dialog keeps
- * it; the bin's name sits in a pill of its color with "tomorrow" where "All day" would be;
- * `allday_expires_at: '10:00'` retires today's pickup at the first refresh after 10:00; and with
+ * so a monthly bin still shows; `replace_pattern` strips the feed's prefix while the event the
+ * popover opens on keeps it; the bin's name sits in a pill of its color with "tomorrow" where "All day" would be;
+ * `allday_expires_at: '10:00'` has today's pickup gone at 10:00 on its day, without waiting for
+ * a refresh; and with
  * no pickups there is no card. Nothing ran this card before this file.
  *
  * Every row here comes from one calendar, so which block claimed a row is read off its icon.
@@ -17,6 +18,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryCard,
   type StoryEvent,
@@ -36,12 +38,6 @@ vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const { config: CARD, entities: BLOCKS } = readStoryCard('bin-day');
@@ -97,13 +93,16 @@ const NEXT_PICKUPS = [
 ];
 
 describe('the Bin Day card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(MORNING);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -167,7 +166,7 @@ describe('the Bin Day card behaves as its page describes', () => {
     expect(drawn(fortnight)).toEqual(NEXT_PICKUPS.slice(0, 3));
   });
 
-  it("strips the feed's prefix on the card and keeps it in the dialog", async () => {
+  it("strips the feed's prefix on the card and keeps it in the event the popover opens", async () => {
     const card = await mountStory(CARD, FEED);
     expect(listRows(card).map((row) => row.title)).toEqual([
       'Trash',
@@ -178,8 +177,8 @@ describe('the Bin Day card behaves as its page describes', () => {
 
     // "A tap shows the entry as the feed stores it, prefix included."
     await tap(card, rowTitled(card, 'Recycling').target);
-    const { entry } = (openDetails.mock.calls[0] as unknown[])[1] as { entry: { summary: string } };
-    expect(entry.summary).toBe('🗑️ Recycling');
+    expect(popovers.opened).toHaveBeenCalledTimes(1);
+    expect(popovers.opened.mock.calls[0][0].entry?.summary).toBe('🗑️ Recycling');
 
     // Control: without `replace_pattern` the card draws the feed's titles as they come.
     const raw = await mountStory(dropFromBlocks(CARD, 'replace_pattern'), FEED);
@@ -224,10 +223,10 @@ describe('the Bin Day card behaves as its page describes', () => {
     ]);
   });
 
-  it("retires today's pickup at the first refresh after 10:00", async () => {
-    // "Gone at the first refresh after 10:00." Mounted at 09:45, the card refreshes on its own
-    // half an hour later; by then the truck has been, and the trash block's next pickup is next
-    // week's.
+  it("retires today's pickup at 10:00, without waiting for a refresh", async () => {
+    // "Gone at 10:00 on its day." Mounted at 09:45, the card's own refresh is not due until
+    // 10:15. Still there a second before 10:00; gone a moment after, the card repainting a
+    // second past the boundary on its own clock, with the feed asked only once.
     const trashDate = (card: StoryCard) =>
       listRows(card).find((row) => row.title === 'Trash')?.date;
     vi.setSystemTime(new Date('2026-06-17T09:45:00.000Z'));
@@ -236,27 +235,34 @@ describe('the Bin Day card behaves as its page describes', () => {
     const card = await mountStory(CARD, { ...FEED, requests });
     expect(trashDate(card)).toBe('Jun 17');
     expect(requests).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(31 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000 - 1000);
     await settle(card);
-    expect(new Date().toISOString()).toBe('2026-06-17T10:16:00.000Z');
-    // The card did refresh in that half hour: it asked the feed again.
-    expect(requests).toHaveLength(2);
+    expect(new Date().toISOString()).toBe('2026-06-17T09:59:59.000Z');
+    expect(trashDate(card)).toBe('Jun 17');
+    await vi.advanceTimersByTimeAsync(3000);
+    await settle(card);
+    expect(new Date().toISOString()).toBe('2026-06-17T10:00:02.000Z');
+    expect(requests).toHaveLength(1);
     expect(drawn(card)).toEqual([
       'Jun 18 Recycling mdi:recycle',
       'Jun 19 Organic mdi:leaf',
       'Jun 24 Trash mdi:trash-can',
       'Jul 10 Paper mdi:newspaper-variant-outline',
     ]);
+    // The denominator for "asked only once": the refresh does come, at 10:15, and is counted.
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+    await settle(card);
+    expect(requests).toHaveLength(2);
 
-    // Control: the trash block without `allday_expires_at`, over the same half hour, keeps
-    // today's pickup until midnight.
+    // Control: the trash block without `allday_expires_at`, over the same span, keeps today's
+    // pickup until midnight.
     document.body.innerHTML = '';
     vi.setSystemTime(new Date('2026-06-17T09:45:00.000Z'));
     const midnight = await mountStory(
       dropFromBlocks(CARD, 'allday_expires_at', (b) => b.allowlist === 'Trash'),
       FEED,
     );
-    await vi.advanceTimersByTimeAsync(31 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1000 + 2000);
     await settle(midnight);
     expect(trashDate(midnight)).toBe('Jun 17');
   });

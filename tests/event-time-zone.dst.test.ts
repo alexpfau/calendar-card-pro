@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FROZEN_NOW } from './fixtures';
 import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { formatEventTime, formatTime } from '../src/utils/format';
@@ -18,19 +17,25 @@ import { formatEventTime, formatTime } from '../src/utils/format';
  * `getUTCHours()`/`getUTCMinutes()`, and rewriting `formatEventTime`'s single-day versus
  * multi-day test to compare UTC calendar days, each left the whole suite green. Both
  * would misprint the time on every timed event for every user outside UTC, which is most
- * of them. With this file present the first fails 5 assertions in each of the three
- * zones and the second fails 1 in Berlin, 2 in Sydney and 1 in New York.
+ * of them. With this file present the first fails 9 tests in Berlin, 10 in Sydney and
+ * New York and 5 in the Azores, and the second 2, 3, 2 and 1. Reading every instant at the
+ * zone's January offset, which a June fixture alone or a January one alone cannot see, fails
+ * 3, 4 and 3 in the first three zones.
  *
  * Unlike the week-number file next door this pins no DST *transition* — it pins the
  * offset itself, which is the larger of the two exposures because it applies on every
  * day of the year rather than around two of them. That also means no zone here is the
- * only one able to see a given failure, which is the honest position: all three catch
+ * only one able to see a given failure, which is the honest position: all four catch
  * both mutations above, and any non-UTC zone would. What the set buys is that the
  * fixture is read at both offset signs. At `23:30Z` Berlin and Sydney sit ahead of UTC,
- * so their local date has already rolled over to the 18th while the UTC date is still
- * the 17th; New York sits behind, so it reads the 17th like UTC does but at a different
- * hour. An implementation correct for one sign and wrong for the other cannot pass all
- * three.
+ * so their local date has already rolled over to the 15th while the UTC date is still
+ * the 14th; New York and the Azores sit behind, so they read the 14th like UTC does but
+ * at a different hour. An implementation correct for one sign and wrong for the other
+ * cannot pass them all.
+ *
+ * The fixtures run in January and in June, so each zone is read at both of its offsets. The
+ * Azores keep UTC itself all summer, where a June fixture reads the same clock and the same
+ * day as UTC and proves nothing, so they run January alone.
  *
  * The oracle is deliberately `Intl.DateTimeFormat`, not `Date.prototype.getHours`. The
  * code under test is built from the `Date` getters, so deriving the expectation from
@@ -80,16 +85,22 @@ function timedEvent(start: Date, end: Date): Types.CalendarEventData {
   };
 }
 
+/**
+ * The fixtures' day in each half of the year, so every zone is read at both of its offsets.
+ * A season in which the zone keeps UTC itself (the Azores in summer) is skipped: there a local
+ * and a UTC reading are the same number, and the cases would prove nothing.
+ */
+const SEASONS = [
+  { name: 'January', month: 0, day: 14 },
+  { name: 'June', month: 5, day: 17 },
+].map((season) => ({
+  ...season,
+  offUtc: new Date(2026, season.month, season.day, 12).getTimezoneOffset() !== 0,
+}));
+
 const config = { ...DEFAULT_CONFIG, time_24h: true } as unknown as Types.Config;
 
 describe('event times follow the local zone, not UTC', () => {
-  // `formatEventTime` compares the event against today, so an unfrozen clock decides
-  // which multi-day wording it reaches and the assertions below would drift by date.
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(FROZEN_NOW);
-  });
-
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -102,80 +113,97 @@ describe('event times follow the local zone, not UTC', () => {
     );
   });
 
-  describe('formatTime', () => {
-    // 23:30 UTC: behind UTC (New York) this is still the same UTC day, ahead of it
-    // (Berlin, Sydney) the local day has already rolled over.
-    const instant = new Date('2026-06-17T23:30:00.000Z');
-
-    it('reads a different clock than UTC, so the assertions below are not vacuous', () => {
-      expect(wallClock(instant).time).not.toBe(utcClock(instant).time);
-    });
-
-    it('prints the local wall clock', () => {
-      expect(formatTime(instant, true)).toBe(wallClock(instant).time);
-    });
-
-    it('does not print the UTC clock', () => {
-      expect(formatTime(instant, true)).not.toBe(utcClock(instant).time);
-    });
-
-    it('prints the local wall clock in 12-hour form too', () => {
-      const { time } = wallClock(instant);
-      const [hour, minute] = time.split(':').map(Number);
-      const suffix = hour >= 12 ? 'PM' : 'AM';
-      const twelve = hour % 12 || 12;
-
-      expect(formatTime(instant, false)).toBe(
-        `${twelve}:${String(minute).padStart(2, '0')} ${suffix}`,
-      );
-    });
+  // The denominator: at least one season runs in every zone.
+  it('reads at least one season off UTC', () => {
+    expect(SEASONS.filter((season) => season.offUtc).length).toBeGreaterThan(0);
   });
 
-  describe('formatEventTime', () => {
-    /*
-     * Built from local components on purpose. 23:30 to 00:30 *local* crosses local
-     * midnight in every zone, while both instants land on one UTC date in all three —
-     * so local and UTC disagree about whether this event spans two days, and they
-     * disagree in the same direction everywhere. Comparing UTC days would take the
-     * single-day branch and print a bare start time instead of naming the end day.
-     */
-    const localStart = new Date(2026, 5, 17, 23, 30);
-    const localEnd = new Date(2026, 5, 18, 0, 30);
+  describe.each(SEASONS)('in $name', ({ month, day, offUtc }) => {
+    const iso = (d: number) =>
+      `2026-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-    it('straddles local midnight while staying inside one UTC day', () => {
-      expect(wallClock(localStart).day).not.toBe(wallClock(localEnd).day);
-      expect(utcClock(localStart).day).toBe(utcClock(localEnd).day);
+    // `formatEventTime` compares the event against today, so an unfrozen clock decides
+    // which multi-day wording it reaches and the assertions below would drift by date.
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(`${iso(day)}T12:00:00.000Z`));
     });
 
-    it('treats an event across local midnight as spanning two days', () => {
-      const formatted = formatEventTime(timedEvent(localStart, localEnd), config, 'en');
+    describe.runIf(offUtc)('formatTime', () => {
+      // 23:30 UTC: behind UTC (New York, the Azores) this is still the same UTC day, ahead
+      // of it (Berlin, Sydney) the local day has already rolled over.
+      const instant = new Date(`${iso(day)}T23:30:00.000Z`);
 
-      // Naming the end day is what the multi-day branch does and the single-day branch
-      // cannot: that branch produces a bare `start - end` and nothing else. The event starts
-      // on FROZEN_NOW's day, so the end reads "ends tomorrow". Comparing UTC days would take
-      // the single-day branch and print `23:30 - 0:30`.
-      expect(formatted).toContain('ends tomorrow');
-      expect(formatted).toContain(wallClock(localStart).time);
-      expect(formatted).not.toBe(`${wallClock(localStart).time} - ${wallClock(localEnd).time}`);
+      it('reads a different clock than UTC, so the assertions below are not vacuous', () => {
+        expect(wallClock(instant).time).not.toBe(utcClock(instant).time);
+      });
+
+      it('prints the local wall clock', () => {
+        expect(formatTime(instant, true)).toBe(wallClock(instant).time);
+      });
+
+      it('does not print the UTC clock', () => {
+        expect(formatTime(instant, true)).not.toBe(utcClock(instant).time);
+      });
+
+      it('prints the local wall clock in 12-hour form too', () => {
+        const { time } = wallClock(instant);
+        const [hour, minute] = time.split(':').map(Number);
+        const suffix = hour >= 12 ? 'PM' : 'AM';
+        const twelve = hour % 12 || 12;
+
+        expect(formatTime(instant, false)).toBe(
+          `${twelve}:${String(minute).padStart(2, '0')} ${suffix}`,
+        );
+      });
     });
 
-    it('treats an event inside one local day as a single day', () => {
-      const start = new Date(2026, 5, 17, 9, 0);
-      const end = new Date(2026, 5, 17, 10, 0);
-      const formatted = formatEventTime(timedEvent(start, end), config, 'en');
+    describe.runIf(offUtc)('formatEventTime', () => {
+      /*
+       * Built from local components on purpose. 23:30 to 00:30 *local* crosses local
+       * midnight in every zone, while both instants land on one UTC date in all four —
+       * so local and UTC disagree about whether this event spans two days, and they
+       * disagree in the same direction everywhere. Comparing UTC days would take the
+       * single-day branch and print a bare start time instead of naming the end day.
+       */
+      const localStart = new Date(2026, month, day, 23, 30);
+      const localEnd = new Date(2026, month, day + 1, 0, 30);
 
-      expect(formatted).toBe(`${wallClock(start).time} - ${wallClock(end).time}`);
-    });
+      it('straddles local midnight while staying inside one UTC day', () => {
+        expect(wallClock(localStart).day).not.toBe(wallClock(localEnd).day);
+        expect(utcClock(localStart).day).toBe(utcClock(localEnd).day);
+      });
 
-    it('prints an all-day event without a clock in any zone', () => {
-      const allDay: Types.CalendarEventData = {
-        start: { date: '2026-06-17' },
-        end: { date: '2026-06-18' },
-        summary: 'Public holiday',
-        _entityId: 'calendar.personal',
-      };
+      it('treats an event across local midnight as spanning two days', () => {
+        const formatted = formatEventTime(timedEvent(localStart, localEnd), config, 'en');
 
-      expect(formatEventTime(allDay, config, 'en')).toBe('All day');
+        // Naming the end day is what the multi-day branch does and the single-day branch
+        // cannot: that branch produces a bare `start - end` and nothing else. The event starts
+        // on the frozen day, so the end reads "ends tomorrow". Comparing UTC days would take
+        // the single-day branch and print `23:30 - 0:30`.
+        expect(formatted).toContain('ends tomorrow');
+        expect(formatted).toContain(wallClock(localStart).time);
+        expect(formatted).not.toBe(`${wallClock(localStart).time} - ${wallClock(localEnd).time}`);
+      });
+
+      it('treats an event inside one local day as a single day', () => {
+        const start = new Date(2026, month, day, 9, 0);
+        const end = new Date(2026, month, day, 10, 0);
+        const formatted = formatEventTime(timedEvent(start, end), config, 'en');
+
+        expect(formatted).toBe(`${wallClock(start).time} - ${wallClock(end).time}`);
+      });
+
+      it('prints an all-day event without a clock in any zone', () => {
+        const allDay: Types.CalendarEventData = {
+          start: { date: iso(day) },
+          end: { date: iso(day + 1) },
+          summary: 'Public holiday',
+          _entityId: 'calendar.personal',
+        };
+
+        expect(formatEventTime(allDay, config, 'en')).toBe('All day');
+      });
     });
   });
 });

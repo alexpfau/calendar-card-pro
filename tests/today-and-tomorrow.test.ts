@@ -19,6 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { spyOnPopovers } from './popover-spy';
 import {
   type StoryCard,
   type StoryEvent,
@@ -38,12 +39,6 @@ vi.mock('../src/utils/logger', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/utils/logger')>()),
   debug: vi.fn(),
   info: vi.fn(),
-}));
-
-const openDetails = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock('../src/interaction/ha-calendar-dialogs', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/interaction/ha-calendar-dialogs')>()),
-  openEventDetailDialog: openDetails,
 }));
 
 const { config: CARD, entities: BLOCKS } = readStoryCard('today-and-tomorrow');
@@ -129,10 +124,16 @@ interface Block {
 const iconIn = (element: Element | null): string =>
   String((element?.querySelector('ha-icon') as unknown as { icon?: string } | null)?.icon ?? '');
 
-/** The days the grid draws, as `YYYY-MM-DD`, in column order. */
+/**
+ * The days the grid draws, as `YYYY-MM-DD`, in column order. The header carries the day's id,
+ * or its date does once `day_tap_action` makes the header a button, so the id can describe it.
+ */
 function days(card: StoryCard): string[] {
   return [...shadow(card).querySelectorAll('.grid-day-header .column-day-header')].map((header) =>
-    header.id.replace('calendar-card-day-', ''),
+    (header.id || header.querySelector('[id^="calendar-card-day-"]')?.id || '').replace(
+      'calendar-card-day-',
+      '',
+    ),
   );
 }
 
@@ -186,13 +187,16 @@ const withWeatherAt = (position: string) =>
   withOptions(CARD, { weather: { ...(CARD.weather as object), position } });
 
 describe('the Today & Tomorrow card behaves as its page describes', () => {
+  let popovers: ReturnType<typeof spyOnPopovers>;
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     vi.setSystemTime(FROZEN_NOW);
-    openDetails.mockClear();
+    popovers = spyOnPopovers();
   });
 
   afterEach(() => {
+    popovers.stop();
     document.body.innerHTML = '';
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -215,8 +219,21 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       show_progress_bar: true,
       weather: { entity: 'weather.home', position: 'both', event: { show_conditions: false } },
       event_tap_action: { action: 'details' },
+      day_tap_action: { action: 'add-event' },
       time_grid: { start_time: '07:00', end_time: '21:00', hour_height: '56px', slot_minutes: 30 },
     });
+  });
+
+  it('makes each day a way to add an event', async () => {
+    // "A tap on a free hour adds an event there." Each day's header is the add button a
+    // keyboard reaches, and the grid under it takes the tap; both come from one option.
+    const card = await mountStory(CARD, DAYS);
+    expect(shadow(card).querySelectorAll('.grid-day-header .day-add-button')).toHaveLength(2);
+
+    // Control: without the option no day is a button.
+    const inert = await mountStory(dropOption(CARD, 'day_tap_action'), DAYS);
+    expect(shadow(inert).querySelectorAll('.grid-day-header .day-add-button')).toHaveLength(0);
+    expect(days(inert)).toEqual(days(card));
   });
 
   it('draws today and tomorrow on one axis from 07:00 to 21:00', async () => {
@@ -346,14 +363,8 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
     // shared plan." Every calendar here allows both.
     const card = await mountStory(CARD, DAYS);
     const opened = () => {
-      const params = openDetails.mock.calls[openDetails.mock.calls.length - 1] as unknown[];
-      const { calendarId, entry, canEdit, canDelete } = params[1] as {
-        calendarId: string;
-        entry: { summary: string };
-        canEdit: boolean;
-        canDelete: boolean;
-      };
-      return { calendarId, summary: entry.summary, canEdit, canDelete };
+      const { calendarId, entry, canEdit, canDelete } = popovers.opened.mock.lastCall![0];
+      return { calendarId, summary: entry?.summary, canEdit, canDelete };
     };
 
     await tap(card, block(card, 'Standup').target);
@@ -371,7 +382,7 @@ describe('the Today & Tomorrow card behaves as its page describes', () => {
       canEdit: false,
       canDelete: false,
     });
-    expect(openDetails).toHaveBeenCalledTimes(2);
+    expect(popovers.opened).toHaveBeenCalledTimes(2);
 
     // Control: the same zoo trip, not merged, is Anna's event alone and editable like any other,
     // so what withheld Edit and Delete above is the merge.

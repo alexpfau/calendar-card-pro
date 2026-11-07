@@ -36,7 +36,7 @@ const ENTITY = 'calendar.work';
 
 const PERSON = 'person.anna';
 
-const PICTURE = '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512';
+const PICTURE = '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512';
 
 /**
  * A `hass` holding a picture for one person and nothing else of interest.
@@ -440,11 +440,11 @@ describe('the editor’s image source control', () => {
    * puts the icon source before the icon picker and `filter_field` before `blocklist`.
    */
   it('sits between the shape dropdown and the picker', () => {
-    expect(fieldsFor({ entity: ENTITY, label: PERSON }).slice(0, 3)).toEqual([
-      LABEL_TYPE,
-      LABEL_IMAGE_SOURCE,
-      'label',
-    ]);
+    const fields = fieldsFor({ entity: ENTITY, label: PERSON });
+    // From the shape dropdown on: the calendar's name opens the section, above the label.
+    const start = fields.indexOf(LABEL_TYPE);
+
+    expect(fields.slice(start, start + 3)).toEqual([LABEL_TYPE, LABEL_IMAGE_SOURCE, 'label']);
   });
 
   /**

@@ -69,6 +69,7 @@ import {
   languageMode,
   startDateMode,
 } from '../src/rendering/editor/synthetic';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations';
 import {
   applyFormChange,
   changedKeys,
@@ -801,7 +802,7 @@ describe('editor: change detection', () => {
       'calendars',
       'card_height',
       'card_max_height',
-      'event_tap_action_mode',
+      'day_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
@@ -926,6 +927,9 @@ describe('editor: applicability', () => {
       allday_badge: ['column', 'list'],
       allday_badge_style: ['column', 'list'],
       allday_badge_color: ['column', 'list'],
+      // A grid block fits its own rows and has no title row for the time to join; its
+      // renderer never passes the placement to the leaf.
+      time_position: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.
@@ -936,6 +940,9 @@ describe('editor: applicability', () => {
       // Grid blockifies the plain time span and resets the properties the folded-countdown
       // span reads, so neither clamp path acts there.
       time_max_lines: ['column', 'list'],
+      // Grid draws its blocks' words for the eye only, behind an accessible name of its own,
+      // so it draws no links in them.
+      open_links: ['column', 'list'],
     });
 
     expect(
@@ -1888,7 +1895,7 @@ describe('editor: the panel set', () => {
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
       max_height: 'height_mode',
-      event_tap_action: 'event_tap_action_mode',
+      day_tap_action: 'day_tap_action_mode',
     };
 
     // `weather` and every registered view block are containers offered as their members
@@ -2564,10 +2571,14 @@ describe('editor: the Events panel opening run', () => {
     // The content run leads, and its five switches are the reason the four groups below
     // can be emitted conditionally: what an event is made of is decided here, and each
     // group holds only the styling of a line that already exists. That run is why this
-    // pin is the panel's whole visible body rather than three styling runs.
+    // pin is the panel's whole visible body rather than three styling runs. Where the time
+    // row goes sits directly under its switch, inside the run rather than in the Time group,
+    // because that group is withheld while times are off and the choice still moves a
+    // countdown-only row then.
     expect(namesIn(buildConfig())).toEqual([
       'heading_details',
       'show_time',
+      'time_position',
       'show_location',
       'show_description',
       'show_countdown',
@@ -2805,6 +2816,7 @@ describe('editor: the Card & Header panel', () => {
         'view_switcher',
         'reset',
         'refresh',
+        'search',
         'navigation',
       ]);
     }
@@ -2831,21 +2843,69 @@ describe('editor: the Actions & Refresh panel', () => {
    * them, and the refresh pair closes the panel. No headings: a split between card and
    * event taps would misfile the hold, which runs on events too.
    */
-  it('orders the three gestures, then refresh, with no dialog switches by default', () => {
+  it('orders the gestures card, day, event, then refresh, with no dialog switches by default', () => {
     expect(namesIn(buildConfig())).toEqual([
       'tap_action',
       'hold_action',
-      'event_tap_action_mode',
+      'day_tap_action_mode',
+      'event_tap_action',
+      'event_hold_action',
+      'open_links',
       'refresh_interval',
       'refresh_on_navigate',
     ]);
   });
 
-  it('offers the two dialog switches under the event tap action once it opens details', () => {
+  /**
+   * Links in rows reach only events that do nothing of their own, so the switch shows exactly
+   * while both event actions read as nothing: `none`, a bare action, or one of the card's own.
+   */
+  it.each([
+    ['none', 'none', true],
+    [null, 'none', true],
+    ['expand', 'add-event', true],
+    ['details', 'none', false],
+    ['none', 'details', false],
+    ['url', 'none', false],
+    ['none', 'perform-action', false],
+    ['more-info', 'more-info', false],
+  ])('shows open_links for event tap %s and hold %s: %s', (tap, hold, shown) => {
+    const config = buildConfig({
+      event_tap_action: tap === null ? null : { action: tap },
+      event_hold_action: { action: hold },
+    } as unknown as Partial<Types.Config>);
+    expect(namesIn(config).includes('open_links')).toBe(shown);
+  });
+
+  it('keeps a stored open_links while its switch is out of the schema', () => {
+    const config = { ...withEventTap('details'), open_links: true } as Types.Config;
+
+    expect(namesIn(config)).not.toContain('open_links');
+    expect(toStoredConfig(config).open_links).toBe(true);
+  });
+
+  it('offers the two dialog switches under the event actions once the tap opens details', () => {
     expect(namesIn(withEventTap('details'))).toEqual([
       'tap_action',
       'hold_action',
-      'event_tap_action_mode',
+      'day_tap_action_mode',
+      'event_tap_action',
+      'event_hold_action',
+      'allow_event_edit',
+      'allow_event_delete',
+      'refresh_interval',
+      'refresh_on_navigate',
+    ]);
+  });
+
+  it('offers the two dialog switches once the event hold opens details', () => {
+    const config = buildConfig({ event_hold_action: { action: 'details' } });
+    expect(namesIn(config)).toEqual([
+      'tap_action',
+      'hold_action',
+      'day_tap_action_mode',
+      'event_tap_action',
+      'event_hold_action',
       'allow_event_edit',
       'allow_event_delete',
       'refresh_interval',
@@ -2854,17 +2914,16 @@ describe('editor: the Actions & Refresh panel', () => {
   });
 
   /**
-   * Every action but `details`, each by name. The card reads all of them as `none`, which
-   * the dropdown shows as Nothing, so there is no dialog and the switches could change
-   * nothing; offering them would invite the reading that turning one on adds a way to
-   * edit. Home Assistant's actions and `expand` are what YAML written for the earlier
-   * selector may still hold, and a bare `event_tap_action:` is `null`.
+   * Every action but `details`, each by name. None of them opens the event dialog, so the
+   * switches could change nothing; offering them would invite the reading that turning one on
+   * adds a way to edit. Home Assistant's actions run with the event's fields, `expand` is
+   * nothing on an event, and a bare `event_tap_action:` is `null`.
    */
   it.each(['more-info', 'toggle', 'navigate', 'url', 'perform-action', 'assist', 'none', 'expand'])(
     'withholds the dialog switches while the event tap action is %s',
     (action) => {
       const names = namesIn(withEventTap(action));
-      expect(names).toContain('event_tap_action_mode');
+      expect(names).toContain('event_tap_action');
       expect(names).not.toContain('allow_event_edit');
       expect(names).not.toContain('allow_event_delete');
     },
@@ -2872,7 +2931,7 @@ describe('editor: the Actions & Refresh panel', () => {
 
   it('withholds the dialog switches for a bare event_tap_action', () => {
     const names = namesIn(withEventTap(null));
-    expect(names).toContain('event_tap_action_mode');
+    expect(names).toContain('event_tap_action');
     expect(names).not.toContain('allow_event_edit');
     expect(names).not.toContain('allow_event_delete');
   });
@@ -3161,6 +3220,58 @@ describe('editor: fields that must survive being typed into', () => {
         fieldNames(() => buildDayHeaderSchema({ view: 'list', config, language: 'en' })),
         partial,
       ).toContain('today_indicator_custom');
+    }
+  });
+
+  /**
+   * The four words the helper says are no text. Each names a built-in style in any casing
+   * (`getTodayIndicatorType`), so typed here it is held, never stored as text and never moving
+   * the style under the cursor. The helper said "or any text" until it was found untrue; the
+   * pin is on what the field does and on the helper naming every word it refuses, every
+   * language keeping the words as they are written in a config.
+   */
+  it('holds the built-in style words in any casing, as the helper says', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+    const keywords = ['tile', 'dot', 'pulse', 'glow'];
+
+    const mixed = (keyword: string) =>
+      [...keyword].map((letter, i) => (i % 2 ? letter : letter.toUpperCase())).join('');
+    for (const word of keywords.flatMap((keyword) => [
+      keyword,
+      keyword.toUpperCase(),
+      mixed(keyword),
+    ])) {
+      const { config, pending } = type(start, 'today_indicator_custom', [word]);
+
+      expect(config.today_indicator, word).toBe('⭐');
+      expect(pending.today_indicator_custom, word).toBe(word);
+    }
+
+    // Every language that translated the helper when it was rewritten, named, so one losing it
+    // fails here rather than quietly falling back to English. en-GB has no override for it.
+    // Read from the languages the editor registers, not from the folder: a stray copy beside
+    // the files, such as a sync conflict's "de 2.json", is no language the editor can show.
+    const translated = Object.fromEntries(
+      Object.entries(EDITOR_LANGUAGE_STRINGS)
+        .map(([language, strings]) => [language, strings['today_indicator_custom.helper']])
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    );
+    expect(Object.keys(translated).sort()).toEqual([
+      'de',
+      'et',
+      'it',
+      'ko',
+      'lt',
+      'lv',
+      'nb',
+      'pl',
+      'sk',
+      'sv',
+    ]);
+    const helpers = [EDITOR_STRINGS['today_indicator_custom.helper'], ...Object.values(translated)];
+    for (const helper of helpers) {
+      for (const keyword of keywords)
+        expect(helper, helper).toMatch(new RegExp(`\\b${keyword}\\b`));
     }
   });
 
@@ -3676,6 +3787,7 @@ describe('editor: per-calendar settings', () => {
         'label_image_source',
         'label_type',
         'location_icon',
+        'name',
         'replace_field',
         'replace_pattern',
         'replace_with',
@@ -4875,6 +4987,9 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // title, a named field rather than an unfiltered one — so it too has no editor-only
     // value and its dropdown is exactly the union.
     replace_field: { field: 'entity.replace_field' },
+    // A shared view override with a card-level control of the same name, whose dropdown is
+    // exactly the union: `below` is the shipped layout rather than an absent value.
+    time_position: { field: 'time_position' },
   };
 
   /**
@@ -5036,7 +5151,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     ).toEqual([
       'accent_color_mode',
       'allday_badge_position',
-      'event_tap_action_mode',
+      'day_tap_action_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

@@ -184,6 +184,27 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * The i18n gate and the schema tests read the chassis through `chassisSubforms`, so a form the
+ * editor drew outside the panels without declaring it there would escape both.
+ */
+describe('the chassis draws exactly the forms subforms.ts declares', () => {
+  it('renders every form outside the panels from chassisSubforms, in order', async () => {
+    for (const view of VIEWS) {
+      const editor = await mount({ view });
+      const outside = forms(editor, 'ha-form').filter(
+        (form) => !form.closest('ha-expansion-panel'),
+      );
+
+      expect(
+        outside.map((form) => form.schema),
+        view,
+      ).toEqual(chassisSubforms().map((subform) => subform.schema));
+      editor.remove();
+    }
+  });
+});
+
 describe('displayed view and editing workspace are separate controls', () => {
   it('renders both controls above search and declares both to the translation checker', async () => {
     const editor = await mount({ view: 'grid' });
@@ -412,6 +433,7 @@ describe('workspace state survives echoes and pending edits', () => {
     expect(seen).toEqual([
       {
         entities: [{ entity: 'calendar.anna' }],
+        view: 'list',
         time_grid: { event_font_size: '24px' },
       },
     ]);
@@ -455,7 +477,9 @@ describe('the shared workspace', () => {
     });
     await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
 
-    expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], event_font_size: '24px' }]);
+    expect(seen).toEqual([
+      { entities: [{ entity: 'calendar.anna' }], view: 'list', event_font_size: '24px' },
+    ]);
   });
 
   it('writes the same edit into the list block from the List workspace', async () => {
@@ -465,7 +489,7 @@ describe('the shared workspace', () => {
     await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
 
     expect(seen).toEqual([
-      { entities: [{ entity: 'calendar.anna' }], list: { event_font_size: '24px' } },
+      { entities: [{ entity: 'calendar.anna' }], view: 'list', list: { event_font_size: '24px' } },
     ]);
   });
 });

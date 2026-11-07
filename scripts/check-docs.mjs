@@ -183,11 +183,13 @@ function buildConstantResolver() {
 /**
  * Pages that count as user documentation.
  *
- * development/ and architecture.md are contributor notes, and RELEASE_NOTES.md is a
- * historical record — an option mentioned only there is not documented. Counting them
- * would let the coverage check pass on options a user cannot actually look up.
+ * development/ and the architecture pages (`architecture.md` and its `architecture-*.md`
+ * companions) are contributor notes, and RELEASE_NOTES.md is a historical record — an option
+ * mentioned only there is not documented. Counting them would let the coverage check pass on
+ * options a user cannot actually look up. `isExcluded` matches by prefix, so `architecture`
+ * covers every page of the set.
  */
-const COVERAGE_EXCLUDES = ['development/', 'architecture.md', 'RELEASE_NOTES.md'];
+const COVERAGE_EXCLUDES = ['development/', 'architecture', 'RELEASE_NOTES.md'];
 
 /**
  * The prose files at the repository root, which `listDocs` cannot reach because it walks
@@ -1152,6 +1154,108 @@ function checkPageIntros(docs) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 34 — a section's clip or picture comes near its top
+// ---------------------------------------------------------------------------
+
+/**
+ * A section shows what it is for before it explains how (AGENTS.md _Docs style_), and a clip
+ * or picture is the fastest way to show it. Before v5.1, sections had grown so long that a
+ * reader met the clip after five hundred words: Paging Through Dates put `clip_swipe` after
+ * 542 of them and its YAML, and How Often the Axis Is Labeled its picture after 999.
+ *
+ * Two rules, because the two kinds of media do different jobs. The first clip or picture a
+ * reader sees in a section comes within its first `MEDIA_LEAD_WORDS` words of prose. Every
+ * clip, which shows the feature in use, also comes before the section's first code block; a
+ * picture may follow its YAML, because it often shows what that YAML makes.
+ *
+ * Prose is counted the way a reader meets it: fenced code and table rows are skipped, HTML
+ * tags are stripped, and the body of a `::: details` box is left out entirely, since it is
+ * collapsed and holds the edge cases that come last. A fence closes only on a marker of its
+ * own kind and at least its length, and may be indented, as it is inside a list. A section is
+ * the text between two headings of any level.
+ */
+const MEDIA_LEAD_WORDS = 80;
+const MEDIA_LINE = /^\s*(<video\b|<img\b|!\[)/;
+
+function checkMediaPlacement(docs) {
+  let inspected = 0;
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    const lines = readFileSync(file, 'utf8').split('\n');
+    let fence = null;
+    let frontmatter = lines[0] === '---';
+    const containers = [];
+    let section = null;
+    const finish = () => {
+      if (section?.media) inspected++;
+    };
+    lines.forEach((line, i) => {
+      if (frontmatter) {
+        if (i > 0 && line === '---') frontmatter = false;
+        return;
+      }
+      const marker = line.match(/^\s*(`{3,}|~{3,})/);
+      if (fence) {
+        if (
+          marker &&
+          marker[1][0] === fence[0] &&
+          marker[1].length >= fence.length &&
+          !line.trim().slice(marker[1].length).trim()
+        )
+          fence = null;
+        return;
+      }
+      const hidden = containers.includes('details');
+      if (marker) {
+        fence = marker[1];
+        if (section && !hidden) section.codeBefore ??= i + 1;
+        return;
+      }
+      const opens = line.match(/^:{3,}\s*(\w+)/);
+      if (opens) {
+        containers.push(opens[1]);
+        return;
+      }
+      if (/^:{3,}\s*$/.test(line)) {
+        containers.pop();
+        return;
+      }
+      const heading = line.match(/^#{1,6}\s+(.*)/);
+      if (heading) {
+        finish();
+        section = { title: heading[1], words: 0, codeBefore: null, media: false };
+        return;
+      }
+      if (!section || hidden) return;
+      if (MEDIA_LINE.test(line)) {
+        const clip = /<video\b/.test(line);
+        const what = clip ? 'clip' : 'picture';
+        if (!section.media && section.words > MEDIA_LEAD_WORDS)
+          error(
+            `${rel}:${i + 1} "${section.title}": its ${what} comes after ${section.words} words of prose. ` +
+              `Put it right after the section's opening sentences, within ${MEDIA_LEAD_WORDS} words.`,
+          );
+        if (clip && section.codeBefore)
+          error(
+            `${rel}:${i + 1} "${section.title}": its clip comes after the code block at line ${section.codeBefore}. ` +
+              `Show the feature before the YAML that turns it on.`,
+          );
+        section.media = true;
+        return;
+      }
+      if (/^\s*\|/.test(line) || section.media) return;
+      section.words += line
+        .replace(/<[^>]+>/g, ' ')
+        .split(/\s+/)
+        .filter((w) => /[A-Za-z0-9]/.test(w)).length;
+    });
+    finish();
+  }
+  return inspected;
+}
+
+// ---------------------------------------------------------------------------
 // Checks 12-15 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
@@ -1819,6 +1923,7 @@ function report(counts) {
       `${counts.listFences} YAML examples checked for list-only keys, ` +
       `${counts.inertOptions} view-inert options reconciled, ` +
       `${counts.languages} language counts checked, ` +
+      `${counts.mediaSections} sections with a clip or picture checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `${counts.thirdParty} files checked for third-party cards, ` +
       `config format v${counts.configVersion} documented, ` +
@@ -3842,6 +3947,7 @@ function main() {
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
   checkPageIntros(docs);
+  const mediaSections = checkMediaPlacement(docs);
   checkSpelling([...docs, ...ROOT_PROSE]);
   checkOptionTables(docs);
   checkOptionNoun(docs);
@@ -3888,6 +3994,7 @@ function main() {
       listFences,
       inertOptions,
       languages,
+      mediaSections,
       readmeAnchors,
       thirdParty,
       configVersion,

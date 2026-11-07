@@ -16,7 +16,7 @@
  */
 
 import { lookup } from './localize';
-import { CARD_ACTIONS, cardActionLabelKey } from './schemas/actions';
+import { LABELED_ACTIONS, cardActionLabelKey } from './schemas/actions';
 import type * as Types from '../../config/types';
 
 /** Prefix Home Assistant builds an action dropdown's option labels from. */
@@ -45,7 +45,8 @@ function cardActionLabel(language: string, action: string): string | undefined {
 }
 
 /**
- * Wraps `hass` so the card's own actions get a translated label in HA's action dropdown.
+ * Wraps `hass` so the card's own actions, and the event's own `details`, get a translated
+ * label in HA's action dropdown.
  *
  * Returns the original object unchanged when there is nothing to add — no `hass`, no
  * `localize` to delegate to — so callers need no special case and Home Assistant keeps
@@ -67,7 +68,7 @@ export function withCardActionLabels(
 
   const base = hass.localize.bind(hass);
   const labels = new Map<string, string>();
-  for (const action of CARD_ACTIONS) {
+  for (const action of LABELED_ACTIONS) {
     const label = cardActionLabel(language, action);
     if (label !== undefined) labels.set(`${HA_ACTION_LABEL_PREFIX}${action}`, label);
   }

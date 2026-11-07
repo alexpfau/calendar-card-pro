@@ -16,6 +16,13 @@ import { cardStyles } from '../src/rendering/styles';
  *
  * The probe cannot simply name a color-mix() origin instead: evaluating that condition runs
  * the same parser code. Both halves are pinned here.
+ *
+ * Chrome 119 has the same fault in a different place (#742): it passes both conditions, then
+ * stops its renderer on a relative color whose origin is or resolves to a color-mix(). Every
+ * Android 7 WebView ends at 119, so a v5 card crashed those wall panels. Chrome 122 to 124
+ * survive the same color but compute it as invalid. Chrome 125 is the first to get it right
+ * and the first with round(), so every relative color also requires round(), which Safari and
+ * Firefox both had before relative color.
  */
 
 const RELATIVE_COLOR = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(\s*from\s/gi;
@@ -51,14 +58,27 @@ function context(css: string, index: number): { preludes: string[]; fragment: st
   return { preludes, fragment: css.slice(start, index).trim() };
 }
 
-/** Whether an `@supports` prelude requires content-visibility, and nothing weaker. */
-function requiresContentVisibility(prelude: string): boolean {
-  const p = prelude.toLowerCase();
-  return (
-    p.startsWith('@supports') &&
-    /\band \(content-visibility: auto\)/.test(p) &&
-    !/\b(?:or|not)\b/.test(p)
-  );
+/**
+ * Whether an `@supports` prelude requires a condition, and nothing weaker: no `or` or `not`
+ * can admit an engine that lacks it.
+ *
+ * @param prelude - The at-rule's prelude
+ * @param condition - The parenthesized condition, as written in the stylesheet
+ * @returns Whether every engine the block admits meets the condition
+ */
+function requires(prelude: string, condition: string): boolean {
+  const p = prelude.toLowerCase().replace(/\s+/g, ' ');
+  return p.startsWith('@supports') && p.includes(`and ${condition}`) && !/\b(?:or|not)\b/.test(p);
+}
+
+/** Every gated declaration whose enclosing blocks never require the condition. */
+function ungatedBy(
+  declarations: ReadonlyArray<{ preludes: string[] }>,
+  condition: string,
+): string[] {
+  return declarations
+    .filter(({ preludes }) => !preludes.some((p) => requires(p, condition)))
+    .map(({ preludes }) => preludes[preludes.length - 1]);
 }
 
 /**
@@ -85,7 +105,7 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-describe('relative colors on Safari 16.4 to 17.6 (#731)', () => {
+describe('relative colors on Safari 16.4 to 17.6 (#731) and Chrome 119 to 124 (#742)', () => {
   const css = stripComments(cardStyles.cssText);
   const declarations = [...css.matchAll(RELATIVE_COLOR)]
     .map((m) => ({ index: m.index ?? 0, ...context(css, m.index ?? 0) }))
@@ -96,10 +116,11 @@ describe('relative colors on Safari 16.4 to 17.6 (#731)', () => {
   });
 
   it('gates every relative color behind content-visibility as well', () => {
-    const ungated = declarations
-      .filter(({ preludes }) => !preludes.some(requiresContentVisibility))
-      .map(({ preludes }) => preludes[preludes.length - 1]);
-    expect(ungated).toEqual([]);
+    expect(ungatedBy(declarations, '(content-visibility: auto)')).toEqual([]);
+  });
+
+  it('gates every relative color behind round() too, for Chrome 119 to 124 (#742)', () => {
+    expect(ungatedBy(declarations, '(width: round(1px, 1px))')).toEqual([]);
   });
 
   it('probes relative color only with a plain origin', () => {

@@ -18,10 +18,11 @@
  *
  * Verified against a live instance rather than inferred:
  *
- * - All three `person.…` entities reported `entity_picture`, e.g.
- *   `/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512`.
- * - That address answers `curl` with **no** authorization header — HTTP 200, `image/png`, a
- *   real 512×512 file. The control that makes that meaningful rather than merely observed:
+ * - All three `person.…` entities reported `entity_picture` as an address of the form
+ *   `/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512`. That id is invented; the
+ *   instance's own is not reproduced here.
+ * - The real address answered `curl` with **no** authorization header — HTTP 200, `image/png`,
+ *   a real 512×512 file. The control that makes that meaningful rather than merely observed:
  *   `/api/states` on the same instance answered 401, so this is not an instance with
  *   authentication switched off. It is why the card can point an `<img>` straight at it.
  * - `person.ben` has **no** `user_id` and still has `entity_picture`, so a person need not

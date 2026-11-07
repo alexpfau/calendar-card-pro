@@ -2,12 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import '../src/calendar-card-pro';
+import { computeColumnThresholdPx } from './helpers/view-oracle';
 import { TIMING } from '../src/config/constants';
-import {
-  VIEW_SWITCH_HYSTERESIS_PX,
-  computeColumnThresholdPx,
-  computeColumnThresholdPxFor,
-} from '../src/config/view';
+import { VIEW_SWITCH_HYSTERESIS_PX, computeColumnThresholdPxFor } from '../src/config/view';
 
 /**
  * Width measurement settling.

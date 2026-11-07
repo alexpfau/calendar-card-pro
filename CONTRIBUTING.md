@@ -4,12 +4,12 @@ Thank you for your interest in contributing to Calendar Card Pro! This document 
 
 ## Understanding the Codebase
 
-Before contributing code, I strongly recommend reviewing my [architecture documentation](./docs/architecture.md), which explains:
+Before contributing code, I strongly recommend reviewing my [architecture documentation](./docs/architecture.md). The overview maps the modules, states the design principles, and points to four pages beside it:
 
-- Module organization and responsibilities
-- Data flow and event handling
-- Performance optimization techniques
-- Design principles and patterns
+- [Data Loading & Caching](./docs/architecture-data.md): how events are fetched, cached and kept live, and what keeps the card fast
+- [Rendering & Views](./docs/architecture-rendering.md): how the list, column and grid layouts are drawn
+- [Interaction & Event Writes](./docs/architecture-interaction.md): gestures, actions and editing events
+- [Toolbar & Navigation](./docs/architecture-toolbar.md): the header toolbar, paging and search
 
 ## Development Environment Setup
 
@@ -101,7 +101,7 @@ repeated here:
 That guide covers both namespaces:
 
 - **Card translations** — `src/translations/languages/*.json`. Every language is loaded
-  eagerly, so each new one also needs wiring in `localize.ts` and `dayjs.ts`. These files
+  eagerly, so each new one also needs wiring in `localize.ts`, `language-codes.ts` and `dayjs.ts`. These files
   must **not** contain an `editor` section; `npm run check:i18n` rejects one.
 - **[Editor translations](https://calendar-card-pro.alexpfau.com/contributing#translating-the-editor)**
   — `src/rendering/editor/translations/*.json`, loaded only when the editor is opened.

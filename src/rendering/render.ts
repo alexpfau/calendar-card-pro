@@ -18,6 +18,7 @@ import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
+import * as Links from '../utils/links';
 
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
@@ -48,6 +49,34 @@ export function drawsEvent(
   return days.some((day) => day.events.some((event) => !event._isEmptyDay));
 }
 
+/**
+ * Whether a view draws at least one link in its events' rows (`open_links`).
+ *
+ * Asked before the content renders, as `drawsEvent` is: a card holding a link may not present
+ * itself as a button, because a button's content is no place for a link.
+ *
+ * @param view - The view that renders the days
+ * @param days - The days it renders, after any width-driven reduction
+ * @param config - Card configuration, resolved for that view
+ * @returns True when at least one row draws a link
+ */
+export function drawsLink(
+  view: Types.EffectiveView,
+  days: Types.EventsByDay[],
+  config: Types.Config,
+): boolean {
+  if (!ViewConfig.VIEW_SCOPE.open_links.has(view) || !Presentation.rowLinksOn(config)) {
+    return false;
+  }
+  return days.some((day) =>
+    day.events.some((event) => {
+      if (event._isEmptyDay) return false;
+      const links = Links.rowLinks(Presentation.shownRowText(event, config), event._source);
+      return links.location !== undefined || links.description !== undefined;
+    }),
+  );
+}
+
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
 //-----------------------------------------------------------------------------
@@ -76,6 +105,23 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
 }
 
 /**
+ * The control that runs the card's own `tap_action` while the card hosts controls of its own.
+ *
+ * A button may not contain another, so a card whose events, links or toolbar are buttons
+ * cannot be one itself. This control stands in for it: a native button, first in the card's
+ * Tab order, which runs the card's tap from the keyboard and from assistive technology. It
+ * takes no pointer input, so a tap on the card still lands where it always did.
+ */
+export interface TapControl {
+  /** Its accessible name: the action's own word where it has one, else the card's name. */
+  label: string;
+  /** For `expand`, whether the card is expanded; undefined for any other action. */
+  expanded?: boolean;
+  /** Runs the card's tap action, from the control. */
+  activate: (control: HTMLElement) => void;
+}
+
+/**
  * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
  * @param customStyles Custom style properties from configuration
@@ -93,6 +139,9 @@ function renderRefreshOutcome(outcome: 'done' | 'failed'): TemplateResult {
  * @param contentPending Whether the days drawn are about to be replaced by another page's
  * @param refreshPhase Where a refresh someone asked for stands; the corner shows it where no
  * refresh button does
+ * @param swipePaging Whether a swipe pages the card, which hands the browser only vertical
+ * panning on the card, its toolbar's rows and its body (`swipe-paging`)
+ * @param tapControl The control standing in for the card's tap while it hosts controls
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -109,6 +158,18 @@ export function renderMainCardStructure(
     pointerCancel: (ev: PointerEvent) => void;
     pointerLeave: (ev: PointerEvent) => void;
     lostPointerCapture: (ev: PointerEvent) => void;
+    /**
+     * A listener that may refuse a finger's scroll, bound only where the card can be drawing
+     * a new event; anywhere else the card binds none, so a touch never waits on it.
+     */
+    touchMove?: EventListenerObject;
+    /** Refuses the `touchend` of a finger that just opened the popover; see the card. */
+    touchEnd?: (ev: TouchEvent) => void;
+    /**
+     * Refuses the browser's own text selection and drag while a press may move an event,
+     * bound only on a card that moves events by drag.
+     */
+    nativeDrag?: (ev: Event) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
@@ -120,14 +181,32 @@ export function renderMainCardStructure(
   hostsControls: boolean = false,
   contentPending: boolean = false,
   refreshPhase: Toolbar.RefreshPhase = 'idle',
+  swipePaging: boolean = false,
+  tapControl?: TapControl,
 ): TemplateResult {
   const isPointerInteractive = hasTapAction || hasHoldAction;
   // A button may not contain another. While the card hosts controls of its own it stops
-  // presenting itself as one to assistive technology, but keeps its tab stop: keys aimed
-  // at the card itself still run its tap action, and those aimed at a control inside it
-  // are the control's. A pointer tap anywhere off the controls still runs the tap action
-  // too, which is why the ripple and cursor stay.
+  // presenting itself as one to assistive technology, and its tap moves to a control of its
+  // own, first in its Tab order (`TapControl`), so the card is not a focusable container
+  // whose Enter nobody announces. A pointer tap anywhere off the controls still runs the tap
+  // action, which is why the ripple and cursor stay. The ripple's binding carries the control,
+  // so a card without one keeps exactly the nodes it had.
   const isCardButton = hasTapAction && !hostsControls;
+  const tapButton =
+    hasTapAction && hostsControls && tapControl
+      ? html`<button
+          class="card-tap-control"
+          type="button"
+          aria-label=${tapControl.label}
+          aria-expanded=${tapControl.expanded === undefined ? nothing : String(tapControl.expanded)}
+          @click=${(ev: MouseEvent) => {
+            ev.stopPropagation();
+            tapControl.activate(ev.currentTarget as HTMLElement);
+          }}
+        ></button>`
+      : nothing;
+  const ripple = isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing;
+  const lead = tapButton === nothing ? ripple : html`${tapButton}${ripple}`;
   const hasTitle = Boolean(title || titlePending);
   const titleBlock = hasTitle
     ? html`<h1 class="card-header">${title}</h1>`
@@ -149,11 +228,13 @@ export function renderMainCardStructure(
   // only while that is so, so the container reads as it always has otherwise.
   const contentClass = contentPending ? 'content-container page-pending' : 'content-container';
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
-  // separator out of the class attribute.
+  // separator out of the class attribute. `swipe-paging` only while a swipe pages the card,
+  // so a card that does not swipe keeps the browser's touch behavior untouched.
   const cardClasses = [
     'calendar-card-pro',
     ViewConfig.viewCssClass(effectiveView),
     isPointerInteractive ? 'card-interactive' : '',
+    swipePaging ? 'swipe-paging' : '',
   ]
     .filter((cls) => cls !== '')
     .join(' ');
@@ -167,7 +248,7 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex=${hasTapAction ? '0' : nothing}
+      tabindex=${hasTapAction && tapButton === nothing ? '0' : nothing}
       role=${isCardButton ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
@@ -179,8 +260,12 @@ export function renderMainCardStructure(
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}
       @lostpointercapture=${handlers.lostPointerCapture}
+      @touchmove=${handlers.touchMove ?? nothing}
+      @touchend=${handlers.touchEnd ?? nothing}
+      @selectstart=${handlers.nativeDrag ?? nothing}
+      @dragstart=${handlers.nativeDrag ?? nothing}
     >
-      ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
+      ${lead}
       ${
         // The refresh button turns while the card loads and shows how a refresh someone asked
         // for ended, so the corner says nothing beside it. Without the button the corner does
@@ -191,7 +276,14 @@ export function renderMainCardStructure(
             ? renderRefreshOutcome(refreshPhase)
             : isLoading || refreshPhase === 'turning'
               ? html`
-                  <div class="loading-indicator" role="status" aria-live="polite" title="Loading">
+                  <div
+                    class=${refreshPhase === 'turning'
+                      ? 'loading-indicator'
+                      : 'loading-indicator unasked'}
+                    role="status"
+                    aria-live="polite"
+                    title="Loading"
+                  >
                     <div class="spinner" aria-hidden="true"></div>
                   </div>
                 `
@@ -478,6 +570,8 @@ function renderDateColumn(
  * @param prevDay - Previous day data for determining separators
  * @param boundaryInfo - Information about week and month boundaries
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw the day's add button, or undefined while a tap on a day adds
+ *   nothing
  * @returns TemplateResult for the day
  */
 export function renderDay(
@@ -489,6 +583,7 @@ export function renderDay(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
@@ -506,7 +601,7 @@ export function renderDay(
     isWeekBoundary &&
     (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
 
-  const dayLabelId = eventsTappable ? Activation.dayLabelId(day.timestamp) : undefined;
+  const dayLabelId = eventsTappable || dayAdd ? Activation.dayLabelId(day.timestamp) : undefined;
   const eventGap = ViewConfig.hasEventGap(config);
 
   const daySeparatorWidth = config.day_separator_width;
@@ -539,6 +634,7 @@ export function renderDay(
         weekend: isWeekendDay,
         'with-event-gap': eventGap,
       })}
+      .calendarCardDaySlot=${Activation.daySlot(day.timestamp)}
     >
       ${repeat(
         day.events,
@@ -555,6 +651,7 @@ export function renderDay(
             hass,
             eventsTappable,
             dayLabelId,
+            dayAdd,
           );
 
           return eventGap && index > 0 ? html`${renderEventGapRow()}${row}` : row;
@@ -585,6 +682,8 @@ function renderEventGapRow(): TemplateResult {
  * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  *
  * @param eventsTappable - Whether each event is a tap target of its own
+ * @param dayAdd - How to draw each day's add button, or undefined while a tap on a day adds
+ *   nothing
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -593,6 +692,7 @@ export function renderGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   eventsTappable = false,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   return html`
     ${days.map((day, index) => {
@@ -650,6 +750,7 @@ export function renderGroupedEvents(
           weatherForecasts,
           hass,
           eventsTappable,
+          dayAdd,
         )}
       `;
     })}
@@ -688,6 +789,41 @@ function renderEventButton(
 }
 
 /**
+ * A list day's date, inside the button that adds an event on the day while a tap on a day
+ * does.
+ *
+ * Not the cell, for the reason `renderEventButton` gives. The button is named by Home
+ * Assistant's own "Add event" and described by the date, which carries the day's id while the
+ * button is drawn: an id on the cell would describe each of the day's events by the button's
+ * name instead of by its date. Drawn only while day taps are on, which leaves the default
+ * markup exactly as it was.
+ *
+ * @param content - The day's rendered date
+ * @param timestamp - The day's local midnight
+ * @param dayAdd - How to draw the button, or undefined for none
+ * @param dayLabelId - The id the date carries
+ * @returns The date, wrapped in the button while there is one
+ */
+function renderDayAddButton(
+  content: TemplateResult,
+  timestamp: number,
+  dayAdd: Activation.DayAddButtons | undefined,
+  dayLabelId: string | undefined,
+): TemplateResult {
+  if (!dayAdd) return content;
+  return html`<div
+    class="day-add-button"
+    role="button"
+    tabindex="0"
+    aria-label=${dayAdd.label}
+    aria-describedby=${dayLabelId ?? nothing}
+    .calendarCardDayAdd=${timestamp}
+  >
+    <div class="day-add-date" id=${dayLabelId ?? nothing}>${content}</div>
+  </div>`;
+}
+
+/**
  * Render a single event
  *
  * @param event - Event data to render
@@ -696,8 +832,9 @@ function renderEventButton(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param eventsTappable - Whether the event is a tap target of its own
- * @param dayLabelId - The id the day's date cell carries while events are tap targets, by
- *   which each event names its day
+ * @param dayLabelId - The id the day's date carries while events are tap targets or the day
+ *   is a button, by which each event and the button name the day
+ * @param dayAdd - How to draw the day's add button, or undefined for none
  * @returns TemplateResult for the event
  */
 function renderEvent(
@@ -711,6 +848,7 @@ function renderEvent(
   hass?: Types.Hass | null,
   eventsTappable = false,
   dayLabelId?: string,
+  dayAdd?: Activation.DayAddButtons,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
   const tap = Activation.eventTapTarget(event, presentation.entityAccentColor, eventsTappable);
@@ -732,6 +870,7 @@ function renderEvent(
     'past-event': presentation.isPastEvent,
     'event-tappable': tap !== undefined,
     'event-now': presentation.isNow,
+    'search-ring': event._searchRing === true,
   };
 
   // Prettier 3.9 would put each multi-line `${…}` below on lines of its own, which breaks
@@ -746,15 +885,21 @@ function renderEvent(
               class="date-column ${isWeekendDay ? 'weekend' : ''}"
               rowspan="${rowSpan}"
               style="position: relative;"
-              id=${dayLabelId ?? nothing}
+              id=${dayAdd ? nothing : (dayLabelId ?? nothing)}
             >
-              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
+              ${renderDayAddButton(
+                renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass),
+                day.timestamp,
+                dayAdd,
+                dayLabelId,
+              )}
               ${Leaves.renderTodayIndicator(config, isToday)}
             </td>
           `
         : ''}
       <td
         class=${classMap(eventClasses)}
+        .calendarCardDaySlot=${event._isEmptyDay ? undefined : Activation.COVERED}
         style="--calendar-card-event-accent-bar-color: ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
           presentation.accentTextProperties,
         )}"
@@ -763,6 +908,8 @@ function renderEvent(
         ${renderEventButton(
           Leaves.renderEventContent(event, config, presentation.contentParts, {
             weatherForecasts,
+            links: Presentation.rowLinksOn(config),
+            timePosition: Helpers.resolveTimePosition(config.time_position),
           }),
           tap,
           dayLabelId,

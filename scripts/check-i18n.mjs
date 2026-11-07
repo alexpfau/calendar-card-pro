@@ -99,7 +99,9 @@ function readLocalizeWiring() {
   }
   assertFound([...imports.keys()], 'language JSON imports', LOCALIZE_TS);
 
-  const block = src.match(/export const TRANSLATIONS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  const block = src.match(
+    /export const TRANSLATIONS[^=]*=\s*\{([\s\S]*?)\n\}(?:\s+satisfies\s[^;]*)?;/,
+  );
   assertFound(block, 'the TRANSLATIONS map', LOCALIZE_TS);
 
   const entries = new Map(); // map key (as written) -> identifier
@@ -328,10 +330,10 @@ async function readEditorOptionKeys() {
   const editor = await loadEditor();
   const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
   const { DEFAULT_CONFIG, VIEWS } = editor;
-  const { CARD_ACTIONS, cardActionLabelKey } = editor;
+  const { LABELED_ACTIONS, cardActionLabelKey } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
-  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
+  assertFound(LABELED_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
   /** Option-label key -> the qualified node names that looked it up. */
   const asked = new Map();
@@ -357,7 +359,7 @@ async function readEditorOptionKeys() {
       const uiAction = node.selector.ui_action;
       if (uiAction && Array.isArray(uiAction.actions)) {
         for (const action of uiAction.actions) {
-          if (!CARD_ACTIONS.includes(action)) continue;
+          if (!LABELED_ACTIONS.includes(action)) continue;
           const key = cardActionLabelKey(action);
           const nodes = asked.get(key) ?? new Set();
           nodes.add(where);
@@ -639,6 +641,40 @@ function checkLocalizeWiring(languages, { imports, entries }) {
 }
 
 /**
+ * `CARD_LANGUAGES` must name exactly the language files, both ways.
+ *
+ * It is what `getEffectiveLanguage` resolves against, for the card and for the editor, which
+ * imports it to stay clear of the tables in `localize.ts`. `tsc` already holds the TRANSLATIONS
+ * keys to it; this closes the chain to the files, so a language added without its code is
+ * reported here, by name, rather than only as a type error.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ */
+async function checkCardLanguageList(languages) {
+  const { CARD_LANGUAGES } = await loadEditor();
+  assertFound(CARD_LANGUAGES, 'CARD_LANGUAGES', 'src/translations/language-codes.ts');
+  const listed = new Set(CARD_LANGUAGES);
+
+  for (const [code, { file }] of languages) {
+    if (!listed.has(code)) {
+      error(
+        'language-codes.ts',
+        `${file} has no '${code}' in CARD_LANGUAGES — the card and the editor will never ` +
+          `resolve to it`,
+      );
+    }
+  }
+  for (const code of CARD_LANGUAGES) {
+    if (!languages.has(code)) {
+      error('language-codes.ts', `CARD_LANGUAGES lists '${code}', which has no language file`);
+    }
+  }
+  if (listed.size !== CARD_LANGUAGES.length) {
+    error('language-codes.ts', 'CARD_LANGUAGES lists a code more than once');
+  }
+}
+
+/**
  * Every registered language must resolve to a dayjs locale that is both imported and listed
  * in supportedLocales. Missing either one is silent: relative times fall back to English while
  * everything else keeps working.
@@ -736,18 +772,18 @@ function checkDayjsWiring(entries, { imports, supported, specialCased, dayjsName
 async function checkEditorStrings() {
   const { labels, titles, helpers, roots, strings, viewScopeEntries, defaultOverridesByView } =
     await readEditorSchemaKeys();
-  const { CARD_ACTIONS, cardActionLabelKey } = await loadEditor();
+  const { LABELED_ACTIONS, cardActionLabelKey } = await loadEditor();
 
   assertFound([...labels.keys()], 'any labeled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
-  assertFound(CARD_ACTIONS, 'any card-specific actions', ACTIONS_TS);
+  assertFound(LABELED_ACTIONS, 'any card-specific actions', ACTIONS_TS);
 
   // A card action's label hangs off no field: Home Assistant's action dropdown asks for
   // it by action, not by the node it sits under. Rooting it on the action list keeps the
   // reconciliation honest in the direction that matters — drop `expand` from
-  // CARD_ACTIONS and its string stops being reachable here, rather than lingering as a
+  // LABELED_ACTIONS and its string stops being reachable here, rather than lingering as a
   // translated name for an option nothing offers.
-  for (const action of CARD_ACTIONS) roots.add(cardActionLabelKey(action));
+  for (const action of LABELED_ACTIONS) roots.add(cardActionLabelKey(action));
 
   for (const [qualified, bare] of labels) {
     if (!(qualified in strings) && !(bare in strings)) {
@@ -1105,6 +1141,10 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:entity.label',
   'de:view',
 
+  // `Name` is the ordinary German word for it, spelled as in English.
+  'de:entity.name',
+  'de:toolbar.buttons.name',
+
   // `Layout` is the Italian term chosen by the glossary.
   'it:view',
 
@@ -1128,6 +1168,13 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   'et:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
+
+  // A toolbar button's icon, qualified as the button's own for the same collision.
+  'et:toolbar.buttons.icon',
+  'lt:toolbar.buttons.icon',
+  'lv:toolbar.buttons.icon',
+  'pl:toolbar.buttons.icon',
+  'sk:toolbar.buttons.icon',
 ]);
 
 /**
@@ -1677,6 +1724,7 @@ async function main() {
 
   checkLanguageParity(languages);
   checkLocalizeWiring(languages, localize);
+  await checkCardLanguageList(languages);
   checkNoEditorSectionsOnEagerPath(languages);
   checkDayjsWiring(localize.entries, dayjsWiring);
 

@@ -28,7 +28,7 @@ import * as Helpers from '../src/utils/helpers';
 const IMAGE_ADDRESSES: ReadonlyArray<readonly [string, string]> = [
   // The `/api/*` families #566 counted against a live instance. The prefix arm already took
   // these, and must go on doing so — the fix widens the rule rather than swapping it.
-  ["a person's picture", '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512'],
+  ["a person's picture", '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512'],
   ['a brand icon behind a query string', '/api/brands/integration/homeassistant/icon.png?p=no'],
   ['a camera snapshot', '/api/camera_proxy/camera.front'],
   ['a /local/ path', '/local/today.png'],

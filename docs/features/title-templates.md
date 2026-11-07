@@ -41,7 +41,7 @@ With the [header toolbar](/features/layout-appearance#header-toolbar) shown, the
   title: '{{ state_attr("calendar.family", "message") or "Nothing scheduled" }}'
   ```
 
-  A calendar entity's `message` attribute is the title of the event under way, or of the next one if none is.
+  A calendar entity's `message` attribute is the title of the event under way, or of the next one if none is. It comes from Home Assistant's calendar entity, not from this card, so it ignores the card's `start_date` and filters and may name an event the card does not show.
 
 ::: tip Test Your Template First
 Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.
@@ -68,10 +68,12 @@ Errors are reported where you can act on them, and the card itself stays usable:
 - **In the browser console**, the error is logged with the template that produced it.
 - **On the card**, the last value that rendered successfully stays on screen. A card that has never rendered successfully shows no title rather than an error.
 
-Error reporting for templates that fail _after_ they were accepted requires Home Assistant 2023.9 or newer. On older versions templating still works, but a template that starts failing later will simply stop updating.
-
 ::: info Literal Braces in a Title
-Because templates are detected by looking for `{{` and `{%`, a title that contains those characters literally will be treated as a template. This is the one trade-off of not requiring a separate option, and a literal `{{` in a card title is not something the card supports.
+A title cannot show `{{` or `{%` as plain text: any title containing them is rendered as a template.
+:::
+
+::: details On Home Assistant Before 2023.9
+Error reporting for templates that fail _after_ they were accepted requires Home Assistant 2023.9 or newer. On older versions templating still works, but a template that starts failing later will simply stop updating.
 :::
 
 The template goes in the card's `title` option — see [Header in the configuration reference](/reference/configuration#header).

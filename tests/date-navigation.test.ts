@@ -15,6 +15,7 @@ import { mdiHome, mdiHomeOutline } from '@mdi/js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { expectTapControl } from './tap-control';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import * as CalendarChanges from '../src/interaction/calendar-changes';
@@ -48,6 +49,7 @@ const NAVIGATION_ONLY: Types.ToolbarConfig = {
   add_event: false,
   reset: false,
   refresh: false,
+  search: false,
   legend: false,
 };
 
@@ -1177,7 +1179,7 @@ describe('the date navigation', () => {
     const haCard = root(card).querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 
@@ -1479,6 +1481,7 @@ describe("the view switcher's words", () => {
     add_event: true,
     reset: true,
     refresh: false,
+    search: false,
     legend: false,
   };
 
@@ -1538,7 +1541,11 @@ describe("the view switcher's words", () => {
     it('are not tried again for a templated title ticking over at the same width', async () => {
       const results: Array<(message: unknown) => void> = [];
       const connection = {
-        subscribeMessage: (handler: (message: unknown) => void) => {
+        subscribeMessage: (handler: (message: unknown) => void, message: { type: string }) => {
+          // Calendar subscriptions answered as Home Assistant before 2026.5 does.
+          if (message.type === 'calendar/event/subscribe') {
+            return Promise.reject({ code: 'unknown_command' });
+          }
           results.push(handler);
           return Promise.resolve(() => undefined);
         },

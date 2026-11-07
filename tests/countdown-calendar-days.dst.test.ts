@@ -7,6 +7,7 @@ const TRANSITIONS: Record<string, string[]> = {
   'Europe/Berlin': ['2026-03-29', '2026-10-25'],
   'Australia/Sydney': ['2026-04-05', '2026-10-04'],
   'America/New_York': ['2026-03-08', '2026-11-01'],
+  'Atlantic/Azores': ['2026-03-29', '2026-10-25'],
 };
 
 const transitionDates = TRANSITIONS[process.env.TZ ?? ''];
@@ -62,7 +63,11 @@ describe('calendar-day countdowns in a real timezone', () => {
     const day = new Date(`${date}T00:00:00`);
     const nextDay = new Date(day);
     nextDay.setDate(nextDay.getDate() + 1);
-    expect(day.getTimezoneOffset()).not.toBe(nextDay.getTimezoneOffset());
+    // The day is not 24 hours long. Asked of its length rather than of the offsets at its two
+    // midnights, because where clocks change at midnight (the Azores) the spring day has no
+    // 00:00: it opens at 01:00, already on the new offset.
+    const nextMidnight = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+    expect((nextMidnight.getTime() - day.getTime()) / 3600000).not.toBe(24);
 
     const before = new Date(day);
     before.setDate(before.getDate() - 1);

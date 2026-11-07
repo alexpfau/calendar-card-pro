@@ -166,6 +166,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.duplicate': 'Duplicate',
   'entity.remove': 'Remove',
 
+  'entity.name': 'Name',
+  'entity.name.helper':
+    'Names this calendar in the calendar filter, when you open one of its events, and in ' +
+    'notices. Every entry for this calendar shares it. Left empty, the card uses Home ' +
+    'Assistant\u2019s name for it, which the calendar picker and this panel\u2019s heading ' +
+    'keep either way.',
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
     'Shown before every event from this calendar. An image label is a path the browser ' +
@@ -212,6 +218,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_location.option.inherit.label': 'Follow the card',
   'entity.show_location.option.show.label': 'Always show',
   'entity.show_location.option.hide.label': 'Never show',
+  // The card's other two choices leave the popover showing the field, so only Never show is
+  // named: a calendar set to it is kept private, rows and popover alike.
+  'entity.show_location.helper':
+    'Never show also leaves them out when you open one of this calendar\u2019s events.',
   'entity.location_icon': 'Location Icon',
   'entity.location_icon.helper':
     'Icon shown beside this calendar\u2019s locations, in place of the map marker. Left ' +
@@ -220,6 +230,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.inherit.label': 'Follow the card',
   'entity.show_description.option.show.label': 'Always show',
   'entity.show_description.option.hide.label': 'Never show',
+  'entity.show_description.helper':
+    'Never show also leaves them out when you open one of this calendar\u2019s events.',
 
   'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
@@ -258,7 +270,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
   heading_nothing: 'Empty Days',
-  heading_appearance: 'Label & Colors',
+  heading_appearance: 'Name, Label & Colors',
   heading_details: 'Event Details',
   heading_event_state: 'Event State',
   heading_toolbar: 'Toolbar',
@@ -295,8 +307,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.allday_expires_at.helper':
     'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +
     'last day they cover. Left empty they last until midnight. Only applies while past ' +
-    'events are hidden, and takes effect on the card\u2019s next refresh rather than on ' +
-    'the minute.',
+    'events are hidden, and takes effect at that time, without waiting for a refresh.',
   'entity.days_of_week': 'Days of the Week',
   'entity.days_of_week.option.inherit.label': 'Every day',
   'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
@@ -541,7 +552,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.navigation': 'Date Navigation',
   'toolbar.navigation.helper':
     'Arrows to page through the days, a button back to the days the card opens with, and a ' +
-    'date picker on the month.',
+    'date picker on the month. On a touch screen, a swipe across the days pages too.',
   'toolbar.view_switcher': 'View Switcher',
   'toolbar.view_switcher.helper':
     'Switch between List, Columns and Grid on the dashboard. Each device remembers its choice.',
@@ -552,9 +563,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.refresh': 'Refresh Button',
   'toolbar.refresh.helper':
     'Loads the events again now, rather than at the next scheduled refresh.',
+  'toolbar.search': 'Search Button',
+  'toolbar.search.helper':
+    "Finds the card's events by title, location or description, a year back and a year " +
+    'ahead. A result opens its day on the card, so the button needs the date navigation.',
   'toolbar.add_event': 'Add Event Button',
   'toolbar.add_event.helper':
-    "Opens Home Assistant's new-event dialog. Shown when a calendar on the card accepts new events.",
+    'Opens a new event, ready to fill in. Shown when a calendar on the card accepts new events.',
   'toolbar.legend': 'Calendar Filter',
   'toolbar.legend.helper':
     "Hides each calendar's events on this device. Menu opens a checkbox per calendar; Chips shows " +
@@ -562,6 +577,32 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'toolbar.legend.option.off.label': 'Off',
   'toolbar.legend.option.menu.label': 'Menu',
   'toolbar.legend.option.chips.label': 'Chips',
+  // The toolbar's own buttons: a panel each under this sub-heading, after the toolbar's
+  // switches and only while the toolbar is shown. The words on the panels themselves, Add
+  // Button and the rest, are drawn by the editor rather than by a form.
+  'toolbar.buttons.heading': 'Your Own Buttons',
+  'toolbar.buttons.icon': 'Icon',
+  'toolbar.buttons.icon.helper':
+    'The button shows its icon and nothing else. A button without one is left out of the toolbar.',
+  'toolbar.buttons.name': 'Name',
+  'toolbar.buttons.name.helper':
+    'Shown when you point at the button, read out by screen readers, and written beside the ' +
+    'icon in the menu a narrow card folds its buttons into. Left empty, the button is named ' +
+    'after its action or its icon.',
+  'toolbar.buttons.entity': 'Entity',
+  'toolbar.buttons.entity.helper':
+    "The entity a toggle or a more-info action acts on. Left empty, they act on the card's " +
+    'first calendar.',
+  'toolbar.buttons.tap_action': 'Tap Action',
+  'toolbar.buttons.tap_action.helper':
+    'What a press does. Go Back returns to the page you came from, or to the first view of ' +
+    'this dashboard when there is none.',
+  // A panel's heading for a button with neither a name nor an icon the editor can put words to.
+  'toolbar.buttons.untitled': 'Button {number}',
+  'toolbar.buttons.add': 'Add Button',
+  'toolbar.buttons.move_up': 'Move Up',
+  'toolbar.buttons.move_down': 'Move Down',
+  'toolbar.buttons.remove': 'Remove',
 
   // --- Day Header -----------------------------------------------------------
   'panel.day_header': 'Day Header',
@@ -620,7 +661,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_indicator_icon: 'Icon',
   today_indicator_custom: 'Emoji Or Image Path',
   'today_indicator_custom.helper':
-    'An emoji, an image path or URL, or any text. Words need a larger Indicator Size than the size an emoji reads at.',
+    'An emoji, an image path or URL, or any text but the words tile, dot, pulse and glow, ' +
+    'which are built-in styles in any casing. Words need a larger Indicator Size than the size ' +
+    'an emoji reads at.',
   today_indicator_color: 'Indicator Color',
   today_indicator_size: 'Indicator Size',
   today_indicator_position: 'Indicator Position',
@@ -673,7 +716,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scroll_long_titles.helper':
     'Where supported, visible overflowing titles start together, return quickly one by one, ' +
     'and wait at their beginnings. Forces one line in either text direction and overrides ' +
-    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling.',
+    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling. ' +
+    'With the time beside the title, long titles always scroll.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
@@ -705,6 +749,16 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   time: 'Time',
   show_time: 'Show Time',
+  time_position: 'Time Position',
+  'time_position.helper':
+    "Puts the time on the title's line, without its clock, and never moves it below. Needs a " +
+    'wide event row: in narrow cards or columns, and with extras such as countdowns, event ' +
+    'weather, 12-hour or multi-day times, all-day badges, larger fonts or long text labels, the ' +
+    'title can shrink to a few characters and the time can take several lines. Use it where the ' +
+    'width allows, with few such extras. Titles that share the line always scroll, whatever ' +
+    'Scroll Long Titles says, and Title Line Limit does not apply.',
+  'time_position.option.below.label': 'Below the title',
+  'time_position.option.title.label': 'Beside the title',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper':
@@ -859,24 +913,54 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'card_action.option.expand.label': 'Toggle Compact/Expanded View',
   // The card's other action: load the events again now, as the toolbar's refresh button does.
   'card_action.option.refresh.label': 'Refresh Events',
-  // The card's own dropdown rather than Home Assistant's action editor, so it names both of
-  // its choices. "Nothing" is the word Home Assistant's action editor uses for `none` in the
-  // two dropdowns above, and each translation takes Home Assistant's own word for it, so the
-  // panel says it one way in every language.
-  event_tap_action_mode: 'Event Tap Action',
-  'event_tap_action_mode.option.none.label': 'Nothing',
-  'event_tap_action_mode.option.details.label': 'Show Event Details',
-  'event_tap_action_mode.helper':
-    "Show Event Details opens Home Assistant's event dialog, offering Edit and Delete where " +
-    "the event's calendar allows them. With Nothing, a tap on an event runs the tap action, " +
-    'as anywhere else on the card. Holding an event always runs the hold action.',
-  // Shown only while the event tap action is `details`, directly under it, so "the event
-  // dialog" needs no introduction. Each ends on the calendar because that is the question a
-  // user with the switch on and no Edit button is asking: these can only take away.
+  // And its third: open a new event, on the day the press landed on.
+  'card_action.option.add-event.label': 'Add Event',
+  // Its fourth: what the toolbar's reset button does, named for the docs' "Resetting the Card".
+  'card_action.option.reset.label': 'Reset Card',
+  // Its fifth: back to the page before this one, as Home Assistant's own back arrow goes. Each
+  // translation takes the word its language's back buttons carry.
+  'card_action.option.back.label': 'Go Back',
+  // The day's own dropdown, two choices over an action object. "Nothing" is the word Home
+  // Assistant's action editor uses for `none` in the dropdowns around it, and each translation
+  // takes Home Assistant's own word for it, so the panel says it one way in every language.
+  // "Add Event" is the card action's label.
+  day_tap_action_mode: 'Day Tap Action',
+  'day_tap_action_mode.option.none.label': 'Nothing',
+  'day_tap_action_mode.option.add-event.label': 'Add Event',
+  'day_tap_action_mode.helper':
+    'Add Event opens a new event, ready to fill in, when you tap a day where it shows no ' +
+    'event: its date, the space under its events, or in the grid layout the quarter hour you ' +
+    'tap. In the grid you can also draw the event: hold an empty spot and drag, or drag with a ' +
+    'mouse. With Nothing, such a tap runs the tap action.',
+  // Home Assistant's action editor, as for the card's two. `details` is the one action only an
+  // event takes, labeled as the dropdown's other card actions are; "Show Event Details" is the
+  // wording the event's own two-choice dropdown carried before, in every language.
+  'card_action.option.details.label': 'Show Event Details',
+  event_tap_action: 'Event Tap Action',
+  'event_tap_action.helper':
+    'Show Event Details opens the event beside it, where you can change or delete it if its ' +
+    "calendar allows. Home Assistant's own actions can use the tapped event's title, times, " +
+    'location and description. With Nothing, a tap on an event runs the tap action, as ' +
+    'anywhere else on the card.',
+  event_hold_action: 'Event Hold Action',
+  'event_hold_action.helper':
+    "Show Event Details opens the event beside it when you hold it. Home Assistant's own " +
+    "actions can use the held event's title, times, location and description. With Nothing, " +
+    'holding an event runs the hold action, as anywhere else on the card.',
+  // Shown only while neither event action does anything of its own, directly under them. The
+  // views it reaches are the applicability note's to say (`VIEW_SCOPE`): grid draws no links.
+  open_links: 'Open Links in Events',
+  'open_links.helper':
+    "Web addresses in an event's location and description become links, each opening in a " +
+    'new tab. Tapping one follows it instead of running the tap action.',
+  // Shown only while the event tap or hold action is `details`, directly under them, so "the
+  // event's details" needs no introduction. Each ends on the calendar because that is the
+  // question a user with the switch on and no Edit button is asking: these can only take away.
   allow_event_edit: 'Allow Editing Events',
-  'allow_event_edit.helper': 'Offers Edit in the event dialog, on calendars that support it.',
+  'allow_event_edit.helper':
+    'Lets you change an event in its details, on calendars that support it.',
   allow_event_delete: 'Allow Deleting Events',
-  'allow_event_delete.helper': 'Offers Delete in the event dialog, on calendars that support it.',
+  'allow_event_delete.helper': "Offers Delete in an event's details, on calendars that support it.",
   refresh_interval: 'Refresh Interval',
   'refresh_interval.helper': 'How long the card keeps its cached events before fetching again.',
   refresh_on_navigate: 'Refresh On Navigation',

@@ -1,12 +1,13 @@
 /**
  * What the add-event button needs to know, without opening anything.
  *
- * The button opens Home Assistant's own create-event dialog through
- * `ha-calendar-dialogs.ts`. This module decides whether there is anywhere to write, which
- * calendar the dialog preselects, and what the button is called.
+ * The button, a tap on a day and the card's own `add-event` action open the event popover on a
+ * new event (`event-popover.ts`). This module decides whether there is anywhere to write, which
+ * calendar and times the new event starts with, and what the button is called.
  */
 
-import { CREATE_EVENT_FEATURE, calendarSupports } from './ha-calendar-dialogs';
+import { CREATE_EVENT_FEATURE, calendarSupports } from './calendar-writes';
+import type { EventTimes } from './event-times';
 import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
@@ -15,6 +16,15 @@ import * as Types from '../config/types';
 
 /** Home Assistant's string for the button, so it reads as it does on the core card. */
 const HA_ADD_EVENT_LABEL_KEY = 'ui.components.calendar.event.add';
+
+/**
+ * The accessible name of the card's controls that add an event, when Home Assistant has no
+ * string for it: the add button and each day's add button.
+ *
+ * Only ever an `aria-label`: an English word drawn on a card set to another language would
+ * be worse than an icon.
+ */
+export const UNLOCALIZED_ADD_EVENT_NAME = 'Add event';
 
 //-----------------------------------------------------------------------------
 // CONFIGURATION
@@ -28,7 +38,7 @@ const HA_ADD_EVENT_LABEL_KEY = 'ui.components.calendar.event.add';
  * what hides the button on a card that has nowhere to write to. Whether a calendar is
  * writable is the integration's call, not its name's.
  *
- * Calendars that failed on the card's last load are left out too: the dialog preselects
+ * Calendars that failed on the card's last load are left out too: the popover preselects
  * the first calendar here, and preselecting one that is not answering invites a save that
  * fails, or one the card cannot show afterwards.
  *
@@ -74,21 +84,96 @@ export function addEventLabel(hass: Types.Hass | null | undefined): string | und
 }
 
 /**
- * The date Home Assistant's create dialog starts a new event on.
+ * The date a new event starts on, before `newEventTimes` rounds it to the hour.
  *
- * Now, when today is one of the days the card shows, which opens the dialog at the
- * current hour exactly as Home Assistant's own default does. Otherwise the first day the
- * card shows, at midnight, so a card looking at next month does not offer an event today;
- * Home Assistant's calendar card passes the first day of a week or day view the same way.
+ * Now, when today is one of the days the card covers, which opens the new event at the
+ * current hour. Otherwise the first of those
+ * days, at midnight, so a card looking at next month does not offer an event today; Home
+ * Assistant's calendar card passes the first day of a week or day view the same way. The
+ * days are the page's, whether or not the card draws a row for each of them.
  *
- * @param windowStart - First day the card shows, at local midnight
- * @param daysToShow - How many days the card shows from there
+ * @param windowStart - First day the card covers, at local midnight
+ * @param daysToShow - How many days the card covers from there
  * @param now - The current moment
- * @returns The date to hand the dialog as `selectedDate`
+ * @returns The date the new event starts on
  */
 export function newEventDate(windowStart: Date, daysToShow: number, now: Date = new Date()): Date {
-  const windowEnd = new Date(windowStart);
-  windowEnd.setDate(windowEnd.getDate() + daysToShow);
+  // Built from the date, not by moving `windowStart` on: where the clocks change at midnight,
+  // the first day can start at 01:00, and `setDate` would carry that hour to the end.
+  const windowEnd = new Date(
+    windowStart.getFullYear(),
+    windowStart.getMonth(),
+    windowStart.getDate() + daysToShow,
+  );
 
   return now >= windowStart && now < windowEnd ? new Date(now) : new Date(windowStart);
+}
+
+/**
+ * The span a new event added on one day of the card starts with.
+ *
+ * Where the press landed decides it. A press on a grid's time area names its quarter hour, and
+ * the event starts there, an hour long. A press in a grid's all-day band adds an all-day event
+ * on that day. Anything else on a day takes the hour it is now, as the add button does: a tap
+ * on today opens at the current hour, and a tap on another day at the same clock hour that
+ * day, which is a daytime hour whenever someone is adding one.
+ *
+ * Set as a wall-clock time on the day's own date, so a day on which the clocks change still
+ * opens at that time, or at the first one after it where the time does not exist that day.
+ *
+ * @param dayTimestamp - The day, as any moment of it: the views stamp a day with its first
+ *   event's display date where it has one
+ * @param at - Where on the day: a minute from midnight a grid's time area named, `'all-day'`
+ *   for its all-day band, or undefined to take the hour it is now
+ * @param now - The current moment
+ * @returns The span
+ */
+export function newEventTimesOn(
+  dayTimestamp: number,
+  at?: number | 'all-day',
+  now: Date = new Date(),
+): EventTimes {
+  const day = new Date(dayTimestamp);
+  day.setHours(0, 0, 0, 0);
+  if (at === 'all-day') {
+    return { allDay: true, start: day, end: new Date(day) };
+  }
+  const start = new Date(day);
+  if (at === undefined) {
+    start.setHours(now.getHours(), 0, 0, 0);
+  } else {
+    start.setHours(0, at, 0, 0);
+  }
+  return { allDay: false, start, end: new Date(start.getTime() + 60 * 60 * 1000) };
+}
+
+/**
+ * The calendar a new event starts in: the first of the writable ones the
+ * card currently shows.
+ *
+ * A calendar the legend hides is passed over, so hiding one never opens a new event in it.
+ * When the legend hides every writable calendar the first writable one is taken anyway: the
+ * popover's calendar picker offers all of the card's writable calendars, so this is only where
+ * the choice starts, and adding must not stop working because of a filter.
+ *
+ * @param writable - The card's writable calendars, in configuration order
+ * @param hidden - The calendars the legend hides now
+ * @returns The calendar to preselect, or undefined when there is none
+ */
+export function preselectedCalendarId(
+  writable: ReadonlyArray<string>,
+  hidden: ReadonlySet<string>,
+): string | undefined {
+  return writable.find((id) => !hidden.has(id)) ?? writable[0];
+}
+
+/**
+ * The span a new event starts with: the hour its date falls in, one hour long.
+ *
+ * @param date - The date it starts on, from `newEventDate`
+ * @returns The span
+ */
+export function newEventTimes(date: Date): EventTimes {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours());
+  return { allDay: false, start, end: new Date(start.getTime() + 60 * 60 * 1000) };
 }

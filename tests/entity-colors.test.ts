@@ -554,7 +554,7 @@ describe('entity colors: every per-calendar dropdown round-trips', () => {
       'person.anna': {
         entity_id: 'person.anna',
         state: 'home',
-        attributes: { entity_picture: '/api/image/serve/8672f11/512x512' },
+        attributes: { entity_picture: '/api/image/serve/5f2b9c0/512x512' },
       },
     },
   } as unknown as Types.Hass;

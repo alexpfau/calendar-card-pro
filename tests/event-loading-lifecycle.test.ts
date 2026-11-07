@@ -291,6 +291,31 @@ describe('a calendar that fails', () => {
     expect(card.shadowRoot?.textContent).not.toContain('Error:');
   });
 
+  it('is named by the name the configuration gives it, when Home Assistant knows it', async () => {
+    const states = { 'calendar.ben': { state: 'off', attributes: { friendly_name: 'Ben' } } };
+    const { hass } = scriptedHass({ 'calendar.ben': new Error('500') }, 200, states);
+    const card = mount(
+      {
+        entities: [{ entity: 'calendar.anna' }, { entity: 'calendar.ben', name: 'Ben at school' }],
+      },
+      hass,
+    );
+    await elapse(1000);
+    await card.updateComplete;
+
+    expect(noticeText(card)).toBe("Couldn't load: Ben at school");
+  });
+
+  it('keeps its entity id beside its name when Home Assistant does not know it', async () => {
+    // A name must not hide the id someone fixing the configuration has to find.
+    const { hass } = scriptedHass({ 'calendar.typo': new Error('Entity not found') });
+    const card = mount({ entities: [{ entity: 'calendar.typo', name: 'Anna at work' }] }, hass);
+    await elapse(1000);
+    await card.updateComplete;
+
+    expect(noticeText(card)).toBe("Couldn't load: Anna at work (calendar.typo)");
+  });
+
   it('is retried after 1, 2 and 4 minutes, then at the normal interval once it recovers', async () => {
     const table: Record<string, Answer> = {
       'calendar.anna': [event('Anna')],

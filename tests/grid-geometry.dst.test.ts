@@ -17,8 +17,8 @@ import {
 /**
  * Time-grid geometry across DST transitions.
  *
- * Named `*.dst.test.ts`, so it runs three times — `Europe/Berlin`,
- * `Australia/Sydney`, `America/New_York` — and is excluded from the `unit` project,
+ * Named `*.dst.test.ts`, so it runs four times — `Europe/Berlin`, `Australia/Sydney`,
+ * `America/New_York`, `Atlantic/Azores` — and is excluded from the `unit` project,
  * which pins `TZ=UTC`. UTC has no transitions, which is exactly why the bug this file
  * pins is invisible there: under UTC the two ways of asking "how far into the day is
  * this?" give the same number every day of the year, so a wrong implementation passes.
@@ -43,13 +43,15 @@ import {
  *
  * Transition days are **discovered at run time** rather than hardcoded, because the
  * northern and southern zones transition in opposite months and no single date is a
- * transition in all three. Every assertion below therefore runs against whatever the
+ * transition in all of them. Every assertion below therefore runs against whatever the
  * running zone actually does.
  *
- * 🚨 No zone here is uniquely required: all three catch every mutation in this file,
- * and any zone observing DST would. The three exist because the harness already
+ * 🚨 No zone here is uniquely required for the wall-clock mutations above: every zone
+ * catches them, and any zone observing DST would. They run in all four because the harness
  * provides them and because a southern-hemisphere zone is cheap insurance against a
- * hemisphere-dependent sign error of the kind `format.ts` once shipped.
+ * hemisphere-dependent sign error of the kind `format.ts` once shipped. One case is the
+ * exception: a block carried into a spring day that has no 00:00 exists only where the clocks
+ * change at midnight, so reverting `segmentMinutes`' handling of it fails only the Azores.
  */
 
 /**
@@ -173,12 +175,18 @@ describe('addDays lands on local midnight', () => {
     }
   });
 
+  // The first moment of each day rather than 00:00: where the clocks change at midnight (the
+  // Azores) the spring day has no 00:00 and opens at 01:00. A step that drifted lands an hour
+  // into its day or an hour before it, and either way the minute before it is the same date.
   it('walks a whole week of local midnights across a transition', () => {
     for (const { day } of TRANSITIONS) {
       const start = addDays(day, -3);
 
       for (let offset = 0; offset < 7; offset++) {
-        expect(addDays(start, offset).getHours(), `offset ${offset}`).toBe(0);
+        const stepped = addDays(start, offset);
+        const minuteBefore = new Date(stepped.getTime() - 60_000);
+        expect(stepped.getMinutes(), `offset ${offset}`).toBe(0);
+        expect(minuteBefore.getDate(), `offset ${offset}`).not.toBe(stepped.getDate());
       }
     }
   });
@@ -276,6 +284,27 @@ describe('splitting a timed event across a transition', () => {
       expect(segmentMinutes(middle), day.toDateString()).toEqual({
         startMin: 0,
         endMin: MINUTES_PER_DAY,
+      });
+    }
+  });
+
+  // Where the clocks spring forward at midnight (the Azores) the transition day opens at 01:00.
+  // An event that starts there begins at 01:00 and is drawn from that row, while the full-day
+  // segment above, carried over from the day before, is drawn from the top. Only a zone like
+  // that can tell the two apart: everywhere else the day's first moment is 00:00.
+  it("keeps an event starting at a transition day's first moment at its own clock time", () => {
+    for (const { day } of TRANSITIONS) {
+      const first = startOfDay(day);
+      const event: Types.CalendarEventData = {
+        start: { dateTime: first.toISOString() },
+        end: { dateTime: new Date(first.getTime() + 3_600_000).toISOString() },
+      };
+
+      const [segment] = splitTimedEventByDay(event, addDays(day, -1), addDays(day, 2));
+
+      expect(segmentMinutes(segment), day.toDateString()).toEqual({
+        startMin: first.getHours() * 60,
+        endMin: first.getHours() * 60 + 60,
       });
     }
   });

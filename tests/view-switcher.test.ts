@@ -15,11 +15,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import { computeColumnThresholdPx } from './helpers/view-oracle';
+import { expectTapControl } from './tap-control';
 import * as Config from '../src/config/config';
 import * as Constants from '../src/config/constants';
 import type * as Types from '../src/config/types';
 import {
-  computeColumnThresholdPx,
   computeColumnThresholdPxFor,
   resolveColumnFit,
   resolveColumnFitIfPicked,
@@ -47,7 +48,7 @@ vi.mock('../src/interaction/actions', () => ({ handleAction }));
 
 /**
  * A shown toolbar holding the switcher and nothing else. A shown toolbar draws add, the date
- * navigation, reset and the calendar filter by default, so each is switched off here and
+ * navigation, refresh, search and the calendar filter by default, so each is switched off here and
  * turned back on only where a case is about it.
  */
 const SWITCHER_ONLY: Types.ToolbarConfig = {
@@ -56,6 +57,7 @@ const SWITCHER_ONLY: Types.ToolbarConfig = {
   navigation: false,
   reset: false,
   refresh: false,
+  search: false,
   legend: false,
 };
 
@@ -220,6 +222,7 @@ beforeEach(() => {
 afterEach(() => {
   document.body.innerHTML = '';
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   globalThis.ResizeObserver = originalResizeObserver;
   vi.useRealTimers();
   localStorage.clear();
@@ -264,7 +267,7 @@ describe('the view switcher', () => {
     }
   });
 
-  it('sits in the middle of the action row: filter and add before it, reset and refresh after', async () => {
+  it('sits in the middle of the action row: filter and add before it, reset, refresh and search after', async () => {
     const card = await mount({ toolbar: { show: true, reset: true, refresh: true } });
     const root = card.shadowRoot!;
     const actions = root.querySelector('.toolbar-actions')!;
@@ -287,6 +290,7 @@ describe('the view switcher', () => {
     expect(kinds(actions.querySelector('.toolbar-end')!)).toEqual([
       'reset-button',
       'refresh-button',
+      'search-button',
     ]);
     // None of them is drawn in the heading row as well.
     expect(
@@ -341,25 +345,13 @@ describe('the view switcher', () => {
 
   it.each([
     ['a segment', (card: CardUnderTest) => segment(card, 'grid')],
-    // The gray rim around the segments belongs to the switcher, not to any button.
+    // The gray rim around the segments belongs to the switcher, not to the card.
     ['the track around the segments', (card: CardUnderTest) => switcher(card)!],
-    // The gaps between the action row's controls belong to the row, not to any button.
-    ['a gap in the action row', (card: CardUnderTest) => part(card, '.toolbar-actions')],
-    ['the gap between the filter and add', (card: CardUnderTest) => part(card, '.toolbar-start')],
-    // So do the heading row's: around the month, and between it and the arrows.
-    ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
-    ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
-    // The block the month shares with the title is the row's too, and so is the empty
-    // placeholder an untitled card draws there: only a title is the card's.
-    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
-    [
-      "an untitled card's placeholder over the month",
-      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
-    ],
-    [
-      "the arrows' group at the row's end",
-      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
-    ],
+    ['the add button', (card: CardUnderTest) => part(card, '.add-event-button')],
+    ["the month's date picker", (card: CardUnderTest) => part(card, '.toolbar-month-button')],
+    ['an arrow', (card: CardUnderTest) => part(card, '.date-navigation-segment')],
+    // The arrows stand 4px apart, one group: a press between two is a near miss on it.
+    ['the gap between two arrows', (card: CardUnderTest) => part(card, '.date-navigation')],
   ])(
     "never runs the card's tap action from %s, while the rest of the card still does",
     async (_name, target) => {
@@ -384,6 +376,50 @@ describe('the view switcher', () => {
     },
   );
 
+  // The rows are the card's around their controls, as the space around an event is, so the
+  // card's hover does not flicker on and off as a pointer crosses them.
+  it.each([
+    ['a gap in the action row', (card: CardUnderTest) => part(card, '.toolbar-actions')],
+    ['the room beside add', (card: CardUnderTest) => part(card, '.toolbar-start')],
+    ['a gap in the heading row', (card: CardUnderTest) => part(card, '.toolbar-heading')],
+    ['the room around the month', (card: CardUnderTest) => part(card, '.toolbar-month')],
+    ['the block holding the month', (card: CardUnderTest) => part(card, '.toolbar-identity')],
+    [
+      "an untitled card's placeholder over the month",
+      (card: CardUnderTest) => part(card, '.toolbar-identity > .card-header-placeholder'),
+    ],
+    [
+      "the arrows' group at the row's end",
+      (card: CardUnderTest) => part(card, '.toolbar-heading-end'),
+    ],
+  ])("runs the card's tap action from %s, as anywhere else on the card", async (_name, target) => {
+    const card = await mount({ toolbar: { show: true }, tap_action: { action: 'more-info' } });
+
+    dispatchPointer(target(card), 'pointerdown');
+    dispatchPointer(target(card), 'pointerup');
+    await card.updateComplete;
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it("runs the card's hold action from the space between the controls, never from one", async () => {
+    const card = await mount({ toolbar: { show: true }, hold_action: { action: 'more-info' } });
+    const holdOn = async (el: Element) => {
+      dispatchPointer(el, 'pointerdown');
+      vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+      dispatchPointer(el, 'pointerup');
+      await card.updateComplete;
+    };
+
+    await holdOn(part(card, '.date-navigation'));
+    await holdOn(part(card, '.add-event-button'));
+    expect(handleAction).not.toHaveBeenCalled();
+
+    await holdOn(part(card, '.toolbar-actions'));
+    expect(handleAction).toHaveBeenCalledOnce();
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
   it("still runs the card's tap action from the title drawn over the month", async () => {
     const card = await mount({
       title: 'Family',
@@ -391,8 +427,8 @@ describe('the view switcher', () => {
       tap_action: { action: 'more-info' },
     });
     const title = part(card, '.toolbar-heading .toolbar-identity > h1.card-header');
-    // The toolbar is drawn, so this is the small label over the month, inside the heading row
-    // whose every other press is kept from the card.
+    // The toolbar is drawn, so this is the small label over the month, inside the heading row,
+    // which is the card's around its controls.
     expect(title.nextElementSibling?.className).toBe('toolbar-month with-picker');
 
     dispatchPointer(title, 'pointerdown');
@@ -401,12 +437,12 @@ describe('the view switcher', () => {
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
 
-  it('stops the card presenting itself as a button around it, and keeps its tab stop', async () => {
+  it('stops the card presenting itself as a button around it, and hands its tap to a control', async () => {
     const card = await mount({ tap_action: { action: 'more-info' } });
     const haCard = card.shadowRoot!.querySelector('ha-card')!;
 
     expect(haCard.hasAttribute('role')).toBe(false);
-    expect(haCard.getAttribute('tabindex')).toBe('0');
+    expectTapControl(haCard);
   });
 });
 
@@ -560,6 +596,99 @@ describe('narrow cards', () => {
   });
 });
 
+/**
+ * How many days a pick draws. A seven-day grid on a phone: the card is 374px wide, where a
+ * fresh load draws two days, and a third would sit 3px narrower than `min_day_width`. A pick
+ * once judged the layout as though all seven days were on screen and kept the margin a layout
+ * on screen keeps, so switching to the list and back, or opening a remembered grid, drew three
+ * days the card never opens with, their titles cut short and their date headers run together.
+ */
+describe('how many days a pick draws', () => {
+  const PHONE = 374;
+  const GRID: Partial<Types.Config> = {
+    view: 'grid',
+    list: { days_to_show: 3 },
+    time_grid: { start_time: '07:00', end_time: '22:00', hour_height: '36px' },
+  };
+
+  function dayHeaders(card: CardUnderTest): number {
+    return card.shadowRoot!.querySelectorAll('.grid-day-header').length;
+  }
+
+  it('confirms the fixture: a fresh grid and the margin a grid on screen keeps disagree', () => {
+    // Without this, a change to the grid defaults could move the phone out of the band
+    // between the two rules, and every case below would pass without testing anything.
+    const config = configFor(GRID);
+    expect(resolveColumnFit('grid', config, PHONE, null).columns).toBe(2);
+    expect(resolveColumnFit('grid', config, PHONE, { view: 'grid', columns: 7 }).columns).toBe(3);
+  });
+
+  it('switches back to the configured grid with the days a fresh load draws', async () => {
+    const card = await mount(GRID);
+    await measure(card, PHONE);
+    expect(drawnView(card)).toBe('grid');
+    expect(card._columnCount).toBe(2);
+    expect(dayHeaders(card)).toBe(2);
+
+    await press(card, 'list');
+    expect(drawnView(card)).toBe('list');
+    await press(card, 'grid');
+    expect(drawnView(card)).toBe('grid');
+    expect(card._columnCount).toBe(2);
+    expect(dayHeaders(card)).toBe(2);
+
+    // The next settled measurement agrees with the press.
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(2);
+  });
+
+  it('draws a picked grid, and a reload of it, with the days a fresh grid draws', async () => {
+    const first = await mount({ ...GRID, view: 'list' });
+    await measure(first, PHONE);
+    await press(first, 'grid');
+    expect(drawnView(first)).toBe('grid');
+    expect(first._columnCount).toBe(2);
+    first.remove();
+
+    const second = await mount({ ...GRID, view: 'list' });
+    await measure(second, PHONE);
+    expect(drawnView(second)).toBe('grid');
+    expect(second._columnCount).toBe(2);
+  });
+
+  /**
+   * The margin is the resize hysteresis, and stays: a grid drawing three days keeps them while
+   * the card narrows into the band, and a card drawing two needs the full entry width before it
+   * takes a third, so a card on the boundary settles rather than flapping. A switch away and back
+   * is a fresh start, and draws what a fresh load draws at that width.
+   */
+  it('keeps the resize margin, and a switch back draws what a fresh load draws', async () => {
+    const config = configFor(GRID);
+    const enterThree = 80 + 3 * 101 + 16;
+    // Pins the arithmetic the widths below are derived from, so a moved default fails here.
+    expect(resolveColumnFit('grid', config, enterThree, null).columns).toBe(3);
+    expect(resolveColumnFit('grid', config, enterThree - 1, null).columns).toBe(2);
+
+    const card = await mount(GRID);
+    await measure(card, enterThree);
+    expect(card._columnCount).toBe(3);
+
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(3);
+    await measure(card, PHONE);
+    expect(card._columnCount).toBe(3);
+
+    await press(card, 'list');
+    await press(card, 'grid');
+    expect(card._columnCount).toBe(2);
+
+    await measure(card, enterThree - 1);
+    expect(card._columnCount).toBe(2);
+    await measure(card, enterThree);
+    expect(card._columnCount).toBe(3);
+  });
+});
+
 describe('what a device remembers', () => {
   it('keeps a switch across a reload of the same configuration', async () => {
     const first = await mount();
@@ -707,6 +836,7 @@ describe('words or pictograms', () => {
     'ui.components.calendar.event.add': 'Add event',
     'ui.common.reset': 'Reset',
     'ui.common.refresh': 'Refresh',
+    'ui.common.search': 'Search',
     'ui.components.calendar.my_calendars': 'My calendars',
   };
 
@@ -728,6 +858,7 @@ describe('words or pictograms', () => {
     view_switcher: false,
     reset: false,
     refresh: false,
+    search: false,
     legend: false,
   };
 
@@ -739,6 +870,7 @@ describe('words or pictograms', () => {
     view_switcher: true,
     reset: true,
     refresh: true,
+    search: true,
     legend: 'menu',
   };
 
@@ -826,7 +958,7 @@ describe('words or pictograms', () => {
       WITH_SWITCHER + 2 * ICON + GAP,
       5,
     ],
-    ['every command', EVERY_COMMAND, WITH_SWITCHER + 4 * ICON + 2 * GAP, 7],
+    ['every command', EVERY_COMMAND, WITH_SWITCHER + 5 * ICON + 3 * GAP, 8],
     [
       'the switcher and add, the filter drawn as chips',
       { view_switcher: true, add_event: true, legend: 'chips' },
@@ -858,6 +990,7 @@ describe('words or pictograms', () => {
       'Add event',
       'Reset',
       'Refresh',
+      'Search',
     ]);
     for (const button of commands) {
       expect(button.querySelector('.toolbar-button-label')).toBeNull();
@@ -1030,9 +1163,12 @@ describe('the resolved toolbar the card reads', () => {
       viewSwitcher: true,
       reset: false,
       refresh: false,
+      search: false,
       legend: false,
+      buttons: [],
     });
-    // What it switches off: a shown toolbar draws every control but reset by default.
+    // What it switches off: a shown toolbar draws every control but reset by default, search
+    // included (backlog item 182).
     expect(Config.resolveToolbar(buildConfig({ toolbar: { show: true } }))).toEqual({
       show: true,
       navigation: true,
@@ -1040,7 +1176,9 @@ describe('the resolved toolbar the card reads', () => {
       viewSwitcher: true,
       reset: false,
       refresh: true,
+      search: true,
       legend: 'menu',
+      buttons: [],
     });
   });
 });
@@ -1059,5 +1197,314 @@ describe('a switch is drawn at once', () => {
       .map((property) => property.trim());
 
     expect(properties).toEqual(['background-color', 'border-color', 'box-shadow', 'color']);
+  });
+});
+
+describe("the selected segment's surface", () => {
+  /** The colors a theme gives the selected segment, as the browser computes them on it. */
+  interface SegmentColors {
+    surface: string;
+    ink: string;
+    page: string;
+    image?: string;
+    /** The selected color as written, where it is no plain color; the surface otherwise. */
+    value?: string;
+  }
+
+  /**
+   * Compute the selected segment's colors from a theme, as a browser would: the selected color
+   * and the page color on the two stand-ins drawn inside the selected segment, and the segment's
+   * text. happy-dom resolves no theme variables, so those are stubbed; every other element
+   * computes as it does. Read at the moment of the call, so a press that moves the selection
+   * moves the theme's colors with it.
+   */
+  function themeTheSegment(colors: SegmentColors): void {
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = realStyle(element, pseudo);
+      if (element.matches('.view-switcher-segment.selected > .view-switcher-page')) {
+        return { ...style, backgroundColor: colors.page } as CSSStyleDeclaration;
+      }
+      if (element.matches('.view-switcher-segment.selected > .view-switcher-probe')) {
+        const value = colors.value ?? colors.image ?? colors.surface;
+        return {
+          ...style,
+          backgroundColor: colors.surface,
+          backgroundImage: colors.image ?? 'none',
+          getPropertyValue: (name: string) =>
+            name === '--calendar-card-surface-value' ? value : style.getPropertyValue(name),
+        } as CSSStyleDeclaration;
+      }
+      if (!element.matches('.view-switcher-segment.selected')) return style;
+      return { ...style, color: colors.ink } as CSSStyleDeclaration;
+    });
+  }
+
+  /**
+   * A 2D canvas that reads back the one color painted on it, for the `#rrggbb`, `rgb()` and
+   * `rgba()` forms a browser serializes a computed color in. happy-dom has no canvas.
+   */
+  function stubCanvas(): void {
+    let fillStyle = '#000000';
+    let pixel = [0, 0, 0, 0];
+    const read = (value: string): number[] | undefined => {
+      const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value);
+      if (hex) return [...hex.slice(1).map((pair) => parseInt(pair, 16)), 255];
+      const fn = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/.exec(value);
+      if (!fn) return undefined;
+      return [Number(fn[1]), Number(fn[2]), Number(fn[3]), Math.round(Number(fn[4] ?? 1) * 255)];
+    };
+    const context = {
+      get fillStyle() {
+        return fillStyle;
+      },
+      set fillStyle(value: string) {
+        if (read(value)) fillStyle = value;
+      },
+      clearRect: () => {
+        pixel = [0, 0, 0, 0];
+      },
+      fillRect: () => {
+        pixel = read(fillStyle)!;
+      },
+      getImageData: () => ({ data: Uint8ClampedArray.from(pixel) }),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      context as unknown as RenderingContext,
+    );
+  }
+
+  /**
+   * `CSS.supports` for a background color, as a browser answers it: one color, a function such as
+   * `rgb()`, `light-dark()` or `color-mix()` included, and not an image or a shorthand. happy-dom
+   * answers true for any value at all, and hands out a new `CSS` on every read, so the global is
+   * replaced rather than spied on.
+   */
+  function stubBackgroundColors(): void {
+    vi.stubGlobal('CSS', {
+      supports: (property: string, value?: string) => {
+        if (property !== 'background-color' || value === undefined) return true;
+        let outer = value.trim();
+        for (let previous = ''; previous !== outer;) {
+          previous = outer;
+          outer = outer.replace(/\([^()]*\)/g, '');
+        }
+        return outer !== '' && !/\s/.test(outer) && !/gradient$|^url$|^image/.test(outer);
+      },
+    });
+  }
+
+  /** A property of the selected segment as the stylesheet declares it, whitespace collapsed. */
+  function declaredSelected(property: string): string {
+    const css = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+    const body = /\.view-switcher-segment\.selected\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const value = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+);`).exec(body)?.[1];
+    return value?.replace(/\s+/g, ' ').trim() ?? '';
+  }
+
+  /** A light glass theme: a gray card at 30% over a dark page, under white text. */
+  const SEE_THROUGH: SegmentColors = {
+    surface: 'rgba(128, 128, 128, 0.3)',
+    ink: 'rgb(255, 255, 255)',
+    page: 'rgb(84, 80, 76)',
+  };
+
+  /** Home Assistant's default light theme. */
+  const OPAQUE: SegmentColors = {
+    surface: 'rgb(255, 255, 255)',
+    ink: 'rgb(33, 33, 33)',
+    page: '#fafafa',
+  };
+
+  /** Each segment's view and the opaque color handed to the stylesheet for it, if any. */
+  function inlineColors(card: CardUnderTest) {
+    return segments(card).map((button) => [
+      button.dataset.view,
+      button.style.getPropertyValue('--calendar-card-toolbar-selected-surface'),
+    ]);
+  }
+
+  /** The opaque color handed to the stylesheet for one segment, or ''. */
+  function surfaceOf(card: CardUnderTest, view: Types.EffectiveView): string {
+    return segment(card, view).style.getPropertyValue('--calendar-card-toolbar-selected-surface');
+  }
+
+  it("paints the selected view opaque, over the page color, where the card's background is see-through", async () => {
+    // The segment is raised out of its track in the card's own background. Under such a theme
+    // the track and the wallpaper showed through it, so it read as part of the track.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(inlineColors(card)).toEqual([
+      ['list', 'rgb(97, 94, 92)'],
+      ['column', ''],
+      ['grid', ''],
+    ]);
+  });
+
+  it("leaves an opaque theme's switcher exactly as the stylesheet paints it", async () => {
+    stubCanvas();
+    stubBackgroundColors();
+    themeTheSegment(OPAQUE);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(inlineColors(card)).toEqual([
+      ['list', ''],
+      ['column', ''],
+      ['grid', ''],
+    ]);
+  });
+
+  it.each([
+    ['a shorthand without an image', '#1c1c1c no-repeat'],
+    ['a shorthand naming its box', '#1c1c1c padding-box'],
+    ['a shorthand in another color syntax', 'rgb(28 28 28) no-repeat scroll'],
+  ])(
+    'hands the color back where the selected color is %s, which the background color cannot take',
+    async (_name, value) => {
+      // A card-mod rule writing --calendar-card-toolbar-selected that way: the shorthand paints
+      // the segment, but the stylesheet's background color falls back to the same value, which
+      // is no background color, so with nothing handed back the segment went transparent and
+      // the track showed through it.
+      stubCanvas();
+      stubBackgroundColors();
+      themeTheSegment({ ...OPAQUE, surface: 'rgb(28, 28, 28)', value });
+      const card = await mount();
+      await measure(card, WIDE);
+
+      expect(inlineColors(card)).toEqual([
+        ['list', 'rgb(28, 28, 28)'],
+        ['column', ''],
+        ['grid', ''],
+      ]);
+    },
+  );
+
+  it('writes nothing for a selected color written as a color function', async () => {
+    // The default selected color is light-dark() over the card background, and a theme may mix
+    // its own with color-mix(): both are background colors, so nothing is handed back for them.
+    stubCanvas();
+    stubBackgroundColors();
+    themeTheSegment({
+      ...OPAQUE,
+      value: 'light-dark(rgb(255, 255, 255), color-mix(in srgb, rgb(225, 225, 225) 22%, #1c1c1c))',
+    });
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(surfaceOf(card, 'list')).toBe('');
+  });
+
+  it('moves the paint with the selection', async () => {
+    // Lit reuses the buttons from one render to the next, so the one the selection left would
+    // otherwise keep its color beside the one it moved to.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    await press(card, 'grid');
+
+    expect(drawnView(card)).toBe('grid');
+    expect(inlineColors(card)).toEqual([
+      ['list', ''],
+      ['column', ''],
+      ['grid', 'rgb(97, 94, 92)'],
+    ]);
+  });
+
+  it('follows a theme changed since, at the next update', async () => {
+    stubCanvas();
+    const colors = { ...SEE_THROUGH };
+    themeTheSegment(colors);
+    const card = await mount();
+    await measure(card, WIDE);
+    expect(surfaceOf(card, 'list')).toBe('rgb(97, 94, 92)');
+
+    Object.assign(colors, OPAQUE);
+    card.hass = hass();
+    await card.updateComplete;
+    expect(surfaceOf(card, 'list')).toBe('');
+
+    Object.assign(colors, { surface: 'rgba(10, 10, 10, 0.4)', page: '#2c2c2e' });
+    card.hass = hass();
+    await card.updateComplete;
+    expect(surfaceOf(card, 'list')).toBe('rgb(30, 30, 32)');
+  });
+
+  it("never writes over the segment's own background", async () => {
+    // The color goes to the stylesheet in a custom property. Written over the background, it
+    // beat a card-mod rule coloring the segment under the pointer, and taking it off to read the
+    // stylesheet's color again caught a card-mod transition halfway and read it as opaque.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+    await press(card, 'grid');
+    card.hass = hass();
+    await card.updateComplete;
+
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+    expect(segments(card).map((button) => button.style.backgroundColor)).toEqual(['', '', '']);
+    expect(declaredSelected('background')).toBe('var(--calendar-card-toolbar-selected)');
+    expect(declaredSelected('background-color')).toBe(
+      'var( --calendar-card-toolbar-selected-surface, var(--calendar-card-toolbar-selected) )',
+    );
+  });
+
+  it('keeps a see-through gradient, over the opaque color', async () => {
+    // The color is handed to the background color only, so an image the selected color draws
+    // stays on top. A gradient's computed background color is transparent, so the page color
+    // alone goes under it.
+    stubCanvas();
+    themeTheSegment({
+      ...SEE_THROUGH,
+      surface: 'rgba(0, 0, 0, 0)',
+      image: 'linear-gradient(rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5))',
+    });
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(surfaceOf(card, 'list')).toBe('rgb(84, 80, 76)');
+  });
+
+  it('adds and removes no element while it paints', async () => {
+    // The card's mutation observers take an element added or removed anywhere in it for a change
+    // of the grid's structure, and refit every block. The stand-ins the colors are read off are
+    // drawn with the selected segment, so an update that changes nothing else changes no element.
+    stubCanvas();
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount({ view: 'grid' });
+    await measure(card, WIDE);
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((batch) => records.push(...batch));
+    observer.observe(card.shadowRoot!, { childList: true, subtree: true });
+    card.hass = hass();
+    await card.updateComplete;
+    await Promise.resolve();
+    observer.disconnect();
+
+    const elements = records.flatMap((record) =>
+      [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].filter(
+        (node) => node instanceof Element,
+      ),
+    );
+    expect(elements).toEqual([]);
+    expect(surfaceOf(card, 'grid')).toBe('rgb(97, 94, 92)');
+  });
+
+  it('paints nothing of its own where there is no canvas to read the colors', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    themeTheSegment(SEE_THROUGH);
+    const card = await mount();
+    await measure(card, WIDE);
+
+    expect(segment(card, 'list').classList.contains('selected')).toBe(true);
+    expect(surfaceOf(card, 'list')).toBe('');
   });
 });

@@ -4,7 +4,9 @@
  */
 
 import * as Config from '../../config/config';
+import { EVENT_DETAILS_ACTION } from '../../config/constants';
 import * as Types from '../../config/types';
+import { eventActionKind } from '../../interaction/event-action-kind';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
@@ -183,18 +185,45 @@ export function accentColorMode(config: Readonly<Types.Config>): 'custom' | 'hom
 }
 
 /**
- * Derives what a tap on an event does, as the editor's two-choice dropdown shows it.
+ * Whether a tap or a hold on an event opens its dialog, which is what the two `allow_event_*`
+ * switches narrow. A bare `event_tap_action:` in YAML is `null`, which opens nothing.
  *
- * `details` is the one value the card acts on, and it reads every other value as `none`:
- * Home Assistant's actions, `expand`, and a bare `event_tap_action:` in YAML, which is
- * `null`. So does this, or the dropdown would claim a choice it does not offer.
+ * @param config - Current configuration
+ * @returns Whether either event action is `details`
+ */
+export function eventOpensDetails(config: Readonly<Types.Config>): boolean {
+  const tap: Types.ActionConfig | null | undefined = config.event_tap_action;
+  const hold: Types.ActionConfig | null | undefined = config.event_hold_action;
+  return tap?.action === EVENT_DETAILS_ACTION || hold?.action === EVENT_DETAILS_ACTION;
+}
+
+/**
+ * Whether a tap or a hold on an event runs something of its own, which is what keeps links out
+ * of event rows: `open_links` reaches only events with neither. Read as the card reads the two
+ * (`eventActionKind`), so `none`, a bare action and the card's own actions all count as none.
+ *
+ * @param config - Current configuration
+ * @returns Whether either event action runs something
+ */
+export function eventHasOwnAction(config: Readonly<Types.Config>): boolean {
+  return (
+    eventActionKind(config.event_tap_action) !== 'none' ||
+    eventActionKind(config.event_hold_action) !== 'none'
+  );
+}
+
+/**
+ * Derives what a tap on a day does, as the editor's two-choice dropdown shows it. `add-event`
+ * is the one value the card acts on, and it reads every other value as `none`: Home
+ * Assistant's actions, and a bare `day_tap_action:` in YAML, which is `null`. So does this, or
+ * the dropdown would claim a choice it does not offer.
  *
  * @param config - Current configuration
  * @returns Which of the two choices applies
  */
-export function eventTapActionMode(config: Readonly<Types.Config>): 'none' | 'details' {
-  const eventTapAction: Types.ActionConfig | null | undefined = config.event_tap_action;
-  return eventTapAction?.action === 'details' ? 'details' : 'none';
+export function dayTapActionMode(config: Readonly<Types.Config>): 'none' | 'add-event' {
+  const dayTapAction: Types.ActionConfig | null | undefined = config.day_tap_action;
+  return dayTapAction?.action === 'add-event' ? 'add-event' : 'none';
 }
 
 /**
@@ -579,21 +608,21 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   /**
-   * The event tap dropdown, two choices over an action object.
+   * The day tap dropdown, two choices over an action object.
    *
-   * Show Event Details stores `{ action: details }` whole, dropping anything an action the
-   * card no longer runs left beside it. Nothing removes the key rather than storing
-   * `{ action: none }`, the default, which would be a line of YAML that says nothing. Any
-   * other stored action derives as Nothing, so the dropdown never claims a choice it does
-   * not offer, and a write from it never stores one either.
+   * Add Event stores `{ action: add-event }` whole, dropping anything an action the card no
+   * longer runs left beside it. Nothing removes the key rather than storing `{ action: none }`,
+   * the default, which would be a line of YAML that says nothing. Any other stored action
+   * derives as Nothing, so the dropdown never claims a choice it does not offer, and a write
+   * from it never stores one either.
    */
-  event_tap_action_mode: {
-    configKeys: ['event_tap_action'],
-    derive: (config) => eventTapActionMode(config),
+  day_tap_action_mode: {
+    configKeys: ['day_tap_action'],
+    derive: (config) => dayTapActionMode(config),
     apply: (value) =>
-      value === 'details'
-        ? { changes: { event_tap_action: { action: 'details' } } }
-        : { changes: { event_tap_action: undefined } },
+      value === 'add-event'
+        ? { changes: { day_tap_action: { action: 'add-event' } } }
+        : { changes: { day_tap_action: undefined } },
   },
 
   calendars: {

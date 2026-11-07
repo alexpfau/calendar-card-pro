@@ -3,10 +3,11 @@
  * page prints actually draws.
  *
  * The four short stories promise things only the mounted card can show: a tap that expands
- * (`now-and-next.md`), a card that hides itself (`bin-day.md`), an entry retired by the next
- * refresh, weather that arrives over Home Assistant's websocket. Calling the grouping and render
- * functions directly would skip the host that does each of those, so the card is configured,
- * handed a `hass`, attached and left to load, in Home Assistant's own order.
+ * (`now-and-next.md`), a card that hides itself (`bin-day.md`), an entry retired on the card's
+ * own clock without asking the feed again, weather that arrives over Home Assistant's websocket.
+ * Calling the grouping and render functions directly would skip the host that does each of
+ * those, so the card is configured, handed a `hass`, attached and left to load, in Home
+ * Assistant's own order.
  *
  * 🚨 **The card comes from the page, never from a test file** — read with `readGuideCard`, for
  * the reason `tests/guide-config.ts` gives. A control arm is a copy of the page's card with one
@@ -172,8 +173,10 @@ function connection(forecasts: StoryHass['forecasts']) {
   return {
     async subscribeMessage(
       callback: (message: { forecast: unknown[] }) => void,
-      message: { forecast_type: 'daily' | 'hourly' },
+      message: { type: string; forecast_type: 'daily' | 'hourly' },
     ) {
+      // Calendar subscriptions answered as Home Assistant before 2026.5 does.
+      if (message.type === 'calendar/event/subscribe') throw { code: 'unknown_command' };
       const forecast = forecasts?.[message.forecast_type] ?? [];
       // Delivered after the subscription resolves, as Home Assistant's first message is.
       void Promise.resolve().then(() => callback({ forecast }));
@@ -259,9 +262,18 @@ export function shadow(card: StoryCard): ShadowRoot {
   return card.shadowRoot as ShadowRoot;
 }
 
-/** An element's text with its whitespace collapsed, or `null` when there is no element. */
+/**
+ * An element's text as a reader sees it: whitespace collapsed, and without the invisible bidi
+ * marks a 12-hour time is drawn inside (`isolateClockReadings`), or `null` when there is no
+ * element.
+ */
 export function text(element: Element | null | undefined): string | null {
-  return element ? (element.textContent ?? '').replace(/\s+/g, ' ').trim() : null;
+  return element
+    ? (element.textContent ?? '')
+        .replace(/[\u2066-\u2069\u200e\u200f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : null;
 }
 
 /** One row of a list-view card, as the reader sees it. */

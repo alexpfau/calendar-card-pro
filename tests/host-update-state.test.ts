@@ -52,12 +52,16 @@ interface CardUnderTest extends HTMLElement {
   readonly shadowRoot: ShadowRoot | null;
 }
 
-/** A single event far enough ahead to survive any default window. */
+/**
+ * A single event far enough ahead to survive any default window, tagged with its calendar as
+ * every fetched event is.
+ */
 function event(summary: string): Types.CalendarEventData {
   return {
     summary,
     start: { dateTime: '2026-06-17T12:00:00Z' },
     end: { dateTime: '2026-06-17T13:00:00Z' },
+    _entityId: 'calendar.personal',
   } as Types.CalendarEventData;
 }
 
@@ -136,10 +140,10 @@ describe('host fetch bookkeeping', () => {
   it('keeps previously loaded events when a refresh of the same query fails', async () => {
     const card = await mount();
 
-    fetchEventData.mockResolvedValue({
-      events: [event('first'), event('second')],
-      failedEntities: [],
-    });
+    // As loaded and as processed, which `fetchEventData` always hands back together: the card
+    // keeps a failing calendar's events as it loaded them.
+    const loaded = [event('first'), event('second')];
+    fetchEventData.mockResolvedValue({ events: loaded, raw: loaded, failedEntities: [] });
     await card.updateEvents();
     expect(card.events).toHaveLength(2);
 

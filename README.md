@@ -50,7 +50,7 @@ This motivated me to build a **dedicated calendar card**, fast by design. It has
 
 - 🗓️ **List, Columns & Grid** – An agenda, the [days side by side](https://calendar-card-pro.alexpfau.com/features/column-view), or [hour by hour](https://calendar-card-pro.alexpfau.com/features/grid-view).
 - 🧰 **A Toolbar on the Card** – [Page through the dates, switch layouts and show or hide calendars](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar).
-- ✏️ **Add & Edit Events** – Through [Home Assistant's own dialogs](https://calendar-card-pro.alexpfau.com/features/actions#home-assistants-own-dialogs), as far as each calendar allows.
+- ✏️ **Add & Edit Events** – Right on the card, in [its own event popover](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover), as far as each calendar allows.
 - ✅ **Many Calendars, One Card** – Each with its own color, label or [a person's photo](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture), and its own filters.
 - ⚙️ **Visual Editor** – Set the card up in the UI, with a [search box](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only) for any setting.
 - 🌦️ **Weather** – [Forecasts](https://calendar-card-pro.alexpfau.com/features/weather) beside the date or each event.
@@ -146,16 +146,25 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v5.0
+### Latest Release: v5.1
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_drag.webp" alt="Dragging an event to another day in grid view" width="600">
+
+- 💬 **The Card's Own Event Popover**: A tapped event opens [in a popover of the card's own](https://calendar-card-pro.alexpfau.com/features/actions#the-event-popover), beside it or as a sheet on a phone, where you change it in place, move it to another calendar or delete it, as far as [its calendar allows](https://calendar-card-pro.alexpfau.com/features/actions#what-each-integration-allows). ⚠️ It replaces Home Assistant's dialog, and a few other things change on existing cards; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) list them
+- ✍️ **Tap, Draw & Drag**: [Tap a day](https://calendar-card-pro.alexpfau.com/features/actions#tapping-a-day-to-add-an-event) to add an event there, [draw one](https://calendar-card-pro.alexpfau.com/features/actions#drawing-an-event-in-grid-view) across the hours it covers in grid view, or [drag one](https://calendar-card-pro.alexpfau.com/features/grid-view#moving-events-by-drag) to another time or day
+- 🔍 **Search & Swipe**: [Search the card's events](https://calendar-card-pro.alexpfau.com/features/layout-appearance#searching-the-card) a year back and ahead from the toolbar, and [swipe](https://calendar-card-pro.alexpfau.com/features/layout-appearance#paging-through-dates) through the days
+- 📡 **Live Updates**: On Home Assistant 2026.5 or later, [a changed event shows on every open dashboard](https://calendar-card-pro.alexpfau.com/features/performance#live-updates) as soon as Home Assistant knows of it, with no polling
+- 🧰 **Your Own Toolbar Buttons**: [Buttons of your own](https://calendar-card-pro.alexpfau.com/features/layout-appearance#your-own-buttons), each an icon and an action, folding into one menu on a narrow card
+- 🐛 **Back on Android 7 Wall Panels**: The card no longer crashes Chromium 119, as in the Shelly Wall Display, or times out headless screenshot add-ons; [Browser Support](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) lists the versions it runs on
+
+### v5.0
 
 - 🗓️ **Grid View**: [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) draws each day as a column against an hour axis, every event at its real start time and sized by how long it runs
 - 🧰 **A Toolbar on the Card**: [`toolbar: { show: true }`](https://calendar-card-pro.alexpfau.com/features/layout-appearance#header-toolbar) adds paging, a layout switcher, a chip for each calendar and refresh to the card's header
-- 👆 **Add, Open, Change & Delete Events**: Through Home Assistant's own dialogs, with [`event_tap_action: details`](https://calendar-card-pro.alexpfau.com/features/actions#tapping-an-event) opening a tapped event in full
 - 📍 **Today & Now at a Glance**: A [soft tile](https://calendar-card-pro.alexpfau.com/features/layout-appearance#today-indicator) on today and ["Now" in green](https://calendar-card-pro.alexpfau.com/features/event-content#the-now-indicator) on what is under way. ⚠️ Both are on by default and accents now follow your theme; the [release notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) say how to keep the v4 look, card-mod styles included
 - 📚 **Example Stories**: [Six complete cards](https://calendar-card-pro.alexpfau.com/reference/examples) to copy, from a family's wall tablet to a bin-day tile
 - ⚡ **Your Events the Moment the Dashboard Opens**: Cached events draw straight away, and a calendar that fails to load is [named on the card](https://calendar-card-pro.alexpfau.com/features/performance#when-a-calendar-fails-to-load)
-- 🐛 **Back on iOS 15 and 16**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16 and lets it load again on iOS 15; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
-- 🌍 **Serbian**: v5.0.1 adds Serbian, in Cyrillic and Latin script
+- 🐛 **Back on iOS 15 and 16, and Serbian**: v5.0.1 stops the card from crashing the Home Assistant app on iOS 16, lets it load again on iOS 15, and adds Serbian in Cyrillic and Latin script; the [installation guide](https://calendar-card-pro.alexpfau.com/guide/installation#browser-support) says which devices can run it
 
 ### v4.2
 
@@ -167,12 +176,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) draws a rounded pill in each calendar's color, around the title or beside the clock
 - 🎨 **Follow Home Assistant's Calendar Colors and Icons**: `accent_color: home-assistant` takes [the color Home Assistant holds](https://calendar-card-pro.alexpfau.com/features/core-settings) for each calendar, and its `label` can follow [the calendar's icon](https://calendar-card-pro.alexpfau.com/features/core-settings#following-the-icon-from-home-assistant) the same way
 - 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity and the card shows [their picture](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture)
-
-### v4.0
-
-- 🗓️ **Column View**: [The days side by side](https://calendar-card-pro.alexpfau.com/features/column-view), one column each
-- ⚙️ **Rebuilt Visual Editor**: Built on Home Assistant's own form components, with [search](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only) and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#view-exceptions)
-- ⚡ **41% Smaller to Download**: The editor loads only when you open it
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 

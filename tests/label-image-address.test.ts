@@ -40,7 +40,7 @@ const ENTITY = 'calendar.work';
  */
 const ADDRESSES: ReadonlyArray<readonly [string, string]> = [
   // No extension and the wrong prefix. This is the value #215 was given and told was wrong.
-  ["a person's picture", '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512'],
+  ["a person's picture", '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512'],
   // Contains `.png` and still failed: `$` anchored the old match to the end of the string.
   ['a brand icon behind a query string', '/api/brands/integration/homeassistant/icon.png?p=no'],
   ['a camera snapshot', '/api/camera_proxy/camera.front'],
@@ -182,7 +182,7 @@ describe('naming the shape explicitly', () => {
   it.each([
     ['a slash-leading word', '/dev'],
     ['a bare slash', '/'],
-    ["a person's picture", '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512'],
+    ["a person's picture", '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512'],
   ])('renders %s literally when the configuration says it is text', (_name, label) => {
     expect(Helpers.resolveLabelType(label, 'text')).toBe('text');
 
@@ -207,7 +207,7 @@ describe('naming the shape explicitly', () => {
  * disagreeing, leaving a calendar drawn as an image and edited as text.
  */
 describe('the editor and an image address', () => {
-  const ADDRESS = '/api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512';
+  const ADDRESS = '/api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512';
 
   function write(
     previous: string | Types.EntityConfig,

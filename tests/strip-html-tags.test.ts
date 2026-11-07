@@ -3,17 +3,17 @@
  * (#576, #581).
  *
  * 🚨 **This file does not trust the test environment, and the reason is the whole point of
- * the bug.** `stripHtmlTags` removes markup with a regex and then decodes character
- * references by writing the result into a detached `<textarea>`. In a real browser those
- * are two different jobs: `textarea` content is RCDATA, so the round-trip decodes entities
- * and treats `<p>x</p>` as literal text. happy-dom parses the same assignment as HTML and
- * strips the tags itself — so under vitest the second half quietly does the first half's
- * work, and **deleting the regex outright leaves the whole suite green**. A test written
- * the obvious way here pins happy-dom, not the card.
+ * the bug.** `stripHtmlTags` removes markup with a scanner (`removeMarkup`) and then decodes
+ * character references by writing the result into a detached `<textarea>`. In a real browser
+ * those are two different jobs: `textarea` content is RCDATA, so the round-trip decodes
+ * entities and treats `<p>x</p>` as literal text. happy-dom parses the same assignment as
+ * HTML and strips the tags itself — so under vitest the second half quietly does the first
+ * half's work, and **bypassing the scanner outright leaves every other test file green**. A
+ * test written the obvious way here pins happy-dom, not the card.
  *
  * Both halves were measured rather than read off the spec, in headless Chromium
- * (`chrome-headless-shell` 1234), by writing each input straight into a `textarea` with no
- * regex in front of it:
+ * (`chrome-headless-shell` 1234), by writing each input straight into a `textarea` with
+ * nothing in front of it:
  *
  * | written into `textarea.innerHTML`    | `.value` in Chromium               |
  * | ------------------------------------ | ---------------------------------- |
@@ -70,13 +70,22 @@ class RcdataTextarea {
   }
 }
 
-/** Run the real `stripHtmlTags` with the DOM answering as a browser would. */
-function renderedInBrowser(text: string): string {
+/** A `<textarea>` stand-in that decodes nothing, so a timing measures the card's own work. */
+class PassThroughTextarea {
+  value = '';
+
+  set innerHTML(html: string) {
+    this.value = html;
+  }
+}
+
+/** Run the real `stripHtmlTags` with every `<textarea>` it creates answered by `standIn`. */
+function stripWith(standIn: () => object, text: string): string {
   const spy = vi
     .spyOn(document, 'createElement')
     .mockImplementation(((tag: string) =>
       tag === 'textarea'
-        ? (new RcdataTextarea() as unknown as HTMLElement)
+        ? (standIn() as unknown as HTMLElement)
         : nativeCreateElement(tag)) as typeof document.createElement);
 
   try {
@@ -84,6 +93,11 @@ function renderedInBrowser(text: string): string {
   } finally {
     spy.mockRestore();
   }
+}
+
+/** Run the real `stripHtmlTags` with the DOM answering as a browser would. */
+function renderedInBrowser(text: string): string {
+  return stripWith(() => new RcdataTextarea(), text);
 }
 
 afterEach(() => {
@@ -106,7 +120,7 @@ describe('the browser model this file is built on', () => {
 
   it('differs from the textarea vitest would otherwise hand the card', () => {
     // The masking itself, pinned. A plain happy-dom textarea parses what a browser keeps,
-    // which is why the regex looks dead under vitest and is load-bearing in production.
+    // which is why the scanner looks dead under vitest and is load-bearing in production.
     // Should happy-dom ever become spec-correct here this fails, and the stub above can be
     // retired rather than repaired.
     const parsed = nativeCreateElement('textarea') as HTMLTextAreaElement;
@@ -141,8 +155,8 @@ describe('prose that pairs a < with a later >', () => {
 
   it('flattens prose that genuinely looks like a tag, as a browser would', () => {
     // Stated so nobody reads it as an oversight: `<b ` opens a tag by the tokenizer's own
-    // rule, so this is the residue of #576 that option 2 knowingly keeps. Anything wider
-    // would have to stop being a regex.
+    // rule, so this is the residue of #576 that option 2 knowingly keeps. Keeping the prose
+    // would mean second-guessing the tokenizer, which a browser does not do either.
     expect(renderedInBrowser('if a<b and c>d')).toBe('if ad');
   });
 
@@ -272,17 +286,19 @@ describe('markup, which must strip exactly as it did before #576', () => {
 
 describe('the output is plain text, not markup', () => {
   // 🚨 **`stripHtmlTags` is not a sanitizer, and these rows pin why it does not need to
-  // be.** CodeQL's js/incomplete-multi-character-sanitization flags `HTML_MARKUP` because
-  // one pass can leave a `<script` or a `<!--` behind. That is true, and it is harmless:
-  // the decode step turns `&lt;script&gt;` straight back into `<script>` on purpose, so no
-  // regex in front of it could make the result safe to parse as HTML. Nothing parses it.
-  // The description reaches the card through a Lit text binding, which `list-dom.test.ts`
-  // pins in "renders a description as text, never as markup".
+  // be.** CodeQL's js/incomplete-multi-character-sanitization flagged `HTML_MARKUP`, the
+  // pattern `removeMarkup` replaced, because one pass can leave a `<script` or a `<!--`
+  // behind. That is as true of the scanner, and it is harmless: the decode step turns
+  // `&lt;script&gt;` straight back into `<script>` on purpose, so nothing in front of it
+  // could make the result safe to parse as HTML. Nothing parses it: the card draws it only
+  // through Lit bindings, as text, which `list-dom.test.ts` pins in "renders a description as
+  // text, never as markup", and in an `href` attribute only as an `http` or `https` address,
+  // which `links.test.ts` pins for `safeHref`.
   //
-  // The `<script>` and `<b>` rows are also what stop the obvious "fix". Re-running the
-  // regex until nothing changes satisfies the query and fails both — it turns `a <<b>b> c`
-  // into `a  c` where a browser shows `a <b> c`. The comment row survives that loop and is
-  // here for fidelity alone. Every expected value was measured in Chromium 154 against
+  // The `<script>` and `<b>` rows are also what stop the obvious "fix". Scanning until
+  // nothing changes would satisfy the query and fails both — it turns `a <<b>b> c` into
+  // `a  c` where a browser shows `a <b> c`. The comment row survives that loop and is here
+  // for fidelity alone. Every expected value was measured in Chromium 154 against
   // `div.innerHTML = input; div.textContent`, and the single pass agrees with all of them.
   it('decodes escaped markup back into characters, by design', () => {
     expect(renderedInBrowser('&lt;script&gt;alert(1)&lt;/script&gt;')).toBe(
@@ -299,9 +315,160 @@ describe('the output is plain text, not markup', () => {
   });
 });
 
+/**
+ * The pattern `removeMarkup` replaced, verbatim, kept as its oracle.
+ *
+ * It was replaced because it took quadratic time on markup that never closes; it is also,
+ * by definition, what every description was flattened to until then, so the scanner has to
+ * agree with it on every input rather than on the rows above. Applied through `matchAll`
+ * rather than `replace` so the oracle does not repeat the call CodeQL flagged in `src/`. For
+ * a global pattern that never matches an empty string, the two are the same operation.
+ */
+const RELEASED_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g;
+
+/** What the released pattern made of `text`. */
+function released(text: string): string {
+  let kept = '';
+  let copied = 0;
+  for (const match of text.matchAll(RELEASED_MARKUP)) {
+    const at = match.index ?? 0;
+    kept += text.slice(copied, at);
+    copied = at + match[0].length;
+  }
+  return kept + text.slice(copied);
+}
+
+/** The inputs among `inputs` where the scanner and the released pattern disagree. */
+function disagreements(inputs: Iterable<string>): {
+  inputs: number;
+  changed: number;
+  differ: string[];
+} {
+  const differ: string[] = [];
+  let count = 0;
+  let changed = 0;
+  for (const input of inputs) {
+    count++;
+    const expected = released(input);
+    if (expected !== input) changed++;
+    if (FormatUtils.removeMarkup(input) !== expected && differ.length < 5) differ.push(input);
+  }
+  return { inputs: count, changed, differ };
+}
+
+/** mulberry32, so the random corpus is the same on every run and a failure reproduces. */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('removes exactly what the released pattern removed', () => {
+  // The rows above cannot show this. A scanner that tries the tag branches before the
+  // comment, drops the `<!--->` short form, or resumes one character after a comment instead
+  // of after it passes every one of them, because each needs nine or ten characters arranged
+  // just so. These corpora are built to reach those arrangements, and each states its size
+  // and how much of it the pattern changes before it states that the two agree — a corpus
+  // that changed nothing would agree with anything.
+  it('agrees on every UTF-16 code unit, wherever the scanner reads one', () => {
+    // A character class that is right on `a`, `Z` and `1` passes any hand-picked alphabet
+    // and can still be wrong on `[`, a backtick or `é`; all 65,536 code units cannot.
+    const templates = ['<C>', '<C', '<!-C>', '<!--C>-->', '<!--C->-->', '<!--C-->'];
+    const inputs = function* () {
+      for (let unit = 0; unit <= 0xffff; unit++) {
+        const char = String.fromCharCode(unit);
+        for (const template of templates) yield template.split('C').join(char);
+      }
+    };
+
+    const result = disagreements(inputs());
+
+    expect(result.inputs).toBe(65_536 * templates.length);
+    expect(result.changed).toBe(262_199);
+    expect(result.differ).toEqual([]);
+  });
+
+  it('agrees on every arrangement of up to four markup fragments', () => {
+    const fragments = ['<', '>', '!', '?', '/', '-', 'a', 'Z', ' ', '<!--', '-->', '<a'];
+    const inputs = function* (prefix: string, depth: number): Generator<string> {
+      yield prefix;
+      if (depth === 0) return;
+      for (const fragment of fragments) yield* inputs(prefix + fragment, depth - 1);
+    };
+
+    const result = disagreements(inputs('', 4));
+
+    expect(result.inputs).toBe(1 + 12 + 12 ** 2 + 12 ** 3 + 12 ** 4);
+    expect(result.changed).toBe(3_178);
+    expect(result.differ).toEqual([]);
+  });
+
+  it('agrees on long random text dense with markup', () => {
+    const fragments = [
+      ...['<', '<', '<', '>', '>', '!', '?', '/', '-', '-', 'a', 'Z', ' ', '\n', '\u00e9'],
+      ...['<!--', '<!--', '-->', '-->', '<!-->', '<!--->', '</', '<!', '<?', '<a', '<a href="'],
+    ];
+    const random = seededRandom(576);
+    const inputs = function* () {
+      for (let sample = 0; sample < 2_000; sample++) {
+        let text = '';
+        const length = Math.floor(random() * 400);
+        while (text.length < length) text += fragments[Math.floor(random() * fragments.length)];
+        yield text;
+      }
+    };
+
+    const result = disagreements(inputs());
+
+    expect(result.inputs).toBe(2_000);
+    expect(result.changed).toBe(1_935);
+    expect(result.differ).toEqual([]);
+  });
+});
+
+describe('markup that never closes', () => {
+  // The released pattern took quadratic time here: at every `<` that opens something,
+  // `[^>]*` read to the end of the text looking for a `>` that was not there, and the next
+  // attempt began one character later. 120 KB of `<a ` took 1.8 s and 240 KB 7.2 s, on every
+  // render of every row showing the description, from text anyone who can write to a
+  // calendar controls.
+  //
+  // Each shape runs at 128 KiB, where the released pattern already takes seconds, and then at
+  // 1 MiB, where a scanner that searches for a closer without first knowing one exists takes
+  // seconds as well. That scanner's output is identical, so only this test can see it. The
+  // real one takes a few milliseconds at either size, which is why the bound can be this
+  // loose. It runs through `stripHtmlTags` with a textarea that decodes nothing, so the time
+  // measured is the card's own and not happy-dom's parser.
+  it.each([
+    ['start tags', '<a '],
+    ['unclosed attribute values', '<a href="'],
+    ['comment openers', '<!--'],
+    ['end tag openers', '</'],
+    ['declaration openers', '<!'],
+    ['processing instruction openers', '<?'],
+    ['all of them, interleaved', '<a <a href="<!--</<!<?'],
+  ])('reads a run of %s in linear time', (_name, unit) => {
+    for (const size of [128 * 1024, 1024 * 1024]) {
+      const text = unit.repeat(Math.ceil(size / unit.length));
+      const started = performance.now();
+      const stripped = stripWith(() => new PassThroughTextarea(), text);
+      const elapsed = performance.now() - started;
+
+      // Nothing closes, so nothing is removed: the run was read, not skipped.
+      expect(stripped.length).toBe(text.trim().length);
+      expect(elapsed).toBeLessThan(250);
+    }
+  });
+});
+
 describe('under the DOM vitest actually provides', () => {
-  // 🚨 These pass with the regex deleted, and are kept anyway rather than mistaken for
-  // coverage. happy-dom's textarea parses the markup, so it removes tags the regex would
+  // 🚨 These pass with the scanner bypassed, and are kept anyway rather than mistaken for
+  // coverage. happy-dom's textarea parses the markup, so it removes tags the scanner would
   // have removed and the two are indistinguishable here — which is precisely the trap #576
   // warned about. What they are good for is stating the card's contract in the environment
   // everything else in the suite runs in, so a change that broke it *both* ways is caught.

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import {
+  computeColumnThresholdPx,
+  resolveEffectiveView,
+  resolveViewOnMeasurement,
+} from './helpers/view-oracle';
 import { DEFAULT_CONFIG, FOLDED_OPTIONS, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
@@ -13,24 +18,24 @@ import {
   TIME_GRID_DEFAULT_OVERRIDES,
   TIME_GRID_ONLY_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
-  computeColumnThresholdPx,
+  columnFitCrams,
   computeColumnThresholdPxFor,
   isZeroLength,
   multidaySplitPolicy,
   resolveColumnFit,
+  resolveColumnFitIfPicked,
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
   resolveEffectiveConfig,
-  resolveEffectiveView,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
   resolveTimeGridOption,
-  resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
   validateView,
   viewAppliesCompactLimits,
 } from '../src/config/view';
+import type { ColumnFit } from '../src/config/view';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
 /**
@@ -1849,6 +1854,73 @@ describe('resolveColumnFit — grid reduction', () => {
   });
 });
 
+describe('columnFitCrams', () => {
+  /**
+   * Whether a view is crammed, read two more ways while the card's own walk across every width,
+   * in both directions, draws each layout from the one before, as the card does.
+   *
+   * The same configuration with `list` as its fallback, asked from the layout on screen, gives
+   * way to the list at exactly the widths where `cramp` holds the floor instead. The two share
+   * the hysteresis arithmetic, so this pins the decision, not the band. The band is pinned by
+   * geometry instead: a crammed view is narrower than its floor of days needs at
+   * `min_day_width`, give or take the hysteresis band, and a roomy one is not.
+   */
+  function reconcile(view: 'column' | 'grid', overrides: Record<string, unknown>): number {
+    const cramp = buildConfig({ days_to_show: 7 });
+    const list = buildConfig({ days_to_show: 7 });
+    const block = view === 'grid' ? 'time_grid' : 'column';
+    Object.assign(cramp, { [block]: { ...overrides, min_days_fallback: 'cramp' } });
+    Object.assign(list, { [block]: { ...overrides, min_days_fallback: 'list' } });
+    const floor = resolveMinDaysToShow(cramp, view);
+    const needs = computeColumnThresholdPxFor(cramp, floor, view);
+
+    let crammed = 0;
+    const widths = Array.from({ length: 1400 }, (_, i) => i + 1);
+    for (const sweep of [widths, [...widths].reverse()]) {
+      let shown: ColumnFit | null = null;
+      for (const width of sweep) {
+        shown = resolveColumnFit(view, cramp, width, shown);
+        const answer = columnFitCrams(view, cramp, width, shown);
+        const label = `${view} ${JSON.stringify(overrides)} at ${width}px`;
+        expect(answer, label).toBe(resolveColumnFit(view, list, width, shown).view === 'list');
+        if (answer) {
+          crammed += 1;
+          expect(width, label).toBeLessThan(needs + VIEW_SWITCH_HYSTERESIS_PX);
+        } else {
+          expect(width, label).toBeGreaterThan(needs - VIEW_SWITCH_HYSTERESIS_PX);
+        }
+      }
+    }
+    return crammed;
+  }
+
+  it('is crammed exactly where the list fallback would have given way', () => {
+    // Each walk must find crammed widths and roomy ones, or it proves nothing.
+    for (const [view, overrides] of [
+      ['grid', { min_days_to_show: 7 }],
+      ['grid', { min_days_to_show: 3 }],
+      ['grid', {}],
+      ['column', { min_days_to_show: 5 }],
+    ] as const) {
+      const crammed = reconcile(view, overrides);
+      expect(crammed, `${view} ${JSON.stringify(overrides)}`).toBeGreaterThan(0);
+      expect(crammed, `${view} ${JSON.stringify(overrides)}`).toBeLessThan(2800);
+    }
+  });
+
+  it('is never crammed without cramp, before a width is known, or for another view', () => {
+    const config = buildConfig({ days_to_show: 7 });
+    config.time_grid = { min_days_to_show: 7 };
+    expect(columnFitCrams('grid', config, 100, { view: 'grid', columns: 7 })).toBe(false);
+
+    config.time_grid = { min_days_to_show: 7, min_days_fallback: 'cramp' };
+    expect(columnFitCrams('grid', config, 100, { view: 'grid', columns: 7 })).toBe(true);
+    expect(columnFitCrams('grid', config, null, { view: 'grid', columns: 7 })).toBe(false);
+    expect(columnFitCrams('grid', config, 100, { view: 'list', columns: 0 })).toBe(false);
+    expect(columnFitCrams('list', config, 100, { view: 'list', columns: 0 })).toBe(false);
+  });
+});
+
 describe('resolveColumnFitOnMeasurement', () => {
   const config = (() => {
     const built = buildConfig();
@@ -1870,6 +1942,85 @@ describe('resolveColumnFitOnMeasurement', () => {
     const confirmed = { view: 'column' as const, columns: 7 };
 
     expect(resolveColumnFitOnMeasurement('column', config, 1200, 1065, confirmed).columns).toBe(7);
+  });
+});
+
+describe('resolveColumnFitIfPicked', () => {
+  /**
+   * What a pick, and a reset, draws, against the two rules it sits between: `fresh`, the
+   * layout a fresh load draws, and `kept`, the layout a view on screen with every configured
+   * day keeps. The switcher offers a view when the pick draws it, so the view must be the one
+   * `kept` grants (`_viewFits`, and the reset button's `_viewChoiceShows`); the days must be
+   * the ones a fresh load draws wherever it draws the view, and the floor where only the band
+   * admits it. Swept a pixel at a time, with a count of the widths where the two rules
+   * disagree, so a fixture that never reaches the band fails rather than passing vacuously.
+   */
+  const cases: Array<{
+    name: string;
+    view: Types.EffectiveView;
+    overrides: Partial<Types.Config>;
+    days: number;
+    floor: number;
+  }> = [
+    { name: 'a seven-day grid', view: 'grid', overrides: {}, days: 7, floor: 1 },
+    {
+      name: 'a grid holding all seven days',
+      view: 'grid',
+      overrides: { time_grid: { min_days_to_show: 7 } },
+      days: 7,
+      floor: 7,
+    },
+    { name: 'seven columns', view: 'column', overrides: {}, days: 7, floor: 7 },
+    {
+      name: 'seven columns down to three',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 3 } },
+      days: 7,
+      floor: 3,
+    },
+    {
+      name: 'seven columns cramped at three',
+      view: 'column',
+      overrides: { column: { min_days_to_show: 3, min_days_fallback: 'cramp' } },
+      days: 7,
+      floor: 3,
+    },
+  ];
+
+  it.each(cases)('draws what a fresh load draws, for $name', ({ view, overrides, days, floor }) => {
+    const config = buildConfig({ days_to_show: days, ...overrides });
+    let moreDays = 0;
+    let bandOnly = 0;
+
+    for (let width = 1; width <= 2400; width += 1) {
+      const fresh = resolveColumnFit(view, config, width, null);
+      const kept = resolveColumnFit(view, config, width, { view, columns: days });
+      const picked = resolveColumnFitIfPicked(view, config, width);
+
+      expect(picked.view, `view at ${width}px`).toBe(kept.view);
+      if (fresh.view === view) {
+        expect(picked, `layout at ${width}px`).toEqual(fresh);
+        if (kept.columns > fresh.columns) moreDays += 1;
+      } else if (picked.view === view) {
+        expect(picked.columns, `floor at ${width}px`).toBe(floor);
+        bandOnly += 1;
+      }
+      // The next measurement at the same width keeps what the pick drew.
+      expect(resolveColumnFitOnMeasurement(view, config, width, width, picked)).toEqual(picked);
+    }
+
+    // Where the old rule drew a day more than a fresh load, and where only the band admits
+    // the view: each fixture reaches at least one of them.
+    expect(moreDays + bandOnly).toBeGreaterThan(0);
+    if (floor < days) expect(moreDays).toBeGreaterThan(0);
+    if (view === 'column' && floor === days) expect(bandOnly).toBeGreaterThan(0);
+  });
+
+  it('draws every day before the first measurement, as a fresh load does', () => {
+    const config = buildConfig({ days_to_show: 7 });
+
+    expect(resolveColumnFitIfPicked('grid', config, null)).toEqual({ view: 'grid', columns: 7 });
+    expect(resolveColumnFitIfPicked('list', config, 400)).toEqual({ view: 'list', columns: 0 });
   });
 });
 
