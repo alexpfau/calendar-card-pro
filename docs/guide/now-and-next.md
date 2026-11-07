@@ -1,6 +1,6 @@
 # Now & Next
 
-A small tile with no title and no toolbar, for the top of a phone dashboard: what is on now, and what comes next? It is the maintainer's own card, showing today and tomorrow four events at a time.
+A small tile with no title and no toolbar, for the top of a phone dashboard: what is on now, and what comes next? It shows today and tomorrow, four events at a time until you tap it.
 
 ## 🖼️ See It
 
@@ -9,6 +9,8 @@ A small tile with no title and no toolbar, for the top of a phone dashboard: wha
 Collapsed on the left, tapped open on the right.
 
 ## 📋 Copy the Card
+
+Replace the `calendar.*` ids with your own calendars and the `person.*` labels with the people in your home.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -35,8 +37,6 @@ entities:
 list:
   compact_events_to_show: 4
 ```
-
-Replace the `calendar.*` ids with your own calendars and the `person.*` labels with the people in your home.
 
 ::: tip Tap the Card to See the Rest
 Nothing on the card says that more events are waiting. Tap it to see them all, and tap again to fold it back.

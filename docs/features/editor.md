@@ -4,13 +4,13 @@ Configure the card with Home Assistant's visual editor and see a live preview as
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor_v5.png" alt="The visual editor in dark mode: the Card Displays choice, the layout being edited, search, and the collapsible panels, beside a live preview of the card"><br>
 
-The v5 editor shown above, with the card's preview beside it. **Card Displays** is set to List, so **Editing Settings For** starts on List too; [Options for the Selected View](#options-for-the-selected-view) explains the two.
+The editor, with the card's preview beside it. **Card Displays** is set to List, so **Editing Settings For** starts on List too; [Options for the Selected View](#options-for-the-selected-view) explains the two.
 
 To open it, click the three dots (⋮) in the top-right corner of the card and select **Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
 
 ## 🗂️ Editor Organization
 
-The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
+The editor groups its options into nine panels, each named for what it configures rather than for where the option lives in YAML. They are listed here in the order the editor shows them:
 
 | Panel                    | What it covers                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------- |
@@ -24,81 +24,96 @@ The editor is organized into nine panels, each named for what it configures rath
 | **Weather**              | A forecast beside the day, beside the event, or both                                        |
 | **Actions & Refresh**    | What a tap on the card or an event does, and how often the card re-reads its calendars      |
 
-Each panel opens and closes on its own, so several can be open at once, and while you search every panel holding a match opens for you. Options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
+Several panels can be open at once, and a [search](#search-customized-only) opens every panel
+holding a match. Options appear only when they apply: switching a feature on reveals the
+settings that belong to it.
 
-**Card & Header** closes with a **Toolbar** sub-heading over everything the [header toolbar](/features/layout-appearance#header-toolbar) offers. Its first switch, **Show Toolbar**, turns the whole toolbar on or off. While it is on, the panel offers each of the toolbar's controls in the order the toolbar is read: **Calendar Filter**, **Add Event Button**, **View Switcher**, **Reset Button**, **Refresh Button** and **Search Button** for the top row, then **Date Navigation** for the row under it. **Calendar Filter** is a dropdown of **Off**, **Menu** and **Chips**, with **Menu** the default. Under them, **Your Own Buttons** holds a panel for each of the toolbar's [buttons of your own](/features/layout-appearance#your-own-buttons), with **Move Up**, **Move Down** and **Remove** over its **Icon**, **Name**, **Entity** and **Tap Action**, and **Add Button** after the last. Turning the toolbar off again hides them and keeps what they were set to.
+Most panels look the same whichever [layout you are editing](#options-for-the-selected-view).
+Where they differ:
 
-The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Time Range & Content** opens with **Time Range**, the days the card covers. After that, **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Name, Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below. The card-level panel follows the spine with **Empty Days**, then two collapsible groups, **Compact Mode** (List only) and **Language & Time Format**. Grid arranges multi-day events itself, so in the Grid workspace both panels drop **Multi-Day Events**. Reading either panel therefore answers the same questions in the same order.
+- **List** adds **Compact Mode** under Time Range & Content, and **Vertical Alignment** and
+  **Indicator Position** under Day Header.
+- **Columns** adds a collapsible **Column Density** group under Layout, which decides how narrow a column may get
+  before the card gives one up.
+- **Columns** and **Grid** add **Gap & Rule** under Day Header, the space under a day header
+  and the rule drawn inside it, and a table under Layout's fields showing which layout the card
+  renders at each width.
+- **Grid** captions Layout's fields **Time Axis**, **Hour Labels**, **On the Grid** and
+  **Card Size & Spacing**, then adds **Grid Density**. It titles **Separators** as **Rules**,
+  and its **Day Spacing** sits there.
+- **Grid** leaves out **Multi-Day Events**, which it arranges itself; the empty-day text and
+  color, since it draws an empty day as a blank column; and **Show Now Indicator**, since it
+  marks the present with the **Now Line** under **Layout → On the Grid**.
 
-**Layout** opens with spacing, ordered from the outside in: between days (**Day Spacing**), between a day's events (**Event Gap**), then inside each event (**Event Spacing**), followed by **Additional Card Spacing** and **Card Height**. In the Columns workspace the fields end with a collapsible **Column Density** group, which decides how narrow a column may get before the card gives one up. Grid has far more to say here and captions it — **Time Axis**, **Hour Labels**, **On the Grid**, then **Card Size & Spacing** — before its own **Grid Density** group; its **Day Spacing** sits in the **Rules** panel instead, beside the rules drawn inside it. In Columns and Grid a table under the fields shows which layout the card renders at each width.
+::: details Inside Each Panel
 
-**Day Header** changes with the workspace and with your choices. **Vertical Alignment** appears only in List, and the **Gap & Rule** heading — the space under a day header and the rule drawn inside it — only in Columns and Grid. Under **Today Indicator**, the **Style** decides what follows: the **Date Tile** offers only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling options appear once **Numbering** is anything but **None**.
+- **Calendars** and **Time Range & Content** share an order: **Event Filtering**, then
+  **Multi-Day Events**. A calendar adds **Name, Label & Colors** above them,
+  **Text Replacement** between them and **Event Details** below. Time Range & Content opens with
+  **Time Range**, the days the card covers, and ends with **Empty Days**, then the collapsible
+  groups **Compact Mode** and **Language & Time Format**.
+- **Layout** orders its spacing from the outside in: between days (**Day Spacing**), between a
+  day's events (**Event Gap**), inside each event (**Event Spacing**), then
+  **Additional Card Spacing** and **Card Height**. The layout's density group comes last.
+- **Card & Header** ends with a **Toolbar** heading over the
+  [header toolbar](/features/layout-appearance#header-toolbar). **Show Toolbar** turns it on or
+  off. While it is on, the panel offers the toolbar's controls in the order the toolbar is read:
+  **Calendar Filter**, **Add Event Button**, **View Switcher**, **Reset Button**,
+  **Refresh Button** and **Search Button** for the top row, then **Date Navigation** for the row under it.
+  **Calendar Filter** is a dropdown of **Off**, **Menu** and **Chips**, with **Menu** the
+  default. Under them, **Your Own Buttons** holds a panel for each of the toolbar's
+  [buttons of your own](/features/layout-appearance#your-own-buttons), with **Move Up**,
+  **Move Down** and **Remove** over its **Icon**, **Name**, **Entity** and **Tap Action**, and
+  **Add Button** after the last. Turning the toolbar off hides them and keeps what they were set
+  to.
+- **Day Header → Today Indicator**: the **Style** decides what follows. The **Date Tile** offers
+  only **Indicator Color**, while the dots, **An Icon** and **An Emoji or Image** add
+  **Indicator Size** and, in List, **Indicator Position**. Under **Week Numbers**, the styling
+  options appear once **Numbering** is anything but **None**.
+- **Events → Event State** sits between the Event Details switches and Accent.
+  **Show Now Indicator** puts "Now" before the time of an event that is happening, and **Now Color** is the
+  color of that event, offered whether or not the switch is on. It colors grid view's now line
+  too; in the Grid workspace it writes `time_grid.now_color`, which colors grid alone.
+- **Past Event Opacity** accepts 0-100%, including fractions: 60% is the default look, 100%
+  removes the dimming, and 0% makes contents transparent without hiding events. It is offered in
+  every workspace, even when All Layouts has Show Past Events off, because Grid can show past
+  events on its own. Clear the number to restore 60 in All Layouts, or inheritance in a layout's
+  workspace; that layout's Reset does the same. See
+  [Past Events Display](/features/event-content#past-events-display) and the
+  [configuration reference](/reference/configuration#event-column).
+- **Events → Title → Scroll Long Titles** turns on
+  [scrolling long titles](/features/event-content#scrolling-long-titles) in supported browsers,
+  and can be set separately in each workspace; reduced motion always keeps titles still. It is
+  the only motion setting with a switch of its own: the **Pulsing Dot** style under
+  **Day Header → Today Indicator** animates too.
 
-In **Events**, **Event State** follows the Event Details switches and precedes Accent.
-It opens with **Show Now Indicator**, which puts "Now" before the time of an event that is
-happening, and **Now Color**, the color of that event. **Now Color** is offered whether or
-not the switch is on, and it colors grid view's now line too, which is switched by
-**Now Line** under **Layout → On the Grid**. The Grid workspace hides **Show Now Indicator**,
-because grid marks the present with its now line rather than a label; there, **Now Color**
-writes `time_grid.now_color`, which colors grid alone.
-**Past Event Opacity** accepts 0-100%, including fractions: 60% preserves the
-default appearance, 100% removes dimming, and 0% makes contents transparent without hiding
-events. It stays available in every workspace even when All Layouts has Show Past Events
-off, because Grid can show past events independently. Clear the number to restore 60 at
-the shared level or inheritance in a view; a view's Reset control does the same.
-See [Past Events Display](/features/event-content#past-events-display) and the
-[configuration reference](/reference/configuration#event-column).
-
-**Events → Title → Scroll Long Titles** is the only motion setting with a switch of its
-own. In supported
-browsers, visible titles share forward starts, return individually, and wait at their
-beginnings. It can be set separately in each workspace; reduced motion always keeps titles
-static. The **Pulsing Dot** style under **Day Header → Today Indicator** animates too.
-See [Scrolling Long Titles](/features/event-content#scrolling-long-titles).
+:::
 
 ## 🧭 Options for the Selected View
 
 Two controls sit together above search. **Card Displays** chooses the card's starting
-layout and writes the existing `view` option. **Editing Settings For** selects an
-editor workspace: **All Layouts**, **List**, **Columns**, or **Grid**. It starts by
-following Card Displays, then stays independent once you choose a workspace. The workspace
-is never saved to YAML; opening the editor again starts from the card's displayed view.
+layout and writes the existing `view` option. **Editing Settings For** chooses which settings
+the panels edit: **All Layouts**, **List**, **Columns**, or **Grid**. It starts by following
+Card Displays, then stays independent once you choose a workspace. The workspace is never
+saved to YAML; opening the editor again starts from the card's displayed view.
 
-**All Layouts** edits the shared base — the top level, which layouts fall back to after
-their own overrides and any [different built-in defaults](#yaml-view-defaults).
-It offers only the options that have a shared meaning, so the layout-specific ones are
-absent there rather than being written somewhere only one view reads.
+- **All Layouts** edits the shared base, the top level, which each layout falls back to. It
+  offers only the options that have a shared meaning, so a layout-specific one is never written
+  where only one view reads it.
+- **List**, **Columns** and **Grid** each write to their own block, `list:`, `column:` and
+  `time_grid:`, and omit the controls, per-calendar ones included, that cannot affect that view.
+  [Editor Organization](#editor-organization) lists the differences.
+- A layout with no value of its own uses its own default when it has one, otherwise the shared
+  base. Editing All Layouts therefore changes only the layouts that inherit that option, never
+  their explicit choices or built-in defaults ([YAML & View Defaults](#yaml-view-defaults)).
+- Card-wide options such as calendars, title, language, and actions stay card-wide in every
+  workspace.
 
-Each of the other three omits controls that cannot affect that view, including
-their per-calendar forms. Compact-mode controls appear in List.
-Multi-day splitting also appears in Column, but not Grid, which arranges
-multi-day events itself. Grid omits empty-day text and color because it draws blank
-columns rather than placeholder rows.
-
-A panel can also change its name for the workspace you are in. Grid titles the
-**Separators** panel **Rules**, because grid is the only view that draws rules _across_
-the days as well as between them, so the shared name covers half of what the panel holds
-there.
-
-The workspace follows your selection, not the preview's width-dependent fallback.
-Search and **Customized Only** do not bring back controls for another workspace.
-To edit a list-only option used by a responsive fallback, choose List under
-Editing Settings For; Card Displays stays unchanged.
-
-Cards created or adopted by the v5 editor carry an internal configuration-format marker.
-Configurations left alone keep working exactly as they are — see
-[Per-View Options](/features/core-settings#per-view-options).
-
-Presentation controls show the value used by the selected workspace and write directly
-to its scope: the top level for All Layouts, then `list:`, `column:` and `time_grid:` for
-the three views. A missing view value uses that layout's own default when it has one,
-otherwise the shared base. Editing All Layouts therefore changes only the layouts that
-inherit that option; it does not overwrite their explicit choices or built-in defaults.
-Card-wide options such as calendars, title, language, and actions stay card-wide in every
-workspace.
-
-An edit still pending when you switch workspaces stays with the workspace where you made
-it. It cannot overwrite the newly selected layout's values.
+The workspace follows your selection, not the preview's width-dependent fallback, and search
+and **Customized Only** do not bring back controls for another workspace. To edit a list-only
+option used by a responsive fallback, choose List under Editing Settings For; Card Displays
+stays unchanged. An edit still pending when you switch workspaces stays with the workspace
+where you made it.
 
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while
@@ -116,53 +131,56 @@ empty_day_color: '#607d8b'
 
 ### Upgrading a Card From Before v5
 
-Before v5, List settings lived at the top level, alongside values inherited by Column.
-In v5, that same location means **All Layouts**. When an older List or Grid card contains an option
-whose default differs in another layout, the editor cannot safely guess which meaning you
-want. It pauses before showing the normal controls and offers two choices:
+Opening a List or Grid card from before v5 can raise one question first. Before v5, List
+settings lived at the top level, alongside values inherited by Column. In v5, that same
+location means **All Layouts**. When an older List or Grid card contains an option whose
+default differs in another layout, the editor cannot safely guess which meaning you want. It
+pauses before showing the normal controls and offers two choices:
 
 - **Keep my existing List appearance** — recommended. The existing values stay with List,
   while Column and Grid keep their own settings and defaults.
 - **Use these settings for all layouts** — the existing values become the shared starting
   point. A layout's own settings and built-in defaults can still take precedence.
 
-Either choice preserves the layout currently on screen at the moment you choose it. On a
-Grid card, the choice decides what List — including a responsive List fallback — uses
+Either choice keeps every option your YAML spells out, including one set to its default, such
+as `show_month: true`, and preserves the layout currently on screen at the moment you choose
+it. On a Grid card, the choice decides what List — including a responsive List fallback — uses
 later; the current Grid appearance is unchanged.
 
-Either choice also keeps every option your YAML spells out, including one set to its
-default, such as `show_month: true`. The choice moves only the values it asks about, and
-adds `config_version`. Every later save works the same way: the editor removes a line you
-wrote only when you change that option, so a card that spells out a default keeps it even
-if a later release changes the default. Setting an option back to its default in the editor
-still removes the line, except a Grid value for an option whose Grid default differs (see
-[Switching an Existing Card to Grid](#switching-an-existing-card-to-grid)), and
-[deprecated options](#deprecated-options) are still removed. A line the save leaves alone also
-keeps its spelling, such as `slot_minutes: '30'`.
+Column cards do not show this choice, and their columns do not change: the first editor edit
+keeps the top-level values shared, as Column read them before v5.
 
-The editor asks only when at least one authored value is genuinely ambiguous. The five
-options that only List can read move automatically, because they have no possible shared
-meaning. A List or Grid card with no ambiguous values opens normally and adopts the v5
-format on its first actual edit. Merely opening and closing the editor writes nothing.
-
-Column cards do not show this choice. Column inherited most top-level values before v5, so
-moving them would change the layout already on screen. Its first editor edit keeps those
-values shared, moves only the unambiguous List-only options, and records the v5 format.
-
-A versionless configuration already containing `list:` or `time_grid:` is treated as
-layered. It opens normally and adopts the marker on its first actual edit without
-reinterpreting shared values.
-
-Once the choice or automatic adoption is saved, it is not asked again. The marker is the
-`config_version` option, which the editor writes for you:
+Merely opening and closing the editor writes nothing, and a card you never edit keeps working
+as it is; see [Per-View Options](/features/core-settings#per-view-options). Once the choice or
+an automatic adoption is saved, it is not asked again, and the editor has written the
+`config_version` option for you, as it does on every card it creates. You do not need to add
+it by hand; see
+[Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ```yaml
 # Written by the visual editor
 config_version: 5
 ```
 
-You do not need to add it by hand — see
-[Core Settings in the configuration reference](/reference/configuration#core-settings).
+::: details What the Upgrade Writes
+
+- The editor asks only when at least one authored value is genuinely ambiguous. The five
+  options only List can read move into `list:` without asking. A List or Grid card with no
+  ambiguous values opens normally and adopts the v5 format on its first actual edit. A Column
+  card's first edit moves only those five and records the v5 format.
+- A configuration without `config_version` that already contains `list:` or `time_grid:` is
+  treated as layered. It opens normally and adopts the marker on its first actual edit without
+  reinterpreting shared values.
+- The choice moves only the values it asks about, and adds `config_version`.
+- Every later save works the same way: the editor removes a line you wrote only when you change
+  that option, so a card that spells out a default keeps it even if a later release changes the
+  default. Setting an option back to its default in the editor still removes the line, except a
+  Grid value for an option whose Grid default differs (see
+  [Switching an Existing Card to Grid](#switching-an-existing-card-to-grid)), and
+  [deprecated options](#deprecated-options) are still removed.
+- A line the save leaves alone also keeps its spelling, such as `slot_minutes: '30'`.
+
+:::
 
 ### Switching an Existing Card to Grid
 
@@ -171,8 +189,6 @@ you explicitly set through All Layouts, including a value equal to the List defa
 options where Grid has a different default, the editor copies your value into `time_grid:`
 rather than replacing it. Options you did not set use Grid's defaults without writing
 those defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
-This transition preserves existing per-view choices; it does not remove older overrides
-that happen to match a divergent Grid default.
 
 For example, these two authored values are kept in Grid:
 
@@ -196,35 +212,31 @@ One notice lists the options kept instead of Grid's defaults. Use the option's
 **Reset** button in the Grid workspace to return to its default; switching away and
 back in the same editing session does not recreate a reset value.
 
-A reset applies only to the options that control writes. It does not prevent a later
-switch to Grid from preserving other values you author in All Layouts. If you deliberately
-change the reset option itself in All Layouts afterward, that newer choice can be preserved
-on the next switch to Grid too. Re-entering an equivalent value, such as `14` for `14px`,
-does not replace the reset. Reset memory belongs to the current editor session; after
-reopening, the saved YAML determines which shared choices a later Grid transition preserves.
+Only a switch made in the editor keeps your values this way. A change to `view` made in YAML,
+opening a card that is already on Grid, or choosing a workspace copies nothing and shows no
+notice: a v5 card with root `event_background_opacity: 5` and no Grid opacity still shows
+Grid's default of 20.
+Choose the Grid workspace to change that value directly.
 
-This preserves continuity across an explicit editor transition, not a change made only
-in YAML. Opening an already-Grid v5 card is read-only: a YAML card with root
-`event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.
-An unversioned Grid card with ambiguous root values first shows the upgrade choice above;
-either answer leaves its current Grid appearance alone. Choose the Grid workspace to
-change that value directly.
+::: details Reset, Saving & Reopening
 
-::: info Saving & Reopening
-An explicit shared choice is kept in YAML when another layout has a different default
-for that option, even if you set it back to the card's default. The same applies when
-you choose shared storage during an upgrade. Closing and reopening does not lose that
-choice.
+- The switch does not remove older `time_grid:` values that happen to match a divergent Grid
+  default.
+- A reset applies only to the options that control writes. A later switch to Grid still keeps
+  other values you author in All Layouts, and if you deliberately change the reset option itself
+  in All Layouts afterward, that newer choice can be kept on the next switch too. Re-entering an
+  equivalent value, such as `14` for `14px`, does not replace the reset.
+- Reset memory belongs to the current editor session. After reopening, the saved YAML
+  determines which shared choices a later switch to Grid keeps.
+- An explicit shared choice stays in YAML when another layout has a different default for that
+  option, even if you set it back to the card's default, and so does one you chose to share
+  during an upgrade. Setting Event Font Size to `14px` in All Layouts keeps
+  `event_font_size: '14px'`, so a later switch to Grid keeps `14px` after reopening, just as it
+  does in the original session. Untouched defaults are not added, and a value set directly in
+  Grid still wins.
+- What each layout's block keeps when you save is under
+  [View Exceptions](#view-exceptions).
 
-For example, explicitly setting Event Font Size to `14px` in All Layouts keeps
-`event_font_size: '14px'` in the saved configuration. A later editor transition to Grid
-can therefore preserve `14px` after reopening, just as it does in the original session.
-Untouched defaults are not added, and a value set directly in Grid still wins.
-
-Column values and nondivergent Grid values that match what the layout inherits may be
-removed during saving. Once removed, they follow later All Layouts edits immediately,
-without needing to close and reopen the editor. Explicit List values and overrides of
-divergent Grid defaults remain stored.
 :::
 
 ### YAML & View Defaults
@@ -245,9 +257,6 @@ set a different top-level value. All fourteen are listed in
 Column's two substitutions are listed in
 [Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).
 
-A YAML-only edit produces no reconciliation notice. The notice belongs to an explicit
-editor transition to Grid; opening an editor or choosing a workspace is not a migration.
-
 ## ✨ Key Features
 
 - **Live Preview** — see changes immediately as you configure the card
@@ -257,48 +266,54 @@ editor transition to Grid; opening an editor or choosing a workspace is not a mi
 - **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
-The editor is available in **12 languages**, and the calendar itself in **38**. Nine of the twelve — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full, and Korean in part. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
+The editor is available in **12 languages**, and the calendar itself in **38**. Besides English, nine are translated in full (German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish), Korean in part, and British English carries only the strings where it differs from US English.
 
-Translation resolves **per string**: a label that has been translated appears in your language, and one that has not appears in English, in the same form. That is what makes a partial translation genuinely useful — every string you add appears immediately, without waiting for the rest.
-
-If your language is not among the 12 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 38 supported languages, and contributions of further editor translations are very welcome.
+A string not yet translated appears in English, so a partial translation is useful from its first string. If your language is not among the 12 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 38 supported languages, and contributions of further editor translations are very welcome; see [Translating the Editor](/contributing#translating-the-editor).
 :::
 
 ## 🔎 Search & Customized Only
 
 The editor holds nearly two hundred options, so it opens with a search box above the panels.
-
-Typing filters every panel down to what matches and drops the panels — and the groups inside them — that have nothing left, so a match is never hidden behind a collapsed heading. What survives is expanded for you. A sub-heading is never itself a match: it survives only to caption a result beneath it, so searching a word that appears in a heading and nowhere else returns nothing rather than a heading with an empty section under it.
+Typing filters every panel down to what matches, drops the panels and the groups inside them
+that have nothing left, and expands what survives, so a match is never hidden behind a
+collapsed heading.
 
 Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `opacity` finds **Past Event Opacity** and **Event Background Opacity**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control, including the controls the editor names differently from the option they write: `time_24h` finds **Time Format**, and `entities` finds the **Calendars** picker.
 
-Searching a panel's displayed title or helper shows its relevant controls, including a
-workspace-specific title such as Grid's **Rules** in your editor language.
+Some searches bring back a whole group rather than one control:
 
-Searching a calendar's entity id, the name Home Assistant gives it, which heads its panel, or
-its [name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every
-setting of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists
-it; searching a label shows every setting of the block that carries it.
+- **A panel's title or helper** shows that panel's relevant controls, including a
+  workspace-specific title such as Grid's **Rules**, in your editor language.
+- **A calendar's entity id**, the name Home Assistant gives it, or its
+  [name on the card](/features/core-settings#naming-a-calendar-in-the-card) shows every setting
+  of that calendar, on each of its blocks, and keeps the **Calendars** picker that lists it.
+- **A label** shows every setting of the block that carries it.
 
-**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. It reads values the way the card does, so a number written as `"3"` in YAML counts as untouched when `3` is the default, and a value the card rejects counts as untouched too — because that is what the card is using.
-
-Three things follow their own rule under it, for reasons worth knowing:
+**Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. Three things follow their own rule under it:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults are not user edits.
+- **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults do not count.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, the compact-mode modifier appears once there is an event limit for it to modify, Allow Editing Events and Allow Deleting Events appear once Event Tap Action is Show Event Details, and Open Links in Events only while Event Tap Action and Event Hold Action are both Nothing. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
+:::
+
+::: details How Search & Customized Only Read the Editor
+
+- A sub-heading is never a match on its own: it shows only to caption a result beneath it, so a
+  word that appears in a heading and nowhere else returns nothing.
+- **Customized Only** reads values the way the card does. A number written as `"3"` in YAML
+  counts as untouched when `3` is the default, and a value the card rejects counts as untouched
+  too, since the card does not use it either.
+
 :::
 
 ## 📋 Per-Calendar Panels & Actions
 
 The Calendars picker lists each calendar **once**, however many times the card uses it. It answers one question — which calendars this card shows — and the panels beneath it answer the other: how many blocks each calendar has, and what is set on each.
 
-Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading either, so the heading always matches the picker row above it; the line under the heading and the **Name** field at the top of the panel show your own.
-
-The line under the heading says what the panel holds. It opens with the calendar's `name`, wherever that differs from the heading, so a calendar you named can be told apart while its panel is closed. Then comes your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not. A calendar whose only setting is its name shows just that name, as **Kids** rather than **Kids · Configured**, and with a label as well it reads **Kids · School**.
+Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A [`name`](/features/core-settings#naming-a-calendar-in-the-card) you give the calendar on the card does not change the heading; it shows in the **Name** field at the top of the panel and on the line under the heading, where it differs from the heading. That line also shows your own label if you have set one, then **Configured** if the calendar carries settings of its own, or **Using the card settings** if it does not.
 
 Each panel opens with four actions:
 
@@ -309,46 +324,50 @@ Each panel opens with four actions:
 | **Duplicate**      | Gives this calendar a second block, carrying the first one's settings and its name |
 | **Remove**         | Drops this block                                                                   |
 
-They sit above the settings rather than below them, so they are visible the moment a panel opens. **Remove** is held apart from the other three because it is the only one that discards anything, and a card editor has no undo.
+**Remove** is held apart from the other three: it is the only one that discards anything, and a card editor has no undo.
 
-A calendar's name says which calendar it is rather than how it is shown, so it stays with the calendar: **Copy Settings** is offered only once a calendar carries something besides its name, and a paste leaves the name of the calendar it lands on alone. A calendar with two blocks has one name, so changing it on either block changes it on both, and removing the block that held it leaves it on the block that remains.
+**Copy Settings** is offered only once a calendar carries something besides its name. The clipboard behind it outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
 
-The clipboard behind **Copy Settings** outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
+**Duplicate** is how you give one calendar two sets of settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and it cannot be done from the picker, which will not hold the same calendar twice. Both panels then carry the same heading, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2**.
 
-**Duplicate** is how you give one calendar two sets of settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and it cannot be done from the picker, which will not hold the same calendar twice. Both panels then carry the same heading, because they are the same calendar, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2** so you can tell which is which.
-
-The copy starts out identical to the block it came from, so until you change something on one of them the card shows every event from that calendar **twice** — two blocks, both matching everything. That is expected, and setting **Event Type** on each is usually the change that resolves it.
+The copy starts out identical to the block it came from, so until you change something on one of them the card shows every event from that calendar **twice**. Setting **Event Type** on each usually resolves it.
 
 ::: tip Two Ways to Take Something Away, and They Differ
-Clearing a calendar's row in the **picker** removes that calendar from the card altogether, along with every block it had. **Remove** on a panel drops just that one block and leaves the calendar's others alone. The picker is where you decide a calendar is no longer on this card; Remove is where you decide it needs one fewer set of settings.
+Clearing a calendar's row in the **picker** removes that calendar from the card altogether, along with every block it had. **Remove** on a panel drops just that one block and leaves the calendar's others alone.
+:::
+
+::: details Names & Missing Calendars
+
+- A calendar that has been removed from Home Assistant keeps its entity id in the heading, since
+  that is all there is left to identify it by.
+- A calendar whose only setting is its name shows just that name under the heading, as
+  **Kids** rather than **Kids · Configured**, and with a label as well it reads
+  **Kids · School**.
+- A calendar with two blocks has one name, so changing it on either block changes it on both,
+  and removing the block that held it leaves it on the block that remains.
+
 :::
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything a single calendar's panel can set.
 
 ## 🏷️ Per-Calendar Labels
 
-Each calendar under the picker gets its own collapsible form. It opens with **Name**, the
+Each calendar's panel opens with **Name**, the
 calendar's [name on the card](/features/core-settings#naming-a-calendar-in-the-card), and
 the control after it is **Label Type**. A label is the mark shown before every event from
 that calendar, and it can be four things — nothing, text or an emoji, an icon, or an image.
 
-Most of the time the type is not stored at all. It is read back from the value, because
-the value is usually enough to decide how the card draws it: `mdi:home` is an icon,
-`/local/work.png` is an image, and anything else is text. That is why a calendar
-configured in YAML opens with the right control already selected, without a `label_type`
-option anywhere in it.
-
-The type is only written out when the value alone would give the wrong answer — picking
-**Text or Emoji** and then typing `mdi:home`, for example, or picking **An Icon** before
-choosing one. In those cases `label_type` is stored alongside `label` and takes
-precedence over the value, so the card draws what you chose rather than what the value
-looks like.
+The editor reads the type from the value: `mdi:home` is an icon, `/local/work.png` is an
+image, and anything else is text. So a calendar configured in YAML opens with the right
+control already selected, without a `label_type` option anywhere in it. Only when the
+value alone would give the wrong answer — picking **Text or Emoji** and then typing `mdi:home`,
+for example, or picking **An Icon** before choosing one — does the editor store `label_type`
+alongside `label`, and then it takes precedence over the value.
 
 Choosing **An Icon** or **An Image** first shows an **Icon Source** or **Image Source**
 dropdown, which says where the label comes from. With **Custom icon** as the source you get
-Home Assistant's icon picker rather than a box you have to know `mdi:` to use. **An Icon**
-is also the only type for which **Label Icon Color** appears — that color does nothing unless
-the label is an icon, so it is no longer shown under every calendar.
+Home Assistant's icon picker. **Label Icon Color** appears only for **An Icon**, the only type
+it affects.
 
 ::: tip Your Choice Wins Over the Value
 Type `mdi:calendar` into the text box and the card renders it as the literal text
@@ -361,7 +380,7 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-View-specific values no longer need an exception picker. Select **List**, **Columns**, or **Grid** under
+To give one layout its own value, select **List**, **Columns**, or **Grid** under
 **Editing Settings For**, then use the ordinary controls. Their helper text says whether
 the value comes from the shared card settings, from that layout's own default, or from a
 value set for the layout.
@@ -379,19 +398,26 @@ time_grid:
 layout would use without them. They do not remove the input or clear other layouts.
 Where one mode control governs several options, its reset clears those options together.
 
-List keeps every valid explicit value in `list:`, even one equal to the shared value;
-use Reset to return to inheritance. Column and most Grid values that you edit to equal
-what the view inherits are omitted from their saved blocks. A value your YAML already holds
-stays, even when it equals what the view would inherit or default to; the view shows it as
-set for that layout and offers its Reset. Options with a
-[different grid default](/features/grid-view#options-that-start-from-a-different-default)
-stay explicit when edited back to that default; use Reset to remove the explicit value.
+::: details What Each Layout's Block Keeps
+
+- List keeps every valid explicit value in `list:`, even one equal to the shared value; use
+  Reset to return to inheritance.
+- Column and most Grid values that you edit to equal what the view inherits are omitted from
+  their saved blocks. Once omitted, they follow later All Layouts edits immediately, without
+  closing and reopening the editor.
+- Options with a
+  [different grid default](/features/grid-view#options-that-start-from-a-different-default)
+  stay explicit when edited back to that default; use Reset to remove the explicit value.
+- A value your YAML already holds stays, even when it equals what the view would inherit or
+  default to; the view shows it as set for that layout and offers its Reset.
+
+:::
 
 **→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
 
 ## 🔄 Deprecated Options
 
-Five options were removed in v3.0.0. They are **inert** — the card has not read them in three major versions — so a configuration still carrying one is not doing what it says:
+Five options were removed in v3.0.0. They are **inert**, so a configuration still carrying one is not doing what it says:
 
 | Removed                 | Use instead              |
 | ----------------------- | ------------------------ |
@@ -403,10 +429,10 @@ Five options were removed in v3.0.0. They are **inert** — the card has not rea
 
 `max_events_to_show` is also recognized on an individual entry under `entities:`.
 
-**Opening a card in the editor and saving removes them.** There is no button to press: because the options do nothing, deleting them changes no behavior, and leaving them in place only misleads whoever reads the YAML next. Their replacements are not filled in for you — the card has been running on defaults for those settings, so setting them now is a change you should make deliberately.
+**Opening a card in the editor and saving removes them.** There is no button to press, and since the options do nothing, removing them changes no behavior. Their replacements are not filled in for you: the card has been running on defaults for those settings, so setting them now is a change you should make deliberately.
 
 ::: warning YAML Is Not Migrated Automatically
-The pruning happens **only when the visual editor saves**. There is no runtime migration, so a deprecated option written directly in YAML is ignored and the card falls back to the default — it does not keep working under the old name.
+There is no runtime migration, so a deprecated option written directly in YAML is ignored and the card falls back to the default — it does not keep working under the old name.
 
-The card does tell you when this happens: each deprecated option found in your configuration is reported in the browser console, naming the current option to use in its place. Open your browser's developer tools and look for messages prefixed with `📅 Calendar Card Pro`. If you manage your card in YAML, use the current names from the [Configuration Options reference](/reference/configuration).
+Each deprecated option found in your configuration is reported in the browser console, naming the current option to use in its place. Open your browser's developer tools and look for messages prefixed with `📅 Calendar Card Pro`. If you manage your card in YAML, use the current names from the [Configuration Options reference](/reference/configuration).
 :::

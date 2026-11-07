@@ -4,12 +4,12 @@ Thank you for your interest in contributing to Calendar Card Pro! This document 
 
 ## Understanding the Codebase
 
-Before contributing code, I strongly recommend reviewing my [architecture documentation](./docs/architecture.md), which explains:
+Before contributing code, I strongly recommend reviewing my [architecture documentation](./docs/architecture.md). The overview maps the modules, states the design principles, and points to four pages beside it:
 
-- Module organization and responsibilities
-- Data flow and event handling
-- Performance optimization techniques
-- Design principles and patterns
+- [Data Loading & Caching](./docs/architecture-data.md): how events are fetched, cached and kept live, and what keeps the card fast
+- [Rendering & Views](./docs/architecture-rendering.md): how the list, column and grid layouts are drawn
+- [Interaction & Event Writes](./docs/architecture-interaction.md): gestures, actions and editing events
+- [Toolbar & Navigation](./docs/architecture-toolbar.md): the header toolbar, paging and search
 
 ## Development Environment Setup
 

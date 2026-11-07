@@ -16,17 +16,16 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor), **Card Displays** chooses the layout the card
-opens with. Select **Columns** under **Editing Settings For** to edit its presentation values
-directly, including its column-only options, without changing **Card Displays**.
+In the [visual editor](/features/editor#options-for-the-selected-view), **Card Displays**
+chooses the layout the card opens with. Select **Columns** under **Editing Settings For** to
+edit column view's own values, including its column-only options, without changing
+**Card Displays**.
 
-Column view is responsive by design. A day column has a minimum readable width, so a card
-too narrow to give every configured day that much room falls back to the list layout.
-**A card configured `view: column` therefore renders as a list on a narrow dashboard or a
-phone** — both layouts are live for the same card, and both are worth configuring. That is
-the first thing to get right, so it comes first below. Dropping columns one at a time
-instead of falling back is available, but it is opt-in: see
-[Showing Fewer Columns Instead](#showing-fewer-columns-instead).
+Column view is responsive by design: a card too narrow to give every configured day a readable
+column falls back to the list layout. **A card configured `view: column` therefore renders as a
+list on a narrow dashboard or a phone** — both layouts are live for the same card, and both are
+worth configuring. A card can instead
+[drop columns one at a time](#showing-fewer-columns-instead).
 
 ## 📱 Falling Back to the List Layout
 
@@ -50,19 +49,22 @@ more wrapping.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_list.png" alt="A seven-day column card on a phone, rendered as a list"><br>
 
-That is a seven-day column card on a phone, too narrow for its columns, so it renders as a list. Its `column:` block hides locations and tightens the type for narrow columns. Three things change with the layout, and all three are defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
+That is a seven-day column card on a phone, too narrow for its columns, so it renders as a list. Its `column:` block hides locations and tightens the type for narrow columns. Three things change with the layout, all of them defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
 
 By default the number of columns follows the column layout's `days_to_show` exactly — the
 top-level value, or its own in `column:` — and a card too narrow for all of them switches to
-the list layout rather than quietly showing fewer days than you configured. That list shows
-List's own `days_to_show`; see
+the list layout. That list shows List's own `days_to_show`; see
 [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
 
 ## 🔢 Showing Fewer Columns Instead
 
-`min_days_to_show` changes that. It is the fewest columns the card may shrink to, and it
-lets a narrow card drop days one at a time instead of abandoning the column layout
-outright:
+`min_days_to_show` lets a narrow card drop days one at a time instead of abandoning the column
+layout outright. It is the fewest columns the card may shrink to.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
+
+The same seven-day card, wide enough for five of its days. Nothing marks the two that were
+dropped, which is the point of the warning below.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -83,16 +85,11 @@ starts on Monday, three columns wide on a Wednesday, shows Wednesday to Friday; 
 it shows Friday to Sunday. A range that lies entirely ahead keeps its first days, and one
 that lies entirely behind keeps its last. The columns move on at midnight.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
-
-Same card again, wide enough for five of its seven days. Nothing marks the two that were
-dropped, which is the point of the warning below.
-
 ::: warning Days You Configured Can Disappear
 A card showing four of seven days looks exactly like a card configured for four days — there
-is no marker saying days were dropped. That is why `min_days_to_show` defaults to
-`days_to_show`, which switches the behavior off: reducing columns is opt-in, not something
-that happens to a config you already had.
+is no marker saying days were dropped. So `min_days_to_show` defaults to `days_to_show`, which
+switches the behavior off: reducing columns is opt-in, not something that happens to a config
+you already had.
 :::
 
 ## ⚠️ When Even the Fewest Columns Will Not Fit
@@ -115,7 +112,7 @@ produce a card too cramped to read; that is the trade.
 
 ## 🎛️ Overriding Options in Column View
 
-A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value, with two deliberate exceptions covered in [Options That Start From a Different Default](#options-that-start-from-a-different-default).
+A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value, with two exceptions covered in [Options That Start From a Different Default](#options-that-start-from-a-different-default).
 
 ```yaml
 show_location: true
@@ -135,9 +132,9 @@ column:
 
 What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
 
-The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
+The block covers the card's dimensions too: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
 
-[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view, because it needs a wide event row and the default column width of about 140px is not a good fit for it. It puts the time on the title's line on every row with a time or a countdown, and in about 145px columns that left the title about 50px, a word or so at a time, while a time with a countdown took two to six lines. About 280px columns left the title about 100px. [Time Beside the Title](/features/event-content#time-beside-the-title) has the details. To leave the columns exactly as they are, set it in `list:` alone.
+[`time_position: title`](/features/event-content#time-beside-the-title) is another option worth setting per view, because it needs a wide event row and the default column width of about 140px is not a good fit for it. There it leaves the title a word or so per line, and a time with a countdown can take several lines; the warning in [Time Beside the Title](/features/event-content#time-beside-the-title) gives the widths it needs. To leave the columns exactly as they are, set it in `list:` alone.
 
 ## 🔀 Options That Start From a Different Default
 
@@ -148,7 +145,7 @@ Two options mean something different once days sit side by side, so column view 
 | `show_empty_days`       | boolean | `false` | `true`         |
 | `split_multiday_events` | boolean | `false` | `true`         |
 
-A list of events reads perfectly well with the blank days left out. A row of day columns does not: drop the empty ones and the columns stop corresponding to consecutive days, so the card quietly becomes something other than it appears. The same reasoning applies to a multi-day event — a column _is_ a day, so an event spanning three of them belongs in all three.
+With both on, the columns are consecutive days, empty or not, and an event spanning three days appears in all three.
 
 These two do **not** inherit the top-level value at all. Setting `show_empty_days: false` at the top level changes the list layout only; column view keeps showing empty days. The way to change it for columns is the block:
 
@@ -168,24 +165,12 @@ overrides it. Grid substitutes `true` for both options. The editor guide include
 
 ## 🚫 Options That Cannot Be Overridden
 
-These options decide _which_ events the card loads, so they must hold the same value in all three layouts and are ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level:
+Some options act on the card as a whole, so they hold one value in all three layouts and are
+ignored inside `list:`, `column:` or `time_grid:`. Set them at the top level.
+
+Which events the card loads:
 
 `entities` · `start_date` · `first_day_of_week` · `weather` · `refresh_interval` · `refresh_on_navigate`
-
-`days_to_show` also decides what is loaded, yet each layout may set its own: the card loads the longest count among the layouts it can show, and each draws the first of those days. See [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
-
-`show_past_events` and `filter_duplicates` sound like they belong in that list and do not. Both filter events the card has already loaded, so they can differ per view — and often want to, because a column is a narrow space where a finished event or a second copy of the same meeting costs more than it does in a full-width row:
-
-```yaml
-view: column
-show_past_events: true
-filter_duplicates: false
-column:
-  show_past_events: false # a column is too narrow to spend on what is over
-  filter_duplicates: true # and too narrow to show the same meeting twice
-```
-
-These act on the card as a whole, so they cannot go in a view block either: written inside one, they are ignored in the same way. Set them at the top level too.
 
 Its actions and its toolbar:
 
@@ -200,6 +185,26 @@ Which class of event it keeps, and whether it hides when there is nothing to sho
 `event_type` · `hide_when_empty`
 
 An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
+
+Three options sound as though they belong in the first list, and do not:
+
+- **`days_to_show`** also decides what is loaded, yet each layout may set its own: the card
+  loads the longest count among the layouts it can show, and each draws the first of those
+  days. See
+  [Showing a Different Number of Days in Each Layout](/features/core-settings#showing-a-different-number-of-days-in-each-layout).
+- **`show_past_events`** and **`filter_duplicates`** filter events the card has already loaded,
+  so they can differ per view — and often want to, because a column is a narrow space where a
+  finished event or a second copy of the same meeting costs more than it does in a full-width
+  row:
+
+```yaml
+view: column
+show_past_events: true
+filter_duplicates: false
+column:
+  show_past_events: false # a column is too narrow to spend on what is over
+  filter_duplicates: true # and too narrow to show the same meeting twice
+```
 
 ## 💤 Options That Do Nothing in Column View
 
@@ -219,10 +224,9 @@ uses neither the position nor the size: it sits on the day number itself, and ev
 column's date keeps the tile's height so the headers stay level.
 
 **`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
-belong to compact mode, which caps the whole card rather than each column. A cap of three
-would truncate the grid after the third event and leave the remaining columns blank.
-Column density is controlled by [`min_days_to_show` and
-`min_days_fallback`](#showing-fewer-columns-instead) instead.
+belong to compact mode, which caps the whole card rather than each column. Column density is
+controlled by [`min_days_to_show` and `min_days_fallback`](#showing-fewer-columns-instead)
+instead.
 
 ::: tip Hidden When Editing Column View
 The editor omits these controls in the Columns workspace, including the per-calendar compact
@@ -237,17 +241,16 @@ See [Options for the Selected View](/features/editor#options-for-the-selected-vi
 
 A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started, a bar means it is running now — so column view places each one differently.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
+
+The running event on the left carries the bar on its own row, and every later event carries a
+countdown after its time.
+
 **The countdown stays on the time row**, following the time and separated from it by a middot:
 
 ```
 🕐 09:30 – 11:00 · in 2 days
 ```
-
-In a column too narrow to hold it, the whole phrase wraps as ordinary running text and continues under the time. The middot stays at the end of a line and never starts one. The countdown's words are not hyphenated: a word that does not fit at the end of a line moves whole to the next one, and only a word wider than the column itself is split. Beside an [all-day pill](/features/event-content#where-the-pill-goes) on the time row, a countdown that cannot share the pill's line moves under the pill, and the middot stays after it.
-
-::: tip Icon Alignment
-Because the time can now occupy two lines, `event_icon_vertical_alignment` decides where the clock sits against it. The default `top` lines the icon up with the first line; `middle` centers it against the whole wrapped block. See [Spacing & Alignment](/features/layout-appearance#spacing-alignment).
-:::
 
 **The progress bar takes a row of its own**, directly under the event title and above the time, spanning 80% of the column. Give it a different width with `progress_bar_width`, for both layouts at once or for columns only:
 
@@ -262,13 +265,21 @@ Left unset entirely, each layout keeps the width that suits it — which is usua
 
 With [`time_position: title`](/features/event-content#time-beside-the-title) the time sits on the title's line, so the bar's row comes directly under both.
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
+::: details When the Countdown Wraps
 
-Both are visible above: the running event on the left carries the bar on its own row, and
-every later event carries a countdown after its time. No event has both, because no event
-can be running and still to come. That card also turns on the
-[toolbar](/features/layout-appearance#header-toolbar), with its calendar filter, add, the
-layout switcher and paging, and opens an event's details on a tap.
+- In a column too narrow to hold it, the whole phrase wraps as ordinary running text and
+  continues under the time. The middot stays at the end of a line and never starts one.
+- The countdown's words are not hyphenated: a word that does not fit at the end of a line moves
+  whole to the next one, and only a word wider than the column itself is split.
+- Beside an [all-day pill](/features/event-content#where-the-pill-goes) on the time row, a
+  countdown that cannot share the pill's line moves under the pill, and the middot stays after
+  it.
+- With the time on two lines, `event_icon_vertical_alignment` decides where the clock sits
+  against it. The default `top` lines the icon up with the first line; `middle` centers it
+  against the whole wrapped block. See
+  [Spacing & Alignment](/features/layout-appearance#spacing-alignment).
+
+:::
 
 ## ↔️ Spacing Between Days
 
@@ -281,11 +292,10 @@ days_to_show: 5
 day_spacing: 16px
 ```
 
-It takes a per-view value like any other option, which is worth reaching for here more
-often than elsewhere. The gap between two columns is the only thing separating one day's
-events from the next, so it carries more weight than the same number does in a list —
-widen it first if two columns read as one block. It is also the option that costs the
-most, because every gap comes out of the width the columns themselves have to share.
+It takes a per-view value like any other option, which is worth reaching for here. The gap
+between two columns is the only thing separating one day's events from the next, so widen it
+first if two columns read as one block. It is also the option that costs the most, because
+every gap comes out of the width the columns themselves have to share.
 
 ```yaml
 day_spacing: 10px
@@ -305,9 +315,15 @@ column:
 
 ## 📐 Spacing Options That Only Exist in Column View
 
-A few things have no meaning in a list. A column layout needs a gap under each day
-header, and a rule that can run under that header rather than between days. Those
-options live inside `column:` and have no top-level counterpart.
+A column layout can set the gap under each day header and draw a rule under that header,
+neither of which a list has. Those options live inside `column:` and have no top-level
+counterpart.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_styling.png" alt="A column card with a wider header rule, per-calendar accent colors and event backgrounds"><br>
+
+A 2px header rule in the primary color and a wider `day_header_gap`, with per-calendar
+`accent_color` and `event_background_opacity`, which are ordinary options that apply in both
+layouts.
 
 | Option                       | Type   | Default                | Description                                                                      |
 | ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
@@ -324,20 +340,18 @@ column:
   day_header_separator_color: var(--primary-color)
 ```
 
-The header rule starts switched **off**. `day_header_gap` supplies the space under the
-header on its own, so switching the rule on centers it inside that space rather than adding
-to it and the layout does not shift.
+Each day draws its own rule inside its own header, so the gaps between columns break it into
+one short line per day. In `time_grid:` the same two options draw one line under grid view's
+whole date row instead, and only while there is an all-day band under it; see
+[Grid Lines](/features/grid-view#grid-lines).
+
+The header rule starts switched **off**. Switching it on centers it inside the space
+`day_header_gap` already supplies rather than adding to it, so the layout does not shift.
 
 ::: tip Turning the Rule Off
 Set `day_header_separator_width: 0px` rather than reaching for a transparent color — at
 `0px` the card omits the element entirely, while a transparent rule still takes up height.
 :::
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_styling.png" alt="A column card with a wider header rule, per-calendar accent colors and event backgrounds"><br>
-
-That card pairs the two options above — a 2px header rule in the primary color and a wider
-`day_header_gap` — with per-calendar `accent_color` and `event_background_opacity`, which
-are ordinary options that apply in both layouts.
 
 The `column:` block and every option inside it are listed under [Column-Only Options in the
 configuration reference](/reference/configuration#column-only-options).

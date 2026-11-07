@@ -646,7 +646,7 @@ routinely — **13 of its 116 commits, naming exactly the 13 issues that closed*
 `dev` merged to `main`. A session that had just read the old wording went to close 24
 issues and found 13 of them already done.
 
-**That does not retire step 7.** An auto-close is _silent_: the requester gets a bare state
+**That does not retire step 8.** An auto-close is _silent_: the requester gets a bare state
 change with no comment naming the release or linking the docs, which is the one thing the
 step exists to provide. So it changes shape instead — **comment on every issue in _Related
 Issues_, and close only those still open.** Do not reopen an auto-closed one to close it
@@ -655,7 +655,7 @@ Issues_, and close only those still open.** Do not reopen an auto-closed one to 
 The audit still matters too, because **the auto-closed set is whatever somebody remembered
 to write a keyword for, which is not the set the release resolved.** In v4.1.0 the two
 differed by 11 — 24 resolved, 13 carrying a keyword. Both directions cost something: an
-issue the release resolved but no keyword named stays open until step 7 finds it, and an
+issue the release resolved but no keyword named stays open until step 8 finds it, and an
 issue a keyword closed but _Related Issues_ never listed is closed silently and never gets
 a comment at all. The second is the easier one to miss, because reading the open list
 cannot show it. Enumerate the keyword set directly and reconcile it against the notes:
@@ -666,7 +666,7 @@ git log <previous-tag>..<tag> --format=%B \
   | grep -oE '[0-9]+' | sort -un
 ```
 
-See step 7 of _Release process_; v4.0.0 shipped with six resolved requests still open, the
+See step 8 of _Release process_; v4.0.0 shipped with six resolved requests still open, the
 column-view epic among them.
 
 ### `dev` must never fall behind `main`
@@ -911,6 +911,29 @@ one is on you — it is too ambiguous to check without false positives.
 **Every page opens with prose.** An h1 followed straight by an h2 puts a configuration
 table in front of the reader before they know what the page is for. One or two sentences.
 
+**A section shows what it is for before it explains how.** In this order:
+
+1. One or two sentences: what it does and what it is good for, naming the option.
+2. The clip or picture, if the section has one.
+3. The smallest YAML that turns it on, and its option table.
+4. What a user needs to use it well, in short paragraphs or bullets: each fact once per
+   page, linking to its home elsewhere.
+5. Edge cases a user may still hit, last, in a `::: details` box titled for what is inside.
+
+Design rationale, mechanism, history and pixel arithmetic do not go on a user page at all.
+They belong in the commit message, the architecture pages, or nowhere. A typical h3 fits on
+one screen before its details box; too short fails too, so a section an anchor visitor cannot
+act on (no default, no accepted values) gets expanded. Before v5.1 shipped, every page was
+rewritten to this shape: sections had grown to a thousand words, with the clip after five
+hundred of them. Check 34 enforces the part a script can see: a section's first clip or
+picture comes within its first 80 prose words, and a clip comes before the section's first
+code block. A picture may follow its YAML when it shows what the YAML makes.
+
+**Trim by deleting explanation, never facts.** The first draft of every trimmed section in
+that rewrite lost something a user needed: an explicit default, the example that taught a
+rule, a second way to cancel, what takes a thing's place when it is absent. Have each trimmed
+page compared against its original by a reviewer who was not told what was cut.
+
 **Callouts are titled VitePress containers** (`::: tip Title`), never GitHub alerts
 (`> [!TIP]`) and never a bare bold blockquote. GitHub alert syntax renders as a plain
 blockquote on the docs site — it only works in files GitHub itself renders, i.e.
@@ -1024,29 +1047,37 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    already pushed. So step 1 and step 2 are now a single commit whether you like it or
    not; bumping the version alone fails the PR.
 
-3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
+3. **Review every Example Story against the release's new features.** The stories show what
+   the card can do for one audience each, so a new feature belongs in a story only where it
+   means something there, and leaving it out is as valid an answer as adding it. Go through the
+   stories one at a time and decide, for each feature the release adds, to add it or leave it
+   out, with a reason. Record the result in the release PR body, one short list per story. A
+   story that gains a feature changes its YAML, prose and stills in a PR into `dev` before the
+   release PR opens.
+
+4. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
 
    **This merge is also the docs deploy.** The moment it lands, the site and the README
    advertise the new version and — since the two-file split — tell manual installers to
    download both files "from the latest release", while `releases/latest` still resolves
-   to the _previous_ release, which carries only one of them. Steps 3–6 are therefore one
+   to the _previous_ release, which carries only one of them. Steps 4–7 are therefore one
    operation rather than a merge now and a publish when convenient: the gap between them
    is a window in which the published install instructions describe a release that does
    not exist yet.
 
-4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
-   commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
+5. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
+   commit from step 4 exists only on `main`; without this, `dev` starts the next cycle a
    commit behind. See _`dev` must never fall behind `main`_.
-5. Tag `main` with `vX.Y.Z` and push the tag. It has to be `main`: the workflow triggers
+6. Tag `main` with `vX.Y.Z` and push the tag. It has to be `main`: the workflow triggers
    on any `v*` tag, so it now refuses to build unless the tagged commit is an ancestor of
    `origin/main`. Tagging `dev` — which carries the same bumped version and therefore
    passes the tag/`package.json` check — would otherwise have produced a complete,
    publishable draft release built from code that never went through the release PR.
-6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
+7. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
    attaches `dist/*.js` and nothing else — since the two-file split that is **both**
    `calendar-card-pro.js` and `editor.js`. Publish it manually.
-7. **Answer the issues the release resolved.** The merge to `main` closes whichever ones a
+8. **Answer the issues the release resolved.** The merge to `main` closes whichever ones a
    commit message named with a closing keyword, and leaves every other one open — see
    _Branch model_. So part of this now happens for you, silently, and the part that
    matters does not. v4.0.0 shipped with six still open, including the epic it was named
@@ -1079,10 +1110,13 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    read at release time _as a close-list_, so the two mistakes it can produce are opposite
    and both silent: an issue left out is forgotten, and an issue left in is closed on a
    request the release only partly answered. Neither is visible afterwards, because a
-   wrongly-closed issue looks exactly like a correctly-closed one. Write **do not close**
-   in the entry and say which half shipped — #251 asked for all-day _and_ multi-day
+   wrongly-closed issue looks exactly like a correctly-closed one. End the entry with "so it
+   **stays open**" and say which half shipped — #251 asked for all-day _and_ multi-day
    filtering and got the first, and would otherwise have been closed by anyone working
-   the list mechanically.
+   the list mechanically. The list is published, so write it for the reader: what shipped
+   and what did not, never what to do with the issue. Until v5.1 entries read "**do not
+   close**" and "Already closed, so comment only", which put the maintainer's checklist on the
+   docs site; whether an issue is already closed is `gh`'s to say, not the notes'.
 
    🚨 **Write the audit's own reasoning without live issue references, because a mention is
    indistinguishable from a promise.** The v4.1.0 release PR recorded which open requests had
@@ -1918,10 +1952,15 @@ nowhere near the backtick. Write property names bare in CSS comments.
 
 ## Reference
 
-- [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
-  caching and performance design. Read before making structural changes. Its _Three Views,
-  One Agenda_ and _Two Files, One Card_ sections are the current description of the view
-  split and the two-bundle build.
+- [`docs/architecture.md`](./docs/architecture.md) — the overview: module map, the view
+  split, the two-bundle build and a task map into the four pages beside it,
+  [`architecture-data.md`](./docs/architecture-data.md) (loading and caching),
+  [`architecture-rendering.md`](./docs/architecture-rendering.md) (rendering and views),
+  [`architecture-interaction.md`](./docs/architecture-interaction.md) (gestures, actions and
+  event writes) and [`architecture-toolbar.md`](./docs/architecture-toolbar.md) (toolbar and
+  navigation). Read before making structural changes. The overview's _Three Views, One
+  Agenda_ and _Two Files, One Card_ sections are the current description of the view split
+  and the two-bundle build.
 - [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,
   which options it overrides per view, and which it deliberately ignores. Read before
   touching the rendering pipeline, the view dispatch, or any view-dependent config key.

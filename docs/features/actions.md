@@ -1,222 +1,144 @@
 # Actions & Interactions
 
-Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL — and let a tap or a hold on an event open its details, where it can be edited or deleted. A button in the card's header adds new events, and so can a tap on a day or a hold anywhere on the card.
+Calendar Card Pro lets you add, open and change events from the dashboard. With the toolbar shown, a button in the card's header adds an event, and so does a tap on a day with `day_tap_action: add-event`; with `event_tap_action: details`, a tap on an event opens it in the card's popover, where you can edit or delete it. Further down are links in events, your own tap and hold actions, and a compact card that expands when tapped.
 
-## 🔄 Expandable Calendar Card
+Whether a calendar's events can be added, changed or deleted is decided by the integration it comes from, not by the card: a Local Calendar allows all three, a subscribed holiday feed none. See [What Each Integration Allows](#what-each-integration-allows).
 
-One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded mode:
-
-```yaml
-list:
-  # Limit events in compact mode
-  compact_events_to_show: 5
-
-# Enable expand/collapse with tap
-tap_action:
-  action: expand
-```
-
-When a `compact_events_to_show` limit is set, the card displays that number of events initially. The `expand` action then allows users to toggle between this compact mode and the full set of events. Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show.
-
-::: warning List View Only
-The whole compact family is inert while the card is rendering as column or grid —
-`compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
-`compact_events_complete_days`, and the `expand` action that drives them. A side-by-side
-card with `tap_action: expand` has nothing visible to change until the layout is a list.
-
-This is deliberate rather than an omission. Compact mode caps events **across the card**,
-not per day, so a limit of three would fill the first day columns and leave every later one
-empty — the layout would stop corresponding to consecutive days, which is the one thing a
-side-by-side view has to get right.
-
-Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
+::: tip Nothing Opens While You Edit
+In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` work there as always, except `add-event`, `reset` and `back`, which do nothing and offer no tap or hold.
 :::
 
-When using expansion with both global and per-calendar limits:
+## ➕ Add Event Button
 
-- In compact mode: Both global and per-calendar limits are enforced
-- In expanded mode: **every** compact limit is removed — the card-wide caps **and** each calendar's own `compact_events_to_show`. What remains is the ordinary `days_to_show` window
-- The expand/collapse state persists until manually toggled, the page is reloaded, or the toolbar's [reset button](/features/layout-appearance#resetting-the-card) is pressed
-
-**Example scenario**: If you have a configuration like this:
+The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. Show the [header toolbar](/features/layout-appearance#header-toolbar) and the button is in it, at the start of its top row after the calendar filter, whenever one of the card's calendars [accepts new events](#what-each-integration-allows):
 
 ```yaml
+type: custom:calendar-card-pro
+title: Family
 entities:
-  - entity: calendar.family
-    # No limit for family calendar
-  - entity: calendar.work
-    compact_events_to_show: 2
-    # At most 2 work events while compact
-  - entity: calendar.holidays
-    compact_events_to_show: 1
-    # At most 1 holiday event while compact
-list:
-  compact_events_to_show: 4
-  # Show at most 4 events total in compact mode
-
-tap_action:
-  action: expand
+  - calendar.anna
+  - calendar.holidays
+toolbar:
+  show: true
 ```
 
-In compact mode, you'll see at most 4 events total, with work showing at most 2 and holidays showing at most 1.
-In expanded mode after tapping, those caps are all gone: every family, work and holiday event inside `days_to_show` is visible.
+The button is `toolbar → add_event`, on by default once the toolbar is shown; set it to `false` for a toolbar without it. It is a plus icon with Home Assistant's own "Add event" as its tooltip and its name for screen readers, and it opens the [event popover](#the-event-popover) on a new, empty event, ready for a title.
 
-## 👆 Custom Tap & Hold Actions
+- **Adding.** Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back. Before that you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
+- **Not adding.** Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out.
+- **The calendar** is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides all of them, the first is chosen anyway. On a card with only one, the popover names it.
+- **The time** is on the hour, for an hour: today at the current hour when the days on screen include today, and otherwise the start of the first of them, so a card looking at next week, or paged to it, does not suggest today.
 
-Calendar Card Pro supports all standard Home Assistant actions:
-
-```yaml
-# Navigate to another view on tap
-tap_action:
-  action: navigate
-  navigation_path: /lovelace/calendar
-
-# Open a URL on long press
-hold_action:
-  action: url
-  url_path: https://calendar.google.com
-```
-
-### Available Actions
-
-Calendar Card Pro handles five actions itself — `expand`, `refresh`, `add-event`, `reset` and `back` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
-
-The commonly used ones:
-
-| Action Type                       | Description                                                                  | Additional Parameters                                                                |
-| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `expand`                          | Toggle between compact and full calendar view                                | None                                                                                 |
-| `refresh`                         | Load the events again now                                                    | None                                                                                 |
-| `add-event`                       | Add an event on the day you pressed                                          | None                                                                                 |
-| `reset`                           | Undo this device's choices, as the reset button does                         | None                                                                                 |
-| `back`                            | Go back to the page before this one, as Home Assistant's own back arrow does | `navigation_path` (optional, YAML only): where to go when no page is behind this one |
-| `more-info`                       | Open the Home Assistant entity dialog                                        | `entity` (optional): which entity; see below                                         |
-| `navigate`                        | Go to another Lovelace view                                                  | `navigation_path: /lovelace/view`                                                    |
-| `url`                             | Open external URL or internal page                                           | `url_path: https://example.com`                                                      |
-| `perform-action` / `call-service` | Call any Home Assistant action (service)                                     | `perform_action: domain.service`, `data`, `target`                                   |
-| `toggle`                          | Toggle the target entity                                                     | None                                                                                 |
-| `assist`                          | Open the Assist dialog                                                       | None                                                                                 |
-| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others)                            | Any additional keys are passed through                                               |
-| `none`                            | Disable the action                                                           | None                                                                                 |
-
-::: tip Both Action Names Work
-Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations. The same goes for its keys: the older `service` and `service_data` still work in place of `perform_action` and `data`.
+::: tip Pressing the Button Is Not a Tap on the Card
+The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users keep the card's own `tap_action` too: Tab to the card itself and press Enter, as [beside tappable events](#where-you-can-tap).
 :::
 
-::: info Tap & Hold Act on the Whole Card
-`tap_action` and `hold_action` belong to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
-
-```yaml
-tap_action:
-  action: more-info
-  entity: calendar.family
-```
-
-To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-event): its `more-info` opens the calendar of that event, and its other actions can [use the event's title and times](#using-the-events-fields-in-an-action).
+::: warning Hidden With the Card
+`hide_when_empty` still hides the whole card when there is nothing to show on the days it opens with, button included. Leave it off on a card you rely on for adding events.
 :::
 
-::: tip The Editor Lists These; YAML Accepts More
-The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. Home Assistant builds that dropdown from a single list rather than merging one, so naming the card's own means naming the rest — which is why an action Home Assistant adds in a future release may not appear there straight away. It still works if you write it in YAML, exactly as `fire-dom-event` always has.
+::: details More About the Add Button
+
+- The days on screen count whether or not the card draws a row for today: a collapsed compact card that shows only the days before it, or an empty today that `show_empty_days: false` leaves out, still suggests today.
+- Where Home Assistant has no words for "Add event" in your language, screen readers hear it in English and the button shows no tooltip.
+
 :::
 
-Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
+## 📆 Tapping a Day to Add an Event
 
-A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`. A tap on an event, or on a day that adds one, shows a wash over what you pressed instead, and the ripple stays still for the whole press, including the moment the popover opens. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue. Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset`, `back` and `details` have none.
-
-### Refreshing From a Tap or Hold
-
-`refresh` loads the card's events again now, as the toolbar's
-[refresh button](/features/layout-appearance#refreshing-the-events) does, rather than at the next
-`refresh_interval`. On a wall tablet a hold is a good place for it, out of the way of everyday
-taps:
+A tap on a day can add an event on it, so a new event starts on the right day without picking a date. Set `day_tap_action` to `add-event`, and a tap where a day shows no event opens a new event on that day in the [event popover](#the-event-popover).
 
 ```yaml
-hold_action:
-  action: refresh
-```
-
-It asks Home Assistant for every calendar on the card, even when the events it holds are recent,
-and shows that it did as the button does: the small spinner in the card's corner turns for at
-least one full turn, then gives way to a green check for a moment, or a red alert where a calendar
-could not be loaded. On a card that has the refresh button, the button shows it instead. A second
-tap or hold does nothing until that is over. Unlike the toolbar's controls it is not paused while
-you edit the card, any more than the card's other actions are.
-
-### Adding an Event From a Tap or Hold
-
-`add-event` opens a new event in the [event popover](#the-event-popover), as the
-[add button](#add-event-button) does, and starts it on the day you pressed. On a wall tablet, a
-hold is a good place for it:
-
-```yaml
-hold_action:
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+  - calendar.holidays
+day_tap_action:
   action: add-event
 ```
 
-A hold on a day starts the event on that day, and one on an event starts it on the event's day; in
-[grid view](/features/grid-view) it starts at the quarter hour under your finger, and one in the
-all-day band adds an all-day event. Anywhere without a day,
-such as the title, it starts on the date the add button uses. The day, the hour and the calendar
-it opens with follow [the rules for tapping a day](#which-day-hour-calendar). It needs a calendar
-that [accepts new events](#what-each-integration-allows); on a card with none, and while you edit
-the card, it does nothing, and the card offers no hold or tap for it.
+Left at `none`, the default, a tap on a day is a tap on the card and runs `tap_action`. Any other
+value reads as `none`. The visual editor's Day Tap Action dropdown offers Nothing and Add Event.
+Like the add button, it needs a calendar that [accepts new events](#what-each-integration-allows).
 
-To add with a tap on a day while a tap elsewhere on the card does something else, use
-[`day_tap_action`](#tapping-a-day-to-add-an-event) instead.
+### Where You Can Tap a Day
 
-### Resetting From a Tap or Hold
+Wherever a day shows no event, in all three layouts:
 
-`reset` does what the toolbar's [reset button](/features/layout-appearance#resetting-the-card)
-does: it brings back the days the card opens with, its configured `view` and every calendar,
-collapses a compact card, and forgets the layout and calendars this device chose. It works with
-or without the button, so a card shared on a wall tablet can keep its toolbar short and still be
-put back with a hold:
+- **List view:** the day's date, its "No events" line, and the space between its events.
+- **Column view:** the day's header, and the empty space under its events.
+- **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
+  quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
+  all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
 
-```yaml
-hold_action:
-  action: reset
-```
+A tap on an event never adds: the tap is the event's when it has an `event_tap_action`, and the
+card's otherwise. Nor do a grid's `+N` block, which stands for several events, the week numbers,
+the separators between days, the grid's time axis, the title or the
+[header toolbar](/features/layout-appearance#header-toolbar): a tap on the title still runs
+`tap_action`, and the toolbar's controls keep their own.
 
-Where the card already shows how it is set up, it does nothing. It is an action only on a card
-with something it could undo: a toolbar with the date navigation, the view switcher or the
-calendar filter, or an `expand` action. On any other card, and while you edit the card, the card
-offers no tap or hold for it. On a card that has the reset button, the button shows its check
-after a reset, as after a press.
+A tap has to stay put. A press that moves is a scroll, or a
+[swipe](/features/layout-appearance#paging-through-dates), and adds nothing; a hold on a day runs
+`hold_action`, except in a grid's time area and all-day band, where it
+[draws a new event](#drawing-an-event-in-grid-view).
 
-### Going Back From a Tap or Hold
+### Which Day, Hour & Calendar
 
-`back` goes back to the page you came from, as the arrow in Home Assistant's own header does. On
-a view opened from another dashboard, a tap returns there:
+The new event starts on the day you tapped, at the hour it is now: a tap on today opens at the
+current hour, as the add button does, and a tap on another day at the same hour that day. In
+grid view a tap in the time grid starts at the quarter hour you tapped instead, rounded down,
+whatever `slot_minutes` the grid draws its lines at, and a tap in the all-day band adds an
+all-day event on that day. A timed one lasts an hour. That is only a starting point: the popover
+lets you change the start, the end and All day before you close it.
 
-```yaml
-tap_action:
-  action: back
-```
+The calendar is the one [the add button](#add-event-button) would preselect: the first in
+`entities` that accepts new events and that the calendar filter shows.
 
-It goes back only to a page Home Assistant itself opened this one from. Where there is none, as
-in a new tab, a bookmark, the first page a wall tablet shows, or the Home Assistant app opened
-straight on this view, it shows the first view of this dashboard instead, in place of the page
-you are on. Give it a `navigation_path` to go somewhere else then:
+### Drawing an Event in Grid View
 
-```yaml
-hold_action:
-  action: back
-  navigation_path: /lovelace/home
-```
+In [grid view](/features/grid-view), `day_tap_action: add-event` also lets you draw a new event,
+as in a calendar app: hold an empty spot, drag to set its start and end, and let go to give it a
+title. There is no option of its own.
 
-`back` never leaves Home Assistant and never goes back to its login page. The visual editor
-offers it as Go Back; `navigation_path` is YAML only, since Home Assistant's action editor shows
-no fields for an action it does not know. While you edit the card it does nothing, and the card
-offers no tap or hold for it. A [button of your own](/features/layout-appearance#your-own-buttons)
-in the toolbar can run it too.
+<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_draw.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A finger holds an empty spot on Wednesday at 14:15 until a New event block appears, drags its end down to 15:30 and lets go; the popover opens beside the block, Playground is typed as the title and Add saves it"></video><br>
 
-::: info How the Card Knows
-Home Assistant marks every page it opens from another of its own, and the card reads that mark to
-tell such a page from a new tab or a bookmark. The mark is Home Assistant's own rather than a
-documented interface, so a future release could change it. If it does, `back` always takes the
-second path above: it shows this dashboard rather than going back, and still never leaves Home
-Assistant.
+- **On a phone or tablet,** hold an empty spot of the time grid for half a second, until a block
+  appears, then drag. The page does not scroll while you do.
+- **With a mouse,** press and drag at once.
+
+The block starts as an hour from the quarter hour you pressed. Drag down to move its end, up to
+move its start, or sideways to run it across days, in quarter-hour steps. It looks as the event
+will once saved, in its calendar's colors. Let go and the popover opens beside it with those
+times, ready for a title; the block follows what you change there. Escape throws it away, while
+you draw or once the popover is open, and so does Cancel.
+
+**All-day events** are drawn the same way in the all-day band, sideways for several days. The
+band is there whenever the days shown hold an all-day event. On other days, tap the time grid
+and switch on **All day** in the popover instead.
+
+A hold on an empty spot of the grid draws even where the card has a `hold_action`. A hold
+anywhere else, on an event included, still runs that action.
+
+::: details More About Drawing
+
+- The block is titled New event, in the calendar the popover will offer, with that calendar's
+  colors, accent bar, text and time. It takes the title as you type it, moves when you change
+  the times, and takes on the calendar you pick. After a save it stays until the card shows the
+  real event a moment later. A tap in the grid shows the hour it adds the same way.
+- On a touch screen, a second finger on the screen also throws a block away, and so does the
+  card turning to other days while you draw.
+- An all-day block is a banner across its days, beside the all-day events or in a row of its own
+  below them. Switching on All day for a tapped event opens the band for one row, which closes
+  again if you switch All day off or cancel.
+- Nothing is drawn while the card is being edited.
+
 :::
+
+### From the Keyboard
+
+While `day_tap_action` adds events, each day's date in list view, and each day's header in column
+and grid view, is a button named with Home Assistant's own "Add event" and described by its
+date. Tab to it and press Enter or Space to add on that day, at the hour it is now.
 
 ## 🗒️ Tapping an Event
 
@@ -242,10 +164,10 @@ The title, location and description read as they do on the card, with the calend
 ::: warning What the Popover Reveals
 Two things go further than the card itself:
 
-- **The location and the description always show**, even where the card hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks.
+- **The location and the description show**, even where the card or a view hides them with `show_location: false` or `show_description: false`, and in grid view, which leaves locations off its blocks.
 - **Editing a field shows it as the calendar stores it**, because that is what a save writes. Tap into a masked title and the real one appears.
 
-On a card whose replacements exist to keep something private, set `allow_event_edit: false`. Where a hidden location or description must stay hidden too, leave `details` off that card.
+On a card whose replacements exist to keep something private, set `allow_event_edit: false`. Where a location or description must stay hidden in the popover too, set `show_location: false` or `show_description: false` on that calendar itself; see [Narrowing What the Popover Offers](#narrowing-what-the-popover-offers).
 :::
 
 ### Where You Can Tap
@@ -260,8 +182,8 @@ Keyboard users reach each event with Tab and open it with Enter or Space, and sc
 With `event_tap_action: details`, tapping an event opens it and does **not** run the card's `tap_action`, which still runs for a tap anywhere else on the card, such as the title or a day's date, though never for one on a [header toolbar](/features/layout-appearance#header-toolbar) control: the space between the toolbar's controls is the card's. A hold is the card's: holding an event runs `hold_action`, exactly as holding anywhere else does, unless you [give events a hold of their own](#holding-an-event). In list view events fill most of the card, so if you also use `tap_action: expand`, tap a day's date or the card title to expand it.
 :::
 
-::: info The Card Stays on the Keyboard
-A button cannot hold other buttons, so while its events are buttons the card stops announcing itself as one. Its `tap_action` moves to a button of its own instead, the first stop in the card's Tab order: focused, it rings the card, and Enter or Space runs the `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. Screen readers announce it by the action's name where the card has a button for that action (Refresh, Reset, Back, Add event), and by the card's title otherwise, or its first calendar's name where it has no title. For `expand`, they also say whether the card is expanded. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) or a link in an event is shown. A card with nothing inside it to press, such as one showing only "No events", stays a button itself, as before.
+::: details The Card's Own Tap From the Keyboard
+While its events are buttons, the card no longer announces itself as one. Its `tap_action` moves to a button of its own instead, the first stop in the card's Tab order: focused, it rings the card, and Enter or Space runs the `tap_action`, so a card whose `tap_action` is `expand` still expands from the keyboard. Screen readers announce it by the action's name where the card has a button for that action (Refresh, Reset, Back, Add event), and by the card's title otherwise, or its first calendar's name where it has no title. For `expand`, they also say whether the card is expanded. The same holds while the [header toolbar](/features/layout-appearance#header-toolbar) or a link in an event is shown. A card with nothing inside it to press, such as one showing only "No events", stays a button itself.
 :::
 
 ### Holding an Event
@@ -346,45 +268,9 @@ event_hold_action:
 action names an `entity` of its own. In the visual editor, the URL, path and data fields of the
 Event Tap Action and Event Hold Action dropdowns take field names in braces as YAML does.
 
-## 🔗 Links in Events
-
-A web address in an event's location or description, such as a video call or a booking page, can
-be a link you tap. Set `open_links` to `true`, and every `http` or `https` address in a row
-becomes one, opening in a new tab:
-
-```yaml
-type: custom:calendar-card-pro
-entities:
-  - calendar.anna
-show_description: true
-open_links: true
-```
-
-A link a calendar wrote into a description as HTML, as Google Calendar does, keeps its words.
-Where the calendar's [text replacement](/features/core-settings#text-replacement) or a
-[birthday marker](/features/event-content#birthday-ages-anniversary-counts) rewrote the description, only the
-addresses written out in it are links. Only `http` and `https` addresses become links; anything
-else stays text, and so does a location that is not a web address.
-
-Links are drawn only where an event does nothing of its own, so a press on a link can never also
-be a press on its event: `event_tap_action` and `event_hold_action` both `none`, their default,
-or one of the card's own actions, which on an event are nothing too. With either set to
-`details`, the links are in the [popover](#links) instead. A tap on a link follows it and does
-not run the card's `tap_action`, and a hold on it is the browser's, never `hold_action`, so a card
-that expands when tapped still expands from anywhere but its links. A swipe can still start on
-one to [page through dates](/features/layout-appearance#paging-through-dates). Keyboard users
-reach each link with Tab and follow it with Enter; a link that `location_max_lines` or
-`description_max_lines` cut off shows its whole field while it has focus.
-
-Links are drawn in list and column view, and in grid view when the card falls back to a list. A
-grid block draws its words for the eye only, so it draws no links; see
-[Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
-In the visual editor, Open Links in Events sits under Event Hold Action, shown while both event
-actions are Nothing.
-
 ## ✏️ Editing & Deleting Events
 
-Where the event's calendar allows it, the popover is where you change the event, too. There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
+With `event_tap_action` or `event_hold_action` set to `details`, the popover that opens an event is also where you change it, wherever its calendar [allows it](#what-each-integration-allows). There is no Edit button: each part of the event is edited where it is shown, and the change is saved when the popover closes.
 
 <video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.mp4#t=0.001" width="740" height="744" loop muted playsinline controls preload="auto" aria-label="A tap on Grandpa visits on Saturday opens the popover beside it; a tap on its date line opens the start, the end, All day and Repeat, All day is switched on, and Save turns the event into an all-day banner"></video><br>
 
@@ -399,21 +285,22 @@ Repeat offers what Home Assistant's own event editor offers: daily, weekly on th
 
 ### Saving & Discarding
 
-The popover saves once, when it closes: with a press outside it, or with Back. Once you have changed something, **Cancel** and **Save** appear at the bottom right, so you can also confirm or throw away the change where you would look for it: **Save** does what closing does, Return in the title does the same, and **Cancel**, or Escape on a keyboard, throws every change away. A part you only looked at, or tapped into without changing, writes nothing. While Home Assistant is saving, the popover takes no input and stays open, and it closes by itself once the change is saved. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to. Once Home Assistant has saved the change the card fetches its events again, so it appears straight away.
+The popover saves once, when it closes: with a press outside it, with Back, or with **Save**, which appears at the bottom right beside **Cancel** once you have changed something. Return in the title saves too. A part you only looked at, or tapped into without changing, writes nothing.
 
-For one occurrence of a repeating event, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events.
-
-If Home Assistant refuses the change, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
+- **Discarding.** **Cancel**, or Escape on a keyboard, throws every change away.
+- **While saving,** the popover takes no input and stays open, and it closes by itself once Home Assistant has saved the change. The card then [shows the change at once](#changes-appear-at-once).
+- **A repeating event.** For one occurrence, closing asks once whether the change covers **This and all future events** or **Only this event**, and **Cancel** goes back to editing. As in Home Assistant's own editor, a change to how the event repeats takes effect only for This and all future events. Moving a repeating event to another day moves its repeat with it, so a weekly event on its own weekday, or a monthly one on its own date or weekday, stays on the day you moved it to.
+- **A refused change.** If Home Assistant refuses it, because the title is empty, the times do not make a valid event, such as an end before the start, or the calendar reports an error of its own, the popover stays open and says why. Nothing you changed is lost.
 
 ### Dragging in Grid View
 
-In [grid view](/features/grid-view#moving-events-by-drag), an event the popover can change, on a calendar that [allows changing events](#what-each-integration-allows), can also be dragged to another time or day, with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
+In [grid view](/features/grid-view#moving-events-by-drag) you can also drag an event to another time or day wherever the popover [could change it](#what-each-integration-allows), with a mouse at once or after holding it on a touch screen. A single event is saved when you let go; a repeating one opens the popover at its new times, to ask which occurrences move or to save. `allow_event_edit: false` turns dragging off along with editing.
 
 ### Moving to Another Calendar
 
-Tap the calendar to pick another, and the event moves there when the popover closes. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). Home Assistant has no command that moves an event, so the card adds it to the new calendar and then deletes it from its own. The picker is part of editing the event, so moving needs the event's own calendar to allow both changing and deleting it, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on. Anything else you changed moves with it.
+Tap the calendar to pick another, and the event moves there when the popover closes, with anything else you changed. The picker offers this card's other calendars that [accept new events](#what-each-integration-allows). The card moves an event by adding it to the new calendar and then deleting it from its own, so moving needs the event's own calendar to allow both changing and deleting it, and both [`allow_event_edit` and `allow_event_delete`](#narrowing-what-the-popover-offers) left on.
 
-A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on. It is offered only where the series can move whole: not for a series that ends after a number of occurrences, whose count would start again in the new calendar, so set its end to a date first, in the same popover; and not for an occurrence you changed on its own, which no longer carries its series' repeat.
+A repeating event asks which occurrences you mean. **Only this event** moves that occurrence alone, as a single event. **This and all future events** moves the series from that occurrence on. It is offered only where the series can move whole: not for a series that ends after a number of occurrences, whose count would start again in the new calendar, so set its end to a date first, in the same popover; and not for an occurrence you changed on its own.
 
 Only what the popover shows moves: the title, times, location, description and repeat. Anything else a calendar keeps about an event, such as a tentative status, guests or reminders, stays behind with the copy that is deleted.
 
@@ -421,15 +308,15 @@ Only what the popover shows moves: the title, times, location, description and r
 Home Assistant cannot carry an occurrence you deleted from a series, or one you changed on its own, over to another calendar. Moving the series brings each of them back in the new calendar as a plain occurrence, on its usual day and with the series' title and times. Delete or change them again there.
 :::
 
-The card adds before it deletes, so a failure between the two leaves the event in both calendars rather than in neither. The popover then says why, and offers nothing more to save.
+A failure between adding and deleting leaves the event in both calendars rather than in neither. The popover then says why, and offers nothing more to save.
 
 ### Deleting
 
-Where the calendar allows deleting, **Delete** sits at the bottom of the popover. It asks you to confirm, and for a repeating event whether you mean **Only this event** or **This and all future events**; **Cancel** keeps the event.
+**Delete** sits at the bottom of the popover that `details` opens, wherever the event's calendar [allows deleting](#what-each-integration-allows) and [`allow_event_delete`](#narrowing-what-the-popover-offers), on by default, is left on; the card also leaves it out [in a few cases](#when-the-card-leaves-them-out). It asks you to confirm, and for a repeating event whether you mean **Only this event** or **This and all future events**; **Cancel** keeps the event. Once confirmed, the event is deleted from its calendar, and the card cannot bring it back.
 
 ### What Each Integration Allows
 
-Whether a calendar's events can be added, changed or deleted at all is decided by the integration it comes from, not by the card. The popover saves through Home Assistant's own calendar commands, the ones its Calendar panel uses, and offers only what the calendar declares to Home Assistant. Adding needs a calendar that declares creating events. Changing an event needs one that declares updating them, and so do [dragging it](#dragging-in-grid-view) and [moving it to another calendar](#moving-to-another-calendar). Delete needs one that declares deleting them. For the calendar integrations that ship with Home Assistant:
+Whether a calendar's events can be added, changed or deleted at all is decided by the integration it comes from, not by the card, which offers only what the calendar declares to Home Assistant. For the calendar integrations that ship with Home Assistant:
 
 | Integration                                            | Add | Edit | Delete |
 | ------------------------------------------------------ | --- | ---- | ------ |
@@ -439,14 +326,21 @@ Whether a calendar's events can be added, changed or deleted at all is decided b
 | Read-only calendars, such as a subscribed holiday feed | No  | No   | No     |
 
 - **Local Calendar** does all three, repeating events included, which makes it a good calendar to try the popover's editing with.
-- **Google Calendar** adds events and deletes them, one occurrence of a repeating event or every occurrence from it onward included, but Home Assistant's Google integration cannot change an event. Support for that is being worked on upstream. A Google calendar you can only read, or one added to Home Assistant with read-only access, offers nothing.
-- **CalDAV**, which is also how Home Assistant connects an iCloud calendar, only adds. Changing and deleting events are being brought into Home Assistant's CalDAV integration step by step.
+- **Google Calendar** adds events and deletes them, one occurrence of a repeating event or every occurrence from it onward included, but Home Assistant's Google integration cannot change an event. A Google calendar you can only read, or one added to Home Assistant with read-only access, offers nothing.
+- **CalDAV**, which is also how Home Assistant connects an iCloud calendar, only adds.
+- **Other integrations**, custom ones included, offer whatever they declare.
+
+**Adding** needs a calendar on the card that accepts new events: its integration allows adding, and it is not [failing to load](/features/performance#when-a-calendar-fails-to-load). That holds for the [add button](#add-event-button), a [tap on a day](#tapping-a-day-to-add-an-event), [drawing in the grid](#drawing-an-event-in-grid-view) and the [`add-event` action](#adding-an-event-from-a-tap-or-hold) alike. On a card without one, the add button is not drawn even with the toolbar shown, a tap on a day stays a tap on the card, and `add-event` does nothing and offers no tap or hold. A calendar failing to load is left out of the new event's calendar picker; where it is the card's only one, the button returns once it loads again.
+
+**Changing** an event needs a calendar that allows changing, and so do [dragging it](#dragging-in-grid-view) and [moving it to another calendar](#moving-to-another-calendar). **Delete** needs one that allows deleting, and so does moving.
 
 ::: tip Changing & Deleting CalDAV Events
 The custom integration [CalDAV Complete](https://github.com/ivenos/ha_caldav) connects CalDAV calendars with adding, changing and deleting events, repeating ones included. For each calendar you can write to, it declares all three to Home Assistant, so the card offers them as it does for a Local Calendar; a calendar you can only read, or one under its own read-only option, declares none. Its calendars are entities of their own, beside any from the built-in CalDAV integration, so the card needs those in `entities`. It is not part of Home Assistant or of this card; how to install and set it up is described in its repository.
 :::
 
-Calendars from other integrations, custom ones included, offer whatever their integration declares. To see what a calendar declares, find it on the **States** tab under **Settings → Tools** (Developer Tools in older versions of Home Assistant) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them. The Add column decides which calendars the [add-event button](#add-event-button) can write to.
+::: details Checking What a Calendar Declares
+Find the calendar on the **States** tab under **Settings → Tools** (Developer Tools in older versions of Home Assistant) and read its `supported_features` attribute: 1 is adding, 2 deleting and 4 changing, added together, so 7 is all three, 3 adding and deleting, and 1 adding alone. A calendar without the attribute declares none of them.
+:::
 
 ### Narrowing What the Popover Offers
 
@@ -479,142 +373,9 @@ The details still open, but the card makes the event read-only and leaves out De
 - **An event without an identifier.** Home Assistant finds the event to change by its unique ID, and some calendars do not send one.
 - **Editing only, an event its calendar stores without an end.** The popover shows it ending where it starts, and saving a change would write that end into the calendar.
 
-## ➕ Add Event Button
-
-The card can carry a button for adding events, so a new appointment goes in from the dashboard rather than from the Calendar panel. It opens the [event popover](#the-event-popover) on a new, empty event, with the cursor in its title:
-
-```yaml
-type: custom:calendar-card-pro
-title: Family
-entities:
-  - calendar.anna
-  - calendar.holidays
-toolbar:
-  show: true
-```
-
-The button is a control of the card's [header toolbar](/features/layout-appearance#header-toolbar), at the start of its top row, after the calendar filter. It is a plus icon at every width, with Home Assistant's own "Add event" as its tooltip and its name for screen readers. Where Home Assistant has no words for it, screen readers hear it in English and it shows no tooltip.
-
-Type a title and press **Add**, or Return, or close the popover with a press outside it or with Back, and the event is added. Close it untouched, press **Cancel**, or press Escape, and nothing is added. A new event you changed but gave no title stays open and asks for one, so a date or calendar you picked is not lost on the way out. Before closing you can change anything a saved event lets you change, the times, All day and Repeat included; see [Editing & Deleting Events](#editing-deleting-events).
-
-The popover's calendar is a picker offering this card's calendars that accept new events, and only those. It starts on the first of them in `entities`, `calendar.anna` above, passing over any the [calendar filter](/features/layout-appearance#showing-hiding-calendars) is hiding, so hiding a calendar never opens a new event in it. If the filter hides every calendar that accepts new events, the first of them is chosen anyway. On a card with only one such calendar, the popover names it.
-
-The new event starts on the hour and lasts an hour: today, at the current hour, when the days the card covers include today, and otherwise at the start of the first of them, so a card looking at next week, or paged to it, does not suggest today. Those days are the page on screen, whether or not the card draws a row for today: a collapsed compact card that shows only the days before it, or an empty today that `show_empty_days: false` leaves out, still suggests today, the day an event is most often added for.
-
-The button only appears when the card has somewhere to write: at least one of its calendars must [accept new events](#what-each-integration-allows) and not be failing to load. A card showing only read-only calendars draws no add button even with the toolbar shown. A calendar that is [failing to load](/features/performance#when-a-calendar-fails-to-load) is never preselected, and if it is the card's only writable calendar the button returns once it loads again.
-
-::: tip Pressing the Button Is Not a Tap on the Card
-The button does not trigger the card's `tap_action` or `hold_action`, so it can sit on a card that expands or navigates when tapped. Keyboard users keep the card's own `tap_action` too: Tab to the card itself and press Enter, as [beside tappable events](#where-you-can-tap).
-:::
-
-::: warning Hidden With the Card
-`hide_when_empty` still hides the whole card when there is nothing to show on the days it opens with, button included. Leave it off on a card you rely on for adding events.
-:::
-
-## 📆 Tapping a Day to Add an Event
-
-A tap on a day can add an event on it. Set `day_tap_action` to `add-event`, and a tap on a day
-where it shows no event opens a new event on that day in the [event popover](#the-event-popover):
-
-```yaml
-type: custom:calendar-card-pro
-entities:
-  - calendar.anna
-  - calendar.holidays
-day_tap_action:
-  action: add-event
-```
-
-Left at `none`, the default, a tap on a day is a tap on the card and runs `tap_action`. Any other
-value reads as `none`. The visual editor's Day Tap Action dropdown offers Nothing and Add Event.
-
-### Where You Can Tap a Day
-
-Wherever a day shows no event, in all three layouts:
-
-- **List view:** the day's date, its "No events" line, and the space between its events.
-- **Column view:** the day's header, and the empty space under its events.
-- **[Grid view](/features/grid-view):** any empty point of the time grid, which adds at that
-  quarter hour; the day's header; and the empty part of the all-day band above it, which adds an
-  all-day event. In the grid you can also [draw the event](#drawing-an-event-in-grid-view).
-
-A tap on an event never adds: an event covers the day beneath it, so the tap is the event's
-when it has an `event_tap_action`, and the card's otherwise. The same goes for a grid's `+N`
-block, which stands for several events. Week numbers, the separators between days, the grid's time axis, the
-title and the [header toolbar](/features/layout-appearance#header-toolbar) are not days either:
-a tap on the title still runs `tap_action`, and the toolbar's controls keep their own.
-
-A tap has to stay put. A press that moves is a scroll, or a [swipe](/features/layout-appearance#paging-through-dates),
-and adds nothing; a hold on a day runs `hold_action`, except in a grid's time area and all-day
-band, where it [draws a new event](#drawing-an-event-in-grid-view). While you press, the day's
-date or header is washed in the card's accent, and in the grid the hour a tap there adds.
-
-### Which Day, Hour & Calendar
-
-The new event starts on the day you tapped, at the hour it is now: a tap on today opens at the
-current hour, as the add button does, and a tap on another day at the same hour that day. In
-grid view a tap in the time grid starts at the quarter hour you tapped instead, rounded down,
-whatever `slot_minutes` the grid draws its lines at, and a tap in the all-day band adds an
-all-day event on that day. A timed one lasts an hour. That is only a starting point: the popover
-lets you change the start, the end and All day before you close it.
-
-The calendar is the one [the add button](#add-event-button) would preselect: the first in
-`entities` that accepts new events and that the calendar filter shows.
-
-### Drawing an Event in Grid View
-
-In [grid view](/features/grid-view), `day_tap_action: add-event` also lets you draw a new event
-with its start and end, as in a calendar app. There is no option of its own.
-
-<video class="clip" src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_grid_draw.mp4#t=0.001" width="740" height="742" loop muted playsinline controls preload="auto" aria-label="A finger holds an empty spot on Wednesday at 14:15 until a New event block appears, drags its end down to 15:30 and lets go; the popover opens beside the block, Playground is typed as the title and Add saves it"></video><br>
-
-Hold an empty spot until a block appears, drag its end to where the event should stop, and let go. The popover opens beside the block, ready for a title.
-
-- **On a phone or tablet,** hold an empty spot of the time grid for half a second, until a block
-  appears there, then drag. The page does not scroll while you do.
-- **With a mouse,** press and drag at once.
-
-The block starts as what a tap there adds, an hour from the quarter hour under your finger.
-Drag down and its end follows you; drag up and its start does; drag sideways into another day
-and it runs across days, in quarter hours either way. It is drawn as the event will be once
-saved, titled New event, in the calendar the popover will offer: the same colors, accent bar,
-text and time as that calendar's events, set by the same options. Let go, and the popover opens beside it
-on a new event with those times, ready for a title. Press Escape, or touch the screen with a
-second finger, to throw the block away; it also goes if the card turns to other days while you
-draw.
-
-The block stays while the popover is open, as a new event does in a calendar app: it takes the
-title as you type it, moves when you change the times, and takes on the calendar you pick. Cancel or Escape takes it away. Once the event is saved, it stays until the card shows
-the real one, a moment later. A tap in the grid shows the hour it adds the same way.
-
-In the all-day band, a hold or a drag draws all-day days instead: drag sideways for an event
-over several days. It shows as a banner across those days, as the event's will be, titled New
-event, beside the all-day events or in a row of its own below them, and stays while the popover is open as a timed one
-does. The band is there whenever the days shown hold an all-day event.
-
-On days without an all-day event there is no band to draw in. Tap the time grid instead and
-switch on All day in the popover: the band opens, one row, for the new event's banner, and closes
-again if you switch All day off or cancel. Once the event is saved, the banner stays until the
-card shows the real one in its place.
-
-A hold on an empty spot of the grid draws even where the card has a `hold_action`; a hold
-anywhere else, on an event included, still runs it. Nothing is drawn while the card is edited.
-
-### From the Keyboard
-
-While `day_tap_action` adds events, each day's date in list view, and each day's header in column
-and grid view, is a button named with Home Assistant's own "Add event" and described by its
-date. Tab to it and press Enter or Space to add on that day, at the hour it is now.
-
-::: tip It Needs Somewhere to Write
-Like the add button, a tap on a day, or an event drawn in the grid, only adds where one of the
-card's calendars [accepts new events](#what-each-integration-allows) and is not failing to load.
-On a card showing only calendars that take no new events, a tap on a day stays a tap on the card.
-:::
-
 ## 💬 The Event Popover
 
-An event's details and a new event both open in the card's own popover, modeled on the event popover of Calendar on macOS. On a wide screen it opens beside the event you pressed, as Calendar on macOS does, with its arrow pointing at it, to the right where there is room and to the left otherwise: beside the edge of an event drawn as a tinted box, such as a grid block or any event under `event_background_opacity`, and beside the end of the text of one drawn without, so a list row stretching across a wide card does not send it to the far edge. A tap on a day, or on an empty slot of the grid, opens it right where you tapped. The add button opens it below the button, with the arrow on top. On a screen narrower than 600 pixels it rises from the bottom as a sheet. As in Calendar on macOS, it grows out of its arrow while it fades in, and closes the same way in reverse, shrinking back toward the arrow as it fades out; a sheet rises as it opens and sinks as it closes. With reduced motion turned on in your system it simply appears and disappears. While it is open, the page behind it does not scroll. It is light or dark as your Home Assistant theme is, and it shows:
+An event's details and a new event both open in the card's own popover: from an event whose [`event_tap_action` or `event_hold_action`](#tapping-an-event) is `details`, from the [add button](#add-event-button), and from a [tap on a day](#tapping-a-day-to-add-an-event) or an [`add-event` action](#adding-an-event-from-a-tap-or-hold). It shows:
 
 - the title, beside a bar in the color of the event's calendar;
 - the date and the times, or All day, and for a repeating event how it repeats, in words;
@@ -622,7 +383,9 @@ An event's details and a new event both open in the card's own popover, modeled 
 - the calendar's name, with its color: its [`name`](/features/core-settings#naming-a-calendar-in-the-card) on the card where it has one, else Home Assistant's, and the same for each calendar it can move to;
 - the description, with its web addresses as [links](#links).
 
-The popover is part of the card's own file, so nothing is loaded when it opens.
+On a wide screen it opens beside the event you pressed, with its arrow pointing at it, to the right where there is room and to the left otherwise: beside the edge of an event drawn as a tinted box, such as a grid block or any event under `event_background_opacity`, and beside the end of the text of one drawn without. A tap on a day, or on an empty slot of the grid, opens it right where you tapped, and the add button opens it below the button. On a screen narrower than 600 pixels it rises from the bottom as a sheet.
+
+While it is open, the page behind it does not scroll. It is light or dark as your Home Assistant theme is, and with reduced motion turned on in your system it appears and disappears without moving.
 
 ### Words & Language
 
@@ -630,18 +393,36 @@ Every word in the popover is Home Assistant's own, from its calendar translation
 
 ### Maps & Locations
 
-When an event you open has a location the card can place, the popover draws a small map under it, with a marker on the spot. Every map is the same OpenStreetMap map; what differs is only how the card finds the spot. Pressing the map opens a Google Maps search for the location. A location the card cannot place gets a small pin beside it instead, which opens the same search. The card places a location in one of two ways.
+When an event you open has a location the card can place, the popover draws a small OpenStreetMap map under it, with a marker on the spot. There is no option for the map; it is there whenever a location can be placed. A location the card cannot place gets a small pin beside it instead. Pressing the map or the pin opens a Google Maps search for the location.
 
-- **A zone.** When the location is the name of one of your Home Assistant zones, the map shows the zone. A location matches a zone by the zone's name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`. Nothing leaves your home to find it. The map shows the whole zone: it zooms out until the zone's circle, its radius in Home Assistant, spans the map's width, so a zone drawn around a city shows the city and one drawn around a house shows its street.
-- **A town or a city.** A short place name, such as `Rosenheim`, `Paris` or `Springfield, Illinois`, is looked up in [Open-Meteo](https://open-meteo.com)'s free geocoding service, which needs no account or key.
+The card places two kinds of location:
 
-Only a name of two to 60 characters, with at most four words and one comma for its country or region, is looked up. Anything with a digit, `@`, `/` or `:` in it is never sent, so a street address, a house number, a postal code, an email address or a web address stays in your home and gets the pin.
+- **A zone.** When the location names one of your Home Assistant zones, the map shows the whole zone, zoomed so that its circle, its radius in Home Assistant, spans the map's width: a zone drawn around a city shows the city, and one drawn around a house shows its street. Nothing leaves your home to find it. A zone matches by its name, or by the name in its entity ID with underscores read as spaces, ignoring case and spacing: `Swim Club` finds a zone named Swim Club, or one whose entity ID is `zone.swim_club`.
+- **A town or a city.** A short place name, such as `Rosenheim`, `Paris` or `Springfield, Illinois`, is looked up in [Open-Meteo](https://open-meteo.com)'s free geocoding service, which needs no account or key. A street address, a house number, a postal code, an email address or a web address is never sent, and gets the pin. So does a place the lookup does not find, or a lookup that fails.
 
-The lookup is strict, because a wrong map is worse than none, and many ordinary words are the names of tiny places somewhere: `School`, `Park` and `Beach` all are. So only a town or a city whose name is exactly the one written counts, accents aside, never a district, a park or a mountain. A town in your home's country, within 100 km of your home, or in the country or region the location names after its comma needs 5,000 people. One anywhere else needs a million, or 100,000 for a capital. Where several places pass, one within 100 km of home comes first, else the one Open-Meteo ranks first, usually the largest. Your home's country and position are the ones set in Home Assistant. `Paris` therefore finds the French capital unless you live near Paris, Texas, and a smaller town far away needs its country: `Salzburg, Austria`. Names are asked for in your Home Assistant language, then in your home country's, then in English, until one finds the place. A home in Germany therefore finds `Köln`, `Cologne` and `München` alike; a home elsewhere finds a place by its name in one of those languages, so `Cologne` from the United States or France, not `Köln`.
+The map needs Home Assistant 2026.10 or later; on an older version the popover shows the pin.
 
-Your browser sends the name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The lookup runs only when you open an event in the popover, and never for a calendar that keeps its locations out of it; event rows, the card editor and typing a location never send anything. If the lookup fails, the popover shows the pin, as it would without one.
+::: info What Leaves Your Home
+Your browser sends a town or city name straight to Open-Meteo, which sees your public IP address with it; Open-Meteo states that it deletes those addresses after 90 days. The lookup runs only when you open an event in the popover, and never for a calendar that keeps its locations out of it; event rows, the card editor and typing a location never send anything. Each name is looked up once and kept in your browser for 30 days, a name that found nothing for 7, so opening the same event again sends nothing. The map tiles come through Home Assistant, so your browser asks no map server for them.
+:::
 
-The map is drawn from Home Assistant's own map tile proxy, which fetches the OpenStreetMap tiles itself, so your browser asks no map server for them. That proxy arrived in Home Assistant 2026.10, so on an older version the popover shows the pin instead. The map credits © OpenStreetMap, and Open-Meteo when it found the place, each with a link, as their licenses ask. There is no option for the map; it is there whenever a location can be placed.
+::: details Which Places Are Found
+
+- Only a name of two to 60 characters, with at most four words and one comma for its country or
+  region, is looked up; anything with a digit, `@`, `/` or `:` in it is never sent. Only a town
+  or a city of exactly that name counts, accents aside, never a district, a park or a mountain.
+- Near home, meaning in your home's country, within 100 km of it, or in the country or region
+  named after the comma, a town needs 5,000 people; anywhere else a city needs a million, or
+  100,000 for a capital. Your home's country and position are the ones set in Home Assistant.
+  Ordinary words that name some tiny place, such as `School`, `Park` and `Beach`, therefore find
+  nothing, and a smaller town far away needs its country: `Salzburg, Austria`.
+- Where several places pass, one within 100 km of home comes first, else the one Open-Meteo ranks
+  first, usually the largest: `Paris` is the French capital unless you live near Paris, Texas.
+- Names are asked for in your Home Assistant language, then in your home country's, then in
+  English. A home in Germany finds `Köln`, `Cologne` and `München` alike; one in the United States
+  or France finds `Cologne`, not `Köln`.
+
+:::
 
 ### Links
 
@@ -655,8 +436,248 @@ The popover is a modal dialog, named by the event's title. It opens with focus o
 
 After a save or a delete the card fetches its events again straight away, and every other Calendar Card Pro card on the same page that shows the changed calendar refreshes too, rather than waiting for its next `refresh_interval`. A card showing only other calendars, such as a holiday feed, stays as it is. Cards that are not on the page load the changed calendar again when they next appear (see [Performance & Caching](/features/performance#loading-refreshing)).
 
-::: tip Nothing Opens While You Edit
-In the card editor's preview, and on a dashboard in edit mode, the add button is still drawn, so you see the layout the card will have, but pressing it opens nothing, events are not tap targets, and a tap on a day adds nothing. Trying out a configuration or arranging a dashboard cannot open a popover that saves a real event. The card's own `tap_action` and `hold_action` behave there as they always have, except `add-event`, which does nothing there.
+## 🔗 Links in Events
+
+A web address in an event's location or description, such as a video call or a booking page, can
+be a link you tap. Set `open_links` to `true`, and every `http` or `https` address in a row
+becomes one, opening in a new tab:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.anna
+show_description: true
+open_links: true
+```
+
+- **Only where an event does nothing of its own.** Links are drawn while `event_tap_action` and
+  `event_hold_action` are both `none`, their default, or one of the card's own actions, which on
+  an event are nothing too. With either set to `details`, the links are in the
+  [popover](#links) instead. In the visual editor, Open Links in Events sits under Event Hold
+  Action, shown while both event actions are Nothing.
+- **In list and column view.** Grid blocks draw no links; a grid card draws them only when it
+  falls back to a list. See
+  [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view).
+- **Apart from the card's actions.** A tap on a link follows it rather than running the card's
+  `tap_action`, and a hold on it is the browser's, never `hold_action`, so a card that expands
+  when tapped still expands from anywhere but its links.
+- **Web addresses only.** Anything else stays text, and so does a location that is not a web
+  address. A link a calendar wrote into a description as HTML, as Google Calendar does, keeps its
+  words; where the calendar's [text replacement](/features/core-settings#text-replacement) or a
+  [birthday marker](/features/event-content#birthday-ages-anniversary-counts) rewrote the
+  description, only the addresses written out in it are links.
+
+::: details Links From the Keyboard & Swipes
+Keyboard users reach each link with Tab and follow it with Enter; a link that `location_max_lines`
+or `description_max_lines` cut off shows its whole field while it has focus. A swipe can still
+start on a link to [page through dates](/features/layout-appearance#paging-through-dates).
 :::
 
-Card taps are set with `tap_action` and `hold_action`, day taps with `day_tap_action`, event taps and holds with `event_tap_action`, `event_hold_action`, `allow_event_edit` and `allow_event_delete`, and links in rows with `open_links` — see [Actions in the configuration reference](/reference/configuration#actions). The button is `toolbar → add_event`, under [Header](/reference/configuration#header).
+## 👆 Custom Tap & Hold Actions
+
+`tap_action` and `hold_action` run an action when the card is tapped or held: any standard Home Assistant action, such as going to another view or opening a web page, or one of the card's own.
+
+```yaml
+# Navigate to another view on tap
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/calendar
+
+# Open a URL on long press
+hold_action:
+  action: url
+  url_path: https://calendar.google.com
+```
+
+### Available Actions
+
+Calendar Card Pro handles five actions itself — `expand`, `refresh`, `add-event`, `reset` and `back` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+
+The commonly used ones:
+
+| Action Type                       | Description                                                                  | Additional Parameters                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `expand`                          | Toggle between compact and full calendar view                                | None                                                                                 |
+| `refresh`                         | Load the events again now                                                    | None                                                                                 |
+| `add-event`                       | Add an event on the day you pressed                                          | None                                                                                 |
+| `reset`                           | Undo this device's choices, as the reset button does                         | None                                                                                 |
+| `back`                            | Go back to the page before this one, as Home Assistant's own back arrow does | `navigation_path` (optional, YAML only): where to go when no page is behind this one |
+| `more-info`                       | Open the Home Assistant entity dialog                                        | `entity` (optional): which entity; see below                                         |
+| `navigate`                        | Go to another Lovelace view                                                  | `navigation_path: /lovelace/view`                                                    |
+| `url`                             | Open external URL or internal page                                           | `url_path: https://example.com`                                                      |
+| `perform-action` / `call-service` | Call any Home Assistant action (service)                                     | `perform_action: domain.service`, `data`, `target`                                   |
+| `toggle`                          | Toggle the target entity                                                     | None                                                                                 |
+| `assist`                          | Open the Assist dialog                                                       | None                                                                                 |
+| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others)                            | Any additional keys are passed through                                               |
+| `none`                            | Disable the action                                                           | None                                                                                 |
+
+::: tip Both Action Names Work
+Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations. The same goes for its keys: the older `service` and `service_data` still work in place of `perform_action` and `data`.
+:::
+
+::: info Tap & Hold Act on the Whole Card
+`tap_action` and `hold_action` belong to the card, not to the event under your finger. So `more-info` opens the dialog of the **first** calendar in `entities`, whichever event you tapped. Name the entity on the action to open a different one:
+
+```yaml
+tap_action:
+  action: more-info
+  entity: calendar.family
+```
+
+To act on the event you tapped instead, use [`event_tap_action`](#tapping-an-event): its `more-info` opens the calendar of that event, and its other actions can [use the event's title and times](#using-the-events-fields-in-an-action).
+:::
+
+::: tip The Editor Lists These; YAML Accepts More
+The visual editor's Tap Action and Hold Action dropdowns offer `expand`, `refresh`, `add-event`, `reset` and `back` alongside Home Assistant's standard actions, and its Event Tap Action and Event Hold Action dropdowns offer `details` instead. An action Home Assistant adds in a future release may not appear there straight away; it still works if you write it in YAML, exactly as `fire-dom-event` always has.
+:::
+
+Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
+
+::: details Ripple, Wash & Haptics
+
+- A tap or hold on the card shows Home Assistant's own ripple, in the card's `accent_color`, or your theme's primary color where that is `home-assistant`.
+- A tap on an event, or on a day that adds one, shows a wash over what you pressed instead, and the ripple stays still for the whole press, including the moment the popover opens. The wash is the same accent, unless events have a background tint under `event_background_opacity`; there it is a faint layer of the event's text color, which lightens or deepens the tint without changing its hue.
+- Haptic feedback comes from Home Assistant, which adds it for some of the actions it runs, such as `toggle` and `perform-action`, on devices that support it; `expand`, `refresh`, `reset`, `back` and `details` have none.
+
+:::
+
+### Refreshing From a Tap or Hold
+
+`refresh` loads the card's events again now, as the toolbar's
+[refresh button](/features/layout-appearance#refreshing-the-events) does, rather than at the next
+`refresh_interval`. On a wall tablet a hold is a good place for it, out of the way of everyday
+taps:
+
+```yaml
+hold_action:
+  action: refresh
+```
+
+It asks Home Assistant for every calendar on the card, even when the events it holds are recent.
+The small spinner in the card's corner turns, then gives way to a green check for a moment, or a
+red alert where a calendar could not be loaded; on a card that has the refresh button, the button
+shows it instead. A second tap or hold does nothing until that is over.
+
+### Adding an Event From a Tap or Hold
+
+`add-event` opens a new event in the [event popover](#the-event-popover), as the
+[add button](#add-event-button) does, and starts it on the day you pressed. On a wall tablet, a
+hold is a good place for it:
+
+```yaml
+hold_action:
+  action: add-event
+```
+
+A hold on an event starts it on the event's day, and one anywhere without a day, such as the
+title, on the date the add button uses. Otherwise the day, the hour and the calendar follow
+[the rules for tapping a day](#which-day-hour-calendar), the grid's quarter hour and all-day band
+included. It needs a calendar that [accepts new events](#what-each-integration-allows).
+
+To add with a tap on a day while a tap elsewhere on the card does something else, use
+[`day_tap_action`](#tapping-a-day-to-add-an-event) instead.
+
+### Resetting From a Tap or Hold
+
+`reset` does what the toolbar's [reset button](/features/layout-appearance#resetting-the-card)
+does: it brings back the days the card opens with, its configured `view` and every calendar,
+collapses a compact card, and forgets the layout and calendars this device chose. It works with
+or without the button, so a card shared on a wall tablet can keep its toolbar short and still be
+put back with a hold:
+
+```yaml
+hold_action:
+  action: reset
+```
+
+Where the card already shows how it is set up, it does nothing. It is an action only on a card
+with something it could undo: a toolbar with the date navigation, the view switcher or the
+calendar filter, or an `expand` action. On any other card, the card offers no tap or hold for it.
+On a card that has the reset button, the button shows its check after a reset, as after a press.
+
+### Going Back From a Tap or Hold
+
+`back` goes back to the page you came from, as the arrow in Home Assistant's own header does. On
+a view opened from another dashboard, a tap returns there:
+
+```yaml
+tap_action:
+  action: back
+```
+
+It goes back only to a page Home Assistant itself opened this one from. Where there is none, as
+in a new tab, a bookmark, the first page a wall tablet shows, or the Home Assistant app opened
+straight on this view, it shows the first view of this dashboard instead, in place of the page
+you are on. Give it a `navigation_path` to go somewhere else then:
+
+```yaml
+hold_action:
+  action: back
+  navigation_path: /lovelace/home
+```
+
+`back` never leaves Home Assistant and never goes back to its login page. The visual editor
+offers it as Go Back; `navigation_path` is YAML only. A
+[button of your own](/features/layout-appearance#your-own-buttons) in the toolbar can run it too.
+
+::: details If Back Always Shows This Dashboard
+The card tells a page Home Assistant opened from a new tab or a bookmark by a mark Home Assistant
+sets, which is not a documented interface, so a future release could change it. If it does,
+`back` always shows this dashboard rather than going back, and still never leaves Home Assistant.
+:::
+
+## 🔄 Expandable Calendar Card
+
+A list card can open short and show more when tapped. With a
+[`compact_events_to_show`](/features/core-settings#compact-mode-event-limits) limit, the card
+shows that many events, and `tap_action: expand` lets users toggle between them and the full set:
+
+```yaml
+list:
+  # Limit events in compact mode
+  compact_events_to_show: 5
+
+# Enable expand/collapse with tap
+tap_action:
+  action: expand
+```
+
+Nothing on the card marks that events were held back, so a compact card looks the same as one with nothing more to show.
+
+::: warning List View Only
+The whole compact family is inert while the card is rendering as column or grid —
+`compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
+`compact_events_complete_days`, and the `expand` action that drives them. A side-by-side
+card with `tap_action: expand` has nothing visible to change until the layout is a list.
+
+Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
+:::
+
+With both card-wide and per-calendar limits:
+
+- In compact mode, both are enforced.
+- In expanded mode, **every** compact limit is removed — the card-wide caps **and** each calendar's own `compact_events_to_show`. What remains is the ordinary `days_to_show` window.
+- The expand/collapse state persists until manually toggled, the page is reloaded, or the toolbar's [reset button](/features/layout-appearance#resetting-the-card) is pressed.
+
+```yaml
+entities:
+  - entity: calendar.family
+    # No limit for family calendar
+  - entity: calendar.work
+    compact_events_to_show: 2
+    # At most 2 work events while compact
+  - entity: calendar.holidays
+    compact_events_to_show: 1
+    # At most 1 holiday event while compact
+list:
+  compact_events_to_show: 4
+  # Show at most 4 events total in compact mode
+
+tap_action:
+  action: expand
+```
+
+In compact mode, you'll see at most 4 events total, with work showing at most 2 and holidays showing at most 1.
+In expanded mode after tapping, those caps are all gone: every family, work and holiday event inside `days_to_show` is visible.
+
+Tap, hold, day and event actions, `allow_event_edit`, `allow_event_delete` and `open_links` are listed under [Actions in the configuration reference](/reference/configuration#actions), and the add button under [Header](/reference/configuration#header).

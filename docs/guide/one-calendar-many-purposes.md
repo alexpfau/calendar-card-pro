@@ -1,16 +1,26 @@
 # Family Agenda
 
-Anna, Ben and their baby son Leo, the invented family of [the Family Hub](/guide/family-calendar), keep a tablet in the hallway that everyone walks past. It answers four questions at a glance, _whose birthday is it, does the trash go out, who is out this evening, and is anyone busy_, without spelling out on the screen what Ben's meetings are about.
+Anna, Ben and their baby son Leo, the invented family of [the Family Hub](/guide/family-calendar), keep a tablet in the hallway that everyone walks past. It shows the next three days from calendars that mix several kinds of event: whose birthday it is, whether the trash goes out, who is out this evening and when Ben is busy, without saying on the screen what his meetings are about.
 
 ## 🖼️ See It
 
+The hallway tablet shows three days of the Family Hub's week, in the same colors, with most of Ben's working hours reading _Busy_.
+
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/story_family_agenda.png" alt="A three-day family agenda under a toolbar: tinted boxes titled in calendar colors with faces in front, a rule between the days, all-day events as filled pills, a shared plan drawn once in gold, and Ben's working hours reading Busy" width="600"><br>
 
-Three days of the Family Hub's week, in the same colors. Each all-day event is a filled pill: Leo's daycare closure in his green, collection day in purple until it retires at 11:00, the grandparents' visit in the Family calendar's gold. Ben's working hours say _Busy_, except the offsite he marked for the family.
+Each all-day event is a filled pill: Leo's daycare closure in his green, collection day in purple until it retires at 11:00, the grandparents' visit in the Family calendar's gold. Ben's work says _Busy_, except the offsite he marked for the family.
 
 ## 📋 Copy the Card
 
-Replace the entity ids with your own, and each `person.*` label with a person from your Home Assistant. The lines above `entities:` speak for the whole card; the blocks below them are per calendar:
+Replace the entity ids with your own, `weather.home` included, and each `person.*` label with a person from your Home Assistant. The lines above `entities:` speak for the whole card; the blocks below them are per calendar.
+
+The blocks rely on how the events are written in the calendars:
+
+- **Work events the family may read** carry `#family` in their description. On weekdays every other work event reads _Busy_; work at the weekend is left off the card.
+- **Birthdays** on the Family calendar are yearly all-day events with _birthday_ in their title, written like _🎂 Grandma's birthday_, and the birth year in their description as `YEAR=1956`, from which the card works out the age each year.
+- **Collection days** start their title with _🗑️_ and a space, such as _🗑️ Trash collection_.
+
+Change the patterns in the YAML where your calendars write these differently:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -106,18 +116,15 @@ Where a calendar holds several kinds of event, this card lists it more than once
 | `calendar.family`       | what belongs to nobody in particular, a visit or a birthday | 2      |
 | `calendar.trash_pickup` | the recycling and trash collection days                     | 1      |
 
-A calendar is a source, not a category. Nothing is drawn twice, because within each calendar the blocks claim disjoint sets of events, and the four calendars that already mean one thing are listed once, unfiltered. Filters need a reliable word or marker in an event's title, location or description, never a new calendar.
+A calendar is a source, not a category. The four calendars that already mean one thing are listed once, unfiltered. A calendar that mixes several kinds of event is split on a reliable word or marker in each event's title, location or description, never into a new calendar.
 
 ## 🧩 How the Card Works
 
 ### The Same Week, Laid Out as a List
 
-A screen read in passing wants three days, today first, in the default list layout. Finished timed events drop off as they end, and the one under way has a green "Now ·" before its time. Late in the evening the list starts at tomorrow; add [`show_empty_today: true`](/features/event-content#showing-today-when-it-is-empty) to keep today's row.
+The card shows three days, today first, in the default list layout. Finished timed events drop off as they end, and the one under way has a green "Now ·" before its time. Late in the evening the list starts at tomorrow; add [`show_empty_today: true`](/features/event-content#showing-today-when-it-is-empty) to keep today's row.
 
-Apart from Ben's work, the events are the Family Hub's, with the same titles. Where the two screens word something differently, the card is doing it:
-
-- **An emoji moves into the label.** The Family Hub's grid needs _🎂 Grandma's birthday_ and _🗑️ Trash collection_ to carry their emoji in the title, because an all-day banner shows nothing else. Every list row has a label, so here the 🎂 and the 🗑️ are labels, taken out of the titles. The visit keeps its 🧳: its label says whose it is, and the 🧳 says what.
-- **Ben's work is here.** The Family Hub leaves his work calendar off; this card shows when he is busy, as [Busy & Nothing Else](#busy-nothing-else) explains.
+Every list row has a label, so the 🎂 and the 🗑️ that the Family Hub's all-day banners need in their titles become labels here, taken out of the titles. The visit keeps its 🧳: its label says whose it is, and the 🧳 says what.
 
 ### A Birthday Should Read Like a Name
 
@@ -127,46 +134,40 @@ Grandma's birthday is a yearly all-day event on the Family calendar, _🎂 Grand
 - [`replace_pattern`](/features/core-settings#dropping-a-prefix-from-every-title) deletes the cake and the _'s birthday_. With no `replace_with`, whatever matches is removed, and the `|` lets one pattern remove both.
 - The age comes from the `YEAR=1956` marker, as [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) explains.
 
-What the Family Hub shows as _🎂 Grandma's birthday (70)_ reads here as **🎂 Grandma (70)**. Next year it says 71, and nobody edits anything. A tap opens the birthday titled _Grandma_, without the age, which only the card works out.
+So _🎂 Grandma's birthday (70)_ reads **🎂 Grandma (70)** in 2026, and **🎂 Grandma (71)** in 2027 with nothing to edit. A tap opens the birthday titled _Grandma_, without the age, which only the card works out.
 
 ### A Reminder That Retires Itself
 
-Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) retires the row: it goes with the card's first refresh after 11:00, not on the minute. It acts only where finished events are hidden, as a list hides them by default, which is why the Family Hub's grid leaves it out ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label.
+Collection day is only useful before the truck comes. The trash pickup calendar holds nothing else, so its one block needs no filter, and [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) retires the row at 11:00. It acts only where finished events are hidden, as a list hides them by default, so it does nothing in the Family Hub's grid ([The All-Day Band](/guide/family-calendar#the-all-day-band)). `replace_pattern: '🗑️ '` takes the emoji out of the title, now that it is the label.
 
 ### Three People, One Card
 
-On a hallway screen, whose plan it is needs answering at a glance, which is a job for a label, not a color. [`label: person.anna`](/features/core-settings#showing-a-persons-picture) shows that person's picture from Home Assistant, the same faces as on [the Family Hub](/guide/family-calendar#a-face-for-every-calendar), and a face answers _whose evening is booked_ before anyone can read the title. Ben's face is on both work blocks too, so _Busy_ says who without saying what with.
+[`label: person.anna`](/features/core-settings#showing-a-persons-picture) shows that person's picture from Home Assistant, the same faces as on [the Family Hub](/guide/family-calendar#a-face-for-every-calendar), so whose evening is booked shows before anyone can read the title. Ben's face is on both work blocks too, so _Busy_ says who without saying what with.
 
 The three personal blocks filter nothing. A calendar that already means one thing needs no help.
 
 ### Busy & Nothing Else
 
-Ben blocks out his working hours, so everyone can see Thursday afternoon is gone. The screen should not also say it is the _Roadmap review_, and some meeting titles are a good deal more private than that. A blanket _Busy_ is too blunt, though, because a work calendar also carries what the family needs: the late finish, the day of travel, the offsite.
+Ben's working hours are on the card, so everyone can see Thursday afternoon is gone, but they read _Busy_ rather than _Roadmap review_. The few the family needs, such as a late finish, a day of travel or the offsite, keep their real title.
 
-So the work calendar is listed twice and split on its **description**. [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `allowlist` and `blocklist` there, and both blocks name one marker, a `#family` typed into anything Ben is happy for the family to read:
+The work calendar is listed twice and split on its **description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `allowlist` and `blocklist` there, and both blocks name one marker, `#family`, which Ben types into anything the family may read.
 
 - The block that **allows** `#family` keeps the real title, so Friday's _Team offsite_ appears by name.
 - The block that **blocks** it replaces every title with _Busy_ through [`replace_with`](/features/core-settings#hiding-what-an-event-is-about), which overrides the whole title when no `replace_pattern` stands beside it.
+- An event with no description counts as **not matching**, so it lands in the _Busy_ block: the safe default.
 
-Both keep the gray and Ben's face, so only the title tells them apart. A description marker leaves the title alone, and the card never shows it, because descriptions are hidden by default. Anyone invited can still read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps a work calendar that talks on Sunday off a family screen.
-
-::: tip Why the Two Halves Add Up
-An event with no description counts as **not matching**, so an allowlist drops it and a blocklist keeps it. A work event with an empty description therefore lands in the _Busy_ block and only there: the safe default, by the rule rather than by an extra option.
-:::
+Both keep the gray and Ben's face. The rows never show the marker, because descriptions are hidden from them by default, but the popover a tap opens shows the description, marker included, unless the block itself sets `show_description: false`, as the _Busy_ block does. Anyone invited can also read it in their own calendar, so mark only events where that is fine. [`days_of_week: weekdays`](/features/core-settings#showing-a-calendar-on-weekdays-only) keeps weekend work off a family screen.
 
 ::: warning A Title Is Not the Only Thing That Leaks
-`show_location: false` does real work on the _Busy_ block, because locations show by default and _Meeting Room 2_ gives the game away. `show_description: false` changes nothing yet, but keeps the block safe the day you turn [`show_description`](/reference/configuration#core-settings) on card-wide.
-
-Neither reaches the [event popover](/features/actions#event-details), though. A tap on a _Busy_ event shows _Busy_, but with its location and description, and editing the title shows the real one. `allow_event_edit: false` closes the second gap; only leaving `event_tap_action` off closes the first.
+Locations show by default, and _Meeting Room 2_ gives the game away. `show_location: false` and `show_description: false`, set on the _Busy_ block itself, keep both fields off the card and out of the [event popover](/features/actions#event-details) a tap opens. The popover says _Busy_ too, but where the calendar allows editing, the real title appears as soon as someone starts editing it; `allow_event_edit: false` closes that.
 :::
 
 ### Why This Works
 
-There are two layers. **Per calendar decides which events appear and what they say:** every option in an `entities:` block is independent, so a calendar listed several times is several blocks, and the [visual editor's](/features/editor) **Duplicate** action builds each one. **Card-level decides how the whole thing reads**, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the first layer predictable:
+Every option in an `entities:` block applies to that block alone, so a calendar listed several times is several independent blocks; the [visual editor's](/features/editor) **Duplicate** action builds each one. The lines above `entities:` decide how the whole card reads, as [One Voice for the Whole Card](#one-voice-for-the-whole-card) shows. Two rules keep the blocks predictable:
 
-**Make the blocks complementary.** Within one calendar, each event should match exactly one block. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), blocks that overlap draw an event once, styled by the first of them, so the overlap stops showing and the later block's label and color quietly never apply.
-
-**Finish with a catch-all.** A block with only a `blocklist` goes last for its calendar and catches what is left over. Without it, an event nobody wrote a rule for never appears, and something missing is very hard to notice.
+- **Make the blocks complementary.** Within one calendar, each event should match exactly one block. With [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events), blocks that overlap draw an event once, styled by the first of them, so the later block's label and color quietly never apply.
+- **Finish with a catch-all.** A block with only a `blocklist` goes last for its calendar and catches what is left over. Without it, an event nobody wrote a rule for never appears, and something missing is very hard to notice.
 
 They are one rule read from either end: **the catch-all's `blocklist` should be exactly the union of the allowlists above it.** The Family calendar allows and blocks `birthday`; the work calendar allows and blocks `#family`. The day they stop matching, an event is drawn twice, in the wrong block's colors, or not at all.
 
@@ -174,18 +175,18 @@ They are one rule read from either end: **the catch-all's `blocklist` should be 
 
 ### One Voice for the Whole Card
 
-The lines above `entities:` apply to every block at once, and that is the point: a shape that meant something different on each calendar would stop being a legend.
+The lines above `entities:` apply to every block at once, so a box, a color or a pill means the same thing on every calendar.
 
-**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. The filter lists six calendars, not eight blocks, so hiding Ben's work hides both halves. `view_switcher: false` drops the layout switch, because this card is a list on purpose.
+**The toolbar.** [`toolbar: show: true`](/features/layout-appearance#header-toolbar) puts the calendar filter, add and refresh in a row of their own, and under them the month, with arrows that page three days at a time. The filter lists six calendars, not eight blocks, so hiding Ben's work hides both halves. `view_switcher: false` drops the layout switch, so the card stays a list.
 
-**Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own. Events standing apart blur the days together, so `day_separator_width: 1px` draws a rule between them, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
+**Gaps, rules and tint.** [`event_gap: 6px`](/features/layout-appearance#gaps-between-events) gives every event a box and an accent bar of its own, `day_separator_width: 1px` draws a rule between the days, and `date_vertical_alignment: top` puts each date beside its day's first event. [`event_background_opacity: 12`](/features/layout-appearance#visual-styling-colors) tints each box in its calendar's color, [`event_color: accent`](/features/event-content#event-text-in-calendar-colors) draws each title in a readable shade of it, and `weather` puts the forecast under each date.
 
-**The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color, and the colors become a **shape** you can read from the far end of the hall: a gold capsule belongs to the whole family; purple is collection day; pink, blue or green is Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but the color has to stay `accent`, because the legend is the color.
+**The pills.** [`allday_badge: title`](/features/event-content#the-all-day-badge) wraps every all-day title in a pill, and `allday_badge_style: filled` makes it solid. Its color, [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), defaults to `accent`, so each pill takes its calendar's color: gold for the whole family, purple for collection day, and pink, blue or green for Anna's, Ben's or Leo's own day. A quieter dashboard can use the default `subtle` style, but keep the color `accent`, or the pills stop telling the calendars apart.
 
 `show_single_allday_time: false` drops the _All day_ row under a one-day pill, and `show_location_allday: false` the location under every pill, once for every block. `show_multiday_allday_time` stays on, because _All day, until Sunday, Oct 18_ carries the end of the grandparents' visit, which the pill cannot.
 
 ::: warning Tidying Is Not Privacy
-`show_location_allday: false` and the _Busy_ block's `show_location: false` look identical on screen and are not the same decision. The card-level one is housekeeping. The per-calendar one is a privacy control, and it has to stay, because work events are timed and the all-day option never touches them. `show_description_allday` sits on the same fault line.
+`show_location_allday: false` and the _Busy_ block's `show_location: false` look identical on screen, but only the second protects anything. Work events are timed, so the all-day option never touches them, and only an option set on the calendar keeps a field out of the popover. `show_description_allday` sits on the same fault line.
 :::
 
 ## 🔀 Variations
@@ -226,7 +227,7 @@ A tap opens the event in the card's popover, where it can be [changed and delete
 
 ### Shared Plans in the Family Agenda
 
-The zoo trip on Thursday is on Ben's and Leo's calendars, date night on Friday on Anna's and Ben's, and the birthday lunch on Saturday on all three. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws each once, with every face in front of the title, and [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors it the Family calendar's gold. The copies have to match exactly, in title, start, end and location. As on the Family Hub, a plan on more than one person's calendar is a family plan; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family).
+The zoo trip on Thursday is on Ben's and Leo's calendars. [`filter_duplicates: true`](/features/core-settings#filtering-duplicate-events) draws it once, with both faces in front of the title, and [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) colors it the Family calendar's gold, as on the Family Hub; see [Gold Means the Whole Family](/guide/family-calendar#gold-means-the-whole-family). The copies have to match exactly, in title, start, end and location.
 
 Every block on this page also works in grid view, apart from the all-day layer, so the [Family Hub](/guide/family-calendar) can take any of them onto its hour axis.
 

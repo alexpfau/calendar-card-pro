@@ -11,4 +11,4 @@ Each story is one complete card, built for a real place in a home and the questi
 | [Birthdays & Holidays](/guide/birthdays-and-holidays) | Birthdays with ages, and the next school break                      | A dashboard section or a pop-up             | List                                   |
 | [Bin Day](/guide/bin-day)                             | Which bin goes out next                                             | Half a dashboard section                    | List                                   |
 
-The [feature pages](/features/core-settings) explain one option at a time, and the [configuration reference](/reference/configuration) lists every option.
+Not sure which fits? Start with the [Family Hub](/guide/family-calendar) for a shared screen, or [Now & Next](/guide/now-and-next) for a phone. The [feature pages](/features/core-settings) explain one option at a time, and the [configuration reference](/reference/configuration) lists every option.

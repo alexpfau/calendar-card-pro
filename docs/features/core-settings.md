@@ -33,7 +33,7 @@ entities:
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                                     |
 | `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                                                                                               |
 | `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option). `false` also keeps them out of the [event popover](/features/actions#narrowing-what-the-popover-offers)                                                                                                                                                               |
-| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                                                                                                                                                                         |
+| `compact_events_to_show` | number  | `-`                      | Most events this calendar shows while the card is compact. Its events still count toward the card-wide `compact_events_to_show`; see [Entity-Level vs. Global Event Limits](#entity-level-vs-global-event-limits)                                                                                                                                                        |
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                                                                                                                                                                                |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                                                                                                                                                                              |
 | `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                                                                                                                                                                        |
@@ -44,8 +44,6 @@ entities:
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
 | `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows the country set in Home Assistant, or its language when no country is set. Unset, every day qualifies                                                                               |
-
-This structure gives you granular control over how information from different calendars is displayed.
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
@@ -82,26 +80,27 @@ the calendar picker in the visual editor, the heading of each calendar's panel b
 Home Assistant's more-info dialog.
 
 A name never draws on an event row. That is what [`label`](#choosing-how-a-label-is-read) is
-for, and the two are independent: a calendar can have either, both or neither.
+for, and a calendar can have either, both or neither.
 
-The name belongs to the calendar, not to one entry in `entities`. A calendar listed twice, as
-[splitting it by event type](#separating-all-day-from-timed-events) does, has one name: the
-[visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for that
-calendar, and in YAML the first entry that sets one wins.
+::: details Calendars Listed Twice, Typos & Hidden Calendars
 
-A calendar whose entity ID Home Assistant does not know, usually because of a typo, keeps its ID
-beside its name in the "Couldn't load" line, as in "Couldn't load: Anna
-(calendar.ana_personal)", so the entry to fix is still easy to find.
+- The name belongs to the calendar, not to one entry in `entities`. A calendar listed twice, as
+  [splitting it by event type](#separating-all-day-from-timed-events) does, has one name: the
+  [visual editor](/features/editor#per-calendar-panels-actions) writes it to every entry for
+  that calendar, and in YAML the first entry that sets one wins.
+- A calendar whose entity ID Home Assistant does not know, usually because of a typo, keeps its
+  ID beside its name in the "Couldn't load" line, as in "Couldn't load: Anna
+  (calendar.ana_personal)", so the entry to fix is easy to find.
+- Like any change to the configuration, renaming a calendar shows every hidden calendar again on
+  every device; see [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
 
-Like any change to the configuration, renaming a calendar shows every hidden calendar again on
-every device; see [Showing & Hiding Calendars](/features/layout-appearance#showing-hiding-calendars).
+:::
 
 ### Using the Colors From Home Assistant
 
-Home Assistant holds a color for each calendar entity, which you set under **Settings →
-Devices & Services → Entities**, and which the built-in calendar card and calendar panel
-already use. Setting `accent_color` to `home-assistant` makes Calendar Card Pro follow it,
-so a calendar keeps the same color everywhere.
+Home Assistant holds a color for each calendar entity, which the built-in calendar card and
+calendar panel already use. Setting `accent_color` to `home-assistant` makes Calendar Card Pro
+follow it, so a calendar keeps the same color everywhere.
 
 Set it card-wide and every calendar follows its own color:
 
@@ -136,38 +135,25 @@ per-calendar `home-assistant` falls back to the card's `accent_color`; a card-wi
 `home-assistant` falls back to the card's default accent, which is your theme's primary color
 (`#03a9f4` where the theme defines none).
 
-This matters more than it sounds, because **Google Calendar is currently the only
-integration that fills the color in for you** — and it does so only at the moment a calendar
-is **first added** to Home Assistant. Local Calendar, CalDAV and ICS feeds start with no
-color at all. So if you run Google alongside Local Calendar and switch the card over, expect
-your Google calendars to pick up their colors while the rest stay on the card default until
-you set a color for them by hand. That is the fallback working, not a bug.
-
-::: warning A Google Integration Older Than 2026.2 Has No Colors, and Nothing Back-Fills Them
-Because the import happens once, when a calendar is first added, a Google integration that
-was set up before Home Assistant 2026.2 has no colors stored — so switching the card over
-shows every calendar on the fallback, which looks exactly like the feature not working.
-
-**Removing and re-adding the integration does not fix this**, and is worth not attempting.
-Home Assistant remembers a removed calendar's settings and restores them when the same
-calendar comes back, so the color returns as empty as it left, and the import that would
-have filled it is skipped precisely because the old settings were found. That is how the
-Google Calendar integration and the entity registry work between them, and nothing Calendar
-Card Pro does on its side can change it.
-
-**Set the colors by hand instead** — see below. It is a moment per calendar, it is the only
-thing that works today, and it leaves your integration, your entity IDs and anything
-referring to them alone.
-
-That work is also safe to do: the same restore that declines to import a color is what
-preserves one you set yourself, so hand-set colors survive removing and re-adding the
-integration later for some unrelated reason.
-:::
+**Google Calendar is currently the only integration that fills the color in for you**, and
+only when a calendar is **first added** to Home Assistant. Local Calendar, CalDAV and ICS
+feeds start with no color, so beside Google they stay on the fallback until you give them a
+color by hand. That is the fallback working, not a bug.
 
 ::: tip Setting a Color By Hand
-Any calendar can be given a color, whichever integration it came from, and this is the path
-to prefer for the case above. Open **Settings → Devices & Services → Entities**, pick the
-calendar, and use the color field in its settings.
+Any calendar can be given a color, whichever integration it came from. Open **Settings →
+Devices & Services → Entities**, pick the calendar, and use the color field in its settings.
+:::
+
+::: warning A Google Integration Older Than 2026.2 Has No Colors, and Nothing Back-Fills Them
+Google's colors are copied only when a calendar is first added, so a Google integration set
+up before Home Assistant 2026.2 has none, and every calendar shows the fallback. It looks
+exactly like the feature not working.
+
+**Removing and re-adding the integration does not fix this.** Home Assistant restores a
+removed calendar's old settings when it comes back, color included, and skips the import.
+Set the colors by hand instead. A color you set yourself is restored the same way, so it
+survives removing and re-adding the integration later.
 :::
 
 ### Choosing How a Label Is Read
@@ -188,20 +174,21 @@ entities:
     label: /local/school.png # image
 ```
 
-Icons and pictures are vertically centered with the adjacent title text in List, Column,
-and timed Grid events, including merged-calendar labels. Grid's all-day banners remain
-title-only.
+In grid view, all-day banners show the title alone, without the label.
 
 `label_type` is for the cases where reading the value gets it wrong. Set it to `none`,
 `text`, `icon` or `image` and it wins over the value:
 
 ```yaml
 entities:
-  # Shows the nine characters "mdi:calendar" rather than the icon of that name
+  # Shows the text "mdi:calendar" rather than the icon of that name
   - entity: calendar.notes
     label: 'mdi:calendar'
     label_type: text
 ```
+
+Existing configurations need no change: leave `label_type` out and the card reads the value
+as described above.
 
 ::: tip Visual Editor
 The **Label Type** dropdown under each calendar writes this for you, and only when it has
@@ -209,29 +196,29 @@ to. Pick a type and the right control appears below it — a text box, Home Assi
 browser, or a path field — along with **Label Icon Color** where the label is an icon.
 :::
 
-You will rarely write `label_type` by hand, and existing configurations do not need it:
-leave it out and the value is read exactly as it always was.
-
 ### Using a Picture Home Assistant Already Serves
 
 An image label does not have to be a file you saved in `www/`. Home Assistant serves the
-pictures it already holds over addresses beginning `/api/`, and any of them works as a
-label — a camera snapshot, an integration's brand icon, a person's photo:
+pictures it holds over addresses beginning `/api/`, and some of them work as a label, a
+person's photo among them:
 
 ```yaml
 entities:
-  - entity: calendar.deliveries
-    label: /api/camera_proxy/camera.front_door # a camera's current frame
   - entity: calendar.anna
-    label: /api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512 # a picture, by address
+    label: /api/image/serve/5f2b9c0e7d14a6b38e90c1d2f4a7b6e3/512x512 # a picture, by address
 ```
 
 Find the address in **Developer Tools → States**: pick the entity and read its
-`entity_picture` attribute. These addresses need no authentication, so the card loads them
-with no further setup.
+`entity_picture` attribute. A person's picture (`/api/image/serve/…`) loads with no further
+setup.
+
+An address that carries a `token=` does not keep working as a label. A camera's frame is
+one: Home Assistant refuses the address without its token and replaces the token regularly.
+A media player's artwork and an image entity's picture carry a token too, and current Home
+Assistant also refuses an integration's brand icon (`/api/brands/…`) to a card.
 
 ::: tip For a Person, Name the Person Instead
-The second line above works, but there is a shorter way that does not go stale — see
+The example above works, but there is a shorter way that does not go stale — see
 [Showing a Person's Picture](#showing-a-persons-picture) below.
 :::
 
@@ -251,9 +238,8 @@ entities:
 ### Showing a Person's Picture
 
 Set `label` to a **person entity ID** and the card shows that person's picture. You do not
-have to find the address, and you never have to update it — the card reads it from the
-person entity each time it draws, so a new photo in Home Assistant appears on the card
-without touching your configuration:
+have to find the address, and a new photo in Home Assistant appears on the card without
+touching your configuration:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -265,25 +251,16 @@ entities:
   - calendar.family # no label
 ```
 
-This is the same idea as [following a calendar's
-icon](#following-the-icon-from-home-assistant), one entity over. The difference is which
-entity holds the value: an icon belongs to the calendar being labeled, so `home-assistant`
-needs no further detail, while a picture belongs to a **person**, who has to be named.
-
 The picture carries the person's name from Home Assistant as its text alternative, so a
 screen reader says whose event it is. A picture given by its address is treated as
 decoration and skipped, the way icon and emoji labels are.
 
-**Only `person.` entity IDs are read this way.** Plenty of other entities carry a picture —
-cameras, media players, integrations — and any of them still works if you paste its
-address, as above. They are deliberately not resolved from an entity ID, because an entity
-ID is a lowercase dotted word and so is plenty of ordinary text: reading every domain that
-way would quietly turn a label like `v2.0` into a picture lookup.
+**Only `person.` entity IDs are read this way.** Another entity's picture has to be given by
+its address, and not every address keeps working; see
+[above](#using-a-picture-home-assistant-already-serves).
 
 **A person Home Assistant has no picture for shows no label**, rather than an empty space
-where one would go. That is the same nothing an unlabeled calendar shows, so mixing the two
-costs nothing in alignment. The same is true of a `person.` ID naming somebody who no
-longer exists.
+where one would go, and so does a `person.` ID naming somebody who no longer exists.
 
 ::: tip Setting a Person's Picture
 Open **Settings → People**, pick the person, and use the picture field. A person does not
@@ -297,8 +274,8 @@ field. Set it to **A person's picture** and the field becomes a person picker; l
 :::
 
 ::: warning A Text Label Shaped Like a Person
-The card reads `person.anna` as "show that person's picture" rather than as ten characters
-of text. On the rare occasion you want the characters themselves, say so with `label_type`:
+The card reads `person.anna` as "show that person's picture" rather than as literal text. On
+the rare occasion you want the characters themselves, say so with `label_type`:
 
 ```yaml
 entities:
@@ -314,7 +291,7 @@ entities:
 Home Assistant holds an icon for each calendar entity as well as a color, and `label` takes
 the same `home-assistant` value the [accent color](#using-the-colors-from-home-assistant)
 does. The card then shows whatever icon that calendar has in Home Assistant, so changing it
-in one place changes it in both instead of leaving the two to drift apart:
+there changes it on the card too:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -326,16 +303,11 @@ entities:
   - calendar.trash # no label
 ```
 
-It is per calendar only. There is no card-wide counterpart, because a label belongs to one
-calendar in a way a color does not — a single label in front of every event would say
-nothing about which calendar the event came from.
+It is per calendar only, with no card-wide counterpart.
 
 **A calendar Home Assistant has no icon for shows no label**, rather than an empty space
-where one would go. That is the same nothing an unlabeled calendar shows, so mixing the two
-costs nothing in alignment.
-
-Most integrations supply no icon, so this usually means setting one yourself — the same
-place you set a color, and the same moment's work:
+where one would go. Most integrations supply no icon, so this usually means setting one
+yourself, in the same place as a color:
 
 ::: tip Setting an Icon By Hand
 Open **Settings → Devices & Services → Entities**, pick the calendar, and use the icon field
@@ -344,17 +316,16 @@ in its settings. Any calendar can be given one, whichever integration it came fr
 
 ::: tip Visual Editor
 Choose **An Icon** as the label type and an **Icon Source** dropdown appears above the
-picker. Set it to **Follow Home Assistant** and the picker goes away, because there is
-nothing left to pick. **Label Icon Color** stays either way, so an inherited icon can still
-be tinted to match the rest of your card.
+picker. Set it to **Follow Home Assistant** and the picker goes away. **Label Icon Color**
+stays either way, so an inherited icon can still be tinted to match the rest of your card.
 :::
 
-Because the icon is read at the moment the card draws, an icon changed in Home Assistant
-appears without reloading the dashboard or waiting for the next calendar refresh.
+An icon changed in Home Assistant appears without reloading the dashboard or waiting for the
+next calendar refresh.
 
 ::: warning `home-assistant` as a Literal Label
-The card reads `home-assistant` as "follow Home Assistant" rather than as nine characters of
-text. On the rare occasion you want the words themselves, say so with `label_type`:
+The card reads `home-assistant` as "follow Home Assistant" rather than as literal text. On
+the rare occasion you want the words themselves, say so with `label_type`:
 
 ```yaml
 entities:
@@ -375,6 +346,9 @@ Each calendar's own filters are under **Calendars**, in that calendar's panel, u
 
 ### Filtering by Event Name
 
+`blocklist` hides a calendar's events whose title matches a pattern, and `allowlist` keeps
+only the ones that match. Both are regular expressions, so `|` separates alternatives:
+
 ```yaml
 entities:
   - entity: calendar.work
@@ -383,16 +357,8 @@ entities:
     allowlist: 'Birthday|Anniversary' # Only show events with these words
 ```
 
-These filters use regular expressions, allowing for flexible pattern matching:
-
-- **Blocklist**: Hide events that match specified patterns
-- **Allowlist**: Only show events that match specified patterns
-- **Together**: Both apply, so an event has to match the allowlist _and_ escape the
-  blocklist to be shown
-
-Naming both is how you say "these, except those" — an allowlist narrows the calendar down
-to what you care about, and the blocklist then removes the exceptions from that shorter
-list:
+Set both and both apply: an event has to match the allowlist _and_ escape the blocklist to be
+shown. That is how you say "these, except those":
 
 ```yaml
 entities:
@@ -400,13 +366,6 @@ entities:
     allowlist: 'Cheap' # only the cheap-rate events
     blocklist: 'quarter' # but not the quarter-hourly ones
 ```
-
-::: warning Changed in v4.2
-Before v4.2 an allowlist silently retired the blocklist beside it, so only the allowlist
-was applied. Both now apply. If a calendar of yours carries both and its blocklist overlaps
-what the allowlist admits, that calendar will show fewer events than it used to — which is
-what the blocklist was asking for. Clear the blocklist to get the old result back.
-:::
 
 ### Matching the Location or Description Instead
 
@@ -426,22 +385,17 @@ stopped filtering on the title. To filter on two fields, list the calendar twice
 block filters independently.
 
 An event that has no location at all, or no description, counts as not matching: an
-allowlist drops it and a blocklist keeps it. That is the same rule the title filter has
-always applied to an event with no title, and it is what makes the two-block pattern below
-add up.
+allowlist drops it and a blocklist keeps it, just as for an event with no title.
 
-::: tip Patterns Are Unchanged
-`filter_field` is a separate option rather than a prefix inside the pattern, because the
-lists are plain regular expressions and every character in them already means something.
-`allowlist: 'location:'` still matches the literal text `location:` in a title, exactly as
-it did before.
-:::
+::: details Plain Patterns & HTML in Descriptions
 
-::: warning The Description Is Matched Before Its Formatting Is Removed
-The card strips HTML out of descriptions for display, but the filter reads the description
-as your calendar delivered it. With Google Calendar that usually means HTML, so a pattern
-matching a link may need to allow for the anchor markup wrapped around it. The same is true
-of `show_description: false` — hiding descriptions does not stop them being filtered on.
+- A pattern has no prefix syntax: `allowlist: 'location:'` matches the literal text
+  `location:` in a title.
+- The card strips HTML out of descriptions for display, but the filter reads the description
+  as your calendar delivered it. With Google Calendar that usually means HTML, so a pattern
+  matching a link may need to allow for the anchor markup wrapped around it.
+- `show_description: false` hides descriptions without stopping them being filtered on.
+
 :::
 
 ### Hiding Google Tasks Blended Into a Calendar
@@ -469,9 +423,9 @@ To make edits, please go to: https://tasks.google.com/task/<id>
 ```
 
 **Match the URL, not the sentence above it.** Google translates that sentence for every
-account language, exactly as Microsoft translates its meeting text; it does not translate
-the URL. The URL is also unaffected by whether the description arrives as HTML or as plain
-text, where a pattern spanning translated words might not be.
+account language; it does not translate the URL. The URL also matches whether the
+description arrives as HTML or as plain text, where a pattern spanning translated words
+might not.
 
 The same approach works for any source that injects boilerplate-bearing events into a feed:
 find a phrase every one of them carries and no real event does, and block on it.
@@ -582,14 +536,11 @@ two-week one is. For how the card handles events spanning several days, see
 
 ### Retiring All-Day Events During the Day
 
-An all-day event has no end time, only an end date, so the card treats one as past at
-**midnight after the last day it covers**. That is usually right — a birthday is a birthday
-all day — but it is wrong for a feed describing something that happens at a particular
-hour. A waste-collection calendar is the common case: the truck comes in the morning, and
-the collection's entry sits on the card until midnight.
-
-`allday_expires_at` moves that moment earlier within the final day. It takes a time of day,
-and from that time onward the card treats the event as past:
+An all-day event normally counts as past at **midnight after the last day it covers**.
+`allday_expires_at` retires a calendar's all-day events earlier, at a time of day you name,
+for feeds that describe something happening at a particular hour. A waste-collection
+calendar is the common case: the truck comes in the morning, and otherwise the collection's
+entry sits on the card until midnight.
 
 ```yaml
 entities:
@@ -598,20 +549,15 @@ entities:
   - calendar.family # unaffected — birthdays stay up all day
 ```
 
-It is per calendar and has no card-wide counterpart, which is the point: your collection feed
-and your birthdays want opposite answers, and only the calendar itself knows which.
-
-The time is read against the **last** day the event covers, so a holiday running Monday to
-Wednesday retires on Wednesday morning rather than Monday's. Split the calendar with
-`split_multiday_events: true` and each day retires on its own morning instead.
-
-Leaving the option out keeps the default, midnight — the option changes _when_ within the
-final day, never _whether_.
-
-Write the time as `HH:MM` on a 24-hour clock. A single-digit hour works, and so do seconds
-if you want them, so `9:30` and `10:00:30` are both read. A value the card cannot read as a
-time falls back to midnight, which looks exactly like leaving the option out — so check the
-value first if a calendar is not retiring when you expect it to.
+- It is per calendar and has no card-wide counterpart.
+- Write the time as `HH:MM` on a 24-hour clock. From that time onward the event is past, and
+  the row goes at that time without waiting for a refresh, within a minute in a grid showing
+  its [now line](/features/grid-view#the-now-line).
+- The time is read against the **last** day the event covers, so a holiday running Monday to
+  Wednesday retires on Wednesday morning rather than Monday's. Split the calendar with
+  `split_multiday_events: true` and each day retires on its own morning instead.
+- Leaving the option out keeps the default, midnight. The option changes _when_ within the
+  final day, never _whether_.
 
 ::: warning It Only Applies While Past Events Are Hidden
 `allday_expires_at` decides _when_ an all-day event becomes past. Whether past events are
@@ -620,12 +566,11 @@ defaults to `false`. With `show_past_events: true` the card is being asked to sh
 over, so this option has nothing left to do and the event stays.
 :::
 
-::: tip It Takes Effect on the Next Refresh, Not on the Minute
-Nothing schedules a redraw at the expiry time you name here. An event retires on the first
-render after its moment passes — a data refresh, Home Assistant update, dashboard reload,
-or edit can cause that render. Grid also repaints once a minute while its now line is
-enabled and the page is visible. These repaints are not an expiry alarm; do not expect
-the row to disappear at the exact time you set.
+::: details Accepted Time Formats
+A single-digit hour works, and so do seconds if you want them, so `9:30` and `10:00:30` are
+both read. A value the card cannot read as a time falls back to midnight, which looks
+exactly like leaving the option out, so check the value first if a calendar is not retiring
+when you expect it to.
 :::
 
 ### Showing a Calendar on Weekdays Only
@@ -646,54 +591,42 @@ Like `event_type`, the two values are exact opposites, so listing one calendar t
 each way — divides it between two blocks that can carry their own labels and colors,
 without losing an event or showing one twice.
 
-::: warning Pair This With `split_multiday_events` on a Calendar of Long Events
-The example above sets both, and on a holidays calendar it needs to. `days_of_week` judges
-the day a row **lands on**, and an event spanning several days is drawn as a single row on
-the first of them unless you split it. So a two-week vacation beginning on a Saturday is
-one Saturday row, and `weekdays` hides the whole vacation rather than showing you its
-weekdays.
-
-With `split_multiday_events: true` that same vacation becomes a row per day, each judged
-separately, and you get the Monday-to-Friday view you asked for. Column view already
-defaults the option to `true`, so this pairing only needs stating for list view.
-
-Grid always derives daily coverage, independently of `split_multiday_events`. It filters
-each timed segment and each all-day banner date, including continuations of events whose
-first day was excluded. Other calendars can still show events on the excluded days.
-:::
-
-::: tip It Filters the Day a Row Lands On, Not the Day It Started
-The same rule explains an event already running when the card's window opens: it is drawn
-on the window's **first day**, whichever weekday that is, so that is the day the filter
-judges — not the date the event began. A calendar of single-day entries never notices the
-distinction, since the two dates are the same.
-:::
-
-::: warning A Day the Filter Empties Follows `show_empty_days`
-Filtering runs before the card pads out its window, so a Saturday whose only entry this
-calendar supplied becomes an empty day like any other. With
-[`show_empty_days`](/reference/configuration#core-settings) off — the default in list view
-— that day is left out entirely and a later one takes its place. With it on, as column
-view defaults to, the day still appears carrying the usual _No events_ notice.
-:::
-
 Which days are the weekend comes from the country set in Home Assistant, under **Settings →
 System → Home information** (**General** before Home Assistant 2026.3), not from the card's
-own `language` option: Saturday and Sunday in most countries, Friday and Saturday in Israel
-and much of the Arab world, Thursday and Friday in Afghanistan, Friday alone in Iran, and
-Sunday alone in India and Uganda.
+own `language` option. Set the country if your weekend comes out wrong. They are the same
+days the [weekend colors](/features/layout-appearance#date-column-customization) and the
+weekend shading mark.
 
-With no country set, Home Assistant's language decides instead: Friday and Saturday in
-Arabic and Hebrew, Friday alone in Persian, Sunday alone in Hindi, Malayalam, Tamil and
-Telugu, and Saturday and Sunday in every other language. A language can speak for only one
-of the countries that use it, though — English gives an Israeli home Saturday and Sunday,
-and Arabic gives a Moroccan one Friday and Saturday — so set the country if your weekend
-comes out wrong.
+::: warning Pair This With `split_multiday_events` on a Calendar of Long Events
+`days_of_week` judges the day a row **lands on**, and in list view an event spanning several
+days is a single row on the first of them unless you split it. So a two-week vacation
+beginning on a Saturday is one Saturday row, and `weekdays` hides the whole vacation rather
+than showing you its weekdays. With `split_multiday_events: true` it becomes a row per day,
+each judged separately. Column view already defaults the option to `true`.
+:::
 
-That is the same definition the
-[weekend colors](/features/layout-appearance#date-column-customization) and the weekend
-shading use, so a day this option treats as a weekend is a day the card already draws as
-one.
+::: details Grid, Running Events, Empty Days & Weekends by Country
+
+- Grid always judges each day on its own, whatever `split_multiday_events` says. It filters
+  each timed segment and each all-day banner date, including continuations of events whose
+  first day was excluded. Other calendars can still show events on the excluded days.
+- An event already running when the card's window opens is drawn on the window's **first
+  day**, whichever weekday that is, so that is the day the filter judges, not the date the
+  event began. A calendar of single-day entries never notices the difference.
+- A day the filter empties is an empty day like any other. With
+  [`show_empty_days`](/reference/configuration#core-settings) off, the default in list view,
+  it is left out and a later one takes its place. With it on, as column view defaults to, the
+  day still appears with the usual _No events_ notice.
+- By country, the weekend is Saturday and Sunday in most countries, Friday and Saturday in
+  Israel and much of the Arab world, Thursday and Friday in Afghanistan, Friday alone in Iran,
+  and Sunday alone in India and Uganda.
+- With no country set, Home Assistant's language decides: Friday and Saturday in Arabic and
+  Hebrew, Friday alone in Persian, Sunday alone in Hindi, Malayalam, Tamil and Telugu, and
+  Saturday and Sunday in every other language. A language speaks for only one of the
+  countries that use it, so English gives an Israeli home Saturday and Sunday, and Arabic
+  gives a Moroccan one Friday and Saturday.
+
+:::
 
 ### Filtering Duplicate Events
 
@@ -709,11 +642,9 @@ filter_duplicates: true
 
 An event counts as a duplicate of another when its original **title**, **start**, **end** and
 **location** all match. Among copies that pass their calendar's filters, the surviving copy
-is the one from the eligible entry listed **first** in
-`entities`, carrying that entry's own `color` and `accent_color` — so reordering `entities`
-changes which calendar's styling a shared event shows. That same first-listed priority also
-picks the winner when the two competing entries are blocks of one calendar, which is what
-[keyword icon mapping](#mapping-icons-onto-events-by-keyword) relies on.
+is the one from the eligible entry listed **first** in `entities`, carrying that entry's own
+`color` and `accent_color`, so reordering `entities` changes which calendar's styling a shared
+event shows.
 
 Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
 that excludes a date cannot remove another calendar's eligible copy:
@@ -726,15 +657,11 @@ entities:
   - calendar.ben
 ```
 
-On a weekend, a shared event still appears from Ben's calendar. Daily occurrences are
-compared on their displayed dates, so a split multi-day event can have different contributing
-calendars on different days. An eligible first-listed unsplit List or Column copy keeps its
-single-row shape; lower-priority copies do not force it to split.
+On a weekend, a shared event still appears from Ben's calendar.
 
-When the merge spans two or more **distinct** calendars, the surviving row can do more than
-inherit one calendar's styling: it can name every calendar the event belongs to and take a
-color that marks it as shared. The next section,
-[Labeling & Coloring Shared Events](#labeling-coloring-shared-events), covers both.
+When the merge spans two or more **distinct** calendars, the surviving row can also name every
+calendar the event belongs to and take a color that marks it as shared; see
+[Labeling & Coloring Shared Events](#labeling-coloring-shared-events).
 
 ::: warning Matching Ignores Which Calendar an Event Came From
 Any two events that share a title, start, end and location are treated as duplicates, even if
@@ -745,12 +672,24 @@ If events start disappearing unexpectedly, set `filter_duplicates: false` to con
 this option is the cause.
 :::
 
+::: details Multi-Day Events
+Daily occurrences are compared on their displayed dates, so a split multi-day event can have
+different contributing calendars on different days. In List and Column, a first-listed copy
+that is not split keeps its single row; lower-priority copies do not force it to split.
+:::
+
 ### Labeling & Coloring Shared Events
 
 When filtering collapses an event that two or more **distinct** calendars hold, the surviving
-row can answer two questions about it: **who** it belongs to, and **that** it is shared. Labels
-answer the first and `duplicate_accent_color` answers the second, and the two are meant to be
-read together:
+row can show **who** it belongs to, with every calendar's label, and **that** it is shared,
+with `duplicate_accent_color`:
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in gold and showing both calendars' pictures" width="600"><br>
+
+Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
+in front of the title and turns gold. This is Friday and Saturday of the
+[Family Hub](/guide/family-calendar) story's week, with only Anna's and Ben's calendars on the
+card:
 
 ```yaml
 filter_duplicates: true
@@ -764,51 +703,36 @@ entities:
     accent_color: '#03a9f4'
 ```
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in gold and showing both calendars' pictures" width="600"><br>
-
-Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
-in front of the title and turns gold — the faces say whose it is, the gold says at a glance
-that it is shared. This is Friday and Saturday of the family's week from the
-[Family Hub](/guide/family-calendar) story, in their colors, where gold is also the Family
-calendar's. Only Anna's and Ben's calendars are on this card, so the birthday lunch that
-shows three faces there shows two here.
-
 **The labels need nothing switched on.** A merged row draws the label of every calendar it
-came from, in the order the calendars are listed, so if you already label your calendars this
-is what a shared event shows. Labels that resolve to the same value are drawn **once**, so two
-calendars sharing one label — the same emoji, the same `mdi:` icon — do not stamp it twice.
+came from, in the order the calendars are listed. Labels that resolve to the same value, such
+as the same emoji or `mdi:` icon, are drawn **once**.
 
 **The color is the one line you switch on.** `duplicate_accent_color` replaces the accent of a
 merged row — the accent bar, the row's background tint when
 [`event_background_opacity`](/features/layout-appearance) is on, and the
-[all-day badge](/features/event-content#the-all-day-badge), since all three derive from the same
-accent. Any CSS color works, including a theme variable such as `var(--success-color)`. Leave it
-unset and a shared row keeps the first-listed calendar's color, exactly as every release before
-v4.2 did.
+[all-day badge](/features/event-content#the-all-day-badge). Any CSS color works, including a
+theme variable such as `var(--success-color)`. Leave it unset and a shared row keeps the
+first-listed calendar's color. The
+[Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets it to the Family
+calendar's own color, so an event on more than one person's calendar reads as a family event.
 
-The [Family Hub](/guide/family-calendar#gold-means-the-whole-family) story sets
-`duplicate_accent_color` to the Family calendar's own color, so an event on more than one
-person's calendar reads as a family event, the same as one on the Family calendar itself.
-
-Both behaviors need two or more **distinct** calendars. Listing one calendar twice to
-[map icons by keyword](#mapping-icons-onto-events-by-keyword) is deliberately untouched: that
-row keeps the first block's single icon and its own calendar's color, which is what the pattern
-needs.
+Both need two or more **distinct** calendars. A calendar listed twice to
+[map icons by keyword](#mapping-icons-onto-events-by-keyword) keeps the first block's single
+icon and its own calendar's color.
 
 ::: tip Pick a Label That Reads Well Beside Another One
-Any label kind works, but they do not all sit together equally well. A person's picture, an
-image, an emoji or an `mdi:` icon is drawn at a fixed size, so several in a row read as a row of
-faces or badges. Plain text is not combined into a phrase — two calendars labeled `Anna:` and
-`Ben:` render as `Anna: Ben:`, not `Anna & Ben:`, because any rule for merging your words would
-have to guess where your punctuation ends and would get it wrong for somebody.
-
-If you label calendars with names and share events between them, prefer
+A person's picture, an image, an emoji or an `mdi:` icon is drawn at a fixed size, so several
+in a row read as a row of faces or badges. Plain text is not combined into a phrase: two
+calendars labeled `Anna:` and `Ben:` render as `Anna: Ben:`, not `Anna & Ben:`. If you label
+calendars with names and share events between them, prefer
 [a person's picture](#showing-a-persons-picture).
 :::
 
 ### Advanced Filtering Techniques
 
-You can combine filtering features with labels and accent colors to create sophisticated displays. For example, to apply different styling to specific event types within the same calendar:
+Listing one calendar once per category, each block with its own filter, label and accent
+color, styles different kinds of event from the same calendar differently. A last block
+blocks every pattern above it and catches the rest:
 
 ```yaml
 entities:
@@ -826,13 +750,6 @@ entities:
     # No label for remaining events
 ```
 
-This technique lets you:
-
-- Apply different labels and colors to different event types from the same calendar
-- Create category-based visual organization without needing multiple calendar sources
-- Use accent colors with backgrounds (when event_background_opacity > 0) for even more distinction
-- Avoid needing to create separate calendars for different event categories
-
 In the visual editor, build this with **Duplicate** above the calendar's settings —
 once for each extra block — and then give each copy its own filter, label and color. See
 [Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
@@ -845,8 +762,8 @@ it does and which copy survives.
 ### Mapping Icons Onto Events by Keyword
 
 The same shape gives every event an icon chosen by what its title says, without adding
-emoji to the events themselves. A `label` holding an `mdi:` value renders as an icon —
-there is no `label_type` to set, because the shape is read from the value:
+emoji to the events themselves. A `label` holding an `mdi:` value renders as an icon, with
+no `label_type` to set:
 
 ```yaml
 filter_duplicates: true
@@ -870,7 +787,7 @@ anything unmapped still appears, with no icon. Give it a `label` of its own —
 than none.
 
 ::: warning `filter_duplicates: true` Is Doing Real Work Here
-It is not decoration, and the pattern is wrong without it. **A title can match more than
+**A title can match more than
 one block** — "Swim meeting" matches both `swim` and `meeting` — and each matching block
 contributes its own copy, so that event is drawn **twice**, once per icon. Turning
 `filter_duplicates` on collapses the copies and keeps the one from the block listed
@@ -913,9 +830,8 @@ is the instruction:
 | unset             | set            | the **whole field** is replaced |
 | unset             | unset          | nothing happens                 |
 
-That third row is why "remove this text" has a row of its own rather than being written as
-an empty `replace_with`: the visual editor cannot store an empty value, so leaving the field
-blank is the only way to say it.
+In the visual editor, removing text means leaving the replacement field blank, since the
+editor cannot store an empty value.
 
 ### Dropping a Prefix From Every Title
 
@@ -1027,7 +943,10 @@ HTML in a description is already flattened, and a `YEAR=` marker is already stri
 
 ## 📊 Compact Mode & Event Limits
 
-Calendar Card Pro offers powerful controls for managing what appears in compact and expanded mode:
+Compact mode keeps a list card short: it shows only the first few events or days until someone
+expands it to everything in `days_to_show`. Set an event or day limit and the card starts
+compact; an [`expand` tap or hold action](/features/actions#expandable-calendar-card) lets
+people switch between the two.
 
 ```yaml
 # Total days to fetch from API and display when expanded
@@ -1035,7 +954,7 @@ days_to_show: 7
 
 list:
   # Event limit for compact mode
-  compact_events_to_show: 5 # Preferred: New option name
+  compact_events_to_show: 5
 
   # Day limit in compact mode
   compact_days_to_show: 2 # Fewer days to display in compact mode
@@ -1044,48 +963,56 @@ list:
   compact_events_complete_days: true # Never cut off a day's events mid-day
 ```
 
-Numeric limits follow the same rules inside `list:` as at the top level. Quoted values such
-as `compact_events_to_show: '5'` still limit the card and can be expanded. Blank, negative,
-or nonnumeric limits mean no limit; zero is valid for the event limit, but not the day limit.
-
 ::: warning Compact Mode Applies to List View Only
-All three options on this page cap the card as a whole, which a stack of days can express
-and a row of days cannot: a limit of three events would fill the first column, spill into
-the second and leave every later one blank. So `compact_events_to_show`,
-`compact_days_to_show` and `compact_events_complete_days` — including the per-calendar
-`compact_events_to_show` below — are read in list view and ignored in column and grid view.
+`compact_events_to_show`, its per-calendar form, `compact_days_to_show` and
+`compact_events_complete_days` are read in list view and ignored in column and grid view.
 
-They are not errors and they need not be removed: a card set to `view: column` or
-`view: grid` renders as a list whenever it is too narrow for even `min_days_to_show` under
-the default `min_days_fallback: list`, and they all apply again the moment it does. To
-control how much a side-by-side view shows while it stays side-by-side, use
+They need not be removed: a card set to `view: column` or `view: grid` renders as a list
+whenever it is too narrow for even `min_days_to_show` under the default
+`min_days_fallback: list`, and they all apply again the moment it does. To control how much
+a side-by-side view shows while it stays side-by-side, use
 [`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
 for column view, or the matching
-[`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid, rather
-than compact caps.
+[`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid.
+:::
+
+::: details Accepted Limit Values
+
+- Numeric limits follow the same rules inside `list:` as at the top level.
+- Quoted values such as `compact_events_to_show: '5'` still limit the card and can be
+  expanded.
+- Blank, negative or nonnumeric limits mean no limit.
+- `compact_events_to_show: 0` is valid and holds every event back until the card is
+  expanded. A day limit below `1` means no day limit.
+
 :::
 
 ### Entity-Level vs. Global Event Limits
 
-In addition, you can control how many events are displayed in compact mode from each calendar independently:
+`compact_events_to_show` caps the whole card, and each calendar can carry its own as well.
+Neither has a default: unset, there is no cap.
 
 ```yaml
 entities:
-  - entity: calendar.family # Show all events from family calendar (no limit)
+  - entity: calendar.family # No cap of its own
   - entity: calendar.work
-    compact_events_to_show: 2 # Only show 2 most important work events
+    compact_events_to_show: 2 # At most 2 work events, the earliest
 ```
 
-This feature provides several important behaviors:
-
-- **Entity limits are applied first**: Each calendar is restricted to its specific maximum
-- **Global limit is applied second**: Total events across all calendars are then limited
-- **Chronological order is preserved**: Events remain sorted by date/time
-- **Different behavior per mode**: In compact mode, both entity and global limits apply; in expanded mode, all limits are removed and all events within the configured date range are displayed
+- **Each calendar's cap comes first.** A calendar keeps its earliest events, up to its own
+  limit. The cap belongs to the entry in `entities`, so a calendar listed twice has one per
+  block. A calendar with no cap of its own keeps all of its events at this step.
+- **The card's cap comes second.** It counts the events left from every calendar together, in
+  date and time order with each day's all-day events first, so a calendar without a cap of
+  its own still counts toward it.
+- **Expanded,** every cap is lifted, each calendar's own included, and the card shows
+  everything in `days_to_show`.
 
 ### Controlling Days in Compact Mode
 
-The `compact_days_to_show` option lets you display fewer days in compact mode:
+`compact_days_to_show` limits the compact card to its first few days. It has no default:
+unset, the compact card covers all of `days_to_show`, and a value larger than `days_to_show`
+changes nothing.
 
 ```yaml
 days_to_show: 7 # Show 7 days when expanded
@@ -1093,11 +1020,25 @@ list:
   compact_days_to_show: 2 # Show only the next 2 days with events in compact mode
 ```
 
-This is useful for dashboards where you want an initial view showing just the most immediate events, with the ability to expand to view the entire week.
+Which days count depends on [`show_empty_days`](/reference/configuration#core-settings):
+
+- **Off, the list default,** it counts days that have events, so `2` shows the next two days
+  with something on, however far apart they are.
+- **On,** it counts dates from the first day of the card, empty ones included.
+
+The day limit applies first, and the event limits then count only within those days.
+
+::: details A Day a Calendar's Cap Empties
+With `show_empty_days` off, a day whose only events a calendar's own cap held back drops out,
+and no later day takes its place, so the compact card can show fewer days than
+`compact_days_to_show` names.
+:::
 
 ### Preserving Complete Days
 
-When using event limits, the `compact_events_complete_days` option ensures that partial days are never shown:
+`compact_events_complete_days`, `false` by default, stops the card's event limit from cutting
+a day off part-way: once the limit reaches a day, every event of that day is shown, even past
+the limit. It does nothing without `compact_events_to_show`.
 
 ```yaml
 list:
@@ -1105,22 +1046,21 @@ list:
   compact_events_complete_days: true
 ```
 
-When enabled, this feature ensures that if at least one event from a day is shown, all events from that day will be displayed. This prevents confusion that might arise when some events from a day are visible but others are hidden.
+With a limit of 5, a first day of four events and a second day of six:
 
-For example, with `compact_events_to_show: 5` and `compact_events_complete_days: true`:
+- off, the card shows the four and the first event of the second day: five in all;
+- on, it shows both days in full: ten.
 
-- If the first 5 events are spread across 2 days, all events from those 2 days will be shown
-- This might result in showing more than 5 events total, but ensures you never miss events from partially shown days
+A day the limit never reaches stays hidden, so if the first day alone held five events, the
+second would not appear at all. Complete days stretch only the card's own limit: the card
+still shows no more days than `compact_days_to_show`, and events a calendar's own cap held
+back stay hidden.
 
 ### Benefits of These Controls
 
-These flexible controls allow you to:
-
-- **Create concise dashboard views**: Show just what's immediately relevant
-- **Prioritize important calendars**: Give more visual space to key calendars
-- **Prevent overwhelming views**: Limit verbose calendars (like school schedules)
-- **Provide complete context**: Ensure users can see all events for any shown day
-- **Support easy expansion**: Allow users to see the full calendar with a single tap
+Together, these keep a dashboard card short: a few days, a cap on any calendar that would
+crowd out the rest, a card-wide limit that never cuts its last day off part-way, and the full
+range one expand away.
 
 ## 🧱 Per-View Options
 
@@ -1148,9 +1088,8 @@ and [Grid defaults](/features/grid-view#options-that-start-from-a-different-defa
 the complete exception lists.
 
 Each block also holds the options only that layout has — the compact caps and date-cell
-settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those
-have no shared meaning and are not offered in All Layouts. Legacy List-only root values
-remain supported as described below.
+settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those have
+no shared meaning, so the visual editor does not offer them under All Layouts.
 
 Options that act on the card as a whole stay at the top level, and a view block ignores
 them: the ones that decide which events are loaded, such as `entities` and `start_date`, and
@@ -1161,19 +1100,29 @@ for the full list.
 its own — see
 [Showing a Different Number of Days in Each Layout](#showing-a-different-number-of-days-in-each-layout).
 
+In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
+to edit shared values or a named layout to edit only its block.
+
 ::: tip Older Configurations Keep Working
-Before v5 there was no `list:` block, so list options were written at the top level. They
-still are read there, permanently — nothing needs changing by hand. When an older card has
-top-level options that could mean either "List only" or "shared by every layout", the
-visual editor asks which meaning you want before it changes the configuration. If there is
-no such ambiguity, the first real editor save adopts the new arrangement automatically.
+List options written at the top level, as cards from before v5 have them, are still read
+there, permanently; nothing needs changing by hand. On its first edit, the visual editor
+moves the options only List reads into `list:`. A top-level value that could mean either
+"List only" or "shared by every layout" stays shared unless you choose **Keep my existing List
+appearance** when the editor asks, which it does on a List or Grid card before that first
+edit; see
+[Upgrading a Card From Before v5](/features/editor#upgrading-a-card-from-before-v5).
 :::
 
-In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
-to edit shared values or a named layout to edit only its block. Explicit shared choices
-whose defaults differ by layout remain in saved YAML even when they match the card default.
-Switching the displayed layout to Grid in the editor can copy those choices into
-`time_grid:` to preserve them; this is an editor action, not different YAML precedence.
+::: details What the Visual Editor Keeps in YAML
+
+- An All Layouts value for an option whose default differs between layouts stays in the saved
+  YAML even when it equals the card default. Removing it lets Column or Grid go back to its
+  own default.
+- Switching **Card Displays** to Grid copies such values into `time_grid:`, so the grid keeps
+  showing them. That is something the editor does for you; the YAML precedence above is
+  unchanged.
+
+:::
 
 ### Showing a Different Number of Days in Each Layout
 
@@ -1194,22 +1143,22 @@ toolbar:
   view_switcher: true
 ```
 
-Every layout starts on the same day, because `start_date` stays shared. The card loads the
-events for the longest count among the layouts it can show, once, and each layout draws the
-first of those days, so switching layouts never loads anything. With the view switcher that
-means every layout. Without it, it means the layout set in `view`, plus List when Columns or
-Grid falls back to it on a narrow card. That fallback draws List's own count —
-`list.days_to_show` when it is set, otherwise the top-level value — so a Columns card set to
-5 days in `column:` shows List's count when it turns into a list on a phone. Leave the
-column's own count unset if both should match.
+Every layout starts on the same day, because `start_date` stays shared, and switching
+layouts never loads anything. The rest of the card follows the layout on screen:
 
-The rest of the card follows the layout on screen. The
-[date navigation](/features/layout-appearance#paging-through-dates) pages by that layout's
-days, and switching layouts while paged keeps the first day and shows the new layout's count
-from it. Columns and Grid shed days on a narrow card from their own count, and Columns'
-`min_days_to_show` defaults to its own count. `hide_when_empty` hides the card only when none
-of the layouts it can show has an event, so a week with nothing on the grid does not hide a
-card whose list has something next week.
+- The [date navigation](/features/layout-appearance#paging-through-dates) pages by that
+  layout's days. Switching layouts while paged keeps the first day and shows the new layout's
+  count from it.
+- When Columns or Grid falls back to List on a narrow card, it shows List's own count:
+  `list.days_to_show` when it is set, otherwise the top-level value. So a Columns card set to
+  5 days in `column:` shows List's count when it turns into a list on a phone. Leave the
+  column's own count unset if both should match.
+- Columns and Grid shed days on a narrow card from their own count, and Columns'
+  `min_days_to_show` defaults to its own count.
+- `hide_when_empty` hides the card only when none of the layouts it can show has an event:
+  every layout with the view switcher, otherwise the one set in `view` plus List as its
+  fallback. A week with nothing on the grid does not hide a card whose list has something
+  next week.
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.
@@ -1217,7 +1166,9 @@ card whose list has something next week.
 
 ## 🧭 Column View
 
-Column view moved to its own page — it outgrew this one.
+Column view places the days side by side, one column each, so a week reads across the card
+rather than down it. Turn it on with `view: column`; on a card too narrow for its columns it
+falls back to the list layout.
 
 **→ [Column View](/features/column-view)** — the layout, per-view overrides, spacing and the responsive fallbacks.
 
