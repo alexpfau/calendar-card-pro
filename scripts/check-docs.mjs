@@ -1163,13 +1163,16 @@ function checkPageIntros(docs) {
  * reader met the clip after five hundred words: Paging Through Dates put `clip_swipe` after
  * 542 of them and its YAML, and How Often the Axis Is Labeled its picture after 999.
  *
- * Two rules, because the two kinds of media do different jobs. The first clip or picture of
- * a section comes within its first `MEDIA_LEAD_WORDS` words of prose. A clip, which shows the
- * feature in use, also comes before the section's first code block; a picture may follow its
- * YAML, because it often shows what that YAML makes.
+ * Two rules, because the two kinds of media do different jobs. The first clip or picture a
+ * reader sees in a section comes within its first `MEDIA_LEAD_WORDS` words of prose. Every
+ * clip, which shows the feature in use, also comes before the section's first code block; a
+ * picture may follow its YAML, because it often shows what that YAML makes.
  *
- * Prose is counted the way a reader meets it: fenced code and table rows are skipped, and
- * HTML tags are stripped. A section is the text between two headings of any level.
+ * Prose is counted the way a reader meets it: fenced code and table rows are skipped, HTML
+ * tags are stripped, and the body of a `::: details` box is left out entirely, since it is
+ * collapsed and holds the edge cases that come last. A fence closes only on a marker of its
+ * own kind and at least its length, and may be indented, as it is inside a list. A section is
+ * the text between two headings of any level.
  */
 const MEDIA_LEAD_WORDS = 80;
 const MEDIA_LINE = /^\s*(<video\b|<img\b|!\[)/;
@@ -1180,32 +1183,55 @@ function checkMediaPlacement(docs) {
     if (isExcluded(file, STYLE_EXCLUDES)) continue;
     const rel = relative(ROOT, file);
     const lines = readFileSync(file, 'utf8').split('\n');
-    let fenced = false;
+    let fence = null;
     let frontmatter = lines[0] === '---';
+    const containers = [];
     let section = null;
+    const finish = () => {
+      if (section?.media) inspected++;
+    };
     lines.forEach((line, i) => {
       if (frontmatter) {
         if (i > 0 && line === '---') frontmatter = false;
         return;
       }
-      if (/^(`{3,}|~{3,})/.test(line)) {
-        if (!fenced && section && !section.done) section.codeBefore ??= i + 1;
-        fenced = !fenced;
+      const marker = line.match(/^\s*(`{3,}|~{3,})/);
+      if (fence) {
+        if (
+          marker &&
+          marker[1][0] === fence[0] &&
+          marker[1].length >= fence.length &&
+          !line.trim().slice(marker[1].length).trim()
+        )
+          fence = null;
         return;
       }
-      if (fenced) return;
+      const hidden = containers.includes('details');
+      if (marker) {
+        fence = marker[1];
+        if (section && !hidden) section.codeBefore ??= i + 1;
+        return;
+      }
+      const opens = line.match(/^:{3,}\s*(\w+)/);
+      if (opens) {
+        containers.push(opens[1]);
+        return;
+      }
+      if (/^:{3,}\s*$/.test(line)) {
+        containers.pop();
+        return;
+      }
       const heading = line.match(/^#{1,6}\s+(.*)/);
       if (heading) {
-        section = { title: heading[1], words: 0, codeBefore: null, done: false };
+        finish();
+        section = { title: heading[1], words: 0, codeBefore: null, media: false };
         return;
       }
-      if (!section || section.done) return;
+      if (!section || hidden) return;
       if (MEDIA_LINE.test(line)) {
-        section.done = true;
-        inspected++;
         const clip = /<video\b/.test(line);
         const what = clip ? 'clip' : 'picture';
-        if (section.words > MEDIA_LEAD_WORDS)
+        if (!section.media && section.words > MEDIA_LEAD_WORDS)
           error(
             `${rel}:${i + 1} "${section.title}": its ${what} comes after ${section.words} words of prose. ` +
               `Put it right after the section's opening sentences, within ${MEDIA_LEAD_WORDS} words.`,
@@ -1215,14 +1241,16 @@ function checkMediaPlacement(docs) {
             `${rel}:${i + 1} "${section.title}": its clip comes after the code block at line ${section.codeBefore}. ` +
               `Show the feature before the YAML that turns it on.`,
           );
+        section.media = true;
         return;
       }
-      if (/^\s*\|/.test(line) || /^:::/.test(line)) return;
+      if (/^\s*\|/.test(line) || section.media) return;
       section.words += line
         .replace(/<[^>]+>/g, ' ')
         .split(/\s+/)
         .filter((w) => /[A-Za-z0-9]/.test(w)).length;
     });
+    finish();
   }
   return inspected;
 }
@@ -1895,7 +1923,7 @@ function report(counts) {
       `${counts.listFences} YAML examples checked for list-only keys, ` +
       `${counts.inertOptions} view-inert options reconciled, ` +
       `${counts.languages} language counts checked, ` +
-      `${counts.mediaSections} sections' clips & pictures placed, ` +
+      `${counts.mediaSections} sections with a clip or picture checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `${counts.thirdParty} files checked for third-party cards, ` +
       `config format v${counts.configVersion} documented, ` +
