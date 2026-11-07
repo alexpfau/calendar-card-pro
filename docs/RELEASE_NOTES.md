@@ -12,7 +12,7 @@ Most of that is yours to turn on. Three things reach every card without a settin
 
 ### 💬 The Card's Own Event Popover
 
-In v5.0 a tapped event opened Home Assistant's event dialog. With `event_tap_action: details` it now opens a popover that belongs to the card, modeled on the one in Calendar on macOS: beside the event on a wide screen, as a sheet from the bottom on a phone, light or dark with your theme.
+In v5.0 a tapped event opened Home Assistant's event dialog. With `event_tap_action: details` it now opens a popover that belongs to the card: beside the event on a wide screen, as a sheet from the bottom on a phone, light or dark with your theme.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/clip_popover_edit.webp" alt="Editing an event in the card's popover: switching on All day" width="600"><br>
 
@@ -84,8 +84,8 @@ None of this needs a setting, so every card gets it.
 
 - **Changes Appear Everywhere at Once** - On Home Assistant 2026.5 or later, the card subscribes to each calendar it shows, and Home Assistant sends that calendar's events again whenever they change. An event added, moved or deleted on the card, in Home Assistant, on a phone or in the calendar's own app appears on every open dashboard as soon as Home Assistant knows of it: within seconds for a Local Calendar, at the integration's next sync for Google and CalDAV. There is no polling while live; older Home Assistant keeps polling as before. See [Live Updates](https://calendar-card-pro.alexpfau.com/features/performance#live-updates)
 - **A Slow Calendar No Longer Holds Back the Rest** - When a dashboard opens with nothing cached, each calendar is drawn as soon as it answers. With one calendar three seconds late, the others now appear in under a second rather than after more than three
-- **Less Work Between Changes** - Home Assistant tells every card about every state change in the house, about 140 a minute on a real instance, and the card redrew for each of them. It now redraws only when something it shows has changed, plus once a minute to keep countdowns and progress bars moving: 10 redraws in ten minutes instead of 1,391, measured on a live dashboard
-- **A Bigger Card, a Smaller Editor** - The card file every dashboard loads grew with this release's features, from 403 KB to 551 KB, or from 113 KB to 155 KB compressed (gzip -9), which is what a HACS install sends. Most of that is the new features, the popover above all, then search and your own buttons, adding in the grid and live updates; trimming what the card carries paid about an eighth of it back. The visual editor, loaded only when you open it, shrank from 578 KB to 466 KB, or from 168 KB to 144 KB compressed
+- **Less Work Between Changes** - The card used to redraw for every state change in the house. It now redraws only when something it shows has changed, plus once a minute to keep countdowns and progress bars moving
+- **A Bigger Card, a Smaller Editor** - The card file every dashboard loads grew with this release's features, from 403 KB to 551 KB, or from 113 KB to 155 KB compressed, which is what a HACS install sends. The visual editor, loaded only when you open it, shrank from 578 KB to 466 KB, or from 168 KB to 144 KB compressed
 
 ## ⚠️ Changes to Existing Cards
 
@@ -152,11 +152,11 @@ None of this needs a setting, so every card gets it.
 - [#699](https://github.com/alexpfau/calendar-card-pro/issues/699) - Swipe to page by @alexpfau, which @lenaxia's time-grid proposal had first
 - [#706](https://github.com/alexpfau/calendar-card-pro/issues/706) - A display name for each calendar by @duczz
 - [#718](https://github.com/alexpfau/calendar-card-pro/issues/718) - Your own toolbar buttons by @alexpfau
-- [#742](https://github.com/alexpfau/calendar-card-pro/issues/742) - v5.0.0 crashes the Shelly Wall Display on Android 7 by @twomore, who sent the logs, confirmed the fix on the panel and spotted the gold Now color that led to the Oklab change
+- [#742](https://github.com/alexpfau/calendar-card-pro/issues/742) - v5.0.0 crashes the Shelly Wall Display on Android 7 by @twomore, who sent the logs, confirmed the fix on the panel and spotted the light-yellow Now color that led to the Oklab change
 - [#746](https://github.com/alexpfau/calendar-card-pro/issues/746) - v5.0.0 times out headless Chromium screenshots by @MarioKuester, the same cause as #742
-- [#37](https://github.com/alexpfau/calendar-card-pro/issues/37) - Time and title on the same line by @perolamlarsson, and [#243](https://github.com/alexpfau/calendar-card-pro/issues/243) by @voyagers21 — answered by `time_position: title`, which puts the time after the title. Already closed, so comment only
-- [#259](https://github.com/alexpfau/calendar-card-pro/issues/259) - Right-to-left event alignment by @dmatik, whose follow-up about the gap beside the time icon the right-to-left fixes answer. Already closed, so comment only
-- [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The time-grid proposal by @lenaxia. Swipe and the event popover ship here; the one-day step, scrolling to the current time and copying a location do not, so **do not close** it
+- [#37](https://github.com/alexpfau/calendar-card-pro/issues/37) - Time and title on the same line by @perolamlarsson, and [#243](https://github.com/alexpfau/calendar-card-pro/issues/243) by @voyagers21 — answered by `time_position: title`, which puts the time after the title
+- [#259](https://github.com/alexpfau/calendar-card-pro/issues/259) - Right-to-left event alignment by @dmatik, whose follow-up about the gap beside the time icon the right-to-left fixes answer
+- [#339](https://github.com/alexpfau/calendar-card-pro/issues/339) - The time-grid proposal by @lenaxia. Swipe and the event popover ship here; the one-day step, scrolling to the current time and copying a location do not, so it **stays open**
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v5.0.1...v5.1.0
 
