@@ -1380,6 +1380,15 @@ export class EventPopover extends Shell.PopoverShell {
       font-variant-numeric: tabular-nums;
       min-width: 0;
     }
+    /* An open select's list is drawn by the browser outside the panel, where its glass does
+       not reach. Chrome on Windows and Linux copies the select's own background into that list
+       and lays it over white, and every select here is transparent or translucent, so a dark
+       panel's light text came out on white. The options draw on the color scheme's own canvas
+       instead, which the panel sets: dark under .dark, white under .light. */
+    option {
+      background-color: Canvas;
+      color: CanvasText;
+    }
     .short {
       width: 56px;
     }
